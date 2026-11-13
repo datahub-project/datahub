@@ -6,6 +6,9 @@ plugins {
   id 'java'
 }
 
+// Same jacksonVersion as root build.gradle ext.jacksonVersion (sync when bumping Jackson).
+ext.jacksonVersion = '2.21.7'
+
 dependencies {
   /**
    * Forked version of abandoned repository: https://github.com/fge/json-schema-avro
@@ -19,11 +22,28 @@ dependencies {
     exclude group: 'com.google.guava', module: 'guava'
   }
   implementation 'com.github.java-json-tools:json-schema-validator:2.2.14'
-  implementation 'com.google.guava:guava:32.1.2-jre'
-  implementation 'com.fasterxml.jackson.core:jackson-databind:2.18.6'
-  implementation 'com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:2.18.6'
+  // Keep in sync with project.ext.externalDependency['guava'] in root build.gradle
+  implementation 'com.google.guava:guava:33.7.2-jre'
+  implementation "com.fasterxml.jackson.core:jackson-databind:${jacksonVersion}"
+  implementation "com.fasterxml.jackson.dataformat:jackson-dataformat-yaml:${jacksonVersion}"
   implementation 'commons-io:commons-io:2.17.0'
+  // Class-file scans: the wiring ratchet (io.datahubproject.wiring.WiringCoverageCheck) and
+  // TestNgInheritedTestsCheck. buildSrc is on every build script's classpath, so this wins over the
+  // ASM a plugin asks for: keep it at or above the ASM the shadow plugin (asm-commons) needs.
+  implementation 'org.ow2.asm:asm:9.9'
 
-  compileOnly 'org.projectlombok:lombok:1.18.30'
-  annotationProcessor 'org.projectlombok:lombok:1.18.30'
+  compileOnly 'org.projectlombok:lombok:1.18.42'
+  annotationProcessor 'org.projectlombok:lombok:1.18.42'
+
+  testImplementation platform('org.junit:junit-bom:5.12.2')
+  testImplementation 'org.junit.jupiter:junit-jupiter'
+  testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
 }
+
+test {
+  useJUnitPlatform()
+}
+
+// Gradle does not run these when it builds buildSrc for the main build, so a failing test here
+// never blocks other builds or IDE sync. CI runs them as `:buildSrc:test`: the backend test shards
+// pick up every module with src/test, buildSrc included.

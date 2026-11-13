@@ -1,0 +1,99 @@
+[
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:3a4b5c6d",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "sensitivity_level": "HIGH",
+                "regulatory_framework": "GDPR"
+            },
+            "name": "Personally Identifiable Information",
+            "definition": "Information that can identify, contact, or locate a person.",
+            "parentNode": "urn:li:glossaryNode:2f3a4b5c",
+            "termSource": "INTERNAL"
+        }
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:3a4b5c6d",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+        "json": {
+            "isRelatedTerms": [
+                "urn:li:glossaryTerm:c3d4e5f6"
+            ],
+            "relatedTerms": [
+                "urn:li:glossaryTerm:d4e5f6a7",
+                "urn:li:glossaryTerm:1a2b3c4d"
+            ]
+        }
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:3a4b5c6d",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "TECHNICAL_OWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:3a4b5c6d",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
+                {
+                    "url": "https://wiki.company.com/privacy/pii-guidelines",
+                    "description": "Internal PII Guidelines",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                },
+                {
+                    "url": "https://gdpr.eu/",
+                    "description": "GDPR Official Documentation",
+                    "createStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:__ingestion"
+                    }
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:3a4b5c6d",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+        "json": {
+            "domains": [
+                "urn:li:domain:privacy"
+            ]
+        }
+    }
+}
+]

@@ -5,11 +5,13 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -18,6 +20,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
 import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
@@ -78,10 +81,8 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     mockEntityClient = mock(EntityClient.class);
     mockEnvironment = mock(DataFetchingEnvironment.class);
     mockQueryContext = getMockAllowContext();
-    mockOperationContext = mock(OperationContext.class);
+    mockOperationContext = mockQueryContext.getOperationContext();
 
-    when(mockQueryContext.getOperationContext()).thenReturn(mockOperationContext);
-    when(mockOperationContext.withSearchFlags(any())).thenReturn(mockOperationContext);
     when(mockEnvironment.getContext()).thenReturn(mockQueryContext);
 
     resolver =
@@ -247,11 +248,11 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     // Then: Should handle gracefully
     assertNotNull(result);
 
-    // Verify service was called with all searchable entity types (default when none specified)
+    // Verify service was called with configured default searchable entity types
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
-            anyList(), // Should be all searchable entity types, not empty list
+            argThat(types -> types != null && !types.isEmpty()),
             eq("analytics"),
             any(),
             anyList(),
@@ -371,8 +372,9 @@ public class SemanticSearchAcrossEntitiesResolverTest {
   }
 
   @Test
-  public void testQuerySanitization() throws Exception {
-    // Given: Search input with forward slashes (should be escaped)
+  public void testQueryIsPassedUnescaped() throws Exception {
+    // Given: Search input with forward slashes. Keyword resolvers escape "/" for query_string, but
+    // the semantic query is only embedded, so it must reach the service exactly as typed.
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
     input.setTypes(Collections.singletonList(EntityType.DATASET));
     input.setQuery("path/to/data");
@@ -405,17 +407,33 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     CompletableFuture<SearchResults> resultFuture = resolver.get(mockEnvironment);
     resultFuture.get();
 
-    // Then: Query should be sanitized (forward slashes escaped)
+    // Then: Query reaches the service unescaped
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
             anyList(),
-            eq("path\\/to\\/data"), // Forward slashes should be escaped
+            eq("path/to/data"),
             any(),
             anyList(),
             eq(0),
             eq(10),
             anyList());
+  }
+
+  @Test
+  public void testBlankQueryIsRejectedBeforeSearch() {
+    // Given: a whitespace-only query. Under the classical provider it would embed to the
+    // empty-text sentinel vector and kNN would return arbitrary neighbours.
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DATASET));
+    input.setQuery("   ");
+
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // When/Then: rejected as bad input before view resolution or any service call
+    org.testng.Assert.expectThrows(
+        IllegalArgumentException.class, () -> resolver.get(mockEnvironment));
+    verifyNoInteractions(mockSemanticSearchService, mockViewService, mockEntityClient);
   }
 
   @Test
@@ -441,7 +459,7 @@ public class SemanticSearchAcrossEntitiesResolverTest {
                             new CriterionArray(
                                 new Criterion()
                                     .setField("platform")
-                                    .setValue("snowflake")
+                                    .setValues(new StringArray("snowflake"))
                                     .setCondition(Condition.EQUAL)))));
     DataHubViewInfo viewInfo =
         new DataHubViewInfo()
@@ -695,6 +713,86 @@ public class SemanticSearchAcrossEntitiesResolverTest {
   }
 
   @Test
+  public void testStructuredPropertyFacetsScopedToSearchedEntityTypes() throws Exception {
+    // Given: dataset-only search with structured property facets enabled
+    SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
+    input.setTypes(Collections.singletonList(EntityType.DATASET));
+    input.setQuery("test");
+    input.setStart(0);
+    input.setCount(10);
+    SearchFlags flags = new SearchFlags();
+    flags.setIncludeStructuredPropertyFacets(true);
+    input.setSearchFlags(flags);
+    when(mockEnvironment.getArgument("input")).thenReturn(input);
+
+    // Two properties: one scoped to glossary terms only, one scoped to datasets
+    SearchEntity termScopedSp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:termScoped"))
+            .setExtraFields(
+                new StringMap(
+                    java.util.Map.of(
+                        "entityTypes", "[\"urn:li:entityType:datahub.glossaryTerm\"]")));
+    SearchEntity datasetScopedSp =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:structuredProperty:datasetScoped"))
+            .setExtraFields(
+                new StringMap(
+                    java.util.Map.of("entityTypes", "[\"urn:li:entityType:datahub.dataset\"]")));
+    SearchResult structuredPropResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray(termScopedSp, datasetScopedSp))
+            .setFrom(0)
+            .setPageSize(1000)
+            .setNumEntities(2)
+            .setMetadata(new SearchResultMetadata());
+    when(mockEntityClient.searchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyInt(),
+            anyInt(),
+            any(),
+            any()))
+        .thenReturn(structuredPropResult);
+
+    SearchResult mockSearchResult =
+        new SearchResult()
+            .setEntities(new SearchEntityArray())
+            .setFrom(0)
+            .setPageSize(10)
+            .setNumEntities(0)
+            .setMetadata(new SearchResultMetadata());
+    when(mockSemanticSearchService.semanticSearchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            anyString(),
+            any(),
+            anyList(),
+            anyInt(),
+            anyInt(),
+            anyList()))
+        .thenReturn(mockSearchResult);
+
+    // When
+    resolver.get(mockEnvironment).get();
+
+    // Then: only the dataset-scoped property survives as a facet; the glossary-term-only
+    // property is filtered out.
+    verify(mockSemanticSearchService, times(1))
+        .semanticSearchAcrossEntities(
+            any(OperationContext.class),
+            anyList(),
+            eq("test"),
+            any(),
+            anyList(),
+            eq(0),
+            eq(10),
+            eq(Collections.singletonList("urn:li:structuredProperty:datasetScoped")));
+  }
+
+  @Test
   public void testSemanticSearchWithNullTypes() throws Exception {
     // Given: Search input with null types (should default to all searchable types)
     SearchAcrossEntitiesInput input = new SearchAcrossEntitiesInput();
@@ -729,11 +827,11 @@ public class SemanticSearchAcrossEntitiesResolverTest {
     CompletableFuture<SearchResults> resultFuture = resolver.get(mockEnvironment);
     resultFuture.get();
 
-    // Then: Should call semantic search with default searchable entity types
+    // Then: Should call semantic search with configured default searchable entity types
     verify(mockSemanticSearchService, times(1))
         .semanticSearchAcrossEntities(
             any(OperationContext.class),
-            anyList(), // Should be all searchable entity types
+            argThat(types -> types != null && !types.isEmpty()),
             eq("data"),
             any(),
             anyList(),

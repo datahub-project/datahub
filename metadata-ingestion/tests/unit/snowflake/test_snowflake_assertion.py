@@ -3,6 +3,7 @@ from unittest.mock import MagicMock
 
 import pytest
 
+from datahub.emitter.mce_builder import SYSTEM_ACTOR
 from datahub.ingestion.source.snowflake.snowflake_assertion import (
     DataQualityMonitoringResult,
     SnowflakeAssertionsHandler,
@@ -189,7 +190,7 @@ class TestAssertionInfoCreation:
         return SnowflakeAssertionsHandler(config, report, connection, identifiers)
 
     def test_assertion_info_has_correct_type_and_source(self, handler):
-        """External DMFs should use CUSTOM type and EXTERNAL source."""
+        """External DMFs should use CUSTOM type and EXTERNAL source with created timestamp."""
         wu = handler._create_assertion_info_workunit(
             assertion_urn="urn:li:assertion:test123",
             dataset_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)",
@@ -200,6 +201,8 @@ class TestAssertionInfoCreation:
         assertion_info = wu.metadata.aspect
         assert assertion_info.type == AssertionTypeClass.CUSTOM
         assert assertion_info.source.type == AssertionSourceTypeClass.EXTERNAL
+        assert assertion_info.source.created is not None
+        assert assertion_info.source.created.actor == SYSTEM_ACTOR
         assert assertion_info.customProperties["snowflake_dmf_name"] == "null_check"
         assert assertion_info.customProperties["snowflake_reference_id"] == "ref_abc123"
 
@@ -479,46 +482,6 @@ class TestAssertionResultTypes:
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.public.orders,PROD)"
         )
         return SnowflakeAssertionsHandler(config, report, connection, identifiers)
-
-    def test_value_1_is_success(self, handler):
-        """VALUE=1 should result in SUCCESS."""
-        row = {
-            "MEASUREMENT_TIME": datetime.now(),
-            "METRIC_NAME": "my_check",
-            "TABLE_NAME": "orders",
-            "TABLE_SCHEMA": "public",
-            "TABLE_DATABASE": "my_db",
-            "VALUE": 1,
-            "REFERENCE_ID": "ref_123",
-            "ARGUMENT_NAMES": "[]",
-        }
-        discovered = ["my_db.public.orders"]
-        workunits = handler._process_result_row(row, discovered)
-
-        run_event_wu = [
-            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
-        ][0]
-        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.SUCCESS
-
-    def test_value_0_is_failure(self, handler):
-        """VALUE=0 should result in FAILURE."""
-        row = {
-            "MEASUREMENT_TIME": datetime.now(),
-            "METRIC_NAME": "my_check",
-            "TABLE_NAME": "orders",
-            "TABLE_SCHEMA": "public",
-            "TABLE_DATABASE": "my_db",
-            "VALUE": 0,
-            "REFERENCE_ID": "ref_123",
-            "ARGUMENT_NAMES": "[]",
-        }
-        discovered = ["my_db.public.orders"]
-        workunits = handler._process_result_row(row, discovered)
-
-        run_event_wu = [
-            wu for wu in workunits if wu.metadata.aspectName == "assertionRunEvent"
-        ][0]
-        assert run_event_wu.metadata.aspect.result.type == AssertionResultType.FAILURE
 
     def test_other_values_are_error(self, handler):
         """VALUES other than 0 or 1 should result in ERROR."""

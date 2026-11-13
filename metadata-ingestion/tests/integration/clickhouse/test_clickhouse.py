@@ -1,7 +1,8 @@
+from datetime import datetime, timezone
 from typing import List
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
@@ -9,16 +10,23 @@ from tests.test_helpers.docker_helpers import wait_for_port
 
 pytestmark = pytest.mark.integration_batch_4
 FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
-def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_time):
+def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, monkeypatch):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
+        # Ports are ephemeral (Docker-assigned) to avoid clashing with a leaked
+        # container from a prior CI run; recipe ymls pick the real one up via
+        # ${CLICKHOUSE_PORT}.
+        monkeypatch.setenv(
+            "CLICKHOUSE_PORT", str(docker_services.port_for("clickhouse", 8123))
+        )
         # Run the metadata ingestion pipeline.
         config_file = (test_resources_dir / "clickhouse_to_file.yml").resolve()
         run_datahub_cmd(
@@ -27,29 +35,36 @@ def test_clickhouse_ingest(docker_compose_runner, pytestconfig, tmp_path, mock_t
         )
         # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
         ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_modification_time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['data_paths'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_path'\]",
         ]
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             ignore_paths=ignore_paths,
             output_path=tmp_path / "clickhouse_mces.json",
-            golden_path=test_resources_dir / "clickhouse_mces_golden.json",
+            golden_path=test_resources_dir / "clickhouse_golden.json",
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 @pytest.mark.integration
 def test_clickhouse_ingest_uri_form(
-    docker_compose_runner, pytestconfig, tmp_path, mock_time
+    docker_compose_runner, pytestconfig, tmp_path, monkeypatch
 ):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/clickhouse"
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "clickhouse"
     ) as docker_services:
         wait_for_port(docker_services, "testclickhouse", 8123, timeout=120)
+        # Ports are ephemeral (Docker-assigned) to avoid clashing with a leaked
+        # container from a prior CI run; recipe ymls pick the real one up via
+        # ${CLICKHOUSE_PORT}.
+        monkeypatch.setenv(
+            "CLICKHOUSE_PORT", str(docker_services.port_for("clickhouse", 8123))
+        )
 
         # Run the metadata ingestion pipeline with uri form.
         config_file = (test_resources_dir / "clickhouse_to_file_uri_form.yml").resolve()
@@ -59,14 +74,15 @@ def test_clickhouse_ingest_uri_form(
         )
         # These paths change from one instance run of the clickhouse docker to the other, and the FROZEN_TIME does not apply to these.
         ignore_paths: List[str] = [
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_modification_time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['data_paths'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['customProperties'\]\['metadata_path'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_modification_time'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['data_paths'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['metadata_path'\]",
         ]
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             ignore_paths=ignore_paths,
             output_path=tmp_path / "clickhouse_mces_uri_form.json",
-            golden_path=test_resources_dir / "clickhouse_mces_golden.json",
+            golden_path=test_resources_dir / "clickhouse_golden.json",
         )

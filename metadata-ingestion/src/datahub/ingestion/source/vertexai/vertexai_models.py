@@ -406,6 +406,7 @@ class ModelLineageRelationships(BaseModel):
 
     downstream_jobs: List[str] = Field(default_factory=list)
     training_jobs: List[str] = Field(default_factory=list)
+    training_data_urns: List[str] = Field(default_factory=list)
 
     def add_downstream_job(self, job_urn: str) -> None:
         if job_urn not in self.downstream_jobs:
@@ -419,6 +420,10 @@ class ModelLineageRelationships(BaseModel):
         """Set the single training job (for models with one training job)."""
         if not self.training_jobs or job_urn not in self.training_jobs:
             self.training_jobs = [job_urn]
+
+    def add_training_data(self, dataset_urn: str) -> None:
+        if dataset_urn not in self.training_data_urns:
+            self.training_data_urns.append(dataset_urn)
 
 
 class PendingResourceUsage(BaseModel):
@@ -463,16 +468,22 @@ class ModelUsageTracker(BaseModel):
     def track_model_training_job(self, model_urn: str, training_job_urn: str) -> None:
         self._get_or_create_relationships(model_urn).set_training_job(training_job_urn)
 
+    def track_model_training_data(self, model_urn: str, dataset_urn: str) -> None:
+        self._get_or_create_relationships(model_urn).add_training_data(dataset_urn)
+
+    def get_model_training_data(self, model_urn: str) -> List[str]:
+        return (
+            self.relationships[model_urn].training_data_urns
+            if model_urn in self.relationships
+            else []
+        )
+
     def track_resource_usage(self, resource_name: str, used_in_urn: str) -> None:
         self._get_or_create_pending(resource_name).add_downstream_job(used_in_urn)
 
     def resolve_and_track_resource(
         self, resource_name: str, model_urn: str, model_group_urn: str
     ) -> None:
-        """
-        Resolve a pending resource to actual model URNs and track usage.
-        Call this when processing a model to link it with jobs that referenced it by resource name.
-        """
         if resource_name in self.pending_resources:
             pending = self.pending_resources[resource_name]
             for job_urn in pending.downstream_job_urns:
@@ -522,5 +533,6 @@ class ModelUsageTracker(BaseModel):
             and (
                 self.relationships[urn].downstream_jobs
                 or self.relationships[urn].training_jobs
+                or self.relationships[urn].training_data_urns
             )
         ]

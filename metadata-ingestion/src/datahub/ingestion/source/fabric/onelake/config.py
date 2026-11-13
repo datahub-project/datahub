@@ -1,22 +1,32 @@
 """Configuration classes for Fabric OneLake connector."""
 
-from typing import Literal, Optional
+from typing import Annotated, Literal, Optional, Sequence
 
 from pydantic import Field, model_validator
 
 from datahub.configuration import ConfigModel
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, Enables, Filters
 from datahub.configuration.source_common import (
     DatasetSourceConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
 )
+from datahub.ingestion.agent.verdicts import ClassifyContext, parent_required
 from datahub.ingestion.source.azure.azure_auth import AzureCredentialConfig
+from datahub.ingestion.source.common.subtypes import (
+    DatasetContainerSubTypes,
+    DatasetSubTypes,
+    GenericContainerSubTypes,
+)
+from datahub.ingestion.source.fabric.onelake.filter_names import (
+    qualified_filter_name,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
 )
+from datahub.ingestion.source.usage.usage_common import BaseUsageConfig
 
 
 class ExtractSchemaConfig(ConfigModel):
@@ -76,6 +86,41 @@ class SqlEndpointConfig(ConfigModel):
     )
 
 
+class FabricUsageConfig(BaseUsageConfig):
+    """Usage tracking configuration for Fabric OneLake.
+
+    Retention is 30 days per Microsoft Fabric documentation:
+    https://learn.microsoft.com/en-us/fabric/data-warehouse/query-insights
+    """
+
+    include_usage_statistics: bool = Field(
+        default=True,
+        description=(
+            "Master toggle for Fabric usage extraction. When False, no "
+            "`datasetUsageStatistics` or `operation` aspects are emitted from "
+            "queryinsights, regardless of `include_operational_stats`."
+        ),
+    )
+
+    skip_failed_queries: bool = Field(
+        default=True,
+        description=(
+            "When True, the SQL filter excludes rows where status != 'Succeeded' "
+            "(canceled / failed queries are skipped at the source)."
+        ),
+    )
+
+    include_queries: bool = Field(
+        default=True,
+        description=(
+            "If enabled, emit a `Query` entity for each unique parsed queryinsights "
+            "row so the SQL becomes a first-class, searchable asset in DataHub "
+            "(visible on the Queries tab and as standalone Query pages). "
+            "Requires `include_usage_statistics=True`."
+        ),
+    )
+
+
 class FabricOneLakeSourceConfig(
     StatefulIngestionConfigBase,
     DatasetSourceConfigMixin,
@@ -110,7 +155,9 @@ class FabricOneLakeSourceConfig(
     )
 
     # Filtering options
-    workspace_pattern: AllowDenyPattern = Field(
+    workspace_pattern: Annotated[
+        AllowDenyPattern, Filters(GenericContainerSubTypes.FABRIC_WORKSPACE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter workspaces by name. "
@@ -118,7 +165,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    lakehouse_pattern: AllowDenyPattern = Field(
+    lakehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter lakehouses by name. "
@@ -126,7 +175,9 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    warehouse_pattern: AllowDenyPattern = Field(
+    warehouse_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_WAREHOUSE)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter warehouses by name. "
@@ -134,7 +185,18 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    table_pattern: AllowDenyPattern = Field(
+    schema_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.FABRIC_SCHEMA)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter schemas by name. "
+            "Schemas denied by this pattern are skipped entirely, "
+            "including all their tables and views."
+        ),
+    )
+
+    table_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.TABLE)] = Field(
         default=AllowDenyPattern.allow_all(),
         description=(
             "Regex patterns to filter tables by name. "
@@ -142,15 +204,37 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
-    # Feature flags
-    extract_lakehouses: bool = Field(
+    view_pattern: Annotated[AllowDenyPattern, Filters(DatasetSubTypes.VIEW)] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description=(
+            "Regex patterns to filter views by name. "
+            "Format: 'schema.view_name' or just 'view_name' for default schema."
+        ),
+    )
+
+    # Feature flags. source.py _process_workspace_items and _process_lakehouse /
+    # _process_warehouse never list a kind whose switch is off.
+    extract_lakehouses: Annotated[
+        bool, Enables(DatasetContainerSubTypes.FABRIC_LAKEHOUSE)
+    ] = Field(
         default=True,
         description="Whether to extract lakehouses and their tables.",
     )
 
-    extract_warehouses: bool = Field(
+    extract_warehouses: Annotated[
+        bool, Enables(DatasetContainerSubTypes.FABRIC_WAREHOUSE)
+    ] = Field(
         default=True,
         description="Whether to extract warehouses and their tables.",
+    )
+
+    extract_views: Annotated[bool, Enables(DatasetSubTypes.VIEW)] = Field(
+        default=True,
+        description=(
+            "Whether to extract views and their definitions. "
+            "Requires a configured sql_endpoint, because views are discovered via "
+            "INFORMATION_SCHEMA.VIEWS over the SQL Analytics Endpoint."
+        ),
     )
 
     extract_schemas: bool = Field(
@@ -176,8 +260,9 @@ class FabricOneLakeSourceConfig(
     # SQL Analytics Endpoint configuration
     sql_endpoint: Optional[SqlEndpointConfig] = Field(
         default_factory=SqlEndpointConfig,
-        description="SQL Analytics Endpoint configuration for schema extraction. "
-        "Required when extract_schema.enabled=True and extract_schema.method='sql_analytics_endpoint'.",
+        description="SQL Analytics Endpoint configuration. "
+        "Required when extract_views=True or when extract_schema.enabled=True with "
+        "method='sql_analytics_endpoint'.",
     )
 
     # Stateful Ingestion
@@ -190,16 +275,89 @@ class FabricOneLakeSourceConfig(
         ),
     )
 
+    # Usage tracking
+    usage: FabricUsageConfig = Field(
+        default_factory=FabricUsageConfig,
+        description=(
+            "Usage tracking configuration. Reads `queryinsights.exec_requests_history` "
+            "on each Lakehouse/Warehouse SQL Analytics Endpoint. Requires a "
+            "configured and enabled `sql_endpoint`."
+        ),
+    )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: onelake_probe imports this module, so a top-level
+        # import here would be circular.
+        from datahub.ingestion.source.fabric.onelake.onelake_probe import (
+            FabricOneLakeMetadataProbe,
+        )
+
+        return FabricOneLakeMetadataProbe
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """What contains each kind, outermost first.
+
+        Stops at the schema: the level above it is a Lakehouse OR a Warehouse,
+        filtered by different patterns, and a --parent path carries names, not
+        item types. Declaring either would judge a warehouse by
+        lakehouse_pattern. Schema returns None so the framework says the item
+        and workspace were not judged, instead of implying they were.
+        """
+        workspace = str(GenericContainerSubTypes.FABRIC_WORKSPACE)
+        schema = str(DatasetContainerSubTypes.FABRIC_SCHEMA)
+        return {
+            workspace: (),
+            str(DatasetContainerSubTypes.FABRIC_LAKEHOUSE): (workspace,),
+            str(DatasetContainerSubTypes.FABRIC_WAREHOUSE): (workspace,),
+            str(DatasetSubTypes.TABLE): (schema,),
+            str(DatasetSubTypes.VIEW): (schema,),
+        }.get(kind)
+
+    def probe_match_target(self, ctx: ClassifyContext) -> Optional[str]:
+        """`schema.name` for tables and views, the string table_pattern and
+        view_pattern are matched against; the immediate --parent is the schema.
+        None, the bare name, for workspaces, items and schemas: ingestion
+        matches those on their display names (source.py
+        _process_workspace_items / _process_item_tables)."""
+        if ctx.kind not in (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW):
+            return None
+        if parent_required(ctx):
+            return None
+        return qualified_filter_name(ctx.parent_path[-1], ctx.name)
+
     @model_validator(mode="after")
-    def validate_schema_extraction_config(self):
-        """Validate that sql_endpoint is enabled when extract_schema requires it."""
+    def validate_sql_endpoint_dependencies(self):
+        """sql_endpoint must be configured when any feature that uses it is enabled.
+
+        View discovery (INFORMATION_SCHEMA.VIEWS), column-level schema extraction
+        (INFORMATION_SCHEMA.COLUMNS), and usage statistics
+        (queryinsights.exec_requests_history) all go through the SQL Analytics
+        Endpoint but are otherwise independent.
+        """
+        sql_endpoint_enabled = (
+            self.sql_endpoint is not None and self.sql_endpoint.enabled
+        )
+        if sql_endpoint_enabled:
+            return self
+
+        requiring_features = []
+        if self.extract_views:
+            requiring_features.append("extract_views=True")
         if (
             self.extract_schema.enabled
             and self.extract_schema.method == "sql_analytics_endpoint"
         ):
-            if self.sql_endpoint is None or not self.sql_endpoint.enabled:
-                raise ValueError(
-                    "sql_endpoint.enabled must be True when extract_schema.enabled=True "
-                    "and extract_schema.method='sql_analytics_endpoint'"
-                )
+            requiring_features.append(
+                "extract_schema with method='sql_analytics_endpoint'"
+            )
+        if self.usage.include_usage_statistics:
+            requiring_features.append("usage.include_usage_statistics=True")
+
+        if requiring_features:
+            raise ValueError(
+                f"sql_endpoint must be configured with enabled=True when any of "
+                f"the following are set: {', '.join(requiring_features)}. "
+                f"These features all query the SQL Analytics Endpoint."
+            )
         return self

@@ -1,7 +1,7 @@
 # Town Hall History
 
 :::note
-For the Town Hall meetings after June 2023, please refer to our [LinkedIn Live event history](https://www.linkedin.com/company/acryl-data/events/).
+For the Town Hall meetings after June 2023, please refer to our [YouTube recordings playlist](https://www.youtube.com/playlist?list=PLdCtLs64vZvHTXGqybmOfyxXbGDn2Reb9).
 :::
 
 ### June 2023
@@ -277,7 +277,7 @@ November Town Hall (in December!)
 **Agenda**
 
 - Project Updates and Callouts by Shirshanka
-  - GraphQL Public API Annoucement
+  - GraphQL Public API Announcement
 - Demo: Faceted Search by Gabe Lyons (DataHub)
 - Stateful Ingestion by Shirshanka Das & Surya Lanka (DataHub)
 - Case-Study: DataHub @ Adevinta by Martinez de Apellaniz

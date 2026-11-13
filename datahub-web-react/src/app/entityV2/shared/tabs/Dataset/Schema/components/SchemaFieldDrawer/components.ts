@@ -1,9 +1,7 @@
 import { Divider } from 'antd';
 import styled from 'styled-components';
 
-import { colors } from '@src/alchemy-components';
-
 export const StyledDivider = styled(Divider)`
-    border-color: ${colors.gray[100]};
+    border-color: ${(props) => props.theme.colors.border};
     border-style: solid;
 `;

@@ -8,6 +8,8 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
 
+const ELLIPSIS = '...';
+
 const ParentNodesWrapper = styled.div`
     align-items: center;
     white-space: nowrap;
@@ -48,7 +50,7 @@ export default function BrowsePaths(props: Props) {
             <ParentNodesWrapper>
                 {showEllipsis && (
                     <>
-                        <span>...</span>
+                        <span>{ELLIPSIS}</span>
                         <ContextPathSeparator />
                     </>
                 )}

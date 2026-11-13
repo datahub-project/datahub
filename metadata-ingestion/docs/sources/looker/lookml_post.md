@@ -136,6 +136,21 @@ source:
 
 Under the hood, DataHub will check out your remote repository using the provisioned deploy key, and use it to navigate includes that you have in the model files from your primary project.
 
+If a `remote_dependency` is listed in `manifest.lkml` but not in `project_dependencies`, DataHub clones the `url` from the manifest. That URL is a trust boundary: anyone who can change `manifest.lkml` can change where the clone goes. DataHub rejects non-HTTPS/SSH schemes, malformed URLs, and loopback, link-local, or cloud-metadata hosts (including hosts that resolve to those IPs via DNS, and alternative IP encodings such as decimal or hex). To restrict clones further, set `remote_dependency_domain_pattern` to the Git hosts you expect. Patterns are regexes matched from the start of the host string (case-insensitive); anchor with `^...$` for an exact match. For example, to allow `github.com` and its subdomains, use `allow: ['^github\.com$', '.*\.github\.com$']`. Hosts matching a `deny` pattern are always skipped. Anything that does not match is skipped and reported as a warning. For defense in depth, also restrict executor network egress to those same hosts.
+
+```
+source:
+  type: lookml
+  config:
+    ... other config variables
+    remote_dependency_domain_pattern:
+      allow:
+        - ^github\.com$
+        - .*\.github\.com$
+      deny:
+        - ^evil\.example$
+```
+
 If you have the remote project checked out locally, and do not need DataHub to clone the project for you, you can provide DataHub directly with the path to the project like the config snippet below:
 
 ```
@@ -493,6 +508,36 @@ If you have Looker views with many fields (100+) and are experiencing lineage ex
    - **Rate-limited APIs:** Should decrease `max_workers_for_parallel_processing`
    - **Many problematic fields:** Enable `enable_individual_field_fallback`
    - **Strict validation needs:** Disable `allow_partial_lineage_results`
+
+#### Repository Clone Fails or Times Out
+
+**Symptoms:**
+
+- Ingestion reports `Failed to clone LookML repository` under **Errors**
+- Error context contains `GitCommandError`, `ssh: not found`, `Connection refused`, or `exit code(128)`
+
+**Solutions:**
+
+1. **SSH/deploy key not configured** — Ensure a deploy key (or personal SSH key) whose public half is added to the repository is provided via `deploy_key` or `deploy_key_file` in `git_info`.
+
+2. **Port 22 blocked** — If your environment blocks outbound SSH (port 22), you cannot clone over `git@github.com`. Use HTTPS with a personal access token via `repo_ssh_locator` or run ingestion from a network that allows SSH.
+
+3. **Clone times out on large repos** — Increase `clone_timeout` (default: 600 s):
+
+   ```yml
+   git_info:
+     repo: https://github.com/your-org/your-lookml-repo
+     deploy_key: ${DEPLOY_KEY}
+     clone_timeout: 900
+   ```
+
+4. **Verify SSH access manually** — On the machine running ingestion, confirm:
+
+   ```sh
+   ssh -T git@github.com
+   ```
+
+   A successful response looks like: `Hi <user>! You've successfully authenticated…`
 
 #### Debugging LookML Parsing Errors
 

@@ -1,3 +1,7 @@
+---
+description: "Use DataHub patch APIs to make partial updates to metadata aspects without overwriting unrelated fields on the same entity."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 
@@ -112,6 +116,22 @@ To add & remove structured properties for a dataset:
 
 </Tabs>
 
+A patch sets the whole value list of a structured property, so `add_structured_property` replaces
+the values a property already has. To append values to a multi-valued property and keep the existing
+ones, use `DataHubGraph.add_structured_property_values`:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_append_structured_property_values.py show_path_as_comment }}
+```
+
+It reads the property's current values and writes the merged list back as a patch of that one property.
+The write only succeeds if the entity's structured properties have not changed since the read; if they
+have, it reads and merges again, so parallel appends keep each other's values.
+
+Two limits are worth knowing. The read-and-merge is retried at most eight times, after which the call
+raises `OperationalError` rather than writing. And servers that ignore conditional headers on patches
+apply the write unconditionally, so against those a parallel append can still drop values.
+
 ### Add & Remove Upstream Lineage for Dataset
 
 To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:
@@ -200,6 +220,18 @@ Breakdown:
 - `/urn:li:schemaField:...` -> The downstream schemaField referenced in this schema, part of the key for a fineGrainedLineage
 - `/urn:li:query:...` -> The query urn this relationship was derived from, part of the key for a fineGrainedLineage
 - `/urn:li:schemaField:` -> The upstream urn that is being targeted by this patch operation
+
+A patch path for an institutional memory link:
+
+`/elements/https:~1~1example.org~1docs/Design`
+
+Breakdown:
+
+- `/elements` -> the `elements` array on `institutionalMemory`
+- `/https:~1~1example.org~1docs` -> the link URL (`/` escaped as `~1`, `~` escaped as `~0`)
+- `/Design` -> the link description
+
+`elements` is keyed by `url` then `description`, the same compound-key convention as ownership (`owner` then `type`). That pair is how `updateLink` identifies a link (`currentUrl` and `currentLabel`). Two links may share a URL when their descriptions differ. A remove at `/elements/<url>` drops every description for that URL, matching `removeLink` when no label is supplied.
 
 This showcases that in some cases the key for objects is simple, in others in can be complex to determine, but for our fully supported use cases we have
 SDK support on both the Java and Python side that will generate these patches for you as long as you supply the required method parameters.

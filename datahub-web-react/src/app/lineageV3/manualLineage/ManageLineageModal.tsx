@@ -1,27 +1,29 @@
-import { Modal as AntModal, message } from 'antd';
-import React, { useContext, useEffect, useState } from 'react';
+import { toast } from '@components';
+import React, { useContext, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
+import { EntityAndType } from '@app/entityV2/shared/types';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import { useOnClickExpandLineage } from '@app/lineageV3/LineageEntityNode/useOnClickExpandLineage';
 import { FetchStatus, LineageEntity, LineageNodesContext } from '@app/lineageV3/common';
 import LineageEdges from '@app/lineageV3/manualLineage/LineageEdges';
 import { buildUpdateLineagePayload } from '@app/lineageV3/manualLineage/buildUpdateLineagePayload';
 import { recordAnalyticsEvents } from '@app/lineageV3/manualLineage/recordManualLineageAnalyticsEvent';
 import updateNodeContext from '@app/lineageV3/manualLineage/updateNodeContext';
-import { getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
-import { toTitleCase } from '@app/lineageV3/utils/toTitleCase';
-import { useEntityRegistryV2 as useEntityRegistry } from '@app/useEntityRegistry';
-import { Modal, colors } from '@src/alchemy-components';
-import { EntityAndType } from '@src/app/entity/shared/types';
-import { extractTypeFromUrn } from '@src/app/entity/shared/utils';
+import { filterManualLineageUrns, getValidEntityTypes } from '@app/lineageV3/manualLineage/utils';
+import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { Modal } from '@src/alchemy-components';
 import { SearchSelect } from '@src/app/entityV2/shared/components/styled/search/SearchSelect';
-import ClickOutside from '@src/app/shared/ClickOutside';
+import ClickOutside from '@src/app/sharedV2/ClickOutside';
 
 import { useUpdateLineageMutation } from '@graphql/mutations.generated';
 import { Entity, EntityType, LineageDirection } from '@types';
 
 const MODAL_WIDTH_PX = 1400;
+const MODAL_Z_INDEX = 2000; // Over node tooltips
 
 const StyledModal = styled(Modal)`
     top: 30px;
@@ -46,7 +48,7 @@ const SearchSection = styled.div`
 const CurrentSection = styled.div`
     flex: 1;
     width: 40%;
-    border-left: 1px solid ${colors.gray[100]};
+    border-left: 1px solid ${(props) => props.theme.colors.border};
     display: flex;
     flex-direction: column;
 `;
@@ -56,7 +58,7 @@ const SectionHeader = styled.div`
     margin-top: 10px;
     font-size: 16px;
     font-weight: 500;
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
 `;
 
 const ScrollableContent = styled.div`
@@ -72,6 +74,9 @@ interface Props {
 }
 
 export default function ManageLineageModal({ node, direction, closeModal, refetch }: Props) {
+    const { t } = useTranslation('lineage');
+    const { t: tcAction } = useTranslation('common.actions');
+    const { t: tcFeedback } = useTranslation('common.feedback');
     const nodeContext = useContext(LineageNodesContext);
     const expandOneLevel = useOnClickExpandLineage(node.urn, node.type, direction, false);
     const { user } = useUserContext();
@@ -80,15 +85,22 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
     const fetchStatus = node.fetchStatus[direction];
     const { adjacencyList } = nodeContext;
     const validEntityTypes = getValidEntityTypes(direction, node.entity?.type);
-    const initialSetOfRelationshipsUrns = adjacencyList[direction].get(node.urn) || new Set();
+    const initialSetOfRelationshipsUrns = new Set(
+        filterManualLineageUrns(adjacencyList[direction].get(node.urn) || [], validEntityTypes),
+    );
     const [isSaving, setIsSaving] = useState(false);
+    const [isExitConfirmOpen, setIsExitConfirmOpen] = useState(false);
 
     const [selectedEntities, setSelectedEntities] = useState<EntityAndType[]>(
         Array.from(initialSetOfRelationshipsUrns).map((urn) => ({ urn, type: extractTypeFromUrn(urn) })) || [],
     );
 
+    // Auto-expand only once: a failed fetch resets the node to UNFETCHED, so re-running on every
+    // UNFETCHED would re-request a failing urn in a loop while the modal is open.
+    const autoExpandedRef = useRef(false);
     useEffect(() => {
-        if (fetchStatus === FetchStatus.UNFETCHED) {
+        if (fetchStatus === FetchStatus.UNFETCHED && !autoExpandedRef.current) {
+            autoExpandedRef.current = true;
             expandOneLevel();
         }
     }, [fetchStatus, expandOneLevel]);
@@ -107,7 +119,7 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
             .then((res) => {
                 if (res.data?.updateLineage) {
                     closeModal();
-                    message.success('Updated lineage, refetching graph!');
+                    toast.success(t('manualLineage.updateLineageSuccess'));
                     updateNodeContext(node.urn, direction, user, nodeContext, entitiesToAdd, entitiesToRemove);
                     refetch?.();
 
@@ -123,60 +135,59 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                 }
             })
             .catch((error) => {
-                message.error(error.message || 'Error updating lineage');
+                toast.error(error.message || t('manualLineage.updateLineageError'));
                 setIsSaving(false);
             });
     }
 
-    const directionTitle = toTitleCase(direction.toLocaleLowerCase());
+    const setDirectionsText =
+        direction === LineageDirection.Upstream ? t('manualLineage.setUpstreams') : t('manualLineage.setDownstreams');
 
     const onCancelSelect = () => {
         if (entitiesToAdd.length > 0 || entitiesToRemove.length > 0) {
-            AntModal.confirm({
-                title: `Exit Lineage Management`,
-                content: `Are you sure you want to exit? ${
-                    entitiesToAdd.length + entitiesToRemove.length
-                } change(s) will be cleared.`,
-                onOk() {
-                    closeModal();
-                },
-                onCancel() {},
-                okText: 'Yes',
-                maskClosable: true,
-                closable: true,
-            });
+            setIsExitConfirmOpen(true);
         } else {
             closeModal();
         }
     };
 
+    const modalButtons = useMemo(
+        () => [
+            {
+                text: tcAction('cancel'),
+                variant: 'text' as const,
+                onClick: onCancelSelect,
+                key: 'cancel',
+            },
+            {
+                text: isSaving ? tcFeedback('saving') : setDirectionsText,
+                onClick: saveLineageChanges,
+                disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
+                key: 'save',
+            },
+        ],
+        // eslint-disable-next-line react-hooks/exhaustive-deps
+        [isSaving, setDirectionsText, entitiesToAdd.length, entitiesToRemove.length],
+    );
+
     return (
         <ClickOutside onClickOutside={onCancelSelect} wrapperClassName="search-select-modal">
             <StyledModal
-                title={`Select the ${directionTitle}s to add to ${node.entity?.name}`}
+                title={
+                    direction === LineageDirection.Upstream
+                        ? t('manualLineage.modalTitleUpstream', { entityName: node.entity?.name })
+                        : t('manualLineage.modalTitleDownstream', { entityName: node.entity?.name })
+                }
                 width={MODAL_WIDTH_PX}
                 open
                 onCancel={onCancelSelect}
                 style={{ padding: 0 }}
-                zIndex={2000} // Over node tooltips
-                buttons={[
-                    {
-                        text: 'Cancel',
-                        variant: 'text',
-                        onClick: onCancelSelect,
-                        key: 'cancel',
-                    },
-                    {
-                        text: isSaving ? 'Saving...' : `Set ${directionTitle}s`,
-                        onClick: saveLineageChanges,
-                        disabled: (entitiesToAdd.length === 0 && entitiesToRemove.length === 0) || isSaving,
-                        key: 'save',
-                    },
-                ]}
+                zIndex={MODAL_Z_INDEX}
+                buttons={modalButtons}
             >
                 <ModalContentContainer>
                     <SearchSection>
-                        <SectionHeader>Search and Add</SectionHeader>
+                        <SectionHeader>{t('manualLineage.searchAndAddHeader')}</SectionHeader>
                         <ScrollableContent>
                             <SearchSelect
                                 fixedEntityTypes={Array.from(validEntityTypes)}
@@ -186,11 +197,16 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                         </ScrollableContent>
                     </SearchSection>
                     <CurrentSection>
-                        <SectionHeader>Current {directionTitle}s</SectionHeader>
+                        <SectionHeader>
+                            {direction === LineageDirection.Upstream
+                                ? t('manualLineage.currentUpstreamsHeader')
+                                : t('manualLineage.currentDownstreamsHeader')}
+                        </SectionHeader>
                         <ScrollableContent>
                             <LineageEdges
                                 parentUrn={node.urn}
                                 direction={direction}
+                                validEntityTypes={validEntityTypes}
                                 entitiesToAdd={entitiesToAdd}
                                 entitiesToRemove={entitiesToRemove}
                                 onRemoveEntity={(entity) => {
@@ -201,6 +217,17 @@ export default function ManageLineageModal({ node, direction, closeModal, refetc
                     </CurrentSection>
                 </ModalContentContainer>
             </StyledModal>
+            <ConfirmationModal
+                isOpen={isExitConfirmOpen}
+                handleClose={() => setIsExitConfirmOpen(false)}
+                handleConfirm={closeModal}
+                modalTitle={t('manualLineage.exitConfirmTitle')}
+                modalText={t('manualLineage.exitConfirmText', {
+                    count: entitiesToAdd.length + entitiesToRemove.length,
+                })}
+                confirmButtonText={tcAction('yes')}
+                zIndex={MODAL_Z_INDEX + 1} // Above this modal, otherwise the confirm opens hidden behind it
+            />
         </ClickOutside>
     );
 }

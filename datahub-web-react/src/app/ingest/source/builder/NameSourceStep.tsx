@@ -5,8 +5,8 @@ import styled from 'styled-components';
 
 import OwnersSection from '@app/domainV2/OwnersSection';
 import { SourceBuilderState, StepProps, StringMapEntryInput } from '@app/ingest/source/builder/types';
-import { RequiredFieldForm } from '@app/shared/form/RequiredFieldForm';
-import { ModalButtonContainer } from '@src/app/shared/button/styledComponents';
+import { RequiredFieldForm } from '@app/sharedV2/form/RequiredFieldForm';
+import { ModalButtonContainer } from '@src/app/sharedV2/button/styledComponents';
 
 const ControlsContainer = styled.div`
     display: flex;
@@ -279,6 +279,7 @@ export const NameSourceStep = ({ state, updateState, prev, submit, selectedSourc
                         <Button
                             disabled={!(state.name !== undefined && state.name.length > 0)}
                             onClick={() => onClickCreate(true)}
+                            data-testid="ingestion-source-save-and-run-button"
                         >
                             Save & Run
                         </Button>

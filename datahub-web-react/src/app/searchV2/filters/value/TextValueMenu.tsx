@@ -1,17 +1,16 @@
 import { Button, Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { FilterField, FilterValue } from '@app/searchV2/filters/types';
+import { useFilterDisplayName } from '@app/searchV2/filters/utils';
 import TextValueInput from '@app/searchV2/filters/value/TextValueInput';
 
 const Container = styled.div`
     padding: 16px;
-    background-color: #ffffff;
-    box-shadow:
-        0 3px 6px -4px rgba(0, 0, 0, 0.12),
-        0 6px 16px 0 rgba(0, 0, 0, 0.08),
-        0 9px 28px 8px rgba(0, 0, 0, 0.05);
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
     border-radius: 8px;
 `;
 
@@ -31,19 +30,23 @@ interface Props {
 }
 
 export default function TextValueMenu({ field, values, onChangeValues, onApply }: Props) {
-    const { displayName } = field;
+    const { t } = useTranslation('search');
+    const { t: tc } = useTranslation('common.actions');
+    // Resolve the human-readable label (e.g. "UUID Filter Test") rather than the raw field name
+    // (structuredProperties.uuidFilterTest), consistent with the enum/entity menus.
+    const displayName = useFilterDisplayName(field);
     const value = values.length > 0 ? values[0].displayName || values[0].value : '';
 
     return (
         <Container>
-            <Title level={5}>{`Filter by ${displayName}`}</Title>
+            <Title level={5}>{t('filters.filterBy', { name: displayName })}</Title>
             <TextValueInput
                 name={displayName}
                 value={value}
                 onChangeValue={(v) => onChangeValues([{ value: v, entity: null }])}
             />
             <UpdateButton type="primary" onClick={onApply}>
-                Apply
+                {tc('apply')}
             </UpdateButton>
         </Container>
     );

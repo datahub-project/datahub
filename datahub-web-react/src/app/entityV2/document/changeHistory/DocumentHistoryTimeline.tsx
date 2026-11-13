@@ -1,10 +1,11 @@
 import { Text, Timeline } from '@components';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { DocumentChangeTimelineContent } from '@app/entityV2/document/changeHistory/DocumentChangeTimelineContent';
 import { DocumentChangeTimelineDot } from '@app/entityV2/document/changeHistory/DocumentChangeTimelineDot';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 
 import { DocumentChange } from '@types';
 
@@ -27,6 +28,7 @@ interface DocumentHistoryTimelineProps {
 }
 
 export const DocumentHistoryTimeline: React.FC<DocumentHistoryTimelineProps> = ({ documentUrn, changes, loading }) => {
+    const { t } = useTranslation('entity.types');
     const timelineItems = useMemo(() => {
         return changes.map((change, index) => ({
             key: `change-${change.changeType}-${change.timestamp}-${index}`,
@@ -46,7 +48,7 @@ export const DocumentHistoryTimeline: React.FC<DocumentHistoryTimelineProps> = (
     if (changes.length === 0) {
         return (
             <LoadingWrapper>
-                <Text color="gray">No change history yet!</Text>
+                <Text>{t('document.noChangeHistoryEmpty')}</Text>
             </LoadingWrapper>
         );
     }

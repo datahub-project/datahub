@@ -10,7 +10,35 @@ import theme from '@src/alchemy-components/theme';
 
 import { ListServiceAccountsDocument } from '@graphql/auth.generated';
 import { ListRolesDocument } from '@graphql/role.generated';
+import { ListGlobalViewsDocument } from '@graphql/view.generated';
 import { EntityType } from '@types';
+
+// Mock the generated mutation that requires codegen
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
+
+vi.mock('@graphql/auth.generated', async () => {
+    const actual = await vi.importActual('@graphql/auth.generated');
+    return {
+        ...actual,
+        useUpdateServiceAccountDefaultViewMutation: () => [
+            vi.fn().mockResolvedValue({ data: { updateServiceAccountDefaultView: true } }),
+        ],
+    };
+});
 
 // Mock the user context
 const mockUserContext = {
@@ -29,12 +57,12 @@ vi.mock('@app/identity/serviceAccount/CreateServiceAccountModal', () => ({
 }));
 
 // Mock the Message component
-vi.mock('@app/shared/Message', () => ({
+vi.mock('@app/sharedV2/Message', () => ({
     Message: ({ content }: any) => <div data-testid="message">{content}</div>,
 }));
 
 // Mock scrollToTop
-vi.mock('@app/shared/searchUtils', () => ({
+vi.mock('@app/sharedV2/searchUtils', () => ({
     scrollToTop: vi.fn(),
 }));
 
@@ -49,18 +77,6 @@ vi.mock('@app/settingsV2/CreateTokenModal', () => ({
 }));
 
 // Mock antd message
-vi.mock('antd', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('antd')>();
-    return {
-        ...actual,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-            destroy: vi.fn(),
-        },
-    };
-});
-
 // Mock SearchBar component to avoid theme issues
 vi.mock('@src/alchemy-components', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@src/alchemy-components')>();
@@ -88,6 +104,7 @@ const mockServiceAccounts = [
         createdBy: 'urn:li:corpuser:datahub',
         createdAt: Date.now(),
         updatedAt: null,
+        defaultView: null,
         roles: {
             __typename: 'EntityRelationshipsResult',
             start: 0,
@@ -106,6 +123,7 @@ const mockServiceAccounts = [
         createdBy: 'urn:li:corpuser:datahub',
         createdAt: Date.now(),
         updatedAt: null,
+        defaultView: null,
         roles: {
             __typename: 'EntityRelationshipsResult',
             start: 0,
@@ -173,6 +191,26 @@ const mocks = [
                             description: 'Editor role',
                         },
                     ],
+                },
+            },
+        },
+    },
+    {
+        request: {
+            query: ListGlobalViewsDocument,
+            variables: {
+                start: 0,
+                count: 1000,
+            },
+        },
+        result: {
+            data: {
+                listGlobalViews: {
+                    __typename: 'ListViewsResult',
+                    start: 0,
+                    count: 1000,
+                    total: 0,
+                    views: [],
                 },
             },
         },

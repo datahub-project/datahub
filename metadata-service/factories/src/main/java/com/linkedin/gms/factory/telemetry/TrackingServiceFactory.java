@@ -1,14 +1,14 @@
 package com.linkedin.gms.factory.telemetry;
 
+import com.datahub.telemetry.MixpanelEventSender;
 import com.datahub.telemetry.TrackingService;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.kafka.TopicsConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.event.GenericProducer;
+import com.linkedin.metadata.event.UsageEventPublisher;
 import com.linkedin.metadata.version.GitVersion;
 import com.mixpanel.mixpanelapi.MessageBuilder;
-import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.services.SecretService;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -21,8 +21,8 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class TrackingServiceFactory {
   @Autowired(required = false)
-  @Qualifier("mixpanelApi")
-  private MixpanelAPI _mixpanelAPI;
+  @Qualifier("mixpanelEventSender")
+  private MixpanelEventSender _mixpanelEventSender;
 
   @Autowired(required = false)
   @Qualifier("mixpanelMessageBuilder")
@@ -42,7 +42,7 @@ public class TrackingServiceFactory {
 
   @Autowired(required = false)
   @Qualifier("dataHubUsageEventProducer")
-  private GenericProducer<String> dataHubUsageProducer;
+  private UsageEventPublisher usageEventPublisher;
 
   @Autowired private ConfigurationProvider _configurationProvider;
 
@@ -57,17 +57,17 @@ public class TrackingServiceFactory {
     boolean telemetryEnabled = _telemetryConfiguration.isEnabledServer();
 
     log.info(
-        "Initializing TrackingService with telemetry enabled: {}, MixpanelAPI: {} and MixpanelMessageBuilder: {}",
+        "Initializing TrackingService with telemetry enabled: {}, MixpanelEventSender: {} and MixpanelMessageBuilder: {}",
         telemetryEnabled,
-        _mixpanelAPI != null ? "present" : "null",
+        _mixpanelEventSender != null ? "present" : "null",
         _mixpanelMessageBuilder != null ? "present" : "null");
 
     log.info(
         "Initializing TrackingService with DataHubUsageProducer: {}",
-        dataHubUsageProducer != null ? "present" : "null");
+        usageEventPublisher != null ? "present" : "null");
 
     // If telemetry is disabled, pass null for Mixpanel components
-    MixpanelAPI mixpanelAPI = telemetryEnabled ? _mixpanelAPI : null;
+    MixpanelEventSender mixpanelEventSender = telemetryEnabled ? _mixpanelEventSender : null;
     MessageBuilder mixpanelMessageBuilder = telemetryEnabled ? _mixpanelMessageBuilder : null;
 
     TrackingService trackingService =
@@ -75,10 +75,10 @@ public class TrackingServiceFactory {
             _topicsConfiguration,
             _secretService,
             mixpanelMessageBuilder,
-            mixpanelAPI,
+            mixpanelEventSender,
             _entityService,
             _gitVersion,
-            dataHubUsageProducer);
+            usageEventPublisher);
 
     log.info("TrackingService initialized successfully");
     return trackingService;

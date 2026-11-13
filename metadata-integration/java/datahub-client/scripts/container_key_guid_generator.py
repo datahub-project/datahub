@@ -1,7 +1,6 @@
 import click
 from typing import Dict, Any
 import json
-from dataclasses import dataclass
 from abc import ABC, abstractmethod
 from datahub.emitter.mcp_builder import DatabaseKey, SchemaKey
 
@@ -112,7 +111,7 @@ def generate_urn(container_type: str, param: Dict[str, str], output_format: str)
         else:
             click.echo(urn)
 
-    except KeyError as e:
+    except KeyError:
         raise click.UsageError(f"Unknown container type: {container_type}")
     except ValueError as e:
         raise click.UsageError(str(e))

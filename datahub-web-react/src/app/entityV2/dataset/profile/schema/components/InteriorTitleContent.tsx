@@ -1,11 +1,11 @@
-import { Tooltip, Typography } from 'antd';
+import { Tooltip } from '@components';
+import { Typography } from 'antd';
 import React from 'react';
 import Highlight from 'react-highlighter';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import NullableLabel, {
     ForeignKeyLabel,
     PartitioningKeyLabel,
@@ -36,14 +36,15 @@ const FieldPathContainer = styled.div`
 `;
 
 const DeprecatedContainer = styled.div`
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
+// Both schema tables style their first column as the row title, so the field path inherits it.
 const FieldPathText = styled(Typography.Text)<{ $isCompact: boolean }>`
-    font-size: 12px;
+    font-size: inherit;
     line-height: ${(props) => (props.$isCompact ? '14px' : '24px')};
-    font-weight: 600;
-    color: ${REDESIGN_COLORS.DARK_GREY};
+    font-weight: inherit;
+    color: inherit;
 
     display: flex;
     align-items: center;
@@ -57,6 +58,7 @@ type InteriorTitleProps = {
     fieldPath: string;
     record: ExtendedSchemaFields;
     isCompact?: boolean;
+    isPrimaryKey: boolean;
 };
 
 export const InteriorTitleContent = ({
@@ -66,6 +68,7 @@ export const InteriorTitleContent = ({
     fieldPath,
     record,
     isCompact,
+    isPrimaryKey,
 }: InteriorTitleProps) => {
     const fieldPathWithoutAnnotations = translateFieldPath(fieldPath);
     const parentPathWithoutAnnotations = translateFieldPath(record.parent?.fieldPath || '');
@@ -113,7 +116,7 @@ export const InteriorTitleContent = ({
             </FieldPathContainer>
             {!isCompact && (
                 <>
-                    {(schemaMetadata?.primaryKeys?.includes(fieldPath) || record.isPartOfKey) && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {record.isPartitioningKey && <PartitioningKeyLabel />}
                     {record.nullable && <NullableLabel />}
                     {/* {record.nullable && <NullableLabel />} */}

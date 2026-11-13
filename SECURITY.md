@@ -1,3 +1,7 @@
+---
+description: "Report security vulnerabilities in DataHub Core or DataHub Cloud to security@datahub.com, with optional PGP-encrypted submissions."
+---
+
 # Reporting Security Issues
 
 If you think you have found a security vulnerability, please send a report to security@datahub.com. This address can be used for all of DataHub’s open source and commercial products (including but not limited to DataHub Core and DataHub Cloud). We can accept only vulnerability reports at this address.

@@ -1,3 +1,7 @@
+---
+description: "Use Personal Access Tokens (PATs) to authenticate users and scripts when calling DataHub APIs in production deployments."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Personal Access Tokens
@@ -43,6 +47,10 @@ Once in the Manage Access Tokens Settings Tab:
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/master/imgs/pats/filled-out-form.png"/>
 </p>
+
+Available expiration options come from GMS configuration (`authentication.accessTokens.allowedDurations`) as ISO-8601 durations
+(default: `PT1H`, `P1D`, `P7D`, `P30D`, `P90D`, `P180D`, `P365D`). Never-expiring tokens are disabled by default;
+set `ACCESS_TOKEN_ALLOW_NO_EXPIRY=true` to show "Never" again. Already-issued tokens are not revoked when this policy changes.
 
 3. Save the token text somewhere secure! This is what will be used later on!
 <p align="center">

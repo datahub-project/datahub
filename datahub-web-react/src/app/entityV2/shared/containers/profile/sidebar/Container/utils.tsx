@@ -1,8 +1,8 @@
+import i18next from 'i18next';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { pluralize } from '@app/shared/textUtil';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
@@ -10,7 +10,7 @@ import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type ContentTypeSummary = {
@@ -87,19 +87,25 @@ export const getContentsSummary = (contents: SearchResults): ContentsSummary => 
     return getContentCountsByType(contents);
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: ContentTypeSummary): string | undefined {
+    if (!type.isEntityType) {
+        return type.type;
+    }
+    const entityType = type.type as EntityType;
+    return type.count === 1 ? entityRegistry.getEntityName(entityType) : entityRegistry.getCollectionName(entityType);
+}
+
 export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry: EntityRegistry): React.ReactNode => {
     return (
         <>
             {summary.types.map((type, idx) => {
                 return (
                     <SummaryText>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            type.isEntityType
-                                ? (entityRegistry.getEntityName(type.type as EntityType) as any)
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
+                        })}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );
@@ -109,5 +115,5 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
 };
 
 export const navigateToContainerContents = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Contents`);
+    history.push(`${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.CONTENTS}`);
 };

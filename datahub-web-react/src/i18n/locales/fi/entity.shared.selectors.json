@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "Hae käyttäjiä tai ryhmiä",
+    "domainSelector.label": "Toimialueet",
+    "domainSelector.placeholder": "Valitse toimialueet",
+    "domainSelector.singleLabel": "Toimialue",
+    "domainSelector.singlePlaceholder": "Valitse toimialue",
+    "domainSelector.searchPlaceholder": "Hae kaikista toimialueista...",
+    "entitySearch.noEntitiesFound": "Entiteettejä ei löytynyt",
+    "entitySearch.placeholder": "Hae entiteettejä...",
+    "customOwnershipType": "Mukautettu omistajuustyyppi",
+    "ingestionSource": "Sisäänlukulähde",
+    "groupBy.displayValue": "Ryhmittele: {{label}}",
+    "groupBy.group": "Ryhmittele",
+    "selectItems.addMoreSection": "Lisää muita",
+    "selectItems.entitiesLabel": "kohteita",
+    "selectItems.itemsLabel": "nimikkeitä",
+    "selectItems.noEntityFound": "{{entityName}} ei löytynyt",
+    "selectItems.removeAll": "Poista kaikki",
+    "selectItems.searchForEntity": "Hae {{entityName}}...",
+    "selectItems.selectedSection": "Valitut"
+}

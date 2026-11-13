@@ -1,5 +1,8 @@
 import { RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
-import { resolveDynamicOptions } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
+import {
+    resolveDynamicOptions,
+    writeShownFieldValues,
+} from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/utils';
 
 describe('resolveDynamicOptions', () => {
     const mockField: RecipeField = {
@@ -152,5 +155,57 @@ describe('resolveDynamicOptions', () => {
         const result = resolveDynamicOptions(field, values);
 
         expect(result.hidden).toBe(false); // null values should result in false
+    });
+});
+
+describe('writeShownFieldValues', () => {
+    const isOnPrem = (values: Record<string, any>) => values?.deployment === 'on_prem';
+    const hostField: RecipeField = {
+        name: 'tenant_hostname',
+        label: 'Tenant',
+        tooltip: '',
+        type: 0,
+        fieldPath: 'source.config.tenant_hostname',
+        rules: null,
+        dynamicHidden: isOnPrem,
+        hidden: true,
+    };
+
+    it('writes the value of a field the change shows again', () => {
+        const recipe = { source: { config: {} } };
+        const result = writeShownFieldValues(
+            recipe,
+            [hostField],
+            { deployment: 'cloud' },
+            { deployment: 'cloud', tenant_hostname: 'tenant.example.com' },
+        );
+
+        expect(result.source.config.tenant_hostname).toBe('tenant.example.com');
+    });
+
+    it('leaves fields that stay hidden, were visible, or are empty', () => {
+        const recipe = { source: { config: {} } };
+        const stillHidden = writeShownFieldValues(
+            recipe,
+            [hostField],
+            { deployment: 'on_prem' },
+            { deployment: 'on_prem', tenant_hostname: 'tenant.example.com' },
+        );
+        const wasVisible = writeShownFieldValues(
+            recipe,
+            [{ ...hostField, hidden: false }],
+            { deployment: 'cloud' },
+            { deployment: 'cloud', tenant_hostname: 'tenant.example.com' },
+        );
+        const empty = writeShownFieldValues(
+            recipe,
+            [hostField],
+            { deployment: 'cloud' },
+            { deployment: 'cloud', tenant_hostname: '' },
+        );
+
+        expect(stillHidden.source.config.tenant_hostname).toBeUndefined();
+        expect(wasVisible.source.config.tenant_hostname).toBeUndefined();
+        expect(empty.source.config.tenant_hostname).toBeUndefined();
     });
 });

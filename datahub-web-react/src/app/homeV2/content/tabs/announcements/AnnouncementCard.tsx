@@ -1,16 +1,15 @@
-import { Editor } from '@components';
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import { Editor } from '@app/sharedV2/editor/Editor';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { Post } from '@types';
 
 const Card = styled.div`
-    border: 1px solid ${ANTD_GRAY[4]};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    background-color: #ffffff;
+    background-color: ${(props) => props.theme.colors.bg};
     overflow: auto;
 `;
 
@@ -20,7 +19,8 @@ const Text = styled.div`
     align-items: start;
     flex-direction: column;
     padding: 20px;
-    &&&&& .remirror-editor.ProseMirror {
+    &&&&& .remirror-editor.ProseMirror,
+    &&&&& .datahub-editor-content {
         padding: 0px;
     }
 `;
@@ -34,7 +34,7 @@ const Title = styled.div`
 
 const Time = styled.div`
     font-size: 12px;
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type Props = {

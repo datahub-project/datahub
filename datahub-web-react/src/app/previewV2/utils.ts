@@ -1,15 +1,26 @@
-import { Modal, message } from 'antd';
+import { toast } from '@components';
+import i18next from 'i18next';
+import { useState } from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
 import { BrowsePathV2, DataHubPageModuleType, EntityType, GlobalTags, Owner } from '@types';
+
+export type RemoveConfirmState = {
+    isOpen: boolean;
+    handleClose: () => void;
+    handleConfirm: () => void;
+    modalTitle: string;
+    modalText: string;
+};
 
 export function getUniqueOwners(owners?: Owner[] | null) {
     const uniqueOwnerUrns = new Set();
@@ -22,32 +33,31 @@ export const entityHasCapability = (
 ): boolean => capabilities.has(capabilityToCheck);
 
 export const getHighlightedTag = (tags?: GlobalTags) => {
-    if (tags && tags.tags?.length) {
-        if (tags?.tags[0].tag.properties) return tags?.tags[0]?.tag?.properties?.name;
-        return tags?.tags[0]?.tag?.name;
-    }
-    return '';
+    const first = tags?.tags?.find((association) => !isRemovedAssociation(association));
+    if (!first) return '';
+    if (first.tag.properties) return first.tag.properties.name;
+    return first.tag.name;
 };
 
 export const isNullOrUndefined = (value: any) => {
     return value === null || value === undefined;
 };
 
-// TODO: Change Modals in this file
 export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
     const { entityState, refetch, entityType } = useEntityContext();
     const [unsetDomainMutation] = useUnsetDomainMutation();
     const { reloadByKeyType } = useReloadableContext();
+    const [urnToRemove, setUrnToRemove] = useState<string | null>(null);
 
     const handleRemoveDomain = (urnToRemoveFrom) => {
-        message.loading({ content: 'Removing Domain...', duration: 2 });
+        toast.loading(i18next.t('entity.preview:domain.removing'), { duration: 2 });
         unsetDomainMutation({ variables: { entityUrn: urnToRemoveFrom } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
                     entityState?.setShouldRefetchContents(true);
                     refetch();
-                    message.success({ content: 'Domain Removed!', duration: 2 });
+                    toast.success(i18next.t('entity.preview:domain.removed'), { duration: 2 });
                     // Reload modules
                     // Assets - to update assets in domain summary tab
                     reloadByKeyType([
@@ -62,37 +72,43 @@ export function useRemoveDomainAssets(setShouldRefetchEmbeddedListSearch) {
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to remove domain: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(i18next.t('entity.preview:domain.removeError', { error: e.message || '' }), {
+                        duration: 3,
+                    });
                 }
             });
     };
 
     const removeDomain = (urnToRemoveFrom) => {
-        Modal.confirm({
-            title: `Confirm Domain Removal`,
-            content: `Are you sure you want to remove this domain?`,
-            onOk() {
-                handleRemoveDomain(urnToRemoveFrom);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setUrnToRemove(urnToRemoveFrom);
     };
 
-    return { removeDomain };
+    const confirmState: RemoveConfirmState = {
+        isOpen: !!urnToRemove,
+        handleClose: () => setUrnToRemove(null),
+        handleConfirm: () => {
+            if (urnToRemove) {
+                handleRemoveDomain(urnToRemove);
+            }
+            setUrnToRemove(null);
+        },
+        modalTitle: i18next.t('entity.preview:domain.removeConfirmTitle'),
+        modalText: i18next.t('entity.preview:domain.removeConfirmContent'),
+    };
+
+    return { removeDomain, confirmState };
 }
 
 export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) {
     const { reloadByKeyType } = useReloadableContext();
     const [removeTermMutation] = useRemoveTermMutation();
+    const [pendingRemoval, setPendingRemoval] = useState<{ previewData: any; termUrn: string } | null>(null);
 
     const handleRemoveTerm = (previewData, termUrn) => {
         if (termUrn) {
-            message.loading({ content: 'Removing Term...', duration: 2 });
+            toast.loading(i18next.t('entity.preview:term.removing'), { duration: 2 });
             removeTermMutation({
                 variables: {
                     input: {
@@ -105,7 +121,7 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                     if (!errors) {
                         setTimeout(() => {
                             setShouldRefetchEmbeddedListSearch(true);
-                            message.success({ content: 'Term Removed!', duration: 2 });
+                            toast.success(i18next.t('entity.preview:term.removed'), { duration: 2 });
                             reloadByKeyType([
                                 getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                             ]);
@@ -113,88 +129,98 @@ export function useRemoveGlossaryTermAssets(setShouldRefetchEmbeddedListSearch) 
                     }
                 })
                 .catch((e) => {
-                    message.destroy();
-                    message.error({ content: `Failed to remove Term: \n ${e.message || ''}`, duration: 3 });
+                    toast.destroy();
+                    toast.error(i18next.t('entity.preview:term.removeError', { error: e.message || '' }), {
+                        duration: 3,
+                    });
                 });
         }
     };
 
     const removeTerm = (previewData, termUrn) => {
-        Modal.confirm({
-            title: `Do you want to remove ${previewData.name} term?`,
-            content: `Are you sure you want to remove the ${previewData.name} term?`,
-            onOk() {
-                handleRemoveTerm(previewData, termUrn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setPendingRemoval({ previewData, termUrn });
     };
 
-    return { removeTerm };
+    const confirmState: RemoveConfirmState = {
+        isOpen: !!pendingRemoval,
+        handleClose: () => setPendingRemoval(null),
+        handleConfirm: () => {
+            if (pendingRemoval) {
+                handleRemoveTerm(pendingRemoval.previewData, pendingRemoval.termUrn);
+            }
+            setPendingRemoval(null);
+        },
+        modalTitle: i18next.t('entity.preview:term.removeConfirmTitle', {
+            name: pendingRemoval?.previewData?.name,
+        }),
+        modalText: i18next.t('entity.preview:term.removeConfirmContent', {
+            name: pendingRemoval?.previewData?.name,
+        }),
+    };
+
+    return { removeTerm, confirmState };
 }
 
 export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
     const { reloadByKeyType } = useReloadableContext();
     const [batchSetDataProductMutation] = useBatchSetDataProductMutation();
+    const [urnToRemove, setUrnToRemove] = useState<string | null>(null);
 
     function handleDataProduct(urn) {
         batchSetDataProductMutation({ variables: { input: { resourceUrns: [urn] } } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: 'Removed Data Product.', duration: 2 });
+                    toast.success(i18next.t('entity.preview:dataProduct.removed'), { duration: 2 });
                     reloadByKeyType([
                         getReloadableKeyType(ReloadableKeyTypeNamespace.MODULE, DataHubPageModuleType.Assets),
                     ]);
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: e.message || `Failed to remove data product. An unknown error occurred.`,
-                        duration: 3,
-                    });
+                    toast.error(e.message || i18next.t('entity.preview:dataProduct.removeError'), { duration: 3 });
                 }
             });
     }
 
     const removeDataProduct = (urn) => {
-        Modal.confirm({
-            title: `Confirm Data Product Removal`,
-            content: `Are you sure you want to remove this data product?`,
-            onOk() {
-                handleDataProduct(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setUrnToRemove(urn);
     };
 
-    return { removeDataProduct };
+    const confirmState: RemoveConfirmState = {
+        isOpen: !!urnToRemove,
+        handleClose: () => setUrnToRemove(null),
+        handleConfirm: () => {
+            if (urnToRemove) {
+                handleDataProduct(urnToRemove);
+            }
+            setUrnToRemove(null);
+        },
+        modalTitle: i18next.t('entity.preview:dataProduct.removeConfirmTitle'),
+        modalText: i18next.t('entity.preview:dataProduct.removeConfirmContent'),
+    };
+
+    return { removeDataProduct, confirmState };
 }
 
 export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
     const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
+    const [urnToRemove, setUrnToRemove] = useState<string | null>(null);
 
     function handleApplication(urn) {
         batchSetApplicationMutation({ variables: { input: { resourceUrns: [urn] } } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
-                    message.success({ content: 'Removed Application.', duration: 2 });
+                    toast.success(i18next.t('entity.preview:application.removed'), { duration: 2 });
                 }, 2000);
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({
-                        content: `Failed to remove application: ${e.message}`,
+                    toast.error(i18next.t('entity.preview:application.removeError', { error: e.message }), {
                         duration: 3,
                     });
                 }
@@ -202,20 +228,23 @@ export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
     }
 
     const removeApplication = (urn) => {
-        Modal.confirm({
-            title: `Confirm Application Removal`,
-            content: `Are you sure you want to remove this application?`,
-            onOk() {
-                handleApplication(urn);
-            },
-            onCancel() {},
-            okText: 'Yes',
-            maskClosable: true,
-            closable: true,
-        });
+        setUrnToRemove(urn);
     };
 
-    return { removeApplication };
+    const confirmState: RemoveConfirmState = {
+        isOpen: !!urnToRemove,
+        handleClose: () => setUrnToRemove(null),
+        handleConfirm: () => {
+            if (urnToRemove) {
+                handleApplication(urnToRemove);
+            }
+            setUrnToRemove(null);
+        },
+        modalTitle: i18next.t('entity.preview:application.removeConfirmTitle'),
+        modalText: i18next.t('entity.preview:application.removeConfirmContent'),
+    };
+
+    return { removeApplication, confirmState };
 }
 
 export const isDefaultBrowsePath = (browsePaths: BrowsePathV2) => {

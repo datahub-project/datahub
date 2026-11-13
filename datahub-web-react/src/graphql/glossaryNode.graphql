@@ -1,4 +1,11 @@
 fragment childGlossaryTerm on GlossaryTerm {
+    versionProperties {
+        version {
+            versionTag
+        }
+        isLatest
+    }
+    ...glossaryTermLifecycleFields
     urn
     type
     name
@@ -6,6 +13,15 @@ fragment childGlossaryTerm on GlossaryTerm {
     properties {
         name
         description
+    }
+    displayProperties {
+        ...displayPropertiesFields
+    }
+    domain {
+        ...entityDomain
+    }
+    deprecation {
+        ...deprecationFields
     }
 }
 
@@ -26,6 +42,12 @@ fragment glossaryNodeFields on GlossaryNode {
     ownership {
         ...ownershipFields
     }
+    domain {
+        ...entityDomain
+    }
+    applications {
+        ...entityApplication
+    }
     parentNodes {
         ...parentNodesFields
     }
@@ -37,6 +59,9 @@ fragment glossaryNodeFields on GlossaryNode {
     }
     institutionalMemory {
         ...institutionalMemoryFields
+    }
+    tags {
+        ...globalTagsFields
     }
     structuredProperties {
         properties {

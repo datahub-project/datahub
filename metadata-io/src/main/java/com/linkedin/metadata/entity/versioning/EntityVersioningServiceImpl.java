@@ -10,6 +10,7 @@ import static com.linkedin.metadata.Constants.VERSION_SET_PROPERTIES_ASPECT_NAME
 import static com.linkedin.metadata.Constants.VERSION_SORT_ID_FIELD_NAME;
 import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.createDefaultSystemMetadata;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.google.common.collect.ImmutableList;
@@ -90,15 +91,25 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
               + " invalid type: "
               + newLatestVersion.getEntityType());
     }
-    if (!aspectRetriever.entityExists(ImmutableSet.of(versionSet)).get(versionSet)) {
+    if (!aspectRetriever.entityExists(opContext, ImmutableSet.of(versionSet)).get(versionSet)) {
       sortId = INITIAL_VERSION_SORT_ID;
     } else {
       SystemAspect versionSetPropertiesAspect =
-          aspectRetriever.getLatestSystemAspect(versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
+          aspectRetriever.getLatestSystemAspect(
+              opContext, versionSet, VERSION_SET_PROPERTIES_ASPECT_NAME);
       VersionSetProperties versionSetProperties =
           RecordUtils.toRecordTemplate(
               VersionSetProperties.class, versionSetPropertiesAspect.getRecordTemplate().data());
 
+      if (handling().toleratesUnknownEnum()
+          && versionSetProperties.getVersioningScheme() == VersioningScheme.$UNKNOWN) {
+        // Written by a newer version (e.g. read after a rollback); say so instead of the generic
+        // message below.
+        throw new IllegalArgumentException(
+            String.format(
+                "Version set %s uses a versioning scheme this version doesn't support",
+                versionSet));
+      }
       if (versionSetProperties.getVersioningScheme()
           != VersioningScheme.ALPHANUMERIC_GENERATED_BY_DATAHUB) {
         throw new IllegalArgumentException(
@@ -107,7 +118,7 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
 
       SystemAspect latestVersion =
           aspectRetriever.getLatestSystemAspect(
-              versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
+              opContext, versionSetProperties.getLatest(), VERSION_PROPERTIES_ASPECT_NAME);
       VersionProperties latestVersionProperties =
           RecordUtils.toRecordTemplate(
               VersionProperties.class, latestVersion.getRecordTemplate().data());
@@ -115,7 +126,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     }
 
     SystemAspect currentVersionPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, newLatestVersion, VERSION_PROPERTIES_ASPECT_NAME);
     if (currentVersionPropertiesAspect != null) {
       VersionProperties currentVersionProperties =
           RecordUtils.toRecordTemplate(
@@ -191,7 +203,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
     List<RollbackResult> deletedAspects = new ArrayList<>();
     AspectRetriever aspectRetriever = opContext.getAspectRetriever();
     SystemAspect linkedVersionPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, linkedVersion, VERSION_PROPERTIES_ASPECT_NAME);
     // Not currently versioned, do nothing
     if (linkedVersionPropertiesAspect == null) {
       return deletedAspects;
@@ -225,7 +238,8 @@ public class EntityVersioningServiceImpl implements EntityVersioningService {
                 opContext.getEntityRegistryContext().getKeyAspectSpec(versionSetUrn));
 
     SystemAspect versionSetPropertiesAspect =
-        aspectRetriever.getLatestSystemAspect(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+        aspectRetriever.getLatestSystemAspect(
+            opContext, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
     if (versionSetPropertiesAspect == null) {
       throw new IllegalStateException(
           String.format(

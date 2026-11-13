@@ -1,14 +1,82 @@
 {
-  "enabled": true,
-  "id": "v0.3.17",
+  "enabled": false,
+  "id": "v2.4",
+  "releaseMonth": "2026-11",
   "requiredVersion": null,
   "header": null,
-  "title": "DataHub Cloud March Updates",
-  "description": "Cross-platform context, now including Microsoft Fabric",
-  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-mar2026.png",
-  "ctaText": "Learn more",
-  "ctaLink": "https://datahub.com/blog/datahub-cloud-v0-3-17",
+  "title": "DataHub Cloud November Updates",
+  "description": "Context, Evals, and Feedback, built for production.",
+  "image": "https://raw.githubusercontent.com/datahub-project/datahub/master/datahub-web-react/src/images/in-product-release-nov2026.png",
+  "ctaText": "Explore DataHub Cloud 2.4",
+  "ctaLink": "https://datahub.com/blog/datahub-cloud-v2-4",
   "secondaryCtaText": null,
   "secondaryCtaLink": null,
-  "features": []
+  "features": [],
+  "i18n": {
+    "de": {
+      "title": "DataHub Cloud November-Updates",
+      "description": "Context, Evals und Feedback, für die Produktion entwickelt.",
+      "ctaText": "DataHub Cloud 2.4 entdecken"
+    },
+    "es": {
+      "title": "Actualizaciones de noviembre de DataHub Cloud",
+      "description": "Context, Evals y Feedback, creados para producción.",
+      "ctaText": "Explorar DataHub Cloud 2.4"
+    },
+    "fi": {
+      "title": "DataHub Cloudin marraskuun päivitykset",
+      "description": "Context, Evals ja Feedback, rakennettu tuotantoon.",
+      "ctaText": "Tutustu DataHub Cloud 2.4:een"
+    },
+    "fr": {
+      "title": "Mises à jour DataHub Cloud de novembre",
+      "description": "Context, Evals et Feedback, conçus pour la production.",
+      "ctaText": "Découvrir DataHub Cloud 2.4"
+    },
+    "hu": {
+      "title": "DataHub Cloud novemberi frissítések",
+      "description": "Context, Evals és Feedback, éles használatra készítve.",
+      "ctaText": "A DataHub Cloud 2.4 felfedezése"
+    },
+    "it": {
+      "title": "Aggiornamenti di novembre di DataHub Cloud",
+      "description": "Context, Evals e Feedback, pensati per la produzione.",
+      "ctaText": "Scopri DataHub Cloud 2.4"
+    },
+    "ja": {
+      "title": "DataHub Cloud 11月のアップデート",
+      "description": "本番向けに作られた Context、Evals、Feedback。",
+      "ctaText": "DataHub Cloud 2.4 を見る"
+    },
+    "nb": {
+      "title": "DataHub Cloud november-oppdateringer",
+      "description": "Context, Evals og Feedback, bygget for produksjon.",
+      "ctaText": "Utforsk DataHub Cloud 2.4"
+    },
+    "pt-BR": {
+      "title": "Atualizações de novembro do DataHub Cloud",
+      "description": "Context, Evals e Feedback, feitos para produção.",
+      "ctaText": "Conheça o DataHub Cloud 2.4"
+    },
+    "ru": {
+      "title": "Ноябрьские обновления DataHub Cloud",
+      "description": "Context, Evals и Feedback, созданные для продакшена.",
+      "ctaText": "Изучите DataHub Cloud 2.4"
+    },
+    "sv": {
+      "title": "DataHub Cloud novemberuppdateringar",
+      "description": "Context, Evals och Feedback, byggda för produktion.",
+      "ctaText": "Utforska DataHub Cloud 2.4"
+    },
+    "zh-CN": {
+      "title": "DataHub Cloud 十一月更新",
+      "description": "为生产环境打造的 Context、Evals 和 Feedback。",
+      "ctaText": "探索 DataHub Cloud 2.4"
+    },
+    "zh-TW": {
+      "title": "DataHub Cloud 十一月更新",
+      "description": "為正式環境打造的 Context、Evals 與 Feedback。",
+      "ctaText": "探索 DataHub Cloud 2.4"
+    }
+  }
 }

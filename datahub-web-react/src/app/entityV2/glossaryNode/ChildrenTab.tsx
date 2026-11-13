@@ -1,17 +1,19 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import CreateGlossaryEntityModal from '@app/entity/shared/EntityDropdown/CreateGlossaryEntityModal';
 import useGlossaryChildren from '@app/entityV2/glossaryNode/useGlossaryChildren';
 import { sortGlossaryNodes } from '@app/entityV2/glossaryNode/utils';
 import { sortGlossaryTerms } from '@app/entityV2/glossaryTerm/utils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import EmptyGlossarySection from '@app/glossaryV2/EmptyGlossarySection';
 import GlossaryEntitiesList from '@app/glossaryV2/GlossaryEntitiesList';
+import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Button, SearchBar, Tooltip } from '@src/alchemy-components';
-import Loading from '@src/app/shared/Loading';
+import Loading from '@src/app/sharedV2/Loading';
 
 import { EntityType, GlossaryNode, GlossaryTerm } from '@types';
 
@@ -48,9 +50,13 @@ const HeaderWrapper = styled.div`
 `;
 
 function ChildrenTab() {
+    const { t } = useTranslation('entity.types');
+    const { t: tdd } = useTranslation('entity.shared.entityDropdown');
     const { entityData } = useEntityData();
     const entityRegistry = useEntityRegistry();
     const entityUrn = entityData?.urn;
+    const canManageChildren = !!entityData?.privileges?.canManageChildren;
+    const { canCreate: canCreateGlossaryEntity } = useGlossaryCreatePrivileges(canManageChildren);
 
     const { scrollRef, data, loading, searchQuery, setSearchQuery, refetch } = useGlossaryChildren({ entityUrn });
 
@@ -74,7 +80,7 @@ function ChildrenTab() {
                 <ChildrenTabWrapper>
                     <HeaderWrapper>
                         <SearchBar
-                            placeholder="Search..."
+                            placeholder={t('glossaryNode.searchPlaceholder')}
                             onChange={setSearchQuery}
                             value={searchQuery}
                             allowClear
@@ -82,21 +88,43 @@ function ChildrenTab() {
                         />
                         {hasTermsOrNodes && (
                             <CreateButtonWrapper>
-                                <Tooltip title="Create New Glossary Term" showArrow={false} placement="bottom">
+                                <Tooltip
+                                    title={
+                                        canCreateGlossaryEntity
+                                            ? t('glossaryNode.createNewGlossaryTerm')
+                                            : tdd('createGlossary.noCreatePermission', {
+                                                  entityName: entityRegistry.getEntityName(EntityType.GlossaryTerm),
+                                              })
+                                    }
+                                    showArrow={false}
+                                    placement="bottom"
+                                >
                                     <Button
                                         data-testid="add-term-button"
+                                        disabled={!canCreateGlossaryEntity}
                                         onClick={() => setIsCreateTermModalVisible(true)}
                                     >
-                                        <StyledPlusOutlined /> Add Term
+                                        <StyledPlusOutlined /> {t('glossaryNode.addTerm')}
                                     </Button>
                                 </Tooltip>
-                                <Tooltip title="Create New Term Group" showArrow={false} placement="bottom">
+                                <Tooltip
+                                    title={
+                                        canCreateGlossaryEntity
+                                            ? t('glossaryNode.createNewTermGroup')
+                                            : tdd('createGlossary.noCreatePermission', {
+                                                  entityName: entityRegistry.getEntityName(EntityType.GlossaryNode),
+                                              })
+                                    }
+                                    showArrow={false}
+                                    placement="bottom"
+                                >
                                     <Button
                                         data-testid="add-term-group-button-v2"
                                         variant="outline"
+                                        disabled={!canCreateGlossaryEntity}
                                         onClick={() => setIsCreateNodeModalVisible(true)}
                                     >
-                                        <StyledPlusOutlined /> Add Term Group
+                                        <StyledPlusOutlined /> {t('glossaryNode.addTermGroup')}
                                     </Button>
                                 </Tooltip>
                             </CreateButtonWrapper>
@@ -115,7 +143,8 @@ function ChildrenTab() {
                 </ChildrenTabWrapper>
             ) : (
                 <EmptyGlossarySection
-                    description="No Terms or Term Groups"
+                    description={t('glossaryNode.noTermsOrTermGroupsEmpty')}
+                    canManageChildren={canManageChildren}
                     onAddTerm={() => setIsCreateTermModalVisible(true)}
                     onAddtermGroup={() => setIsCreateNodeModalVisible(true)}
                 />
@@ -124,6 +153,7 @@ function ChildrenTab() {
             {isCreateTermModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryTerm}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateTermModalVisible(false)}
                     refetchData={refetch}
                 />
@@ -131,6 +161,7 @@ function ChildrenTab() {
             {isCreateNodeModalVisible && (
                 <CreateGlossaryEntityModal
                     entityType={EntityType.GlossaryNode}
+                    canCreateGlossaryEntity={canCreateGlossaryEntity}
                     onClose={() => setIsCreateNodeModalVisible(false)}
                     refetchData={refetch}
                 />

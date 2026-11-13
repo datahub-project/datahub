@@ -1,10 +1,18 @@
 import pathlib
+import signal
+import time
+from typing import Dict, List, Optional
 
 import pytest
 
+from datahub.metadata.urns import DatasetUrn
 from datahub.sql_parsing.schema_resolver import SchemaResolver
-from datahub.sql_parsing.sqlglot_lineage import sqlglot_lineage
+from datahub.sql_parsing.sqlglot_lineage import (
+    _CLICKHOUSE_DICTIONARY_FUNCTIONS,
+    sqlglot_lineage,
+)
 from datahub.testing.check_sql_parser_result import assert_sql_result
+from datahub.utilities.cooperative_timeout import CooperativeTimeoutError
 
 RESOURCE_DIR = pathlib.Path(__file__).parent / "goldens"
 
@@ -15,6 +23,36 @@ def _disable_cooperative_timeout(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(
         "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", False
     )
+
+
+@pytest.mark.skipif(
+    not hasattr(signal, "setitimer"),
+    reason="interrupting optimize needs SIGALRM, which Windows lacks",
+)
+def test_optimize_timeout_skips_column_lineage(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_ENABLED", True
+    )
+    monkeypatch.setattr(
+        "datahub.sql_parsing.sqlglot_lineage.SQL_LINEAGE_TIMEOUT_SECONDS", 1
+    )
+
+    def _hang(*_args: object, **_kwargs: object) -> None:
+        time.sleep(30)
+
+    monkeypatch.setattr("sqlglot.optimizer.optimizer.optimize", _hang)
+
+    started = time.perf_counter()
+    result = sqlglot_lineage(
+        "SELECT a FROM t",
+        schema_resolver=SchemaResolver(platform="bigquery"),
+        override_dialect="bigquery",
+    )
+
+    assert time.perf_counter() - started < 5
+    assert isinstance(result.debug_info.column_error, CooperativeTimeoutError)
 
 
 def test_invalid_sql() -> None:
@@ -191,6 +229,52 @@ SELECT id, name FROM my_db.my_schema.my_table
     )
 
 
+def test_snowflake_create_view_copy_grants_with_casts() -> None:
+    assert_sql_result(
+        """
+CREATE OR REPLACE VIEW my_view
+COPY GRANTS
+                (
+    "COL_STR",
+    "COL_NUM",
+    "COL_TS",
+    "COL_BOOL"
+)
+AS SELECT
+    "COL_STR"::VARCHAR(134217728) AS "COL_STR",
+    "COL_NUM"::NUMBER(19,0) AS "COL_NUM",
+    "COL_TS"::TIMESTAMP_NTZ(6) AS "COL_TS",
+    "COL_BOOL"::BOOLEAN AS "COL_BOOL"
+FROM my_db.my_schema.my_source_table
+WHERE _FIVETRAN_DELETED != TRUE
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_create_view_copy_grants_with_casts.json",
+    )
+
+
+def test_create_view_block_semicolon_with_comment() -> None:
+    """Block([Create, Semicolon]) from a trailing semicolon with attached comment.
+
+    A semicolon followed by a comment (e.g. "; -- comment") causes sqlglot to
+    produce Block([Create, Semicolon]). Without filtering the Semicolon node,
+    parse_statement raises "Block contains 2 statements" and lineage is lost.
+
+    This is the pattern behind ~2,600 view parse failures observed in a
+    Snowflake ingestion run.
+    """
+    assert_sql_result(
+        """
+CREATE VIEW my_view AS SELECT id, name FROM my_db.my_schema.my_table
+WHERE active = TRUE; -- end of view
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_create_view_block_semicolon_with_comment.json",
+    )
+
+
 def test_create_view_as_block_statement() -> None:
     """Test Block with multiple statements where only 1 is not None.
 
@@ -258,6 +342,23 @@ def test_block_with_multiple_statements() -> None:
     assert result.debug_info.table_error is not None
     assert "Block contains 2 statements" in str(result.debug_info.table_error)
     assert "Use parse_statements_and_pick" in str(result.debug_info.table_error)
+
+
+def test_identifier_dynamic_arg_skips_only_that_table() -> None:
+    """A non-literal IDENTIFIER(...) can't be resolved, but it must not drop lineage for the
+    real tables in the same query."""
+    result = sqlglot_lineage(
+        "SELECT r.x FROM db.schema.real_table r "
+        "JOIN IDENTIFIER('prefix_' || r.col) d ON r.id = d.id",
+        schema_resolver=SchemaResolver(
+            platform="snowflake",
+            platform_instance=None,
+            env="PROD",
+        ),
+    )
+    assert result.debug_info.table_error is None
+    assert len(result.in_tables) == 1
+    assert any("real_table" in urn for urn in result.in_tables)
 
 
 def test_snowflake_create_table_as_select_with_tag() -> None:
@@ -394,6 +495,101 @@ WHERE post_id LIKE '%12345%'
             },
         },
         expected_file=RESOURCE_DIR / "test_select_from_struct_subfields.json",
+    )
+
+
+def test_select_struct_subfields_from_cte() -> None:
+    # The struct subfield access happens inside the CTE, so the leaf's immediate
+    # parent is the CTE's select expression -- the outer select doesn't mention
+    # `widget` at all. This guards subfield reconstruction across nesting levels.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT
+        post_id,
+        widget.asset.id AS asset_id,
+        min(widget.metric.metricA, widget.metric.metric_b) AS min_metric
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, asset_id, min_metric
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+                "widget.metric.metricA": "int",
+                "widget.metric.metric_b": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_select_struct_subfields_from_cte.json",
+    )
+
+
+def test_select_struct_subfield_through_cte_passthrough() -> None:
+    # Here the CTE selects the bare `widget` struct and the subfield access
+    # (`widget.asset.id`) happens in the *outer* query. The leaf's immediate
+    # parent is the CTE projection `widget AS widget`, which no longer carries
+    # the subfield, so reconstruction can only recover the base column. Lineage
+    # correctly coarsens to `widget` rather than inventing a subfield. This is a
+    # known limitation: subfield access does not propagate across scope boundaries.
+    assert_sql_result(
+        """
+WITH cte AS (
+    SELECT post_id, widget
+    FROM data_reporting.abcde_transformed
+)
+SELECT post_id, widget.asset.id AS asset_id
+FROM cte
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.data_reporting.abcde_transformed,PROD)": {
+                "post_id": "NUMBER",
+                "widget": "struct",
+                "widget.asset.id": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_select_struct_subfield_through_cte_passthrough.json",
+    )
+
+
+def test_join_struct_subfields_shared_base_name() -> None:
+    # Two joined tables both expose a struct column named `widget`, each accessed
+    # with a different subfield. sqlglot inserts an intermediate projection per
+    # joined table (`widget AS widget`), so the subfield access in the root select
+    # is one scope above each leaf and lineage coarsens to the base column. The
+    # important guarantee: each base column still resolves to the *correct* table
+    # (a_color -> table_a.widget, b_size -> table_b.widget) -- the shared base name
+    # never causes a subfield to attach to the wrong table.
+    assert_sql_result(
+        """
+SELECT
+    a.widget.color AS a_color,
+    b.widget.size AS b_size
+FROM my_schema.table_a a
+JOIN my_schema.table_b b ON a.id = b.a_id
+""",
+        dialect="bigquery",
+        default_db="my-bq-proj",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_a,PROD)": {
+                "id": "int",
+                "widget": "struct",
+                "widget.color": "string",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:bigquery,my-bq-proj.my_schema.table_b,PROD)": {
+                "a_id": "int",
+                "widget": "struct",
+                "widget.size": "int",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_join_struct_subfields_shared_base_name.json",
     )
 
 
@@ -560,6 +756,157 @@ FROM snowflake_sample_data.tpch_sf1.orders o
             },
         },
         expected_file=RESOURCE_DIR / "test_snowflake_ctas_column_normalization.json",
+    )
+
+
+def test_snowflake_case_sensitive_quoted_column_lineage() -> None:
+    # Regression guard for the case-sensitive column lineage fix.
+    #
+    # The output column is handed to sqlglot.lineage.lineage() with its identifier
+    # marked case_sensitive so sqlglot's normalize_identifiers leaves the casing
+    # alone. If that marker is dropped, Snowflake (UPPERCASE strategy) case-folds
+    # "CustomerName" to CUSTOMERNAME, the column can no longer be found in the query,
+    # and the upstream edge is silently dropped -- i.e. this assertion would see an
+    # empty column_lineage. See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+SELECT "CustomerName" AS "FullName"
+FROM db.sch.tbl
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_quoted_column_lineage.json",
+    )
+
+
+def test_snowflake_case_sensitive_column_through_cte() -> None:
+    # Regression guard for the case-sensitive column lineage fix, this time with
+    # the quoted column "CustomerName" flowing through a CTE, exercising scope
+    # resolution across the CTE -> outer SELECT hop. As with the non-CTE case,
+    # dropping the case_sensitive marker lets Snowflake case-fold the projection
+    # lookup so the upstream edge is silently dropped.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        """
+WITH staged AS (
+    SELECT "CustomerName" FROM db.sch.tbl
+)
+SELECT "CustomerName" AS "FullName"
+FROM staged
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tbl,PROD)": {
+                "CustomerName": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_case_sensitive_column_through_cte.json",
+    )
+
+
+def test_hive_select_star_mixed_case_column_lineage() -> None:
+    # Regression guard for dialects that fold identifiers *even when quoted*
+    # (Spark/Hive/Redshift/Trino/...) and aren't in DIALECTS_WITH_CASE_INSENSITIVE_COLS,
+    # so their schema keeps its mixed case. A SELECT * expands to the columns' real
+    # casing (eventId), so the lineage lookup must not be re-folded. Passing the
+    # lookup column as quoted=True alone is not enough here -- it case-folds
+    # "eventId" to "eventid", the column is no longer found, and the upstream edge
+    # is silently dropped. Marking the identifier case_sensitive keeps it verbatim.
+    # See https://github.com/tobymao/sqlglot/issues/7733.
+    assert_sql_result(
+        "SELECT * FROM my_schema.events",
+        dialect="hive",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:hive,my_schema.events,PROD)": {
+                "eventId": "BIGINT",
+                "userId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_hive_select_star_mixed_case_column_lineage.json",
+    )
+
+
+def test_databricks_case_sensitive_column_lineage() -> None:
+    # Databricks matches columns case-insensitively, so the schema is folded before
+    # the SELECT * expansion. With no output table, the output columns still take
+    # their upstream column's declared casing (betStatusId). This mirrors the Unity
+    # Catalog view-lineage path and a dbt model compiled to a bare SELECT.
+    assert_sql_result(
+        "SELECT * FROM hive_metastore.bronze_kambi.bet",
+        dialect="databricks",
+        default_db="hive_metastore",
+        default_schema="bronze_kambi",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,hive_metastore.bronze_kambi.bet,PROD)": {
+                "betStatusId": "BIGINT",
+                "channelId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_case_sensitive_column_lineage.json",
+    )
+
+
+def test_databricks_explicit_mixed_case_columns() -> None:
+    # Databricks folds every query column to lowercase, even backticked ones. Unlike
+    # SELECT *, which expands from the schema, named columns only resolve to the
+    # schema's mixed-case fields through the case-insensitive lookup.
+    assert_sql_result(
+        """
+SELECT o.orderId, `customerId`, amountUsd
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+                "amountUsd": "DOUBLE",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_databricks_explicit_mixed_case_columns.json",
+    )
+
+
+def test_databricks_multi_upstream_mixed_case_columns() -> None:
+    # A column fed by several upstream columns of the same name (UNION, COALESCE)
+    # takes their casing when they agree, as a single upstream column does.
+    assert_sql_result(
+        """
+SELECT COALESCE(o.orderId, p.orderId) AS orderId, o.customerId
+FROM my_catalog.my_schema.orders o
+JOIN my_catalog.my_schema.payments p ON o.orderId = p.orderId
+UNION ALL
+SELECT orderId, customerId
+FROM my_catalog.my_schema.orders_archive
+""",
+        dialect="databricks",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.payments,PROD)": {
+                "orderId": "BIGINT",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:databricks,my_catalog.my_schema.orders_archive,PROD)": {
+                "orderId": "BIGINT",
+                "customerId": "BIGINT",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_databricks_multi_upstream_mixed_case_columns.json",
     )
 
 
@@ -1498,6 +1845,16 @@ DROP VIEW my_schema.my_view
     )
 
 
+def test_postgres_drop_multiple_tables() -> None:
+    assert_sql_result(
+        """\
+DROP TABLE my_schema.my_table_a, my_schema.my_table_b
+""",
+        dialect="postgres",
+        expected_file=RESOURCE_DIR / "test_postgres_drop_multiple_tables.json",
+    )
+
+
 def test_snowflake_drop_schema() -> None:
     assert_sql_result(
         """\
@@ -1521,6 +1878,445 @@ WHERE rank_ = 1
         dialect="bigquery",
         expected_file=RESOURCE_DIR / "test_bigquery_subquery_column_inference.json",
     )
+
+
+def test_star_cte_over_table_without_schema() -> None:
+    # Only my_table_b has schema info, so the CTE's star can't be expanded. sqlglot
+    # 30.21's pushdown_projections raises on that; the legacy fallback narrows the star
+    # to the columns the outer query reads, which keeps column lineage for col_a.
+    assert_sql_result(
+        """\
+WITH c AS (SELECT * FROM my_db.my_schema.my_table_a)
+SELECT c.col_a, b.col_b
+FROM c
+JOIN my_db.my_schema.my_table_b b ON c.id = b.id
+""",
+        dialect="snowflake",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.my_table_b,PROD)": {
+                "id": "NUMBER",
+                "col_b": "VARCHAR",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_star_cte_over_table_without_schema.json",
+    )
+
+
+def test_snowflake_unaliased_expression_column_name() -> None:
+    # sqlglot names the unaliased CURRENT_TIMESTAMP projection `_COL_1` under the
+    # Snowflake dialect; we should still name the column after the expression.
+    assert_sql_result(
+        """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, CURRENT_TIMESTAMP FROM my_db.my_schema.my_source
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_unaliased_expression_column_name.json",
+    )
+
+
+def test_snowflake_explicit_synthetic_alias() -> None:
+    # A user-written `_col_5` alias looks like a name sqlglot generates (it names the
+    # unaliased CURRENT_TIMESTAMP `_COL_1`), but must keep its name.
+    assert_sql_result(
+        """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a AS _col_5, CURRENT_TIMESTAMP FROM my_db.my_schema.my_source
+""",
+        dialect="snowflake",
+        expected_file=RESOURCE_DIR / "test_snowflake_explicit_synthetic_alias.json",
+    )
+
+
+_TABLE_A_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_a,PROD)"
+)
+_TABLE_B_URN = (
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.table_b,PROD)"
+)
+_TABLE_B_SCHEMA = {_TABLE_B_URN: {"id": "NUMBER", "col_b": "VARCHAR"}}
+_IMPORT_CTES_SQL = """\
+WITH orders AS (SELECT * FROM my_db.my_schema.orders),
+customers AS (SELECT * FROM my_db.my_schema.customers),
+payments AS (SELECT * FROM my_db.my_schema.payments)
+SELECT orders.order_id, customers.first_name, payments.amount
+FROM orders
+JOIN customers ON orders.customer_id = customers.id
+JOIN payments ON payments.order_id = orders.order_id
+"""
+_ORDERS_SCHEMA = {
+    "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)": {
+        "order_id": "NUMBER",
+        "customer_id": "NUMBER",
+    }
+}
+
+
+@pytest.mark.parametrize(
+    "shape, sql, partial_schema",
+    [
+        pytest.param(
+            "non_first_star_cte",
+            """\
+WITH b AS (SELECT id, col_b FROM my_db.my_schema.table_b),
+a AS (SELECT * FROM my_db.my_schema.table_a)
+SELECT a.col_a, b.col_b FROM a JOIN b ON a.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="non_first_star_cte",
+        ),
+        pytest.param("import_ctes", _IMPORT_CTES_SQL, _ORDERS_SCHEMA, id="import_ctes"),
+        pytest.param(
+            "insert_import_ctes",
+            f"INSERT INTO my_db.my_schema.my_target\n{_IMPORT_CTES_SQL}",
+            _ORDERS_SCHEMA,
+            id="insert_import_ctes",
+        ),
+        pytest.param(
+            "nested_stars",
+            """\
+SELECT x.col_a, b.col_b
+FROM (SELECT * FROM (SELECT * FROM my_db.my_schema.table_a) y) x
+JOIN my_db.my_schema.table_b b ON x.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="nested_stars",
+        ),
+        pytest.param(
+            "chained_star_ctes",
+            """\
+WITH c1 AS (SELECT * FROM my_db.my_schema.table_a),
+c2 AS (SELECT * FROM c1)
+SELECT c2.col_a, b.col_b FROM c2 JOIN my_db.my_schema.table_b b ON c2.id = b.id
+""",
+            _TABLE_B_SCHEMA,
+            id="chained_star_ctes",
+        ),
+        pytest.param(
+            "star_over_join",
+            """\
+SELECT x.col_a, x.col_b
+FROM (
+    SELECT * FROM my_db.my_schema.table_a a
+    JOIN my_db.my_schema.table_b b ON a.id = b.id
+) x
+""",
+            _TABLE_B_SCHEMA,
+            id="star_over_join",
+        ),
+    ],
+)
+@pytest.mark.parametrize("with_partial_schema", [False, True])
+def test_star_without_schema_keeps_column_lineage(
+    shape: str,
+    sql: str,
+    partial_schema: dict,
+    with_partial_schema: bool,
+) -> None:
+    # Each star is over a table without schema info, so only the vendored 30.20
+    # pushdown_projections can narrow it, attributing the columns the outer query reads
+    # to that table. A partial schema must not change that.
+    variant = "partial_schema" if with_partial_schema else "no_schema"
+    assert_sql_result(
+        sql,
+        dialect="snowflake",
+        schemas=partial_schema if with_partial_schema else None,
+        expected_file=RESOURCE_DIR / f"test_star_without_schema_{shape}_{variant}.json",
+    )
+
+
+def test_partial_schema_drops_unknown_column() -> None:
+    # new_col is not in table_a's known schema. sqlglot.lineage attributes it to the
+    # sole source anyway, which would emit a schemaField that doesn't exist.
+    assert_sql_result(
+        """\
+SELECT col_a, new_col FROM my_db.my_schema.table_a
+""",
+        dialect="snowflake",
+        schemas={_TABLE_A_URN: {"col_a": "NUMBER"}},
+        expected_file=RESOURCE_DIR / "test_partial_schema_drops_unknown_column.json",
+    )
+
+
+def test_inferred_column_takes_schema_case() -> None:
+    # MySQL column names are case-insensitive, but sqlglot qualifies them by exact
+    # name. The column lineage() infers must still name the declared column.
+    assert_sql_result(
+        """\
+SELECT COLUMNA FROM my_db.table_a
+""",
+        dialect="mysql",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.table_a,PROD)": {
+                "columnA": "INT",
+            },
+        },
+        expected_file=RESOURCE_DIR / "test_inferred_column_takes_schema_case.json",
+    )
+
+
+def test_bigquery_struct_field_without_schema() -> None:
+    # Without schema info, `s.f` is field f of struct column s of the only source.
+    assert_sql_result(
+        """\
+SELECT s.f, col_a FROM my_project.my_dataset.table_a
+""",
+        dialect="bigquery",
+        expected_file=RESOURCE_DIR / "test_bigquery_struct_field_without_schema.json",
+    )
+
+
+def _schema_resolver(
+    platform: str, schemas: Dict[str, Dict[str, str]]
+) -> SchemaResolver:
+    resolver = SchemaResolver(platform=platform)
+    for table, columns in schemas.items():
+        resolver.add_raw_schema_info(
+            f"urn:li:dataset:(urn:li:dataPlatform:{platform},{table},PROD)", columns
+        )
+    return resolver
+
+
+def _column_upstreams(
+    sql: str,
+    platform: str,
+    schemas: Optional[Dict[str, Dict[str, str]]] = None,
+) -> Dict[str, List[str]]:
+    result = sqlglot_lineage(
+        sql,
+        _schema_resolver(platform, schemas or {}),
+        default_db="my_db",
+        default_schema="my_schema",
+    )
+    assert result.debug_info.column_error is None
+    return {
+        info.downstream.column: sorted(
+            f"{DatasetUrn.from_string(upstream.table).name}.{upstream.column}"
+            for upstream in info.upstreams
+        )
+        for info in result.column_lineage or []
+    }
+
+
+_TARGET_SCHEMA = {"my_db.my_schema.my_target": {"col_a": "NUMBER", "col_b": "NUMBER"}}
+
+
+@pytest.mark.parametrize(
+    "platform, sql, schemas, expected",
+    [
+        pytest.param(
+            # Only the target's schema is known, so `source` keeps its star and the
+            # unqualified columns of `renamed` can't be checked against it. Taking
+            # lineage()'s guess would make the columns `source` filters on, here
+            # col_deleted, the upstream of every column.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+WITH source AS (
+    SELECT * FROM my_db.my_schema.table_a WHERE col_deleted = FALSE
+), renamed AS (SELECT id AS col_a, col_x AS col_b FROM source)
+SELECT * FROM renamed
+""",
+            _TARGET_SCHEMA,
+            {"col_a": [], "col_b": []},
+            id="cte_star_without_schema",
+        ),
+        pytest.param(
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, col_b FROM (
+    SELECT * FROM my_db.my_schema.table_a
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY id ORDER BY updated_at DESC) = 1
+)
+""",
+            _TARGET_SCHEMA,
+            {"col_a": [], "col_b": []},
+            id="subquery_star_without_schema",
+        ),
+        pytest.param(
+            # Pseudocolumns are supplied by the warehouse, never by the table.
+            "bigquery",
+            """\
+SELECT PARSE_DATE('%Y%m%d', _TABLE_SUFFIX) AS event_date, col_a
+FROM my_project.my_dataset.events_*
+WHERE _TABLE_SUFFIX BETWEEN '20240101' AND '20240131'
+""",
+            # The resolver looks wildcard tables up under their normalized name.
+            {"my_project.my_dataset.events_yyyymmdd": {"col_a": "STRING"}},
+            {
+                "event_date": [],
+                "col_a": ["my_project.my_dataset.events_yyyymmdd.col_a"],
+            },
+            id="pseudocolumn",
+        ),
+        pytest.param(
+            # col_v belongs to the scalar subquery's table_b, wherever it's listed.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT col_a, (SELECT MAX(col_v) FROM table_b) AS col_b FROM table_a
+""",
+            _TARGET_SCHEMA,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_b": ["my_db.my_schema.table_b.col_v"],
+            },
+            id="scalar_subquery_column",
+        ),
+        pytest.param(
+            # The dynamic table name only costs the column read from it.
+            "snowflake",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT x.col_a, y.col_b
+FROM table_a x JOIN (SELECT col_b, k FROM IDENTIFIER($tbl)) y ON x.k = y.k
+""",
+            None,
+            {"col_a": ["my_db.my_schema.table_a.col_a"]},
+            id="dynamic_identifier",
+        ),
+        pytest.param(
+            # A guess the schema rejects must not drop an explicit reference to the
+            # same column elsewhere in the statement.
+            "postgres",
+            """\
+INSERT INTO my_db.my_schema.my_target
+SELECT t.col_x AS col_a FROM my_db.my_schema.table_a AS t
+WHERE EXISTS (SELECT 1 FROM my_db.my_schema.table_a WHERE col_x > 0)
+""",
+            {"my_db.my_schema.table_a": {"col_y": "INT"}},
+            {"col_a": ["my_db.my_schema.table_a.col_x"]},
+            id="rejected_guess_keeps_explicit_reference",
+        ),
+        pytest.param(
+            "bigquery",
+            """\
+SELECT product, q1 FROM my_project.my_dataset.table_a
+PIVOT(SUM(sales) FOR quarter IN ('Q1', 'Q2'))
+""",
+            None,
+            {
+                "product": ["my_project.my_dataset.table_a.product"],
+                "q1": ["my_project.my_dataset.table_a.sales"],
+            },
+            id="pivot",
+        ),
+        pytest.param(
+            "mssql",
+            """\
+SELECT col_id, col_month, col_value
+FROM table_a UNPIVOT (col_value FOR col_month IN (jan, feb)) AS u
+""",
+            None,
+            {
+                "col_id": ["my_db.my_schema.table_a.col_id"],
+                "col_month": [
+                    "my_db.my_schema.table_a.feb",
+                    "my_db.my_schema.table_a.jan",
+                ],
+                "col_value": [
+                    "my_db.my_schema.table_a.feb",
+                    "my_db.my_schema.table_a.jan",
+                ],
+            },
+            id="unpivot",
+        ),
+        pytest.param(
+            # sqlglot qualifies the lateral's `col_y` with the lateral's own alias.
+            "postgres",
+            """\
+SELECT col_a, l.col_y
+FROM table_a, LATERAL (SELECT col_y FROM table_b WHERE table_b.k = table_a.k) AS l
+""",
+            None,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_y": [
+                    "my_db.my_schema.table_a.k",
+                    "my_db.my_schema.table_b.col_y",
+                    "my_db.my_schema.table_b.k",
+                ],
+            },
+            id="lateral_subquery",
+        ),
+        pytest.param(
+            # Postgres could read `status` as the whole row of table `status`.
+            "postgres",
+            "SELECT status, col_a FROM my_db.my_schema.status",
+            None,
+            {
+                "status": ["my_db.my_schema.status.status"],
+                "col_a": ["my_db.my_schema.status.col_a"],
+            },
+            id="column_named_like_its_table",
+        ),
+        pytest.param(
+            # The window's ORDER BY col_b names the source column, not the projection.
+            "snowflake",
+            """\
+WITH a AS (SELECT * FROM table_a), b AS (SELECT * FROM table_b),
+ranked AS (
+    SELECT col_a, col_b, ROW_NUMBER() OVER (PARTITION BY col_a ORDER BY col_b) AS rn
+    FROM a
+)
+SELECT * FROM ranked
+""",
+            None,
+            {
+                "col_a": ["my_db.my_schema.table_a.col_a"],
+                "col_b": ["my_db.my_schema.table_a.col_b"],
+                "rn": [
+                    "my_db.my_schema.table_a.col_a",
+                    "my_db.my_schema.table_a.col_b",
+                ],
+            },
+            id="window_order_by",
+        ),
+    ],
+)
+def test_single_source_inference(
+    platform: str,
+    sql: str,
+    schemas: Optional[Dict[str, Dict[str, str]]],
+    expected: Dict[str, List[str]],
+) -> None:
+    assert _column_upstreams(sql, platform, schemas) == expected
+
+
+def test_join_columns_skip_unknown_inferred_column() -> None:
+    # col_z is not in table_b's known schema, so the join must not name it.
+    result = sqlglot_lineage(
+        """\
+SELECT a.col_a FROM my_db.my_schema.table_a a
+JOIN (SELECT k, col_z FROM my_db.my_schema.table_b) b ON a.k = b.k AND b.col_z = 1
+""",
+        _schema_resolver(
+            "postgres",
+            {
+                "my_db.my_schema.table_a": {"col_a": "INT", "k": "INT"},
+                "my_db.my_schema.table_b": {"k": "INT"},
+            },
+        ),
+    )
+    assert result.joins is not None
+    assert [
+        sorted(
+            f"{DatasetUrn.from_string(column.table).name}.{column.column}"
+            for column in join.columns_involved
+        )
+        for join in result.joins
+    ] == [["my_db.my_schema.table_a.k", "my_db.my_schema.table_b.k"]]
+
+
+def test_drop_index_has_no_inputs() -> None:
+    result = sqlglot_lineage(
+        "DROP INDEX ix_orders ON my_schema.orders",
+        SchemaResolver(platform="mssql"),
+        default_db="my_db",
+    )
+    assert result.in_tables == []
 
 
 def test_sqlite_attach_database() -> None:
@@ -1936,6 +2732,144 @@ FROM db1.events
     )
 
 
+def test_clickhouse_typed_dictget_lineage() -> None:
+    assert_sql_result(
+        """\
+SELECT
+    dictGetString('db.string_dict', 'value', id) AS string_value,
+    dictGetUInt64OrDefault('db.default_dict', 'value', id, 0) AS default_value
+FROM db.src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR / "test_clickhouse_typed_dictget.json",
+    )
+
+
+@pytest.mark.parametrize("function_name", sorted(_CLICKHOUSE_DICTIONARY_FUNCTIONS))
+@pytest.mark.parametrize("dictionary_arg", ["'db.my_dict'", "my_dict"])
+def test_clickhouse_dictionary_function_adds_dictionary_upstream(
+    function_name: str, dictionary_arg: str
+) -> None:
+    # Guards against a sqlglot upgrade parsing a dict* function into a typed node
+    # instead of exp.Anonymous, which would silently drop the dictionary upstream.
+    result = sqlglot_lineage(
+        f"SELECT {function_name}({dictionary_arg}, 'value', id) AS v FROM db.src",
+        schema_resolver=SchemaResolver(platform="clickhouse"),
+        default_schema="db",
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.my_dict,PROD)"
+        in result.in_tables
+    )
+
+
+def test_clickhouse_dict_prefixed_function_is_not_a_dictionary() -> None:
+    assert_sql_result(
+        """\
+SELECT dictLookup(t.payload, 'k') AS v
+FROM db.src t
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_dict_prefixed_non_dictionary.json",
+    )
+
+
+def test_clickhouse_table_function_is_not_a_table() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT e.id, r.name
+FROM db1.events e
+JOIN mysql('host:3306', 'remote_db', 'remote_table', 'user', 'pass') r ON e.id = r.id
+""",
+        dialect="clickhouse",
+        default_schema="db1",
+        expected_file=RESOURCE_DIR / "test_clickhouse_table_function.json",
+    )
+
+
+def test_postgres_table_function_without_default_schema() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO s.target
+SELECT a.id, g.n FROM s.a CROSS JOIN generate_series(1, 10) AS g(n)
+""",
+        dialect="postgres",
+        expected_file=RESOURCE_DIR / "test_postgres_table_function.json",
+    )
+
+
+def test_postgres_qualified_table_function() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO public.target
+SELECT a.id, f.v FROM public.a a JOIN public.my_fn(1) f ON a.id = f.id
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="public",
+        expected_file=RESOURCE_DIR / "test_postgres_qualified_table_function.json",
+    )
+
+
+def test_postgres_join_through_subquery_with_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id FROM s.a a
+JOIN (SELECT b.id, b.v, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) s2
+  ON a.id = s2.id AND a.n = s2.x
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_join_through_subquery_with_table_function.json",
+    )
+
+
+def test_postgres_cross_join_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT 1
+FROM (SELECT b.id, g.x FROM s.b b CROSS JOIN generate_series(1, 3) g(x)) t
+CROSS JOIN s.b
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_cross_join_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_postgres_lateral_table_function_is_not_a_self_join() -> None:
+    assert_sql_result(
+        """\
+SELECT a.id, l.n FROM s.a a, LATERAL (SELECT n FROM generate_series(1, 3) AS g(n)) l
+""",
+        dialect="postgres",
+        default_db="db1",
+        default_schema="s",
+        expected_file=RESOURCE_DIR
+        / "test_postgres_lateral_table_function_is_not_a_self_join.json",
+    )
+
+
+def test_bigquery_table_inside_table_function() -> None:
+    assert_sql_result(
+        """\
+SELECT * FROM ML.PREDICT(MODEL `p.d.model`, TABLE `p.d.features`)
+""",
+        dialect="bigquery",
+        default_db="p",
+        default_schema="d",
+        expected_file=RESOURCE_DIR / "test_bigquery_table_inside_table_function.json",
+    )
+
+
 def test_clickhouse_dictget_in_materialized_view() -> None:
     # dictGet table in in_tables, TO table in out_tables (not in_tables).
     # Guards against operator precedence bug where `- modified` doesn't
@@ -1951,6 +2885,171 @@ FROM db1.raw_events
         dialect="clickhouse",
         expected_file=RESOURCE_DIR
         / "test_clickhouse_dictget_in_materialized_view.json",
+    )
+
+
+def test_clickhouse_bare_dictget_resolves_global_xml_dictionary() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_resolves_global_xml_dictionary.json",
+    )
+
+
+def test_clickhouse_bare_dictget_does_not_replace_same_named_table() -> None:
+    """Pins precedence: a global dictionary beats the same name in the current database."""
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM db.My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_same_named_table.json",
+    )
+
+
+def test_clickhouse_bare_dictget_falls_back_to_current_database() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('Ddl_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.Ddl_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_falls_back_to_current_database.json",
+    )
+
+
+def test_clickhouse_bare_dictget_ignores_case_folded_global() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,my_dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_ignores_case_folded_global.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO My_Dict
+SELECT dictGet('My_Dict', 'v', id) AS v
+FROM src
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.src,PROD)": {
+                "id": "UInt64",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_target_keeps_db_urn.json",
+    )
+
+
+def test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn() -> None:
+    assert_sql_result(
+        """\
+INSERT INTO target (v, w)
+SELECT dictGet('My_Dict', 'v', id) AS v, w
+FROM My_Dict
+""",
+        dialect="clickhouse",
+        default_schema="db",
+        schemas={
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)": {
+                "id": "UInt64",
+                "w": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)": {
+                "id": "UInt64",
+                "v": "String",
+            },
+            "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)": {
+                "v": "String",
+                "w": "String",
+            },
+        },
+        expected_file=RESOURCE_DIR
+        / "test_clickhouse_bare_dictget_unqualified_source_keeps_db_urn.json",
     )
 
 

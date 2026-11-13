@@ -1,0 +1,22 @@
+{
+    "logOut": "Kirjaudu ulos",
+    "nav.access": "Pääsy",
+    "nav.accessTokens": "Käyttöoikeustunnukset",
+    "nav.appearance": "Ulkoasu",
+    "nav.developer": "Kehittäjä",
+    "nav.features": "Ominaisuudet",
+    "nav.homePage": "Etusivu",
+    "nav.manage": "Hallinta",
+    "nav.myNotifications": "Omat ilmoitukset",
+    "nav.mySubscriptions": "Omat tilaukset",
+    "nav.ownershipTypes": "Omistajuustyypit",
+    "nav.permissions": "Käyttöoikeudet",
+    "nav.personal": "Henkilökohtainen",
+    "nav.preferences": "Asetukset",
+    "nav.usersGroups": "Käyttäjät ja ryhmät",
+    "nav.views": "Näkymät",
+    "nav.collapseSidebar": "Pienennä asetusten sivupalkki",
+    "nav.expandSidebar": "Laajenna asetusten sivupalkki",
+    "subTitle": "Hallitse asetuksiasi",
+    "title": "Asetukset"
+}

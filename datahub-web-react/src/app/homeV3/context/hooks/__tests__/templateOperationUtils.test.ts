@@ -1,8 +1,10 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
+    TemplateOperation,
     TemplateUpdateContext,
+    getOperationErrorMessage,
     getTemplateToUpdate,
     handleValidationError,
     persistTemplateChanges,
@@ -13,10 +15,15 @@ import {
 import { PageTemplateFragment } from '@graphql/template.generated';
 import { EntityType, PageTemplateScope, PageTemplateSurfaceType } from '@types';
 
-// Mock antd message
-vi.mock('antd', () => ({
-    message: {
-        error: vi.fn(() => ({ key: 'test-message' })),
+// Mock alchemy toast
+vi.mock('@components', () => ({
+    toast: {
+        success: vi.fn(),
+        error: vi.fn(() => undefined),
+        warning: vi.fn(),
+        info: vi.fn(),
+        loading: vi.fn(),
+        destroy: vi.fn(),
     },
 }));
 
@@ -215,7 +222,7 @@ describe('Template Operation Utils', () => {
             const updatedTemplate = { ...mockPersonalTemplate, urn: 'urn:li:pageTemplate:updated' };
             mockUpsertTemplate.mockResolvedValue({});
 
-            await persistTemplateChanges(context, updatedTemplate, true, 'test operation');
+            await persistTemplateChanges(context, updatedTemplate, true, 'addModule');
 
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).not.toHaveBeenCalledWith(mockPersonalTemplate); // No revert
@@ -237,12 +244,12 @@ describe('Template Operation Utils', () => {
 
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            await persistTemplateChanges(context, updatedTemplate, true, 'test operation');
+            await persistTemplateChanges(context, updatedTemplate, true, 'addModule');
 
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, true, mockPersonalTemplate);
             expect(mockSetPersonalTemplate).toHaveBeenCalledWith(mockPersonalTemplate); // Revert call
-            expect(consoleSpy).toHaveBeenCalledWith('Failed to test operation:', error);
-            expect(message.error).toHaveBeenCalledWith('Failed to test operation');
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to addModule:', error);
+            expect(toast.error).toHaveBeenCalledWith('Failed to add module');
 
             consoleSpy.mockRestore();
         });
@@ -263,12 +270,12 @@ describe('Template Operation Utils', () => {
 
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            await persistTemplateChanges(context, updatedTemplate, false, 'test operation');
+            await persistTemplateChanges(context, updatedTemplate, false, 'removeModule');
 
             expect(mockUpsertTemplate).toHaveBeenCalledWith(updatedTemplate, false, mockPersonalTemplate);
             expect(mockSetGlobalTemplate).toHaveBeenCalledWith(mockGlobalTemplate); // Revert call
-            expect(consoleSpy).toHaveBeenCalledWith('Failed to test operation:', error);
-            expect(message.error).toHaveBeenCalledWith('Failed to test operation');
+            expect(consoleSpy).toHaveBeenCalledWith('Failed to removeModule:', error);
+            expect(toast.error).toHaveBeenCalledWith('Failed to remove module');
 
             consoleSpy.mockRestore();
         });
@@ -285,7 +292,7 @@ describe('Template Operation Utils', () => {
 
             mockUpsertTemplate.mockResolvedValue({});
 
-            await persistTemplateChanges(context, null, true, 'test operation');
+            await persistTemplateChanges(context, null, true, 'addModule');
 
             expect(mockUpsertTemplate).toHaveBeenCalledWith(null, true, mockPersonalTemplate);
         });
@@ -298,7 +305,7 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(false);
             expect(console.error).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should return true and log error when validation error exists', () => {
@@ -309,30 +316,48 @@ describe('Template Operation Utils', () => {
 
             expect(result).toBe(true);
             expect(consoleSpy).toHaveBeenCalledWith('Invalid test operation input:', validationError);
-            expect(message.error).toHaveBeenCalledWith(validationError);
+            expect(toast.error).toHaveBeenCalledWith(validationError);
 
             consoleSpy.mockRestore();
+        });
+    });
+
+    describe('getOperationErrorMessage', () => {
+        const cases: [TemplateOperation, string][] = [
+            ['addModule', 'Failed to add module'],
+            ['removeModule', 'Failed to remove module'],
+            ['moveModule', 'Failed to move module'],
+            ['createModule', 'Failed to create module'],
+            ['updateModule', 'Failed to update module'],
+            ['replaceGlobalModule', 'Failed to replace global module'],
+            ['addSummaryElement', 'Failed to add summary element'],
+            ['removeSummaryElement', 'Failed to remove summary element'],
+            ['replaceSummaryElement', 'Failed to replace summary element'],
+        ];
+
+        it.each(cases)('%s returns the correct translated message', (operation, expected) => {
+            expect(getOperationErrorMessage(operation)).toBe(expected);
         });
     });
 
     describe('validateTemplateAvailability', () => {
         it('should return true when template is available', () => {
             vi.spyOn(console, 'error').mockImplementation(() => {});
-            const result = validateTemplateAvailability(mockPersonalTemplate);
+            const result = validateTemplateAvailability(mockPersonalTemplate, 'No template available to update');
 
             expect(result).toBe(true);
             expect(console.error).not.toHaveBeenCalled();
-            expect(message.error).not.toHaveBeenCalled();
+            expect(toast.error).not.toHaveBeenCalled();
         });
 
         it('should return false and log error when template is null', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            const result = validateTemplateAvailability(null);
+            const result = validateTemplateAvailability(null, 'No template available to update');
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(message.error).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
 
             consoleSpy.mockRestore();
         });
@@ -340,11 +365,11 @@ describe('Template Operation Utils', () => {
         it('should return false and log error when template is undefined', () => {
             const consoleSpy = vi.spyOn(console, 'error').mockImplementation(() => {});
 
-            const result = validateTemplateAvailability(undefined as any);
+            const result = validateTemplateAvailability(undefined as any, 'No template available to update');
 
             expect(result).toBe(false);
             expect(consoleSpy).toHaveBeenCalledWith('No template provided to update');
-            expect(message.error).toHaveBeenCalledWith('No template available to update');
+            expect(toast.error).toHaveBeenCalledWith('No template available to update');
 
             consoleSpy.mockRestore();
         });

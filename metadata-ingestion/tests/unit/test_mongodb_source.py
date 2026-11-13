@@ -1,17 +1,31 @@
-from typing import Any, Dict, List
+import uuid
+from typing import Any, Dict, List, Optional, Set
 from unittest.mock import MagicMock, patch
 
 import bson
 import pytest
+from bson.binary import UuidRepresentation
+from bson.codec_options import CodecOptions
+from pydantic import ValidationError
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.mongodb import MongoDBConfig, MongoDBSource
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.mongodb import (
+    HostingEnvironment,
+    MongoDBConfig,
+    MongoDBSource,
+)
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeProposal
 from datahub.metadata.schema_classes import (
+    BytesTypeClass,
     ContainerPropertiesClass,
+    DataPlatformInstanceClass,
     DatasetPropertiesClass,
+    SchemaFieldClass,
     SchemaMetadataClass,
+    StringTypeClass,
+    TimeTypeClass,
 )
 from datahub.utilities.urns.urn import guess_entity_type
 
@@ -28,6 +42,30 @@ def mock_mongo_client():
 @pytest.fixture
 def pipeline_context():
     return PipelineContext(run_id="test-mongodb-run")
+
+
+def get_schema_metadata_aspects(
+    workunits: List[MetadataWorkUnit],
+) -> List[SchemaMetadataClass]:
+    """Extract all SchemaMetadata aspects from a list of workunits."""
+    return [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
+    ]
+
+
+def get_dataset_urns(workunits: List[MetadataWorkUnit]) -> Set[str]:
+    """Extract the set of dataset entity URNs emitted by a list of workunits."""
+    return {
+        wu.metadata.entityUrn
+        for wu in workunits
+        if isinstance(
+            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
+        )
+        and wu.metadata.entityUrn
+        and guess_entity_type(wu.metadata.entityUrn) == "dataset"
+    }
 
 
 def test_mongodb_schema_inference_respects_max_schema_size(
@@ -66,11 +104,7 @@ def test_mongodb_schema_inference_respects_max_schema_size(
 
     workunits = list(source.get_workunits_internal())
 
-    schema_metadata_aspects = [
-        aspect
-        for wu in workunits
-        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
-    ]
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
 
     assert len(schema_metadata_aspects) == 1
     schema_metadata = schema_metadata_aspects[0]
@@ -144,11 +178,7 @@ def test_mongodb_complex_schema_trimming(mock_mongo_client, pipeline_context):
 
     workunits = list(source.get_workunits_internal())
 
-    schema_metadata_aspects = [
-        aspect
-        for wu in workunits
-        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
-    ]
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
 
     assert len(schema_metadata_aspects) == 1
     schema_metadata = schema_metadata_aspects[0]
@@ -221,11 +251,7 @@ def test_mongodb_schema_inference_with_deeply_nested_structures(
 
     workunits = list(source.get_workunits_internal())
 
-    schema_metadata_aspects = [
-        aspect
-        for wu in workunits
-        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
-    ]
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
 
     assert len(schema_metadata_aspects) == 1
 
@@ -242,6 +268,134 @@ def test_mongodb_schema_inference_with_deeply_nested_structures(
         "_id",
     }
     assert field_paths == expected_paths
+
+
+def infer_mongodb_fields(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    document: Dict[str, object],
+) -> Dict[str, SchemaFieldClass]:
+    mock_mongo_client.list_database_names.return_value = ["test_db"]
+    mock_mongo_client.server_info.return_value = {"versionArray": [8, 0, 0]}
+    mock_database = mock_mongo_client["test_db"]
+    mock_database.list_collection_names.return_value = ["typed"]
+    mock_database["typed"].aggregate.return_value = [document]
+
+    source = MongoDBSource(
+        ctx=pipeline_context,
+        config=MongoDBConfig(connect_uri="mongodb://localhost:27017"),
+    )
+    schema_metadata_aspects = get_schema_metadata_aspects(
+        list(source.get_workunits_internal())
+    )
+    assert len(schema_metadata_aspects) == 1
+    assert not source.report.warnings
+    return {f.fieldPath: f for f in schema_metadata_aspects[0].fields}
+
+
+def test_mongodb_native_bson_types_are_mapped(
+    mock_mongo_client: MagicMock, pipeline_context: PipelineContext
+) -> None:
+    """Cover added BSON mappings and preserve existing binary/date behavior."""
+    fields = infer_mongodb_fields(
+        mock_mongo_client,
+        pipeline_context,
+        {
+            "_id": bson.ObjectId("507f1f77bcf86cd799439011"),
+            "raw": b"\x00\x01",
+            "raw_subtyped": bson.Binary(
+                uuid.UUID("12345678-1234-5678-1234-567812345678").bytes, 4
+            ),
+            "uid": uuid.UUID("12345678-1234-5678-1234-567812345678"),
+            "pattern": bson.Regex("^foo", "i"),
+            "js": bson.Code("function() { return 1; }"),
+            "lo": bson.MinKey(),
+            "hi": bson.MaxKey(),
+            # BSON Date beyond Python's datetime range, as returned by pymongo
+            # with datetime_conversion=DATETIME_AUTO (year 10000).
+            "far_future": bson.DatetimeMS(253402300800000),
+        },
+    )
+    expected = {
+        "raw": ("binary", BytesTypeClass),
+        "raw_subtyped": ("binary", BytesTypeClass),
+        "uid": ("uuid", StringTypeClass),
+        "pattern": ("regex", StringTypeClass),
+        "js": ("javascript", StringTypeClass),
+        "lo": ("minKey", StringTypeClass),
+        "hi": ("maxKey", StringTypeClass),
+        "far_future": ("date", TimeTypeClass),
+    }
+    for field_path, (native_type, type_class) in expected.items():
+        assert fields[field_path].nativeDataType == native_type
+        assert isinstance(fields[field_path].type.type, type_class)
+
+
+@pytest.mark.parametrize(
+    "subtype",
+    [
+        pytest.param(0, id="generic"),
+        pytest.param(1, id="function"),
+        pytest.param(2, id="old-binary"),
+        pytest.param(3, id="old-uuid"),
+        pytest.param(4, id="uuid"),
+        pytest.param(5, id="md5"),
+        pytest.param(6, id="encrypted"),
+        pytest.param(7, id="compressed-column"),
+        pytest.param(8, id="sensitive"),
+        pytest.param(9, id="vector"),
+        pytest.param(128, id="user-defined"),
+    ],
+)
+def test_mongodb_binary_subtypes_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+) -> None:
+    # UUID subtypes require 16 bytes. Non-UUID payloads remain opaque to inference.
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)})
+    )
+    assert type(document["value"]) is (bytes if subtype == 0 else bson.Binary)
+
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    assert fields["value"].nativeDataType == "binary"
+    assert isinstance(fields["value"].type.type, BytesTypeClass)
+
+
+@pytest.mark.parametrize("subtype", [3, 4])
+@pytest.mark.parametrize(
+    "uuid_representation,decoded_uuid_subtype",
+    [
+        pytest.param(UuidRepresentation.UNSPECIFIED, None, id="unspecified"),
+        pytest.param(UuidRepresentation.STANDARD, 4, id="standard"),
+        pytest.param(UuidRepresentation.PYTHON_LEGACY, 3, id="python-legacy"),
+        pytest.param(UuidRepresentation.JAVA_LEGACY, 3, id="java-legacy"),
+        pytest.param(UuidRepresentation.CSHARP_LEGACY, 3, id="csharp-legacy"),
+    ],
+)
+def test_mongodb_uuid_representations_are_mapped_after_bson_decoding(
+    mock_mongo_client: MagicMock,
+    pipeline_context: PipelineContext,
+    subtype: int,
+    uuid_representation: int,
+    decoded_uuid_subtype: Optional[int],
+) -> None:
+    payload = uuid.UUID("12345678-1234-5678-1234-567812345678").bytes
+    document: Dict[str, object] = bson.decode(
+        bson.encode({"value": bson.Binary(payload, subtype)}),
+        codec_options=CodecOptions(uuid_representation=uuid_representation),
+    )
+    fields = infer_mongodb_fields(mock_mongo_client, pipeline_context, document)
+    if subtype == decoded_uuid_subtype:
+        assert isinstance(document["value"], uuid.UUID)
+        assert fields["value"].nativeDataType == "uuid"
+        assert isinstance(fields["value"].type.type, StringTypeClass)
+    else:
+        assert isinstance(document["value"], bson.Binary)
+        assert fields["value"].nativeDataType == "binary"
+        assert isinstance(fields["value"].type.type, BytesTypeClass)
 
 
 def test_mongodb_schema_inference_disabled(mock_mongo_client, pipeline_context):
@@ -286,11 +440,7 @@ def test_mongodb_schema_inference_disabled(mock_mongo_client, pipeline_context):
 
     workunits = list(source.get_workunits_internal())
 
-    schema_metadata_aspects = [
-        aspect
-        for wu in workunits
-        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
-    ]
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
 
     assert len(schema_metadata_aspects) == 0
 
@@ -338,11 +488,7 @@ def test_mongodb_schema_field_ordering_with_arrays(mock_mongo_client, pipeline_c
 
     workunits = list(source.get_workunits_internal())
 
-    schema_metadata_aspects = [
-        aspect
-        for wu in workunits
-        if (aspect := wu.get_aspect_of_type(SchemaMetadataClass))
-    ]
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
 
     assert len(schema_metadata_aspects) == 1
 
@@ -428,15 +574,7 @@ def test_mongodb_collection_filtering(mock_mongo_client, pipeline_context):
 
     workunits = list(source.get_workunits_internal())
 
-    dataset_urns = {
-        wu.metadata.entityUrn
-        for wu in workunits
-        if isinstance(
-            wu.metadata, (MetadataChangeProposal, MetadataChangeProposalWrapper)
-        )
-        and wu.metadata.entityUrn
-        and guess_entity_type(wu.metadata.entityUrn) == "dataset"
-    }
+    dataset_urns = get_dataset_urns(workunits)
 
     assert dataset_urns == {
         "urn:li:dataset:(urn:li:dataPlatform:mongodb,test_db.orders,PROD)",
@@ -446,3 +584,269 @@ def test_mongodb_collection_filtering(mock_mongo_client, pipeline_context):
     filtered_list = list(source.report.filtered)
     assert "test_db.temp_data" in filtered_list
     assert "test_db.cache_entries" in filtered_list
+
+
+def test_mongodb_system_collections_excluded_by_default(
+    mock_mongo_client, pipeline_context
+):
+    """System collections must be excluded when excludeSystemCollections=True (the default)."""
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = [
+        "users",
+        "orders",
+        "system.profile",
+        "system.views",
+        "system.indexes",
+    ]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+        # excludeSystemCollections defaults to True
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = get_dataset_urns(workunits)
+
+    # Only user collections should be ingested
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.orders,PROD)",
+    }
+
+    # System collections should appear in the filtered list
+    filtered = list(source.report.filtered)
+    assert "mydb.system.profile" in filtered
+    assert "mydb.system.views" in filtered
+    assert "mydb.system.indexes" in filtered
+
+
+def test_mongodb_system_collections_included_when_opted_in(
+    mock_mongo_client, pipeline_context
+):
+    """When excludeSystemCollections=False, system collections are processed normally."""
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = [
+        "users",
+        "system.views",
+    ]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+        excludeSystemCollections=False,
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = get_dataset_urns(workunits)
+
+    # system.views should be ingested when opt-in
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.system.views,PROD)"
+        in dataset_urns
+    )
+    assert (
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)" in dataset_urns
+    )
+
+
+def test_default_emits_mongodb_platform(mock_mongo_client, pipeline_context):
+    """
+    Test that the default configuration emits mongodb platform URNs.
+
+    Without overriding platform, dataset URNs and SchemaMetadata.platform must
+    carry the mongodb data-platform URN to preserve backward compatibility.
+    """
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["users"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = [
+        {"_id": bson.ObjectId("507f1f77bcf86cd799439011"), "email": "x@example.com"}
+    ]
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+    assert source.platform == "mongodb"
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = get_dataset_urns(workunits)
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)"
+    }
+
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
+    assert len(schema_metadata_aspects) == 1
+    assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:mongodb"
+
+
+def test_platform_documentdb_with_aws_hosting_uses_documentdb_platform(
+    mock_mongo_client, pipeline_context
+):
+    """
+    Test that platform=documentdb + hostingEnvironment=AWS_DOCUMENTDB flips the platform.
+
+    Dataset URNs and SchemaMetadata.platform must both carry the documentdb
+    data-platform URN.
+    """
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["users"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = [
+        {"_id": bson.ObjectId("507f1f77bcf86cd799439011"), "email": "x@example.com"}
+    ]
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=True,
+        platform="documentdb",
+        hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+    assert source.platform == "documentdb"
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = get_dataset_urns(workunits)
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:documentdb,mydb.users,PROD)"
+    }
+
+    schema_metadata_aspects = get_schema_metadata_aspects(workunits)
+    assert len(schema_metadata_aspects) == 1
+    assert schema_metadata_aspects[0].platform == "urn:li:dataPlatform:documentdb"
+
+
+def test_platform_documentdb_with_platform_instance_propagates_to_all_urns(
+    mock_mongo_client, pipeline_context
+):
+    """
+    Test that platform=documentdb flows through to the DataPlatformInstance aspect.
+
+    DataPlatformInstance is only emitted when platform_instance is configured,
+    so this is the only path that exercises self.platform inside
+    make_data_platform_urn(...) and make_dataplatform_instance_urn(...).
+    """
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["users"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=False,
+        platform="documentdb",
+        hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
+        platform_instance="prod-docdb",
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+    assert source.platform == "documentdb"
+
+    workunits = list(source.get_workunits_internal())
+
+    # Dataset URN carries both the documentdb platform and the platform_instance segment.
+    dataset_urns = get_dataset_urns(workunits)
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:documentdb,prod-docdb.mydb.users,PROD)"
+    }
+
+    # DataPlatformInstance aspects use self.platform in both URN fields. Two
+    # are emitted (database container + dataset); both must carry the documentdb
+    # URN — a regression that flipped only one would otherwise pass.
+    data_platform_instance_aspects = [
+        aspect
+        for wu in workunits
+        if (aspect := wu.get_aspect_of_type(DataPlatformInstanceClass))
+    ]
+    assert {a.platform for a in data_platform_instance_aspects} == {
+        "urn:li:dataPlatform:documentdb"
+    }
+    assert {a.instance for a in data_platform_instance_aspects} == {
+        "urn:li:dataPlatformInstance:(urn:li:dataPlatform:documentdb,prod-docdb)"
+    }
+
+
+def test_aws_documentdb_hosting_without_platform_override_stays_mongodb(
+    mock_mongo_client, pipeline_context
+):
+    """
+    Test that AWS_DOCUMENTDB hosting alone does not flip the platform.
+
+    Without the explicit platform=documentdb opt-in, DocumentDB users keep
+    receiving mongodb URNs for backward compatibility.
+    """
+    mock_mongo_client.list_database_names.return_value = ["mydb"]
+
+    mock_database = MagicMock()
+    mock_mongo_client.__getitem__.return_value = mock_database
+    mock_database.list_collection_names.return_value = ["users"]
+
+    mock_collection = MagicMock()
+    mock_database.__getitem__.return_value = mock_collection
+    mock_collection.aggregate.return_value = []
+
+    config = MongoDBConfig(
+        connect_uri="mongodb://localhost:27017",
+        enableSchemaInference=False,
+        hostingEnvironment=HostingEnvironment.AWS_DOCUMENTDB,
+    )
+    source = MongoDBSource(ctx=pipeline_context, config=config)
+    assert source.platform == "mongodb"
+
+    workunits = list(source.get_workunits_internal())
+
+    dataset_urns = get_dataset_urns(workunits)
+    assert dataset_urns == {
+        "urn:li:dataset:(urn:li:dataPlatform:mongodb,mydb.users,PROD)"
+    }
+
+
+def test_platform_documentdb_without_aws_hosting_rejected_at_parse_time():
+    """
+    Test that platform=documentdb without AWS_DOCUMENTDB hosting is rejected.
+
+    The model validator fails loud at config parse time rather than silently
+    emitting mongodb URNs at runtime, so the misconfiguration is caught before
+    ingestion starts.
+    """
+    with pytest.raises(ValidationError):
+        MongoDBConfig(
+            connect_uri="mongodb://localhost:27017",
+            platform="documentdb",
+        )

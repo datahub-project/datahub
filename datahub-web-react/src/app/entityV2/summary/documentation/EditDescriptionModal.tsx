@@ -1,12 +1,13 @@
-import { Editor, Modal } from '@components';
-import { message } from 'antd';
+import { Modal, toast } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
-import useFileUpload from '@app/shared/hooks/useFileUpload';
-import useFileUploadAnalyticsCallbacks from '@app/shared/hooks/useFileUploadAnalyticsCallbacks';
+import { Editor } from '@app/sharedV2/editor/Editor';
+import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
+import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 
 import { UploadDownloadScenario } from '@types';
 
@@ -36,6 +37,8 @@ interface Props {
     handleDescriptionUpdate: () => Promise<void>;
     emptyDescriptionText: string;
     closeModal: () => void;
+    /** Bumped by the parent when the description arrives after the editor has mounted. */
+    contentKey?: number;
 }
 
 export default function EditDescriptionModal({
@@ -44,7 +47,10 @@ export default function EditDescriptionModal({
     handleDescriptionUpdate,
     emptyDescriptionText,
     closeModal,
+    contentKey = 0,
 }: Props) {
+    const { t } = useTranslation('entity.profile.summary');
+    const { t: tc } = useTranslation('common.actions');
     const canEditDescription = useDocumentationPermission();
     const { urn: assetUrn } = useEntityData();
     const uploadFileAnalyticsCallbacks = useFileUploadAnalyticsCallbacks({
@@ -54,27 +60,24 @@ export default function EditDescriptionModal({
     const { uploadFile } = useFileUpload({ scenario: UploadDownloadScenario.AssetDocumentation, assetUrn });
     return (
         <Modal
-            title="Edit Description"
+            title={t('documentation.editTitle')}
             onCancel={closeModal}
             width="80vw"
             style={{ maxWidth: '1200px' }}
             maskClosable={false}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: () => closeModal(),
                     buttonDataTestId: 'cancel-button',
                 },
                 {
-                    text: 'Publish',
+                    text: tc('publish'),
                     onClick: () => {
                         handleDescriptionUpdate().catch((e) => {
-                            message.destroy();
-                            message.error({
-                                content: `Failed to update description: \n ${e.message || ''}`,
-                                duration: 3,
-                            });
+                            toast.destroy();
+                            toast.error(t('documentation.updateError', { error: e.message || '' }), { duration: 3 });
                         });
                         closeModal();
                     },
@@ -84,6 +87,7 @@ export default function EditDescriptionModal({
             ]}
         >
             <StyledEditor
+                key={contentKey}
                 content={updatedDescription}
                 placeholder={emptyDescriptionText}
                 hideHighlightToolbar

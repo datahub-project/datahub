@@ -1,14 +1,9 @@
 import React, { useMemo } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Button, Text } from '@src/alchemy-components';
-
-const Container = styled.div`
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    padding: 8px 0;
-`;
+import { Button } from '@components/components/Button';
+import { NoResultsFound } from '@components/components/Select/NoResultsFound';
 
 const InlineButton = styled(Button)`
     display: inline;
@@ -27,50 +22,49 @@ interface Props {
     message?: string;
 }
 
-const DEFAULT_MESSAGE = "Try adjusting your search to find what you're looking for";
 export default function NoResultsFoundPlaceholder({
     hasAppliedFilters,
     hasSelectedView,
     onClearFilters,
-    message = DEFAULT_MESSAGE,
+    message,
 }: Props) {
+    const { t } = useTranslation('search');
+
     const clearText = useMemo(() => {
         if (hasAppliedFilters && hasSelectedView) {
-            return 'clear filters and selected view';
+            return t('searchBar.noResults.clearFiltersAndView');
         }
 
         if (hasAppliedFilters && !hasSelectedView) {
-            return 'clear filters';
+            return t('searchBar.noResults.clearFilters');
         }
 
         if (hasSelectedView && !hasAppliedFilters) {
-            return 'clear selected view';
+            return t('searchBar.noResults.clearView');
         }
 
         return undefined;
-    }, [hasAppliedFilters, hasSelectedView]);
+    }, [hasAppliedFilters, hasSelectedView, t]);
 
     return (
-        <Container data-testid="no-results-found">
-            <Text color="gray" colorLevel={600} size="md">
-                No results found
-            </Text>
-            <Text color="gray" size="sm">
-                {message}
-                {clearText && (
-                    <>
-                        , or&nbsp;
-                        <InlineButton
-                            variant="text"
-                            onClick={onClearFilters}
-                            data-testid="no-results-found-button-clear"
-                        >
-                            {clearText}
-                        </InlineButton>
-                        .
-                    </>
-                )}
-            </Text>
-        </Container>
+        <NoResultsFound message={message}>
+            {clearText && (
+                <Trans
+                    t={t}
+                    i18nKey="searchBar.noResults.orClearSuggestion"
+                    values={{ clearText }}
+                    components={{
+                        // eslint-disable-next-line jsx-a11y/control-has-associated-label
+                        clickable: (
+                            <InlineButton
+                                variant="text"
+                                onClick={onClearFilters}
+                                data-testid="no-results-found-button-clear"
+                            />
+                        ),
+                    }}
+                />
+            )}
+        </NoResultsFound>
     );
 }

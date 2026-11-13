@@ -1,27 +1,28 @@
-import Icon from '@ant-design/icons/lib/components/Icon';
 import { Tooltip } from '@components';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import { BrowseV2EntityLinkClickEvent } from '@app/analytics';
 import { useBrowseDisplayName, useIsBrowsePathSelected } from '@app/searchV2/sidebar/BrowseContext';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
+import {
+    TREE_ROW_HOVER_ACTIONS_CLASS,
+    TREE_ROW_HOVER_ACTIONS_PINNED_CLASS,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/treeRow.styles';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, Maybe } from '@types';
 
-import ExternalLink from '@images/link-out.svg?react';
-
-const Linkicon = styled(Icon)<{ $isSelected: boolean }>`
-    && {
-        color: ${(props) => props.theme.styles['primary-color']};
-        ${(props) => !props.$isSelected && 'display: none;'}
-        ${ExpandableNode.SelectableHeader}:hover & {
-            display: inherit;
-        }
-    }
+const LinkButton = styled(Link)`
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 20px;
+    height: 20px;
+    color: ${(props) => props.theme.colors.iconBrand};
 `;
 
 type Props = {
@@ -29,35 +30,40 @@ type Props = {
     targetNode: BrowseV2EntityLinkClickEvent['targetNode'];
 };
 
-// The tooltip needs some text to hold onto
-const EmptySpace = styled.span`
-    display: 'none';
-    content: ' ';
-`;
-
+/**
+ * "View profile" link on a browse row: revealed on row hover (shared tree-row hover actions),
+ * and kept visible while its row is the selected browse path.
+ */
 const EntityLink = ({ entity, targetNode }: Props) => {
+    const { t } = useTranslation('search');
     const registry = useEntityRegistry();
     const isBrowsePathSelected = useIsBrowsePathSelected();
     const displayName = useBrowseDisplayName();
     const { trackEntityLinkClickEvent } = useSidebarAnalytics();
     const entityUrl = entity ? registry.getEntityUrl(entity.type, entity.urn) : null;
 
-    const onClickButton = () => {
-        trackEntityLinkClickEvent(targetNode);
-    };
-
     if (!entityUrl) return null;
 
+    const className = isBrowsePathSelected
+        ? `${TREE_ROW_HOVER_ACTIONS_CLASS} ${TREE_ROW_HOVER_ACTIONS_PINNED_CLASS}`
+        : TREE_ROW_HOVER_ACTIONS_CLASS;
+
     return (
-        <Tooltip placement="top" title={`View ${displayName} profile`} mouseEnterDelay={1}>
-            <Link to={entityUrl}>
-                <ExpandableNode.StaticButton
-                    icon={<Linkicon $isSelected={isBrowsePathSelected} component={ExternalLink} />}
-                    onClick={onClickButton}
-                />
-            </Link>
-            <EmptySpace />
-        </Tooltip>
+        <span className={className}>
+            <Tooltip placement="top" title={t('sidebar.viewEntityProfile', { name: displayName })} mouseEnterDelay={1}>
+                <LinkButton
+                    to={entityUrl}
+                    onClick={(e) => {
+                        // Following the link shouldn't also toggle the row's browse filter.
+                        e.stopPropagation();
+                        trackEntityLinkClickEvent(targetNode);
+                    }}
+                    aria-label={t('sidebar.viewEntityProfile', { name: displayName })}
+                >
+                    <ArrowSquareOut size={14} />
+                </LinkButton>
+            </Tooltip>
+        </span>
     );
 };
 

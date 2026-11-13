@@ -11,6 +11,7 @@ import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
+import com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck;
 import com.linkedin.metadata.aspect.consistency.fix.BatchItemsFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFixDetail;
@@ -22,8 +23,11 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -31,12 +35,14 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import org.apache.lucene.search.TotalHits;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -50,6 +56,16 @@ public class ConsistencyServiceTest {
   private ConsistencyService consistencyService;
   private ConsistencyCheckRegistry checkRegistry;
   private ConsistencyFixRegistry fixRegistry;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   /** Test check for entity type "assertion" */
   private static class TestAssertionCheck implements ConsistencyCheck {
@@ -214,6 +230,9 @@ public class ConsistencyServiceTest {
   @BeforeMethod
   public void setup() {
     MockitoAnnotations.openMocks(this);
+    // Tests not about unknown entity types run against a registry that knows every type.
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.findEntitySpec(any())).thenReturn(Optional.of(mockEntitySpec));
 
     // Create check registry with test checks
     List<ConsistencyCheck> checks =
@@ -228,6 +247,30 @@ public class ConsistencyServiceTest {
     consistencyService =
         new ConsistencyService(
             mockEntityService, mockEsSystemMetadataDAO, null, checkRegistry, fixRegistry);
+
+    // A null scroll is a failed search. These tests reach checkBatch without Elasticsearch, so
+    // the default page is an empty success rather than Mockito's null.
+    SearchHits emptyHits = mock(SearchHits.class);
+    when(emptyHits.getHits()).thenReturn(new SearchHit[0]);
+    SearchResponse emptyScroll = mock(SearchResponse.class);
+    when(emptyScroll.getHits()).thenReturn(emptyHits);
+    when(mockEsSystemMetadataDAO.scroll(
+            any(),
+            any(),
+            anyBoolean(),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(String.class),
+            nullable(Integer.class)))
+        .thenReturn(emptyScroll);
+  }
+
+  private static SearchResponse emptyScrollPage() {
+    SearchResponse emptyPage = mock(SearchResponse.class);
+    when(emptyPage.getHits())
+        .thenReturn(
+            new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0f));
+    return emptyPage;
   }
 
   // ============================================================================
@@ -962,7 +1005,7 @@ public class ConsistencyServiceTest {
     List<ConsistencyCheck> checks = List.of(new TestAssertionCheck());
 
     BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery("assertion", checks, null, null);
+        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1022,7 +1065,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(checkWithTargetAspect), null, null);
+            mockOpContext, "assertion", List.of(checkWithTargetAspect), null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1041,7 +1084,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1055,7 +1098,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1074,7 +1117,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1091,7 +1134,7 @@ public class ConsistencyServiceTest {
 
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), filter, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1106,7 +1149,7 @@ public class ConsistencyServiceTest {
   public void testBuildSystemMetadataQueryNoFilter() {
     BoolQueryBuilder query =
         consistencyService.buildSystemMetadataQuery(
-            "assertion", List.of(new TestAssertionCheck()), null, null);
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), null, null);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1124,7 +1167,7 @@ public class ConsistencyServiceTest {
             UrnUtils.getUrn("urn:li:assertion:test-1"), UrnUtils.getUrn("urn:li:assertion:test-2"));
 
     BoolQueryBuilder query =
-        consistencyService.buildSystemMetadataQuery("assertion", checks, null, urns);
+        consistencyService.buildSystemMetadataQuery(mockOpContext, "assertion", checks, null, urns);
 
     assertNotNull(query);
     String queryString = query.toString();
@@ -1134,6 +1177,45 @@ public class ConsistencyServiceTest {
     assertTrue(queryString.contains("urn:li:assertion:test-1"));
     assertTrue(queryString.contains("urn:li:assertion:test-2"));
     assertTrue(queryString.contains("terms"));
+  }
+
+  @Test
+  public void testBuildSystemMetadataQueryKeyAspectOnly() {
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("assertion")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    SystemMetadataFilter filter =
+        SystemMetadataFilter.builder()
+            .keyAspectOnly(true)
+            .aspectFilters(List.of("assertionInfo"))
+            .build();
+
+    BoolQueryBuilder query =
+        consistencyService.buildSystemMetadataQuery(
+            mockOpContext, "assertion", List.of(new TestAssertionCheck()), filter, null);
+
+    assertNotNull(query);
+    String queryString = query.toString();
+    assertTrue(queryString.contains("assertionKey"));
+    // keyAspectOnly takes precedence over aspectFilters / check target aspects
+    assertFalse(queryString.contains("assertionInfo"));
+  }
+
+  @Test
+  public void testGetTargetAspectsKeyAspectOnly() {
+    when(mockOpContext.getEntityRegistry()).thenReturn(mockEntityRegistry);
+    when(mockEntityRegistry.getEntitySpec("dataset")).thenReturn(mockEntitySpec);
+    when(mockEntitySpec.getKeyAspectName()).thenReturn("datasetKey");
+
+    Set<String> aspects =
+        consistencyService.getTargetAspects(
+            mockOpContext,
+            "dataset",
+            List.of(),
+            SystemMetadataFilter.builder().keyAspectOnly(true).build());
+
+    assertEquals(aspects, Set.of("datasetKey"));
   }
 
   // ============================================================================
@@ -1248,6 +1330,106 @@ public class ConsistencyServiceTest {
 
     assertEquals(orphans.size(), 1);
     assertTrue(orphans.contains(urn2));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsSkipsUnknownEntityTypes() {
+    // Index documents of an entity type only a newer version registered (read after a rollback)
+    // are reported missing by exists(), but belong to that version: they are not orphans.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn known = UrnUtils.getUrn("urn:li:assertion:test-1");
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(known, unknownType));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    Set<Urn> orphans = consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs);
+
+    assertEquals(orphans, Set.of(known));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsSkipsUrnsWhoseKeyHoldsAnUnknownEntityType() {
+    // A schemaField of an entity only a newer version registered: exists() hides it too, so its
+    // index documents belong to that version and are not orphans. A real orphan still is.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    Urn orphan =
+        UrnUtils.getUrn(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,gone,PROD),field)");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(nested, orphan));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    assertEquals(consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs), Set.of(orphan));
+  }
+
+  @Test
+  public void testIdentifyOrphanUrnsWithStrictHandlingReportsEveryMissingUrn() {
+    // With tolerance off, nothing is exempt, as before.
+    UnknownDataHandlingsForTests.use(com.linkedin.metadata.utils.StrictHandling.INSTANCE);
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nested = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(nested));
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    assertEquals(consistencyService.identifyOrphanUrns(mockOpContext, urnsFromEs), Set.of(nested));
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckSkipsUnknownEntityType() {
+    // exists() reports an entity type only a newer version registered as missing; the orphan check
+    // must not turn that into a delete of the newer version's index documents.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn unknownType = UrnUtils.getUrn("urn:li:entityFromNewerBuild:x");
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(unknownType)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            null,
+            new ConsistencyCheckRegistry(
+                List.of(
+                    new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck())),
+            fixRegistry);
+
+    assertTrue(
+        serviceWithOrphanCheck
+            .discoverIssue(mockOpContext, unknownType, "orphan-index-document")
+            .isEmpty());
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckSkipsUrnWhoseKeyHoldsAnUnknownEntityType() {
+    // A schemaField of an entity only a newer version registered: exists() hides it too, so the
+    // single-urn orphan check must not report it either.
+    when(mockOpContext.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+    Urn nestedUrn = UrnUtils.getUrn("urn:li:schemaField:(urn:li:entityFromNewerBuild:x,field)");
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(nestedUrn)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService,
+            mockEsSystemMetadataDAO,
+            null,
+            new ConsistencyCheckRegistry(
+                List.of(
+                    new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck())),
+            fixRegistry);
+
+    assertTrue(
+        serviceWithOrphanCheck
+            .discoverIssue(mockOpContext, nestedUrn, "orphan-index-document")
+            .isEmpty());
   }
 
   @Test
@@ -1427,6 +1609,46 @@ public class ConsistencyServiceTest {
     }
   }
 
+  private static class FatalConsistencyCheck implements ConsistencyCheck {
+
+    @Override
+    @Nonnull
+    public String getId() {
+      return "fatal-consistency-check";
+    }
+
+    @Override
+    @Nonnull
+    public String getName() {
+      return "Fatal Consistency Check";
+    }
+
+    @Override
+    @Nonnull
+    public String getDescription() {
+      return "Check that fails the batch";
+    }
+
+    @Override
+    @Nonnull
+    public String getEntityType() {
+      return "assertion";
+    }
+
+    @Override
+    @Nonnull
+    public Optional<Set<String>> getRequiredAspects() {
+      return Optional.of(Set.of("assertionInfo"));
+    }
+
+    @Override
+    @Nonnull
+    public List<ConsistencyIssue> check(
+        @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
+      throw new FatalConsistencyException("index read failed");
+    }
+  }
+
   @Test
   public void testRunChecksAggregatesIssues() {
     // Create service with issue-returning check
@@ -1470,6 +1692,19 @@ public class ConsistencyServiceTest {
     // Should still get issues from the successful check
     assertEquals(issues.size(), 1);
     assertEquals(issues.get(0).getCheckId(), "issue-returning-check");
+  }
+
+  @Test(expectedExceptions = FatalConsistencyException.class)
+  public void testRunChecksRethrowsFatalConsistencyException() {
+    List<ConsistencyCheck> checks = List.of(new FatalConsistencyCheck(), new IssueReturningCheck());
+    ConsistencyCheckRegistry fatalRegistry = new ConsistencyCheckRegistry(checks);
+    ConsistencyService serviceWithFatalCheck =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, fatalRegistry, fixRegistry);
+
+    Urn urn = UrnUtils.getUrn("urn:li:assertion:test-1");
+    serviceWithFatalCheck.checkBatchInternal(
+        mockOpContext, "assertion", Map.of(urn, new EntityResponse()));
   }
 
   @Test
@@ -1664,6 +1899,7 @@ public class ConsistencyServiceTest {
     when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
         .thenReturn(Set.of(urn1));
 
+    // Default checks do NOT include orphan-index-document — orphans must not emit issues
     CheckResult result =
         consistencyService.processBatchResults(
             mockOpContext,
@@ -1676,8 +1912,41 @@ public class ConsistencyServiceTest {
 
     assertEquals(result.getEntitiesScanned(), 2);
     assertNull(result.getScrollId());
-    // Orphan check should detect the orphan and create an issue
-    assertTrue(result.getIssuesFound() >= 0); // May or may not have orphan check registered
+    assertEquals(result.getIssuesFound(), 0);
+  }
+
+  @Test
+  public void testProcessBatchResultsWithOrphansWhenCheckSelected() {
+    Urn urn1 = UrnUtils.getUrn("urn:li:assertion:exists");
+    Urn urn2 = UrnUtils.getUrn("urn:li:assertion:orphan");
+
+    Set<Urn> urnsFromEs = new HashSet<>(Set.of(urn1, urn2));
+    Map<Urn, EntityResponse> entitiesFromSql = Map.of(urn1, new EntityResponse());
+
+    when(mockEntityService.exists(eq(mockOpContext), eq(urnsFromEs), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of(urn1));
+
+    ConsistencyCheckRegistry orphanRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(new TestAssertionCheck(), new OrphanIndexDocumentCheck()));
+    ConsistencyService serviceWithOrphan =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+
+    CheckResult result =
+        serviceWithOrphan.processBatchResults(
+            mockOpContext,
+            "assertion",
+            urnsFromEs,
+            entitiesFromSql,
+            orphanRegistry.getByEntityTypeAndIds("assertion", List.of("orphan-index-document")),
+            null,
+            null);
+
+    assertEquals(result.getEntitiesScanned(), 2);
+    assertEquals(result.getIssuesFound(), 1);
+    assertEquals(result.getIssues().get(0).getCheckId(), "orphan-index-document");
+    assertEquals(result.getIssues().get(0).getEntityUrn(), urn2);
   }
 
   @Test
@@ -1836,6 +2105,33 @@ public class ConsistencyServiceTest {
         serviceWithOrphanCheck.discoverIssue(mockOpContext, existingUrn, "orphan-index-document");
 
     assertFalse(result.isPresent());
+  }
+
+  @Test
+  public void testDiscoverIssueOrphanCheckReportsMissingKeyAspectDespiteResponse()
+      throws Exception {
+    Urn orphanUrn = UrnUtils.getUrn("urn:li:assertion:residual-entity");
+    EntityResponse response = new EntityResponse();
+    when(mockEntityService.getEntitiesV2(
+            eq(mockOpContext), eq("assertion"), eq(Set.of(orphanUrn)), any(), eq(false)))
+        .thenReturn(Map.of(orphanUrn, response));
+    when(mockEntityService.exists(
+            eq(mockOpContext), eq(Set.of(orphanUrn)), isNull(), eq(true), eq(false)))
+        .thenReturn(Set.of());
+
+    ConsistencyCheckRegistry orphanRegistry =
+        new ConsistencyCheckRegistry(
+            List.of(new com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck()));
+    ConsistencyService serviceWithOrphanCheck =
+        new ConsistencyService(
+            mockEntityService, mockEsSystemMetadataDAO, null, orphanRegistry, fixRegistry);
+
+    Optional<ConsistencyIssue> result =
+        serviceWithOrphanCheck.discoverIssue(mockOpContext, orphanUrn, "orphan-index-document");
+
+    assertTrue(result.isPresent());
+    assertEquals(result.get().getEntityUrn(), orphanUrn);
+    assertEquals(result.get().getFixType(), ConsistencyFixType.DELETE_INDEX_DOCUMENTS);
   }
 
   // ============================================================================
@@ -2315,5 +2611,107 @@ public class ConsistencyServiceTest {
                 i ->
                     i.getFixType() == ConsistencyFixType.HARD_DELETE
                         || i.getFixType() == ConsistencyFixType.DELETE_INDEX_DOCUMENTS));
+  }
+
+  @Test
+  public void testCountMatching_returnsDaoCount() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenReturn(Optional.of(42L));
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext,
+            CheckBatchRequest.builder()
+                .entityType("assertion")
+                .filter(SystemMetadataFilter.builder().keyAspectOnly(true).build())
+                .batchSize(100)
+                .build());
+
+    assertTrue(count.isPresent());
+    assertEquals(count.get().longValue(), 42L);
+    verify(mockEsSystemMetadataDAO).count(eq(opContext), any(BoolQueryBuilder.class), eq(false));
+  }
+
+  @Test
+  public void testCountMatching_softFailsOnDaoEmpty() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenReturn(Optional.empty());
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
+
+    assertTrue(count.isEmpty());
+  }
+
+  @Test
+  public void testCountMatching_softFailsOnRuntimeException() {
+    when(mockEsSystemMetadataDAO.count(any(), any(BoolQueryBuilder.class), anyBoolean()))
+        .thenThrow(new RuntimeException("ES unavailable"));
+
+    OperationContext opContext = mock(OperationContext.class);
+    EntityRegistry registry = mock(EntityRegistry.class);
+    EntitySpec entitySpec = mock(EntitySpec.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(registry.getEntitySpec("assertion")).thenReturn(entitySpec);
+    when(entitySpec.getKeyAspectName()).thenReturn("assertionKey");
+
+    Optional<Long> count =
+        consistencyService.countMatching(
+            opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
+
+    assertTrue(count.isEmpty());
+  }
+
+  // ============================================================================
+  // checkBatch scroll failure tests
+  // ============================================================================
+
+  private CheckBatchRequest assertionCheckBatchRequest() {
+    return CheckBatchRequest.builder()
+        .entityType("assertion")
+        .checkIds(List.of("test-assertion-check"))
+        .batchSize(100)
+        .build();
+  }
+
+  @Test
+  public void testCheckBatchRetriesFailedScroll() {
+    SearchResponse emptyPage = emptyScrollPage();
+    when(mockEsSystemMetadataDAO.scroll(any(), any(), anyBoolean(), any(), any(), any(), any()))
+        .thenReturn(null)
+        .thenReturn(emptyPage);
+
+    CheckResult result = consistencyService.checkBatch(mockOpContext, assertionCheckBatchRequest());
+
+    assertEquals(result.getEntitiesScanned(), 0);
+    verify(mockEsSystemMetadataDAO, times(2))
+        .scroll(any(), any(), anyBoolean(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testCheckBatchThrowsWhenScrollKeepsFailing() {
+    when(mockEsSystemMetadataDAO.scroll(any(), any(), anyBoolean(), any(), any(), any(), any()))
+        .thenReturn(null);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> consistencyService.checkBatch(mockOpContext, assertionCheckBatchRequest()));
+    verify(mockEsSystemMetadataDAO, times(3))
+        .scroll(any(), any(), anyBoolean(), any(), any(), any(), any());
   }
 }

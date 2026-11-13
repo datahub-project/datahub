@@ -1,9 +1,9 @@
 import { Text } from '@components';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { ViewTypeLabel } from '@app/entityV2/view/ViewTypeLabel';
 import { ViewDropdownMenu } from '@app/entityV2/view/menu/ViewDropdownMenu';
 import { GlobalDefaultViewIcon } from '@app/entityV2/view/shared/GlobalDefaultViewIcon';
@@ -34,6 +34,7 @@ type NameColumnProps = {
 };
 
 export function NameColumn({ name, record, onEditView }: NameColumnProps) {
+    const { t } = useTranslation('entity.views');
     const userContext = useUserContext();
     const maybePersonalDefaultViewUrn = userContext.state?.views?.personalDefaultViewUrn;
     const maybeGlobalDefaultViewUrn = userContext.state?.views?.globalDefaultViewUrn;
@@ -44,8 +45,8 @@ export function NameColumn({ name, record, onEditView }: NameColumnProps) {
     return (
         <NameContainer>
             <IconPlaceholder>
-                {isUserDefault && <UserDefaultViewIcon title="Your default View." />}
-                {isGlobalDefault && <GlobalDefaultViewIcon title="Your organization's default View." />}
+                {isUserDefault && <UserDefaultViewIcon title={t('userDefaultTooltip')} />}
+                {isGlobalDefault && <GlobalDefaultViewIcon title={t('orgDefaultTooltip')} />}
             </IconPlaceholder>
             <Text size="md" weight="semiBold" onClick={() => onEditView?.(record.urn)}>
                 {name}
@@ -59,7 +60,8 @@ type DescriptionColumnProps = {
 };
 
 export function DescriptionColumn({ description }: DescriptionColumnProps) {
-    return <StyledDescription>{description || '-'}</StyledDescription>;
+    const { t } = useTranslation('entity.views');
+    return <StyledDescription>{description || t('emptyDescription')}</StyledDescription>;
 }
 
 type ViewTypeColumnProps = {
@@ -67,7 +69,8 @@ type ViewTypeColumnProps = {
 };
 
 export function ViewTypeColumn({ viewType }: ViewTypeColumnProps) {
-    return <ViewTypeLabel color={ANTD_GRAY[8]} type={viewType} />;
+    const theme = useTheme();
+    return <ViewTypeLabel color={theme.colors.textTertiary} type={viewType} />;
 }
 
 type ActionColumnProps = {

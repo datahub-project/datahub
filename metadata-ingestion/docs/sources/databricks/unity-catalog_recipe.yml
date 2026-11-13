@@ -27,7 +27,7 @@ source:
     include_ml_model_aliases: false
     ml_model_max_results: 1000
     profiling:
-      method: "ge"
+      method: "sqlalchemy"
       enabled: true
       warehouse_id: "<warehouse_id>"
       profile_table_level_only: false
@@ -49,9 +49,6 @@ source:
 #      call_analyze: true
 
 #    catalogs: ["my_catalog"]
-#    schema_pattern:
-#      deny:
-#        - information_schema
 #    table_pattern:
 #      allow:
 #        - my_catalog.my_schema.my_table

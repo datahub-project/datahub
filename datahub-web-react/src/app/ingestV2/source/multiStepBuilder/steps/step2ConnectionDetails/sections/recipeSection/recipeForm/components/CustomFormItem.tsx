@@ -1,4 +1,3 @@
-import { colors } from '@components';
 import { Form, FormItemProps } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -18,7 +17,7 @@ const StyledFormItem = styled(Form.Item)<{ $showError: boolean }>`
     }
 
     .ant-form-item-explain-error {
-        color: ${colors.red[500]}; // Color of error message
+        color: ${(props) => props.theme.colors.textError}; // Color of error message
         display: none;
         ${({ $showError }) => !$showError && 'display: none;'}
     }

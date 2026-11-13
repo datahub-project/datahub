@@ -1,0 +1,25 @@
+"""
+An entity populated by ingestion
+"""
+interface HasLastIngested {
+  """
+  The timestamp for the last time the entity was ingested
+  """
+  lastIngested: Long
+}
+
+extend type Chart implements HasLastIngested
+extend type Container implements HasLastIngested
+extend type Dashboard implements HasLastIngested
+extend type DataFlow implements HasLastIngested
+extend type DataJob implements HasLastIngested
+extend type DataPlatform implements HasLastIngested
+extend type Dataset implements HasLastIngested
+extend type Document implements HasLastIngested
+extend type MLFeature implements HasLastIngested
+extend type MLFeatureTable implements HasLastIngested
+extend type MLModel implements HasLastIngested
+extend type MLModelGroup implements HasLastIngested
+extend type MLPrimaryKey implements HasLastIngested
+extend type Metric implements HasLastIngested
+extend type SemanticModel implements HasLastIngested

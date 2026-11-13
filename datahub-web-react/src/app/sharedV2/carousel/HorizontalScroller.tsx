@@ -1,9 +1,7 @@
-import NavigateBeforeOutlinedIcon from '@mui/icons-material/NavigateBeforeOutlined';
-import NavigateNextOutlinedIcon from '@mui/icons-material/NavigateNextOutlined';
+import { CaretLeft } from '@phosphor-icons/react/dist/csr/CaretLeft';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
 import styled from 'styled-components/macro';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 
 const ScrollButton = styled.button<{
     alwaysVisible: boolean;
@@ -28,16 +26,16 @@ const ScrollButton = styled.button<{
     width: ${({ size }) => size + 6}px;
     height: ${({ size }) => size + 6}px;
     border-radius: 50%;
-    color: ${REDESIGN_COLORS.BLACK};
-    background-color: ${REDESIGN_COLORS.WHITE};
+    color: ${(props) => props.theme.colors.text};
+    background-color: ${(props) => props.theme.colors.bg};
     transition:
         background-color 0.3s ease-in-out,
         color 0.3s ease-in-out;
-    box-shadow: 0px 2px 4px rgba(0, 0, 0, 0.3);
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 
     &:hover {
-        color: ${REDESIGN_COLORS.WHITE};
-        background-color: ${(props) => props.theme.styles['primary-color']};
+        color: ${(props) => props.theme.colors.textBrandOnBgFill};
+        background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
 `;
 
@@ -53,14 +51,6 @@ const Wrapper = styled.div`
     &:hover ${ScrollButton} {
         display: flex;
     }
-`;
-
-const StyledNavigateBeforeOutlinedIcon = styled(NavigateBeforeOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
-`;
-
-const StyledNavigateNextOutlinedIcon = styled(NavigateNextOutlinedIcon)<{ buttonSize: number }>`
-    font-size: ${(props) => props.buttonSize}px !important;
 `;
 
 type Props = {
@@ -139,7 +129,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     left
                 >
-                    <StyledNavigateBeforeOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretLeft size={scrollButtonSize} />
                 </ScrollButton>
             )}
             <ScrollContainerWrapper ref={contentRef} className={className}>
@@ -153,7 +143,7 @@ const HorizontalScroller: React.FC<Props> = ({
                     offset={scrollButtonOffset}
                     right
                 >
-                    <StyledNavigateNextOutlinedIcon buttonSize={scrollButtonSize} />
+                    <CaretRight size={scrollButtonSize} />
                 </ScrollButton>
             )}
         </Wrapper>

@@ -1,0 +1,54 @@
+{
+  "data": {
+    "virtualConnectionsConnection": {
+      "nodes": [
+        {
+          "id": "vc-456",
+          "name": "Test Virtual Connection 2",
+          "luid": "vc-luid-456",
+          "description": "Second test virtual connection",
+          "createdAt": "2021-12-07T07:00:00Z",
+          "updatedAt": "2021-12-07T07:00:00Z",
+          "owner": {
+            "username": "test_user2"
+          },
+          "tables": [
+            {
+              "id": "vc-table-2",
+              "name": "test.table2",
+              "columns": [
+                {
+                  "id": "col3",
+                  "name": "order_id",
+                  "remoteType": "INTEGER",
+                  "description": "Order identifier",
+                  "upstreamFields": [
+                    {
+                      "id": "upstream-field-3",
+                      "name": "id",
+                      "description": "Source order ID",
+                      "upstreamDatasources": [
+                        {
+                          "id": "ds-456"
+                        }
+                      ],
+                      "datasource": {
+                        "id": "ds-456",
+                        "name": "orders_db"
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          ],
+          "tags": []
+        }
+      ],
+      "pageInfo": {
+        "hasNextPage": false,
+        "endCursor": null
+      }
+    }
+  }
+}

@@ -79,8 +79,12 @@ import java.util.concurrent.Callable;
 {{^useOas2}}
 {{/useOas2}}
 {{#operations}}
+@Deprecated
 @RestController
 @RequestMapping("/openapi/v2/entity")
+@io.swagger.v3.oas.annotations.tags.Tag(
+    name = "{{classname}}",
+    description = "Deprecated: prefer /openapi/v3/entity for entity operations.")
 public class {{classname}}Controller implements {{classname}} {
 
     private static final Logger log = LoggerFactory.getLogger({{classname}}Controller.class);

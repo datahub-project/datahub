@@ -2,10 +2,15 @@ package com.linkedin.datahub.graphql.types.domain;
 
 import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 
+import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainAssociation;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.types.common.mappers.MetadataAttributionMapper;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -29,18 +34,54 @@ public class DomainAssociationMapper {
       @Nullable final QueryContext context,
       @Nonnull final com.linkedin.domain.Domains domains,
       @Nonnull final String entityUrn) {
-    if (domains.getDomains().size() > 0
-        && (context == null
-            || canView(context.getOperationContext(), domains.getDomains().get(0)))) {
-      DomainAssociation association = new DomainAssociation();
-      association.setDomain(
-          Domain.builder()
-              .setType(EntityType.DOMAIN)
-              .setUrn(domains.getDomains().get(0).toString())
-              .build());
-      association.setAssociatedUrn(entityUrn);
-      return association;
+    if (domains.getDomainAssociations() != null && !domains.getDomainAssociations().isEmpty()) {
+      com.linkedin.domain.DomainAssociation association =
+          domains.getDomainAssociations().getFirst();
+      Urn domainUrn = association.getDomain();
+      if (context != null && !domainEntityExists(context, domainUrn)) {
+        return null;
+      }
+      if (context == null || canView(context.getOperationContext(), domainUrn)) {
+        DomainAssociation gqlAssociation = new DomainAssociation();
+        gqlAssociation.setDomain(
+            Domain.builder().setType(EntityType.DOMAIN).setUrn(domainUrn.toString()).build());
+        gqlAssociation.setAssociatedUrn(entityUrn);
+        if (association.getAttribution() != null) {
+          gqlAssociation.setAttribution(
+              MetadataAttributionMapper.map(context, association.getAttribution()));
+        }
+        return gqlAssociation;
+      }
     }
     return null;
+  }
+
+  private static boolean domainEntityExists(@Nonnull QueryContext context, @Nonnull Urn domainUrn) {
+    Map<Urn, Boolean> cache = context.getDomainExistenceCache();
+    if (cache != null) {
+      Boolean cached = cache.get(domainUrn);
+      if (cached != null) {
+        return cached;
+      }
+    }
+    boolean exists = probeDomainExists(context, domainUrn);
+    if (cache != null) {
+      cache.put(domainUrn, exists);
+    }
+    return exists;
+  }
+
+  private static boolean probeDomainExists(@Nonnull QueryContext context, @Nonnull Urn domainUrn) {
+    try {
+      AspectRetriever aspectRetriever = context.getOperationContext().getAspectRetriever();
+      if (aspectRetriever == null) {
+        return true;
+      }
+      Map<Urn, Boolean> exists =
+          aspectRetriever.entityExists(context.getOperationContext(), Set.of(domainUrn));
+      return Boolean.TRUE.equals(exists.get(domainUrn));
+    } catch (RuntimeException e) {
+      return true;
+    }
   }
 }

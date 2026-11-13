@@ -3,7 +3,9 @@ name: Create Linear Ticket for PR & Issue Review
 # Routes PRs and issues to the correct engineering team via Claude and creates Linear tickets.
 #
 # Requires secrets:
-#   ANTHROPIC_KEY_FOR_ROUTING - Anthropic API key for LLM-based team routing
+#   ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+#   ANTHROPIC_SERVICE_ACCOUNT_ID, ANTHROPIC_WORKSPACE_ID
+#                             - Claude Workload Identity Federation (no static API key)
 #   INGESTION_LINEAR_KEY      - Linear API key
 
 on:
@@ -12,39 +14,55 @@ on:
   issues:
     types: [opened, reopened, closed]
 
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write # Claude Workload Identity Federation
+
 env:
   LINEAR_TEAM_CONFIG: |
     [
       {
         "key": "ING",
         "team_id": "b1c9a278-522e-47cb-81af-8b860ead0c76",
-        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "assignee_id": "bc8e2a72-2aaa-44df-a54d-2bcbe44fbf20",
+        "extra_label_ids": ["f66795cd-4fa2-4d8b-9018-f0a1a89f7f87"],
         "description": "Python ingestion framework, connectors, sources, and CLI tools for extracting metadata from external data sources. Any PR touching metadata-ingestion/ or metadata-ingestion-modules/ belongs to this team."
       },
       {
         "key": "CAT",
         "team_id": "56af88f4-c7c2-40f6-9858-dcba33a5f55e",
-        "assignee_id": "bb4daa2b-1748-4830-af1f-60198ebd9a63",
+        "assignee_id": "11af987f-3b7c-4a84-bcff-a76659fdfe70",
+        "extra_label_ids": ["50118e2a-872b-49a3-a233-2ebc2b1ecc51"],
         "description": "DataHub frontend (React/TypeScript, datahub-web-react), GraphQL API layer (datahub-graphql-core), and application-layer GMS services including auth, search API, entity services, and REST/OpenAPI endpoints"
       },
       {
         "key": "PFP",
         "team_id": "71e24163-bc3b-4dfb-bba5-3acb822830e3",
         "assignee_id": "854a61e3-dba9-4293-b527-f953bd742201",
+        "extra_label_ids": ["109b55ae-afbd-41a1-878e-348f5086c310"],
         "description": "Platform infrastructure — Ebean/database storage layer, Elasticsearch indexing, Kafka consumers (MAE/MCE/PE), GMS infrastructure (factories, wiring), metadata-utils, Docker, and Kubernetes"
       },
       {
         "key": "OBS",
         "team_id": "1a592e48-d6ba-4b92-a241-8172b568e9bb",
-        "assignee_id": "2bd2434a-cf1e-47a4-8243-0e77ed19faf7",
-        "description": "Data Quality and Assertions. Any PR touching the Assertions codebase belongs to this team."
+        "assignee_id": "f81f2754-6338-467c-9c91-a12e727b4c36",
+        "extra_label_ids": ["81fd32f2-aba1-4438-ac4a-24f5e4de3b5b"],
+        "description": "Data Quality and Assertions. Any PR touching the Assertions/Monitors or Incidents codebase belongs to this team."
+      },
+      {
+        "key": "OSS",
+        "team_id": "952ee4f2-e3eb-4580-98e3-67c2b73a5c51",
+        "assignee_id": "48f94188-01fa-4ab6-bcbd-153bf769198f",
+        "description": "Fallback for PRs/issues that do not clearly belong to an engineering team (docs, community, misc). Assigned to DevRel for triage."
       }
     ]
 
 jobs:
   handle-pr:
     if: github.event_name == 'pull_request_target'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 5
     steps:
@@ -138,18 +156,44 @@ jobs:
           if [ -z "$TEAM_MEMBERS" ]; then
             echo "⚠️  DATAHUB_TEAM_MEMBERS variable is not set — defaulting to Internal"
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           elif echo "$TEAM_MEMBERS" | jq -e --arg actor "$PR_AUTHOR" '[.[].github] | map(ascii_downcase) | contains([($actor | ascii_downcase)])' > /dev/null 2>&1; then
             echo "contributor_type=Internal" >> "$GITHUB_OUTPUT"
+            echo "should_skip=true" >> "$GITHUB_OUTPUT"
+            echo "⏭️  Skipping - Internal contributor"
           else
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
           fi
+
+      # pull_request_target / issues check out the default branch. Never check
+      # out the PR head here: this job has access to secrets.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event.action != 'closed'
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
+
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
 
       - name: Route PR to team
         if: github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
         id: route-team
         env:
           GH_TOKEN: ${{ github.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -161,7 +205,8 @@ jobs:
             FILES_LIST=""
           fi
 
-          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+          # Exclude OSS from LLM choices — it is the code-side fallback only
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | select(.key != "OSS") | "- " + .key + ": " + .description')
 
           PROMPT=$(cat <<PROMPT_EOF
           You are routing a GitHub PR to the correct engineering team for review. Based on the PR details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
@@ -182,25 +227,25 @@ jobs:
           PROMPT_EOF
           )
 
-          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+          python3 -m pip install --quiet anthropic==1.9.0 \
+            || echo "::warning::Failed to install the anthropic SDK"
 
-          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
-
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(printf '%s' "$PROMPT" | python3 .github/scripts/claude_route.py | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
-            echo "⏭️  No matching team found for PR #$PR_NUMBER"
-            echo "team_key=" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "⚠️  No matching engineering team for PR #$PR_NUMBER — falling back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
           fi
 
           TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
           if [ -z "$TEAM_CONFIG" ]; then
-            echo "❌ Unrecognized team key returned: $TEAM_KEY"
+            echo "❌ Unrecognized team key returned: $TEAM_KEY — falling back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          fi
+
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "❌ OSS fallback config missing from LINEAR_TEAM_CONFIG"
             echo "team_key=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -210,6 +255,7 @@ jobs:
             echo "team_key=$TEAM_KEY"
             echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
             echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            echo "label_ids=$(echo "$TEAM_CONFIG" | jq -c '["bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f"] + (.extra_label_ids // [])')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Linear Ticket for PR
@@ -230,6 +276,7 @@ jobs:
           TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
           TEAM_ID: ${{ steps.route-team.outputs.team_id }}
           ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+          LABEL_IDS: ${{ steps.route-team.outputs.label_ids }}
         run: |
           if [ -z "$PR_BODY" ]; then
             PR_BODY="No description provided"
@@ -283,16 +330,16 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": $LABEL_IDS}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": $LABEL_IDS}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then
@@ -323,7 +370,7 @@ jobs:
 
   handle-issue:
     if: github.event_name == 'issues'
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     continue-on-error: true
     timeout-minutes: 5
     steps:
@@ -386,17 +433,40 @@ jobs:
             echo "$UPDATE_RESPONSE" | jq . 2>/dev/null || echo "$UPDATE_RESPONSE"
           fi
 
+      # pull_request_target / issues check out the default branch. Never check
+      # out the PR head here: this job has access to secrets.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event.action != 'closed'
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
+
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed'
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
       - name: Route issue to team
         if: github.event.action != 'closed'
         id: route-team
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
           ISSUE_AUTHOR: ${{ github.event.issue.user.login }}
         run: |
-          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | "- " + .key + ": " + .description')
+          # Exclude OSS from LLM choices — it is the code-side fallback only
+          TEAM_DESCRIPTIONS=$(echo "$LINEAR_TEAM_CONFIG" | jq -r '.[] | select(.key != "OSS") | "- " + .key + ": " + .description')
 
           PROMPT=$(cat <<PROMPT_EOF
           You are routing a GitHub issue to the correct engineering team. Based on the issue details below, respond with ONLY the team key (e.g. ING, CAT, PFP), or NONE if it doesn't clearly belong to any team.
@@ -414,25 +484,25 @@ jobs:
           PROMPT_EOF
           )
 
-          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+          python3 -m pip install --quiet anthropic==1.9.0 \
+            || echo "::warning::Failed to install the anthropic SDK"
 
-          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
-
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(printf '%s' "$PROMPT" | python3 .github/scripts/claude_route.py | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
 
           if [ -z "$TEAM_KEY" ] || [ "$TEAM_KEY" = "NONE" ] || [ "$TEAM_KEY" = "NULL" ]; then
-            echo "⏭️  No matching team found for issue #$ISSUE_NUMBER"
-            echo "team_key=" >> "$GITHUB_OUTPUT"
-            exit 0
+            echo "⚠️  No matching engineering team for issue #$ISSUE_NUMBER — falling back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
           fi
 
           TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
           if [ -z "$TEAM_CONFIG" ]; then
-            echo "❌ Unrecognized team key returned: $TEAM_KEY"
+            echo "❌ Unrecognized team key returned: $TEAM_KEY — falling back to OSS (DevRel triage)"
+            TEAM_KEY=OSS
+            TEAM_CONFIG=$(echo "$LINEAR_TEAM_CONFIG" | jq --arg key "$TEAM_KEY" '.[] | select(.key == $key)')
+          fi
+
+          if [ -z "$TEAM_CONFIG" ]; then
+            echo "❌ OSS fallback config missing from LINEAR_TEAM_CONFIG"
             echo "team_key=" >> "$GITHUB_OUTPUT"
             exit 0
           fi
@@ -442,6 +512,7 @@ jobs:
             echo "team_key=$TEAM_KEY"
             echo "team_id=$(echo "$TEAM_CONFIG" | jq -r '.team_id')"
             echo "assignee_id=$(echo "$TEAM_CONFIG" | jq -r '.assignee_id')"
+            echo "label_ids=$(echo "$TEAM_CONFIG" | jq -c '["bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f"] + (.extra_label_ids // [])')"
           } >> "$GITHUB_OUTPUT"
 
       - name: Create Linear Ticket for Issue
@@ -458,6 +529,7 @@ jobs:
           TEAM_KEY: ${{ steps.route-team.outputs.team_key }}
           TEAM_ID: ${{ steps.route-team.outputs.team_id }}
           ASSIGNEE_ID: ${{ steps.route-team.outputs.assignee_id }}
+          LABEL_IDS: ${{ steps.route-team.outputs.label_ids }}
         run: |
           # Deduplication guard
           if COMMENTS_JSON=$(gh issue view "$ISSUE_NUMBER" --json comments 2>/dev/null); then
@@ -494,16 +566,16 @@ jobs:
             exit 0
           fi
 
-          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ]; then
+          if [ "$TEAM_KEY" = "PFP" ] || [ "$TEAM_KEY" = "OBS" ] || [ "$TEAM_KEY" = "OSS" ]; then
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"assigneeId\": \"$ASSIGNEE_ID\", \"labelIds\": $LABEL_IDS}}}")
           else
             RESPONSE=$(curl -s -X POST https://api.linear.app/graphql \
               -H "Authorization: $LINEAR_API_KEY" \
               -H "Content-Type: application/json" \
-              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": [\"bc3cbf3f-71b4-4b60-bf02-b155b2f3f17f\"]}}}")
+              -d "{\"query\": \"mutation CreateIssue(\$input: IssueCreateInput!) { issueCreate(input: \$input) { success issue { id identifier title url } } }\", \"variables\": {\"input\": {\"teamId\": \"$TEAM_ID\", \"title\": $TITLE_JSON, \"description\": $DESCRIPTION_JSON, \"labelIds\": $LABEL_IDS}}}")
           fi
 
           if [ -z "$RESPONSE" ]; then

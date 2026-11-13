@@ -1,5 +1,6 @@
 import { Drawer } from 'antd';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { IncidentDrawerHeader } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDrawerHeader';
 import { IncidentEditor } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentEditor';
@@ -7,7 +8,7 @@ import { IncidentView } from '@app/entityV2/shared/tabs/Incident/AcrylComponents
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { EntityStagedForIncident, IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
-import ClickOutside from '@src/app/shared/ClickOutside';
+import ClickOutside from '@src/app/sharedV2/ClickOutside';
 import { EntityPrivileges, Incident } from '@src/types.generated';
 
 const modalBodyStyle = { padding: 0, fontFamily: 'Mulish, sans-serif' };
@@ -29,6 +30,7 @@ export const IncidentDetailDrawer = ({
     incident,
     privileges,
 }: IncidentDetailDrawerProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const [isEditView, setIsEditView] = useState<boolean>(false);
     const showEditor = isEditView || mode === IncidentAction.CREATE;
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -67,11 +69,10 @@ export const IncidentDetailDrawer = ({
                 />
                 {showEditor ? (
                     <IncidentEditor
-                        onClose={onCancel}
+                        entity={entity}
                         data={incident}
                         mode={mode}
                         incidentUrn={incident?.urn}
-                        entity={entity}
                         onSubmit={handleSubmit}
                     />
                 ) : (
@@ -82,8 +83,8 @@ export const IncidentDetailDrawer = ({
                 isOpen={showConfirmationModal}
                 handleClose={() => setShowConfirmationModal(false)}
                 handleConfirm={() => onCancel?.()}
-                modalTitle="Exit View Editor"
-                modalText="Are you sure you want to exit View editor? All changes will be lost"
+                modalTitle={t('drawer.exitTitle')}
+                modalText={t('drawer.exitConfirmation')}
             />
         </ClickOutside>
     );

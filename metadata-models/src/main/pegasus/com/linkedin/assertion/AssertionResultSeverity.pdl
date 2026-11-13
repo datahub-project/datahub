@@ -1,0 +1,22 @@
+namespace com.linkedin.assertion
+
+/**
+ * The severity of an assertion failure, indicating how far the actual value
+ * deviated from the expected range.
+ */
+enum AssertionResultSeverity {
+  /**
+   * Low severity - minor deviation from expected bounds.
+   */
+  LOW
+
+  /**
+   * Medium severity - moderate deviation from expected bounds. This is the default.
+   */
+  MEDIUM
+
+  /**
+   * High severity - significant deviation from expected bounds (e.g. > 1 std_dev for smart assertions).
+   */
+  HIGH
+}

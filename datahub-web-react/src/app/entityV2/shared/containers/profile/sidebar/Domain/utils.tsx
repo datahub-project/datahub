@@ -1,10 +1,10 @@
+import i18next from 'i18next';
 import * as QueryString from 'query-string';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import filtersToQueryStringParams from '@app/search/utils/filtersToQueryStringParams';
-import { pluralize } from '@app/shared/textUtil';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
 import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@types';
@@ -12,7 +12,7 @@ import { AggregationMetadata, EntityType, FacetMetadata, SearchResults } from '@
 const UNIT_SEPARATOR = '␞';
 
 const SummaryText = styled.span`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 type ContentTypeSummary = {
@@ -87,19 +87,26 @@ export const getContentsSummary = (contents: SearchResults): ContentsSummary => 
     return getContentCountsByType(contents);
 };
 
+function getEntityTypeLabel(entityRegistry: EntityRegistry, type: ContentTypeSummary): string | undefined {
+    if (type.type) {
+        return type.type;
+    }
+    return type.count === 1
+        ? entityRegistry.getEntityName(type.entityType)
+        : entityRegistry.getCollectionName(type.entityType);
+}
+
 export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry: EntityRegistry): React.ReactNode => {
     return (
         <>
             {summary.types.map((type, idx) => {
                 return (
                     <SummaryText key={type.entityType}>
-                        {type.count}{' '}
-                        {pluralize(
-                            type.count,
-                            !type.type
-                                ? (entityRegistry.getEntityName(type.entityType as EntityType) as any)
-                                : type.type,
-                        ).toLocaleLowerCase()}
+                        {i18next.t('entity.shared.containers:sidebar.entityTypeCount', {
+                            count: type.count,
+                            type: getEntityTypeLabel(entityRegistry, type)?.toLocaleLowerCase(),
+                        })}
+                        {/* eslint-disable-next-line i18next/no-literal-string -- list separator punctuation, not translatable UI text */}
                         {idx < summary.types.length - 1 && <>, </>}
                     </SummaryText>
                 );
@@ -109,7 +116,7 @@ export const getContentsSummaryText = (summary: ContentsSummary, entityRegistry:
 };
 
 export const navigateToDomainEntities = (urn, type, history, entityRegistry) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Assets`);
+    history.push(`${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.ASSETS}`);
 };
 
 export function getDomainEntitiesFilterUrl(urn, type, entityRegistry, types, subTypes): string {
@@ -131,9 +138,11 @@ export function getDomainEntitiesFilterUrl(urn, type, entityRegistry, types, sub
 
     const search = QueryString.stringify(filtersToQueryStringParams(filters), { arrayFormat: 'comma' });
 
-    return `${entityRegistry.getEntityUrl(type, urn)}/Assets?${search}`;
+    return `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.ASSETS}?${search}`;
 }
 
 export const navigateToDomainDataProducts = (urn, type, history, entityRegistry, isAdd = false) => {
-    history.push(`${entityRegistry.getEntityUrl(type, urn)}/Data Products${isAdd ? '?createModal=true' : ''}`);
+    history.push(
+        `${entityRegistry.getEntityUrl(type, urn)}/${EntityTabPath.DATA_PRODUCTS}${isAdd ? '?createModal=true' : ''}`,
+    );
 };

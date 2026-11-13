@@ -24,6 +24,7 @@ public class PluginConfiguration {
   private List<AspectPluginConfig> mutationHooks = Collections.emptyList();
   private List<AspectPluginConfig> mclSideEffects = Collections.emptyList();
   private List<AspectPluginConfig> mcpSideEffects = Collections.emptyList();
+  private List<AspectPluginConfig> mcpObservers = Collections.emptyList();
 
   public static PluginConfiguration EMPTY = new PluginConfiguration();
 
@@ -31,7 +32,8 @@ public class PluginConfiguration {
     return aspectPayloadValidators.isEmpty()
         && mutationHooks.isEmpty()
         && mclSideEffects.isEmpty()
-        && mcpSideEffects.isEmpty();
+        && mcpSideEffects.isEmpty()
+        && mcpObservers.isEmpty();
   }
 
   public static PluginConfiguration merge(PluginConfiguration a, PluginConfiguration b) {
@@ -44,15 +46,19 @@ public class PluginConfiguration {
         Stream.concat(a.getMclSideEffects().stream(), b.getMclSideEffects().stream())
             .collect(Collectors.toList()),
         Stream.concat(a.getMcpSideEffects().stream(), b.getMcpSideEffects().stream())
+            .collect(Collectors.toList()),
+        Stream.concat(a.getMcpObservers().stream(), b.getMcpObservers().stream())
             .collect(Collectors.toList()));
   }
 
   public Stream<AspectPluginConfig> streamAll() {
     return Stream.concat(
         Stream.concat(
-            Stream.concat(aspectPayloadValidators.stream(), mutationHooks.stream()),
-            mclSideEffects.stream()),
-        mcpSideEffects.stream());
+            Stream.concat(
+                Stream.concat(aspectPayloadValidators.stream(), mutationHooks.stream()),
+                mclSideEffects.stream()),
+            mcpSideEffects.stream()),
+        mcpObservers.stream());
   }
 
   public List<String> validatorPackages() {
@@ -68,6 +74,17 @@ public class PluginConfiguration {
 
   public List<String> mcpSideEffectPackages() {
     return mcpSideEffects.stream()
+        .flatMap(
+            cfg ->
+                cfg.getPackageScan() != null
+                    ? cfg.getPackageScan().stream()
+                    : Arrays.stream(HOOK_PACKAGES))
+        .distinct()
+        .collect(Collectors.toList());
+  }
+
+  public List<String> mcpObserverPackages() {
+    return mcpObservers.stream()
         .flatMap(
             cfg ->
                 cfg.getPackageScan() != null

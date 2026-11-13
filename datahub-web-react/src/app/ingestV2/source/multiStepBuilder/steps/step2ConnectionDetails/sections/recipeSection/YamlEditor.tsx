@@ -1,19 +1,19 @@
-import { Button, Icon, Text, borders, colors, radius, spacing, typography } from '@components';
+import { Button, Icon, Text, borders, radius, spacing, toast, typography } from '@components';
 import Editor from '@monaco-editor/react';
 import { ArrowsInLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsInLineVertical';
 import { ArrowsOutLineVertical } from '@phosphor-icons/react/dist/csr/ArrowsOutLineVertical';
 import { Copy } from '@phosphor-icons/react/dist/csr/Copy';
-import { message } from 'antd';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import '@conf/monaco';
+import { useMonacoTheme } from '@app/theme/useMonacoTheme';
 
 const Container = styled.div`
     display: flex;
     flex-direction: column;
     border-radius: ${radius.lg};
-    border: ${borders['1px']} ${colors.gray[100]};
+    border: ${borders['1px']} ${(props) => props.theme.colors.border};
     height: 100%;
 `;
 
@@ -21,10 +21,10 @@ const Header = styled.div`
     display: flex;
     flex-direction: row;
     gap: ${spacing.md};
-    background: ${colors.gray[1500]};
+    background: ${(props) => props.theme.colors.bgSurface};
     padding: ${spacing.xsm} ${spacing.md};
     border-radius: ${radius.lg} ${radius.lg} 0 0;
-    border-bottom: ${borders['1px']} ${colors.gray[100]};
+    border-bottom: ${borders['1px']} ${(props) => props.theme.colors.border};
 `;
 
 const Spacer = styled.div`
@@ -56,20 +56,26 @@ const NoPaddingButton = styled(Button)`
 
 const LINE_HEIGHT = 19;
 
+const EDITOR_LANGUAGE = 'yaml';
+
 type Props = {
     value: string;
     onChange: (value: any) => void;
+    defaultHeight?: string;
 };
 
-export function YamlEditor({ value, onChange }: Props) {
+export function YamlEditor({ value, onChange, defaultHeight = '30vh' }: Props) {
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tf } = useTranslation('common.feedback');
+    const monacoTheme = useMonacoTheme();
     const [isExpanded, setIsExpanded] = useState<boolean>(false);
     const editorRef = useRef<any>(null);
     const editorWrapperRef = useRef<HTMLDivElement>(null);
 
     const onCopy = useCallback(() => {
         navigator.clipboard.writeText(value);
-        message.success('Copied!');
-    }, [value]);
+        toast.success(tf('copiedSuccess'));
+    }, [value, tf]);
 
     const toggleExpanded = useCallback(() => {
         setIsExpanded((currentIsExpanded) => !currentIsExpanded);
@@ -114,14 +120,20 @@ export function YamlEditor({ value, onChange }: Props) {
     return (
         <Container ref={containerRef}>
             <Header>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
+                <Text weight="semiBold" color="text">
                     YAML
                 </Text>
                 <Spacer />
                 <NoPaddingButton variant="text" size="md" color="gray" onClick={onCopy}>
-                    <Icon size="md" icon={Copy} /> Copy
+                    <Icon size="md" icon={Copy} /> {tc('copy')}
                 </NoPaddingButton>
-                <NoPaddingButton variant="text" size="md" color="gray" onClick={toggleExpanded}>
+                <NoPaddingButton
+                    variant="text"
+                    size="md"
+                    color="gray"
+                    onClick={toggleExpanded}
+                    data-testid="toggle-expand-button"
+                >
                     {isExpanded ? (
                         <Icon size="lg" icon={ArrowsInLineVertical} />
                     ) : (
@@ -131,6 +143,7 @@ export function YamlEditor({ value, onChange }: Props) {
             </Header>
             <EditorWrapper ref={editorWrapperRef} data-testid="yaml-editor-container">
                 <Editor
+                    {...monacoTheme}
                     options={{
                         minimap: { enabled: false },
                         scrollbar: {
@@ -141,8 +154,8 @@ export function YamlEditor({ value, onChange }: Props) {
                         },
                         scrollBeyondLastLine: false,
                     }}
-                    height={isExpanded ? fullContentHeight : '30vh'}
-                    defaultLanguage="yaml"
+                    height={isExpanded ? fullContentHeight : defaultHeight}
+                    defaultLanguage={EDITOR_LANGUAGE}
                     defaultValue={value}
                     onChange={onChange}
                     onMount={handleEditorMount}

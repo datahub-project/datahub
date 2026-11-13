@@ -298,7 +298,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9"
+                "workbook_id": "1f15d897-7f0c-7c59-037a-afa6a9b7c9a9",
+                "luid": "65a404a8-48a2-4c2a-9eb0-14ee5e78b22b"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15995",
             "name": "Email Performance by Campaign",
@@ -440,7 +441,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea"
+                "workbook_id": "661fabd0-bed6-8610-e066-0694a81a6cea",
+                "luid": "b2c84ac6-1e37-4ca0-bf9b-62339be046fc"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15619",
             "name": "Dvdrental Workbook",
@@ -582,7 +584,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf"
+                "workbook_id": "6ffa5a7f-d852-78f1-6c6d-20ac23610ebf",
+                "luid": "68ebd5b2-ecf6-4fdf-ba1a-95427baef506"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/15605",
             "name": "Executive Dashboard",
@@ -724,7 +727,8 @@
         "json": {
             "customProperties": {
                 "platform": "tableau",
-                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c"
+                "workbook_id": "bd040833-8f66-22c0-1b51-bd4ccf5eef7c",
+                "luid": "a059a443-7634-4abf-9e46-d147b99168be"
             },
             "externalUrl": "https://do-not-connect/#/site/acryl/workbooks/17904",
             "name": "Workbook published ds",
@@ -23075,7 +23079,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "ffd72f16-004a-4a7d-8f5b-a8fd18d4317d"
+            },
             "name": "test publish datasource",
             "description": "description for test publish datasource",
             "tags": []
@@ -23490,7 +23496,9 @@
     "aspectName": "datasetProperties",
     "aspect": {
         "json": {
-            "customProperties": {},
+            "customProperties": {
+                "luid": "db86f6cc-9c0e-400f-9fe0-0777f31c6ae2"
+            },
             "name": "Superstore Datasource",
             "description": "Description for Superstore dataset",
             "tags": []

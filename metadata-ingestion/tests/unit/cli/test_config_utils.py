@@ -1,12 +1,12 @@
 import os
-from unittest.mock import mock_open, patch
+from pathlib import Path
+from unittest.mock import patch
 
 import pytest
 import yaml
 
 from datahub.cli import config_utils
 from datahub.cli.config_utils import (
-    DATAHUB_CONFIG_PATH,
     MissingConfigError,
     get_raw_client_config,
     get_system_auth,
@@ -21,7 +21,7 @@ class TestConfigUtils:
     def test_get_system_auth(self):
         """Test the get_system_auth function with and without environment variables."""
         # Test when environment variables are not set
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True):
             assert get_system_auth() is None
 
         # Test when both environment variables are set
@@ -40,40 +40,20 @@ class TestConfigUtils:
         ):
             assert get_system_auth() is None
 
-    def test_persist_raw_datahub_config(self):
-        """Test persisting config to file."""
-        test_config = {
-            "gms": {"server": "http://localhost:8080", "token": "test-token"}
-        }
+    def test_persist_raw_datahub_config(self, tmp_path: Path) -> None:
+        config = {"gms": {"server": "http://localhost:8080", "token": "test-token"}}
+        persist_raw_datahub_config(config)
+        path = tmp_path / ".datahubenv"
+        assert yaml.safe_load(path.read_text()) == config
+        assert path.stat().st_mode & 0o777 == 0o600
 
-        mock_file = mock_open()
-        with patch("builtins.open", mock_file):
-            persist_raw_datahub_config(test_config)
-
-        mock_file.assert_called_once_with(DATAHUB_CONFIG_PATH, "w+")
-        mock_file().write.assert_called()  # Check that write was called (yaml.dump writes to the file)
-
-    def test_get_raw_client_config(self):
-        """Test loading config from file."""
-        test_config = {
-            "gms": {"server": "http://localhost:8080", "token": "test-token"}
-        }
-        yaml_content = yaml.dump(test_config)
-
-        # Mock the file open and yaml load
-        with patch("builtins.open", mock_open(read_data=yaml_content)):
-            config = get_raw_client_config()
-
-        assert config == test_config
-
-        # Test with malformed YAML
-        with (
-            patch("builtins.open", mock_open(read_data="invalid: yaml: content:")),
-            patch("click.secho") as mock_secho,
-        ):
-            config = get_raw_client_config()
-            mock_secho.assert_called_once()
-            assert config is None
+    def test_get_raw_client_config(self, tmp_path: Path) -> None:
+        config = {"gms": {"server": "http://localhost:8080", "token": "test-token"}}
+        path = tmp_path / ".datahubenv"
+        path.write_text(yaml.safe_dump(config))
+        assert get_raw_client_config() == config
+        path.write_text("invalid: yaml: content:")
+        assert get_raw_client_config() is None
 
     def test_get_config_from_env(self):
         """Test retrieving config from environment variables."""
@@ -111,7 +91,7 @@ class TestConfigUtils:
             mock_warning.assert_called_once()  # Warning about using host as URL
 
         # Test with empty environment
-        with patch.dict(os.environ, {}, clear=True):
+        with patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True):
             url, token = config_utils._get_config_from_env()
             assert url is None
             assert token is None
@@ -128,7 +108,7 @@ class TestConfigUtils:
 
         # Test with no host (should raise error)
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True),
             pytest.raises(
                 MissingConfigError, match="No GMS host was provided in env variables."
             ),
@@ -157,7 +137,7 @@ class TestConfigUtils:
 
         # Mock both environment check and file loading
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True),
             patch.object(config_utils, "_should_skip_config", return_value=False),
             patch.object(config_utils, "_ensure_datahub_config"),
             patch.object(
@@ -168,11 +148,34 @@ class TestConfigUtils:
             assert config.server == "http://localhost:8080"
             assert config.token == "test-token"
 
+    def test_load_client_config_with_auth_passes_through_oauth_refresh(self):
+        """A machine-flow `auth:` config has no stored `oauth:` section, so the
+        PKCE token refresh (added in #17868) is a no-op and `auth` flows through
+        untouched. Guards the coexistence of the two OAuth config paths."""
+        test_config = {
+            "gms": {
+                "server": "http://localhost:8080",
+                "auth": {"type": "static", "config": {"token": "abc"}},
+            }
+        }
+        with (
+            patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True),
+            patch.object(config_utils, "_should_skip_config", return_value=False),
+            patch.object(config_utils, "_ensure_datahub_config"),
+            patch.object(
+                config_utils, "get_raw_client_config", return_value=test_config
+            ),
+        ):
+            config = load_client_config()
+            assert config.token is None
+            assert config.auth is not None
+            assert config.auth.type == "static"
+
     def test_load_client_config_missing(self):
         """Test loading client config when missing."""
         # When skip config is true and no env variables
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True),
             patch.object(config_utils, "_should_skip_config", return_value=True),
             pytest.raises(
                 MissingConfigError, match="You have set the skip config flag"
@@ -182,7 +185,7 @@ class TestConfigUtils:
 
         # When config file is missing
         with (
-            patch.dict(os.environ, {}, clear=True),
+            patch.dict(os.environ, {"HOME": os.environ["HOME"]}, clear=True),
             patch.object(config_utils, "_should_skip_config", return_value=False),
             patch.object(
                 config_utils,
@@ -193,19 +196,11 @@ class TestConfigUtils:
         ):
             load_client_config()
 
-    def test_ensure_datahub_config(self):
-        """Test ensuring datahub config exists."""
-        # Test when file doesn't exist
-        with (
-            patch.object(os.path, "isfile", return_value=False),
-            pytest.raises(MissingConfigError, match="No ~/.datahubenv file found"),
-        ):
+    def test_ensure_datahub_config(self, tmp_path: Path) -> None:
+        with pytest.raises(MissingConfigError):
             config_utils._ensure_datahub_config()
-
-        # Test when file exists
-        with patch.object(os.path, "isfile", return_value=True):
-            # Should not raise an exception
-            config_utils._ensure_datahub_config()
+        (tmp_path / ".datahubenv").write_text("gms: {}")
+        config_utils._ensure_datahub_config()
 
     def test_write_gms_config(self):
         """Test writing GMS config."""
@@ -228,17 +223,24 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,
                     "client_certificate_path": None,
+                    "client_key_path": None,
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "respect_mcp_sync_marker": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config
@@ -276,17 +278,24 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,
                     "client_certificate_path": None,
+                    "client_key_path": None,
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "respect_mcp_sync_marker": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 },
                 "other": {"setting": "value"},
             }
@@ -304,17 +313,24 @@ class TestConfigUtils:
                 "gms": {
                     "server": "http://test-host:8080",
                     "token": "test-token",
+                    "auth": None,
                     "client_mode": None,
                     "datahub_component": None,
                     "ca_certificate_path": None,
                     "client_certificate_path": None,
+                    "client_key_path": None,
                     "disable_ssl_verification": False,
                     "extra_headers": None,
                     "openapi_ingestion": None,
+                    "respect_mcp_sync_marker": None,
+                    "pool_connections": None,
+                    "pool_maxsize": None,
                     "retry_max_times": None,
                     "retry_status_codes": None,
                     "timeout_sec": None,
                     "server_config_refresh_interval": None,
+                    "tcp_keepalive": False,
+                    "default_emit_mode": None,
                 }
             }
             assert mock_persist.call_args[0][0] == expected_config

@@ -8,11 +8,11 @@ import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.metadata.aspect.patch.template.CompoundKeyTemplate;
+import com.linkedin.metadata.aspect.patch.template.ArrayMergingTemplate;
 import java.util.Arrays;
 import javax.annotation.Nonnull;
 
-public class OwnershipTemplate extends CompoundKeyTemplate<Ownership> {
+public class OwnershipTemplate implements ArrayMergingTemplate<Ownership> {
 
   private static final String OWNERS_FIELD_NAME = "owners";
   private static final String OWNER_FIELD_NAME = "owner";

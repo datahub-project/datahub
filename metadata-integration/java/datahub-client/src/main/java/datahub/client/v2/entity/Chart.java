@@ -59,7 +59,8 @@ public class Chart extends Entity
         HasOwners<Chart>,
         HasDomains<Chart>,
         HasSubTypes<Chart>,
-        HasStructuredProperties<Chart> {
+        HasStructuredProperties<Chart>,
+        HasDocumentation<Chart> {
 
   private static final String ENTITY_TYPE = "chart";
 

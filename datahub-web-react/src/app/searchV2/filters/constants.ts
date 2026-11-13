@@ -1,4 +1,4 @@
-import { LAST_MODIFIED_FILTER } from '@app/searchV2/filters/field/fields';
+import { LAST_MODIFIED_FILTER, PARENT_DOCUMENT_FILTER } from '@app/searchV2/filters/field/fields';
 import { FilterField } from '@app/searchV2/filters/types';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -8,11 +8,13 @@ import {
     ENTITY_FILTER_NAME,
     ENTITY_INDEX_FILTER_NAME,
     ENTITY_SUB_TYPE_FILTER_NAME,
+    ENV_FILTER_NAME,
     GLOSSARY_TERMS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     LEGACY_ENTITY_FILTER_NAME,
     ORIGIN_FILTER_NAME,
     OWNERS_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
     PLATFORM_FILTER_NAME,
     TAGS_FILTER_NAME,
     TYPE_NAMES_FILTER_NAME,
@@ -30,6 +32,7 @@ export const SORTED_FILTERS = [
     DOMAINS_FILTER_NAME,
     LAST_MODIFIED_FILTER_NAME,
     CONTAINER_FILTER_NAME,
+    PARENT_DOCUMENT_FILTER_NAME,
 ];
 
 export const FACETS_TO_ENTITY_TYPES = {
@@ -38,6 +41,7 @@ export const FACETS_TO_ENTITY_TYPES = {
     [OWNERS_FILTER_NAME]: [EntityType.CorpUser, EntityType.CorpGroup],
     [TAGS_FILTER_NAME]: [EntityType.Tag],
     [CONTAINER_FILTER_NAME]: [EntityType.Container],
+    [PARENT_DOCUMENT_FILTER_NAME]: [EntityType.Document],
 };
 
 // remove legacy filter options as well as new _index and browsePathV2 filter from dropdowns
@@ -49,10 +53,11 @@ export const FILTERS_TO_REMOVE = [
     BROWSE_PATH_V2_FILTER_NAME,
     CONTAINER_FILTER_NAME,
     CHART_TYPE_FILTER_NAME,
+    ENV_FILTER_NAME,
 ];
 
 // filters that should not be shown in the active filters section
 export const EXCLUDED_ACTIVE_FILTERS = [BROWSE_PATH_V2_FILTER_NAME];
 
-// Filters not based on facets
-export const NON_FACET_FILTER_FIELDS: FilterField[] = [LAST_MODIFIED_FILTER];
+// Filters not based on facets — always available; Parent Document sorts late into More Filters
+export const NON_FACET_FILTER_FIELDS: FilterField[] = [LAST_MODIFIED_FILTER, PARENT_DOCUMENT_FILTER];

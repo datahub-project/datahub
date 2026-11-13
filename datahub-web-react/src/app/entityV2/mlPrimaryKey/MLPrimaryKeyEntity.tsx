@@ -1,30 +1,49 @@
-import { PartitionOutlined, UnorderedListOutlined } from '@ant-design/icons';
 import { Key } from '@phosphor-icons/react/dist/csr/Key';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { TreeStructure } from '@phosphor-icons/react/dist/csr/TreeStructure';
+import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlPrimaryKey/preview/Preview';
+import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
-import { SidebarAboutSection } from '@app/entityV2/shared/containers/profile/sidebar/AboutSection/SidebarAboutSection';
-import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
-import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
-import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
-import SidebarEntityHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarEntityHeader';
-import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
-import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
-import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
-import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/utils';
-import SidebarStructuredProperties from '@app/entityV2/shared/sidebarSection/SidebarStructuredProperties';
-import { DocumentationTab } from '@app/entityV2/shared/tabs/Documentation/DocumentationTab';
-import { LineageTab } from '@app/entityV2/shared/tabs/Lineage/LineageTab';
-import { FeatureTableTab } from '@app/entityV2/shared/tabs/ML/MlPrimaryKeyFeatureTableTab';
-import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
+import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
+import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import {
+    DataProductSection,
+    DocumentationTab,
+    EntityProfile,
+    LineageTab,
+    PropertiesTab,
+    SidebarAboutSection,
+    SidebarDomainSection,
+    SidebarEntityHeader,
+    SidebarGlossaryTermsSection,
+    SidebarOwnerSection,
+    SidebarStructuredProperties,
+    SidebarTagsSection,
+    StatusSection,
+} from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlPrimaryKeyQuery } from '@graphql/mlPrimaryKey.generated';
 import { EntityType, MlPrimaryKey, SearchResult } from '@types';
+
+const FeatureTableTab = lazyProfileComponent('FeatureTableTab', () =>
+    import('@app/entityV2/shared/tabs/ML/MlPrimaryKeyFeatureTableTab').then((module) => ({
+        default: module.FeatureTableTab,
+    })),
+);
+
+const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
+    EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.SHARE,
+    EntityMenuItems.ANNOUNCE,
+]);
 
 /**
  * Definition of the DataHub MLPrimaryKey entity.
@@ -55,9 +74,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getPathName = () => 'mlPrimaryKeys';
 
-    getEntityName = () => 'ML Primary Key';
+    getEntityName = () => i18next.t('entity.types:mlPrimaryKey.name');
 
-    getCollectionName = () => 'ML Primary Keys';
+    getCollectionName = () => i18next.t('entity.types:mlPrimaryKey.namePlural');
 
     getOverridePropertiesFromEntity = (key?: MlPrimaryKey | null): GenericEntityProperties => {
         return {
@@ -75,22 +94,27 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             entityType={EntityType.MlprimaryKey}
             useEntityQuery={useGetMlPrimaryKeyQuery}
             getOverrideProperties={this.getOverridePropertiesFromEntity}
+            headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Feature Tables',
+                    name: i18next.t('entity.types:tab.featureTables'),
+                    path: EntityTabPath.FEATURE_TABLES,
                     component: FeatureTableTab,
                 },
                 {
-                    name: 'Documentation',
+                    name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                 },
                 {
-                    name: 'Lineage',
+                    name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: LineageTab,
                     supportsFullsize: true,
                 },
                 {
-                    name: 'Properties',
+                    name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                 },
             ]}
@@ -131,19 +155,21 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
 
     getSidebarTabs = () => [
         {
-            name: 'Lineage',
+            key: EntitySidebarTabKey.LINEAGE,
+            name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
-            description: "View this data asset's upstream and downstream dependencies",
-            icon: PartitionOutlined,
+            description: i18next.t('entity.types:sidebar.lineageDescription'),
+            icon: TreeStructure,
             properties: {
                 actionType: SidebarTitleActionType.LineageExplore,
             },
         },
         {
-            name: 'Properties',
+            key: EntitySidebarTabKey.PROPERTIES,
+            name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
-            description: 'View additional properties about this asset',
-            icon: UnorderedListOutlined,
+            description: i18next.t('entity.types:sidebar.propertiesDescription'),
+            icon: ListBullets,
         },
     ];
 
@@ -161,6 +187,8 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 owners={data.ownership?.owners}
                 platform={platform}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                deprecation={data.deprecation}
+                headerDropdownItems={headerDropdownItems}
                 previewType={previewType}
             />
         );
@@ -182,9 +210,11 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
                 platform={platform}
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 dataProduct={getDataProduct(genericProperties?.dataProduct)}
+                deprecation={data.deprecation}
                 degree={(result as any).degree}
                 paths={(result as any).paths}
                 isOutputPort={isOutputPort(result)}
+                headerDropdownItems={headerDropdownItems}
                 previewType={PreviewType.SEARCH}
             />
         );
@@ -227,5 +257,9 @@ export class MLPrimaryKeyEntity implements Entity<MlPrimaryKey> {
             EntityCapabilityType.RELATED_DOCUMENTS,
             EntityCapabilityType.FORMS,
         ]);
+    };
+
+    getPlatformProperties = (data: MlPrimaryKey) => {
+        return data?.properties?.sources?.[0]?.platform;
     };
 }

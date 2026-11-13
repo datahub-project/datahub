@@ -1,5 +1,11 @@
 import { Tooltip } from '@components';
+import { ChartBar } from '@phosphor-icons/react/dist/csr/ChartBar';
+import { Gear } from '@phosphor-icons/react/dist/csr/Gear';
+import { Plugs } from '@phosphor-icons/react/dist/csr/Plugs';
+import { Question } from '@phosphor-icons/react/dist/csr/Question';
+import { ShieldCheck } from '@phosphor-icons/react/dist/csr/ShieldCheck';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
@@ -12,12 +18,6 @@ import { useUpdateEducationStepsAllowList } from '@app/onboarding/useUpdateEduca
 import { useAppConfig, useBusinessAttributesFlag } from '@app/useAppConfig';
 import { HelpLinkRoutes, PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
-
-import AnalyticsMenuIcon from '@images/analyticsMenuIcon.svg?react';
-import GovernMenuIcon from '@images/governMenuIcon.svg?react';
-import HelpMenuIcon from '@images/help-icon.svg?react';
-import IngestionMenuIcon from '@images/ingestionMenuIcon.svg?react';
-import SettingsMenuIcon from '@images/settingsMenuIcon.svg?react';
 
 const LinksWrapper = styled.div<{ areLinksHidden?: boolean }>`
     opacity: 1;
@@ -40,20 +40,20 @@ const LinkWrapper = styled.span`
     height: 52px;
     width: 52px;
     line-height: 0;
-    box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0);
+    box-shadow: none;
     transition: all 200ms ease;
-    color: #f9fafc;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
 
     &:hover {
         cursor: pointer;
-        background-color: #4b39bc;
-        box-shadow: 0px 0px 8px 4px rgba(0, 0, 0, 0.15);
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrandHover};
+        box-shadow: ${(props) => props.theme.colors.shadowMd};
     }
 
     & svg {
         width: 24px;
         height: 24px;
-        fill: #f9fafc;
+        fill: ${(props) => props.theme.colors.textOnFillDefault};
     }
 `;
 
@@ -62,23 +62,24 @@ const SubMenu = styled.div`
     position: absolute;
     top: 3px;
     left: 50px;
-    width: 220px;
+    width: 225px;
     padding-left: 10px;
 `;
 
 // Used to style the submenu
 const SubMenuContent = styled.div`
     border-radius: 12px;
-    background: rgba(92, 63, 209, 0.95);
-    box-shadow: 0px 8px 8px 4px rgba(0, 0, 0, 0.25);
+    background: ${(props) => props.theme.colors.bgSurfaceBrand};
+    box-shadow: ${(props) => props.theme.colors.shadowLg};
     padding: 8px;
 `;
 
 const SubMenuTitle = styled.div`
     border-radius: 12px;
-    background: #2f2477;
+    background: ${(props) => props.theme.colors.bgSurfaceBrandHover};
     padding: 8px 12px;
     font: 700 12px/20px Mulish;
+    color: ${(props) => props.theme.colors.textOnFillDefault};
     margin-bottom: 4px;
 `;
 
@@ -87,7 +88,7 @@ const SubMenuLink = styled.div`
     padding: 4px 12px 12px 12px;
 
     &:hover {
-        background-color: #4b39bc;
+        background-color: ${(props) => props.theme.colors.bgSurfaceBrandHover};
     }
 `;
 
@@ -96,6 +97,7 @@ interface Props {
 }
 
 export function NavLinksMenu(props: Props) {
+    const { t } = useTranslation('home.v2');
     const { areLinksHidden } = props;
     const me = useUserContext();
     const { config } = useAppConfig();
@@ -138,16 +140,16 @@ export function NavLinksMenu(props: Props) {
     // Menu Items
     const menuItems: Array<NavMenuItem> = [
         {
-            icon: AnalyticsMenuIcon,
-            title: 'Analytics',
-            description: 'Explore data usage and trends',
+            icon: ChartBar,
+            title: t('navLinks.analytics.title'),
+            description: t('navLinks.analytics.description'),
             link: PageRoutes.ANALYTICS,
             isHidden: !showAnalytics,
         },
         {
-            icon: GovernMenuIcon,
-            title: 'Govern',
-            description: 'Manage data access and quality',
+            icon: ShieldCheck,
+            title: t('navLinks.govern.title'),
+            description: t('navLinks.govern.description'),
             link: null,
             subMenu: {
                 isOpen: showGovernMenu,
@@ -155,33 +157,33 @@ export function NavLinksMenu(props: Props) {
                 close: () => setShowGovernMenu(false),
                 items: [
                     {
-                        title: 'Glossary',
-                        description: 'View and modify your business glossary',
+                        title: t('navLinks.govern.glossary'),
+                        description: t('navLinks.govern.glossaryDescription'),
                         link: PageRoutes.GLOSSARY,
                         isHidden: false,
                     },
                     {
-                        title: 'Tags',
-                        description: 'View and modify your tags',
+                        title: t('navLinks.govern.tags'),
+                        description: t('navLinks.govern.tagsDescription'),
                         link: PageRoutes.MANAGE_TAGS,
                         isHidden: false,
                     },
                     {
-                        title: 'Business Attributes',
-                        description: 'Universal field for data consistency',
+                        title: t('navLinks.govern.businessAttributes'),
+                        description: t('navLinks.govern.businessAttributesDescription'),
                         link: PageRoutes.BUSINESS_ATTRIBUTE,
                         isHidden: !businessAttributesFlag,
                     },
                     {
-                        title: 'Domains',
-                        description: 'Manage related groups of data assets',
+                        title: t('navLinks.govern.domains'),
+                        description: t('navLinks.govern.domainsDescription'),
                         link: PageRoutes.DOMAINS,
                         isHidden: false,
                     },
                     {
-                        title: 'Structured Properties',
+                        title: t('navLinks.govern.structuredProperties'),
                         showNewTag: true,
-                        description: `Manage custom properties for your data assets`,
+                        description: t('navLinks.govern.structuredPropertiesDescription'),
                         link: PageRoutes.STRUCTURED_PROPERTIES,
                         isHidden: !showStructuredProperties,
                     },
@@ -189,23 +191,23 @@ export function NavLinksMenu(props: Props) {
             },
         },
         {
-            icon: IngestionMenuIcon,
-            title: 'Ingestion',
-            description: 'Manage data integrations and pipelines',
+            icon: Plugs,
+            title: t('navLinks.ingestion.title'),
+            description: t('navLinks.ingestion.description'),
             link: PageRoutes.INGESTION,
             isHidden: !showIngestion,
         },
         {
-            icon: SettingsMenuIcon,
-            title: 'Settings',
-            description: 'Manage your account and preferences',
+            icon: Gear,
+            title: t('navLinks.settings.title'),
+            description: t('navLinks.settings.description'),
             link: PageRoutes.SETTINGS,
             isHidden: !showSettings,
         },
         {
-            icon: HelpMenuIcon,
-            title: 'Help',
-            description: 'Explore help resources and documentation',
+            icon: Question,
+            title: t('navLinks.help.title'),
+            description: t('navLinks.help.description'),
             link: null,
             isHidden: false,
             subMenu: {
@@ -214,23 +216,23 @@ export function NavLinksMenu(props: Props) {
                 close: () => setShowHelpMenu(false),
                 items: [
                     {
-                        title: 'Product Tour',
-                        description: 'Take a quick tour of this page',
+                        title: t('navLinks.help.productTour'),
+                        description: t('navLinks.help.productTourDescription'),
                         isHidden: false,
                         rel: 'noopener noreferrer',
                         onClick: showOnboardingTour,
                     },
                     {
-                        title: 'GraphiQL',
-                        description: 'Explore the GraphQL API',
+                        title: t('navLinks.help.graphiql'),
+                        description: t('navLinks.help.graphiqlDescription'),
                         link: HelpLinkRoutes.GRAPHIQL ? resolveRuntimePath(HelpLinkRoutes.GRAPHIQL) : null,
                         isHidden: false,
                         target: '_blank',
                         rel: 'noopener noreferrer',
                     },
                     {
-                        title: 'OpenAPI',
-                        description: 'Explore the OpenAPI endpoints',
+                        title: t('navLinks.help.openapi'),
+                        description: t('navLinks.help.openapiDescription'),
                         link: resolveRuntimePath(HelpLinkRoutes.OPENAPI),
                         isHidden: false,
                         target: '_blank',

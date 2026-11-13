@@ -13,6 +13,7 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.models.registry.*;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
@@ -20,14 +21,11 @@ import java.util.Optional;
 import org.mockito.Mockito;
 import org.opensearch.action.search.SearchResponse;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 
 @TestConfiguration
 public class OpenAPIAnalyticsTestConfiguration {
-  @MockBean TracingInterceptor tracingInterceptor;
-
   @Bean(name = "systemOperationContext")
   public OperationContext systemOperationContext() {
     return TestOperationContexts.systemContextNoSearchAuthorization();
@@ -39,7 +37,10 @@ public class OpenAPIAnalyticsTestConfiguration {
     ElasticSearchService elasticSearchService = mock(ElasticSearchService.class);
     SearchResponse mockResp = mock(SearchResponse.class);
     when(elasticSearchService.raw(
-            any(OperationContext.class), eq(DATAHUB_USAGE_INDEX), anyString()))
+            any(OperationContext.class),
+            eq(DATAHUB_USAGE_INDEX),
+            anyString(),
+            eq(SearchOperation.DATAHUB_USAGE)))
         .thenReturn(Optional.of(mockResp));
     return elasticSearchService;
   }

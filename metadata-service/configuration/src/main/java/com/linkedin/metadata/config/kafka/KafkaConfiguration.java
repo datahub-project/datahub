@@ -1,8 +1,8 @@
 package com.linkedin.metadata.config.kafka;
 
+import jakarta.annotation.PostConstruct;
 import java.util.HashMap;
 import java.util.Map;
-import javax.annotation.PostConstruct;
 import lombok.AllArgsConstructor;
 import lombok.Builder;
 import lombok.Data;
@@ -24,7 +24,9 @@ public class KafkaConfiguration {
   public static final String VALUE_DESERIALIZER_DELEGATE_CLASS =
       "spring.deserializer.value.delegate.class";
   public static final String MCP_EVENT_CONSUMER_NAME = "mcpEventConsumer";
+  public static final String MCP_BATCH_EVENT_CONSUMER_NAME = "mcpBatchEventConsumer";
   public static final String MCL_EVENT_CONSUMER_NAME = "mclEventConsumer";
+  public static final String MCL_BATCH_EVENT_CONSUMER_NAME = "mclBatchEventConsumer";
   public static final String PE_EVENT_CONSUMER_NAME = "platformEventConsumer";
   public static final String SIMPLE_EVENT_CONSUMER_NAME = "simpleKafkaConsumer";
   public static final String CDC_EVENT_CONSUMER_NAME = "cdcKafkaConsumer";
@@ -57,8 +59,24 @@ public class KafkaConfiguration {
     topicsConfiguration = new TopicsConfiguration(topicDefaults, topics);
   }
 
-  public TopicsConfiguration getTopics() {
-    return new TopicsConfiguration(topicDefaults, topics);
+  // Synchronized: TopicsConfiguration's constructor writes defaults into the shared topics
+  // map, so concurrent callers (pgqueue poll workers) caused ConcurrentModificationException.
+  // Built once at startup; rebuilt only if a setter invalidates the cache.
+  public synchronized TopicsConfiguration getTopics() {
+    if (topicsConfiguration == null) {
+      topicsConfiguration = new TopicsConfiguration(topicDefaults, topics);
+    }
+    return topicsConfiguration;
+  }
+
+  public synchronized void setTopics(Map<String, TopicsConfiguration.TopicConfiguration> topics) {
+    this.topics = topics;
+    this.topicsConfiguration = null;
+  }
+
+  public synchronized void setTopicDefaults(TopicsConfiguration.TopicConfiguration topicDefaults) {
+    this.topicDefaults = topicDefaults;
+    this.topicsConfiguration = null;
   }
 
   @Data

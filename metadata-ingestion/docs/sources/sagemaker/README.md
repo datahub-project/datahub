@@ -2,7 +2,7 @@
 
 Sagemaker is a machine learning platform. Learn more in the [official Sagemaker documentation](https://aws.amazon.com/sagemaker/).
 
-The DataHub integration for Sagemaker covers ML entities such as models, features, and related lineage metadata. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Sagemaker covers ML entities such as models, features, and related lineage metadata. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

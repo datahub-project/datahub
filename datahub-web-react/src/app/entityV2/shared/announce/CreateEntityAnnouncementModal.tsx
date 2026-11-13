@@ -1,17 +1,19 @@
 import { Form, Input, Typography, message } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { PostEntry } from '@app/settings/posts/PostsListColumns';
+import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
     LINK_FIELD_NAME,
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
-} from '@app/settings/posts/constants';
-import handleGraphQLError from '@app/shared/handleGraphQLError';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
-import { Editor, Modal } from '@src/alchemy-components';
+} from '@app/settingsV2/posts/constants';
+import { Editor } from '@app/sharedV2/editor/Editor';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
+import { Modal } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
 import { MediaType, PostContentType, PostType, SubResourceType } from '@types';
@@ -31,9 +33,10 @@ type Props = {
 
 const EditorContainer = styled.div`
     flex: 1;
-    border: 1px solid #d9d9d9;
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    .remirror-editor.ProseMirror {
+    .remirror-editor.ProseMirror,
+    .datahub-editor-content {
         padding: 10px;
         min-height: 150px;
     }
@@ -51,6 +54,9 @@ export default function CreateEntityAnnouncementModal({
     editData,
     onEdit,
 }: Props) {
+    const { t } = useTranslation('entity.shared.profile');
+    const { t: tc } = useTranslation('common.actions');
+    const { t: tcl } = useTranslation('common.labels');
     const [createPostMutation] = useCreatePostMutation();
     const [updatePostMutation] = useUpdatePostMutation();
     const [createButtonEnabled, setCreateButtonEnabled] = useState(false);
@@ -89,7 +95,7 @@ export default function CreateEntityAnnouncementModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Created Note!`,
+                        content: t('noteModal.createdSuccess'),
                         duration: 3,
                     });
                     onCreate?.(form.getFieldValue(noteTitle), form.getFieldValue(noteContent));
@@ -99,8 +105,8 @@ export default function CreateEntityAnnouncementModal({
             .catch((error) => {
                 handleGraphQLError({
                     error,
-                    defaultMessage: 'Failed to create Note! An unexpected error occurred',
-                    permissionMessage: 'Unauthorized to create Note. Please contact your DataHub administrator.',
+                    defaultMessage: t('noteModal.createError'),
+                    permissionMessage: t('noteModal.createUnauthorized'),
                 });
             });
         onClose();
@@ -132,7 +138,7 @@ export default function CreateEntityAnnouncementModal({
             .then(({ errors }) => {
                 if (!errors) {
                     message.success({
-                        content: `Updated Note!`,
+                        content: t('noteModal.updatedSuccess'),
                         duration: 3,
                     });
                     onEdit?.();
@@ -141,7 +147,7 @@ export default function CreateEntityAnnouncementModal({
             })
             .catch((e) => {
                 message.destroy();
-                message.error({ content: 'Failed to update Note! An unknown error occured.', duration: 3 });
+                message.error({ content: t('noteModal.updateError'), duration: 3 });
                 console.error('Failed to update Note:', e.message);
             });
         onClose();
@@ -158,7 +164,7 @@ export default function CreateEntityAnnouncementModal({
     };
 
     // note-- edit announcement functionality is not implemented
-    const titleText = editData ? 'Edit Note' : 'Create Note';
+    const titleText = editData ? t('noteModal.editTitle') : t('noteModal.createTitle');
 
     /**
      * Handles the change in the description field.
@@ -177,13 +183,13 @@ export default function CreateEntityAnnouncementModal({
             width={650}
             buttons={[
                 {
-                    text: 'Cancel',
+                    text: tc('cancel'),
                     variant: 'text',
                     onClick: onClose,
                     id: 'createPostButton',
                 },
                 {
-                    text: !editData ? 'Create' : 'Update',
+                    text: !editData ? tc('create') : tc('update'),
                     onClick: !editData ? onCreatePost : onUpdatePost,
                     variant: 'filled',
                     disabled: !createButtonEnabled,
@@ -207,17 +213,17 @@ export default function CreateEntityAnnouncementModal({
                     }
                 }}
             >
-                <Typography.Paragraph>Title</Typography.Paragraph>
+                <Typography.Paragraph>{tcl('title')}</Typography.Paragraph>
                 <SubFormItem name={noteTitle} rules={[{ min: 1, max: 500, required: true }]} hasFeedback>
-                    <Input placeholder="Your title" />
+                    <Input placeholder={t('noteModal.titlePlaceholder')} />
                 </SubFormItem>
-                <Typography.Paragraph>Content</Typography.Paragraph>
+                <Typography.Paragraph>{t('noteModal.contentLabel')}</Typography.Paragraph>
                 <SubFormItem name={noteContent} rules={[{ min: 1, max: 5000 }]} hasFeedback>
                     <EditorContainer>
                         <Editor
                             content={editData?.description || ''}
                             onChange={handleDescriptionChange}
-                            placeholder="Write a note. Tag @user or reference @asset to make your note come to life!"
+                            placeholder={t('noteModal.contentPlaceholder')}
                         />
                     </EditorContainer>
                 </SubFormItem>

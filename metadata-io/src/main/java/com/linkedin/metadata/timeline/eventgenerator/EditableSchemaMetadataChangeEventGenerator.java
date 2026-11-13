@@ -221,7 +221,12 @@ public class EditableSchemaMetadataChangeEventGenerator
                   datasetFieldUrn,
                   baseFieldDescription,
                   targetFieldDescription))
-          .parameters(ImmutableMap.of("description", targetFieldDescription))
+          // The schema history UI diffs the two values, so it cannot render the change without the
+          // previous one. Both are non-null here, as guarded by the condition above.
+          .parameters(
+              ImmutableMap.of(
+                  "description", targetFieldDescription,
+                  "previousDescription", baseFieldDescription))
           .auditStamp(auditStamp)
           .build();
     }
@@ -293,8 +298,9 @@ public class EditableSchemaMetadataChangeEventGenerator
       throw new IllegalArgumentException("EntityAspect currentValue should not be null");
     }
 
-    if (!previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
-        || !currentValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)) {
+    if (!currentValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME)
+        || (previousValue != null
+            && !previousValue.getAspect().equals(EDITABLE_SCHEMA_METADATA_ASPECT_NAME))) {
       throw new IllegalArgumentException("Aspect is not " + EDITABLE_SCHEMA_METADATA_ASPECT_NAME);
     }
 

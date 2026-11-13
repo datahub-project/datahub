@@ -13,9 +13,9 @@ import com.linkedin.datahub.upgrade.system.bootstrapmcps.BootstrapMCPStep;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.inject.Named;
 import java.util.List;
 import java.util.stream.Collectors;
-import javax.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -23,7 +23,7 @@ import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     args = {"-u", "SystemUpdateBlocking"})

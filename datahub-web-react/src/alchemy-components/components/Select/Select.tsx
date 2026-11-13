@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { BasicSelect } from '@components/components/Select/BasicSelect';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
@@ -14,10 +15,8 @@ export const selectDefaults: SelectProps = {
     isRequired: false,
     width: 255,
     isMultiSelect: false,
-    placeholder: 'Select an option',
     disabledValues: undefined,
     showSelectAll: false,
-    selectAllLabel: 'Select All',
     showDescriptions: false,
 };
 
@@ -35,13 +34,17 @@ export const Select = <OptionType extends SelectOption = SelectOption>({
     size = selectDefaults.size,
     width = selectDefaults.width,
     isMultiSelect = selectDefaults.isMultiSelect,
-    placeholder = selectDefaults.placeholder,
+    placeholder,
     disabledValues = selectDefaults.disabledValues,
     showSelectAll = selectDefaults.showSelectAll,
-    selectAllLabel = selectDefaults.selectAllLabel,
+    selectAllLabel,
     showDescriptions = selectDefaults.showDescriptions,
     ...props
 }: SelectProps<OptionType>) => {
+    const { t } = useTranslation('alchemy');
+    const { t: tc } = useTranslation('common.actions');
+    const resolvedPlaceholder = placeholder ?? t('select.placeholder');
+    const resolvedSelectAllLabel = selectAllLabel ?? tc('selectAll');
     return (
         <BasicSelect
             options={options}
@@ -57,10 +60,10 @@ export const Select = <OptionType extends SelectOption = SelectOption>({
             onUpdate={onUpdate}
             width={width}
             isMultiSelect={isMultiSelect}
-            placeholder={placeholder}
+            placeholder={resolvedPlaceholder}
             disabledValues={disabledValues}
             showSelectAll={showSelectAll}
-            selectAllLabel={selectAllLabel}
+            selectAllLabel={resolvedSelectAllLabel}
             showDescriptions={showDescriptions}
             {...props}
         />

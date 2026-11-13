@@ -4,12 +4,16 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from datahub.ingestion.source.snowflake.constants import SemanticViewColumnSubtype
 from datahub.ingestion.source.snowflake.snowflake_connection import SnowflakeConnection
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import (
+    SemanticViewColumnMetadata,
     SnowflakeDataDictionary,
+    SnowflakeSemanticView,
     SnowflakeView,
 )
+from datahub.ingestion.source.snowflake.snowflake_utils import snowflake_identity_key
 
 
 class TestSnowflakeDataDictionary:
@@ -207,6 +211,72 @@ class TestSnowflakeDataDictionary:
         assert result[0].view_definition == "SELECT * FROM table1"
         assert result[1].view_definition == "SELECT col1 FROM table2"
 
+    def test_maybe_populate_empty_view_definitions_covers_all_prefixes(
+        self, mock_snowflake_data_dictionary_information_schema
+    ):
+        """Regression: every prefix group must get its own SHOW VIEWS query.
+
+        The original code took `batch[0]` from each batch returned by
+        build_prefix_batches, assuming `max_groups_in_batch=1` meant one
+        group per batch. The packer's off-by-one silently let two groups
+        land in one batch, so every other prefix range was dropped.
+        Construct a workload that forces the packer to pair groups: one
+        large group ("A") that occupies a batch alone, and several small
+        follow-on groups that fit two-per-batch.
+        """
+        # 990 names under "A" plus 55 each under B and C. Under the old
+        # packer, B and C landed in one batch [[A], [B, C]] and the old
+        # batch[0]-only caller silently dropped C. Both fixes prevent that.
+        view_names = (
+            [f"A_VIEW_{i:04d}" for i in range(990)]
+            + [f"B_VIEW_{i:02d}" for i in range(55)]
+            + [f"C_VIEW_{i:02d}" for i in range(55)]
+        )
+        empty_views = [
+            SnowflakeView(
+                name=name,
+                view_definition=None,
+                comment=None,
+                created=datetime(2024, 1, 1),
+                last_altered=datetime(2024, 1, 1),
+            )
+            for name in view_names
+        ]
+
+        executed_queries: list[str] = []
+
+        def query_side_effect(query: str) -> Any:
+            executed_queries.append(query)
+            # Echo back rows whose name matches the LIKE prefix in this query.
+            # Extract the prefix between the single quotes around 'X%'.
+            start = query.index("LIKE '") + len("LIKE '")
+            end = query.index("%'", start)
+            prefix = query[start:end]
+            cursor = MagicMock()
+            cursor.__iter__.return_value = [
+                {"name": n, "text": f"SELECT * FROM src_{n}"}
+                for n in view_names
+                if n.startswith(prefix)
+            ]
+            return cursor
+
+        cast(
+            MagicMock,
+            mock_snowflake_data_dictionary_information_schema.connection.query,
+        ).side_effect = query_side_effect
+
+        result = mock_snowflake_data_dictionary_information_schema._maybe_populate_empty_view_definitions(
+            "TEST_DB", "PUBLIC", empty_views
+        )
+
+        # Every view, including those in the second-of-pair prefix group, must
+        # have its definition populated.
+        unpopulated = [v.name for v in result if not v.view_definition]
+        assert unpopulated == [], (
+            f"{len(unpopulated)} views missing definitions; sample={unpopulated[:5]}. "
+            f"Executed queries: {executed_queries}"
+        )
+
     def test_get_views_for_schema_using_information_schema(
         self, mock_snowflake_data_dictionary_information_schema
     ):
@@ -283,3 +353,65 @@ class TestSnowflakeDataDictionary:
         mock_get_views_schema_query.assert_called_once_with(
             db_name="TEST_DB", schema_name="PUBLIC", view_filter=""
         )
+
+
+class TestProcessColumnOccurrences:
+    """column_occurrences is only consumed by the semanticModel mapper (not the
+    legacy dataset-mode path), so it should only be populated when
+    emit_semantic_model_entities is enabled - avoiding needless per-column memory
+    overhead in legacy mode."""
+
+    def _make_semantic_view(self) -> SnowflakeSemanticView:
+        return SnowflakeSemanticView(
+            name="TEST_VIEW",
+            created=datetime(2024, 1, 1),
+            comment=None,
+            view_definition="CREATE SEMANTIC VIEW ...",
+            last_altered=datetime(2024, 1, 1),
+        )
+
+    def _occurrences(self):
+        return [
+            SemanticViewColumnMetadata(
+                name="col1",
+                identity_key=snowflake_identity_key("col1", preserve_column_case=False),
+                data_type="VARCHAR",
+                comment=None,
+                subtype=SemanticViewColumnSubtype.DIMENSION,
+                table_name="ORDERS",
+                synonyms=[],
+                expression=None,
+            )
+        ]
+
+    def test_column_occurrences_not_populated_in_legacy_mode(self):
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        data_dict = SnowflakeDataDictionary(
+            connection, report, emit_semantic_model_entities=False
+        )
+        semantic_view = self._make_semantic_view()
+
+        data_dict._process_column_occurrences(
+            semantic_view, self._occurrences(), "TEST_VIEW", 1
+        )
+
+        assert semantic_view.column_occurrences == {}
+        # The merged column itself must still be populated - only the raw
+        # per-occurrence map is gated.
+        assert len(semantic_view.columns) == 1
+
+    def test_column_occurrences_populated_when_emit_semantic_model_entities(self):
+        connection = MagicMock(spec=SnowflakeConnection)
+        report = MagicMock(spec=SnowflakeV2Report)
+        data_dict = SnowflakeDataDictionary(
+            connection, report, emit_semantic_model_entities=True
+        )
+        semantic_view = self._make_semantic_view()
+        occurrences = self._occurrences()
+
+        data_dict._process_column_occurrences(
+            semantic_view, occurrences, "TEST_VIEW", 1
+        )
+
+        assert semantic_view.column_occurrences == {"col1": occurrences}

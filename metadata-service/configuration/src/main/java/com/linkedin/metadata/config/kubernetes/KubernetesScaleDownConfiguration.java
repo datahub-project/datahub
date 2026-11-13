@@ -53,9 +53,10 @@ public class KubernetesScaleDownConfiguration {
   /**
    * JSON array of { "labelSelector": "...", "env": { "KEY": "value", ... } }. Each entry identifies
    * a deployment by label selector and the env vars to set when scaling down. State stores previous
-   * env per deployment for restore. Example:
-   * [{"labelSelector":"app.kubernetes.io/name=datahub-gms","env":{"PRE_PROCESS_HOOKS_UI_ENABLED":"false"}}].
-   * Set via Helm (DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES) or application.yaml.
+   * env per deployment for restore. {@code PRE_PROCESS_HOOKS_UI_ENABLED=false} must be paired with
+   * {@code MAE_CONSUMER_ENABLED=false} (or {@code MCL_CONSUMER_ENABLED=false}) in the same map so
+   * scale-down cannot recreate issue 19119. Set via Helm ({@code
+   * DATAHUB_UPGRADE_K8_DEPLOYMENT_ENV_UPDATES}) or application.yaml.
    */
   private String deploymentEnvUpdates;
 
@@ -79,4 +80,11 @@ public class KubernetesScaleDownConfiguration {
    * out. Default 1800 (30 min); increase for many pods or slow rollout strategies.
    */
   private int rolloutMaxWaitSeconds;
+
+  /**
+   * Minimum seconds between INFO logs while polling rollout status (avoids log spam). Defaults to
+   * 60 when unset or non-positive. Use a small value in tests to exercise progress logging without
+   * long waits.
+   */
+  private int rolloutProgressLogIntervalSeconds;
 }

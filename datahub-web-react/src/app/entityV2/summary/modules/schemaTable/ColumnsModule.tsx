@@ -1,10 +1,12 @@
 import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useBaseEntity, useEntityData } from '@app/entity/shared/EntityContext';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
+import { useBaseEntity, useEntityData } from '@app/entityV2/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import SchemaContext from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import { SchemaFilterType, filterSchemaRows } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
@@ -12,11 +14,12 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps, ModuleSize } from '@app/homeV3/module/types';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { GetDatasetQuery, useGetDatasetSchemaQuery } from '@graphql/dataset.generated';
 import { EditableSchemaMetadata, EntityType, SchemaMetadata } from '@types';
+
+const SCHEMA_TABLE_FIELDS = ['fieldPath', 'type', 'description'];
 
 const Wrapper = styled.div`
     padding-top: 8px;
@@ -24,6 +27,7 @@ const Wrapper = styled.div`
 `;
 
 export default function ColumnsModule(props: ModuleProps) {
+    const { t } = useTranslation('modules');
     const { urn: entityUrn } = useEntityData();
     const [expandedDrawerFieldPath, setExpandedDrawerFieldPath] = useState<string | null>(null);
     const entityRegistry = useEntityRegistry();
@@ -33,7 +37,7 @@ export default function ColumnsModule(props: ModuleProps) {
 
     const navigateToSchemaTab = () => {
         const baseUrl = entityRegistry.getEntityUrl(EntityType.Dataset, entityUrn);
-        history.push(`${baseUrl}/Columns`);
+        history.push(`${baseUrl}/${EntityTabPath.COLUMNS}`);
     };
 
     const { data, loading, error, refetch } = useGetDatasetSchemaQuery({
@@ -67,8 +71,8 @@ export default function ColumnsModule(props: ModuleProps) {
             <LargeModule {...props} loading={false} dataTestId="schema-table-module">
                 <EmptyContent
                     icon={Database}
-                    title="Schema Not Available"
-                    description="There was an error loading the schema for this dataset"
+                    title={t('columns.errorTitle')}
+                    description={t('columns.errorDescription')}
                 />
             </LargeModule>
         );
@@ -79,8 +83,8 @@ export default function ColumnsModule(props: ModuleProps) {
             <LargeModule {...props} loading={loading} dataTestId="schema-table-module">
                 <EmptyContent
                     icon={Database}
-                    title="No Schema Fields"
-                    description="This dataset has no schema fields to display"
+                    title={t('columns.emptyTitle')}
+                    description={t('columns.emptyDescription')}
                 />
             </LargeModule>
         );
@@ -93,24 +97,23 @@ export default function ColumnsModule(props: ModuleProps) {
                 loading={loading}
                 dataTestId="columns-module"
                 onClickViewAll={navigateToSchemaTab}
-                viewAllText="View in Columns"
+                viewAllText={t('columns.viewAll')}
             >
                 <Wrapper>
-                    <SchemaEditableContext.Provider value={false}>
-                        <SchemaTable
-                            rows={rows}
-                            schemaMetadata={schemaMetadata}
-                            editableSchemaMetadata={editableSchemaMetadata}
-                            usageStats={usageStats}
-                            expandedRowsFromFilter={expandedRowsFromFilter}
-                            filterText=""
-                            expandedDrawerFieldPath={expandedDrawerFieldPath}
-                            setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
-                            openTimelineDrawer={false}
-                            refetch={refetch}
-                            visibleColumns={size === ModuleSize.FULL ? undefined : ['fieldPath', 'type', 'description']}
-                        />
-                    </SchemaEditableContext.Provider>
+                    <SchemaTable
+                        rows={rows}
+                        schemaMetadata={schemaMetadata}
+                        editableSchemaMetadata={editableSchemaMetadata}
+                        editedPrimaryKeys={data?.dataset?.editablePrimaryKeys?.primaryKeys}
+                        usageStats={usageStats}
+                        expandedRowsFromFilter={expandedRowsFromFilter}
+                        filterText=""
+                        expandedDrawerFieldPath={expandedDrawerFieldPath}
+                        setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
+                        openTimelineDrawer={false}
+                        refetch={refetch}
+                        visibleColumns={size === ModuleSize.FULL ? undefined : SCHEMA_TABLE_FIELDS}
+                    />
                 </Wrapper>
             </LargeModule>
         </SchemaContext.Provider>

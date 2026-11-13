@@ -12,12 +12,17 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 
+from __future__ import annotations
+
 from abc import ABCMeta, abstractmethod
-from typing import Iterable
+from typing import TYPE_CHECKING, Iterable, List
 
 from datahub.ingestion.api.closeable import Closeable
 from datahub_actions.event.event_envelope import EventEnvelope
 from datahub_actions.pipeline.pipeline_context import PipelineContext
+
+if TYPE_CHECKING:
+    from datahub_actions.filter.filter import Filter
 
 
 class EventSource(Closeable, metaclass=ABCMeta):
@@ -51,3 +56,28 @@ class EventSource(Closeable, metaclass=ABCMeta):
         """
         Acknowledges the processing of an individual event by the Actions Framework
         """
+
+    def request_stop(self) -> None:
+        """Ask ``events()`` to finish without closing resources the worker still holds.
+
+        The flag stays set. Sources that assign ``running = True`` at the start of
+        ``events()`` must leave it false when :meth:`stop_requested` is set, or a stop
+        that lands during startup is lost and ``join()`` waits forever.
+
+        ``close()`` runs only after the worker has left ``events()``, so it can commit
+        and release clients.
+        """
+        self._stop_requested = True
+        if hasattr(self, "running"):
+            self.running = False
+
+    def stop_requested(self) -> bool:
+        return getattr(self, "_stop_requested", False)
+
+    def set_filters(self, filters: List["Filter"]) -> None:
+        """
+        Called by the pipeline after filters are built. Sources may override this
+        to apply early filtering before full event deserialization. The default
+        implementation is a no-op, preserving backwards compatibility.
+        """
+        pass

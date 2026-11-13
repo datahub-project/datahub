@@ -1,13 +1,14 @@
 import { Avatar } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { CorpGroup, CorpUser, EntityType } from '@types';
+import { EntityType, OwnerType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -31,28 +32,26 @@ const SectionContainer = styled.div`
 `;
 
 interface Props {
-    owner: CorpUser | CorpGroup;
+    owner: OwnerType;
 }
 
 export default function SummaryCreatedBySection({ owner }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    // This section shows ownership.owners[0], which is not the entity's creator — DataHub records no
+    // human creator for ingested assets, and owners[0] is arbitrary (insertion order). Label it "Owner"
+    // rather than the misleading "Created By".
+    const { t } = useTranslation('common.labels');
+    const entityRegistry = useEntityRegistry();
 
-    let ownerName;
-    if (owner?.__typename === 'CorpGroup') {
-        ownerName = entityRegistry.getDisplayName(EntityType.CorpGroup, owner);
-    }
-    if (owner?.__typename === 'CorpUser') {
-        ownerName = entityRegistry.getDisplayName(EntityType.CorpUser, owner);
-    }
+    const ownerName = owner && entityRegistry.getDisplayName(owner.type, owner);
     const ownerPictureLink =
-        (owner && owner.__typename === 'CorpUser' && owner.editableProperties?.pictureLink) || undefined;
-    const avatarType = owner?.__typename === 'CorpGroup' ? AvatarType.group : AvatarType.user;
+        (owner && 'editableProperties' in owner && owner.editableProperties?.pictureLink) || undefined;
+    const avatarType = owner?.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
         <>
             {!!ownerName && (
                 <SectionContainer>
-                    <StyledTitle>Created By</StyledTitle>
+                    <StyledTitle>{t('owner')}</StyledTitle>
                     <Details>
                         <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}

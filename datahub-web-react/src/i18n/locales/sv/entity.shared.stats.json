@@ -1,0 +1,13 @@
+{
+    "graph.empty": "Ingen statistik har samlats in för den här tillgången just nu.",
+    "graph.rowCount_one": "{{formattedCount}} rad",
+    "graph.rowCount_other": "{{formattedCount}} rader",
+    "graph.statName": "antal rader",
+    "graph.title": "Antal rader",
+    "percentile.high": "Hög",
+    "percentile.low": "Låg",
+    "percentile.med": "Medel",
+    "upstream.directUpstreams": "Direkta upstreams",
+    "upstream.indirectUpstreams": "Indirekta upstreams",
+    "upstream.unhealthy": "Vissa upstreams har problem"
+}

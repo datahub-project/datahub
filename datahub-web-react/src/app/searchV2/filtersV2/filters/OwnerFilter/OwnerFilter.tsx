@@ -1,11 +1,12 @@
 import React, { useCallback } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import BaseEntityFilter from '@app/searchV2/filtersV2/filters/BaseEntityFilter/BaseEntityFilter';
 import { FilterComponentProps } from '@app/searchV2/filtersV2/types';
 import { Text } from '@src/alchemy-components';
 import EntityIcon from '@src/app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { CorpUser, Entity, EntityType } from '@src/types.generated';
 
 interface PlatformLabelProps {
@@ -48,7 +49,7 @@ const TitleContainer = styled.div`
 `;
 
 function OwnerLabel({ entity }: PlatformLabelProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);
     const subtitle = entity.type === EntityType.CorpUser ? (entity as CorpUser)?.properties?.email : undefined;
@@ -62,7 +63,7 @@ function OwnerLabel({ entity }: PlatformLabelProps) {
                 <TitleContainer>
                     <Text type="div">{displayName}</Text>
                     {subtitle && (
-                        <Text type="div" size="sm" color="gray">
+                        <Text type="div" size="sm">
                             {subtitle}
                         </Text>
                     )}
@@ -73,6 +74,7 @@ function OwnerLabel({ entity }: PlatformLabelProps) {
 }
 
 export default function OwnerFilter(props: FilterComponentProps) {
+    const { t } = useTranslation('search');
     const renderEntity = useCallback((entity: Entity) => <OwnerLabel entity={entity} />, []);
 
     return (
@@ -80,7 +82,7 @@ export default function OwnerFilter(props: FilterComponentProps) {
             {...props}
             renderEntity={renderEntity}
             entityTypes={[EntityType.CorpUser, EntityType.CorpGroup]}
-            filterName="Owner"
+            filterName={t('filtersV2.ownerFilter.label')}
             dataTestId="filter-owner"
         />
     );

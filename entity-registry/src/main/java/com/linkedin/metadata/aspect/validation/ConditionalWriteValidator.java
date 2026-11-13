@@ -1,8 +1,10 @@
 package com.linkedin.metadata.aspect.validation;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableSet;
 import com.google.common.net.HttpHeaders;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -13,6 +15,7 @@ import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
 import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import java.time.Instant;
 import java.util.Collection;
@@ -69,7 +72,9 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
     AspectRetriever aspectRetriever = retrieverContext.getAspectRetriever();
 
@@ -89,7 +94,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
                     ChangeMCP::getUrn,
                     Collectors.mapping(ChangeMCP::getAspectName, Collectors.toSet())));
     final Map<Urn, Map<String, SystemAspect>> resolvedData =
-        aspectRetriever.getLatestSystemAspects(missingDataUrnAspects);
+        aspectRetriever.getLatestSystemAspects(operationContext, missingDataUrnAspects);
 
     for (ChangeMCP item : applicableMCPs) {
       // Validate aspect version precondition
@@ -122,6 +127,24 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
     return exceptions.streamAllExceptions();
   }
 
+  /**
+   * The version an {@code If-Version-Match} precondition is compared against: {@code
+   * systemMetadata.version} when present, otherwise {@code max(1, row version)}. Delete ceilings
+   * use this same rule, so a version read through one path always matches the other.
+   */
+  public static long resolveAspectVersion(@Nonnull SystemAspect aspect) {
+    return aspect.getSystemMetadataVersion().orElseGet(() -> Math.max(1L, aspect.getVersion()));
+  }
+
+  /** {@link #resolveAspectVersion(SystemAspect)} for an aspect read through the entity API. */
+  public static long resolveAspectVersion(@Nonnull EnvelopedAspect aspect) {
+    final SystemMetadata systemMetadata = aspect.getSystemMetadata();
+    if (systemMetadata != null && systemMetadata.hasVersion()) {
+      return Long.parseLong(systemMetadata.getVersion());
+    }
+    return Math.max(1L, aspect.hasVersion() ? aspect.getVersion() : 0L);
+  }
+
   private static Optional<AspectValidationException> validateVersionPrecondition(
       ChangeMCP item,
       Pair<String, String> header,
@@ -135,14 +158,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
       default:
         actualAspectVersion =
             resolvePreviousSystemAspect(item, resolvedData)
-                .map(
-                    prevSystemAspect -> {
-                      if (prevSystemAspect.getSystemMetadataVersion().isPresent()) {
-                        return String.valueOf(prevSystemAspect.getSystemMetadataVersion().get());
-                      } else {
-                        return String.valueOf(Math.max(1, prevSystemAspect.getVersion()));
-                      }
-                    })
+                .map(prevSystemAspect -> String.valueOf(resolveAspectVersion(prevSystemAspect)))
                 .orElse(UNVERSIONED_ASPECT_VERSION);
         break;
     }
@@ -218,6 +234,7 @@ public class ConditionalWriteValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return Stream.empty();

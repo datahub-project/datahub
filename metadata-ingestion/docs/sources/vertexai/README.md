@@ -2,7 +2,7 @@
 
 Vertexai is a machine learning platform. Learn more in the [official Vertexai documentation](https://cloud.google.com/vertex-ai).
 
-The DataHub integration for Vertexai covers ML entities such as models, features, and related lineage metadata. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Vertexai covers ML entities such as models, features, and related lineage metadata. It also captures table-level lineage and stateful deletion detection.
 
 ## Concept Mapping
 

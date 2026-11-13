@@ -2,7 +2,7 @@
 
 Snaplogic is a streaming or integration platform. Learn more in the [official Snaplogic documentation](https://www.snaplogic.com/).
 
-The DataHub integration for Snaplogic covers streaming/integration entities such as topics, connectors, pipelines, or jobs. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Snaplogic covers streaming/integration entities such as topics, connectors, pipelines, or jobs. It also captures table- and column-level lineage.
 
 ## Concept Mapping
 

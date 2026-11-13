@@ -1,15 +1,39 @@
 import styled from 'styled-components';
 
+import { formLabelTextStyles, inputValueTextStyles } from '@components/components/commonStyles';
+import { spacing } from '@components/theme';
+
 import AntdDatePicker from '@utils/DayjsDatePicker';
 
-export const StyledAntdDatePicker = styled(AntdDatePicker)<{ $noDefaultPaddings?: boolean }>`
+export const DatePickerWrapper = styled.div`
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+`;
+
+export const Label = styled.div(({ theme }) => ({
+    ...formLabelTextStyles,
+    color: theme.colors.text,
+    marginBottom: spacing.xxsm,
+    textAlign: 'left',
+}));
+
+export const StyledAntdDatePicker = styled(AntdDatePicker)<{
+    $noDefaultPaddings?: boolean;
+    showTime?: boolean | Record<string, any>;
+}>`
     &.ant-picker {
         ${(props) => props.$noDefaultPaddings && 'padding: 0;'}
         width: 100%;
+        ${inputValueTextStyles()}
     }
 
     &.acryl-date-picker .ant-picker-cell-today > .ant-picker-cell-inner::before {
         border: 1px solid ${({ theme }) => theme.colors.borderBrand} !important;
+    }
+
+    .ant-picker-input {
+        ${inputValueTextStyles()}
     }
 `;
 

@@ -1,7 +1,8 @@
 import functools
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, List, Optional
 
+from datahub.ingestion.graph.filters import RawSearchFilterRule, SearchFilterRule
 from datahub.sql_parsing.schema_resolver import (
     SchemaResolver,
     SchemaResolverReport,
@@ -21,16 +22,22 @@ def provide_schema_resolver(
     platform_instance: Optional[str],
     env: str,
     batch_size: int = 100,
+    name_starts_with: Optional[str] = None,
 ) -> SchemaResolver:
-    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env).
+    """Return a bulk-initialized SchemaResolver, cached globally per (graph, platform, platform_instance, env, name_starts_with).
 
     Using a module-level cache ensures deduplication across all callers in the same
     process, even when different SchemaResolverProvider instances are created.
+
+    `name_starts_with` narrows the bulk fetch to datasets whose fully-qualified name
+    starts with the given prefix (e.g. a single database), so callers that only
+    need a subset of a large platform don't load the whole platform.
     """
     return SchemaResolverProvider(graph=graph, batch_size=batch_size).get(
         platform=platform,
         platform_instance=platform_instance,
         env=env,
+        name_starts_with=name_starts_with,
     )
 
 
@@ -57,8 +64,15 @@ class SchemaResolverProvider:
         platform: str,
         platform_instance: Optional[str],
         env: str,
+        name_starts_with: Optional[str] = None,
     ) -> SchemaResolver:
-        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env)."""
+        """Return a bulk-initialized SchemaResolver, cached per (platform, platform_instance, env, name_starts_with).
+
+        `name_starts_with` narrows the bulk fetch to datasets whose fully-qualified
+        name starts with the given prefix (e.g. a single database), so a caller that
+        needs only a subset of a large platform doesn't load the whole platform. A
+        prefix is exact (unlike a free-text query, which over-matches shared prefixes).
+        """
         resolver = SchemaResolver(
             platform=platform,
             platform_instance=platform_instance,
@@ -66,13 +80,24 @@ class SchemaResolverProvider:
             graph=None,
             report=self._report,
         )
-        logger.info(f"Fetching schemas for platform {platform}, env {env}")
+        extra_filters: Optional[List[RawSearchFilterRule]] = (
+            [
+                SearchFilterRule(
+                    field="id", condition="START_WITH", values=[name_starts_with]
+                ).to_raw()
+            ]
+            if name_starts_with
+            else None
+        )
+        scope = f", name_starts_with {name_starts_with}" if name_starts_with else ""
+        logger.info(f"Fetching schemas for platform {platform}, env {env}{scope}")
         count = 0
         with PerfTimer() as timer:
             for urn, schema_info in self._graph._bulk_fetch_schema_info_by_filter(
                 platform=platform,
                 platform_instance=platform_instance,
                 env=env,
+                extraFilters=extra_filters,
                 batch_size=self._batch_size,
             ):
                 try:

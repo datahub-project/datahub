@@ -3,8 +3,7 @@ import { Divider } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
-import { TruncatedTextWithTooltip } from '@app/shared/TruncatedTextWithTooltip';
+import { TruncatedTextWithTooltip } from '@app/sharedV2/TruncatedTextWithTooltip';
 
 const Container = styled.div`
     display: flex;
@@ -26,12 +25,12 @@ const Title = styled.div`
     margin-bottom: 8px;
     display: flex;
     align-items: center;
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
     font-weight: 700;
 `;
 
 const StyledTruncatedText = styled(TruncatedTextWithTooltip)`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
 `;
 
 const StyledDivider = styled(Divider)`

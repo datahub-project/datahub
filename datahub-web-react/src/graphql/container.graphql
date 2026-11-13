@@ -16,6 +16,9 @@ query getContainer($urn: String!) {
                 key
                 value
             }
+            created {
+                time
+            }
         }
         privileges {
             ...entityPrivileges
@@ -89,7 +92,7 @@ query getContainerEntitySummary($urn: String!) {
             types: []
             query: "*"
             facets: ["_entityType␞typeNames", "_entityType"]
-            orFilters: [{ and: [{ field: "container", values: [$urn], value: $urn }] }]
+            orFilters: [{ and: [{ field: "container", values: [$urn] }] }]
         }
     ) {
         facets {

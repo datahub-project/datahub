@@ -1,9 +1,8 @@
 import { Popover } from '@components';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import TypeLabel from '@app/entityV2/shared/tabs/Dataset/Schema/components/TypeLabel';
 
 const FieldTypeWrapper = styled.div`
@@ -14,7 +13,7 @@ const FieldTypeWrapper = styled.div`
 const FieldTypeContainer = styled.div`
     vertical-align: top;
     display: flex;
-    color: ${REDESIGN_COLORS.GREY_500};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 type InteriorTypeProps = {
@@ -32,11 +31,11 @@ const InteriorTypeContent = ({ record }: InteriorTypeProps) => {
 };
 
 export default function useSchemaTypeRenderer() {
-    return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
+    return useCallback((record: ExtendedSchemaFields): JSX.Element => {
         return (
             <Popover content={<InteriorTypeContent record={record} />}>
                 <InteriorTypeContent record={record} />
             </Popover>
         );
-    };
+    }, []);
 }

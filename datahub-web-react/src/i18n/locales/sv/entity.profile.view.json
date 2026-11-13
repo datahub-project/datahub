@@ -1,0 +1,13 @@
+{
+    "viewDefinitionTab.detailsHeading": "Detaljer",
+    "viewDefinitionTab.formatCompiled": "Kompilerad",
+    "viewDefinitionTab.formatFormatted": "Formaterad",
+    "viewDefinitionTab.formatRaw": "Rå",
+    "viewDefinitionTab.formatSource": "Källa",
+    "viewDefinitionTab.languageLabel": "Språk",
+    "viewDefinitionTab.logicHeading": "Logik",
+    "viewDefinitionTab.materializedFalse": "Nej",
+    "viewDefinitionTab.materializedLabel": "Materialiserad",
+    "viewDefinitionTab.materializedTrue": "Ja",
+    "viewDefinitionTab.noViewPermission": "Du har inte behörighet att visa SQL-logiken för den här vyn."
+}

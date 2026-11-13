@@ -1,5 +1,5 @@
 ---
-title: Configuration
+title: Redshift Configuration
 ---
 
 # Configuring Your Redshift Connector to DataHub
@@ -40,10 +40,10 @@ This will securely store your Redshift User's password within DataHub
 
 ## Configure Recipe
 
-4. Navigate to the **Sources** tab and click **Create new source**
+4. Navigate to the **Sources** tab and click **Create Source**
 
 <p align="center">
-  <img width="75%" alt="Click &quot;Create new source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_click_create_new_source_button.png"/>
+  <img width="75%" alt="Click &quot;Create Source&quot;" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_click_create_new_source_button.png"/>
 </p>
 
 5. Select Redshift
@@ -53,6 +53,8 @@ This will securely store your Redshift User's password within DataHub
 </p>
 
 6. Fill out the Redshift Recipe
+
+Enter a **Source Name** at the top of the **Connection Details** page, then fill in the connection fields.
 
 Populate the Password field by selecting Redshift Password secrets you created in steps 3 and 4.
 
@@ -70,15 +72,13 @@ This step will ensure you have configured your credentials accurately and confir
   <img width="75%" alt="Test BigQuery connection" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/bigquery/bigquery-test-connection.png"/>
 </p>
 
-After you have successfully tested your connection, click **Next**.
-
 -->
 
 ## Schedule Execution
 
 Now it's time to schedule a recurring ingestion pipeline to regularly extract metadata from your Redshift instance.
 
-7. Decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
+7. In the **Sync Schedule** section, turn on **Run on a schedule**, then decide how regularly you want this ingestion to run-- day, month, year, hour, minute, etc. Select from the dropdown
 
 <p align="center">
     <img width="75%" alt="schedule selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_scheduled_execution.png"/>
@@ -90,15 +90,9 @@ Now it's time to schedule a recurring ingestion pipeline to regularly extract me
     <img width="75%" alt="timezone_selector" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_timezone_selector.png"/>
 </p>
 
-9. Click **Next** when you are done
+## Save and Run
 
-## Finish Up
-
-10. Name your ingestion source, then click **Save and Run**
-
-<p align="center">
-  <img width="75%" alt="Name your ingestion" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_name_ingestion.png"/>
-</p>
+9. Click **Save and Run** at the top of the page
 
 You will now find your new ingestion source running
 
@@ -108,25 +102,25 @@ You will now find your new ingestion source running
 
 ## Validate Ingestion Runs
 
-11. View the latest status of ingestion runs on the Ingestion page
+10. View the latest status of ingestion runs on the Ingestion page
 
 <p align="center">
   <img width="75%" alt="ingestion succeeded" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_succeeded.png"/>
 </p>
 
-12. Click the plus sign to expand the full list of historical runs and outcomes; click **Details** to see the outcomes of a specific run
+11. Open the **Run History** tab to see the full list of historical runs and outcomes; click a run's status to open its **Run Details** page
 
 <p align="center">
   <img width="75%" alt="ingestion_details" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_details.png"/>
 </p>
 
-13. From the Ingestion Run Details page, pick **View All** to see which entities were ingested
+12. In the **Assets** section of the **Run Details** page, click **View all** to see which entities were ingested
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_details_view_all.png"/>
 </p>
 
-14. Pick an entity from the list to manually validate if it contains the detail you expected
+13. Pick an entity from the list to manually validate if it contains the detail you expected
 
 <p align="center">
   <img width="75%" alt="ingestion_details_view_all" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/guides/redshift/redshift_ingestion_ingested_assets.png"/>

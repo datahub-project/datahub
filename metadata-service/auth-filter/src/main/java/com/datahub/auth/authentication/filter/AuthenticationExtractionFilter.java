@@ -10,6 +10,7 @@ import com.datahub.authentication.AuthenticationConfiguration;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.authentication.AuthenticatorConfiguration;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.authenticator.*;
@@ -30,6 +31,7 @@ import com.google.common.collect.ImmutableMap;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.PostConstruct;
 import jakarta.inject.Named;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
@@ -44,7 +46,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.stream.Collectors;
-import javax.annotation.PostConstruct;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
@@ -74,6 +75,14 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
 
   // Constants for anonymous authentication
   private static final String ANONYMOUS_CREDENTIALS = "";
+
+  /**
+   * Request attribute set to {@code Boolean.TRUE} when authentication could not be decided because
+   * a backing store failed. {@link AuthenticationEnforcementFilter} answers such requests with 503
+   * instead of 401 on protected paths.
+   */
+  public static final String AUTHENTICATION_UNAVAILABLE_ATTRIBUTE =
+      "com.datahub.auth.authenticationUnavailable";
 
   @Autowired private ConfigurationProvider configurationProvider;
 
@@ -168,6 +177,13 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
     } catch (AuthenticationExpiredException e) {
       // Authentication token expired - log as info and handle gracefully
       log.info("Authentication token expired, will set anonymous context: {}", e.getMessage());
+    } catch (AuthenticationUnavailableException e) {
+      // Credentials could not be checked (e.g. the token store is unreachable). They may be valid,
+      // so flag the request for a retryable error rather than letting it look unauthenticated.
+      request.setAttribute(AUTHENTICATION_UNAVAILABLE_ATTRIBUTE, Boolean.TRUE);
+      log.warn(
+          "Authentication unavailable, will set anonymous context: {}",
+          e.getCause() != null ? e.getCause().getMessage() : e.getMessage());
     } catch (Exception e) {
       // Authentication failed - this is expected and handled gracefully
       log.debug("Authentication extraction failed, will set anonymous context: {}", e.getMessage());
@@ -322,7 +338,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
       final String type = internalAuthenticatorConfig.getType();
       final Map<String, Object> configs = internalAuthenticatorConfig.getConfigs();
 
-      log.debug(String.format("Found configs for Authenticator of type %s: %s ", type, configs));
+      log.debug("Found configs for Authenticator of type {}: {} ", type, configs);
 
       // Instantiate the Authenticator class.
       Class<?> clazz = null;
@@ -347,7 +363,7 @@ public class AuthenticationExtractionFilter extends OncePerRequestFilter {
         final Authenticator authenticator =
             (Authenticator) clazz.getDeclaredConstructor().newInstance();
         // Successfully created authenticator. Now init and register it.
-        log.debug(String.format("Initializing Authenticator with name %s", type));
+        log.debug("Initializing Authenticator with name {}", type);
         if (authenticator instanceof HealthStatusAuthenticator) {
           Map<String, Object> authenticatorConfig =
               new HashMap<>(

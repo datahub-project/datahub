@@ -1,11 +1,13 @@
+import { Dropdown } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import { Dropdown } from 'antd';
 import React from 'react';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
-import { Text, colors } from '@src/alchemy-components';
+import { Text } from '@src/alchemy-components';
+import { safeUrl } from '@utils/urlUtils';
 
 const DropdownBase = styled.div`
     text-wrap: nowrap;
@@ -20,9 +22,11 @@ interface Props<T extends LinkItem> {
 }
 
 export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Props<T>) {
+    const { t } = useTranslation('common.actions');
+    const theme = useTheme();
     const onLinkItemClick = (linkItem: T) => {
         linkItem.attributes.onClick?.();
-        window.open(linkItem.url, '_blank', 'noopener,noreferrer');
+        window.open(safeUrl(linkItem.url), '_blank', 'noopener,noreferrer');
     };
 
     return (
@@ -39,10 +43,10 @@ export default function ViewMoreDropdown<T extends LinkItem>({ linkItems }: Prop
             overlayStyle={{ zIndex: 1200 }}
         >
             <DropdownBase data-testid="view-more-dropdown">
-                <Text size="sm" color="gray" colorLevel={1700}>
-                    View more
+                <Text size="sm" color="textTertiary">
+                    {t('viewMore')}
                 </Text>
-                <CaretDown size={12} color={colors.gray[1700]} />
+                <CaretDown size={12} color={theme.colors.textTertiary} />
             </DropdownBase>
         </Dropdown>
     );

@@ -29,7 +29,6 @@ query getMe {
             settings {
                 appearance {
                     showSimplifiedHomepage
-                    showThemeV2
                 }
                 views {
                     defaultView {
@@ -41,6 +40,9 @@ query getMe {
                         ...PageTemplate
                     }
                     dismissedAnnouncementUrns
+                }
+                locale {
+                    language
                 }
             }
         }
@@ -61,6 +63,7 @@ query getMe {
             viewManageTags
             createDomains
             createTags
+            createLogicalModels
             manageGlobalViews
             manageGlobalSettings
             manageOwnershipTypes
@@ -73,6 +76,7 @@ query getMe {
             manageFeatures
             manageHomePageTemplates
             manageDocuments
+            createDocuments
             manageServiceAccounts
         }
     }

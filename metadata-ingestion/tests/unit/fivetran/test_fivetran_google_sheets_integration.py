@@ -76,19 +76,25 @@ class TestFivetranGoogleSheetsIntegration:
             api_config=FivetranAPIConfig(
                 api_key="test_api_key", api_secret="test_api_secret"
             ),
+            # Pin the test destination's platform so REST discovery (now
+            # implicit whenever api_config is set) doesn't try to call the
+            # mocked api_client and propagate Mock objects into URN code.
+            destination_to_platform_instance={
+                "test_destination": {"platform": "snowflake"},
+            },
             env="PROD",
             platform_instance="test_instance",
         )
         self.ctx = PipelineContext(run_id="test_run")
 
-        # Mock the FivetranLogAPI to avoid real database connections
+        # Mock the FivetranLogDbReader to avoid real database connections
         with patch(
-            "datahub.ingestion.source.fivetran.fivetran.FivetranLogAPI"
+            "datahub.ingestion.source.fivetran.fivetran.FivetranLogDbReader"
         ) as mock_log_api:
-            mock_audit_log = Mock()
-            mock_audit_log.get_user_email.return_value = "test@example.com"
-            mock_audit_log.fivetran_log_database = "test_db"
-            mock_log_api.return_value = mock_audit_log
+            mock_log_reader = Mock()
+            mock_log_reader.get_user_email.return_value = "test@example.com"
+            mock_log_reader.fivetran_log_database = "test_db"
+            mock_log_api.return_value = mock_log_reader
             self.source = FivetranSource(self.config, self.ctx)
 
             # Mock the API client
@@ -162,8 +168,13 @@ class TestFivetranGoogleSheetsIntegration:
             mock_connection_details
         )
 
-        datajob = Mock()
-        lineage_properties = self.source._extend_lineage(connector, datajob)
+        source_details = self.source._resolve_source_details(connector)
+        destination_details = self.source.resolve_destination_details(
+            connector.destination_id
+        )
+        lineage_properties = self.source._compose_lineage_properties(
+            source_details, destination_details
+        )
 
         assert "source.platform" in lineage_properties
         assert (
@@ -181,7 +192,9 @@ class TestFivetranGoogleSheetsIntegration:
             sheet_id="https://docs.google.com/spreadsheets/d/1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo/edit?gid=0#gid=0"
         )
 
-        sheet_id = self.source._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        sheet_id = self.source.gsheets_handler._get_sheet_id_from_url(
+            gsheets_conn_details
+        )
         assert sheet_id == "1A82PdLAE7NXLLb5JcLPKeIpKUMytXQba5Z-Ei-mbXLo"
 
     def test_get_gsheet_sheet_id_from_url_with_plain_id(self, make_connection_details):
@@ -190,7 +203,9 @@ class TestFivetranGoogleSheetsIntegration:
             sheet_id="13aoqK7hn75-_fckhgfw10tU4yPTLwyrB8t_HkqnBG_A"
         )
 
-        sheet_id = self.source._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        sheet_id = self.source.gsheets_handler._get_sheet_id_from_url(
+            gsheets_conn_details
+        )
         assert sheet_id == "13aoqK7hn75-_fckhgfw10tU4yPTLwyrB8t_HkqnBG_A"
 
     def test_get_gsheet_sheet_id_from_url_returns_none_for_invalid_url(
@@ -201,7 +216,9 @@ class TestFivetranGoogleSheetsIntegration:
             sheet_id="https://docs.google.com/invalid/path/format"
         )
 
-        sheet_id = self.source._get_gsheet_sheet_id_from_url(gsheets_conn_details)
+        sheet_id = self.source.gsheets_handler._get_sheet_id_from_url(
+            gsheets_conn_details
+        )
         assert sheet_id is None
 
     def test_get_gsheet_named_range_dataset_id(self, make_connection_details):
@@ -211,7 +228,7 @@ class TestFivetranGoogleSheetsIntegration:
             named_range="Test_Range",
         )
 
-        named_range_id = self.source._get_gsheet_named_range_dataset_id(
+        named_range_id = self.source.gsheets_handler._get_named_range_dataset_id(
             gsheets_conn_details
         )
         assert (
@@ -226,7 +243,9 @@ class TestFivetranGoogleSheetsIntegration:
             sheet_id="https://docs.google.com/invalid/format"
         )
 
-        result = self.source._get_gsheet_named_range_dataset_id(gsheets_conn_details)
+        result = self.source.gsheets_handler._get_named_range_dataset_id(
+            gsheets_conn_details
+        )
         assert result is None
 
     def test_get_connection_details_by_id_api_error(self):
@@ -235,7 +254,9 @@ class TestFivetranGoogleSheetsIntegration:
             requests.exceptions.HTTPError("404 Not Found")
         )
 
-        result = self.source._get_connection_details_by_id("test_connector_id")
+        result = self.source.gsheets_handler._get_connection_details(
+            "test_connector_id"
+        )
         assert result is None
 
     def test_get_connection_details_by_id_with_caching(self, make_connection_details):
@@ -246,12 +267,12 @@ class TestFivetranGoogleSheetsIntegration:
         )
 
         # First call should fetch from API
-        result1 = self.source._get_connection_details_by_id("test_connector")
+        result1 = self.source.gsheets_handler._get_connection_details("test_connector")
         assert result1 == gsheets_conn_details
         assert self.mock_api_client.get_connection_details_by_id.call_count == 1
 
         # Second call should use cache
-        result2 = self.source._get_connection_details_by_id("test_connector")
+        result2 = self.source.gsheets_handler._get_connection_details("test_connector")
         assert result2 == gsheets_conn_details
         assert self.mock_api_client.get_connection_details_by_id.call_count == 1
 
@@ -278,7 +299,7 @@ class TestFivetranGoogleSheetsIntegration:
             gsheets_conn_details
         )
 
-        result = self.source._get_connection_details_by_id("test_connector")
+        result = self.source.gsheets_handler._get_connection_details("test_connector")
         assert result == gsheets_conn_details
         assert result.succeeded_at is None
 
@@ -352,12 +373,10 @@ class TestFivetranGoogleSheetsIntegration:
             mock_connection_details
         )
 
-        datajob = Mock()
-        self.source._extend_lineage(connector, datajob)
-
-        # Verify that set_inlets was called with an empty list for Google Sheets
-        # (no valid input_dataset_urn was created)
-        datajob.set_inlets.assert_called()
-        inlets = datajob.set_inlets.call_args[0][0]
-        # All inlets should be empty since the only lineage is from invalid GSheets
-        assert len(inlets) == 0
+        # For Google Sheets with an unparseable sheet_id, the input dataset
+        # URN can't be built, so no inlet is produced for the pair.
+        source_details = self.source._resolve_source_details(connector)
+        input_urn = self.source._build_input_dataset_urn(
+            connector, connector.lineage[0], source_details
+        )
+        assert input_urn is None

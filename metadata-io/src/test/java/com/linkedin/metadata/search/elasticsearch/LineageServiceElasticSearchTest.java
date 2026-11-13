@@ -26,7 +26,7 @@ import org.testng.annotations.Test;
 public class LineageServiceElasticSearchTest extends LineageServiceTestBase {
 
   @Autowired private SearchClientShim<?> _searchClient;
-  @Autowired private ESBulkProcessor _bulkProcessor;
+  private ESBulkProcessor _bulkProcessor;
   @Autowired private ESIndexBuilder _esIndexBuilder;
   @Autowired private SearchConfiguration _searchConfiguration;
 
@@ -43,6 +43,11 @@ public class LineageServiceElasticSearchTest extends LineageServiceTestBase {
   @NotNull
   @Override
   protected ESBulkProcessor getBulkProcessor() {
+    if (_bulkProcessor == null) {
+      // Earlier classes can close the shim's process-wide ingester when Spring evicts a cached
+      // context. Reinitialize it for this class without restarting the shared test container.
+      _bulkProcessor = new SearchTestContainerConfiguration().getBulkProcessor(_searchClient);
+    }
     return _bulkProcessor;
   }
 

@@ -7,9 +7,7 @@ import java.util.List;
 import java.util.Map;
 import lombok.Builder;
 import lombok.Data;
-import lombok.extern.slf4j.Slf4j;
 
-@Slf4j
 @Data
 @Builder
 @JsonInclude(JsonInclude.Include.NON_NULL)
@@ -41,24 +39,9 @@ public class AspectSpecDto {
   private String registryVersion;
 
   public static AspectSpecDto fromAspectSpec(AspectSpec aspectSpec) {
-    // Get the aspect annotation - need to use reflection since it's private
-    AspectAnnotationDto aspectAnnotationDto = null;
-    try {
-      // The AspectSpec class has getName(), isTimeseries(), isAutoRender(), getRenderSpec() methods
-      // that delegate to the AspectAnnotation
-      aspectAnnotationDto =
-          AspectAnnotationDto.builder()
-              .name(aspectSpec.getName())
-              .timeseries(aspectSpec.isTimeseries())
-              .autoRender(aspectSpec.isAutoRender())
-              .renderSpec(convertDataMap(aspectSpec.getRenderSpec()))
-              .build();
-    } catch (Exception e) {
-      log.error("Error extracting aspect annotation: {}", e.getMessage());
-    }
-
     return AspectSpecDto.builder()
-        .aspectAnnotation(aspectAnnotationDto)
+        .aspectAnnotation(
+            AspectAnnotationDto.fromAspectAnnotation(aspectSpec.getAspectAnnotation()))
 
         // Convert Maps using the generic approach
         .searchableFieldSpec(convertFieldSpecMap(aspectSpec.getSearchableFieldSpecMap()))
@@ -105,14 +88,5 @@ public class AspectSpecDto {
       }
     }
     return result.isEmpty() ? null : result; // Return null if result is empty
-  }
-
-  private static Map<String, Object> convertDataMap(com.linkedin.data.DataMap dataMap) {
-    if (dataMap == null) {
-      return null;
-    }
-    Map<String, Object> result = new HashMap<>();
-    dataMap.forEach(result::put);
-    return result;
   }
 }

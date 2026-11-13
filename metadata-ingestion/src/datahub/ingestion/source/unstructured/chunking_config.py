@@ -1,11 +1,36 @@
 """Configuration for Document Chunking and Embedding Source."""
 
-from typing import Any, Literal, Optional
+import logging
+import re
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple
 
 from pydantic import Field, field_validator
 
 from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
+
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.config import DatahubClientConfig
+
+logger = logging.getLogger(__name__)
+_LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
+
+# Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
+# only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
+DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
+
+@dataclass(frozen=True)
+class ResolvedEmbeddingTarget:
+    transport: Literal["datahub", "direct"]
+    model_provider: str
+    model_id: str
+    model_embedding_key: str
+    semantic_model_version: str
+    endpoint_path: Optional[str] = None
+    # The server does not advertise ONNX pooling, so transport equivalence is unknown.
+    onnx_pooling: Optional[str] = None
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -15,6 +40,8 @@ class ServerEmbeddingConfig(ConfigModel):
     model_id: str
     model_embedding_key: str
     aws_region: Optional[str] = None
+    vertex_project_id: Optional[str] = None
+    vertex_location: Optional[str] = None
 
 
 class ServerSemanticSearchConfig(ConfigModel):
@@ -22,7 +49,8 @@ class ServerSemanticSearchConfig(ConfigModel):
 
     enabled: bool
     enabled_entities: list[str]
-    embedding_config: ServerEmbeddingConfig
+    embedding_config: Optional[ServerEmbeddingConfig] = None
+    entity_index_v3_enabled: Optional[bool] = None
 
 
 class ChunkingConfig(ConfigModel):
@@ -36,6 +64,14 @@ class ChunkingConfig(ConfigModel):
     combine_text_under_n_chars: int = Field(
         default=100, description="Combine chunks smaller than this size"
     )
+    max_chunks_per_document: int = Field(
+        default=DEFAULT_MAX_CHUNKS_PER_DOCUMENT,
+        ge=1,
+        description="Maximum number of chunks embedded per document. A document that "
+        "produces more chunks is truncated to the first N so its semanticContent aspect "
+        "stays under the Kafka producer size limit; the dropped chunks are reported as a "
+        "warning, not a failure.",
+    )
 
 
 class EmbeddingConfig(ConfigModel):
@@ -46,9 +82,38 @@ class EmbeddingConfig(ConfigModel):
     """
 
     # Core configuration (Optional - loaded from server if not set)
-    provider: Optional[Literal["bedrock", "cohere", "openai"]] = Field(
+    provider: Optional[
+        Literal[
+            "bedrock",
+            "cohere",
+            "openai",
+            "local",
+            "vertex_ai",
+            "onnx",
+            "classical",
+            "datahub",
+        ]
+    ] = Field(
         default=None,
-        description="Embedding provider (bedrock uses AWS, cohere/openai use API key). If not set, loads from server.",
+        description="Embedding provider. 'datahub' uses the server's advertised embedding service and DataHub credentials. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
+    )
+    endpoint: Optional[str] = Field(
+        default=None,
+        description="Endpoint URL for local embedding server (e.g., http://localhost:11434/v1/embeddings). "
+        "Only used when provider='local'. Falls back to LOCAL_EMBEDDING_ENDPOINT env var.",
+    )
+    onnx_model_dir: Optional[str] = Field(
+        default=None,
+        description="Directory containing model.onnx (or model_quantized.onnx) and tokenizer.json. "
+        "Only used when provider='onnx'. Falls back to ONNX_EMBEDDING_MODEL_DIR env var. "
+        "Must be the same model the GMS query-side provider uses, or semantic search will not match.",
+    )
+    onnx_pooling: str = Field(
+        default="cls",
+        description="Pooling strategy for provider='onnx': 'cls' (first-token, default) or 'mean' "
+        "(attention-masked mean). Must match the GMS provider's pooling for query/doc vector parity. "
+        "When config is loaded from the server, falls back to the ONNX_EMBEDDING_POOLING env var "
+        "(the same variable GMS reads), since the server API does not expose pooling.",
     )
     model: Optional[str] = Field(
         default=None,
@@ -63,6 +128,16 @@ class EmbeddingConfig(ConfigModel):
         description="AWS region for Bedrock. If not set, loads from server.",
     )
 
+    # Vertex AI configuration (used when provider is "vertex_ai")
+    vertex_project_id: Optional[str] = Field(
+        default=None,
+        description="GCP project ID for Vertex AI. Required when provider is 'vertex_ai' and using local config. If not set, loads from server.",
+    )
+    vertex_location: Optional[str] = Field(
+        default="us-east1",
+        description="GCP region for the Vertex AI endpoint (e.g., 'us-east1', 'us-central1'). Matches the Java server default.",
+    )
+
     # Credentials (can be provided locally even when using server config)
     api_key: Optional[TransparentSecretStr] = Field(
         default=None,
@@ -71,7 +146,12 @@ class EmbeddingConfig(ConfigModel):
 
     # Processing configuration (not from server)
     batch_size: int = Field(
-        default=25, description="Batch size for embedding API calls"
+        default=25, gt=0, description="Batch size for embedding API calls"
+    )
+    request_timeout: float = Field(
+        default=60.0,
+        gt=0,
+        description="Per-call HTTP timeout in seconds for embedding providers.",
     )
     input_type: Optional[str] = Field(
         default="search_document",
@@ -97,15 +177,24 @@ class EmbeddingConfig(ConfigModel):
 
     # Internal: cached server config after loading/validation
     _server_config: Optional[ServerEmbeddingConfig] = None
+    _resolved_target: Optional[ResolvedEmbeddingTarget] = None
 
     @field_validator("model_embedding_key")
     @classmethod
     def validate_model_embedding_key(cls, v: Optional[str]) -> Optional[str]:
-        """Validate model_embedding_key is Elasticsearch-compatible (no dots)."""
-        if v is not None and "." in v:
+        """Validate model_embedding_key is Elasticsearch-compatible.
+
+        Elasticsearch rejects field names containing characters like ``.`` or
+        ``:`` — the latter shows up in Bedrock Titan model IDs
+        (``amazon.titan-embed-text-v2:0``). Restrict to alphanumerics and
+        underscore so anything that survives is safe to use as a field name.
+        """
+        if v is not None and not re.fullmatch(r"[A-Za-z0-9_]+", v):
             raise ValueError(
-                f"model_embedding_key '{v}' contains '.' which is not allowed in Elasticsearch field names. "
-                f"Use underscores instead (e.g., 'cohere_embed_v3' not 'cohere.embed.v3')"
+                f"model_embedding_key '{v}' contains characters other than letters, "
+                f"digits, or underscore. Elasticsearch field names disallow '.', ':', "
+                f"'-', and other punctuation — use underscores instead "
+                f"(e.g., 'cohere_embed_v3' not 'cohere.embed.v3')."
             )
         return v
 
@@ -132,15 +221,41 @@ class EmbeddingConfig(ConfigModel):
         Returns:
             EmbeddingConfig populated with server values
         """
+        import os
+
         # Normalize provider from server format to local format
         provider = cls._normalize_provider_from_server(server_config.provider)
+
+        # For local provider, read endpoint from env (Docker-internal URL on the server
+        # differs from the host-side URL needed by the Python client).
+        endpoint: Optional[str] = None
+        if provider == "local":
+            endpoint = os.environ.get(
+                "LOCAL_EMBEDDING_ENDPOINT",
+                _LOCAL_EMBEDDING_DEFAULT_ENDPOINT,
+            )
+
+        # The server names the onnx model but not where its files live or how it
+        # pools; the executor resolves both from the same env vars GMS uses so
+        # both sides load the identical model.onnx + tokenizer.json and pool the
+        # same way (query/doc vector parity).
+        onnx_model_dir: Optional[str] = None
+        onnx_pooling = "cls"
+        if provider == "onnx":
+            onnx_model_dir = os.environ.get("ONNX_EMBEDDING_MODEL_DIR")
+            onnx_pooling = os.environ.get("ONNX_EMBEDDING_POOLING", "cls")
 
         config = cls(
             provider=provider,
             model=server_config.model_id,
             model_embedding_key=server_config.model_embedding_key,
             aws_region=server_config.aws_region,
+            vertex_project_id=server_config.vertex_project_id,
+            vertex_location=server_config.vertex_location,
             api_key=api_key,
+            endpoint=endpoint,
+            onnx_model_dir=onnx_model_dir,
+            onnx_pooling=onnx_pooling,
         )
         # Set private field after construction
         config._server_config = server_config
@@ -150,10 +265,11 @@ class EmbeddingConfig(ConfigModel):
         """Validate local config against server config (for override flow).
 
         Checks:
-        - Provider matches (bedrock/cohere)
+        - Provider matches (bedrock/cohere/openai/vertex_ai)
         - Model identifier matches exactly
         - Model embedding key matches exactly
         - AWS region matches (for Bedrock only)
+        - Vertex project_id and location match (for Vertex AI only)
 
         Raises:
             ValueError: If validation fails with detailed error message
@@ -190,6 +306,16 @@ class EmbeddingConfig(ConfigModel):
                 f"AWS region mismatch: local='{self.aws_region}', server='{server_config.aws_region}'"
             )
 
+        if local_provider == "vertex_ai":
+            if self.vertex_project_id != server_config.vertex_project_id:
+                errors.append(
+                    f"Vertex project_id mismatch: local='{self.vertex_project_id}', server='{server_config.vertex_project_id}'"
+                )
+            if self.vertex_location != server_config.vertex_location:
+                errors.append(
+                    f"Vertex location mismatch: local='{self.vertex_location}', server='{server_config.vertex_location}'"
+                )
+
         if errors:
             # Build detailed error message with server config and fix suggestions
             error_list = "\n  - ".join(errors)
@@ -199,7 +325,9 @@ class EmbeddingConfig(ConfigModel):
                 f"  Provider: {server_config.provider}\n"
                 f"  Model: {server_config.model_id}\n"
                 f"  Model Embedding Key: {server_config.model_embedding_key}\n"
-                f"  AWS Region: {server_config.aws_region or 'N/A'}\n\n"
+                f"  AWS Region: {server_config.aws_region or 'N/A'}\n"
+                f"  Vertex Project ID: {server_config.vertex_project_id or 'N/A'}\n"
+                f"  Vertex Location: {server_config.vertex_location or 'N/A'}\n\n"
                 f"To fix this issue:\n"
                 f"  1. Update your local config to match the server configuration above, OR\n"
                 f"  2. Update the server's semantic search configuration in application.yml, OR\n"
@@ -210,7 +338,7 @@ class EmbeddingConfig(ConfigModel):
 
     @staticmethod
     def _normalize_provider(provider: str) -> str:
-        """Normalize provider name for comparison: 'aws-bedrock' → 'bedrock'."""
+        """Normalize provider name for comparison: 'aws-bedrock' → 'bedrock', 'vertex-ai' → 'vertex_ai'."""
         provider_lower = provider.lower()
         if "bedrock" in provider_lower:
             return "bedrock"
@@ -218,12 +346,22 @@ class EmbeddingConfig(ConfigModel):
             return "cohere"
         if "openai" in provider_lower:
             return "openai"
+        if "local" in provider_lower:
+            return "local"
+        if "vertex" in provider_lower:
+            return "vertex_ai"
+        if "onnx" in provider_lower:
+            return "onnx"
+        if "classical" in provider_lower:
+            return "classical"
         return provider_lower
 
     @staticmethod
     def _normalize_provider_from_server(
         server_provider: str,
-    ) -> Literal["bedrock", "cohere", "openai"]:  # type: ignore
+    ) -> Literal[
+        "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+    ]:  # type: ignore
         """Convert server provider format to local config format."""
         normalized = EmbeddingConfig._normalize_provider(server_provider)
         if normalized == "bedrock":
@@ -232,6 +370,14 @@ class EmbeddingConfig(ConfigModel):
             return "cohere"
         elif normalized == "openai":
             return "openai"
+        elif normalized == "local":
+            return "local"
+        elif normalized == "vertex_ai":
+            return "vertex_ai"
+        elif normalized == "onnx":
+            return "onnx"
+        elif normalized == "classical":
+            return "classical"
         else:
             raise ValueError(f"Unsupported provider from server: {server_provider}")
 
@@ -255,75 +401,43 @@ class EmbeddingConfig(ConfigModel):
         )
 
 
-def _get_default_gms_server() -> str:
-    """Get default GMS server URL with fallback to ~/.datahubenv.
+_LOCAL_GMS_SERVER = "http://localhost:8080"
 
-    Priority:
-    1. DATAHUB_GMS_URL environment variable
-    2. ~/.datahubenv file (via load_client_config)
-    3. http://localhost:8080 (hardcoded default)
 
-    Returns:
-        GMS server URL
+def _default_connection() -> Tuple[str, Optional[str]]:
+    """The server and token from the shared CLI resolver, as one pair.
+
+    Reading DATAHUB_GMS_URL/DATAHUB_GMS_TOKEN here independently would pair a
+    selected profile's server with an unrelated exported token and send that
+    bearer token to the wrong instance.
     """
-    # First try env var directly
-    url = env_vars.get_gms_url()
-    if url:
-        return url
+    from datahub.cli import config_utils
 
-    # Fall back to load_client_config which reads from ~/.datahubenv
     try:
-        from datahub.cli import config_utils
+        client_config: "DatahubClientConfig" = config_utils.load_client_config()
+        return client_config.server, client_config.token
+    except config_utils.MissingConfigError:
+        if config_utils.explicit_profile_selected():
+            # A named profile that is missing must fail, not fall back to localhost.
+            raise
+    except Exception as e:
+        if config_utils.explicit_profile_selected():
+            raise
+        logger.debug(f"Could not load DataHub client config: {e}")
+    # Nothing is configured: a local instance, with a token only if one is exported.
+    return _LOCAL_GMS_SERVER, env_vars.get_gms_token()
 
-        # Don't fail if config file doesn't exist - just use localhost
-        if not env_vars.get_skip_config():
-            try:
-                client_config = config_utils.load_client_config()
-                return client_config.server
-            except config_utils.MissingConfigError:
-                # Config file doesn't exist, use default
-                pass
-    except Exception:
-        # If anything goes wrong, fall back to default
-        pass
 
-    return "http://localhost:8080"
+def _get_default_gms_server() -> str:
+    """Default GMS server: the resolved CLI connection (DATAHUB_GMS_URL, a
+    selected profile, or ~/.datahubenv), else http://localhost:8080."""
+    return _default_connection()[0]
 
 
 def _get_default_gms_token() -> Optional[TransparentSecretStr]:
-    """Get default GMS token with fallback to ~/.datahubenv.
-
-    Priority:
-    1. DATAHUB_GMS_TOKEN environment variable
-    2. ~/.datahubenv file (via load_client_config)
-    3. None (no token)
-
-    Returns:
-        GMS token or None
-    """
-    # First try env var directly
-    token = env_vars.get_gms_token()
-    if token:
-        return TransparentSecretStr(token)
-
-    # Fall back to load_client_config which reads from ~/.datahubenv
-    try:
-        from datahub.cli import config_utils
-
-        # Don't fail if config file doesn't exist - just return None
-        if not env_vars.get_skip_config():
-            try:
-                client_config = config_utils.load_client_config()
-                if client_config.token:
-                    return TransparentSecretStr(client_config.token)
-            except config_utils.MissingConfigError:
-                # Config file doesn't exist, no token
-                pass
-    except Exception:
-        # If anything goes wrong, return None
-        pass
-
-    return None
+    """Default GMS token, paired with the server from `_get_default_gms_server`."""
+    token = _default_connection()[1]
+    return TransparentSecretStr(token) if token else None
 
 
 class DataHubConnectionConfig(ConfigModel):
@@ -331,9 +445,11 @@ class DataHubConnectionConfig(ConfigModel):
 
     Defaults are loaded in this priority:
     1. Explicitly configured values in the recipe
-    2. Environment variables (DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN)
-    3. ~/.datahubenv file (created by `datahub init`)
-    4. Hardcoded defaults (http://localhost:8080, no token)
+    2. The DataHub CLI connection: DATAHUB_GMS_URL/DATAHUB_GMS_TOKEN, the
+       selected profile, or ~/.datahubenv (created by `datahub init`)
+    3. Hardcoded defaults (http://localhost:8080, no token)
+
+    The server and token defaults always come from the same source.
     """
 
     server: str = Field(
@@ -467,7 +583,7 @@ def get_processing_config_fingerprint(
     # Embedding is enabled when provider is configured
     embedding_enabled = embedding.provider is not None
 
-    return {
+    fingerprint: dict[str, Any] = {
         # Chunking affects chunk boundaries and structure
         "chunking_strategy": chunking.strategy if embedding_enabled else None,
         "chunking_max_characters": chunking.max_characters
@@ -484,6 +600,18 @@ def get_processing_config_fingerprint(
             embedding.model_embedding_key if embedding_enabled else None
         ),
     }
+    # The chunk cap changes emitted output (fewer chunks), so a change must re-hash
+    # affected documents. Only add the key when the cap is non-default, so merely
+    # upgrading to a build that introduces the knob does not re-fingerprint (and
+    # re-embed) every already-processed document.
+    if (
+        embedding_enabled
+        and chunking.max_chunks_per_document != DEFAULT_MAX_CHUNKS_PER_DOCUMENT
+    ):
+        fingerprint["chunking_max_chunks_per_document"] = (
+            chunking.max_chunks_per_document
+        )
+    return fingerprint
 
 
 def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
@@ -500,7 +628,36 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
     """
     from datahub.configuration.common import GraphError
 
-    query = """
+    # Full query includes vertexProviderConfig (v0.15+) and entityIndexV3. Older
+    # servers reject unknown fields with FieldUndefined; we fall back to the base
+    # query rather than propagating a confusing schema error.
+    _QUERY_FULL = """
+        query getSemanticSearchConfig {
+          appConfig {
+            semanticSearchConfig {
+              enabled
+              enabledEntities
+              embeddingConfig {
+                provider
+                modelId
+                modelEmbeddingKey
+                awsProviderConfig {
+                  region
+                }
+                vertexProviderConfig {
+                  projectId
+                  location
+                }
+              }
+            }
+            entityIndexV3 {
+              enabled
+            }
+          }
+        }
+    """
+    # Oldest GMS schemas: no vertexProviderConfig, no entityIndexV3.
+    _QUERY_BASE = """
         query getSemanticSearchConfig {
           appConfig {
             semanticSearchConfig {
@@ -519,11 +676,29 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
         }
     """
 
-    response = graph.execute_graphql(
-        query=query, operation_name="getSemanticSearchConfig"
-    )
+    try:
+        response = graph.execute_graphql(
+            query=_QUERY_FULL,
+            operation_name="getSemanticSearchConfig",
+            strip_unsupported_fields=True,
+        )
+    except GraphError as e:
+        # When graphql-core is absent, strip_unsupported_fields is a no-op and the
+        # full query reaches the server. Retry without the newer fields.
+        error_text = str(e)
+        if "FieldUndefined" in error_text and (
+            "vertexProviderConfig" in error_text or "entityIndexV3" in error_text
+        ):
+            response = graph.execute_graphql(
+                query=_QUERY_BASE,
+                operation_name="getSemanticSearchConfig",
+            )
+        else:
+            raise
 
     semantic_search_config = response.get("appConfig", {}).get("semanticSearchConfig")
+    entity_index_v3 = response.get("appConfig", {}).get("entityIndexV3") or {}
+    entity_index_v3_enabled = entity_index_v3.get("enabled")
 
     if not semantic_search_config:
         raise GraphError(
@@ -531,23 +706,57 @@ def get_semantic_search_config(graph: Any) -> ServerSemanticSearchConfig:
             "Ensure DataHub server version supports semantic search config API (v0.14.0+)."
         )
 
-    # Parse into ServerSemanticSearchConfig model
-    embedding_config_dict = semantic_search_config["embeddingConfig"]
+    is_enabled = semantic_search_config["enabled"]
+
+    # embeddingConfig is null when semantic search is disabled on the server.
+    embedding_config_dict = semantic_search_config.get("embeddingConfig")
+    if not embedding_config_dict:
+        return ServerSemanticSearchConfig(
+            enabled=is_enabled,
+            enabled_entities=semantic_search_config["enabledEntities"],
+            embedding_config=None,
+            entity_index_v3_enabled=entity_index_v3_enabled,
+        )
 
     # Extract AWS region from nested awsProviderConfig
     aws_region = None
     if embedding_config_dict.get("awsProviderConfig"):
         aws_region = embedding_config_dict["awsProviderConfig"].get("region")
 
+    # Extract Vertex AI fields from nested vertexProviderConfig
+    vertex_project_id = None
+    vertex_location = None
+    if embedding_config_dict.get("vertexProviderConfig"):
+        vertex_project_id = embedding_config_dict["vertexProviderConfig"].get(
+            "projectId"
+        )
+        vertex_location = embedding_config_dict["vertexProviderConfig"].get("location")
+
+    # Validate completeness when provider is vertex_ai. The server's resolver should
+    # emit a complete vertexProviderConfig, but a misconfigured server (missing
+    # VERTEX_AI_PROJECT_ID env var) would leak a half-populated config that fails
+    # obscurely at embedding time. Surface it cleanly here.
+    if EmbeddingConfig._normalize_provider(
+        embedding_config_dict["provider"]
+    ) == "vertex_ai" and (not vertex_project_id or not vertex_location):
+        raise GraphError(
+            f"Server returned vertex_ai semantic search config with incomplete "
+            f"vertexProviderConfig (projectId={vertex_project_id!r}, location={vertex_location!r}). "
+            f"Both fields are required. Configure VERTEX_AI_PROJECT_ID and VERTEX_AI_LOCATION on the server."
+        )
+
     server_embedding_config = ServerEmbeddingConfig(
         provider=embedding_config_dict["provider"],
         model_id=embedding_config_dict["modelId"],
         model_embedding_key=embedding_config_dict["modelEmbeddingKey"],
         aws_region=aws_region,
+        vertex_project_id=vertex_project_id,
+        vertex_location=vertex_location,
     )
 
     return ServerSemanticSearchConfig(
-        enabled=semantic_search_config["enabled"],
+        enabled=is_enabled,
         enabled_entities=semantic_search_config["enabledEntities"],
         embedding_config=server_embedding_config,
+        entity_index_v3_enabled=entity_index_v3_enabled,
     )

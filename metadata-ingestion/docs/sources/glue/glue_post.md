@@ -2,9 +2,94 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Cross-Account Lineage
+
+When ingesting Glue metadata from different AWS accounts, the connector can establish lineage relationships across account boundaries. This is particularly useful for tracking data flows in multi-account AWS environments.
+
+**How it works:**
+
+When you ingest a Glue catalog that references storage (e.g., S3 buckets) or other resources in different accounts, the connector creates lineage edges to those resources. For example:
+
+- Account A has a Glue table pointing to an S3 bucket in Account A
+- Account B has shared access to Account A's Glue catalog (using `catalog_id`)
+- When you ingest from Account B, DataHub creates lineage from the Glue table to the S3 bucket
+
+**URN resolution and entity merging:**
+
+The connector's behavior depends on your `platform_instance` configuration:
+
+- **Without platform instance**: If you ingest the same Glue catalog from different accounts without setting `platform_instance`, DataHub recognizes them as the same entities and creates a single dataset. Lineage to S3 (or other storage) is preserved regardless of which account performed the ingestion.
+
+  ```yaml
+  # Account A ingestion
+  source:
+    type: glue
+    config:
+      aws_config:
+        aws_region: us-east-1
+  ```
+
+  ```yaml
+  # Account B ingestion (using catalog_id)
+  source:
+    type: glue
+    config:
+      catalog_id: "111111111111" # Account A's ID
+      aws_config:
+        aws_region: us-east-1
+  ```
+
+  Result: Single Glue table entity with lineage to S3.
+
+- **With platform instance**: Using different `platform_instance` values creates separate dataset entities with distinct URNs. This is useful for tracking the same data through different access paths or maintaining separate views per account.
+
+  ```yaml
+  # Account A ingestion
+  source:
+    type: glue
+    config:
+      platform_instance: account-a
+      aws_config:
+        aws_region: us-east-1
+  ```
+
+  ```yaml
+  # Account B ingestion
+  source:
+    type: glue
+    config:
+      catalog_id: "111111111111" # Account A's ID
+      platform_instance: account-b
+      aws_config:
+        aws_region: us-east-1
+  ```
+
+  Result: Two separate Glue table entities (one per platform instance), each with its own lineage edges.
+
+**Storage lineage:**
+
+To see lineage between Glue tables and their underlying S3 locations, you must:
+
+1. Set `emit_storage_lineage: true` in the Glue connector config
+2. Ingest S3 separately using the [S3 connector](https://docs.datahub.com/docs/generated/ingestion/sources/s3)
+
+The S3 connector creates dataset entities for the storage locations, and the Glue connector creates lineage edges connecting Glue tables to those S3 datasets. This works seamlessly across account boundaries when both connectors are configured correctly.
+
+For cross-account S3 access, refer to the [S3 connector's cross-account documentation](https://docs.datahub.com/docs/generated/ingestion/sources/s3#cross-account-access).
+
 #### Compatibility
 
 To capture lineage across Glue jobs and databases, a requirements must be met – otherwise the AWS API is unable to report any lineage. The job must be created in Glue Studio with the "Generate classic script" option turned on (this option can be accessed in the "Script" tab). Any custom scripts that do not have the proper annotations will not have reported lineage.
+
+#### DynamoDB Job Lineage
+
+When a Glue job reads or writes DynamoDB via `create_dynamic_frame.from_options(connection_type="dynamodb", ...)` (or the equivalent sink), the connector emits dataset URNs that match the [DynamoDB source](https://docs.datahub.com/docs/generated/ingestion/sources/dynamodb) (`{region}.{table}`, platform_instance = AWS account id by default). That joins DynamoDB tables into Glue job lineage alongside catalog or S3 sinks — a DynamoDB `DataSource` becomes a job input and a DynamoDB `DataSink` becomes a job output.
+
+This covers `extract_transforms: true` Glue ETL jobs that read from or write to DynamoDB — for example DynamoDB → Glue catalog / Iceberg / Parquet. Catalog sinks already resolve; enable `emit_storage_lineage: true` to link Glue Iceberg tables to their Iceberg/S3 storage.
+
+The account id used as `platform_instance` is resolved in this order: a configured `target_platform_configs.dynamodb.platform_instance`, then the node's `dynamodb.tableArn` account, then a cross-account `dynamodb.sts.roleArn` account, then the `sts:GetCallerIdentity` caller account. The Glue `catalog_id` is not used, because Glue only lists jobs in the caller's account. A node whose table ARN or role ARN cannot be parsed is skipped with a warning. To align URNs when the DynamoDB connector uses a custom `platform_instance`, set the same value under Glue `target_platform_configs.dynamodb`.
+
+For capturing native DynamoDB **Export to S3** jobs (JSON/Ion) rather than Glue ETL, use the DynamoDB source's `include_s3_export_lineage` option instead — that is a DynamoDB-source feature, not a Glue one.
 
 #### JDBC Upstream Lineage
 
@@ -34,6 +119,97 @@ source:
 ```
 
 When this is configured, dataset URNs produced by the Glue connector will include the same `platform_instance` and `env` as the target platform's connector, ensuring entities merge correctly in DataHub. If the target platform connector does not use a `platform_instance`, no configuration is needed — URNs will match by default.
+
+#### Incremental Dataset Properties (PATCH Mode)
+
+When `incremental_properties: true` is set, the Glue connector emits dataset properties as incremental PATCH operations rather than full overwrites. This means custom properties added to a dataset via the DataHub API, SDK, or other ingestion sources are preserved across Glue ingestion runs.
+
+This is useful when you enrich datasets with additional metadata (e.g., ownership annotations, data quality scores, or business context) outside of the Glue catalog and want those properties to survive re-ingestion.
+
+```yaml
+source:
+  type: glue
+  config:
+    incremental_properties: true
+```
+
+#### Column Parameters as Structured Properties
+
+When `extract_column_parameters` is enabled, column-level `Parameters` from the Glue catalog are
+ingested as structured properties on each `schemaField` entity. This surfaces Glue metadata such as Iceberg field IDs directly in the
+DataHub Properties tab.
+
+```yaml
+source:
+  type: glue
+  config:
+    extract_column_parameters: true
+```
+
+**How it works:**
+
+- For each column that has a non-empty `Parameters` map, a `StructuredProperties` aspect is emitted
+  on the corresponding `schemaField` entity.
+- Each unique parameter key produces one `StructuredPropertyDefinition` per recipe run. Subsequent
+  columns reusing the same key share the existing definition (no duplicate upserts).
+- Property URNs follow the pattern
+  `urn:li:structuredProperty:io.datahubproject.glue.column.<sanitized-key>`, where non-alphanumeric
+  characters (except `.`) are replaced with `_`.
+- Partition key columns are also processed.
+
+#### Views with a `dummy` Column in Glue
+
+When a view has an output column whose type Hive cannot represent, such as `timestamp with time zone`
+(from `AT TIME ZONE`) or `char` longer than 255, Glue stores a single placeholder column named
+`dummy` for that view instead of its real columns. For Athena/Presto views, the connector reads the
+real columns and their types from the view definition instead, so the view shows its full schema and
+its column-level lineage connects to real columns. Column types Hive cannot represent are approximated:
+`timestamp with time zone` is shown as a timestamp, and types with no Hive equivalent (such as
+`time`, `interval` or `json`) are shown as strings. The original type is kept as the column's native
+type. Spark and Hive views are not changed, so a real column named `dummy` in one of those views is
+kept as it is.
+
+The ingestion report counts these views in `num_view_schema_from_view_definition`. Views whose
+columns cannot be recovered keep the `dummy` column, are counted in
+`num_view_placeholder_schema_unresolved`, and produce a warning that says why. Recovered columns
+whose type cannot be converted are counted in `num_view_columns_type_unresolved` and listed in a
+warning. They are ingested without a type (or with a nested field untyped), or as a string when the
+type is too long or too deeply nested to convert.
+
+#### Checking a recipe before ingesting
+
+`datahub recipe probe` lists what the catalog holds and says what your recipe would keep, using
+the same credentials, role assumption and retry settings as ingestion. It never reads table
+data, never returns job arguments or free-form parameters, and needs no IAM permission beyond what
+ingestion needs. Every command but one reads catalog listings only. `job_nodes` reads what
+ingestion reads for the same job: it downloads the job script from S3 (`s3:GetObject`), has Glue
+resolve it into a DAG (`glue:GetDataflowGraph`) and looks up the connections its nodes use
+(`glue:GetConnection`). The script and the node arguments (connection options, S3 paths, SQL) are
+left out of its output.
+
+```shell
+datahub recipe probe run databases --recipe recipe.yml --report-to dbs.json
+datahub recipe probe filter --recipe recipe.yml --from-run dbs.json
+datahub recipe probe run tables --recipe recipe.yml --database sales --report-to t.json
+datahub recipe probe filter --recipe recipe.yml --from-run t.json
+datahub recipe probe run columns --recipe recipe.yml --database sales --table orders
+datahub recipe probe run jobs --recipe recipe.yml
+datahub recipe probe run job_nodes --recipe recipe.yml --job nightly_load
+```
+
+Matching rules worth knowing when writing patterns:
+
+- `database_pattern` is matched against the database name.
+- `table_pattern` is matched against `<database>.<table>`, for views as well as tables, so write
+  `^sales\.orders$` rather than `^orders$`.
+- `ignore_resource_links` and `catalog_id` drop databases and tables by facts that are not in
+  their names. Judge the output of `probe run` with `--from-run` to apply them; with bare `--name`
+  values the probe warns that it could not.
+- Glue jobs are not filtered by any pattern; `extract_transforms: false` turns them all off.
+
+If Lake Formation or IAM denies listing one database's tables, `probe run tables` returns an
+empty list with a warning naming the denied action, as ingestion skips that database's tables
+with a warning.
 
 ### Limitations
 

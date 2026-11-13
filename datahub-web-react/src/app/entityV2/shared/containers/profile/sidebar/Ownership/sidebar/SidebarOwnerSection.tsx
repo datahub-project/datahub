@@ -1,8 +1,9 @@
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';
 import { EditOwnersModal } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/EditOwnersModal';
@@ -10,7 +11,9 @@ import { getOwnershipTypeName } from '@app/entityV2/shared/containers/profile/si
 import { OwnershipTypeSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/OwnershipTypeSection';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { isPropagated } from '@app/entityV2/shared/propagation/utils';
 import { ENTITY_PROFILE_OWNERS_ID } from '@app/onboarding/config/EntityProfileOnboardingConfig';
+import { dedupeByUrn } from '@src/utils/dedupeByUrn';
 
 import { Owner, OwnershipType, OwnershipTypeEntity } from '@types';
 
@@ -27,7 +30,7 @@ const OwnershipSections = styled.div`
     justify-content: start;
     flex-wrap: wrap;
     max-width: 100%;
-    gap: 8px;
+    gap: 4px;
 `;
 
 interface Props {
@@ -36,6 +39,7 @@ interface Props {
 }
 
 export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
+    const { t } = useTranslation('entity.shared.containers');
     const { entityType, entityData } = useEntityData();
     const mutationUrn = useMutationUrn();
 
@@ -80,13 +84,19 @@ export const SidebarOwnerSection = ({ properties, readOnly }: Props) => {
     return (
         <div id={ENTITY_PROFILE_OWNERS_ID}>
             <SidebarSection
-                title="Owners"
+                title={t('sidebar.ownership.sectionTitle')}
                 content={
                     <Content>
                         <OwnershipSections>
                             {ownershipTypeNames.map((ownershipTypeName) => {
                                 const ownershipType = ownershipTypesMap.get(ownershipTypeName) as OwnershipTypeEntity;
-                                const owners = ownersByTypeMap.get(ownershipTypeName) as Owner[];
+                                // Guard against the same owner urn appearing more than once with different
+                                // attribution, preferring the non-propagated (manually applied) entry
+                                const owners = dedupeByUrn(
+                                    ownersByTypeMap.get(ownershipTypeName) as Owner[],
+                                    (owner) => owner.owner.urn,
+                                    (owner) => isPropagated(owner.attribution?.sourceDetail),
+                                );
                                 return (
                                     <OwnershipTypeSection
                                         key={ownershipTypeName}

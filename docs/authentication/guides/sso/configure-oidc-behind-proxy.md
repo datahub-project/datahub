@@ -1,3 +1,7 @@
+---
+description: "Configure OIDC SSO authentication in DataHub when the frontend service runs behind an HTTP proxy or corporate firewall."
+---
+
 # OIDC Proxy Configuration
 
 _Authored on 22/08/2023_

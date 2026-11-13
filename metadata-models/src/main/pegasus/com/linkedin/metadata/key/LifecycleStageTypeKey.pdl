@@ -1,0 +1,14 @@
+namespace com.linkedin.metadata.key
+
+/**
+ * Key for a Lifecycle Stage Type
+ */
+@Aspect = {
+  "name": "lifecycleStageTypeKey"
+}
+record LifecycleStageTypeKey {
+  /**
+   * Unique identifier for the lifecycle stage type, e.g. "PROPOSED", "CERTIFIED", "ARCHIVED".
+   */
+  id: string
+}

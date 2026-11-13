@@ -1,7 +1,18 @@
 import json
 import re
 from datetime import datetime, timezone
-from typing import Any, Dict, List, MutableSequence, Optional, Type, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    MutableSequence,
+    Optional,
+    Tuple,
+    Type,
+    Union,
+    cast,
+)
 from unittest import mock
 from uuid import uuid4
 
@@ -45,11 +56,13 @@ from datahub.ingestion.transformer.add_dataset_tags import (
     SimpleAddDatasetTags,
 )
 from datahub.ingestion.transformer.add_dataset_terms import (
+    AddDatasetTerms,
     PatternAddDatasetTerms,
     SimpleAddDatasetTerms,
 )
 from datahub.ingestion.transformer.base_transformer import (
     BaseTransformer,
+    MultipleAspectTransformer,
     SingleAspectTransformer,
 )
 from datahub.ingestion.transformer.dataset_domain import (
@@ -1238,10 +1251,10 @@ def test_pattern_container_and_dataset_ownership_transformation(
     for i in range(2):
         container_ownership_aspect = outputs[i + 5].record.aspect
         assert container_ownership_aspect
-        ownership = json.loads(container_ownership_aspect.value.decode("utf-8"))
-        assert len(ownership) == 3
-        assert ownership[0]["value"]["owner"] == builder.make_user_urn("person1")
-        assert ownership[1]["value"]["owner"] == builder.make_user_urn("person2")
+        patch_ops = json.loads(container_ownership_aspect.value.decode())["patch"]
+        assert len(patch_ops) == 3
+        assert patch_ops[0]["value"]["owner"] == builder.make_user_urn("person1")
+        assert patch_ops[1]["value"]["owner"] == builder.make_user_urn("person2")
 
     # Verify that the third input (not a dataset) is unchanged
     assert inputs[2] == outputs[2].record
@@ -5039,3 +5052,381 @@ def test_replace_external_regex_container_replace_2(
         output[0].record.aspect.externalUrl
         == "https://test.com/test/looker-demo/blob/master/foo.view.lkml"
     )
+
+
+def test_multiple_aspect_transformer_passes_through_non_matching_mcpw() -> None:
+    """Non-matching MCPWs must not be silently dropped by MultipleAspectTransformer."""
+
+    class TagsOnlyTransformer(BaseTransformer, MultipleAspectTransformer):
+        """Transforms globalTags only; all other MCPWs must pass through unchanged."""
+
+        @classmethod
+        def create(
+            cls, config_dict: dict, ctx: PipelineContext
+        ) -> "TagsOnlyTransformer":
+            return cls(ctx)
+
+        def __init__(self, ctx: PipelineContext) -> None:
+            super().__init__()
+
+        def entity_types(self) -> List[str]:
+            return ["dataset"]
+
+        def aspect_name(self) -> str:
+            return "globalTags"
+
+        def transform_aspects(
+            self,
+            entity_urn: str,
+            aspect_name: str,
+            aspect: Optional[builder.Aspect],
+        ) -> Iterable[Tuple[str, Optional[builder.Aspect]]]:
+            yield (aspect_name, aspect)
+
+    urn = "urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)"
+    tags_mcp = MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=models.GlobalTagsClass(tags=[])
+    )
+    domain_mcp = MetadataChangeProposalWrapper(
+        entityUrn=urn,
+        aspect=models.DomainsClass(domains=["urn:li:domain:hello"]),
+    )
+
+    ctx = PipelineContext(run_id="test")
+    transformer = TagsOnlyTransformer.create({}, ctx)
+    inputs = [
+        RecordEnvelope(r, metadata={}) for r in [tags_mcp, domain_mcp, EndOfStream()]
+    ]
+    outputs = list(transformer.transform(inputs))
+
+    domain_outputs = [
+        o.record
+        for o in outputs
+        if isinstance(o.record, MetadataChangeProposalWrapper)
+        and isinstance(o.record.aspect, models.DomainsClass)
+    ]
+    assert len(domain_outputs) == 1, (
+        f"Expected domain MCPW to pass through unchanged, got {len(domain_outputs)}"
+    )
+    assert isinstance(domain_outputs[0].aspect, models.DomainsClass)
+    assert domain_outputs[0].aspect.domains == ["urn:li:domain:hello"]
+
+
+def test_simple_dataset_ownership_dedupes_owner_already_in_stream():
+    """The transformer adds an owner the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    assert len(output) == 2
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+    assert ownership_aspect.owners[0].owner == group_owner
+
+
+def test_simple_dataset_ownership_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    group_owner = "urn:li:corpGroup:data-engineering"
+    ownership_type_urn = "urn:li:ownershipType:__system__data_steward"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=group_owner,
+                    type=models.OwnershipTypeClass.CUSTOM,
+                    typeUrn=ownership_type_urn,
+                )
+            ]
+            * 88
+        ),
+        config={
+            "owner_urns": [group_owner],
+            "ownership_type": ownership_type_urn,
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+
+
+def test_simple_dataset_ownership_keeps_same_user_under_different_types():
+    """Dedup must key on the ownership type as well as the owner urn: the same
+    person can legitimately be both a technical and a business owner."""
+    user = "urn:li:corpuser:jdoe"
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(
+                    owner=user, type=models.OwnershipTypeClass.BUSINESS_OWNER
+                )
+            ]
+        ),
+        config={
+            "owner_urns": [user],
+            "ownership_type": "TECHNICAL_OWNER",
+        },
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 2
+
+
+def test_simple_dataset_tags_dedupes_tag_already_in_stream():
+    """The transformer adds a tag the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    tag = builder.make_tag_urn("Certified")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTags,
+        aspect=models.GlobalTagsClass(tags=[models.TagAssociationClass(tag=tag)]),
+        config={"tag_urns": [tag]},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == tag
+
+
+def test_simple_dataset_terms_dedupes_term_already_in_stream():
+    """The transformer adds a term the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    term = builder.make_term_urn("Pii")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[models.GlossaryTermAssociationClass(urn=term)],
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={"term_urns": [term]},
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+    assert terms_aspect.terms[0].urn == term
+
+
+def test_simple_dataset_terms_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    term = builder.make_term_urn("Pii")
+    other_term = builder.make_term_urn("Sensitive")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[models.GlossaryTermAssociationClass(urn=term)] * 88,
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={"term_urns": [other_term]},
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 2
+    assert {t.urn for t in terms_aspect.terms} == {term, other_term}
+
+
+def test_simple_dataset_domain_dedupes_domain_already_in_stream(
+    mock_datahub_graph_instance,
+):
+    """The transformer adds a domain the stream already carries: the result must
+    hold one entry, not two identical ones."""
+    domain = builder.make_domain_urn("acryl.io")
+
+    pipeline_context = PipelineContext(run_id="test_domain_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[domain]),
+        config={"domains": [domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    domains_aspect = output[0].record.aspect
+    assert isinstance(domains_aspect, models.DomainsClass)
+    assert domains_aspect.domains == [domain]
+
+
+def test_simple_dataset_domain_collapses_preexisting_duplicates(
+    mock_datahub_graph_instance,
+):
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    domain = builder.make_domain_urn("acryl.io")
+    other_domain = builder.make_domain_urn("datahubproject.io")
+
+    pipeline_context = PipelineContext(run_id="test_domain_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetDomain,
+        aspect=models.DomainsClass(domains=[domain] * 88),
+        config={"domains": [other_domain]},
+        pipeline_context=pipeline_context,
+    )
+
+    domains_aspect = output[0].record.aspect
+    assert isinstance(domains_aspect, models.DomainsClass)
+    assert sorted(domains_aspect.domains) == sorted([domain, other_domain])
+
+
+def test_simple_dataset_tags_collapses_preexisting_duplicates():
+    """Existing duplicates in the stream are collapsed rather than carried
+    through, so an already-affected entity recovers on its next run."""
+    tag = builder.make_tag_urn("Certified")
+    other_tag = builder.make_tag_urn("Validated")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetTags,
+        aspect=models.GlobalTagsClass(tags=[models.TagAssociationClass(tag=tag)] * 88),
+        config={"tag_urns": [other_tag]},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 2
+    assert {t.tag for t in tags_aspect.tags} == {tag, other_tag}
+
+
+def test_simple_dataset_ownership_dedupes_on_patch_semantics(
+    mock_datahub_graph_instance,
+):
+    """Dedup runs before the semantics branch, so it applies on PATCH too: an
+    owner present in the stream, on the server and in config yields one entry."""
+    owner = builder.make_user_urn("jdoe")
+
+    pipeline_context = PipelineContext(run_id="test_ownership_patch_dedup")
+    pipeline_context.graph = mock_datahub_graph_instance
+    pipeline_context.graph.get_ownership = lambda entity_urn: models.OwnershipClass(  # type: ignore[method-assign]
+        owners=[
+            models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+        ]
+    )
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=SimpleAddDatasetOwnership,
+        aspect=models.OwnershipClass(
+            owners=[
+                models.OwnerClass(owner=owner, type=models.OwnershipTypeClass.DATAOWNER)
+            ]
+        ),
+        config={
+            "semantics": TransformerSemantics.PATCH,
+            "owner_urns": [owner],
+            "ownership_type": "DATAOWNER",
+        },
+        pipeline_context=pipeline_context,
+    )
+
+    ownership_aspect = output[0].record.aspect
+    assert isinstance(ownership_aspect, models.OwnershipClass)
+    assert len(ownership_aspect.owners) == 1
+
+
+def test_simple_dataset_terms_dedup_keeps_the_configured_entry():
+    """When the stream and the config carry the same urn, the configured entry
+    wins - matching the `{**server, **aspect}` precedence the server-merge
+    helpers use, so dedup is a no-op for the PATCH path that follows it."""
+    term = builder.make_term_urn("Pii")
+
+    output = run_dataset_transformer_pipeline(
+        transformer_type=AddDatasetTerms,
+        aspect=models.GlossaryTermsClass(
+            terms=[
+                models.GlossaryTermAssociationClass(urn=term, context="from-stream")
+            ],
+            auditStamp=models.AuditStampClass(time=0, actor="urn:li:corpuser:unknown"),
+        ),
+        config={
+            "get_terms_to_add": lambda _: [
+                models.GlossaryTermAssociationClass(urn=term, context="from-config")
+            ]
+        },
+    )
+
+    terms_aspect = output[0].record.aspect
+    assert isinstance(terms_aspect, models.GlossaryTermsClass)
+    assert len(terms_aspect.terms) == 1
+    assert terms_aspect.terms[0].context == "from-config"
+
+
+def test_ownership_patching_distinguishes_attribution_source(mock_time):
+    """The server merge keys on the same identity as the transformer's own dedup
+    and HasOwnershipPatch, so entries differing only in attribution survive."""
+    owner = builder.make_user_urn("jdoe")
+    server_owner = models.OwnerClass(
+        owner=owner,
+        type=models.OwnershipTypeClass.TECHNICAL_OWNER,
+        attribution=models.MetadataAttributionClass(
+            time=0,
+            actor="urn:li:corpuser:datahub",
+            source="urn:li:dataHubAction:propagation",
+        ),
+    )
+    mce_owner = models.OwnerClass(
+        owner=owner, type=models.OwnershipTypeClass.TECHNICAL_OWNER
+    )
+
+    mock_graph = mock.MagicMock()
+    mock_graph.get_ownership.return_value = models.OwnershipClass(owners=[server_owner])
+
+    merged = AddDatasetOwnership._merge_with_server_ownership(
+        mock_graph,
+        "urn:li:dataset:(urn:li:dataPlatform:bigquery,example1,PROD)",
+        models.OwnershipClass(owners=[mce_owner]),
+    )
+
+    assert merged is not None
+    assert len(merged.owners) == 2
+
+
+def test_extract_dataset_tags_dedupes_against_existing_tags():
+    """ExtractDatasetTags shares the tag dedup via get_result_semantics, so a tag
+    already on the entity is not re-added when the urn also yields it."""
+    output = run_dataset_transformer_pipeline(
+        transformer_type=ExtractDatasetTags,
+        aspect=models.GlobalTagsClass(
+            tags=[
+                models.TagAssociationClass(
+                    tag=builder.make_tag_urn("example"), context="from-stream"
+                )
+            ]
+        ),
+        config={"extract_tags_from": "urn", "extract_tags_regex": ".*(example).*"},
+    )
+
+    tags_aspect = output[0].record.aspect
+    assert isinstance(tags_aspect, models.GlobalTagsClass)
+    assert len(tags_aspect.tags) == 1
+    assert tags_aspect.tags[0].tag == builder.make_tag_urn("example")
+    # The extracted tag is appended last, so it is the one that survives.
+    assert tags_aspect.tags[0].context is None

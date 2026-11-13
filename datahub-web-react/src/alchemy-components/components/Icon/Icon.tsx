@@ -1,9 +1,9 @@
-import React from 'react';
+import React, { forwardRef, useMemo } from 'react';
 
 import { IconWrapper } from '@components/components/Icon/components';
 import { IconProps, IconPropsDefaults } from '@components/components/Icon/types';
 import { Tooltip } from '@components/components/Tooltip';
-import { getColor, getFontSize, getRotationTransform } from '@components/theme/utils';
+import { getFontSize, getRotationTransform, getThemedIconColor } from '@components/theme/utils';
 
 import { useCustomTheme } from '@src/customThemeContext';
 
@@ -14,28 +14,36 @@ export const iconDefaults: IconPropsDefaults = {
     tooltipText: '',
 };
 
-export const Icon = ({
-    icon: IconComponent,
-    size = iconDefaults.size,
-    color = iconDefaults.color,
-    colorLevel,
-    rotate = iconDefaults.rotate,
-    weight,
-    tooltipText,
-    ...props
-}: IconProps) => {
-    const { theme } = useCustomTheme();
+// Forwards the ref so overlays such as `Tooltip` can anchor to the wrapper when an Icon is their
+// trigger; without it the overlay has no reference element and renders unpositioned.
+export const Icon = forwardRef<HTMLDivElement, IconProps>(
+    (
+        {
+            icon: IconComponent,
+            size = iconDefaults.size,
+            color = iconDefaults.color,
+            colorLevel,
+            rotate = iconDefaults.rotate,
+            weight,
+            tooltipText,
+            ...props
+        },
+        ref,
+    ) => {
+        const { theme } = useCustomTheme();
 
-    if (!IconComponent) return null;
+        const resolvedColor = useMemo(() => getThemedIconColor(color, colorLevel, theme), [color, colorLevel, theme]);
 
-    return (
-        <IconWrapper size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
-            <Tooltip title={tooltipText}>
-                <IconComponent
-                    style={{ fontSize: getFontSize(size), color: getColor(color, colorLevel, theme) }}
-                    weight={weight}
-                />
-            </Tooltip>
-        </IconWrapper>
-    );
-};
+        if (!IconComponent) return null;
+
+        return (
+            <IconWrapper ref={ref} size={getFontSize(size)} rotate={getRotationTransform(rotate)} {...props}>
+                <Tooltip title={tooltipText}>
+                    <IconComponent style={{ fontSize: getFontSize(size), color: resolvedColor }} weight={weight} />
+                </Tooltip>
+            </IconWrapper>
+        );
+    },
+);
+
+Icon.displayName = 'Icon';

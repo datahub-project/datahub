@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "Search for users or groups",
+    "domainSelector.label": "Domains",
+    "domainSelector.placeholder": "Select domains",
+    "domainSelector.singleLabel": "Domain",
+    "domainSelector.singlePlaceholder": "Select domain",
+    "domainSelector.searchPlaceholder": "Search all domains...",
+    "entitySearch.noEntitiesFound": "No entities found",
+    "entitySearch.placeholder": "Search for entities...",
+    "customOwnershipType": "Custom Ownership Type",
+    "ingestionSource": "Ingestion Source",
+    "groupBy.displayValue": "Group {{label}}",
+    "groupBy.group": "Group",
+    "selectItems.addMoreSection": "Add more",
+    "selectItems.entitiesLabel": "entities",
+    "selectItems.itemsLabel": "items",
+    "selectItems.noEntityFound": "No {{entityName}} found",
+    "selectItems.removeAll": "Remove All",
+    "selectItems.searchForEntity": "Search for {{entityName}}...",
+    "selectItems.selectedSection": "Selected"
+}

@@ -1,3 +1,7 @@
+---
+description: "Troubleshooting guide for common DataHub Quickstart issues, including missing CLI commands and Docker startup failures."
+---
+
 # Quickstart Debugging Guide
 
 For when [Quickstart](/docs/quickstart.md) did not work out smoothly.
@@ -33,16 +37,20 @@ Port Conflicts
 By default the quickstart deploy will require the following ports to be free on your local machine:
 
 - 3306 for MySQL
-- 9200 for Elasticsearch
+- 9200 for the search index (OpenSearch)
 - 9092 for the Kafka broker
-- 8081 for Schema Registry
-- 2181 for ZooKeeper
 - 9002 for the DataHub Web Application (datahub-frontend)
 - 8080 for the DataHub Metadata Service (datahub-gms)
+- 4319 for the datahub-gms management endpoint (Spring Actuator / Micrometer, `MANAGEMENT_SERVER_PORT`)
+
+The quickstart profile runs Kafka in KRaft mode and uses the schema registry built into
+`datahub-gms`, so it no longer starts ZooKeeper (2181) or a standalone Schema Registry (8081).
 
 In case the default ports conflict with software you are already running on your machine, you can override these ports by passing additional flags to the `datahub docker quickstart` command.
 e.g. To override the MySQL port with 53306 (instead of the default 3306), you can say: `datahub docker quickstart --mysql-port 53306`. Use `datahub docker quickstart --help` to see all the supported options.
 For the metadata service container (datahub-gms), you need to use an environment variable, `DATAHUB_MAPPED_GMS_PORT`. So for instance to use the port 58080, you would say `DATAHUB_MAPPED_GMS_PORT=58080 datahub docker quickstart`
+
+Note that 4319 is published on a fixed host port and has no override flag, so it must be free.
 
 </details>
 
@@ -53,6 +61,37 @@ no matching manifest for linux/arm64/v8 in the manifest list entries
 On Mac computers with Apple Silicon (M1, M2 etc.), you might see an error like `no matching manifest for linux/arm64/v8 in the manifest list entries`, this typically means that the datahub cli was not able to detect that you are running it on Apple Silicon. To resolve this issue, override the default architecture detection by issuing `datahub docker quickstart --arch m1`
 
 </details>
+
+<details>
+<summary>
+Quickstart hangs at "Starting up DataHub..." with Colima, Rancher Desktop, or Podman
+</summary>
+
+If `datahub docker quickstart` prints `Starting up DataHub...` followed only by dots — no image
+pulls, no containers created, no error — while `docker ps` works fine in the same shell, the CLI
+is most likely talking to a different Docker endpoint than your `docker` CLI is.
+
+The quickstart uses the `docker` Python SDK (`docker.from_env()`), which reads the `DOCKER_HOST`
+environment variable but does **not** read Docker CLI _contexts_. Alternative runtimes such as
+Colima, Rancher Desktop, and Podman install a context instead of exporting `DOCKER_HOST`, so the
+SDK falls back to the default socket path and waits there.
+
+Point `DOCKER_HOST` at the endpoint of your active context, then run the quickstart:
+
+```sh
+docker context inspect --format '{{.Endpoints.docker.Host}}'   # see which socket is active
+export DOCKER_HOST="$(docker context inspect --format '{{.Endpoints.docker.Host}}')"
+datahub docker quickstart
+```
+
+Taking the endpoint from the active context works for every runtime, including custom Colima
+profiles, Rancher Desktop, and rootless Podman, whose socket paths differ between installations.
+Re-run the `export` after switching Docker contexts: the SDK keeps using whatever `DOCKER_HOST`
+held when it was set. To have it set automatically in new shells, add the `export` line above,
+rather than a fixed socket path, to your shell profile so that it follows the active context.
+
+</details>
+
 <details>
 <summary>
 Miscellaneous Docker issues
@@ -75,23 +114,36 @@ If you set up the `datahub` CLI tool (see [here](../../metadata-ingestion/README
 datahub docker check
 ```
 
-You can list all Docker containers in your local by running `docker container ls`. You should expect to see a log similar to the below:
+You can also list the running containers with `docker container ls`. The quickstart profile
+starts these services:
 
+| Service (hostname)       | Image                              | Published host ports |
+| ------------------------ | ---------------------------------- | -------------------- |
+| `datahub-gms`            | `acryldata/datahub-gms`            | 8080, 4319           |
+| `datahub-frontend-react` | `acryldata/datahub-frontend-react` | 9002                 |
+| `broker`                 | `confluentinc/cp-kafka`            | 9092                 |
+| `mysql`                  | `mysql`                            | 3306                 |
+| `search`                 | `opensearchproject/opensearch`     | 9200                 |
+| `actions`                | `acryldata/datahub-actions`        | none                 |
+
+`datahub-system-update` is expected to be **missing** from that list. It is a one-shot job that
+`datahub-gms` and `datahub-frontend-react` wait on with `service_completed_successfully`, so it
+runs to completion and exits before the stack finishes coming up.
+
+Because `docker container ls` only shows running containers, use `-a` to tell a successful
+system update apart from a failed one:
+
+```shell
+docker container ls -a --filter name=system-update
 ```
-CONTAINER ID        IMAGE                                                 COMMAND                  CREATED             STATUS              PORTS                                                      NAMES
-979830a342ce        acryldata/datahub-mce-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mce-consumer
-3abfc72e205d        acryldata/datahub-frontend-react:latest              "datahub-frontend…"   10 hours ago        Up 10 hours         0.0.0.0:9002->9002/tcp                                     datahub-frontend
-50b2308a8efd        acryldata/datahub-mae-consumer:latest                "bash -c 'while ping…"   10 hours ago        Up 10 hours                                                                    datahub-mae-consumer
-4d6b03d77113        acryldata/datahub-gms:latest                         "bash -c 'dockerize …"   10 hours ago        Up 10 hours         0.0.0.0:8080->8080/tcp                                     datahub-gms
-c267c287a235        landoop/schema-registry-ui:latest                     "/run.sh"                10 hours ago        Up 10 hours         0.0.0.0:8000->8000/tcp                                     schema-registry-ui
-4b38899cc29a        confluentinc/cp-schema-registry:5.2.1                 "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:8081->8081/tcp                                     schema-registry
-37c29781a263        confluentinc/cp-kafka:5.2.1                           "/etc/confluent/dock…"   10 hours ago        Up 10 hours         0.0.0.0:9092->9092/tcp, 0.0.0.0:29092->29092/tcp           broker
-15440d99a510        docker.elastic.co/kibana/kibana:5.6.8                 "/bin/bash /usr/loca…"   10 hours ago        Up 10 hours         0.0.0.0:5601->5601/tcp                                     kibana
-943e60f9b4d0        neo4j:4.0.6                                           "/sbin/tini -g -- /d…"   10 hours ago        Up 10 hours         0.0.0.0:7474->7474/tcp, 7473/tcp, 0.0.0.0:7687->7687/tcp   neo4j
-6d79b6f02735        confluentinc/cp-zookeeper:5.2.1                       "/etc/confluent/dock…"   10 hours ago        Up 10 hours         2888/tcp, 0.0.0.0:2181->2181/tcp, 3888/tcp                 zookeeper
-491d9f2b2e9e        docker.elastic.co/elasticsearch/elasticsearch:5.6.8   "/bin/bash bin/es-do…"   10 hours ago        Up 10 hours         0.0.0.0:9200->9200/tcp, 9300/tcp                           elasticsearch
-ce14b9758eb3        mysql:8.2
-```
+
+`Exited (0)` is the healthy outcome. Any other exit code is a real failure — pass the name
+from that output to `docker logs` to see why.
+
+Older versions of this page listed ZooKeeper, a standalone Schema Registry, Kibana, Neo4j,
+Elasticsearch and separate `datahub-mae-consumer` / `datahub-mce-consumer` containers. The
+current quickstart profile starts none of those, so their absence is not a sign of a broken
+deployment.
 
 Also you can check individual Docker container logs by running `docker logs <<container_name>>`. For `datahub-gms`, you should see a log similar to this at the end of the initialization:
 
@@ -105,9 +157,13 @@ For `datahub-frontend-react`, you should see a log similar to this at the end of
 09:20:22 [main] INFO  play.core.server.AkkaHttpServer - Listening for HTTP on /0.0.0.0:9002
 ```
 
-## My elasticsearch or broker container exited with error or was stuck forever
+## My search or broker container exited with error or was stuck forever
 
 If you're seeing errors like below, chances are you didn't give enough resource to docker. Please make sure to allocate at least 8GB of RAM + 2GB swap space.
+
+The sample below was captured on an older release, so it names `elasticsearch`, `zookeeper` and
+`schema-registry`. On the current quickstart the equivalent containers are `search`
+(OpenSearch) and `broker` (Kafka in KRaft mode) — the symptom and the fix are the same.
 
 ```
 datahub-gms             | 2020/04/03 14:34:26 Problem with request: Get http://elasticsearch:9200: dial tcp 172.19.0.5:9200: connect: connection refused. Sleeping 1s
@@ -220,7 +276,7 @@ More discussions on the same issue https://github.com/docker/hub-feedback/issues
 
 ## Seeing `Table 'datahub.metadata_aspect' doesn't exist` error when logging in
 
-This means the database wasn't properly initialized as part of the quickstart processs (see [#1816](https://github.com/datahub-project/datahub/issues/1816)). Please run the following command to manually initialize it.
+This means the database wasn't properly initialized as part of the quickstart process (see [#1816](https://github.com/datahub-project/datahub/issues/1816)). Please run the following command to manually initialize it.
 
 ```
 docker exec -i mysql sh -c 'exec mysql datahub -udatahub -pdatahub' < docker/mysql/init.sql

@@ -7,6 +7,12 @@ record DataHubIngestionSourceSchedule {
   /**
    * A cron-formatted execution interval, as a cron string, e.g. * * * * *
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "hasValuesFieldName": "hasScheduleInterval",
+    "addHasValuesToFilters": true,
+    "queryByDefault": false
+  }
   interval: string
 
   /**

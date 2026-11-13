@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -6,6 +5,7 @@ import {
     useShowHomePageRedesign,
 } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useAppConfig } from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock useAppConfig
 vi.mock('@app/useAppConfig', () => ({

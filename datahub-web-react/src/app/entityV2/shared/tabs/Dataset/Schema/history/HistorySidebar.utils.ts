@@ -1,0 +1,215 @@
+import i18next from 'i18next';
+
+import timelineSupportedCategories from '@app/entityV2/shared/tabs/Dataset/Schema/history/timelineSupportedCategories.json';
+
+import { ChangeCategoryType, ChangeOperationType, EntityType } from '@types';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Change event parameter keys — must match the backend change event generators.
+// See metadata-io/.../timeline/eventgenerator/*ChangeEventGenerator.java
+// ──────────────────────────────────────────────────────────────────────────────
+export const PARAM_FIELD_PATH = 'fieldPath';
+export const PARAM_DESCRIPTION = 'description';
+export const PARAM_PREVIOUS_DESCRIPTION = 'previousDescription';
+export const PARAM_DOCUMENTATION = 'documentation';
+export const PARAM_TAG_URN = 'tagUrn';
+export const PARAM_TERM_URN = 'termUrn';
+export const PARAM_RELATIONSHIP_TYPE = 'relationshipType';
+export const PARAM_OWNER_URN = 'ownerUrn';
+export const PARAM_OWNER_TYPE = 'ownerType';
+export const PARAM_OWNER_TYPE_URN = 'ownerTypeUrn';
+export const PARAM_DOMAIN_URN = 'domainUrn';
+export const PARAM_PROPERTY_URN = 'propertyUrn';
+export const PARAM_PROPERTY_VALUES = 'propertyValues';
+export const PARAM_STATUS = 'status';
+export const PARAM_NOTE = 'note';
+export const PARAM_OLD_PARENT = 'oldParent';
+export const PARAM_NEW_PARENT = 'newParent';
+export const PARAM_OLD_STATE = 'oldState';
+export const PARAM_NEW_STATE = 'newState';
+// DeprecationChangeEventGenerator emits the decommission time under the generic key "timestamp".
+export const PARAM_DECOMMISSION_TIME = 'timestamp';
+export const DEPRECATION_STATUS_ACTIVE = 'ACTIVE';
+
+// ──────────────────────────────────────────────────────────────────────────────
+// Glossary relationship type labels — maps backend relationship type strings
+// (emitted by GlossaryRelatedTermsChangeEventGenerator) to short display labels.
+// These are the formal type names the backend uses ("Is A", "Has A", etc.),
+// distinct from the UI tab labels ("Contains", "Inherits").
+// ──────────────────────────────────────────────────────────────────────────────
+// Getters, not plain values: the map keys ('Is A', 'Has A', ...) are the backend's own technical
+// relationship-type strings and stay untranslated, but the values are real English words — re-evaluate
+// i18next.t() on every read rather than baking in one language at module-init time.
+export const GLOSSARY_RELATIONSHIP_TYPE_LABELS: Record<string, string> = {
+    get 'Is A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.inherited');
+    },
+    get 'Has A'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.contained');
+    },
+    get 'Has Value'() {
+        return i18next.t('entity.profile.schema:changeEventString.relationshipLabel.value');
+    },
+    get 'Is Related To'() {
+        return i18next.t('entity.profile.schema:changeEventString.defaultRelationship');
+    },
+};
+
+// Owner types that don't add useful context in change event display
+export const UNINFORMATIVE_OWNER_TYPES = new Set(['NONE', 'CUSTOM']);
+
+// ──────────────────────────────────────────────────────────────────────────────
+// These categories exist in the GraphQL schema (timeline.graphql) but the
+// generated TypeScript enum may lag behind depending on when codegen was last
+// run. String constants here ensure the values are always available.
+// ──────────────────────────────────────────────────────────────────────────────
+export const CATEGORY_DOMAIN = 'DOMAIN';
+export const CATEGORY_STRUCTURED_PROPERTY = 'STRUCTURED_PROPERTY';
+export const CATEGORY_APPLICATION = 'APPLICATION';
+export const CATEGORY_ASSET_MEMBERSHIP = 'ASSET_MEMBERSHIP';
+export const CATEGORY_VERSIONING = 'VERSIONING';
+export const CATEGORY_DEPRECATION = 'DEPRECATION';
+export const CATEGORY_PARENT = 'PARENT';
+export const CATEGORY_LIFECYCLE = 'LIFECYCLE';
+
+// Re-export generated enums for convenience within the history feature
+export { ChangeCategoryType, ChangeOperationType };
+
+// Category value type — includes generated enum values plus string constants
+// for categories that may not yet be in the locally generated TypeScript types.
+type ChangeCategoryValue = ChangeCategoryType | string;
+
+export type CategoryOption = { value: ChangeCategoryValue; label: string };
+
+function getAllCategoryOptions(): CategoryOption[] {
+    return [
+        {
+            value: ChangeCategoryType.TechnicalSchema,
+            label: i18next.t('entity.profile.schema:historySidebar.categorySchema'),
+        },
+        {
+            value: ChangeCategoryType.Documentation,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryDocumentation'),
+        },
+        { value: ChangeCategoryType.Tag, label: i18next.t('entity.profile.schema:historySidebar.categoryTags') },
+        {
+            value: ChangeCategoryType.GlossaryTerm,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryTerms'),
+        },
+        {
+            value: ChangeCategoryType.Ownership,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryOwners'),
+        },
+        { value: CATEGORY_DOMAIN, label: i18next.t('entity.profile.schema:historySidebar.categoryDomains') },
+        {
+            value: CATEGORY_STRUCTURED_PROPERTY,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryProperties'),
+        },
+        {
+            value: CATEGORY_APPLICATION,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryApplications'),
+        },
+        {
+            value: CATEGORY_ASSET_MEMBERSHIP,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryAssets'),
+        },
+        {
+            value: CATEGORY_VERSIONING,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryVersions'),
+        },
+        {
+            value: CATEGORY_DEPRECATION,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryDeprecation'),
+        },
+        {
+            value: CATEGORY_PARENT,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryParent'),
+        },
+        {
+            value: CATEGORY_LIFECYCLE,
+            label: i18next.t('entity.profile.schema:historySidebar.categoryLifecycle'),
+        },
+    ];
+}
+
+// Supported categories per entity type (GraphQL EntityType → ChangeCategoryType names). Generated from the
+// backend registry in TimelineServiceImpl; TimelineSupportedCategoriesJsonTest fails CI when it drifts.
+const ENTITY_SUPPORTED_CATEGORIES: Record<string, string[] | undefined> = timelineSupportedCategories;
+
+export function getCategoryOptions(entityType?: EntityType): CategoryOption[] {
+    const allOptions = getAllCategoryOptions();
+    const supported = entityType ? ENTITY_SUPPORTED_CATEGORIES[entityType] : undefined;
+    if (!supported) return allOptions;
+    return allOptions.filter((o) => supported.includes(o.value));
+}
+
+/**
+ * Returns the Documentation change that carries a description. A transaction can hold several Documentation
+ * changes (e.g. a glossary term's name and definition), and only the description one feeds the diff view.
+ */
+export function findDescriptionChange<
+    C extends { category?: string | null; parameters?: Array<{ key?: string | null }> | null } | null,
+>(changes: C[]): C | undefined {
+    return changes.find(
+        (c) =>
+            c?.category === ChangeCategoryType.Documentation &&
+            (c.parameters ?? []).some((p) => p.key === PARAM_DESCRIPTION),
+    );
+}
+
+/**
+ * Resolves the display name for a change-history transaction's actor.
+ *
+ * `nameMap` comes from useResolveEntityNames, which batch-resolves the actor
+ * URN (and other referenced entity URNs) to a CorpUser's configured display
+ * name. Falls back to the raw URN's trailing segment (the username) when the
+ * actor isn't in nameMap — e.g. a query still in flight, or an actor entity
+ * that no longer exists. This fallback is also what every caller did before
+ * nameMap covered actors, so it never regresses a case that worked before,
+ * and produces the identical string for an actor with no configured display
+ * name (falling all the way through to `username`, per UserEntity.displayName
+ * in datahub-web-react/src/app/entityV2/user/User.tsx).
+ */
+export function resolveActorName(actorUrn?: string | null, nameMap?: Map<string, string>): string | null {
+    if (!actorUrn) return null;
+    const resolved = nameMap?.get(actorUrn);
+    if (resolved) return resolved;
+    const parts = actorUrn.split(':');
+    return parts[parts.length - 1] || null;
+}
+
+/**
+ * Filters change entries by category selection and search text.
+ * A transaction matches if at least one of its changes satisfies both filters.
+ *
+ * When `displayTexts` is provided (parallel array, same length as entries),
+ * search matches against the pre-computed display strings (which include
+ * resolved entity names) instead of raw backend descriptions.
+ */
+export function filterChangeEntries<
+    T extends { transaction: { changes?: Array<{ category?: string | null; description?: string | null }> | null } },
+>(
+    entries: T[],
+    selectedCategories: string[],
+    allCategoryValues: string[],
+    searchText: string,
+    displayTexts?: string[],
+): T[] {
+    const filterByCategory = selectedCategories.length !== allCategoryValues.length;
+    const lowerSearch = searchText.toLowerCase().trim();
+    const filterBySearch = lowerSearch.length > 0;
+
+    if (!filterByCategory && !filterBySearch) return entries;
+
+    const selected = new Set(selectedCategories);
+    return entries.filter((entry, index) => {
+        const changes = entry.transaction.changes ?? [];
+        const matchesCategory = !filterByCategory || changes.some((c) => c?.category && selected.has(c.category));
+        const matchesSearch =
+            !filterBySearch ||
+            (displayTexts
+                ? displayTexts[index]?.toLowerCase().includes(lowerSearch)
+                : changes.some((c) => c?.description?.toLowerCase().includes(lowerSearch)));
+        return matchesCategory && matchesSearch;
+    });
+}

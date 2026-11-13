@@ -7,6 +7,7 @@ This plugin extracts the following:
 - Source and Sink Connectors in Kafka Connect as Data Pipelines
 - For Source connectors - Data Jobs to represent lineage information between source dataset to Kafka topic per `{connector_name}:{source_dataset}` combination
 - For Sink connectors - Data Jobs to represent lineage information between Kafka topic to destination dataset per `{connector_name}:{topic}` combination
+- On Confluent Cloud, optionally ingests tags and business metadata curated in the Stream Catalog and applies them to connector pipelines
 
 ### Prerequisites
 

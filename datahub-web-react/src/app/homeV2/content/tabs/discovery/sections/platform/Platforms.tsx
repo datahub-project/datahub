@@ -1,5 +1,6 @@
 import { Skeleton } from 'antd';
 import React, { useContext } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import analytics, { EventType, HomePageModule } from '@app/analytics';
@@ -21,8 +22,9 @@ const SkeletonCard = styled(Skeleton.Button)<{ width: string }>`
 `;
 
 export const Platforms = () => {
+    const { t } = useTranslation('home.v2');
     const { user } = useUserContext();
-    const { platforms, loading } = useGetPlatforms(user);
+    const { platforms, loading } = useGetPlatforms();
     const { isUserInitializing } = useContext(OnboardingContext);
 
     useUpdateEducationStepsAllowList(!!platforms.length, HOME_PAGE_PLATFORMS_ID);
@@ -42,7 +44,7 @@ export const Platforms = () => {
         <div id={HOME_PAGE_PLATFORMS_ID}>
             {showSkeleton && <HorizontalListSkeletons Component={SkeletonCard} />}
             {!showSkeleton && !!platforms.length && (
-                <Section title="Platforms">
+                <Section title={t('platforms.title')}>
                     <Carousel>
                         {platforms.map((platform) => (
                             // eslint-disable-next-line

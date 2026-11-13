@@ -1,5 +1,6 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.datahub.upgrade.cleanup.Cleanup;
 import com.linkedin.datahub.upgrade.impl.DefaultUpgradeManager;
 import com.linkedin.datahub.upgrade.loadindices.LoadIndices;
 import com.linkedin.datahub.upgrade.removeunknownaspects.RemoveUnknownAspects;
@@ -13,8 +14,8 @@ import com.linkedin.datahub.upgrade.system.cron.SystemUpdateCron;
 import com.linkedin.datahub.upgrade.system.elasticsearch.ReindexDebug;
 import com.linkedin.upgrade.DataHubUpgradeState;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.inject.Named;
 import java.util.List;
-import javax.inject.Named;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.CommandLineRunner;
@@ -86,6 +87,10 @@ public class UpgradeCli implements CommandLineRunner {
   @Named("reindexDebug")
   private ReindexDebug reindexDebug;
 
+  @Autowired(required = false)
+  @Named("cleanup")
+  private Cleanup cleanup;
+
   @Override
   public void run(String... cmdLineArgs) {
     // Register upgrades with null checks and warnings
@@ -147,6 +152,12 @@ public class UpgradeCli implements CommandLineRunner {
       _upgradeManager.register(reindexDebug);
     } else {
       log.info("ReindexDebug upgrade not available - bean not found");
+    }
+
+    if (cleanup != null) {
+      _upgradeManager.register(cleanup);
+    } else {
+      log.info("Cleanup upgrade not available - bean not found");
     }
 
     final Args args = new Args();

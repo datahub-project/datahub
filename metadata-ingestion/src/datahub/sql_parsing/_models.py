@@ -1,7 +1,6 @@
 import functools
 from typing import Any, Optional, Tuple
 
-import sqlglot
 from pydantic import BaseModel
 
 
@@ -61,73 +60,14 @@ class _TableName(_FrozenModel):
             return False
         return self.identity == other.identity
 
-    def as_sqlglot_table(self) -> sqlglot.exp.Table:
-        return sqlglot.exp.Table(
-            catalog=(
-                sqlglot.exp.Identifier(this=self.database) if self.database else None
-            ),
-            db=sqlglot.exp.Identifier(this=self.db_schema) if self.db_schema else None,
-            this=sqlglot.exp.Identifier(this=self.table),
-        )
-
     def qualified(
         self,
-        dialect: sqlglot.Dialect,
         default_db: Optional[str] = None,
         default_schema: Optional[str] = None,
     ) -> "_TableName":
-        database = self.database or default_db
-        db_schema = self.db_schema or default_schema
-
         return _TableName(
-            database=database,
-            db_schema=db_schema,
+            database=self.database or default_db,
+            db_schema=self.db_schema or default_schema,
             table=self.table,
             parts=self.parts,
-        )
-
-    @classmethod
-    def from_sqlglot_table(
-        cls,
-        table: sqlglot.exp.Table,
-        default_db: Optional[str] = None,
-        default_schema: Optional[str] = None,
-    ) -> "_TableName":
-        # Handle Snowflake semantic views: SEMANTIC_VIEW(table_name ...)
-        # In this case, table.this is a SemanticView expression, and we need to
-        # extract the actual table from within it.
-        if isinstance(table.this, sqlglot.exp.SemanticView):
-            # The SemanticView.this contains the actual table reference
-            inner_table = table.this.this
-            if isinstance(inner_table, sqlglot.exp.Table):
-                # Recursively extract from the inner table
-                return cls.from_sqlglot_table(inner_table, default_db, default_schema)
-            elif isinstance(inner_table, sqlglot.exp.Identifier):
-                # Simple table name
-                return cls(
-                    database=table.catalog or default_db,
-                    db_schema=table.db or default_schema,
-                    table=inner_table.name,
-                    parts=None,
-                )
-
-        if isinstance(table.this, sqlglot.exp.Dot):
-            # Multi-part tables (>3 parts) have extra parts in a Dot expression
-            parts = []
-            exp = table.this
-            while isinstance(exp, sqlglot.exp.Dot):
-                parts.append(exp.this.name)
-                exp = exp.expression
-            parts.append(exp.name)
-            table_name = ".".join(parts)
-        else:
-            table_name = table.this.name
-
-        parts_tuple = tuple(p.name for p in table.parts) if table.parts else None
-
-        return cls(
-            database=table.catalog or default_db,
-            db_schema=table.db or default_schema,
-            table=table_name,
-            parts=parts_tuple,
         )

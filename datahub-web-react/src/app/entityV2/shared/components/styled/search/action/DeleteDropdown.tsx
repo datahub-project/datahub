@@ -1,5 +1,6 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import { handleBatchError } from '@app/entityV2/shared/utils';
@@ -15,6 +16,8 @@ type Props = {
 
 // eslint-disable-next-line
 export default function DeleteDropdown({ urns, disabled = false, refetch }: Props) {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const [batchUpdateSoftDeletedMutation] = useBatchUpdateSoftDeletedMutation();
     const [showConfirmModal, setShowConfirmModal] = useState(false);
 
@@ -29,28 +32,27 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.success({ content: 'Deleted assets!', duration: 2 });
+                    toast.success(t('searchActions.delete.success'), { duration: 2 });
                     setTimeout(() => refetch?.(), 3000);
                 }
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: `Failed to delete assets: \n ${e.message || ''}`,
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urns, e, {
+                    content: t('searchActions.delete.error', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 
     return (
         <>
             <ActionDropdown
-                name="Delete"
+                name={tc('delete')}
                 actions={[
                     {
-                        title: 'Mark as deleted',
+                        title: t('searchActions.delete.markTitle'),
                         onClick: () => {
                             setShowConfirmModal(true);
                         },
@@ -62,9 +64,8 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
                 isOpen={showConfirmModal}
                 handleClose={() => setShowConfirmModal(false)}
                 handleConfirm={batchSoftDelete}
-                modalTitle="Confirm Delete"
-                modalText="Are you sure you want to mark these assets as deleted? This will hide the assets
-                                from future DataHub searches. If the assets are re-ingested from an external data platform, they will be restored."
+                modalTitle={t('searchActions.delete.confirmTitle')}
+                modalText={t('searchActions.delete.confirmText')}
             />
         </>
     );

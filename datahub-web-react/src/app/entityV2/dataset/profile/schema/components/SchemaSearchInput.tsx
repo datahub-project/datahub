@@ -1,11 +1,11 @@
-import { Button, Popover, SearchBar } from '@components';
+import { Button, SearchBar } from '@components';
 import { FadersHorizontal } from '@phosphor-icons/react/dist/csr/FadersHorizontal';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import SchemaFilterSelectContent from '@app/entityV2/dataset/profile/schema/components/SchemaFilterSelectContent';
+import SchemaFilterMenu from '@app/entityV2/dataset/profile/schema/components/SchemaFilterMenu';
 import { SchemaFilterType } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/filterSchemaRows';
-import { pluralize } from '@app/shared/textUtil';
 
 const MatchLabelText = styled.span`
     font-size: 12px;
@@ -48,12 +48,14 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
     setSchemaFilterSelectOpen,
     numRows,
 }: SchemaSearchProps) => {
+    const { t } = useTranslation('entity.types');
+    const { t: tc } = useTranslation('common.actions');
     return (
         <SearchContainer>
             <SearchBar
                 value={searchInput}
                 disabled={schemaFilterTypes.length === 0}
-                placeholder="Search"
+                placeholder={tc('search')}
                 onChange={setSearchInput}
                 allowClear
                 onKeyDown={(e) => {
@@ -63,30 +65,20 @@ const SchemaSearchInput: React.FC<SchemaSearchProps> = ({
                 }}
                 width="300px"
             />
-            <Popover
-                placement="bottom"
+            <SchemaFilterMenu
+                schemaFilterTypes={schemaFilterTypes}
+                setSchemaFilterTypes={setSchemaFilterTypes}
                 open={schemaFilterSelectOpen}
-                onOpenChange={(val) => setSchemaFilterSelectOpen(val)}
-                content={
-                    <SchemaFilterSelectContent
-                        close={() => setSchemaFilterSelectOpen(false)}
-                        schemaFilterTypes={schemaFilterTypes}
-                        setSchemaFilterTypes={setSchemaFilterTypes}
-                    />
-                }
-                trigger="click"
-                overlayInnerStyle={{ padding: 0 }}
+                setOpen={setSchemaFilterSelectOpen}
             >
                 <Button
                     variant="text"
                     color={schemaFilterTypes.length < 4 ? 'violet' : 'gray'}
                     icon={{ icon: FadersHorizontal, size: '2xl' }}
                 />
-            </Popover>
+            </SchemaFilterMenu>
             {searchInput.length > 0 && (
-                <MatchLabelText>
-                    Matched {matches.length} {pluralize(matches.length, 'column')} of {numRows}
-                </MatchLabelText>
+                <MatchLabelText>{t('dataset.matchedColumnsCount', { count: matches.length, numRows })}</MatchLabelText>
             )}
         </SearchContainer>
     );

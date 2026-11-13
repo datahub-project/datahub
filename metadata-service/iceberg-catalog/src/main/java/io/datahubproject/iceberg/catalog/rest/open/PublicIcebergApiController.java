@@ -10,6 +10,7 @@ import com.linkedin.common.urn.DatasetUrn;
 import com.linkedin.common.urn.TagUrn;
 import io.datahubproject.iceberg.catalog.DataHubIcebergWarehouse;
 import io.datahubproject.iceberg.catalog.rest.secure.AbstractIcebergController;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
@@ -43,8 +44,9 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
     checkPublicEnabled();
 
+    OperationContext opContext = publicOpContext();
     // check that warehouse exists
-    warehouse(warehouse, systemOperationContext);
+    warehouse(warehouse, opContext);
     ConfigResponse response = ConfigResponse.builder().withOverride("prefix", warehouse).build();
     log.info("GET CONFIG response: {}", response);
     return response;
@@ -64,19 +66,20 @@ public class PublicIcebergApiController extends AbstractIcebergController {
 
     checkPublicEnabled();
 
-    DataHubIcebergWarehouse warehouse = warehouse(platformInstance, systemOperationContext);
+    OperationContext opContext = publicOpContext();
+    DataHubIcebergWarehouse warehouse = warehouse(platformInstance, opContext);
     Optional<DatasetUrn> datasetUrn = warehouse.getDatasetUrn(tableIdFromString(namespace, table));
     if (datasetUrn.isPresent()) {
       GlobalTags tags =
           (GlobalTags)
-              entityService.getLatestAspect(
-                  systemOperationContext, datasetUrn.get(), GLOBAL_TAGS_ASPECT_NAME);
+              entityService.getLatestAspect(opContext, datasetUrn.get(), GLOBAL_TAGS_ASPECT_NAME);
       if (tags != null && tags.hasTags()) {
         for (TagAssociation tag : tags.getTags()) {
           if (publicTag().equals(tag.getTag())) {
             LoadTableResponse getTableResponse =
                 catalogOperation(
-                    platformInstance,
+                    warehouse,
+                    opContext,
                     catalog ->
                         CatalogHandlers.loadTable(catalog, tableIdFromString(namespace, table)));
 

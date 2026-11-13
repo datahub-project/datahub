@@ -28,7 +28,9 @@ import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapp
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.timeseries.BatchWriteOperationsOptions;
 import com.linkedin.metadata.timeseries.GenericTimeseriesDocument;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
@@ -51,6 +53,7 @@ import com.linkedin.timeseries.TimeseriesIndexSizeResult;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
+import java.net.SocketTimeoutException;
 import java.nio.charset.StandardCharsets;
 import java.util.*;
 import java.util.concurrent.ArrayBlockingQueue;
@@ -59,12 +62,15 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Future;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
+import org.opensearch.action.search.ShardSearchFailure;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.Request;
 import org.opensearch.client.RequestOptions;
@@ -77,13 +83,18 @@ import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.opensearch.search.aggregations.AggregationBuilders;
+import org.opensearch.search.aggregations.bucket.terms.ParsedTerms;
+import org.opensearch.search.aggregations.bucket.terms.Terms;
+import org.opensearch.search.aggregations.metrics.ParsedTopHits;
+import org.opensearch.search.aggregations.metrics.TopHitsAggregationBuilder;
 import org.opensearch.search.builder.SearchSourceBuilder;
 import org.opensearch.search.sort.SortBuilders;
 import org.opensearch.search.sort.SortOrder;
 
 @Slf4j
 public class ElasticSearchTimeseriesAspectService
-    implements TimeseriesAspectService, ElasticSearchIndexed {
+    implements TimeseriesAspectService, MigratableIndexed {
 
   private final ESBulkProcessor bulkProcessor;
   private final int numRetries;
@@ -230,6 +241,15 @@ public class ElasticSearchTimeseriesAspectService
   public List<ReindexConfig> buildReindexConfigs(
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
+    return buildReindexConfigsFor(opContext, properties, indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter) {
     return entityRegistry.getEntitySpecs().values().stream()
         .flatMap(
             entitySpec ->
@@ -239,11 +259,13 @@ public class ElasticSearchTimeseriesAspectService
         .map(
             pair -> {
               try {
-                return indexBuilder.buildReindexState(
-                    indexConvention.getTimeseriesAspectIndexName(
-                        pair.getFirst().getName(), pair.getSecond().getName()),
+                return targetBuilder.buildReindexState(
+                    opContext,
+                    nameRewriter.apply(
+                        indexConvention.getTimeseriesAspectIndexName(
+                            opContext, pair.getFirst().getName(), pair.getSecond().getName())),
                     MappingsBuilder.getMappings(pair.getSecond()),
-                    Collections.emptyMap());
+                    Collections.<String, Object>emptyMap());
               } catch (IOException e) {
                 log.error(
                     "Issue while building timeseries field index for entity {} aspect {}",
@@ -256,9 +278,13 @@ public class ElasticSearchTimeseriesAspectService
   }
 
   public String reindexAsync(
-      String index, @Nullable QueryBuilder filterQuery, BatchWriteOperationsOptions options)
+      @Nonnull OperationContext opContext,
+      String index,
+      @Nullable QueryBuilder filterQuery,
+      BatchWriteOperationsOptions options)
       throws Exception {
-    Optional<Pair<String, String>> entityAndAspect = indexConvention.getEntityAndAspectName(index);
+    Optional<Pair<String, String>> entityAndAspect =
+        indexConvention.getEntityAndAspectName(opContext, index);
     if (entityAndAspect.isEmpty()) {
       throw new IllegalArgumentException("Could not extract entity and aspect from index " + index);
     }
@@ -277,11 +303,12 @@ public class ElasticSearchTimeseriesAspectService
     }
     ReindexConfig config =
         indexBuilder.buildReindexState(
+            opContext,
             index,
             MappingsBuilder.getMappings(
                 entityRegistry.getEntitySpec(entityName).getAspectSpec(aspectName)),
-            Collections.emptyMap());
-    return indexBuilder.reindexInPlaceAsync(index, filterQuery, options, config);
+            Collections.<String, Object>emptyMap());
+    return indexBuilder.reindexInPlaceAsync(opContext, index, filterQuery, options, config);
   }
 
   @Override
@@ -290,7 +317,7 @@ public class ElasticSearchTimeseriesAspectService
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties) {
     for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
       try {
-        indexBuilder.buildIndex(config);
+        indexBuilder.buildIndex(opContext, config);
       } catch (IOException e) {
         throw new RuntimeException(e);
       }
@@ -313,14 +340,17 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     final UpdateRequest updateRequest =
         new UpdateRequest(indexName, docId)
             .detectNoop(false)
             .docAsUpsert(true)
             .doc(document.toString(), XContentType.JSON)
             .retryOnConflict(numRetries);
-    bulkProcessor.add(updateRequest);
+    // Route by docId — see ESGraphWriteDAO#upsertDocument. Defensive here (timeseries
+    // docIds are per-messageId and rarely collide), but consistent with the rest of
+    // the bulk-write paths.
+    bulkProcessor.add(opContext, docId, updateRequest);
   }
 
   @Override
@@ -328,9 +358,13 @@ public class ElasticSearchTimeseriesAspectService
     List<TimeseriesIndexSizeResult> res = new ArrayList<>();
     try {
       String indicesPattern =
-          opContext.getSearchContext().getIndexConvention().getAllTimeseriesAspectIndicesPattern();
+          opContext
+              .getSearchContext()
+              .getIndexConvention()
+              .getAllTimeseriesAspectIndicesPattern(opContext);
       RawResponse r =
-          searchClient.performLowLevelRequest(new Request("GET", "/" + indicesPattern + "/_stats"));
+          searchClient.performLowLevelRequest(
+              opContext, new Request("GET", "/" + indicesPattern + "/_stats"));
       JsonNode body = new ObjectMapper().readTree(r.getEntity().getContent());
       body.get("indices")
           .fields()
@@ -342,7 +376,7 @@ public class ElasticSearchTimeseriesAspectService
                     opContext
                         .getSearchContext()
                         .getIndexConvention()
-                        .getEntityAndAspectName(entry.getKey());
+                        .getEntityAndAspectName(opContext, entry.getKey());
                 if (indexEntityAndAspect.isPresent()) {
                   elemResult.setEntityName(indexEntityAndAspect.get().getFirst());
                   elemResult.setAspectName(indexEntityAndAspect.get().getSecond());
@@ -369,7 +403,7 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         QueryBuilders.boolQuery()
             .must(
@@ -386,7 +420,7 @@ public class ElasticSearchTimeseriesAspectService
     countRequest.query(filterQueryBuilder);
     countRequest.indices(indexName);
     try {
-      CountResponse resp = searchClient.count(countRequest, RequestOptions.DEFAULT);
+      CountResponse resp = searchClient.count(opContext, countRequest, RequestOptions.DEFAULT);
       return resp.getCount();
     } catch (IOException e) {
       log.error("Count query failed:", e);
@@ -405,6 +439,30 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable final Integer limit,
       @Nullable final Filter filter,
       @Nullable final SortCriterion sort) {
+    return getAspectValues(
+        opContext,
+        urn,
+        entityName,
+        aspectName,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        filter,
+        sort,
+        false);
+  }
+
+  private List<EnvelopedAspect> getAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String entityName,
+      @Nonnull final String aspectName,
+      @Nullable final Long startTimeMillis,
+      @Nullable final Long endTimeMillis,
+      @Nullable final Integer limit,
+      @Nullable final Filter filter,
+      @Nullable final SortCriterion sort,
+      boolean requireCompleteResponse) {
     Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
         opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes();
     final BoolQueryBuilder filterQueryBuilder =
@@ -458,17 +516,23 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     searchRequest.indices(indexName);
 
-    log.debug("Search request is: " + searchRequest);
+    log.debug("Search request is: {}", searchRequest);
     return opContext.withSpan(
         "searchAspectValues_search",
         () -> {
           SearchHits hits;
           try {
             final SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.time(
+                    metricUtils,
+                    SearchOperation.TIMESERIES,
+                    () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
+            if (requireCompleteResponse) {
+              validateCompleteSearchResponse(searchResponse);
+            }
             hits = searchResponse.getHits();
           } catch (Exception e) {
             log.error("Search query failed:", e);
@@ -484,11 +548,299 @@ public class ElasticSearchTimeseriesAspectService
 
   @Nonnull
   @Override
+  public Map<Urn, List<EnvelopedAspect>> batchGetAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      int limit,
+      @Nullable Filter sharedFilter,
+      @Nullable SortCriterion sort) {
+    return batchGetAspectValues(
+        opContext,
+        urns,
+        entityName,
+        aspectName,
+        startTimeMillis,
+        endTimeMillis,
+        limit,
+        sharedFilter,
+        sort,
+        false);
+  }
+
+  private Map<Urn, List<EnvelopedAspect>> batchGetAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nullable Long startTimeMillis,
+      @Nullable Long endTimeMillis,
+      int limit,
+      @Nullable Filter sharedFilter,
+      @Nullable SortCriterion sort,
+      boolean failOnPartialResult) {
+    if (urns.isEmpty() || limit == 0) {
+      return Collections.emptyMap();
+    }
+
+    int perBucketLimit = timeseriesAspectServiceConfig.getTopHitsPerBucketLimit();
+    if (limit > perBucketLimit) {
+      log.warn(
+          "batchGetAspectValues limit {} exceeds topHitsPerBucketLimit {} (index.max_inner_result_window); "
+              + "falling back to unbatched per-URN calls for entity={} aspect={}",
+          limit,
+          perBucketLimit,
+          entityName,
+          aspectName);
+      Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+      for (Urn urn : urns) {
+        result.put(
+            urn,
+            getAspectValues(
+                opContext,
+                urn,
+                entityName,
+                aspectName,
+                startTimeMillis,
+                endTimeMillis,
+                limit,
+                sharedFilter,
+                sort));
+      }
+      return result;
+    }
+
+    Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes =
+        opContext.getEntityRegistry().getEntitySpec(entityName).getSearchableFieldTypes();
+
+    String indexName =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
+
+    int batchSize = Math.max(1, timeseriesAspectServiceConfig.getTopHitsThreshold() / limit);
+    List<String> urnStrings = urns.stream().map(Urn::toString).collect(Collectors.toList());
+    List<List<String>> batches = partitionList(urnStrings, batchSize);
+
+    Map<Urn, List<EnvelopedAspect>> result = new HashMap<>();
+    boolean partialFailure = false;
+
+    for (List<String> batch : batches) {
+      BoolQueryBuilder queryBuilder = QueryBuilders.boolQuery();
+      queryBuilder.must(QueryBuilders.termsQuery(MappingsBuilder.URN_FIELD, batch));
+      queryBuilder.mustNot(QueryBuilders.termQuery(MappingsBuilder.IS_EXPLODED_FIELD, true));
+
+      if (startTimeMillis != null) {
+        Criterion startCriterion =
+            buildCriterion(
+                MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+                Condition.GREATER_THAN_OR_EQUAL_TO,
+                startTimeMillis.toString());
+        queryBuilder.must(
+            ESUtils.getQueryBuilderFromCriterion(
+                startCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
+      }
+      if (endTimeMillis != null) {
+        Criterion endCriterion =
+            buildCriterion(
+                MappingsBuilder.TIMESTAMP_MILLIS_FIELD,
+                Condition.LESS_THAN_OR_EQUAL_TO,
+                endTimeMillis.toString());
+        queryBuilder.must(
+            ESUtils.getQueryBuilderFromCriterion(
+                endCriterion, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
+      }
+      if (sharedFilter != null) {
+        queryBuilder.must(
+            ESUtils.buildFilterQuery(
+                sharedFilter, true, searchableFieldTypes, opContext, queryFilterRewriteChain));
+      }
+
+      int effectiveLimit = ConfigUtils.applyLimit(timeseriesAspectServiceConfig, limit);
+      TopHitsAggregationBuilder topHitsAgg =
+          AggregationBuilders.topHits("top_hits").size(effectiveLimit);
+      if (sort != null) {
+        SortOrder esSortOrder =
+            sort.getOrder() == com.linkedin.metadata.query.filter.SortOrder.ASCENDING
+                ? SortOrder.ASC
+                : SortOrder.DESC;
+        topHitsAgg.sort(SortBuilders.fieldSort(sort.getField()).order(esSortOrder));
+      } else {
+        topHitsAgg.sort(SortBuilders.fieldSort("@timestamp").order(SortOrder.DESC));
+      }
+
+      SearchSourceBuilder sourceBuilder =
+          new SearchSourceBuilder()
+              .query(queryBuilder)
+              .size(0)
+              .aggregation(
+                  AggregationBuilders.terms("urn_buckets")
+                      .field(MappingsBuilder.URN_FIELD)
+                      .size(batch.size())
+                      .subAggregation(topHitsAgg));
+
+      SearchRequest searchRequest = new SearchRequest();
+      searchRequest.source(sourceBuilder);
+      searchRequest.indices(indexName);
+
+      log.debug("Batch timeseries search request: {}", searchRequest);
+      try {
+        SearchResponse response =
+            SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.TIMESERIES,
+                () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
+        if (failOnPartialResult) {
+          validateCompleteSearchResponse(response);
+        }
+        ParsedTerms terms = response.getAggregations().get("urn_buckets");
+        for (Terms.Bucket bucket : terms.getBuckets()) {
+          Urn urn = UrnUtils.getUrn(bucket.getKeyAsString());
+          ParsedTopHits topHits = bucket.getAggregations().get("top_hits");
+          List<EnvelopedAspect> aspects =
+              Arrays.stream(topHits.getHits().getHits())
+                  .map(hit -> parseDocument(opContext, hit))
+                  .collect(Collectors.toList());
+          result.put(urn, aspects);
+        }
+      } catch (Exception e) {
+        if (failOnPartialResult) {
+          throw new IllegalStateException(
+              String.format(
+                  "Batch timeseries sub-query failed for entity=%s aspect=%s urns=%s",
+                  entityName, aspectName, batch),
+              e);
+        }
+        partialFailure = true;
+        log.error(
+            "Batch timeseries sub-query failed for entity={} aspect={} urns={}; "
+                + "affected URNs will return empty results",
+            entityName,
+            aspectName,
+            batch,
+            e);
+      }
+    }
+
+    for (Urn urn : urns) {
+      result.putIfAbsent(urn, Collections.emptyList());
+    }
+
+    if (partialFailure) {
+      log.error(
+          "Partial results returned from batchGetAspectValues for entity={} aspect={}: "
+              + "{}/{} URNs resolved successfully",
+          entityName,
+          aspectName,
+          result.values().stream().filter(v -> !v.isEmpty()).count(),
+          urns.size());
+    }
+
+    return result;
+  }
+
+  private static void validateCompleteSearchResponse(@Nonnull SearchResponse response)
+      throws SocketTimeoutException {
+    if (response.isTimedOut()) {
+      throw new SocketTimeoutException("Batch timeseries search timed out");
+    }
+
+    if (response.getFailedShards() > 0
+        || response.getSuccessfulShards() < response.getTotalShards()) {
+      ShardSearchFailure[] shardFailures = response.getShardFailures();
+      if (shardFailures != null) {
+        for (ShardSearchFailure shardFailure : shardFailures) {
+          if (shardFailure != null && shardFailure.status() != null) {
+            throw new OpenSearchStatusException(
+                "Batch timeseries search returned incomplete shards", shardFailure.status());
+          }
+        }
+      }
+      throw new ESQueryException("Batch timeseries search returned incomplete shards");
+    }
+  }
+
+  private Map<Urn, Map<String, EnvelopedAspect>> batchGetLatestTimeseriesAspectValues(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> endTimeMillis,
+      boolean failOnPartialResult) {
+
+    Map<Urn, Map<String, EnvelopedAspect>> result = new HashMap<>();
+    for (Urn urn : urns) {
+      result.put(urn, new HashMap<>());
+    }
+
+    // Group once outside the aspect loop — URN→entityType mapping is fixed.
+    Map<String, Set<Urn>> urnsByEntityType =
+        urns.stream().collect(Collectors.groupingBy(Urn::getEntityType, Collectors.toSet()));
+
+    for (String aspectName : aspectNames) {
+      for (Map.Entry<String, Set<Urn>> entry : urnsByEntityType.entrySet()) {
+        String entityType = entry.getKey();
+        Set<Urn> entityUrns = entry.getValue();
+        Long endTime = endTimeMillis != null ? endTimeMillis.get(aspectName) : null;
+
+        Map<Urn, List<EnvelopedAspect>> batchResult =
+            batchGetAspectValues(
+                opContext,
+                entityUrns,
+                entityType,
+                aspectName,
+                null,
+                endTime,
+                1,
+                null,
+                null,
+                failOnPartialResult);
+
+        batchResult.forEach(
+            (urn, aspects) -> {
+              if (!aspects.isEmpty()) {
+                result.get(urn).put(aspectName, aspects.get(0));
+              }
+            });
+      }
+    }
+
+    return result;
+  }
+
+  private static <T> List<List<T>> partitionList(List<T> list, int size) {
+    List<List<T>> partitions = new ArrayList<>();
+    for (int i = 0; i < list.size(); i += size) {
+      partitions.add(list.subList(i, Math.min(i + size, list.size())));
+    }
+    return partitions;
+  }
+
+  @Nonnull
+  @Override
   public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValues(
       @Nonnull OperationContext opContext,
       @Nonnull Set<Urn> urns,
       @Nonnull Set<String> aspectNames,
       @Nullable Map<String, Long> endTimeMillis) {
+    if (timeseriesAspectServiceConfig.isBatchLoadEnabled()) {
+      return batchGetLatestTimeseriesAspectValues(
+          opContext, urns, aspectNames, endTimeMillis, false);
+    }
+    return getLatestTimeseriesAspectValuesFanout(
+        opContext, urns, aspectNames, endTimeMillis, false);
+  }
+
+  private Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValuesFanout(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> endTimeMillis,
+      boolean requireCompleteResponse) {
+    // Fallback: fan out one ES query per (URN, aspect) through the thread pool.
     Map<Urn, List<Future<Pair<String, EnvelopedAspect>>>> futures =
         urns.stream()
             .map(
@@ -511,7 +863,8 @@ public class ElasticSearchTimeseriesAspectService
                                                     : endTimeMillis.get(aspectName),
                                                 1,
                                                 null,
-                                                null);
+                                                null,
+                                                requireCompleteResponse);
                                         return !oneResultList.isEmpty()
                                             ? Pair.of(aspectName, oneResultList.get(0))
                                             : null;
@@ -545,6 +898,20 @@ public class ElasticSearchTimeseriesAspectService
                     e.getValue().stream().collect(Collectors.toMap(Pair::getKey, Pair::getValue))));
   }
 
+  @Nonnull
+  @Override
+  public Map<Urn, Map<String, EnvelopedAspect>> getLatestTimeseriesAspectValuesStrict(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Set<String> aspectNames,
+      @Nullable Map<String, Long> endTimeMillis) {
+    if (timeseriesAspectServiceConfig.isBatchLoadEnabled()) {
+      return batchGetLatestTimeseriesAspectValues(
+          opContext, urns, aspectNames, endTimeMillis, true);
+    }
+    return getLatestTimeseriesAspectValuesFanout(opContext, urns, aspectNames, endTimeMillis, true);
+  }
+
   @Override
   @Nonnull
   public GenericTable getAggregatedStats(
@@ -556,6 +923,56 @@ public class ElasticSearchTimeseriesAspectService
       @Nullable GroupingBucket[] groupingBuckets) {
     return esAggregatedStatsDAO.getAggregatedStats(
         opContext, entityName, aspectName, aggregationSpecs, filter, groupingBuckets);
+  }
+
+  @Nonnull
+  @Override
+  public Map<Urn, GenericTable> batchGetAggregatedStats(
+      @Nonnull OperationContext opContext,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull AggregationSpec[] aggregationSpecs,
+      @Nonnull List<Urn> urns,
+      @Nullable Filter sharedFilter,
+      @Nullable GroupingBucket[] groupingBuckets,
+      @Nonnull String urnFieldPath) {
+
+    if (urns.isEmpty()) {
+      return Collections.emptyMap();
+    }
+
+    if (!timeseriesAspectServiceConfig.isBatchLoadEnabled()) {
+      return TimeseriesAspectService.super.batchGetAggregatedStats(
+          opContext,
+          entityName,
+          aspectName,
+          aggregationSpecs,
+          urns,
+          sharedFilter,
+          groupingBuckets,
+          urnFieldPath);
+    }
+
+    List<Urn> urnList = new ArrayList<>(urns);
+    int subBatchSize = timeseriesAspectServiceConfig.getBatchAggMaxUrnsPerBatch();
+    List<List<Urn>> subBatches = partitionList(urnList, subBatchSize);
+
+    Map<Urn, GenericTable> result = new HashMap<>();
+
+    for (List<Urn> subBatch : subBatches) {
+      result.putAll(
+          esAggregatedStatsDAO.getBatchAggregatedStats(
+              opContext,
+              entityName,
+              aspectName,
+              aggregationSpecs,
+              subBatch,
+              sharedFilter,
+              groupingBuckets,
+              urnFieldPath));
+    }
+
+    return result;
   }
 
   /**
@@ -581,7 +998,7 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
@@ -593,6 +1010,7 @@ public class ElasticSearchTimeseriesAspectService
     final Optional<DeleteAspectValuesResult> result =
         bulkProcessor
             .deleteByQuery(
+                opContext,
                 filterQueryBuilder,
                 false,
                 timeseriesAspectServiceConfig.getLimit().getResults().getApiDefault(),
@@ -622,7 +1040,7 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
@@ -639,7 +1057,8 @@ public class ElasticSearchTimeseriesAspectService
             ? TimeValue.timeValueSeconds(options.getTimeoutSeconds())
             : null;
     final Optional<String> result =
-        bulkProcessor.deleteByQueryAsync(filterQueryBuilder, false, batchSize, timeout, indexName);
+        bulkProcessor.deleteByQueryAsync(
+            opContext, filterQueryBuilder, false, batchSize, timeout, indexName);
 
     if (result.isPresent()) {
       return result.get();
@@ -660,7 +1079,7 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName);
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
     final BoolQueryBuilder filterQueryBuilder =
         ESUtils.buildFilterQuery(
             filter,
@@ -669,7 +1088,7 @@ public class ElasticSearchTimeseriesAspectService
             opContext,
             queryFilterRewriteChain);
     try {
-      return this.reindexAsync(indexName, filterQueryBuilder, options);
+      return this.reindexAsync(opContext, indexName, filterQueryBuilder, options);
     } catch (Exception e) {
       log.error("Async reindex failed");
       throw new ESQueryException("Async reindex failed", e);
@@ -827,12 +1246,15 @@ public class ElasticSearchTimeseriesAspectService
                 opContext
                     .getSearchContext()
                     .getIndexConvention()
-                    .getTimeseriesAspectIndexName(entityName, aspectName);
+                    .getTimeseriesAspectIndexName(opContext, entityName, aspectName);
             searchRequest.indices(indexName);
 
             // Execute search
             SearchResponse searchResponse =
-                searchClient.search(searchRequest, RequestOptions.DEFAULT);
+                SearchTookMetrics.time(
+                    metricUtils,
+                    SearchOperation.TIMESERIES,
+                    () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
             SearchHits hits = searchResponse.getHits();
 
             if (hits.getTotalHits() != null
@@ -895,13 +1317,16 @@ public class ElasticSearchTimeseriesAspectService
         opContext
             .getSearchContext()
             .getIndexConvention()
-            .getTimeseriesAspectIndexName(entityName, aspectName));
+            .getTimeseriesAspectIndexName(opContext, entityName, aspectName));
 
     return opContext.withSpan(
         "scrollAspects_search",
         () -> {
           try {
-            return searchClient.search(searchRequest, RequestOptions.DEFAULT);
+            return SearchTookMetrics.time(
+                metricUtils,
+                SearchOperation.TIMESERIES,
+                () -> searchClient.search(opContext, searchRequest, RequestOptions.DEFAULT));
           } catch (Exception e) {
             log.error("Search query failed", e);
             throw new ESQueryException("Search query failed:", e);

@@ -4,12 +4,12 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.timeline.eventgenerator.AssertionRunEventChangeEventGenerator;
-import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeAssociationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributeInfoChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.BusinessAttributesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DataProcessInstanceRunEventChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.DeprecationChangeEventGenerator;
+import com.linkedin.metadata.timeline.eventgenerator.DocumentationChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableDatasetPropertiesChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EditableSchemaMetadataChangeEventGenerator;
 import com.linkedin.metadata.timeline.eventgenerator.EntityChangeEventGeneratorRegistry;
@@ -50,6 +50,7 @@ public class EntityChangeEventGeneratorRegistryFactory {
     registry.register(OWNERSHIP_ASPECT_NAME, new OwnershipChangeEventGenerator());
     registry.register(
         INSTITUTIONAL_MEMORY_ASPECT_NAME, new InstitutionalMemoryChangeEventGenerator());
+    registry.register(DOCUMENTATION_ASPECT_NAME, new DocumentationChangeEventGenerator());
     registry.register(GLOSSARY_TERM_INFO_ASPECT_NAME, new GlossaryTermInfoChangeEventGenerator());
     registry.register(DOMAINS_ASPECT_NAME, new SingleDomainChangeEventGenerator());
     registry.register(DATASET_PROPERTIES_ASPECT_NAME, new DatasetPropertiesChangeEventGenerator());
@@ -58,8 +59,6 @@ public class EntityChangeEventGeneratorRegistryFactory {
         new EditableDatasetPropertiesChangeEventGenerator());
     registry.register(
         BUSINESS_ATTRIBUTE_INFO_ASPECT_NAME, new BusinessAttributeInfoChangeEventGenerator());
-    registry.register(
-        BUSINESS_ATTRIBUTE_ASSOCIATION, new BusinessAttributeAssociationChangeEventGenerator());
     registry.register(BUSINESS_ATTRIBUTE_ASPECT, new BusinessAttributesChangeEventGenerator());
 
     // Entity Lifecycle change event generators

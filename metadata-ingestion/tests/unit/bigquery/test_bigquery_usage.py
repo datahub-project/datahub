@@ -5,7 +5,7 @@ from typing import Iterable
 from unittest.mock import MagicMock, patch
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.configuration.time_window_config import BucketDuration
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -1012,7 +1012,7 @@ def test_usage_counts_no_columns_and_top_n_limit_hit(
         assert not caplog.records
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryUsageExtractor, "_generate_usage_workunits")
 def test_operational_stats(
     mock: MagicMock,

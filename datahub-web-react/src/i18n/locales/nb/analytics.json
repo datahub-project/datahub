@@ -1,0 +1,11 @@
+{
+    "allDomains": "Alle domener",
+    "dataLandscapeSummary": "Sammendrag av datalandskapet",
+    "domainLandscapeSummary": "Sammendrag av domenelandskapet",
+    "failedToLoadCharts": "Kunne ikke laste chart",
+    "failedToLoadDomains": "Kunne ikke laste domener",
+    "failedToLoadHighlights": "Kunne ikke laste høydepunkter",
+    "noDomainData": "Ingen analytics-data for dette domenet",
+    "selectDomain": "Velg domene",
+    "usageAnalytics": "Bruks-Analytics"
+}

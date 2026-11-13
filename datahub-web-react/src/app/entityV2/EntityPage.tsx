@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { useParams } from 'react-router-dom';
 
 import analytics, { EventType } from '@app/analytics';
@@ -7,13 +7,11 @@ import { BrowsableEntityPage } from '@app/browse/BrowsableEntityPage';
 import { useUserContext } from '@app/context/useUserContext';
 import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
 import { decodeUrn } from '@app/entityV2/shared/utils';
-import LineageExplorer from '@app/lineage/LineageExplorer';
-import useIsLineageMode from '@app/lineage/utils/useIsLineageMode';
-import { useLineageV2 } from '@app/lineageV2/useLineageV2';
-import TabFullSizedContext from '@app/shared/TabFullsizedContext';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import useIsLineageMode from '@app/lineageV3/utils/useIsLineageMode';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
-import useSidebarWidth from '@app/sharedV2/sidebar/useSidebarWidth';
+import TabFullSizedContext from '@app/sharedV2/TabFullsizedContext';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import useEntitySidebarWidth from '@app/sharedV2/sidebar/useEntitySidebarWidth';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetGrantedPrivilegesQuery } from '@graphql/policy.generated';
@@ -81,11 +79,20 @@ export const EntityPage = ({ entityType }: Props) => {
     const canViewEntityPage = privileges.find((privilege) => privilege === VIEW_ENTITY_PAGE);
     const showNewPage = ALLOWED_ENTITY_TYPES.includes(entityType);
 
-    const isLineageV2 = useLineageV2();
     const showLineage = isLineageMode && isLineageSupported;
-    const [isSidebarClosed, setIsSidebarClosed] = useState(false);
+    // Seed from any enclosing EntitySidebarContext (e.g. DomainRoutes opens collapsed) so the
+    // provider below doesn't shadow it and force the sidebar open.
+    const { isClosed: parentSidebarClosed } = useContext(EntitySidebarContext);
+    const [isSidebarClosed, setIsSidebarClosed] = useState(parentSidebarClosed);
     const [isTabFullsize, setTabFullsize] = useState(false);
-    const sidebarWidth = useSidebarWidth();
+    const { width: sidebarWidth, setWidth: setSidebarWidth } = useEntitySidebarWidth();
+
+    // Build the profile JSX up-front (and unconditionally) so any hooks that entity definitions
+    // inline through `getProfileTabs()` (e.g. `useShowAssetSummaryPage`) run on every render.
+    // Otherwise the hook count flips when `canViewEntityPage` transitions from undefined →
+    // defined after the privileges query resolves, producing a Rules-of-Hooks violation that
+    // crashes the page.
+    const profile = entityRegistry.renderProfile(entityType, urn);
 
     return (
         <>
@@ -95,6 +102,7 @@ export const EntityPage = ({ entityType }: Props) => {
                 <EntitySidebarContext.Provider
                     value={{
                         width: sidebarWidth,
+                        setWidth: setSidebarWidth,
                         isClosed: isSidebarClosed,
                         setSidebarClosed: setIsSidebarClosed,
                     }}
@@ -102,11 +110,10 @@ export const EntityPage = ({ entityType }: Props) => {
                     <TabFullSizedContext.Provider
                         value={{
                             isTabFullsize,
-                            // TODO: Clean up logic after removing lineageGraphV2 flag
-                            setTabFullsize: isLineageV2 && showLineage ? undefined : setTabFullsize,
+                            setTabFullsize: showLineage ? undefined : setTabFullsize,
                         }}
                     >
-                        {showNewPage && entityRegistry.renderProfile(entityType, urn)}
+                        {showNewPage && profile}
                         {!showNewPage && (
                             <BrowsableEntityPage
                                 isBrowsable={isBrowsable}
@@ -114,8 +121,7 @@ export const EntityPage = ({ entityType }: Props) => {
                                 type={entityType}
                                 lineageSupported={isLineageSupported}
                             >
-                                {showLineage && !isLineageV2 && <LineageExplorer type={entityType} urn={urn} />}
-                                {(!showLineage || isLineageV2) && entityRegistry.renderProfile(entityType, urn)}
+                                {profile}
                             </BrowsableEntityPage>
                         )}
                     </TabFullSizedContext.Provider>

@@ -1,19 +1,7 @@
-import { DownOutlined, RightOutlined } from '@ant-design/icons';
-import { Tooltip } from '@components';
-import { Typography } from 'antd';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React from 'react';
-import styled from 'styled-components';
-
-import { REDESIGN_COLORS } from '@app/entityV2/shared/constants';
-
-import RowIcon from '@images/row-icon.svg?react';
-
-const Prefix = styled.div<{ padding: number }>`
-    position: absolute;
-    min-height: 100%;
-    margin-bottom: -1px;
-    top: -1px;
-`;
+import styled, { css } from 'styled-components';
 
 const IconContainer = styled.div`
     vertical-align: middle;
@@ -21,132 +9,46 @@ const IconContainer = styled.div`
     gap: 5px;
 `;
 
-const Padding = styled.span<{ padding: number }>`
-    margin-left: ${(props) => props.padding}px;
-`;
-
-const Down = styled(DownOutlined)<{ $isCompact?: boolean }>`
+const caretStyles = css`
     :hover {
-        color: ${(props) => props.theme.styles['primary-color']};
-        stroke: ${(props) => props.theme.styles['primary-color']};
-        stroke-width: 140px;
+        color: ${(props) => props.theme.colors.iconHover};
     }
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    stroke: ${REDESIGN_COLORS.DARK_GREY};
-    stroke-width: 100px;
+    color: ${(props) => props.theme.colors.icon};
     padding-right: 5px;
-    ${(props) =>
-        props.$isCompact &&
-        `
-        font-size: 8px;
-        
-    `}
+    cursor: pointer;
 `;
 
-const Right = styled(RightOutlined)<{ isCompact?: boolean }>`
-    :hover {
-        stroke: ${(props) => props.theme.styles['primary-color']};
-        color: ${(props) => props.theme.styles['primary-color']};
-        stroke-width: 140px;
-    }
-    color: ${REDESIGN_COLORS.DARK_GREY};
-    stroke: ${REDESIGN_COLORS.DARK_GREY};
-    stroke-width: 100px;
-    padding-right: 5px;
-    ${(props) =>
-        props.isCompact &&
-        `
-        font-size: 8px;
-    `}
+const Down = styled(CaretDown).attrs({ size: 8, weight: 'bold' as const })`
+    ${caretStyles}
 `;
 
-const RowIconContainer = styled.div`
-    position: relative;
-    display: flex;
-    align-items: center;
+const Right = styled(CaretRight).attrs({ size: 8, weight: 'bold' as const })`
+    ${caretStyles}
 `;
-
-const DepthContainer = styled.div<{ multipleDigits?: boolean }>`
-    height: ${(props) => (props.multipleDigits ? '20px' : '13px')};
-    width: ${(props) => (props.multipleDigits ? '20px' : '13px')};
-    border-radius: 50%;
-    background: ${REDESIGN_COLORS.PRIMARY_PURPLE};
-    margin-left: -7px;
-    margin-top: -12px;
-    display: flex;
-    align-items: center;
-`;
-
-const DepthNumber = styled(Typography.Text)`
-    margin-left: 4px;
-    background: transparent;
-    color: ${REDESIGN_COLORS.WHITE};
-    font-size: 10px;
-    font-weight: 400;
-`;
-
-const StyledTooltip = styled(Tooltip)`
-    .ant-tooltip-inner {
-        border-radius: 3px;
-        background: #e5eff1;
-        font-size: 10px;
-        font-weight: 400;
-        line-height: 24px;
-        color: ${REDESIGN_COLORS.DARK_GREY};
-    }
-`;
-
-const DEPTH_PADDING = 15;
 
 type Props = {
     expanded: boolean;
     onExpand: any;
     expandable: boolean;
     record: any;
-    isCompact?: boolean;
 };
 
-export default function ExpandIcon(props: Props) {
-    const { expanded, onExpand, expandable, record, isCompact = false } = props;
-
-    function toggleExpand(e: React.MouseEvent<HTMLSpanElement, MouseEvent>) {
+/** Expand caret for the antd properties table. */
+export default function ExpandIcon({ expanded, onExpand, expandable, record }: Props) {
+    function toggleExpand(e: React.MouseEvent) {
         e.stopPropagation();
         onExpand(record, e);
     }
 
     return (
-        <>
-            <IconContainer className="row-icon-container">
-                {!isCompact && (
-                    <>
-                        {Array.from({ length: record.depth }, (_, k) => (
-                            <Prefix padding={5 + DEPTH_PADDING * (k + 1)} />
-                        ))}
-                        <Padding padding={DEPTH_PADDING * (record.depth + 1)} />
-                        <StyledTooltip
-                            placement="bottom"
-                            title={`${record.depth + 1} level${record.depth === 0 ? '' : 's'} nested`}
-                            getPopupContainer={(triggerNode) => triggerNode}
-                            showArrow={false}
-                            className="row-icon-tooltip"
-                        >
-                            <RowIconContainer className="row-icon">
-                                <RowIcon height={16} width={16} />
-                                <DepthContainer multipleDigits={record.depth >= 9} className="depth-container">
-                                    <DepthNumber className="depth-text">{record.depth + 1}</DepthNumber>
-                                </DepthContainer>
-                            </RowIconContainer>
-                        </StyledTooltip>
-                    </>
-                )}
-                {expandable &&
-                    record.children !== undefined &&
-                    (expanded ? (
-                        <Down onClick={toggleExpand} $isCompact={isCompact} />
-                    ) : (
-                        <Right onClick={toggleExpand} isCompact={isCompact} />
-                    ))}
-            </IconContainer>
-        </>
+        <IconContainer className="row-icon-container">
+            {expandable &&
+                record.children !== undefined &&
+                (expanded ? (
+                    <Down onClick={toggleExpand} data-testid="schema-expand-icon-down" />
+                ) : (
+                    <Right onClick={toggleExpand} data-testid="schema-expand-icon-right" />
+                ))}
+        </IconContainer>
     );
 }

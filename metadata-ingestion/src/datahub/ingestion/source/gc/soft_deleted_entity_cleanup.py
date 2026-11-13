@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 from pydantic import Field
 
 from datahub.configuration import ConfigModel
+from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
@@ -177,7 +178,7 @@ class SoftDeletedEntitiesCleanup:
             self.report.num_hard_deleted_by_type[entity_type] = current_count + 1
             if entity_type not in self.report.sample_hard_deleted_aspects_by_type:
                 self.report.sample_hard_deleted_aspects_by_type[entity_type] = (
-                    LossyList()
+                    LossyList(max_elements=get_report_info_sample_size())
                 )
             self.report.sample_hard_deleted_aspects_by_type[entity_type].append(urn)
 
@@ -227,16 +228,21 @@ class SoftDeletedEntitiesCleanup:
 
     def _process_futures(self, futures: Dict[Future, Urn]) -> Dict[Future, Urn]:
         done, not_done = wait(futures, return_when=FIRST_COMPLETED)
+        # Keep the urn mapping for completed futures before narrowing `futures`
+        # to the pending ones; otherwise a failed future cannot be reported
+        # against its urn (KeyError) and the whole stage aborts.
+        done_urns = {future: futures[future] for future in done}
         futures = {future: urn for future, urn in futures.items() if future in not_done}
 
         for future in done:
             self._print_report()
-            if future.exception():
+            exc = future.exception()
+            if exc:
                 self.report.failure(
                     title="Failed to delete entity",
                     message="Failed to delete entity",
-                    context=futures[future].urn(),
-                    exc=future.exception(),
+                    context=done_urns[future].urn(),
+                    exc=exc,
                 )
             self.report.num_soft_deleted_entity_processed += 1
             if (

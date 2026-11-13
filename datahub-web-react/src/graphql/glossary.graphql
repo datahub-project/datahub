@@ -20,14 +20,23 @@ query getRootGlossaryNodes {
     }
 }
 
-query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
+query getRelatedTerms(
+    $urn: String!
+    $skipSiblingsSearch: Boolean = false
+    $isRelatedTermsCount: Int = 10
+    $hasRelatedTermsCount: Int = 10
+    $isAChildrenCount: Int = 10
+    $containedByCount: Int = 10
+) {
     glossaryTerm(urn: $urn) {
         urn
         type
         exists
         name
         hierarchicalName
-        isRelatedTerms: relationships(input: { types: ["IsA"], direction: OUTGOING, start: 0, count: 10 }) {
+        isRelatedTerms: relationships(
+            input: { types: ["IsA"], direction: OUTGOING, start: 0, count: $isRelatedTermsCount }
+        ) {
             start
             count
             total
@@ -37,7 +46,9 @@ query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 }
             }
         }
-        hasRelatedTerms: relationships(input: { types: ["HasA"], direction: OUTGOING, start: 0, count: 10 }) {
+        hasRelatedTerms: relationships(
+            input: { types: ["HasA"], direction: OUTGOING, start: 0, count: $hasRelatedTermsCount }
+        ) {
             start
             count
             total
@@ -47,7 +58,7 @@ query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 }
             }
         }
-        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: 0, count: 10 }) {
+        isAChildren: relationships(input: { types: ["IsA"], direction: INCOMING, start: 0, count: $isAChildrenCount }) {
             start
             count
             total
@@ -57,7 +68,9 @@ query getRelatedTerms($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 }
             }
         }
-        containedBy: relationships(input: { types: ["HasA"], direction: INCOMING, start: 0, count: 10 }) {
+        containedBy: relationships(
+            input: { types: ["HasA"], direction: INCOMING, start: 0, count: $containedByCount }
+        ) {
             start
             count
             total

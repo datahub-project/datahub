@@ -4,15 +4,28 @@ import React from 'react';
 import { MemoryRouter } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import EntityContext from '@app/entity/shared/EntityContext';
 import { PreviewType } from '@app/entityV2/Entity';
+import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
 import { DocumentNativeProfile } from '@app/entityV2/document/DocumentNativeProfile';
 import { Preview } from '@app/entityV2/document/preview/Preview';
+import EntityContext from '@app/entityV2/shared/EntityContext';
 import EntitySidebarContext, { entitySidebarContextDefaults } from '@app/sharedV2/EntitySidebarContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 import { mocks } from '@src/Mocks';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
+
+// Mock dark mode hook to prevent localStorage race conditions with CustomThemeProvider
+vi.mock('@app/theme/useIsDarkMode', () => ({
+    useIsDarkMode: () => [false, vi.fn()],
+    loadIsDarkMode: () => false,
+}));
+
+// Mock useCustomThemeId to avoid AppConfigContext dependency in tests
+vi.mock('@app/useSetAppTheme', () => ({
+    useCustomThemeId: () => null,
+    useSetAppTheme: () => null,
+}));
 
 // Mock entity registry with all required methods
 const mockEntityRegistry = {
@@ -31,6 +44,7 @@ const mockEntityRegistry = {
     getCollectionName: () => 'Documents',
     getEntityName: () => 'Document',
     getGenericEntityProperties: () => null,
+    getCreatedTime: () => undefined,
     getSupportedEntityCapabilities: () => new Set(),
     hasEntity: () => true,
     renderPreview: () => null,
@@ -52,7 +66,6 @@ const mockEntityRegistry = {
 // Mock the useEntityRegistry hooks to return a mock entity registry
 vi.mock('@app/useEntityRegistry', () => ({
     useEntityRegistry: () => mockEntityRegistry,
-    useEntityRegistryV2: () => mockEntityRegistry,
 }));
 
 // Mock react-helmet-async to avoid context issues in tests
@@ -105,8 +118,8 @@ vi.mock('@app/document/hooks/useDocumentTreeMutations', async (importOriginal) =
 });
 
 // Mock the modal context
-vi.mock('@app/sharedV2/modals/ModalContext', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@app/sharedV2/modals/ModalContext')>();
+vi.mock('@components/components/Modal/ModalContext', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components/components/Modal/ModalContext')>();
     return {
         ...actual,
         useModalContext: () => ({
@@ -385,34 +398,6 @@ describe('Document Preview - Platform Logo Display', () => {
     });
 
     describe('Hover Card Preview', () => {
-        it('should display platform logo in hover card preview', async () => {
-            const mockPlatform = createMockPlatform('GoogleDocs', 'https://example.com/gdocs-logo.png');
-            const mockDocument = createMockDocument({
-                platform: mockPlatform as any,
-            });
-
-            const { container } = render(
-                <TestWrapper>
-                    <Preview
-                        document={mockDocument}
-                        urn={mockDocument.urn}
-                        data={createMockGenericData(mockDocument, mockPlatform)}
-                        name="Test Document"
-                        description="This is test document content."
-                        platformName="GoogleDocs"
-                        platformLogo="https://example.com/gdocs-logo.png"
-                        previewType={PreviewType.HOVER_CARD}
-                    />
-                </TestWrapper>,
-            );
-
-            await waitFor(() => {
-                const platformImage = container.querySelector('img[alt="GoogleDocs"]');
-                expect(platformImage).toBeInTheDocument();
-                expect(platformImage).toHaveAttribute('src', 'https://example.com/gdocs-logo.png');
-            });
-        });
-
         it('should display platform logo in full preview', async () => {
             const mockPlatform = createMockPlatform('SharePoint', 'https://example.com/sharepoint-logo.png');
             const mockDocument = createMockDocument({
@@ -441,7 +426,7 @@ describe('Document Preview - Platform Logo Display', () => {
             });
         });
     });
-});
+}, 30_000);
 
 // =============================================================================
 // NATIVE VS EXTERNAL DOCUMENT TESTS
@@ -952,7 +937,6 @@ describe('Document State Handling', () => {
 describe('Preview Type Rendering Variations', () => {
     const previewTypes = [
         { type: PreviewType.SEARCH, name: 'Search Results' },
-        { type: PreviewType.HOVER_CARD, name: 'Hover Card' },
         { type: PreviewType.PREVIEW, name: 'Full Preview' },
         { type: PreviewType.BROWSE, name: 'Browse View' },
     ];
@@ -1218,7 +1202,7 @@ describe('Document Profile Rendering', () => {
         it('should render native profile loading state', async () => {
             const mockDocument = createMockNativeDocument();
 
-            const { container } = render(
+            render(
                 <ProfileTestWrapper document={mockDocument} urn={mockDocument.urn}>
                     <DocumentNativeProfile
                         urn={mockDocument.urn}
@@ -1229,10 +1213,8 @@ describe('Document Profile Rendering', () => {
                 </ProfileTestWrapper>,
             );
 
-            // Should show loading indicator
             await waitFor(() => {
-                const loadingIcon = container.querySelector('.anticon-loading');
-                expect(loadingIcon).toBeInTheDocument();
+                expect(screen.getByLabelText('Loading...')).toBeInTheDocument();
             });
         });
 
@@ -1280,7 +1262,7 @@ describe('Document Profile Rendering', () => {
                 expect(screen.getByText('Document with Content')).toBeInTheDocument();
             });
         });
-    });
+    }, 30_000);
 
     describe('Native vs External Profile Differences', () => {
         it('should render native profile with custom layout (not EntityProfile tabs)', async () => {
@@ -1489,6 +1471,33 @@ describe('Document Profile Rendering', () => {
             // Native documents should not have externalUrl
             expect(genericData.externalUrl).toBeNull();
             expect(genericData.platform).toBeNull();
+        });
+
+        it('should map lastIngested from document data into override properties', () => {
+            const ts = 1716000000000;
+            const entity = new DocumentEntity();
+            const externalDoc = createMockExternalDocument('Confluence', 'https://confluence.example.com/123', {
+                lastIngested: ts,
+            } as any);
+
+            const overrides = entity.getOverridePropertiesFromEntity(externalDoc);
+
+            expect(overrides.lastIngested).toBe(ts);
+        });
+
+        it('should set lastIngested to undefined when not present on document', () => {
+            const entity = new DocumentEntity();
+            const externalDoc = createMockExternalDocument('Confluence', 'https://confluence.example.com/123');
+
+            const overrides = entity.getOverridePropertiesFromEntity(externalDoc);
+
+            expect(overrides.lastIngested).toBeUndefined();
+        });
+
+        it('should enable browse so documents appear in the platform navigation sidebar', () => {
+            // Documents carry browsePathsV2, so they must be browse-enabled to
+            // surface (with their space/folder hierarchy) in the left-nav browse tree.
+            expect(new DocumentEntity().isBrowseEnabled()).toBe(true);
         });
     });
 

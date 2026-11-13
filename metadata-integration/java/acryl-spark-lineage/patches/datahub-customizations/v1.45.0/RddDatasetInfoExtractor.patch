@@ -1,0 +1,31 @@
+# Patch for DataHub customizations in RddDatasetInfoExtractor.java
+# Upstream version: OpenLineage 1.45.0
+# Generated: 2026-04-01 18:17:06 UTC
+#
+# To apply this patch to a new upstream version:
+#   patch -p0 < datahub-customizations/RddDatasetInfoExtractor.patch
+#
+--- /Users/treff7es/shadow/datahub/.claude/worktrees/fix-spark-output-lineage/metadata-integration/java/acryl-spark-lineage/patches/upstream-1.45.0/spark/agent/util/RddDatasetInfoExtractor.java	2026-04-01 20:06:07.059546356 +0200
++++ /Users/treff7es/shadow/datahub/.claude/worktrees/fix-spark-output-lineage/metadata-integration/java/acryl-spark-lineage/src/main/java/io/openlineage/spark/agent/util/RddDatasetInfoExtractor.java	2026-04-01 20:09:41.376049516 +0200
+@@ -93,7 +93,7 @@
+ 
+     @Override
+     public Stream<DatasetIdentifier> extract(RDD<?> rdd) {
+-      log.warn("Unknown RDD class {}", rdd);
++      log.debug("Unknown RDD class {}", rdd);
+       return Stream.empty();
+     }
+   }
+@@ -227,10 +227,10 @@
+               .filter(Objects::nonNull)
+               .map(PathUtils::fromPath);
+         } else {
+-          log.warn("Cannot extract path from ParallelCollectionRDD {}", data);
++          log.debug("Cannot extract path from ParallelCollectionRDD {}", data);
+         }
+       } catch (IllegalAccessException | IllegalArgumentException e) {
+-        log.warn("Cannot read data field from ParallelCollectionRDD {}", rdd);
++        log.debug("Cannot read data field from ParallelCollectionRDD {}", rdd);
+       }
+       return Stream.empty();
+     }

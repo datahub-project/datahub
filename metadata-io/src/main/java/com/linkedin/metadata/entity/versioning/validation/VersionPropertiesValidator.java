@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity.versioning.validation;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableList;
@@ -60,6 +61,7 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
+      OperationFingerprint operationContext,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     return validatePropertiesProposals(
@@ -71,8 +73,11 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
 
   @Override
   protected Stream<AspectValidationException> validatePreCommitAspects(
-      @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationContext,
+      @Nonnull Collection<ChangeMCP> changeMCPs,
+      @Nonnull RetrieverContext retrieverContext) {
     return validatePropertiesUpserts(
+        operationContext,
         changeMCPs.stream()
             .filter(changeMCP -> VERSION_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName()))
             .collect(Collectors.toList()),
@@ -81,6 +86,7 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
 
   @VisibleForTesting
   public static Stream<AspectValidationException> validatePropertiesUpserts(
+      OperationFingerprint operationFingerprint,
       @Nonnull Collection<? extends BatchItem> mcpItems,
       @Nonnull RetrieverContext retrieverContext) {
     ValidationExceptionCollection exceptions = ValidationExceptionCollection.newCollection();
@@ -92,6 +98,7 @@ public class VersionPropertiesValidator extends AspectPayloadValidator {
           retrieverContext
               .getAspectRetriever()
               .getLatestAspectObjects(
+                  operationFingerprint,
                   Collections.singleton(versionSetUrn),
                   ImmutableSet.of(VERSION_SET_KEY_ASPECT_NAME, VERSION_SET_PROPERTIES_ASPECT_NAME))
               .get(versionSetUrn);

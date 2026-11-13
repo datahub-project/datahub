@@ -7,6 +7,8 @@ from urllib.parse import urlparse
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.graph.config import DatahubClientConfig
+from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
 )
@@ -88,54 +90,18 @@ class PageFilterConfig(ConfigModel):
     )
 
 
-class ConfluenceAuthConfig(ConfigModel):
-    """Authentication configuration for Confluence."""
-
-    username: Optional[str] = Field(
-        default=None,
-        description="Username for Confluence Cloud authentication (required for Cloud).",
-    )
-    api_token: Optional[SecretStr] = Field(
-        default=None,
-        description="API token for Confluence Cloud authentication (required for Cloud).",
-    )
-    personal_access_token: Optional[SecretStr] = Field(
-        default=None,
-        description="Personal Access Token for Confluence Data Center authentication.",
-    )
-
-    @model_validator(mode="after")
-    def validate_auth_config(self) -> "ConfluenceAuthConfig":
-        """Ensure exactly one authentication method is provided."""
-        cloud_auth = bool(self.username and self.api_token)
-        datacenter_auth = bool(self.personal_access_token)
-
-        if not cloud_auth and not datacenter_auth:
-            raise ValueError(
-                "Either provide username + api_token (for Cloud) or personal_access_token (for Data Center)"
-            )
-
-        if cloud_auth and datacenter_auth:
-            raise ValueError(
-                "Cannot provide both Cloud authentication (username + api_token) and "
-                "Data Center authentication (personal_access_token)"
-            )
-
-        if self.username and not self.api_token:
-            raise ValueError("Username provided but api_token is missing")
-
-        if self.api_token and not self.username:
-            raise ValueError("API token provided but username is missing")
-
-        return self
-
-
 class ConfluenceSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """Configuration for Confluence source connector."""
 
     # Confluence connection
+    datahub: Optional[DatahubClientConfig] = Field(
+        default=None,
+        description="DataHub connection for embedding capability checks. When omitted, "
+        "provider datahub uses the SDK connection defaults (environment or datahub init).",
+    )
+
     url: str = Field(
         description="Base URL of your Confluence instance. "
         "Examples: 'https://your-domain.atlassian.net/wiki' (Cloud) or "
@@ -204,6 +170,30 @@ class ConfluenceSourceConfig(
     recursive: bool = Field(
         default=True,
         description="Whether to recursively fetch child pages (applies to page URLs only).",
+    )
+
+    document_import_mode: DocumentImportMode = Field(
+        default=DocumentImportMode.EXTERNAL,
+        description=(
+            "NATIVE imports editable documents in DataHub. EXTERNAL imports read-only "
+            "references that link back to Confluence."
+        ),
+    )
+
+    parent_document_urn: Optional[str] = Field(
+        default=None,
+        description="Optional parent document URN for top-level imported pages.",
+    )
+
+    ingest_folders: bool = Field(
+        default=True,
+        description=(
+            "Ingest Confluence folders as document entities so that pages nested "
+            "under folders keep their place in the hierarchy. Confluence folders "
+            "are a separate content type that the page APIs never return, so when "
+            "this is disabled a page whose immediate parent is a folder is emitted "
+            "without a parent link and appears as a root document."
+        ),
     )
 
     # Content processing
@@ -454,6 +444,13 @@ class ConfluenceSourceConfig(
         if self.api_token and not self.username:
             raise ValueError("API token provided but username is missing")
 
+        return self
+
+    @model_validator(mode="after")
+    def apply_document_import_mode(self) -> "ConfluenceSourceConfig":
+        self.document_mapping.source.type = self.document_import_mode.value
+        if self.parent_document_urn:
+            self.hierarchy.folder_mapping.root_parent = self.parent_document_urn
         return self
 
     @model_validator(mode="after")

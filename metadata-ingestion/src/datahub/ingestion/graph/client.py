@@ -2,6 +2,9 @@ import contextlib
 import functools
 import json
 import logging
+import math
+import operator
+import random
 import textwrap
 import time
 from datetime import datetime
@@ -14,8 +17,12 @@ from typing import (
     Iterator,
     List,
     Literal,
+    NamedTuple,
     Optional,
     Sequence,
+    Set,
+    SupportsFloat,
+    SupportsIndex,
     Tuple,
     Type,
     Union,
@@ -31,12 +38,13 @@ from datahub.cli import config_utils
 from datahub.cli.cli_utils import guess_frontend_url_from_gms_url
 from datahub.configuration.common import ConfigModel, GraphError, OperationalError
 from datahub.emitter.aspect import TIMESERIES_ASPECT_MAP
-from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect
+from datahub.emitter.emit_mode import EmitMode
+from datahub.emitter.mce_builder import DEFAULT_ENV, Aspect, make_ts_millis
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
-from datahub.emitter.rest_emitter import (
-    DatahubRestEmitter,
-)
+from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.emitter.serialization_helper import post_json_transform
+from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.ingestion.auth.registry import build_token_provider
 from datahub.ingestion.graph.config import (
     ClientMode,
     DatahubClientConfig as DatahubClientConfig,
@@ -45,15 +53,21 @@ from datahub.ingestion.graph.connections import (
     connections_gql,
     get_id_from_connection_urn,
 )
+from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.entity_versioning import EntityVersioningAPI
 from datahub.ingestion.graph.filters import (
     RawSearchFilter,
     RawSearchFilterRule,
     RemovedStatusFilter,
+    SearchFilterRule,
     generate_filter,
 )
 from datahub.ingestion.graph.links import make_url_for_urn
-from datahub.ingestion.graph.openapi import OpenApiAPI, RelationshipDirection
+from datahub.ingestion.graph.openapi import (
+    LineageDirection,
+    OpenApiAPI,
+    RelationshipDirection,
+)
 from datahub.ingestion.source.state.checkpoint import Checkpoint
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
@@ -63,6 +77,7 @@ from datahub.metadata.schema_classes import (
     ASPECT_NAME_MAP,
     KEY_ASPECTS,
     AspectBag,
+    AuditStampClass,
     BrowsePathsClass,
     DatasetPropertiesClass,
     DatasetUsageStatisticsClass,
@@ -73,6 +88,8 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     SchemaMetadataClass,
     StatusClass,
+    StructuredPropertiesClass,
+    StructuredPropertyValueAssignmentClass,
     SystemMetadataClass,
     TelemetryClientIdClass,
 )
@@ -85,7 +102,14 @@ from datahub.metadata.urns import (
     MlPrimaryKeyUrn,
     Urn,
 )
+from datahub.specific.aspect_helpers.structured_properties import (
+    HasStructuredPropertiesPatch,
+)
 from datahub.telemetry.telemetry import telemetry_instance
+from datahub.utilities.server_state_disk_cache import ServerStateDiskCache
+from datahub.utilities.urns.structured_properties_urn import (
+    make_structured_property_urn,
+)
 from datahub.utilities.urns.urn import guess_entity_type
 
 if TYPE_CHECKING:
@@ -108,10 +132,33 @@ if TYPE_CHECKING:
 logger = logging.getLogger(__name__)
 _MISSING_SERVER_ID = "missing"
 _GRAPH_DUMMY_RUN_ID = "__datahub-graph-client"
+# Largest finite 32-bit float; AssertionResult.actualAggValue is stored as one.
+_FLOAT32_MAX = 3.4028234663852886e38
+# Largest value of the GraphQL Long scalar (a Java long).
+_LONG_MAX = 2**63 - 1
+# Attempts for add_structured_property_values when a concurrent write changes the aspect,
+# with jittered exponential backoff between them (capped at _APPEND_MAX_BACKOFF_S).
+_APPEND_MAX_ATTEMPTS = 8
+_APPEND_MAX_BACKOFF_S = 2.0
+# A failed If-Version-Match precondition. The OpenAPI ingest path reports it as 412 with an
+# error of "Precondition Error". The restli path reports every failed validation as 422,
+# preconditions included, so there the status alone cannot identify a conflict.
+_PRECONDITION_FAILED = 412
+
+# Disk cache for entity/aspect specs, keyed by server URL + commit hash so it
+# survives across short-lived processes and invalidates on server upgrade.
+_ENTITY_SPECS_CACHE = ServerStateDiskCache("entity_aspect_specs")
 
 # Alias for backwards compatibility.
 # DEPRECATION: Remove in v0.10.2.
 DataHubGraphConfig = DatahubClientConfig
+
+
+def _audit_stamp_now() -> AuditStampClass:
+    # Imported here: datahub.sdk imports this module, so a top-level import is circular.
+    from datahub.sdk._utils import DEFAULT_ACTOR_URN
+
+    return AuditStampClass(time=make_ts_millis(datetime.now()), actor=DEFAULT_ACTOR_URN)
 
 
 def entity_type_to_graphql(entity_type: str) -> str:
@@ -151,30 +198,104 @@ def flexible_entity_type_to_graphql(entity_type: str) -> str:
     return entity_type_to_graphql(entity_type)
 
 
+def _coerce_optional_count(name: str, value: Optional[SupportsIndex]) -> Optional[int]:
+    """Convert an integer-like count (including numpy integers) to ``int``.
+
+    ``bool`` and floats are rejected: GraphQL ``Long`` does not accept ``true``,
+    and silently truncating a float would report a wrong count. Counts must be
+    non-negative and fit in a signed 64-bit ``Long``.
+    """
+    if value is None:
+        return None
+    if isinstance(value, bool):
+        raise TypeError(f"{name} must be an integer, not a bool")
+    count = operator.index(value)
+    if not 0 <= count <= _LONG_MAX:
+        raise ValueError(
+            f"{name} must be between 0 and {_LONG_MAX} (signed 64-bit), got {count}"
+        )
+    return count
+
+
+class _NumericResultField(NamedTuple):
+    """An optional numeric field of the reportAssertionResult mutation."""
+
+    name: str
+    gql_type: str
+    value: Optional[Union[float, int]]
+
+
 class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     # Redefine for backwards compatibility
     RelationshipDirection = RelationshipDirection
+    LineageDirection = LineageDirection
 
     def __init__(self, config: DatahubClientConfig) -> None:
         self.config = config
+        resolved_auth = None
+        if self.config.auth is not None:
+            resolved_auth = TokenProviderAuth(build_token_provider(self.config.auth))
         super().__init__(
+            default_emit_mode=self.config.default_emit_mode,
             gms_server=self.config.server,
             token=self.config.token,
+            auth=resolved_auth,
             connect_timeout_sec=self.config.timeout_sec,  # reuse timeout_sec for connect timeout
             read_timeout_sec=self.config.timeout_sec,
             retry_status_codes=self.config.retry_status_codes,
             retry_max_times=self.config.retry_max_times,
+            pool_connections=self.config.pool_connections,
+            pool_maxsize=self.config.pool_maxsize,
             extra_headers=self.config.extra_headers,
             ca_certificate_path=self.config.ca_certificate_path,
             client_certificate_path=self.config.client_certificate_path,
+            client_key_path=self.config.client_key_path,
             disable_ssl_verification=self.config.disable_ssl_verification,
             openapi_ingestion=self.config.openapi_ingestion,
+            respect_mcp_sync_marker=self.config.respect_mcp_sync_marker,
             client_mode=config.client_mode,
             datahub_component=config.datahub_component,
             server_config_refresh_interval=config.server_config_refresh_interval,
+            tcp_keepalive=self.config.tcp_keepalive,
         )
         self.server_id: str = _MISSING_SERVER_ID
         self._query_projector: Optional["QueryProjector"] = None
+        self._graphql_input_fields_cache: Dict[str, Set[str]] = {}
+        # The memoized specs paired with the commit hash they were built
+        # against, so the memo invalidates on a server upgrade.
+        self._entity_aspect_specs: Optional[
+            Tuple[Optional[str], "EntityAspectSpecs"]
+        ] = None
+
+    def _graphql_input_type_has_field(self, input_type: str, field_name: str) -> bool:
+        if input_type not in self._graphql_input_fields_cache:
+            response = self.execute_graphql(
+                textwrap.dedent(
+                    """
+                    query inputTypeFields($name: String!) {
+                      __type(name: $name) {
+                        inputFields {
+                          name
+                        }
+                      }
+                    }
+                    """
+                ),
+                variables={"name": input_type},
+            )
+            input_fields = (response.get("__type") or {}).get("inputFields") or []
+            self._graphql_input_fields_cache[input_type] = {
+                field["name"] for field in input_fields if field.get("name")
+            }
+
+        return field_name in self._graphql_input_fields_cache[input_type]
+
+    def _ensure_search_flag_supported(self, field_name: str) -> None:
+        if not self._graphql_input_type_has_field("SearchFlags", field_name):
+            raise ValueError(
+                f"SearchFlags.{field_name} is not supported by this DataHub server. "
+                "Upgrade GMS or disable the corresponding option."
+            )
 
     def test_connection(self) -> None:
         super().test_connection()
@@ -235,7 +356,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             timeout_sec: Optional[float] = session_config.timeout[0]
         else:
             timeout_sec = session_config.timeout
-        return cls(
+        graph = cls(
             DatahubClientConfig(
                 server=emitter._gms_server,
                 token=emitter._token,
@@ -246,11 +367,32 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 disable_ssl_verification=session_config.disable_ssl_verification,
                 ca_certificate_path=session_config.ca_certificate_path,
                 client_certificate_path=session_config.client_certificate_path,
+                client_key_path=session_config.client_key_path,
                 client_mode=session_config.client_mode,
                 datahub_component=session_config.datahub_component,
                 server_config_refresh_interval=emitter._server_config_refresh_interval,
-            )
+                tcp_keepalive=session_config.tcp_keepalive,
+                # Preserve the source emitter's default emit mode so converting an
+                # emitter to a graph (e.g. emitter.to_graph()) doesn't silently
+                # revert to the global default.
+                default_emit_mode=emitter._default_emit_mode,
+            ),
         )
+        if emitter._session.auth is not None:
+            # The declarative AuthConfig is not recoverable from a live emitter,
+            # so carry the resolved requests auth object onto the new session —
+            # otherwise a graph built from an OAuth-authenticated emitter would
+            # silently lose its credentials.
+            #
+            # Known edge: the derived graph's config.auth stays None, so anything
+            # that re-derives a client from this graph's CONFIG (rather than its
+            # session) — e.g. emit_all()/make_rest_sink() via
+            # _make_rest_sink_config() — only picks up env-based OAuth
+            # (DATAHUB_AUTH_TYPE), not auth that came from a recipe sink block.
+            # TODO(oauth): retain the declarative AuthConfig alongside the
+            # resolved auth so derived configs keep it.
+            graph._session.auth = emitter._session.auth
+        return graph
 
     def _send_restli_request(self, method: str, url: str, **kwargs: Any) -> Dict:
         try:
@@ -276,6 +418,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         self, url: str, payload_dict: Dict, params: Optional[Dict] = None
     ) -> Dict:
         return self._send_restli_request("POST", url, json=payload_dict, params=params)
+
+    def _paginate_offset(self, url: str, *, page_size: int = 100) -> Iterator[dict]:
+        """Yield ``elements`` from an offset-paginated GMS endpoint (start/count/total)."""
+        start = 0
+        while True:
+            data = self._get_generic(url, params={"start": start, "count": page_size})
+            yield from data.get("elements", [])
+            count = data.get("count", 0)
+            start += count
+            if count == 0 or start >= data.get("total", 0):
+                break
 
     def _make_rest_sink_config(
         self, extra_config: Optional[Dict] = None
@@ -392,6 +545,59 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
 
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
+
+    def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
+        """The server's entity/aspect specs for capability detection.
+
+        Memoized in memory per client, and cached on disk keyed by server URL +
+        commit hash so it survives across short-lived processes and invalidates
+        on server upgrade. Returns ``None`` if the fetch fails.
+        """
+        commit_hash: Optional[str] = None
+        try:
+            commit_hash = self.server_config.commit_hash
+        except Exception:
+            logger.debug("Could not get commit hash for specs cache key", exc_info=True)
+
+        # Only serve the in-memory memo if it was built against the server's
+        # current commit hash; otherwise a long-running client would keep
+        # returning stale specs after a server upgrade.
+        if self._entity_aspect_specs is not None:
+            memo_hash, memo_specs = self._entity_aspect_specs
+            if memo_hash == commit_hash:
+                return memo_specs
+
+        if commit_hash:
+            cached = _ENTITY_SPECS_CACHE.get(self._gms_server, commit_hash)
+            if cached is not None:
+                try:
+                    specs = EntityAspectSpecs.from_dict(cached)
+                except Exception:
+                    # Valid JSON but not a usable specs payload (e.g. shape
+                    # changed across a code upgrade) — re-fetch.
+                    logger.debug(
+                        "Ignoring unusable cached entity aspect specs",
+                        exc_info=True,
+                    )
+                else:
+                    self._entity_aspect_specs = (commit_hash, specs)
+                    return specs
+
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        try:
+            elements = list(self._paginate_offset(url))
+        except Exception:
+            logger.warning(
+                "Could not fetch entity aspect specs for capability detection.",
+                exc_info=True,
+            )
+            return None
+
+        specs = EntityAspectSpecs.from_registry_api_elements(elements)
+        if commit_hash:
+            _ENTITY_SPECS_CACHE.put(self._gms_server, commit_hash, specs.to_dict())
+        self._entity_aspect_specs = (commit_hash, specs)
+        return specs
 
     def get_ownership(self, entity_urn: str) -> Optional[OwnershipClass]:
         return self.get_aspect(entity_urn=entity_urn, aspect_type=OwnershipClass)
@@ -709,6 +915,37 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             entities.append(x["entity"])
         return entities[0] if entities_yielded else None
 
+    def get_data_product_urn_by_name(self, data_product_name: str) -> Optional[str]:
+        """Retrieve a data product urn based on its name. Returns None if there is no match found"""
+
+        filters = []
+        filter_criteria = [
+            {
+                "field": "name",
+                "values": [data_product_name],
+                "condition": "EQUAL",
+            }
+        ]
+
+        filters.append({"and": filter_criteria})
+        search_body = {
+            "input": "*",
+            "entity": "dataProduct",
+            "start": 0,
+            "count": 10,
+            "filter": {"or": filters},
+        }
+        results: Dict = self._post_generic(self._search_endpoint, search_body)
+        value = results.get("value", {})
+        entities = value.get("entities") or []
+        num_entities = value.get("numEntities", 0)
+        if num_entities > 1:
+            logger.warning(
+                f"Got {num_entities} results for data product name {data_product_name}. "
+                f"Will return the first match."
+            )
+        return entities[0]["entity"] if entities else None
+
     def get_connection_json(self, urn: str) -> Optional[dict]:
         """Retrieve a connection config.
 
@@ -918,6 +1155,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         extraFilters: Optional[List[RawSearchFilterRule]] = None,
         extra_or_filters: Optional[RawSearchFilter] = None,
         skip_cache: bool = False,
+        include_hidden_lifecycle_stages: bool = False,
+        include_draft: bool = False,
+        sort_by: Optional[str] = None,
+        sort_order: Literal["ASCENDING", "DESCENDING"] = "ASCENDING",
     ) -> Iterable[str]:
         """Fetch all urns that match all of the given filters.
 
@@ -937,6 +1178,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         :param status: Filter on the deletion status of the entity. The default is only return non-soft-deleted entities.
         :param extraFilters: Additional filters to apply. If specified, the results will match all of the filters.
         :param skip_cache: Whether to bypass caching. Defaults to False.
+        :param include_hidden_lifecycle_stages: Whether to include entities hidden by lifecycle stage.
+        :param include_draft: Whether to include entities in DRAFT lifecycle state.
+        :param sort_by: Optional searchable field to sort on (e.g. "lastModifiedAt"). If None, uses the backend's default scroll order.
+        :param sort_order: Sort direction when sort_by is set; ignored when sort_by is None. Defaults to ASCENDING.
 
         :return: An iterable of urns that match the filters.
         """
@@ -957,6 +1202,27 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             extra_or_filters=extra_or_filters,
         )
 
+        optional_variable_defs = ""
+        optional_search_flag_fields = ""
+        optional_variables: Dict[str, bool] = {}
+        if include_hidden_lifecycle_stages:
+            self._ensure_search_flag_supported("includeHiddenLifecycleStages")
+            optional_variable_defs += (
+                "\n                $includeHiddenLifecycleStages: Boolean!,"
+            )
+            optional_search_flag_fields += (
+                "\n                        includeHiddenLifecycleStages: "
+                "$includeHiddenLifecycleStages"
+            )
+            optional_variables["includeHiddenLifecycleStages"] = True
+        if include_draft:
+            self._ensure_search_flag_supported("includeDraft")
+            optional_variable_defs += "\n                $includeDraft: Boolean!,"
+            optional_search_flag_fields += (
+                "\n                        includeDraft: $includeDraft"
+            )
+            optional_variables["includeDraft"] = True
+
         graphql_query = textwrap.dedent(
             """
             query scrollUrnsWithFilters(
@@ -966,6 +1232,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $batchSize: Int!,
                 $scrollId: String,
                 $skipCache: Boolean!,
+                $sortInput: SearchSortInput,
+            """
+            + optional_variable_defs
+            + """
                 $includeSoftDeleted: Boolean) {
 
                 scrollAcrossEntities(input: {
@@ -974,10 +1244,14 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     scrollId: $scrollId,
                     types: $types,
                     orFilters: $orFilters,
+                    sortInput: $sortInput,
                     searchFlags: {
                         skipHighlighting: true
                         skipAggregates: true
                         skipCache: $skipCache
+            """
+            + optional_search_flag_fields
+            + """
                         includeSoftDeleted: $includeSoftDeleted
                     }
                 }) {
@@ -985,6 +1259,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     searchResults {
                         entity {
                             urn
+                        }
+                        extraProperties {
+                            name
+                            value
                         }
                     }
                 }
@@ -998,15 +1276,46 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "orFilters": orFilters,
             "batchSize": batch_size,
             "skipCache": skip_cache,
+            "sortInput": (
+                {"sortCriteria": [{"field": sort_by, "sortOrder": sort_order}]}
+                if sort_by
+                else None
+            ),
             "includeSoftDeleted": (
                 None
                 if status is None
                 else status != RemovedStatusFilter.NOT_SOFT_DELETED
             ),
         }
+        variables.update(optional_variables)
 
         for entity in self._scroll_across_entities(graphql_query, variables):
             yield entity["urn"]
+
+    def get_dataset_urns_ignoring_case(self, lowercased_urn: str) -> List[str]:
+        """Every stored casing of `lowercased_urn`, which must already be lowercased.
+
+        Matched on `urn` as well as `aliases.lowercasedUrn`: GMS skips the alias for a
+        dataset already equal to its lowercased form, so that one is findable only by urn.
+        """
+        or_filters: RawSearchFilter = [
+            {
+                "and": [
+                    SearchFilterRule(
+                        field=field, condition="EQUAL", values=[lowercased_urn]
+                    ).to_raw()
+                ]
+            }
+            for field in ("lowercasedUrn", "urn")
+        ]
+        # Deduped: matching under both fields would otherwise read as a casing collision.
+        return list(
+            dict.fromkeys(
+                self.get_urns_by_filter(
+                    entity_types=["dataset"], extra_or_filters=or_filters
+                )
+            )
+        )
 
     def get_results_by_filter(
         self,
@@ -1254,6 +1563,10 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 root-anchored (``searchAcrossEntities``). See
                 :class:`~datahub.utilities.graphql_query_adapter.RequiredFieldUnsupportedError`.
         """
+        # Whether the query was already minified by adapt_query() above —
+        # avoids a redundant parse+print round-trip on the happy path.
+        already_minified = False
+
         if strip_unsupported_fields:
             try:
                 if self._query_projector is None:
@@ -1263,6 +1576,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 query, removed = self._query_projector.adapt_query(
                     query, self, required_fields=required_fields
                 )
+                already_minified = True
                 if removed:
                     logger.info(f"Stripped unsupported fields from query: {removed}")
             except Exception as e:
@@ -1281,6 +1595,21 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     f"Failed to adapt query for schema compatibility, "
                     f"falling back to original query: {e}"
                 )
+
+        # Always minify before sending — covers strip=False, the projection
+        # fallback path, and any caller that hands us a pretty-printed query.
+        # The projector's output is already minified; skip the redundant
+        # parse+print there. Falls back silently to the original query if
+        # minification raises (e.g. unparseable input from a caller).
+        if not already_minified:
+            try:
+                from datahub.utilities.graphql_query_adapter import (
+                    minify_graphql_query,
+                )
+
+                query = minify_graphql_query(query)
+            except Exception:
+                pass
 
         url = f"{self._gms_server}/api/graphql"
 
@@ -1499,7 +1828,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         Returns:
             A string containing the result of the restore indices operation. This format is subject to change.
         """
-        payload_obj = {}
+        payload_obj: Dict[str, Union[str, int]] = {}
         if file is not None:
             with open(file) as f:
                 for urn in progressbar.progressbar(f.readlines()):
@@ -1606,10 +1935,184 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         res = self.execute_graphql(query=graph_query)
         return res["removeTag"]
 
+    @staticmethod
+    def _is_version_conflict(error: OperationalError) -> bool:
+        """Whether a write failed its If-Version-Match precondition and can be retried.
+
+        The OpenAPI ingest path is identified by status, so rewording the server's message
+        does not turn a retryable conflict into a hard failure. The restli path reports a
+        precondition failure as 422, the same status it uses for every other rejected write,
+        so there the message is the only thing that separates the two: the text check below
+        is load-bearing for that transport, not a legacy fallback. It also covers servers
+        that predate the structured precondition response.
+        """
+        info = error.info
+        if info.get("status") == _PRECONDITION_FAILED:
+            return True
+        if info.get("error") == "Precondition Error":
+            return True
+        return "Expected version" in str(error)
+
+    def add_structured_property_values(
+        self,
+        entity_urn: str,
+        property: str,
+        values: Union[str, float, Sequence[Union[str, float]]],
+    ) -> bool:
+        """Append values to a structured property on an entity, keeping the values it already has.
+
+        A patch's ``add_structured_property`` replaces the property's whole value list. This
+        reads the entity's current values for the property, adds the ones that are missing
+        (exact match, existing order kept) and writes the merged list back as a patch. Only
+        this property is written, so other properties and other aspects of the entity are
+        left alone.
+
+        The write is conditional on the structured properties being unchanged since the
+        read. If another writer changed them in between, the read and merge are retried, so
+        concurrent appends do not drop each other's values. Two limits apply: the retries
+        stop after eight attempts and raise ``OperationalError``, and servers that ignore
+        conditional headers on patches apply the write unconditionally, so on those a
+        parallel append can still drop values.
+
+        When there is something to append, the merged list is written as a manual edit, the
+        same way an edit in the UI is: if the property's current value was written by an
+        automation (for example propagation), its attribution is removed and the property
+        keeps all of its values. When every value is already present nothing is written at
+        all, so an automation's attribution is left as it is.
+        The server still enforces the property definition, so appending to a single-value
+        property that already has a value fails.
+
+        Args:
+            entity_urn: The entity to update. It must already exist.
+            property: The structured property, as a bare qualified name or a urn.
+            values: A value or a list of values to append.
+
+        Repeated values are collapsed: if the entity somehow holds the same value twice,
+        the merged list keeps one of them.
+
+        Returns:
+            True if values were written, False if all of them were already present.
+
+        Raises:
+            ValueError: If the entity does not exist.
+            OperationalError: If the write is rejected, or still conflicts after retries.
+        """
+        property_urn = make_structured_property_urn(property)
+        to_add = [values] if isinstance(values, (str, int, float)) else list(values)
+
+        for attempt in range(_APPEND_MAX_ATTEMPTS):
+            current, version = self._get_structured_properties_with_version(entity_urn)
+            if current is None and not self.exists(entity_urn):
+                raise ValueError(f"Entity {entity_urn} does not exist")
+
+            # The server allows one entry per property; merge them all in case an older
+            # aspect still holds several.
+            entries = [
+                assignment
+                for assignment in (current.properties if current else [])
+                if assignment.propertyUrn == property_urn
+            ]
+            merged: List[Union[str, float]] = []
+            seen: Set[Union[str, float]] = set()
+            for value in [v for entry in entries for v in entry.values]:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            existing_count = len(merged)
+            for value in to_add:
+                if value not in seen:
+                    seen.add(value)
+                    merged.append(value)
+            if len(merged) == existing_count:
+                return False
+
+            patch = HasStructuredPropertiesPatch(entity_urn)
+            # Patch entries are keyed by attribution source. Remove the attributed entries so
+            # the manual entry below is the only one; the add replaces an unattributed entry.
+            # Removing the whole property instead would also drop the map the add writes to.
+            for source in {
+                entry.attribution.source
+                for entry in entries
+                if entry.attribution and entry.attribution.source
+            }:
+                patch.remove_structured_property(
+                    key=property_urn, attribution_source=source
+                )
+            # Stamp the entry the way the SDK's Entity.set_structured_property does: keep the
+            # stored `created` (the earliest, when entries are merged), else now; and set
+            # `lastModified` to now. A bare set would write the entry without either.
+            now = _audit_stamp_now()
+            created = min(
+                (entry.created for entry in entries if entry.created),
+                key=lambda stamp: stamp.time,
+                default=now,
+            )
+            patch.set_structured_property_manual(
+                StructuredPropertyValueAssignmentClass(
+                    propertyUrn=property_urn,
+                    values=merged,
+                    created=created,
+                    lastModified=now,
+                )
+            )
+            try:
+                for mcp in patch.build():
+                    mcp.headers = {"If-Version-Match": version}
+                    # The compare-and-set result has to be known before returning, so this
+                    # write is always synchronous on primary storage. Under the graph's
+                    # default emit mode an async client returns before the precondition is
+                    # evaluated, so a version conflict would surface after this call and
+                    # never be retried.
+                    self.emit_mcp(mcp, emit_mode=EmitMode.SYNC_PRIMARY)
+                return True
+            except OperationalError as e:
+                if (
+                    not self._is_version_conflict(e)
+                    or attempt == _APPEND_MAX_ATTEMPTS - 1
+                ):
+                    raise
+                logger.debug(
+                    f"Structured properties of {entity_urn} changed during append; retrying"
+                )
+                time.sleep(
+                    random.uniform(0, min(_APPEND_MAX_BACKOFF_S, 0.05 * 2**attempt))
+                )
+        raise AssertionError("unreachable")
+
+    def _get_structured_properties_with_version(
+        self, entity_urn: str
+    ) -> Tuple[Optional[StructuredPropertiesClass], str]:
+        """Returns the structuredProperties aspect and the version to assert on a write.
+
+        The version mirrors the server's ``ConditionalWriteValidator.resolveAspectVersion``:
+        ``systemMetadata.version`` when the server stamped one, otherwise ``max(1, aspect
+        version)``. ``"-1"`` is returned only when the aspect is absent, where it asserts
+        that no aspect exists; sending it for an aspect that does exist would make every
+        write conflict.
+        """
+        aspect_name = StructuredPropertiesClass.ASPECT_NAME
+        try:
+            raw = self.get_entity_raw(entity_urn, aspects=[aspect_name])
+        except HTTPError as e:
+            if e.response is not None and e.response.status_code == 404:
+                return None, "-1"
+            raise
+        envelope = raw.get("aspects", {}).get(aspect_name)
+        if not envelope:
+            return None, "-1"
+        version = (envelope.get("systemMetadata") or {}).get("version")
+        if version is None:
+            version = str(max(1, envelope.get("version") or 0))
+        aspect = StructuredPropertiesClass.from_obj(
+            post_json_transform(envelope["value"])
+        )
+        return aspect, version
+
     def _assertion_result_shared(self) -> str:
         fragment: str = """
              fragment assertionResult on AssertionResult {
                  type
+                 severity
                  rowCount
                  missingCount
                  unexpectedCount
@@ -1835,8 +2338,15 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         platform_name: Optional[str] = None,
         platform_urn: Optional[str] = None,
         field_path: Optional[str] = None,
+        field_paths: Optional[List[str]] = None,
         external_url: Optional[str] = None,
         logic: Optional[str] = None,
+        scope: Optional[str] = None,
+        aggregation: Optional[str] = None,
+        operator: Optional[str] = None,
+        parameters: Optional[Dict] = None,
+        native_type: Optional[str] = None,
+        native_parameters: Optional[List[Dict[str, str]]] = None,
     ) -> Dict:
         graph_query: str = """
             mutation upsertCustomAssertion(
@@ -1845,22 +2355,36 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $type: String!,
                 $description: String!,
                 $fieldPath: String,
+                $fieldPaths: [String!],
                 $platformName: String,
                 $platformUrn: String,
                 $externalUrl: String,
-                $logic: String
+                $logic: String,
+                $scope: DatasetAssertionScope,
+                $aggregation: AssertionStdAggregation,
+                $operator: AssertionStdOperator,
+                $parameters: AssertionStdParametersInput,
+                $nativeType: String,
+                $nativeParameters: [StringMapEntryInput!]
             ) {
                 upsertCustomAssertion(urn: $assertionUrn, input: {
                     entityUrn: $entityUrn
                     type: $type
                     description: $description
                     fieldPath: $fieldPath
+                    fieldPaths: $fieldPaths
                     platform: {
                         urn: $platformUrn
                         name: $platformName
                     }
                     externalUrl: $externalUrl
                     logic: $logic
+                    scope: $scope
+                    aggregation: $aggregation
+                    operator: $operator
+                    parameters: $parameters
+                    nativeType: $nativeType
+                    nativeParameters: $nativeParameters
                 }) {
                         urn
                 }
@@ -1873,10 +2397,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "type": type,
             "description": description,
             "fieldPath": field_path,
+            "fieldPaths": field_paths,
             "platformName": platform_name,
             "platformUrn": platform_urn,
             "externalUrl": external_url,
             "logic": logic,
+            "scope": scope,
+            "aggregation": aggregation,
+            "operator": operator,
+            "parameters": parameters,
+            "nativeType": native_type,
+            "nativeParameters": native_parameters,
         }
 
         res = self.execute_graphql(
@@ -1895,8 +2426,67 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         external_url: Optional[str] = None,
         error_type: Optional[str] = None,
         error_message: Optional[str] = None,
+        severity: Optional[Literal["LOW", "MEDIUM", "HIGH"]] = None,
+        actual_agg_value: Optional[SupportsFloat] = None,
+        row_count: Optional[SupportsIndex] = None,
+        unexpected_count: Optional[SupportsIndex] = None,
+        missing_count: Optional[SupportsIndex] = None,
     ) -> bool:
-        graph_query: str = """
+        """Report a run result for an assertion.
+
+        The numeric arguments are optional values observed during the run. The
+        server stores them only for SUCCESS and FAILURE results and ignores them
+        for ERROR and INIT. ``actual_agg_value`` is stored as a 32-bit float, so
+        only about 7 significant digits are kept; use ``row_count``,
+        ``unexpected_count`` and ``missing_count`` for exact counts.
+
+        ``actual_agg_value`` must be finite and within the 32-bit float range,
+        and the counts must be non-negative integers that fit in a signed
+        64-bit integer; otherwise ``ValueError`` or ``TypeError`` is raised
+        before anything is sent. numpy scalars are accepted.
+
+        The numeric fields are added to the request only when set, because
+        servers that predate them reject unknown input fields.
+        """
+        agg_value: Optional[float] = None
+        if actual_agg_value is not None:
+            if isinstance(actual_agg_value, bool):
+                raise TypeError("actual_agg_value must be a number, not a bool")
+            agg_value = float(actual_agg_value)
+            if not math.isfinite(agg_value) or abs(agg_value) > _FLOAT32_MAX:
+                raise ValueError(
+                    f"actual_agg_value must be finite and within the 32-bit float range, got {agg_value}"
+                )
+
+        # Unset fields are left out of the mutation entirely.
+        numeric_fields = [
+            field
+            for field in (
+                _NumericResultField("actualAggValue", "Float", agg_value),
+                _NumericResultField(
+                    "rowCount", "Long", _coerce_optional_count("row_count", row_count)
+                ),
+                _NumericResultField(
+                    "unexpectedCount",
+                    "Long",
+                    _coerce_optional_count("unexpected_count", unexpected_count),
+                ),
+                _NumericResultField(
+                    "missingCount",
+                    "Long",
+                    _coerce_optional_count("missing_count", missing_count),
+                ),
+            )
+            if field.value is not None
+        ]
+        numeric_var_defs = "".join(
+            f"\n                ${f.name}: {f.gql_type}," for f in numeric_fields
+        )
+        numeric_input_fields = "".join(
+            f"\n                    {f.name}: ${f.name}" for f in numeric_fields
+        )
+
+        graph_query: str = f"""
             mutation reportAssertionResult(
                 $assertionUrn: String!,
                 $timestampMillis: Long!,
@@ -1904,15 +2494,17 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                 $properties: [StringMapEntryInput!],
                 $externalUrl: String,
                 $error: AssertionResultErrorInput,
-            ) {
-                reportAssertionResult(urn: $assertionUrn, result: {
+                $severity: AssertionResultSeverity,{numeric_var_defs}
+            ) {{
+                reportAssertionResult(urn: $assertionUrn, result: {{
                     timestampMillis: $timestampMillis
                     type: $type
                     properties: $properties
                     externalUrl: $externalUrl
                     error: $error
-                })
-            }
+                    severity: $severity{numeric_input_fields}
+                }})
+            }}
         """
 
         variables = {
@@ -1924,7 +2516,9 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
             "error": (
                 {"type": error_type, "message": error_message} if error_type else None
             ),
+            "severity": severity,
         }
+        variables.update({f.name: f.value for f in numeric_fields})
 
         res = self.execute_graphql(
             query=graph_query,
@@ -2139,7 +2733,9 @@ def get_default_graph(
     client_mode: Optional[ClientMode] = None,
     datahub_component: Optional[str] = None,
 ) -> DataHubGraph:
-    graph_config = config_utils.load_client_config()
+    # This graph is cached for the life of the process, so an OAuth session's
+    # token must be refreshed per request rather than once here.
+    graph_config = config_utils.load_client_config(refresh_per_request=True)
     graph_config.client_mode = client_mode
     graph_config.datahub_component = datahub_component
     graph = DataHubGraph(graph_config)

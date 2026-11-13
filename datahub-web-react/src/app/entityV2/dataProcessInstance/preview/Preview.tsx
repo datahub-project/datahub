@@ -1,7 +1,8 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -67,6 +68,7 @@ export default function Preview({
     previewType: PreviewType;
 }): JSX.Element {
     const entityRegistry = useEntityRegistry();
+    const { t } = useTranslation('entity.types');
     return (
         <DefaultPreviewCard
             entityType={EntityType.DataProcessInstance}
@@ -75,7 +77,7 @@ export default function Preview({
             urn={urn}
             data={data}
             description={description || ''}
-            type={subType || 'Process Instance'}
+            type={subType || t('dataProcessInstance.name')}
             typeIcon={entityRegistry.getIcon(EntityType.DataProcessInstance, 14, IconStyleType.ACCENT)}
             platform={platformName || undefined}
             logoUrl={platformLogo || undefined}

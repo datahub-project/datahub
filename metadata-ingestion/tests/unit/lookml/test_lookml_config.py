@@ -1,12 +1,15 @@
 import pathlib
 from copy import deepcopy
+from unittest.mock import MagicMock
 
 import pytest
 from pydantic import ValidationError
 
 from datahub.configuration.git import GitInfo
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.looker.looker_config import LookerConnectionDefinition
 from datahub.ingestion.source.looker.lookml_config import LookMLSourceConfig
+from datahub.ingestion.source.looker.lookml_source import LookMLSource
 
 # ---- GitInfo validator tests ----
 
@@ -272,3 +275,97 @@ def test_project_dependencies_mixed_local_path_and_git_info(
         config.project_dependencies["remote_project"].repo
         == "https://github.com/org/other"
     )
+
+
+def test_remote_dependency_domain_pattern_defaults_to_allow_all(
+    minimal_lookml_config: dict,
+) -> None:
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    # Default is allow_all(): everything not in the hard denylist is permitted.
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("anything.example.com")
+
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com$", ".*\\.github\\.com$"],
+        "deny": ["^evil\\.example$"],
+    }
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("gist.github.com")
+    assert not config.remote_dependency_domain_pattern.allowed("evil.example")
+    assert not config.remote_dependency_domain_pattern.allowed("gitlab.com")
+
+
+def test_unanchored_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # An unanchored allow entry (no trailing "$") prefix-matches sub-hosts like
+    # github.com.evil.example, defeating the allowlist, so it is rejected.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["github.com"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_alternation_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # "|" hides an unanchored branch behind a trailing "$": the entry below ends
+    # in "$" (passing the anchor check) but its first branch matches
+    # github.com.evil.example. Alternation is rejected outright.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com\\.evil|^github\\.com$"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_malformed_regex_allow_pattern_rejected_at_load(
+    minimal_lookml_config: dict,
+) -> None:
+    # A pattern can clear the anchor and alternation checks yet still be an
+    # invalid regex (here an unterminated character class). AllowDenyPattern
+    # compiles lazily, so without a load-time check this crashes mid-ingestion
+    # inside check_remote_dependency_url, where there is no handler.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com[$"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_malformed_regex_deny_pattern_rejected_at_load(
+    minimal_lookml_config: dict,
+) -> None:
+    # deny is compiled too: AllowDenyPattern.denied() runs first, so a malformed
+    # deny is the more likely crash. It must fail at load, not mid-ingestion.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com$"],
+        "deny": ["^evil\\.com[$"],
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+# ---- LookMLSource.get_workunits_internal: git clone failure ----
+
+
+def test_git_clone_failure_reports_failure_not_pipeline_crash() -> None:
+    """A GitCommandError during the main repo clone is caught and reported as a
+    pipeline failure, not an uncaught exception that crashes the whole run."""
+    config = MagicMock(spec=LookMLSourceConfig)
+    config.base_folder = None
+    config.git_info = MagicMock(spec=GitInfo)
+    config.git_info.repo = "git@github.com:org/repo.git"
+    config.git_info.clone.side_effect = Exception("ssh: not found")
+    config.project_dependencies = {}
+    config.stateful_ingestion = None
+    config.api = None
+
+    ctx = MagicMock(spec=PipelineContext)
+    ctx.graph = None  # disables stateful ingestion
+    source = LookMLSource(config, ctx)
+
+    # Should not raise — the error is captured by reporter.failure()
+    workunits = list(source.get_workunits_internal())
+
+    assert workunits == []
+    assert source.reporter.failures, "Expected a failure entry in the reporter"
+    assert any("clone" in (f.title or "").lower() for f in source.reporter.failures)

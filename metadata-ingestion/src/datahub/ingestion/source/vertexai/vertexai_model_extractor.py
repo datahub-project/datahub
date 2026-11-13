@@ -96,7 +96,12 @@ class VertexAIModelExtractor:
         self.rate_limiter = rate_limiter
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
-        self._models_cache: Optional[List] = None
+        self._models_cache: Optional[List[Model]] = None
+
+    def reset_regional_caches(self) -> None:
+        """Clear the cached models and endpoints, which are region-specific."""
+        self._models_cache = None
+        self.endpoints = None
 
     def _list_versions(self, model: Model) -> List[VersionInfo]:
         registry = model.versioning_registry
@@ -128,10 +133,6 @@ class VertexAIModelExtractor:
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Models from Vertex AI")
-        # Reset so each region gets its own fetch; get_evaluation_workunits reuses
-        # the cache while still in the same region.
-        self._models_cache = None
-
         last_checkpoint_millis = self.state_handler.get_last_update_time(
             ResourceTypes.MODEL
         )
@@ -277,6 +278,9 @@ class VertexAIModelExtractor:
             else:
                 training_job = self.model_usage_tracker.get_model_training_job(urn)
                 downstream_jobs = self.model_usage_tracker.get_model_usage(urn)
+                training_data_urns = self.model_usage_tracker.get_model_training_data(
+                    urn
+                )
 
                 yield MetadataChangeProposalWrapper(
                     entityUrn=urn,
@@ -285,6 +289,9 @@ class VertexAIModelExtractor:
                         downstreamJobs=downstream_jobs if downstream_jobs else None,
                     ),
                 ).as_workunit()
+
+                if training_data_urns:
+                    yield self._create_training_data_aspect(urn, training_data_urns)
 
             self.model_usage_tracker.mark_emitted(urn)
 
@@ -341,7 +348,7 @@ class VertexAIModelExtractor:
 
         return metrics
 
-    def _get_evaluation_model_urn(self, model: Model) -> Optional[str]:
+    def _get_evaluation_model_urn(self, model: Model) -> str:
         try:
             with handle_google_api_errors(
                 "get model versions", "model", model.name, log_level="debug"
@@ -370,13 +377,6 @@ class VertexAIModelExtractor:
     def _gen_model_evaluation_mcps(
         self, model: Model, evaluation: ModelEvaluation
     ) -> Iterable[MetadataWorkUnit]:
-        model_urn = self._get_evaluation_model_urn(model)
-        if not model_urn:
-            logger.warning(
-                f"Skipping evaluation {evaluation.name} - could not determine model URN"
-            )
-            return
-
         evaluation_urn = builder.make_ml_model_deployment_urn(
             platform=self.platform,
             deployment_name=self.name_formatter.format_evaluation_name(
@@ -656,13 +656,11 @@ class VertexAIModelExtractor:
             model_version, model_name=model_name
         )
 
-        # Resolve any pending resource usage from pipeline tasks that referenced this model
         if model.resource_name:
             self.model_usage_tracker.resolve_and_track_resource(
                 model.resource_name, model_urn, model_group_urn
             )
 
-        # Retrieve training job if it was tracked earlier
         if not training_job_urn:
             training_job_urn = self.model_usage_tracker.get_model_training_job(
                 model_urn
@@ -702,14 +700,22 @@ class VertexAIModelExtractor:
 
         yield self._create_version_properties_aspect(model, model_version, model_urn)
 
-        training_data_urns = model_metadata.training_data_urns
+        training_data_urns = (
+            model_metadata.training_data_urns
+            or self.model_usage_tracker.get_model_training_data(model_urn)
+        )
         if training_data_urns:
+            for ds_urn in training_data_urns:
+                self.model_usage_tracker.track_model_training_data(model_urn, ds_urn)
             yield self._create_training_data_aspect(model_urn, training_data_urns)
 
         self.model_usage_tracker.mark_emitted(model_urn)
 
     def _get_version_set_urn(self, model: Model) -> VersionSetUrn:
-        guid_dict = {"platform": self.platform, "name": model.name}
+        # Include project_id via format_model_name so models with the same numeric ID
+        # in different projects don't collide on the same versionSet.
+        model_name = self.name_formatter.format_model_name(entity_id=model.name)
+        guid_dict = {"platform": self.platform, "name": model_name}
         version_set_urn = VersionSetUrn(
             id=builder.datahub_guid(guid_dict),
             entity_type=MlModelUrn.ENTITY_TYPE,

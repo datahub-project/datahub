@@ -2,8 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.application;
 
 import static com.linkedin.datahub.graphql.TestUtils.*;
 import static com.linkedin.metadata.Constants.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.*;
 import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
@@ -11,11 +10,13 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CreateApplicationInput;
 import com.linkedin.datahub.graphql.generated.CreateApplicationPropertiesInput;
+import com.linkedin.datahub.graphql.resolvers.mutate.util.OwnerUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.ApplicationService;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.UUID;
 import java.util.concurrent.CompletionException;
+import org.mockito.MockedStatic;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -148,5 +149,99 @@ public class CreateApplicationResolverTest {
     // Verify the application was created
     Mockito.verify(mockApplicationService, Mockito.times(1))
         .createApplication(any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION));
+  }
+
+  @Test
+  public void testGetWithShouldAddCreatorAsOwnerTrue() throws Exception {
+    CreateApplicationPropertiesInput propertiesInput =
+        CreateApplicationPropertiesInput.builder()
+            .setName(TEST_APP_NAME)
+            .setDescription(TEST_APP_DESCRIPTION)
+            .build();
+    CreateApplicationInput input =
+        CreateApplicationInput.builder()
+            .setId(TEST_APP_ID)
+            .setProperties(propertiesInput)
+            .setShouldAddCreatorAsOwner(true)
+            .build();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    Mockito.when(
+            mockApplicationService.createApplication(
+                any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION)))
+        .thenReturn(TEST_APP_URN);
+
+    Mockito.when(mockApplicationService.getApplicationEntityResponse(any(), eq(TEST_APP_URN)))
+        .thenReturn(null);
+
+    // Mock entityService.exists to prevent OwnerUtils from failing
+    Mockito.doReturn(true).when(mockEntityService).exists(any(), any(Urn.class), anyBoolean());
+
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockApplicationService, Mockito.times(1))
+        .createApplication(any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION));
+  }
+
+  @Test
+  public void testGetWithShouldAddCreatorAsOwnerNull() throws Exception {
+    CreateApplicationPropertiesInput propertiesInput =
+        CreateApplicationPropertiesInput.builder()
+            .setName(TEST_APP_NAME)
+            .setDescription(TEST_APP_DESCRIPTION)
+            .build();
+    CreateApplicationInput input =
+        CreateApplicationInput.builder()
+            .setId(TEST_APP_ID)
+            .setProperties(propertiesInput)
+            .setShouldAddCreatorAsOwner(null)
+            .build();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    Mockito.when(
+            mockApplicationService.createApplication(
+                any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION)))
+        .thenReturn(TEST_APP_URN);
+
+    Mockito.when(mockApplicationService.getApplicationEntityResponse(any(), eq(TEST_APP_URN)))
+        .thenReturn(null);
+
+    // Mock entityService.exists to prevent OwnerUtils from failing
+    Mockito.doReturn(true).when(mockEntityService).exists(any(), any(Urn.class), anyBoolean());
+
+    resolver.get(mockEnv).get();
+
+    Mockito.verify(mockApplicationService, Mockito.times(1))
+        .createApplication(any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION));
+  }
+
+  @Test
+  public void testGetWithShouldAddCreatorAsOwnerFalse() throws Exception {
+    CreateApplicationPropertiesInput propertiesInput =
+        CreateApplicationPropertiesInput.builder()
+            .setName(TEST_APP_NAME)
+            .setDescription(TEST_APP_DESCRIPTION)
+            .build();
+    CreateApplicationInput input =
+        CreateApplicationInput.builder()
+            .setId(TEST_APP_ID)
+            .setProperties(propertiesInput)
+            .setShouldAddCreatorAsOwner(false)
+            .build();
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+
+    Mockito.when(
+            mockApplicationService.createApplication(
+                any(), eq(TEST_APP_ID), eq(TEST_APP_NAME), eq(TEST_APP_DESCRIPTION)))
+        .thenReturn(TEST_APP_URN);
+
+    Mockito.when(mockApplicationService.getApplicationEntityResponse(any(), eq(TEST_APP_URN)))
+        .thenReturn(null);
+
+    try (MockedStatic<OwnerUtils> mockedOwnerUtils = Mockito.mockStatic(OwnerUtils.class)) {
+      resolver.get(mockEnv).get();
+
+      mockedOwnerUtils.verifyNoInteractions();
+    }
   }
 }

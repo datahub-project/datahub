@@ -1,20 +1,20 @@
 import { Table } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { DataContractSummaryFooter } from '@app/entityV2/shared/tabs/Dataset/Validations/contract/DataContractSummaryFooter';
 
 import { SchemaContract } from '@types';
 
 const TitleText = styled.div`
-    color: ${ANTD_GRAY[7]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-bottom: 20px;
     letter-spacing: 1px;
 `;
 
 const ColumnHeader = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 const Container = styled.div`
@@ -30,7 +30,7 @@ const SummaryContainer = styled.div`
 const StyledTable = styled(Table)`
     width: 100%;
     border-radius: 8px;
-    box-shadow: 0px 0px 4px rgba(0, 0, 0, 0.1);
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
     height: 100%;
 `;
 
@@ -40,16 +40,18 @@ type Props = {
 };
 
 export const SchemaContractSummary = ({ contracts, showAction = false }: Props) => {
+    const { t } = useTranslation('entity.profile.validations');
+    const { t: tl } = useTranslation('common.labels');
     const firstContract = (contracts.length && contracts[0]) || undefined;
     const schemaMetadata = firstContract?.assertion?.info?.schemaAssertion?.schema;
 
     const columns = [
         {
-            title: () => <ColumnHeader>Name</ColumnHeader>,
+            title: () => <ColumnHeader>{tl('name')}</ColumnHeader>,
             render: (field) => <>{field.fieldPath}</>,
         },
         {
-            title: () => <ColumnHeader>Type</ColumnHeader>,
+            title: () => <ColumnHeader>{t('schemaSummary.typeColumn')}</ColumnHeader>,
             render: (field) => <>{field.type}</>,
         },
     ];
@@ -61,7 +63,7 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
 
     return (
         <Container>
-            <TitleText>SCHEMA</TitleText>
+            <TitleText>{t('contractSection.schema')}</TitleText>
             <SummaryContainer>
                 <StyledTable
                     pagination={false}
@@ -70,10 +72,10 @@ export const SchemaContractSummary = ({ contracts, showAction = false }: Props) 
                     footer={() => (
                         <DataContractSummaryFooter
                             assertions={(firstContract && [firstContract?.assertion]) || []}
-                            passingText="Meeting schema contract"
-                            failingText="Violating schema contract"
-                            errorText="Schema contract assertions are completing with errors"
-                            actionText="view schema assertions"
+                            passingText={t('contractStatus.passingText.schema')}
+                            failingText={t('contractStatus.failingText.schema')}
+                            errorText={t('contractStatus.errorText.schema')}
+                            actionText={t('contractStatus.action.viewSchema')}
                             showAction={showAction}
                         />
                     )}

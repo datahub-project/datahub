@@ -1,12 +1,17 @@
 /* eslint-disable prefer-template */
-import React, { useContext, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import styled from 'styled-components';
 
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
+import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
+import { ENTITY_SIDEBAR_MAX_WIDTH, ENTITY_SIDEBAR_MIN_WIDTH } from '@app/sharedV2/sidebar/useEntitySidebarWidth';
+import { SIDE_PANEL_MAX_ROW_SHARE } from '@app/sharedV2/sidebar/usePersistedSidebarWidth';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 export const StyledEntitySidebarContainer = styled.div<{
@@ -16,19 +21,26 @@ export const StyledEntitySidebarContainer = styled.div<{
     isFocused?: boolean;
     $isShowNavBarRedesign?: boolean;
     $contextType?: TabContextType;
+    $isResizing?: boolean;
+    $capToRowShare?: boolean;
 }>`
+    position: relative;
     flex: 1;
     overflow: auto;
     box-shadow: ${(props) => {
         if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
             return 'none';
         }
-        if (props.$isShowNavBarRedesign) {
-            return props.theme.styles['box-shadow-navbar-redesign'];
-        }
         return props.theme.colors.shadowSm;
     }};
-    ${(props) => !props.isCollapsed && props.$width && `min-width: ${props.$width}px; max-width: ${props.$width}px;`}
+    ${(props) => {
+        if (props.isCollapsed || !props.$width) return '';
+        // A saved drag width must not crowd out the page on a narrower window.
+        const width = props.$capToRowShare
+            ? `min(${props.$width}px, ${SIDE_PANEL_MAX_ROW_SHARE * 100}%)`
+            : `${props.$width}px`;
+        return `min-width: ${width}; max-width: ${width};`;
+    }}
     ${(props) => props.isCollapsed && 'min-width: 64px; max-width: 64px;'}
     ${(props) => props.backgroundColor && `background-color: ${props.backgroundColor};`}
     /* Hide scrollbar for Chrome, Safari, and Opera */
@@ -40,14 +52,15 @@ export const StyledEntitySidebarContainer = styled.div<{
         if (props.$contextType === TabContextType.CHROME_SIDEBAR) {
             return '0';
         }
+        // The app shell owns the outer inset; the sidebar only keeps the page gap to the content beside it.
         if (props.$isShowNavBarRedesign) {
-            return '4px 4px 4px 8px';
+            return `0 0 0 ${PAGE_GAP_PX}px`;
         }
         return '0px 0px 0px 0px';
     }};
     ${(props) =>
         props.$isShowNavBarRedesign && `border-radius: ${props.theme.styles['border-radius-navbar-redesign']};`}
-    transition: max-width 0.3s ease-in-out, min-width 0.3s ease-in-out;
+    transition: ${(props) => (props.$isResizing ? 'none' : 'max-width 0.3s ease-in-out, min-width 0.3s ease-in-out')};
 `;
 
 export const StyledSidebar = styled.div<{ isCard: boolean; isFocused?: boolean; $isShowNavBarRedesign?: boolean }>`
@@ -140,7 +153,10 @@ export default function EntityProfileSidebar({
     headerDropdownItems,
     className,
 }: Props) {
-    const { isClosed } = useContext(EntitySidebarContext);
+    const { isClosed, setWidth } = useContext(EntitySidebarContext);
+    const isCompact = useContext(CompactContext);
+    const [isResizing, setIsResizing] = useState(false);
+    const containerRef = useRef<HTMLDivElement>(null);
     const isShowNavBarRedesign = useShowNavBarRedesign();
 
     // TODO: Allow selecting a tab via the URL.
@@ -149,6 +165,13 @@ export default function EntityProfileSidebar({
 
     const isCardLayout = type === 'card';
     const hideCollapse = contextType === TabContextType.CHROME_SIDEBAR;
+    // Any host that provides a width setter (entity page, search, lineage, ...) gets a drag handle.
+    const canResize = !hideCollapse && !isClosed;
+    // Only on the entity page is the sidebar's parent the page row. Compact hosts (search, lineage,
+    // task center, ...) wrap the sidebar in their own shrink-to-fit container, where a percentage
+    // max-width is cyclic: the wrapper grows to the sidebar's no-wrap content and crowds out the page
+    // while the visible panel stays capped. Only cap when this really is the entity page.
+    const capsToRowShare = canResize && !isCompact && contextType === TabContextType.PROFILE_SIDEBAR;
 
     return (
         <StyledEntitySidebarContainer
@@ -156,12 +179,27 @@ export default function EntityProfileSidebar({
             $width={width}
             backgroundColor={backgroundColor}
             id="entity-profile-sidebar"
+            data-testid="entity-profile-sidebar"
             isFocused={focused}
             className={className}
             $isShowNavBarRedesign={isShowNavBarRedesign}
             $contextType={contextType}
+            $isResizing={isResizing}
+            $capToRowShare={capsToRowShare}
+            ref={containerRef}
             aria-expanded={!isClosed}
         >
+            {canResize && setWidth && width != null && (
+                <SidebarResizer
+                    edge="left"
+                    minWidth={ENTITY_SIDEBAR_MIN_WIDTH}
+                    maxWidth={ENTITY_SIDEBAR_MAX_WIDTH}
+                    capToRow={capsToRowShare}
+                    onWidthChange={setWidth}
+                    onResizeStart={() => setIsResizing(true)}
+                    onResizeEnd={() => setIsResizing(false)}
+                />
+            )}
             <StyledSidebar isCard={isCardLayout} isFocused={focused} $isShowNavBarRedesign={isShowNavBarRedesign}>
                 <ContentContainer isVisible={!isClosed}>
                     <SidebarCollapsibleHeader currentTab={selectedTab} headerDropdownItems={headerDropdownItems} />

@@ -1,12 +1,13 @@
-import { UsergroupAddOutlined } from '@ant-design/icons';
-import { Button, Empty, List, Pagination } from 'antd';
+import { Button, EmptyState, Pagination } from '@components';
+import { UserPlus } from '@phosphor-icons/react/dist/csr/UserPlus';
 import * as QueryString from 'query-string';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import TabToolbar from '@app/entity/shared/components/styled/TabToolbar';
+import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import UserListItem from '@app/identity/user/UserListItem';
 import ViewInviteTokenModal from '@app/identity/user/ViewInviteTokenModal';
 import { DEFAULT_USER_LIST_PAGE_SIZE, removeUserFromListUsersCache } from '@app/identity/user/cacheUtils';
@@ -20,8 +21,8 @@ import {
 } from '@app/onboarding/config/UsersOnboardingConfig';
 import { useToggleEducationStepIdsAllowList } from '@app/onboarding/useToggleEducationStepIdsAllowList';
 import { SearchBar } from '@app/search/SearchBar';
-import { Message } from '@app/shared/Message';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { Message } from '@app/sharedV2/Message';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListUsersQuery } from '@graphql/user.generated';
@@ -33,14 +34,12 @@ const UserContainer = styled.div`
     overflow: auto;
 `;
 
-const UserStyledList = styled(List)`
+const UserStyledList = styled.div`
     display: flex;
     flex-direction: column;
     overflow: auto;
-    &&& {
-        width: 100%;
-        border-color: ${(props) => props.theme.styles['border-color-base']};
-    }
+    width: 100%;
+    border: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 const UserPaginationContainer = styled.div`
@@ -49,6 +48,7 @@ const UserPaginationContainer = styled.div`
 `;
 
 export const UserList = () => {
+    const { t } = useTranslation('entity.identity');
     const entityRegistry = useEntityRegistry();
     const location = useLocation();
     const params = QueryString.parse(location.search, { arrayFormat: 'comma' });
@@ -114,23 +114,24 @@ export const UserList = () => {
     return (
         <>
             <OnboardingTour stepIds={[USERS_INTRO_ID, USERS_SSO_ID, USERS_INVITE_LINK_ID, USERS_ASSIGN_ROLE_ID]} />
-            {!usersData && loading && <Message type="loading" content="Loading users..." />}
-            {error && <Message type="error" content="Failed to load users! An unexpected error occurred." />}
+            {!usersData && loading && <Message type="loading" content={t('users.loading')} />}
+            {error && <Message type="error" content={t('users.loadError')} />}
             <UserContainer>
                 <TabToolbar>
                     <div>
                         <Button
                             id={USERS_INVITE_LINK_ID}
                             disabled={!canManageUserCredentials}
-                            type="text"
+                            variant="text"
+                            icon={{ icon: UserPlus }}
                             onClick={() => setIsViewingInviteToken(true)}
                         >
-                            <UsergroupAddOutlined /> Invite Users
+                            {t('users.inviteButton')}
                         </Button>
                     </div>
                     <SearchBar
                         initialQuery={query || ''}
-                        placeholderText="Search users..."
+                        placeholderText={t('users.searchPlaceholder')}
                         suggestions={[]}
                         style={{
                             maxWidth: 220,
@@ -150,14 +151,11 @@ export const UserList = () => {
                         hideRecommendations
                     />
                 </TabToolbar>
-                <UserStyledList
-                    bordered
-                    locale={{
-                        emptyText: <Empty description="No Users!" image={Empty.PRESENTED_IMAGE_SIMPLE} />,
-                    }}
-                    dataSource={usersList}
-                    renderItem={(item: any) => (
+                <UserStyledList>
+                    {usersList.length === 0 && <EmptyState title={t('users.emptyTitle')} size="sm" />}
+                    {usersList.map((item: any) => (
                         <UserListItem
+                            key={item.urn}
                             onDelete={() => handleDelete(item.urn as string)}
                             user={item as CorpUser}
                             canManageUserCredentials={canManageUserCredentials}
@@ -169,16 +167,15 @@ export const UserList = () => {
                             setRolesSearchQuery={setRolesSearchQuery}
                             refetch={usersRefetch}
                         />
-                    )}
-                />
+                    ))}
+                </UserStyledList>
                 <UserPaginationContainer>
                     <Pagination
-                        style={{ margin: 40 }}
-                        current={page}
-                        pageSize={pageSize}
+                        currentPage={page}
+                        itemsPerPage={pageSize}
                         total={totalUsers}
                         showLessItems
-                        onChange={onChangePage}
+                        onPageChange={onChangePage}
                         showSizeChanger={false}
                     />
                 </UserPaginationContainer>

@@ -1,0 +1,21 @@
+{
+    "actorsSearch.placeholder": "Felhasználók vagy csoportok keresése",
+    "domainSelector.label": "Tartományok",
+    "domainSelector.placeholder": "Tartományok kiválasztása",
+    "domainSelector.singleLabel": "Tartomány",
+    "domainSelector.singlePlaceholder": "Tartomány kiválasztása",
+    "domainSelector.searchPlaceholder": "Keresés az összes tartományban...",
+    "entitySearch.noEntitiesFound": "Nem található entitás",
+    "entitySearch.placeholder": "Entitások keresése...",
+    "customOwnershipType": "Egyéni tulajdonlási típus",
+    "ingestionSource": "Adatbetöltési forrás",
+    "groupBy.displayValue": "Csoportosítás {{label}} szerint",
+    "groupBy.group": "Csoportosítás",
+    "selectItems.addMoreSection": "Továbbiak hozzáadása",
+    "selectItems.entitiesLabel": "entitások",
+    "selectItems.itemsLabel": "elemek",
+    "selectItems.noEntityFound": "Nem található {{entityName}}",
+    "selectItems.removeAll": "Összes eltávolítása",
+    "selectItems.searchForEntity": "{{entityName}} keresése...",
+    "selectItems.selectedSection": "Kiválasztva"
+}

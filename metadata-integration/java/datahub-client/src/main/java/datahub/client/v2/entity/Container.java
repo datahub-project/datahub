@@ -90,7 +90,8 @@ public class Container extends Entity
         HasOwners<Container>,
         HasDomains<Container>,
         HasSubTypes<Container>,
-        HasStructuredProperties<Container> {
+        HasStructuredProperties<Container>,
+        HasDocumentation<Container> {
 
   private static final String ENTITY_TYPE = "container";
 
@@ -596,7 +597,7 @@ public class Container extends Entity
 
     log.debug(
         "Transforming editableContainerProperties patch to full aspect for entity: {}",
-        patch.getEntityUrn().toString());
+        patch.getEntityUrn());
 
     // Step 1: Fetch current editableContainerProperties aspect
     datahub.client.v2.operations.AspectWithMetadata<EditableContainerProperties>

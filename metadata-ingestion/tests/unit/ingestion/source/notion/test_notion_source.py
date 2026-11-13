@@ -1,43 +1,35 @@
 """Tests for NotionSource."""
 
 from typing import Any
-from unittest.mock import MagicMock, patch
+from unittest.mock import create_autospec, patch
 
 import pytest
 from pydantic import SecretStr
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.source.notion.notion_config import NotionSourceConfig
+from datahub.ingestion.source.notion.notion_hierarchy import NotionHierarchyExtractor
 from datahub.ingestion.source.notion.notion_report import NotionSourceReport
 from datahub.ingestion.source.notion.notion_source import NotionSource
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
+    StatefulStaleMetadataRemovalConfig,
 )
-
-
-@pytest.fixture
-def config():
-    return NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        # Bypass server validation in tests with valid test config
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-
-
-@pytest.fixture
-def pipeline_context():
-    return PipelineContext(run_id="test_run")
-
-
-@pytest.fixture
-def notion_source(config, pipeline_context):
-    return NotionSource(config=config, ctx=pipeline_context)
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingReport,
+    DocumentChunkingSource,
+    SkipMarkerReadError,
+)
+from datahub.ingestion.source.unstructured.document_builder import (
+    ContentMapper,
+    DocumentEntityBuilder,
+)
+from datahub.ingestion.workunit_processors.auto_stale_entity_removal import (
+    AutoStaleEntityRemovalProcessor,
+)
+from datahub.sdk.document import Document
+from tests.unit.ingestion.source.notion.conftest import PAGE_ID, make_notion_source
 
 
 def test_source_initialization(notion_source):
@@ -216,7 +208,11 @@ def test_extract_notion_parent_urn_no_parent():
     assert parent_urn is None
 
 
-def test_should_skip_file_page_id_filter_match():
+def test_should_skip_file_does_not_drop_descendants_with_different_id_prefix():
+    """The recursive walker reaches descendants whose Notion v2 IDs diverge in
+    the first 8-13 chars from the root's ID (different time-window prefix).
+    These must not be filtered out — they're legitimate descendants emitted by
+    the indexer, in-scope by construction."""
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
@@ -230,7 +226,8 @@ def test_should_skip_file_page_id_filter_match():
     ctx = PipelineContext(run_id="test")
     source = NotionSource(config=config, ctx=ctx)
 
-    # Use a page_id that matches the exact configured ID (will match prefix)
+    # A descendant with a totally divergent ID — would previously have been
+    # silently dropped by the 13-char prefix heuristic.
     data = {
         "elements": [
             {
@@ -239,39 +236,12 @@ def test_should_skip_file_page_id_filter_match():
         ],
         "metadata": {
             "data_source": {
-                "record_locator": {"page_id": "2bffc6a6-4277-8024-97c9-d0f26faa4480"}
+                "record_locator": {"page_id": "2f6fc6a6-4277-81cb-b744-d1baeec0bda5"}
             }
         },
     }
 
-    # Should NOT skip because prefix matches exactly and has enough content
     assert source._should_skip_file(data, set()) is False
-
-
-def test_should_skip_file_page_id_filter_no_match():
-    config = NotionSourceConfig(
-        api_key=SecretStr("secret_test_key"),
-        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
-        embedding={
-            "provider": "bedrock",
-            "model": "cohere.embed-english-v3",
-            "aws_region": "us-west-2",
-            "allow_local_embedding_config": True,
-        },
-    )
-    ctx = PipelineContext(run_id="test")
-    source = NotionSource(config=config, ctx=ctx)
-
-    data = {
-        "elements": [{"text": "Some content"}],
-        "metadata": {
-            "data_source": {
-                "record_locator": {"page_id": "xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx"}
-            }
-        },
-    }
-
-    assert source._should_skip_file(data, set()) is True
 
 
 def test_should_skip_file_empty_document():
@@ -294,6 +264,28 @@ def test_should_skip_file_empty_document():
 
 
 def test_should_skip_file_text_too_short():
+    # min_text_length is opt-in (default 0); set it explicitly to exercise the filter.
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        database_ids=["abcdef01234567890123456789012345"],
+        filtering={"min_text_length": 50},
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+    )
+    ctx = PipelineContext(run_id="test")
+    source = NotionSource(config=config, ctx=ctx)
+
+    data = {"elements": [{"text": "Short"}], "metadata": {}}
+
+    assert source._should_skip_file(data, set()) is True
+
+
+def test_should_not_skip_short_file_by_default():
+    # With the default min_text_length of 0, short (non-empty) docs are embedded.
     config = NotionSourceConfig(
         api_key=SecretStr("secret_test_key"),
         database_ids=["abcdef01234567890123456789012345"],
@@ -309,7 +301,7 @@ def test_should_skip_file_text_too_short():
 
     data = {"elements": [{"text": "Short"}], "metadata": {}}
 
-    assert source._should_skip_file(data, set()) is True
+    assert source._should_skip_file(data, set()) is False
 
 
 def test_should_skip_file_text_long_enough():
@@ -341,12 +333,29 @@ def test_should_skip_file_text_long_enough():
 # Stateful Ingestion Tests
 
 
-def test_stateful_ingestion_handler_initialized(notion_source):
-    """Verify that StaleEntityRemovalHandler is initialized."""
-    assert hasattr(notion_source, "stale_entity_removal_handler")
-    assert isinstance(
-        notion_source.stale_entity_removal_handler, StaleEntityRemovalHandler
+def test_stateful_ingestion_processor_wired_up():
+    """Verify that AutoStaleEntityRemovalProcessor is in the workunit processor chain."""
+    config = NotionSourceConfig(
+        api_key=SecretStr("secret_test_key"),
+        page_ids=["2bffc6a6-4277-8024-97c9-d0f26faa4480"],
+        embedding={
+            "provider": "bedrock",
+            "model": "cohere.embed-english-v3",
+            "aws_region": "us-west-2",
+            "allow_local_embedding_config": True,
+        },
+        stateful_ingestion={"enabled": True, "remove_stale_metadata": True},
     )
+    ctx = PipelineContext(run_id="test_run", pipeline_name="test_run")
+    ctx.graph = create_autospec(DataHubGraph, instance=True)
+    source = NotionSource(config=config, ctx=ctx)
+
+    processors = source.get_workunit_processors()
+    assert any(
+        isinstance(getattr(p, "__self__", None), AutoStaleEntityRemovalProcessor)
+        for p in processors
+        if p
+    ), "AutoStaleEntityRemovalProcessor must be in the workunit processor chain"
 
 
 def test_report_is_notion_source_report(notion_source):
@@ -413,6 +422,93 @@ def test_extract_notion_parent_urn_with_ingested_pages():
         [], metadata, ingested_page_ids_without_parent
     )
     assert parent_urn is None
+
+
+@pytest.mark.usefixtures("inline_processing_stub")
+def test_browse_path_failure_reports_warning_and_still_emits():
+    """A browse-path failure surfaces as a report warning but never drops the doc."""
+    from datahub.metadata.schema_classes import DocumentInfoClass
+
+    source = make_notion_source(page_ids=[PAGE_ID])
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+
+    data = {
+        "elements": [{"type": "Title", "text": "Child", "metadata": {}}],
+        "metadata": {"data_source": {"record_locator": {"page_id": "child"}}},
+    }
+
+    with patch.object(
+        NotionHierarchyExtractor,
+        "build_browse_path_v2",
+        autospec=True,
+        side_effect=RuntimeError("boom"),
+    ):
+        workunits = list(source._create_document_entity(data, {"child", "root"}))
+
+    # Document still emitted despite the browse-path failure.
+    assert any(
+        isinstance(wu, MetadataWorkUnit)
+        and wu.get_aspect_of_type(DocumentInfoClass) is not None
+        for wu in workunits
+    )
+    # Failure surfaces as a structured warning -> "succeeded with warnings".
+    assert any(
+        warning.title == "Browse path generation failed"
+        for warning in source.report.warnings
+    )
+
+
+def test_build_notion_document_urn_matches_parent_urn():
+    """Browse-path URNs must match the URN derived for parent references."""
+    source = make_notion_source(page_ids=[PAGE_ID])
+    source.notion_parent_metadata = {
+        "child-page-id": {"parent": {"type": "page_id", "page_id": "parent-page-id"}}
+    }
+    metadata = {"data_source": {"record_locator": {"page_id": "child-page-id"}}}
+
+    parent_urn = source._extract_notion_parent_urn(
+        [], metadata, {"child-page-id", "parent-page-id"}
+    )
+    assert parent_urn == source._build_notion_document_urn("parent-page-id")
+
+
+def test_notion_title_for_page_falls_back_to_page_id():
+    source = make_notion_source(page_ids=[PAGE_ID])
+    source.notion_page_titles = {"known": "Known Title"}
+
+    assert source._notion_title_for_page("known") == "Known Title"
+    assert source._notion_title_for_page("unknown") == "unknown"
+
+
+def test_source_emits_hierarchical_browse_path():
+    """The source wiring should produce a BrowsePathsV2 with ancestor URNs/titles."""
+    source = make_notion_source(page_ids=[PAGE_ID])
+    source.notion_parent_metadata = {
+        "child": {"parent": {"type": "page_id", "page_id": "parent"}},
+        "parent": {"parent": {"type": "page_id", "page_id": "root"}},
+        "root": {"parent": {"type": "workspace", "workspace": True}},
+    }
+    source.notion_page_titles = {
+        "parent": "Parent Page",
+        "root": "Root Page",
+    }
+    ingested = {"child", "parent", "root"}
+
+    browse_path = NotionHierarchyExtractor.build_browse_path_v2(
+        page_id="child",
+        parent_metadata=source.notion_parent_metadata,
+        urn_builder=source._build_notion_document_urn,
+        title_resolver=source._notion_title_for_page,
+        ingested_page_ids=ingested,
+    )
+
+    assert browse_path is not None
+    assert [e.id for e in browse_path.path] == ["Root Page", "Parent Page"]
+    assert browse_path.path[0].urn == source._build_notion_document_urn("root")
+    assert browse_path.path[1].urn == source._build_notion_document_urn("parent")
 
 
 def test_stateful_ingestion_config_disabled_by_default():
@@ -787,7 +883,7 @@ def test_max_documents_limit_raises_error():
             },
         }
 
-    mock_doc = MagicMock()
+    mock_doc = create_autospec(Document, instance=True)
     mock_doc.urn = "urn:li:document:notion.page-1"
     mock_doc.as_workunits.return_value = iter([])
 
@@ -797,10 +893,16 @@ def test_max_documents_limit_raises_error():
 
     with (
         patch.object(
-            source.document_builder, "build_document_entity", return_value=mock_doc
+            source.document_builder,
+            "build_document_entity",
+            autospec=True,
+            return_value=mock_doc,
         ),
         patch.object(
-            source.chunking_source, "_chunk_elements", return_value=dummy_chunk
+            source.chunking_source,
+            "_chunk_elements",
+            autospec=True,
+            return_value=dummy_chunk,
         ),
     ):
         # First document — should succeed
@@ -844,3 +946,274 @@ def test_embedding_stats_aggregation(notion_source):
     failures_list = list(final_report.embedding_failures)
     assert "urn:li:document:test1: Error 1" in failures_list
     assert "urn:li:document:test2: Error 2" in failures_list
+
+
+def test_notion_types_filter_unknown_fields_paragraph_icon():
+    """unstructured-ingest 1.4.28 models Paragraph.icon (AI-603); construction must succeed."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    icon = {"type": "emoji", "emoji": "📝"}
+    paragraph = Paragraph(color="default", icon=icon)
+    assert paragraph.color == "default"
+    assert paragraph.icon == icon
+
+
+def test_notion_types_filter_unknown_fields_page_is_archived():
+    """Observed alongside AI-603: Page now includes 'is_archived'. Filter must cover Page, not just blocks."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.page import Page
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    page = Page(
+        id="abc",
+        created_time="2026-01-01T00:00:00Z",
+        created_by=None,
+        last_edited_time="2026-01-01T00:00:00Z",
+        last_edited_by=None,
+        archived=False,
+        in_trash=False,
+        properties={},
+        parent=None,
+        url="https://www.notion.so/abc",
+        public_url="",
+        is_archived=False,
+    )
+    assert page.id == "abc"
+    assert not hasattr(page, "is_archived")
+
+
+def test_notion_types_filter_unknown_fields_generic_for_future_additions():
+    """Verify the filter covers blocks AND other notion types so any future Notion field is dropped."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import (
+        Heading,
+        Quote,
+        ToDo,
+    )
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    Heading(color="default", is_toggleable=False, hypothetical_future_field="x")
+    Quote(color="default", made_up_field=42)
+    ToDo(color="default", checked=True, brand_new_2030_field=["a", "b"])
+
+
+def test_notion_types_filter_unknown_fields_is_idempotent():
+    """Applying the patch twice must not double-wrap or break valid construction."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks import Paragraph
+
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+    NotionSource._monkeypatch_notion_types_filter_unknown_fields()
+
+    paragraph = Paragraph(color="default")
+    assert paragraph.color == "default"
+
+
+def test_icon_dispatcher_unknown_types_returns_none_for_named_icon():
+    """Notion's new built-in named icon type ({type: 'icon', icon: {...}})
+    must not raise — observed live breaking the indexer's page discovery."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    result = Icon.from_dict(
+        {"type": "icon", "icon": {"name": "departures", "color": "green"}}
+    )
+    assert result is None
+
+
+def test_icon_dispatcher_handles_none_payload():
+    """Callout.from_dict passes data.pop('icon') (which can be None for
+    callouts with no icon) straight into Icon.from_dict — must not crash."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    assert Icon.from_dict(None) is None
+
+
+def test_icon_dispatcher_unknown_types_preserves_known_types():
+    """Emoji, external, and file icons must still parse after the patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.callout import (
+        EmojiIcon,
+        FileIcon,
+        Icon,
+    )
+
+    NotionSource._monkeypatch_icon_dispatcher_unknown_types()
+
+    emoji_result = Icon.from_dict({"type": "emoji", "emoji": "📝"})
+    assert isinstance(emoji_result, EmojiIcon)
+    assert emoji_result.emoji == "📝"
+
+    file_result = Icon.from_dict(
+        {"type": "file", "file": {"url": "https://example.com/icon.png"}}
+    )
+    assert isinstance(file_result, FileIcon)
+
+
+def test_unstructured_ingest_syncblock_handles_null_synced_from():
+    """1.4.28 already treats synced_from=null as an original block; do not re-patch."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+        SyncBlock,
+    )
+
+    original = SyncBlock.from_dict({"synced_from": None})
+    assert isinstance(original, OriginalSyncedBlock)
+
+    duplicate = SyncBlock.from_dict(
+        {"synced_from": {"type": "block_id", "block_id": "abc"}}
+    )
+    assert isinstance(duplicate, DuplicateSyncedBlock)
+    assert duplicate.block_id == "abc"
+
+
+def test_empty_original_synced_block_is_reported(
+    notion_source, config, pipeline_context
+):
+    """Report empty original synced blocks using the outer Block id, once per wrap."""
+    pytest.importorskip("unstructured_ingest")
+    from unstructured_ingest.processes.connectors.notion.types.block import Block
+    from unstructured_ingest.processes.connectors.notion.types.blocks.synced_block import (
+        DuplicateSyncedBlock,
+        OriginalSyncedBlock,
+    )
+
+    def block_payload(block_id: str, synced_block: dict) -> dict:
+        return {
+            "id": block_id,
+            "type": "synced_block",
+            "created_time": "2024-01-01T00:00:00.000Z",
+            "last_edited_time": "2024-01-01T00:00:00.000Z",
+            "created_by": {"id": "user-1"},
+            "last_edited_by": {"id": "user-1"},
+            "archived": False,
+            "in_trash": False,
+            "has_children": True,
+            "parent": {"type": "page_id", "page_id": "page-1"},
+            "synced_block": synced_block,
+        }
+
+    notion_source._warn_on_empty_original_synced_blocks()
+    notion_source._warn_on_empty_original_synced_blocks()
+
+    empty = Block.from_dict(block_payload("block-empty", {"synced_from": None}))
+    assert isinstance(empty.block, OriginalSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+    assert "block-empty" in list(notion_source.report.synced_blocks_skipped)
+
+    duplicate = Block.from_dict(
+        block_payload(
+            "block-dup",
+            {"synced_from": {"type": "block_id", "block_id": "abc"}},
+        )
+    )
+    assert isinstance(duplicate.block, DuplicateSyncedBlock)
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+    other_source = NotionSource(config=config, ctx=pipeline_context)
+    other_source._warn_on_empty_original_synced_blocks()
+    Block.from_dict(block_payload("block-other", {"synced_from": None}))
+    assert other_source.report.num_synced_blocks_skipped == 1
+    assert notion_source.report.num_synced_blocks_skipped == 1
+
+
+def _document_entity_test_setup(notion_source, side_effect):
+    """Wire a mocked document builder + chunking source whose inline processing raises
+    side_effect, with the stateful gate enabled so _update_document_state WOULD be
+    reached on the swallow-and-continue path (without this, assert_not_called on it is
+    vacuous)."""
+    data = {
+        "elements": [{"type": "NarrativeText", "text": "hello", "metadata": {}}],
+        "metadata": {
+            "data_source": {"record_locator": {"page_id": "p1"}},
+            "filetype": "notion",
+        },
+    }
+    doc = create_autospec(Document, instance=True)
+    doc.urn = "urn:li:document:p1"
+    doc.as_workunits.return_value = []
+    builder = create_autospec(DocumentEntityBuilder, instance=True)
+    builder.build_document_entity.return_value = doc
+    builder.content_mapper = create_autospec(ContentMapper, instance=True)
+    builder.content_mapper.extract_text_content.return_value = "hello"
+    notion_source.document_builder = builder
+    chunking_source = create_autospec(DocumentChunkingSource, instance=True)
+    chunking_source.process_elements_inline.side_effect = side_effect
+    chunking_source.report = DocumentChunkingReport()
+    notion_source.chunking_source = chunking_source
+    notion_source.config.stateful_ingestion = StatefulStaleMetadataRemovalConfig(
+        enabled=True
+    )
+    return data
+
+
+def test_skip_marker_read_error_leaves_document_retryable(notion_source):
+    """A SkipMarkerReadError from the chunking sub-source must not record document
+    state (or count the document processed): state would permanently drop the skip
+    marker; returning early leaves the document retryable next run."""
+    data = _document_entity_test_setup(
+        notion_source, SkipMarkerReadError("read failed")
+    )
+
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # Discriminates the dedicated SkipMarkerReadError handler: if it were removed,
+    # the generic RuntimeError handler swallows the error and execution falls
+    # through to report accounting and the (enabled) state update.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
+
+
+def test_embedding_failure_leaves_document_retryable(notion_source):
+    """An inline embedding failure (provider error or zero-vector response surfaces as a
+    RuntimeError) must not record document state or count the page as processed: no
+    semanticContent was written, and checkpointing would permanently skip the unchanged
+    page instead of retrying it."""
+    data = _document_entity_test_setup(
+        notion_source, RuntimeError("provider returned no vectors")
+    )
+
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
+        list(notion_source._create_document_entity(data))
+
+    # The non-limit RuntimeError handler must return: without the return, execution falls
+    # through to report accounting and the (enabled) state update, checkpointing the page.
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0
+
+
+def test_unexpected_embedding_exception_leaves_document_retryable(notion_source):
+    """A provider/credential error that is not a RuntimeError takes the generic
+    handler, which must likewise return before state is recorded."""
+    data = _document_entity_test_setup(
+        notion_source, Exception("AuthFailure: credentials could not be validated")
+    )
+
+    with patch.object(
+        notion_source, "_update_document_state", autospec=True
+    ) as update_state:
+        list(notion_source._create_document_entity(data))
+
+    update_state.assert_not_called()
+    assert notion_source.report.num_files_processed == 0

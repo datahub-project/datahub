@@ -3,17 +3,16 @@ import React, { useMemo, useState } from 'react';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { groupByFieldPath } from '@app/entityV2/dataset/profile/schema/utils/utils';
-import { ANTD_GRAY } from '@app/entityV2/shared/constants';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import SchemaTable from '@app/entityV2/shared/tabs/Dataset/Schema/SchemaTable';
 import getExpandedDrawerFieldPath from '@app/entityV2/shared/tabs/Dataset/Schema/utils/getExpandedDrawerFieldPath';
-import SchemaEditableContext from '@app/shared/SchemaEditableContext';
+import SchemaEditableContext from '@app/sharedV2/SchemaEditableContext';
 
 import { SchemaField } from '@types';
 
 const NoSchema = styled(Empty)`
-    color: ${ANTD_GRAY[6]};
+    color: ${(props) => props.theme.colors.textDisabled};
     padding-top: 60px;
 `;
 

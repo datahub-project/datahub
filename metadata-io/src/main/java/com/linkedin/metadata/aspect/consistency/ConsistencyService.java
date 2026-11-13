@@ -1,11 +1,14 @@
 package com.linkedin.metadata.aspect.consistency;
 
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.metadata.aspect.consistency.check.CheckBatchRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckContext;
+import com.linkedin.metadata.aspect.consistency.check.CheckFollowUp;
+import com.linkedin.metadata.aspect.consistency.check.CheckFollowUpRequest;
 import com.linkedin.metadata.aspect.consistency.check.CheckResult;
 import com.linkedin.metadata.aspect.consistency.check.ConsistencyCheck;
 import com.linkedin.metadata.aspect.consistency.fix.ConsistencyFix;
@@ -17,12 +20,16 @@ import com.linkedin.metadata.graph.GraphClient;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.utils.UrnExtractionUtils;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.retry.ExponentialBackoffRetry;
 import io.datahubproject.metadata.context.OperationContext;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -41,7 +48,8 @@ import org.opensearch.search.SearchHit;
  * upgrade jobs) are responsible for:
  *
  * <ul>
- *   <li>Looping through batches
+ *   <li>Looping through batches (or use {@link
+ *       com.linkedin.metadata.aspect.consistency.scan.ConsistencyScanRunner} for full scans)
  *   <li>Managing batch size and delays
  *   <li>Handling pagination via scrollId
  * </ul>
@@ -49,8 +57,10 @@ import org.opensearch.search.SearchHit;
  * <p>Key methods:
  *
  * <ul>
- *   <li>{@link #checkBatch(OperationContext, String, List, int, String, SystemMetadataFilterConfig,
- *       CheckContext)} - Run checks for a single entity type
+ *   <li>{@link #checkBatch(OperationContext, CheckBatchRequest, CheckContext)} - Run checks for a
+ *       single entity type batch
+ *   <li>{@link #countMatching(OperationContext, CheckBatchRequest)} - Estimate matching SM docs for
+ *       progress/ETA
  *   <li>{@link #fixIssues} - Apply fixes to a list of issues
  * </ul>
  *
@@ -64,6 +74,10 @@ import org.opensearch.search.SearchHit;
 @Slf4j
 @ThreadSafe
 public class ConsistencyService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(ConsistencyService.class, "consistency check of");
+  private static final int SCROLL_MAX_ATTEMPTS = 3;
+  private static final long SCROLL_INITIAL_BACKOFF_MS = 1000L;
 
   private final EntityService<?> entityService;
   private final ESSystemMetadataDAO esSystemMetadataDAO;
@@ -130,6 +144,26 @@ public class ConsistencyService {
    */
   public ConsistencyCheckRegistry getCheckRegistry() {
     return checkRegistry;
+  }
+
+  /**
+   * Whether a registered check owns this continuation scroll.
+   *
+   * <p>The entity limit counts SQL pages. A scroll a check owns is that check's own phase.
+   *
+   * @param scrollId scroll id from the previous batch, or null for the first page
+   * @return true when a registered check's {@code ownsScrollId} matches
+   */
+  public boolean isCheckOwnedScroll(@Nullable String scrollId) {
+    if (scrollId == null) {
+      return false;
+    }
+    for (ConsistencyCheck check : checkRegistry.getAll()) {
+      if (check.ownsScrollId(scrollId)) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -218,6 +252,8 @@ public class ConsistencyService {
       try {
         List<ConsistencyIssue> issues = check.check(ctx, entityResponses);
         allIssues.addAll(issues);
+      } catch (FatalConsistencyException e) {
+        throw e;
       } catch (Exception e) {
         log.error(
             "Error running check {} on {} entities: {}. Continuing with other checks.",
@@ -304,6 +340,12 @@ public class ConsistencyService {
       return CheckResult.empty();
     }
 
+    Optional<CheckResult> resumed =
+        resumeOwnedScroll(opContext, request, resolvedEntityType, checks);
+    if (resumed.isPresent()) {
+      return resumed.get();
+    }
+
     // Derive required aspects from checks (consolidated)
     // Returns null if any check requires all aspects
     Set<String> requiredAspects = deriveRequiredAspects(checks);
@@ -321,29 +363,61 @@ public class ConsistencyService {
     // Build query for system metadata index (URNs are just another filter)
     BoolQueryBuilder query =
         buildSystemMetadataQuery(
-            resolvedEntityType, checks, request.getFilter(), request.getUrns());
+            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
 
-    // Scroll system metadata index
-    SearchResponse response =
-        esSystemMetadataDAO.scroll(
-            query,
-            request.isIncludeSoftDeleted(),
-            request.getScrollId(),
-            null, // pitId
-            "5m", // keepAlive
-            request.getBatchSize());
+    // Scroll system metadata index. A null response is a failed search, not the end of the
+    // results. Treating it as exhaustion starts the index pass, skips the remaining SQL pages,
+    // and can still publish a cursor so the job looks finished.
+    final SearchResponse response = scrollWithRetry(opContext, query, request, resolvedEntityType);
 
-    if (response == null
-        || response.getHits() == null
-        || response.getHits().getHits().length == 0) {
-      return CheckResult.empty();
+    if (response.getHits() == null || response.getHits().getHits() == null) {
+      throw new IllegalStateException("Failed to scroll system metadata for " + resolvedEntityType);
     }
 
-    // Extract unique URNs from results
+    if (response.getHits().getHits().length == 0) {
+      return finishBatch(
+          opContext,
+          resolvedEntityType,
+          Set.of(),
+          Map.of(),
+          checks,
+          existingCtx,
+          request.getUrns(),
+          request.getBatchSize(),
+          true,
+          0,
+          null);
+    }
+
+    // Extract unique URNs from results. A page of unreadable hits is not the end of SQL: the
+    // index pass must wait until the scroll itself cannot continue.
     Set<Urn> urnsFromEs = UrnExtractionUtils.extractUniqueUrns(response);
 
     if (urnsFromEs.isEmpty()) {
-      return CheckResult.empty();
+      String nextScrollId = extractNextScrollId(response);
+      if (nextScrollId != null) {
+        log.warn(
+            "System metadata page for {} had no readable URNs; continuing the SQL scroll",
+            resolvedEntityType);
+        return CheckResult.builder()
+            .entitiesScanned(response.getHits().getHits().length)
+            .issuesFound(0)
+            .issues(List.of())
+            .scrollId(nextScrollId)
+            .build();
+      }
+      return finishBatch(
+          opContext,
+          resolvedEntityType,
+          Set.of(),
+          Map.of(),
+          checks,
+          existingCtx,
+          request.getUrns(),
+          request.getBatchSize(),
+          true,
+          0,
+          null);
     }
 
     // Fetch entity data via EntityService (from SQL)
@@ -353,42 +427,210 @@ public class ConsistencyService {
           entityService.getEntitiesV2(
               opContext, resolvedEntityType, urnsFromEs, requiredAspects, false);
     } catch (java.net.URISyntaxException e) {
-      log.error("Failed to fetch entities for type {}: {}", resolvedEntityType, e.getMessage(), e);
-      return CheckResult.empty();
+      // An empty result has no scroll id, so the job looks finished and the index pass never runs.
+      throw new IllegalStateException("Failed to load entities for " + resolvedEntityType, e);
     }
 
-    // Identify orphan URNs - entities in ES index but not in SQL (uses key aspect check)
-    Set<Urn> orphanUrns = identifyOrphanUrns(opContext, urnsFromEs);
-
-    // Run checks
-    CheckContext ctx = existingCtx != null ? existingCtx : buildContext(opContext);
-
-    // Store orphan URNs in context for the orphan check
-    if (!orphanUrns.isEmpty()) {
-      ctx.addOrphanUrns(resolvedEntityType, orphanUrns);
-      log.info(
-          "Found {} orphan URNs for entity type {} (exist in ES but not SQL)",
-          orphanUrns.size(),
-          resolvedEntityType);
-    }
-
-    List<ConsistencyIssue> issues = runChecks(ctx, entityResponses, checks);
-
-    // Run orphan check if there are orphan URNs
-    if (!orphanUrns.isEmpty()) {
-      List<ConsistencyIssue> orphanIssues = runOrphanCheck(ctx, resolvedEntityType);
-      issues.addAll(orphanIssues);
-    }
-
-    // Extract next scrollId from search response
     String nextScrollId = extractNextScrollId(response);
+    return finishBatch(
+        opContext,
+        resolvedEntityType,
+        urnsFromEs,
+        entityResponses,
+        checks,
+        existingCtx,
+        request.getUrns(),
+        request.getBatchSize(),
+        nextScrollId == null,
+        urnsFromEs.size(),
+        nextScrollId);
+  }
 
+  /**
+   * Continues a scroll a registered check owns. An unselected owner stops the batch so the token is
+   * not sent to the system-metadata scroll.
+   */
+  @Nonnull
+  private Optional<CheckResult> resumeOwnedScroll(
+      @Nonnull OperationContext opContext,
+      @Nonnull CheckBatchRequest request,
+      @Nonnull String entityType,
+      @Nonnull List<ConsistencyCheck> checks) {
+    List<ConsistencyCheck> owners = new ArrayList<>();
+    for (ConsistencyCheck registered : checkRegistry.getAll()) {
+      if (registered.ownsScrollId(request.getScrollId())) {
+        owners.add(registered);
+      }
+    }
+    if (owners.isEmpty()) {
+      return Optional.empty();
+    }
+    if (owners.size() > 1) {
+      throw new IllegalStateException("Multiple checks own scroll id " + request.getScrollId());
+    }
+    String ownerId = owners.get(0).getId();
+    ConsistencyCheck selected = null;
+    for (ConsistencyCheck check : checks) {
+      if (ownerId.equals(check.getId())) {
+        selected = check;
+        break;
+      }
+    }
+    if (selected == null) {
+      return Optional.of(CheckResult.empty());
+    }
+    return Optional.of(selected.resume(opContext, withEntityType(request, entityType)));
+  }
+
+  @Nonnull
+  private static CheckBatchRequest withEntityType(
+      @Nonnull CheckBatchRequest request, @Nonnull String entityType) {
+    if (entityType.equals(request.getEntityType())) {
+      return request;
+    }
+    return CheckBatchRequest.builder()
+        .entityType(entityType)
+        .urns(request.getUrns())
+        .checkIds(request.getCheckIds())
+        .batchSize(request.getBatchSize())
+        .scrollId(request.getScrollId())
+        .filter(request.getFilter())
+        .build();
+  }
+
+  /**
+   * Runs the selected checks, then each check's follow-up. The system-metadata scroll id is
+   * returned while that scroll can continue. A follow-up scroll is returned only after it is
+   * exhausted.
+   */
+  @Nonnull
+  private CheckResult finishBatch(
+      @Nullable OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull Set<Urn> pageUrns,
+      @Nonnull Map<Urn, EntityResponse> entityResponses,
+      @Nonnull List<ConsistencyCheck> checks,
+      @Nullable CheckContext existingCtx,
+      @Nullable Set<Urn> urnFilter,
+      int batchSize,
+      boolean sqlExhausted,
+      int scanned,
+      @Nullable String sqlScrollId) {
+    Set<Urn> orphanUrns = identifyOrphanUrns(opContext, pageUrns);
+    CheckContext ctx = existingCtx != null ? existingCtx : buildContext(opContext);
+    if (!orphanUrns.isEmpty()) {
+      ctx.addOrphanUrns(entityType, orphanUrns);
+      log.info(
+          "Found {} orphan URNs for entity type {} (exist in ES but not in SQL)",
+          orphanUrns.size(),
+          entityType);
+    }
+
+    List<ConsistencyIssue> issues = new ArrayList<>(runChecks(ctx, entityResponses, checks));
+    String followScroll = null;
+    CheckFollowUpRequest followRequest =
+        CheckFollowUpRequest.builder()
+            .operationContext(opContext)
+            .entityType(entityType)
+            .batchSize(batchSize)
+            .urnFilter(urnFilter)
+            .pageUrns(pageUrns)
+            .entityResponses(entityResponses)
+            .orphanUrns(orphanUrns)
+            .sqlExhausted(sqlExhausted)
+            .context(ctx)
+            .build();
+    for (ConsistencyCheck check : checks) {
+      CheckFollowUp follow = check.followUp(followRequest);
+      issues.addAll(follow.getIssues());
+      if (follow.getScrollId() != null) {
+        if (followScroll != null) {
+          throw new IllegalStateException("Multiple checks returned a continuation scroll");
+        }
+        followScroll = follow.getScrollId();
+      }
+    }
+    // entitiesScanned counts SQL entities. Index documents are not part of that total: the scan
+    // runner uses it for the limit and ETA, and countMatching counts system-metadata documents.
     return CheckResult.builder()
-        .entitiesScanned(urnsFromEs.size())
+        .entitiesScanned(scanned)
         .issuesFound(issues.size())
         .issues(issues)
-        .scrollId(nextScrollId)
+        .scrollId(sqlScrollId != null ? sqlScrollId : followScroll)
         .build();
+  }
+
+  /** Scrolls the system-metadata index, retrying failed searches; throws if every attempt fails. */
+  @Nonnull
+  private SearchResponse scrollWithRetry(
+      @Nonnull OperationContext opContext,
+      @Nonnull final BoolQueryBuilder query,
+      @Nonnull final CheckBatchRequest request,
+      @Nonnull final String entityType) {
+    final SearchResponse[] response = new SearchResponse[1];
+    final boolean succeeded =
+        ExponentialBackoffRetry.run(
+            SCROLL_MAX_ATTEMPTS,
+            SCROLL_INITIAL_BACKOFF_MS,
+            () -> {
+              response[0] =
+                  esSystemMetadataDAO.scroll(
+                      opContext,
+                      query,
+                      request.isIncludeSoftDeleted(),
+                      request.getScrollId(),
+                      null, // pitId
+                      "5m", // keepAlive
+                      request.getBatchSize());
+              if (response[0] == null) {
+                throw new IOException("System metadata scroll returned no response");
+              }
+            },
+            (attempt, error) ->
+                log.warn(
+                    "System metadata scroll for entity type {} failed (attempt {} of {}): {}",
+                    entityType,
+                    attempt,
+                    SCROLL_MAX_ATTEMPTS,
+                    error != null ? error.getMessage() : null));
+    if (!succeeded) {
+      throw new IllegalStateException(
+          String.format(
+              "System metadata scroll for entity type %s failed after %d attempts",
+              entityType, SCROLL_MAX_ATTEMPTS));
+    }
+    return response[0];
+  }
+
+  /**
+   * Count system-metadata documents matching the same discovery query used by {@link #checkBatch}.
+   *
+   * <p>With {@code keyAspectOnly=true} (upgrade default), the count approximates unique entities.
+   * Returns empty when the ES count query fails ({@link ESSystemMetadataDAO#count} soft-fails).
+   * Validation errors from entity-type resolution propagate to the caller.
+   *
+   * @param opContext operation context
+   * @param request same shape as checkBatch (entity type, check IDs, filter, URNs)
+   * @return matching document count, or empty when count cannot be obtained
+   */
+  @Nonnull
+  public Optional<Long> countMatching(
+      @Nonnull OperationContext opContext, @Nonnull CheckBatchRequest request) {
+    String resolvedEntityType = resolveEntityType(request);
+    List<ConsistencyCheck> checks =
+        checkRegistry.getDefaultByEntityTypeAndIds(resolvedEntityType, request.getCheckIds());
+    if (checks.isEmpty()) {
+      return Optional.of(0L);
+    }
+    BoolQueryBuilder query =
+        buildSystemMetadataQuery(
+            opContext, resolvedEntityType, checks, request.getFilter(), request.getUrns());
+    try {
+      return esSystemMetadataDAO.count(opContext, query, request.isIncludeSoftDeleted());
+    } catch (RuntimeException e) {
+      log.warn("countMatching failed (continuing without total): {}", e.getMessage(), e);
+      return Optional.empty();
+    }
   }
 
   /**
@@ -587,36 +829,19 @@ public class ConsistencyService {
       @Nonnull List<ConsistencyCheck> checks,
       @Nullable CheckContext existingCtx,
       @Nullable String nextScrollId) {
-
-    // Identify orphan URNs - entities in ES index but not in SQL (uses key aspect check)
-    Set<Urn> orphanUrns = identifyOrphanUrns(opContext, urnsFromEs);
-
-    // Run checks
-    CheckContext ctx = existingCtx != null ? existingCtx : buildContext(opContext);
-
-    // Store orphan URNs in context for the orphan check
-    if (!orphanUrns.isEmpty()) {
-      ctx.addOrphanUrns(entityType, orphanUrns);
-      log.info(
-          "Found {} orphan URNs for entity type {} (exist in ES but not SQL)",
-          orphanUrns.size(),
-          entityType);
-    }
-
-    List<ConsistencyIssue> issues = runChecks(ctx, entitiesFromSql, checks);
-
-    // Run orphan check if there are orphan URNs
-    if (!orphanUrns.isEmpty()) {
-      List<ConsistencyIssue> orphanIssues = runOrphanCheck(ctx, entityType);
-      issues.addAll(orphanIssues);
-    }
-
-    return CheckResult.builder()
-        .entitiesScanned(urnsFromEs.size()) // Count all URNs scanned, including orphans
-        .issuesFound(issues.size())
-        .issues(issues)
-        .scrollId(nextScrollId)
-        .build();
+    // This seam has no batch size of its own. A follow-up scroll uses the default page size.
+    return finishBatch(
+        opContext,
+        entityType,
+        urnsFromEs,
+        entitiesFromSql,
+        checks,
+        existingCtx,
+        null,
+        100,
+        nextScrollId == null,
+        urnsFromEs.size(),
+        nextScrollId);
   }
 
   // ============================================================================
@@ -628,6 +853,7 @@ public class ConsistencyService {
    *
    * <p>Package-private for testing.
    *
+   * @param opContext operation context (used to resolve key aspect when keyAspectOnly)
    * @param entityType entity type
    * @param checks checks to run
    * @param filter optional filter configuration
@@ -635,6 +861,7 @@ public class ConsistencyService {
    * @return BoolQueryBuilder for the system metadata index
    */
   BoolQueryBuilder buildSystemMetadataQuery(
+      @Nullable OperationContext opContext,
       @Nonnull String entityType,
       @Nonnull List<ConsistencyCheck> checks,
       @Nullable SystemMetadataFilter filter,
@@ -653,7 +880,7 @@ public class ConsistencyService {
     }
 
     // Filter by aspect if check or config requires it
-    Set<String> targetAspects = getTargetAspects(checks, filter);
+    Set<String> targetAspects = getTargetAspects(opContext, entityType, checks, filter);
     if (!targetAspects.isEmpty()) {
       if (targetAspects.size() == 1) {
         query.filter(QueryBuilders.termQuery("aspect", targetAspects.iterator().next()));
@@ -703,13 +930,40 @@ public class ConsistencyService {
   /**
    * Get target aspects from checks or filter config.
    *
+   * <p>When {@code filter.keyAspectOnly} is true, returns only the entity type's key aspect name
+   * (ignores aspectFilters and check getTargetAspects for discovery).
+   *
+   * @param opContext operation context for key-aspect resolution
+   * @param entityType entity type being scrolled
    * @param checks list of checks
    * @param filter optional filter configuration
    * @return set of target aspect names (may be empty)
    */
   @Nonnull
-  private Set<String> getTargetAspects(
-      @Nonnull List<ConsistencyCheck> checks, @Nullable SystemMetadataFilter filter) {
+  Set<String> getTargetAspects(
+      @Nullable OperationContext opContext,
+      @Nonnull String entityType,
+      @Nonnull List<ConsistencyCheck> checks,
+      @Nullable SystemMetadataFilter filter) {
+    if (filter != null && filter.isKeyAspectOnly()) {
+      if (opContext == null) {
+        log.warn(
+            "keyAspectOnly requested for {} but OperationContext is null; falling back to unfiltered aspects",
+            entityType);
+      } else {
+        try {
+          String keyAspectName =
+              opContext.getEntityRegistry().getEntitySpec(entityType).getKeyAspectName();
+          if (keyAspectName != null && !keyAspectName.isEmpty()) {
+            return Set.of(keyAspectName);
+          }
+        } catch (Exception e) {
+          log.warn(
+              "Failed to resolve key aspect for entity type {}: {}", entityType, e.getMessage());
+        }
+      }
+    }
+
     Set<String> aspects = new HashSet<>();
 
     // Add from filter config first (now supports list)
@@ -859,6 +1113,8 @@ public class ConsistencyService {
       try {
         List<ConsistencyIssue> issues = check.check(ctx, entityResponses);
         allIssues.addAll(issues);
+      } catch (FatalConsistencyException e) {
+        throw e;
       } catch (Exception e) {
         log.error(
             "Error running check {} on {} entities: {}. Continuing with other checks.",
@@ -975,38 +1231,12 @@ public class ConsistencyService {
 
     Set<Urn> orphans = new HashSet<>(urnsFromEs);
     orphans.removeAll(existingUrns);
+    // exists() reports urns of entity types this registry doesn't know (written by a newer version
+    // before a rollback), or whose key holds one (e.g. a schemaField of such an entity), as
+    // missing; their index documents belong to that version, not to orphans.
+    orphans.removeIf(
+        urn -> handling().referencesUnknownEntityType(opContext.getEntityRegistry(), urn));
     return orphans;
-  }
-
-  /**
-   * Run the orphan index document check.
-   *
-   * @param ctx check context with orphan URNs populated
-   * @param entityType entity type to check for orphans
-   * @return list of issues for orphaned documents
-   */
-  private List<ConsistencyIssue> runOrphanCheck(CheckContext ctx, String entityType) {
-    // Get the OrphanIndexDocumentCheck from the registry
-    return checkRegistry
-        .getById("orphan-index-document")
-        .map(
-            check -> {
-              if (check
-                  instanceof
-                  com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck) {
-                return ((com.linkedin.metadata.aspect.consistency.check.OrphanIndexDocumentCheck)
-                        check)
-                    .checkOrphans(ctx, entityType);
-              }
-              log.warn(
-                  "OrphanIndexDocumentCheck found but is unexpected type: {}", check.getClass());
-              return List.<ConsistencyIssue>of();
-            })
-        .orElseGet(
-            () -> {
-              log.debug("OrphanIndexDocumentCheck not registered, skipping orphan detection");
-              return List.of();
-            });
   }
 
   // ============================================================================
@@ -1088,6 +1318,18 @@ public class ConsistencyService {
             .orElseThrow(() -> new IllegalArgumentException("Unknown check ID: " + checkId));
 
     String entityType = urn.getEntityType();
+    // Skips the urn when its type, or one its key holds, is unknown (written by a newer version
+    // before a rollback): exists() hides such urns, so every check would misread them as missing.
+    if (!handling()
+        .admitEvent(
+            UNKNOWN_DATA,
+            opContext.getEntityRegistry(),
+            opContext.getMetricUtils(),
+            urn,
+            urn.getEntityType(),
+            null)) {
+      return java.util.Optional.empty();
+    }
 
     // Derive required aspects
     Set<String> requiredAspects = deriveRequiredAspects(List.of(check));
@@ -1098,27 +1340,6 @@ public class ConsistencyService {
           opContext.getEntityRegistry().getEntitySpec(entityType).getAspectSpecMap().keySet();
     }
 
-    // For orphan check, we need to check if entity exists in SQL
-    if ("orphan-index-document".equals(checkId)) {
-      Set<Urn> existingUrns = entityService.exists(opContext, Set.of(urn), null, true, false);
-      if (existingUrns.isEmpty()) {
-        // Entity doesn't exist in SQL - create orphan issue
-        return java.util.Optional.of(
-            ConsistencyIssue.builder()
-                .entityUrn(urn)
-                .entityType(entityType)
-                .checkId(checkId)
-                .fixType(ConsistencyFixType.DELETE_INDEX_DOCUMENTS)
-                .description(
-                    String.format("Entity exists in ES indices but not in SQL (orphaned): %s", urn))
-                .hardDeleteUrns(List.of(urn))
-                .build());
-      }
-      // Entity exists - no orphan issue
-      return java.util.Optional.empty();
-    }
-
-    // Fetch entity data
     Map<Urn, EntityResponse> entityResponses;
     try {
       entityResponses =
@@ -1127,18 +1348,39 @@ public class ConsistencyService {
       log.error("Failed to fetch entity {}: {}", urn, e.getMessage(), e);
       return java.util.Optional.empty();
     }
-
-    if (entityResponses.isEmpty()) {
-      log.debug("Entity {} not found", urn);
-      return java.util.Optional.empty();
+    if (entityResponses == null) {
+      entityResponses = Map.of();
     }
 
-    // Run the check
-    CheckContext ctx = buildContext(opContext);
-    List<ConsistencyIssue> issues = check.check(ctx, entityResponses);
+    // Key-aspect existence, same as a batch. A residual row can still produce an EntityResponse.
+    Set<Urn> existing = entityService.exists(opContext, Set.of(urn), null, true, false);
+    Set<Urn> orphans = existing == null || !existing.contains(urn) ? Set.of(urn) : Set.of();
 
-    // Return the first issue for this URN (there should be at most one per check)
-    return issues.stream().filter(i -> i.getEntityUrn().equals(urn)).findFirst();
+    CheckContext ctx = buildContext(opContext);
+    if (!orphans.isEmpty()) {
+      ctx.addOrphanUrns(entityType, orphans);
+    }
+
+    List<ConsistencyIssue> issues = new ArrayList<>();
+    if (!entityResponses.isEmpty()) {
+      issues.addAll(check.check(ctx, entityResponses));
+    }
+    CheckFollowUp follow =
+        check.followUp(
+            CheckFollowUpRequest.builder()
+                .operationContext(opContext)
+                .entityType(entityType)
+                .batchSize(1)
+                .urnFilter(Set.of(urn))
+                .pageUrns(Set.of(urn))
+                .entityResponses(entityResponses)
+                .orphanUrns(orphans)
+                .sqlExhausted(false)
+                .context(ctx)
+                .build());
+    issues.addAll(follow.getIssues());
+
+    return issues.stream().filter(issue -> urn.equals(issue.getEntityUrn())).findFirst();
   }
 
   /**

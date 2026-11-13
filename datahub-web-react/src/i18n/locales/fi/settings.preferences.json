@@ -1,0 +1,13 @@
+{
+    "appearance.subTitle": "Hallitse ulkoasuasetuksiasi.",
+    "appearance.title": "Ulkoasu",
+    "darkMode.beta": "Beta",
+    "darkMode.description": "Käytä tummaa väriteemaa koko DataHubissa.",
+    "darkMode.title": "Tumma tila",
+    "language.description": "Valitse haluamasi käyttöliittymän kieli",
+    "language.title": "Käyttöliittymän kieli",
+    "noSettings": "Ulkoasuasetuksia ei löytynyt.",
+    "showApplications.description": "Sovellukset ovat toinen tapa järjestää tietojasi, samaan tapaan kuin toimialueet. Ne on oletuksena piilotettu.",
+    "showApplications.successMessage": "Asetus päivitetty!",
+    "showApplications.title": "Näytä sovellukset"
+}

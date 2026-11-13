@@ -12,6 +12,7 @@ from pydantic.fields import Field
 from datahub.configuration.common import ConfigurationError, TransparentSecretStr
 from datahub.configuration.source_common import DatasetSourceConfigMixin
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -19,10 +20,14 @@ from datahub.ingestion.api.decorators import (
     platform_name,
     support_status,
 )
-from datahub.ingestion.api.source import MetadataWorkUnitProcessor
+from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.identity.corp_user_status import (
+    corp_user_info_active_from_status,
+    derive_corp_user_status_from_ldap,
+    make_corp_user_status_aspect,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
-    StaleEntityRemovalHandler,
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
 )
@@ -30,12 +35,9 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
-    CorpGroupSnapshotClass,
     CorpUserInfoClass,
-    CorpUserSnapshotClass,
     GroupMembershipClass,
 )
 from datahub.utilities.lossy_collections import LossyList
@@ -61,6 +63,7 @@ user_attrs_map["title"] = "title"
 user_attrs_map["departmentName"] = "departmentNumber"
 user_attrs_map["countryCode"] = "countryCode"
 user_attrs_map["memberOf"] = "memberOf"
+user_attrs_map["accountStatus"] = "userAccountControl"
 
 # group related attrs
 group_attrs_map["urn"] = "cn"
@@ -109,6 +112,20 @@ class LDAPSourceConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     ldap_server: str = Field(description="LDAP server URL.")
     ldap_user: str = Field(description="LDAP user.")
     ldap_password: TransparentSecretStr = Field(description="LDAP password.")
+
+    # python-ldap waits forever by default, so a server that accepts the connection but
+    # never answers will hang the whole ingestion run with no diagnostic. Both bounds are
+    # deliberately generous: they exist to turn an indefinite hang into a reported error,
+    # not to police slow-but-working servers.
+    connect_timeout: float = Field(
+        default=30.0,
+        description="Seconds to wait for the initial network connection to the LDAP server.",
+    )
+    request_timeout: float = Field(
+        default=300.0,
+        description="Seconds to wait for a response to any single LDAP operation. "
+        "With pagination enabled this applies per page, not to the whole extraction.",
+    )
 
     # Custom Stateful Ingestion settings
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = None
@@ -185,15 +202,17 @@ def guess_person_ldap(
         return attrs[config.user_attrs_map["urn"]][0].decode()
     else:  # for backward compatiblity
         if "sAMAccountName" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to sAMAccountName as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["sAMAccountName"][0].decode()
         if "uid" in attrs:
-            report.report_warning(
+            report.warning(
                 "<general>",
                 "Defaulting to uid as it was found in attrs and not set in user_attrs_map in recipe",
+                log=False,
             )
             return attrs["uid"][0].decode()
         return None
@@ -201,7 +220,7 @@ def guess_person_ldap(
 
 @platform_name("LDAP")
 @config_class(LDAPSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 @dataclasses.dataclass
 class LDAPSource(StatefulIngestionSourceBase):
     """
@@ -246,6 +265,14 @@ class LDAPSource(StatefulIngestionSourceBase):
 
         self.ldap_client = ldap.initialize(self.config.ldap_server)
         self.ldap_client.protocol_version = 3
+        # Set per-connection rather than via the module-level ldap.set_option used above,
+        # so these bounds cannot leak into other LDAP clients in the same process.
+        # initialize() does not open the socket, so OPT_NETWORK_TIMEOUT still covers the
+        # connect performed by the bind below.
+        self.ldap_client.set_option(
+            ldap.OPT_NETWORK_TIMEOUT, self.config.connect_timeout
+        )
+        self.ldap_client.set_option(ldap.OPT_TIMEOUT, self.config.request_timeout)
 
         try:
             self.ldap_client.simple_bind_s(
@@ -265,14 +292,6 @@ class LDAPSource(StatefulIngestionSourceBase):
         config = LDAPSourceConfig.model_validate(config_dict)
         return cls(ctx, config)
 
-    def get_workunit_processors(self) -> List[Optional[MetadataWorkUnitProcessor]]:
-        return [
-            *super().get_workunit_processors(),
-            StaleEntityRemovalHandler.create(
-                self, self.config, self.ctx
-            ).workunit_processor,
-        ]
-
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         """Returns an Iterable containing the workunits to ingest LDAP users or groups."""
         cookie = True
@@ -287,7 +306,9 @@ class LDAPSource(StatefulIngestionSourceBase):
                 )
                 _rtype, rdata, _rmsgid, serverctrls = self.ldap_client.result3(msgid)
             except ldap.LDAPError as e:
-                self.report.report_failure("ldap-control", f"LDAP search failed: {e}")
+                self.report.failure(
+                    message="LDAP search failed", context="ldap-control", exc=e
+                )
                 break
 
             for dn, attrs in rdata:
@@ -295,10 +316,11 @@ class LDAPSource(StatefulIngestionSourceBase):
                     continue
 
                 if not attrs or "objectClass" not in attrs:
-                    self.report.report_warning(
-                        "<general>",
-                        f"skipping {dn} because attrs ({attrs}) does not contain expected data; "
-                        f"check your permissions if this is unexpected",
+                    self.report.warning(
+                        message="Skipping entry because attrs do not contain expected data; "
+                        "check your permissions if this is unexpected",
+                        context=dn,
+                        log=False,
                     )
                     continue
 
@@ -321,8 +343,9 @@ class LDAPSource(StatefulIngestionSourceBase):
             if self.lc:
                 pctrls = get_pctrls(serverctrls)
                 if not pctrls:
-                    self.report.report_failure(
-                        "ldap-control", "Server ignores RFC 2696 control."
+                    self.report.failure(
+                        message="Server ignores RFC 2696 control",
+                        context="ldap-control",
                     )
                     break
                 cookie = set_cookie(self.lc, pctrls)
@@ -330,10 +353,7 @@ class LDAPSource(StatefulIngestionSourceBase):
                 break
 
     def handle_user(self, dn: str, attrs: Dict[str, Any]) -> Iterable[MetadataWorkUnit]:
-        """
-        Handle a DN and attributes by adding manager info and constructing a
-        work unit based on the information.
-        """
+        """Looks up the user's manager and yields one work unit per user aspect."""
         manager_ldap = None
         make_manager_urn = None
         if self.config.user_attrs_map["managerUrn"] in attrs:
@@ -365,30 +385,33 @@ class LDAPSource(StatefulIngestionSourceBase):
                     )
 
             except ldap.LDAPError as e:
-                self.report.report_warning(dn, f"manager LDAP search failed: {e}")
-        mce = self.build_corp_user_mce(dn, attrs, make_manager_urn)
-        if mce:
-            yield MetadataWorkUnit(dn, mce)
+                self.report.warning(
+                    message="Manager LDAP search failed",
+                    context=dn,
+                    exc=e,
+                    log=False,
+                )
+        mcps = self._build_corp_user_mcps(dn, attrs, make_manager_urn)
+        if mcps:
+            yield from auto_workunit(mcps)
         else:
             self.report.report_dropped(dn)
 
     def handle_group(
         self, dn: str, attrs: Dict[str, Any]
     ) -> Iterable[MetadataWorkUnit]:
-        """Creates a workunit for LDAP groups."""
+        """Yields one work unit per LDAP group aspect."""
 
-        mce = self.build_corp_group_mce(attrs)
-        if mce:
-            yield MetadataWorkUnit(dn, mce)
+        mcps = self._build_corp_group_mcps(attrs)
+        if mcps:
+            yield from auto_workunit(mcps)
         else:
             self.report.report_dropped(dn)
 
-    def build_corp_user_mce(
+    def _build_corp_user_mcps(
         self, dn: str, attrs: dict, manager_ldap: Optional[str]
-    ) -> Optional[MetadataChangeEvent]:
-        """
-        Create the MetadataChangeEvent via DN and attributes.
-        """
+    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+        """Returns the user's aspect MCPs, or None to drop the entry."""
         ldap_user = guess_person_ldap(attrs, self.config, self.report)
 
         if self.config.drop_missing_first_last_name and (
@@ -432,11 +455,19 @@ class LDAPSource(StatefulIngestionSourceBase):
             email if email and self.config.use_email_as_username else ldap_user
         )
 
-        user_snapshot = CorpUserSnapshotClass(
-            urn=f"urn:li:corpuser:{make_user_urn}",
+        account_status_attr = self.config.user_attrs_map.get(
+            "accountStatus", "userAccountControl"
+        )
+        user_status = derive_corp_user_status_from_ldap(
+            attrs,
+            account_status_attr,
+            get_attr=get_attr_or_none,
+        )
+        return MetadataChangeProposalWrapper.construct_many(
+            entityUrn=f"urn:li:corpuser:{make_user_urn}",
             aspects=[
                 CorpUserInfoClass(
-                    active=True,
+                    active=corp_user_info_active_from_status(user_status),
                     email=email,
                     fullName=full_name,
                     firstName=first_name,
@@ -449,15 +480,15 @@ class LDAPSource(StatefulIngestionSourceBase):
                     managerUrn=manager_urn,
                     customProperties=custom_props_map,
                 ),
+                make_corp_user_status_aspect(user_status),
+                GroupMembershipClass(groups=groups),
             ],
         )
 
-        user_snapshot.aspects.append(GroupMembershipClass(groups=groups))
-
-        return MetadataChangeEvent(proposedSnapshot=user_snapshot)
-
-    def build_corp_group_mce(self, attrs: dict) -> Optional[MetadataChangeEvent]:
-        """Creates a MetadataChangeEvent for LDAP groups."""
+    def _build_corp_group_mcps(
+        self, attrs: dict
+    ) -> Optional[List[MetadataChangeProposalWrapper]]:
+        """Returns the group's aspect MCPs, or None when the entry lacks the group urn attribute."""
         cn = attrs.get(self.config.group_attrs_map["urn"])
         if cn:
             full_name = cn[0].decode()
@@ -476,8 +507,8 @@ class LDAPSource(StatefulIngestionSourceBase):
                 email if email and self.config.use_email_as_username else full_name
             )
 
-            group_snapshot = CorpGroupSnapshotClass(
-                urn=f"urn:li:corpGroup:{make_group_urn}",
+            return MetadataChangeProposalWrapper.construct_many(
+                entityUrn=f"urn:li:corpGroup:{make_group_urn}",
                 aspects=[
                     CorpGroupInfoClass(
                         email=email,
@@ -489,7 +520,6 @@ class LDAPSource(StatefulIngestionSourceBase):
                     ),
                 ],
             )
-            return MetadataChangeEvent(proposedSnapshot=group_snapshot)
         return None
 
     def get_report(self) -> LDAPSourceReport:

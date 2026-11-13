@@ -1,9 +1,10 @@
 import { Empty } from 'antd';
 import React, { useEffect, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import { combineEntityDataWithSiblings } from '@app/entity/shared/siblingUtils';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
+import { combineEntityDataWithSiblings } from '@app/entityV2/shared/siblingUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { IncidentDetailDrawer } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/IncidentDetailDrawer';
 import { IncidentFilterContainer } from '@app/entityV2/shared/tabs/Incident/IncidentFilterContainer';
@@ -20,6 +21,7 @@ import { useGetEntityIncidentsQuery } from '@graphql/incident.generated';
 import { EntityPrivileges, Incident } from '@types';
 
 export const IncidentList = () => {
+    const { t } = useTranslation('entity.profile.incident');
     const { urn, entityType } = useEntityData();
     const location = useLocation();
     const refetchEntity = useRefetch();
@@ -86,7 +88,9 @@ export const IncidentList = () => {
     };
 
     const refetch = () => {
-        refetchEntity();
+        setTimeout(() => {
+            refetchEntity();
+        }, 3000);
         refetchIncidents();
     };
 
@@ -108,7 +112,7 @@ export const IncidentList = () => {
                 />
             );
         }
-        return <Empty description="No incidents yet" image={Empty.PRESENTED_IMAGE_SIMPLE} />;
+        return <Empty description={t('list.empty')} image={Empty.PRESENTED_IMAGE_SIMPLE} />;
     };
 
     return (

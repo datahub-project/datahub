@@ -1,5 +1,5 @@
-import { ReadOutlined } from '@ant-design/icons';
-import KeyboardArrowDownOutlinedIcon from '@mui/icons-material/KeyboardArrowDownOutlined';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import styled from 'styled-components';
 
 export const FlexWrapper = styled.div`
@@ -14,25 +14,29 @@ export const Title = styled.div`
     align-items: center;
 `;
 
-export const StyledReadOutlined = styled(ReadOutlined)<{ color?: string; addLineHeight?: boolean }>`
+export const StyledDivider = styled.hr`
+    margin: 12px 0 0 0;
+    border: none;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
+`;
+
+export const StyledBookIcon = styled(BookOpen).attrs({ size: 18 })<{ $addLineHeight?: boolean }>`
     margin-right: 8px;
-    height: 18px;
-    width: 18px;
-    color: #373d44;
-    ${(props) => props.addLineHeight && `line-height: 24px;`}
-    ${(props) => props.color && `color: ${props.color};`}
+    flex-shrink: 0;
+    color: ${(props) => props.theme.colors.icon};
+    ${(props) => props.$addLineHeight && `line-height: 24px;`}
 `;
 
 export const CTAWrapper = styled.div<{ backgroundColor?: string; borderColor?: string; padding?: string }>`
-    color: #373d44;
+    color: ${(props) => props.theme.colors.text};
     font-size: 14px;
     min-width: 180px;
     ${(props) =>
         `
         border-radius: 8px;
         padding: ${props.padding || '16px'};
-        background-color: ${props.backgroundColor ? props.backgroundColor : '#f9f0ff'};
-        border: 1px solid ${props.borderColor ? props.borderColor : '#8338b8'};
+        background-color: ${props.backgroundColor ? props.backgroundColor : props.theme.colors.bgSurfaceBrand};
+        border: 1px solid ${props.borderColor ? props.borderColor : props.theme.colors.borderBrand};
         `}
 `;
 
@@ -50,16 +54,12 @@ export const TitleWrapper = styled.div<{ isOpen?: boolean; isUserAssigned?: bool
     text-wrap: wrap;
 `;
 
-export const StyledArrow = styled(KeyboardArrowDownOutlinedIcon)<{ isOpen: boolean }>`
-    font-size: 12px;
+export const StyledArrow = styled(CaretDown).attrs({ size: 16 })<{ $isOpen: boolean }>`
     margin-left: 3px;
+    flex-shrink: 0;
     cursor: pointer;
-    ${(props) =>
-        props.isOpen &&
-        `
-        transform: rotate(180deg);
-        padding-top: 1px;
-    `}
+    color: ${(props) => props.theme.colors.icon};
+    ${(props) => props.$isOpen && `transform: rotate(180deg);`}
 `;
 
 export const StyledButtonWrapper = styled.div`
@@ -74,4 +74,11 @@ export const StyledImgIcon = styled.img<{ addLineHeight?: boolean; disable?: boo
     align-self: flex-start;
     ${(props) => props.disable && `opacity: 0.5;`};
     ${(props) => props.addLineHeight && `line-height: 24px;`}
+`;
+
+export const SubTitle = styled.div<{ addMargin?: boolean }>`
+    font-weight: 600;
+    margin-bottom: 4px;
+    ${(props) => props.addMargin && `margin-top: 8px;`}
+    text-wrap: wrap;
 `;

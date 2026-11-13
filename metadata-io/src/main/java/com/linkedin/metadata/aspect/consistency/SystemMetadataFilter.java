@@ -41,6 +41,8 @@ public class SystemMetadataFilter {
         .lePitEpochMs(config.getLePitEpochMs())
         .aspectFilters(config.getAspectFilters())
         .includeSoftDeleted(config.isIncludeSoftDeleted())
+        .keyAspectOnly(config.isKeyAspectOnly())
+        .entityTypes(config.getEntityTypes())
         .build();
   }
 
@@ -75,6 +77,20 @@ public class SystemMetadataFilter {
   private final boolean includeSoftDeleted;
 
   /**
+   * When true, system-metadata discovery is restricted to the entity type's key aspect documents
+   * only (e.g. {@code datasetKey}). This reduces scroll volume versus scanning every aspect doc per
+   * URN. Takes precedence over {@link #aspectFilters} and check {@code getTargetAspects()} for ES
+   * discovery.
+   */
+  private final boolean keyAspectOnly;
+
+  /**
+   * Optional entity-type allowlist for system-metadata discovery. Empty/null means no type
+   * restriction at the filter layer (callers choose which types to iterate).
+   */
+  @Nullable private final List<String> entityTypes;
+
+  /**
    * Check if any filter parameters are configured.
    *
    * @return true if any filtering is enabled
@@ -82,7 +98,14 @@ public class SystemMetadataFilter {
   public boolean hasAnyConfig() {
     return gePitEpochMs != null
         || lePitEpochMs != null
-        || (aspectFilters != null && !aspectFilters.isEmpty());
+        || (aspectFilters != null && !aspectFilters.isEmpty())
+        || keyAspectOnly
+        || (entityTypes != null && !entityTypes.isEmpty());
+  }
+
+  /** Whether this filter restricts discovery to a configured entity-type list. */
+  public boolean hasEntityTypes() {
+    return entityTypes != null && !entityTypes.isEmpty();
   }
 
   /** Create an empty filter with default values. */

@@ -1,3 +1,7 @@
+---
+description: "Get started with the DataHub GraphQL API by reading entities, running queries, and exploring metadata through the schema."
+---
+
 # Getting Started With GraphQL
 
 ## Reading an Entity: Queries
@@ -96,7 +100,7 @@ mutation updateDashboard {
         urn: "urn:li:dashboard:(looker,baz)",
         input: {
             editableProperties: {
-                description: "My new desription"
+                description: "My new description"
             }
         }
     ) {

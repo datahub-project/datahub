@@ -1,17 +1,19 @@
-import { MoreOutlined } from '@ant-design/icons';
+import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import AnnounceMenuAction from '@app/entityV2/shared/EntityDropdown/AnnounceMenuAction';
+import ChangeHistoryMenuAction from '@app/entityV2/shared/EntityDropdown/ChangeHistoryMenuAction';
 import DeleteEntityMenuItem from '@app/entityV2/shared/EntityDropdown/DeleteEntityMenuAction';
 import ExternalUrlMenuAction from '@app/entityV2/shared/EntityDropdown/ExternalUrlMenuAction';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import MoveEntityMenuAction from '@app/entityV2/shared/EntityDropdown/MoveEntityMenuAction';
 import RaiseIncidentMenuAction from '@app/entityV2/shared/EntityDropdown/RaiseIncidentMenuAction';
 import UpdateDeprecationMenuAction from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationMenuAction';
-import ShareMenuAction from '@app/shared/share/v2/ShareMenuAction';
+import { canCreateTermVersion } from '@app/entityV2/shared/EntityDropdown/utils';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
+import ShareMenuAction from '@app/sharedV2/share/v2/ShareMenuAction';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 export enum EntityMenuItems {
@@ -23,13 +25,17 @@ export enum EntityMenuItems {
     MOVE,
     DELETE, // acryl-main only
     EDIT, // acryl-main only
+    EDIT_GLOSSARY,
     ANNOUNCE, // acryl-main only
     RAISE_INCIDENT,
     LINK_VERSION,
     CLONE,
+    CHANGE_HISTORY,
+    LIFECYCLE_STAGE,
+    NEW_VERSION,
 }
 
-export const MenuIcon = styled(MoreOutlined)<{ fontSize?: number }>`
+export const MenuIcon = styled(DotsThreeVertical)<{ fontSize?: number }>`
     display: flex;
     justify-content: center;
     align-items: center;
@@ -73,7 +79,11 @@ function EntityMenuActions(props: Props) {
 
     const { entityVersioningEnabled } = useAppConfig().config.featureFlags;
 
-    const hasVersioningActions = !!(menuItems.has(EntityMenuItems.LINK_VERSION) || entityData?.versionProperties);
+    const hasVersioningActions = !!(
+        menuItems.has(EntityMenuItems.LINK_VERSION) ||
+        entityData?.versionProperties ||
+        (menuItems.has(EntityMenuItems.NEW_VERSION) && canCreateTermVersion(entityVersioningEnabled, entityData))
+    );
 
     return (
         <>
@@ -88,13 +98,20 @@ function EntityMenuActions(props: Props) {
                         <DeleteEntityMenuItem onDelete={onDelete} options={options} />
                     )}
                     {menuItems.has(EntityMenuItems.RAISE_INCIDENT) && <RaiseIncidentMenuAction />}
-                    {entityVersioningEnabled && hasVersioningActions && (
+                    {menuItems.has(EntityMenuItems.CHANGE_HISTORY) && <ChangeHistoryMenuAction />}
+                    {((entityVersioningEnabled && hasVersioningActions) ||
+                        (menuItems.has(EntityMenuItems.LIFECYCLE_STAGE) &&
+                            !!entityData?.privileges?.canEditLifecycleStage)) && (
                         <MoreOptionsContainer>
                             <MoreOptionsMenuAction
                                 menuItems={
-                                    menuItems.has(EntityMenuItems.LINK_VERSION)
-                                        ? new Set([EntityMenuItems.LINK_VERSION])
-                                        : new Set()
+                                    new Set(
+                                        [
+                                            EntityMenuItems.LINK_VERSION,
+                                            EntityMenuItems.LIFECYCLE_STAGE,
+                                            EntityMenuItems.NEW_VERSION,
+                                        ].filter((item) => menuItems.has(item)),
+                                    )
                                 }
                                 urn={urn}
                                 entityType={entityType}

@@ -113,6 +113,44 @@ class TitleExtractor:
 
         return None
 
+    @staticmethod
+    def _looks_like_source_id(value: str) -> bool:
+        """Return True if a string is a bare 32-char hex ID (e.g. a Notion page ID).
+
+        Notion's connector hardcodes per-page filenames to ``{page_id}.html`` and
+        does not expose the page's title property, so the filename fallback would
+        otherwise surface a raw page ID as the document title. Detecting that shape
+        lets us skip it in favor of a human-readable fallback.
+        """
+        stripped = value.strip().replace("-", "")
+        if len(stripped) != 32:
+            return False
+        try:
+            int(stripped, 16)
+            return True
+        except ValueError:
+            return False
+
+    def _extract_title_from_content(
+        self, elements: List[Dict[str, Any]]
+    ) -> Optional[str]:
+        """Pull a title from content, preferring real headings over body text."""
+        # Prefer explicit Title/Header elements (real page headings).
+        for elem_type in ("Title", "Header"):
+            for elem in elements:
+                if elem.get("type") == elem_type:
+                    text = elem.get("text", "").strip()
+                    if text:
+                        return text
+
+        # Last resort: first non-empty text block, so we never emit a raw ID.
+        for elem in elements:
+            text = elem.get("text", "").strip()
+            if text:
+                return text
+
+        return None
+
     def extract_title(
         self,
         elements: List[Dict[str, Any]],
@@ -138,18 +176,17 @@ class TitleExtractor:
                 if title:
                     logger.debug(f"Extracted title from Notion URL: {title}")
 
-        # Then try content extraction
+        # Then try content extraction (headings first, then leading text)
         if not title and self.config.extract_from_content:
-            # Find first Title element
-            for elem in elements:
-                if elem.get("type") == "Title":
-                    title = elem.get("text", "").strip()
-                    if title:
-                        break
+            title = self._extract_title_from_content(elements)
 
-        # Finally fall back to filename
-        if not title and self.config.fallback_to_filename:
-            # Use filename without extension
+        # Fall back to filename, but never surface a raw source ID (e.g. a Notion
+        # page ID) as the title — that is worse than no title at all.
+        if (
+            not title
+            and self.config.fallback_to_filename
+            and not self._looks_like_source_id(os.path.splitext(filename)[0])
+        ):
             title = os.path.splitext(filename)[0]
 
         if not title:
@@ -260,30 +297,43 @@ class DocumentEntityBuilder:
         # embeddings and emit SemanticContent aspects directly.
 
         # Create Document using SDK
-        # Determine platform from source_type (e.g., "notion", "local", "s3")
-        platform = self.source_type
-
-        # Determine external_url based on config
-        final_external_url: str
-        if self.config.source.include_external_url:
-            final_external_url = source_url
+        if self.config.source.type == "NATIVE":
+            doc = Document.create_document(
+                id=doc_id,
+                title=title,
+                text=text_content,
+                status=status,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                related_assets=related_assets,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
         else:
-            # Still need to provide a URL (required parameter), use a placeholder
-            final_external_url = f"{self.source_type}://{doc_id}"
+            # Determine platform from source_type (e.g., "notion", "local", "s3")
+            platform = self.source_type
 
-        doc = Document.create_external_document(
-            id=doc_id,
-            title=title,
-            platform=platform,
-            external_url=final_external_url,
-            external_id=source_id,
-            text=text_content,
-            status=status,
-            custom_properties=custom_properties,
-            parent_document=parent_urn,
-            created_time=created_time,
-            last_modified_time=last_modified_time,
-        )
+            # Determine external_url based on config
+            final_external_url: str
+            if self.config.source.include_external_url:
+                final_external_url = source_url
+            else:
+                # Still need to provide a URL (required parameter), use a placeholder
+                final_external_url = f"{self.source_type}://{doc_id}"
+
+            doc = Document.create_external_document(
+                id=doc_id,
+                title=title,
+                platform=platform,
+                external_url=final_external_url,
+                external_id=source_id,
+                text=text_content,
+                status=status,
+                custom_properties=custom_properties,
+                parent_document=parent_urn,
+                created_time=created_time,
+                last_modified_time=last_modified_time,
+            )
 
         return doc
 
@@ -301,6 +351,16 @@ class DocumentEntityBuilder:
         )
 
         # Create Document for folder using SDK
+        if self.config.source.type == "NATIVE":
+            return Document.create_document(
+                id=doc_id,
+                title=folder_name,
+                text=f"Folder: {folder_name}",
+                status=DocumentStateClass.PUBLISHED,
+                custom_properties={"is_folder": "true"},
+                parent_document=parent_urn,
+            )
+
         platform = self.source_type
 
         # Determine external_url based on config (folder_path is always a string)

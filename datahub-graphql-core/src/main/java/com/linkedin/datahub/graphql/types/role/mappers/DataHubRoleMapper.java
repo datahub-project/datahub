@@ -33,6 +33,15 @@ public class DataHubRoleMapper implements ModelMapper<EntityResponse, DataHubRol
     EnvelopedAspectMap aspectMap = entityResponse.getAspects();
     MappingHelper<DataHubRole> mappingHelper = new MappingHelper<>(aspectMap, result);
     mappingHelper.mapToResult(DATAHUB_ROLE_INFO_ASPECT_NAME, this::mapDataHubRoleInfo);
+    // Guard against missing/incomplete aspect: GQL schema declares name/description as non-null.
+    // A role entity can exist without a DataHubRoleInfo aspect (e.g. dangling roleMembership
+    // references), which leaves getName() null and causes the entire query to fail.
+    if (result.getName() == null) {
+      result.setName(entityResponse.getUrn().getId());
+    }
+    if (result.getDescription() == null) {
+      result.setDescription("");
+    }
     return mappingHelper.getResult();
   }
 

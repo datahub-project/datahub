@@ -1,27 +1,28 @@
-import { FolderOpenOutlined } from '@ant-design/icons';
+import { Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import { Tooltip, Typography } from 'antd';
+import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
+import { Typography } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import colors from '@src/alchemy-components/theme/foundations/colors';
 
 import { Entity } from '@types';
 
+const HIDDEN_COUNT_PREFIX = '+';
+
 const ParentNodesWrapper = styled.div`
     font-size: 12px;
-    color: ${colors.gray[1700]};
+    color: ${(props) => props.theme.colors.textSecondary};
     display: flex;
     align-items: center;
-    margin-bottom: 3px;
     overflow: hidden;
+    line-height: 22px;
 `;
 
 const ParentNode = styled(Typography.Text)<{ color?: string }>`
-    margin-left: 4px;
-    color: ${(props) => (props.color ? props.color : ANTD_GRAY[7])};
+    color: ${(props) => props.color || props.theme.colors.textTertiary};
 `;
 
 const ArrowWrapper = styled.span`
@@ -51,6 +52,7 @@ interface Props {
 }
 
 export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NUM_VISIBLE, hideIcon = false }: Props) {
+    const { t } = useTranslation('search');
     const entityRegistry = useEntityRegistry();
 
     // parent nodes/domains are returned with direct parent first
@@ -69,9 +71,10 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                 <TooltipWrapper>
                     {orderedParentEntities.map((parentEntity, index) => (
                         <>
-                            {!hideIcon && <FolderOpenOutlined />}
+                            {!hideIcon && <FolderOpen />}
                             <ParentNode color="white">
-                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity) || 'Unknown'}
+                                {entityRegistry.getDisplayName(parentEntity.type, parentEntity) ||
+                                    t('filters.unknownEntity')}
                             </ParentNode>
                             {index !== orderedParentEntities.length - 1 && (
                                 <ArrowWrapper>
@@ -87,9 +90,12 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                 {hasHiddenEntities && (
                     <>
                         {!hideIcon ? (
-                            [...Array(numHiddenEntities)].map(() => <FolderOpenOutlined />)
+                            [...Array(numHiddenEntities)].map(() => <FolderOpen />)
                         ) : (
-                            <>+{numHiddenEntities}</>
+                            <>
+                                {HIDDEN_COUNT_PREFIX}
+                                {numHiddenEntities}
+                            </>
                         )}
                         <ArrowWrapper>
                             <CaretRight />
@@ -101,12 +107,12 @@ export default function ParentEntities({ parentEntities, numVisible = DEFAULT_NU
                     const isLast = index === visibleNodes.length - 1;
                     return (
                         <>
-                            {!hideIcon && <FolderOpenOutlined style={{ marginRight: 4 }} />}
+                            {!hideIcon && <FolderOpen style={{ marginRight: 4 }} />}
                             <ParentNode
                                 style={isLast ? { flexShrink: 1 } : { flexShrink: 2 }}
                                 ellipsis={!hasHiddenEntities ? { tooltip: displayName } : true}
                             >
-                                {displayName || 'Unknown'}
+                                {displayName || t('filters.unknownEntity')}
                             </ParentNode>
                             {!isLast && (
                                 <ArrowWrapper>

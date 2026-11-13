@@ -21,9 +21,13 @@ import javax.annotation.Nullable;
 public interface UpdateIndicesStrategy {
 
   /**
-   * Optimized batch processing method that takes pre-grouped events by URN. This allows for maximum
-   * efficiency by avoiding redundant grouping operations. V3 implementations should prefer this
-   * method over the ungrouped version.
+   * Optimized batch processing method that takes pre-grouped events by URN. Strategies use the
+   * supplied {@code opContext} for all ES writes / index resolution / structured-property mapping
+   * updates. In OSS this is the system context; in multi-tenant deployments the per-event routing
+   * fingerprint is preserved upstream (in {@link UpdateIndicesService#handleChangeEvents}) for
+   * side-effects, graph index writes, and system-metadata persistence. Per-tenant ES write routing
+   * for these strategies is a follow-up that requires a stable routing key from the inbound
+   * enricher — see the TODO above the {@code processBatch} call site.
    *
    * @param opContext the operation context
    * @param groupedEvents events grouped by URN, preserving order
@@ -80,4 +84,15 @@ public interface UpdateIndicesStrategy {
    * @return true if enabled, false otherwise
    */
   boolean isEnabled();
+
+  /**
+   * True when a new index owned by this strategy is populated by a fill from primary storage rather
+   * than left empty for live writes to accumulate. A generation whose indices aggregate existing
+   * entities (V3 consolidates many types into one index) needs the fill; the per-entity V2 layout
+   * historically does not. The incremental upgrade step reads this to choose between creating an
+   * index empty and creating it as a fill target.
+   */
+  default boolean fillsNewIndicesFromPrimaryStorage() {
+    return false;
+  }
 }

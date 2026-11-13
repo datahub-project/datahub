@@ -1,5 +1,3 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Icon, colors } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Placeholder } from '@phosphor-icons/react/dist/csr/Placeholder';
@@ -7,9 +5,11 @@ import { Skeleton } from 'antd';
 import React, { HTMLAttributes, forwardRef } from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/common';
+import { Icon } from '@components/components/Icon';
+
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import MultiLineSkeleton from '@app/lineageV3/components/MultiLineSkeleton';
+import { LINEAGE_HANDLE_OFFSET } from '@app/lineageV3/lineageLayout';
 import { GenericPropertiesContextPath } from '@app/previewV2/ContextPath';
 import OverflowTitle from '@app/sharedV2/text/OverflowTitle';
 
@@ -90,13 +90,13 @@ const MenuActionsWrapper = styled.span`
 `;
 
 const ColumnButtonWrapper = styled.div`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 600;
     letter-spacing: -0.06px;
     line-height: 1.5;
     cursor: pointer;
 
-    border-top: 1px solid ${colors.gray[100]};
+    border-top: 1px solid ${(props) => props.theme.colors.border};
     border-bottom-left-radius: 12px;
     border-bottom-right-radius: 12px;
 
@@ -110,13 +110,13 @@ const ColumnButtonWrapper = styled.div`
     max-height: 35px;
 
     :hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgSurface};
     }
 
     // TODO: Fix
 
     svg {
-        color: ${colors.gray[1800]};
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 
@@ -141,7 +141,7 @@ const PlatformIconSkeleton = styled(Skeleton.Avatar)`
 `;
 
 const Title = styled(OverflowTitle)`
-    color: ${colors.gray[600]};
+    color: ${(props) => props.theme.colors.text};
     font-weight: 500;
 `;
 
@@ -160,6 +160,9 @@ interface Props extends HTMLAttributes<HTMLDivElement> {
     name: string;
     nameExtra?: React.ReactNode;
     nameHighlight?: { text: string; color: string };
+
+    // Rendered when there are no platform icons
+    typeIcon?: React.ReactNode;
     platformIcons: string[];
     menuActions?: React.ReactNode[];
 
@@ -186,6 +189,7 @@ function LineageCard(
         name,
         nameExtra,
         nameHighlight,
+        typeIcon,
         platformIcons,
         menuActions,
         extraDetails,
@@ -205,7 +209,9 @@ function LineageCard(
             ) : (
                 <CardWrapper {...props} ref={ref}>
                     <PlatformIconsWrapper>
+                        {platformIcons.length === 0 && typeIcon}
                         {platformIcons.map((icon) => (
+                            /* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) internal alt fallback, not user-facing */
                             <PlatformIcon key={icon} src={icon} alt="Platform" />
                         ))}
                     </PlatformIconsWrapper>

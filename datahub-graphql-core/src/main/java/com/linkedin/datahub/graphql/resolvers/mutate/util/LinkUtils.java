@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.LinkSettingsInput;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.InstitutionalMemoryLinkUrls;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityUtils;
@@ -316,8 +317,21 @@ public class LinkUtils {
     } catch (Exception e) {
       throw new IllegalArgumentException(
           String.format(
-              "Failed to change institutional memory for resource %s. Expected an url.",
+              "Failed to change institutional memory for resource %s. Expected a url.",
               resourceUrn));
+    }
+
+    // The Url constructor is a thin string wrapper with no scheme enforcement. Reject dangerous
+    // pseudo-schemes (javascript:, data:, vbscript:, etc.) that can execute code when a browser
+    // navigates to the stored URL. The allowed set lives with the patch builder so both writes
+    // agree.
+    try {
+      InstitutionalMemoryLinkUrls.validate(url);
+    } catch (IllegalArgumentException e) {
+      throw new IllegalArgumentException(
+          String.format(
+              "Failed to change institutional memory for resource %s. %s",
+              resourceUrn, e.getMessage()));
     }
   }
 

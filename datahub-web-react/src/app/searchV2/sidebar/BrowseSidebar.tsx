@@ -1,176 +1,92 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Button, colors } from '@components';
-import { ArrowLineLeft } from '@phosphor-icons/react/dist/csr/ArrowLineLeft';
-import { ArrowLineRight } from '@phosphor-icons/react/dist/csr/ArrowLineRight';
-import { Divider, Typography } from 'antd';
 import React, { useCallback, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { SEARCH_RESULTS_BROWSE_SIDEBAR_ID } from '@app/onboarding/config/SearchOnboardingConfig';
 import { useIsPlatformBrowseMode } from '@app/searchV2/sidebar/BrowseContext';
 import EntityBrowse from '@app/searchV2/sidebar/EntityBrowse';
 import PlatformBrowse from '@app/searchV2/sidebar/PlatformBrowse';
-import { ProfileSidebarResizer } from '@src/app/entityV2/shared/containers/profile/sidebar/ProfileSidebarResizer';
-import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
+import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
+import { TreeContainer } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
+import {
+    SEARCH_BROWSE_SIDEBAR_DEFAULT_WIDTH,
+    SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY,
+} from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
-const PLATFORM_BROWSE_TRANSITION_MS = 200;
-const MAX_BROWSER_WIDTH = 500;
-const MIN_BROWSWER_WIDTH = 260;
-
-const StyledEntitySidebarContainer = styled.div<{
-    isCollapsed: boolean;
-    isHidden: boolean;
-    $width?: number;
-    backgroundColor?: string;
-    $isShowNavBarRedesign?: boolean;
-}>`
-    flex: 1;
-    overflow: hidden;
-    display: ${(props) => (props.isHidden ? 'none' : undefined)};
-
-    ${(props) => !props.isCollapsed && props.$width && `max-width: ${props.$width}px;`}
-    ${(props) => props.isCollapsed && 'min-width: 63px; max-width: 63px;'}
- &::-webkit-scrollbar {
-        display: none;
-    }
-
-    margin: ${(props) => {
-        if (props.$isShowNavBarRedesign) {
-            return props.isCollapsed ? '8px 4px 5px 5px' : '8px 0px 5px 5px';
-        }
-        return props.isCollapsed ? '12px' : '12px 0 12px 12px';
-    }};
-    transition:
-        max-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out,
-        min-width ${PLATFORM_BROWSE_TRANSITION_MS}ms ease-in-out;
-
-    background-color: #ffffff;
-    border-radius: ${(props) =>
-        props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
-    box-shadow: ${(props) =>
-        props.$isShowNavBarRedesign
-            ? props.theme.styles['box-shadow-navbar-redesign']
-            : '0px 0px 5px rgba(0, 0, 0, 0.08)'};
+/**
+ * Hides the sidebar entirely when there are no platforms to browse — PlatformBrowse stays mounted so
+ * it can un-hide the sidebar when platforms come back. The app shell owns the outer inset in the
+ * redesigned nav; the legacy layout still insets from the page edges here.
+ */
+const SidebarSlot = styled.div<{ $isHidden: boolean; $isShowNavBarRedesign: boolean }>`
+    display: ${(props) => (props.$isHidden ? 'none' : 'flex')};
+    flex-shrink: 0;
+    margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '12px 0 12px 12px')};
 `;
 
-const StyledSidebar = styled.div`
-    overflow: auto;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-`;
-
-const Controls = styled.div<{ isCollapsed: boolean }>`
-    display: flex;
-    align-items: center;
-    justify-content: ${(props) => (props.isCollapsed ? 'center' : 'space-between')};
-    height: 52px;
-    padding: 16px 12px;
-    overflow: hidden;
-`;
-
-const NavigateTitle = styled(Typography.Title)<{ isClosed: boolean }>`
-    && {
-        padding: 0;
-        margin: 0;
-        min-width: 140px;
-        display: ${(props) => (props.isClosed ? 'none' : 'block')};
-        font-size: 14px;
-        line-height: 20px;
-        font-weight: bold;
-        color: ${colors.gray[1700]};
-    }
-`;
-
-const ThinDivider = styled(Divider)`
-    margin: 0px;
-    padding: 0px;
-`;
-
-const SidebarBody = styled.div`
-    height: calc(100% - 53px);
-    overflow: auto;
+/** Browse rows keep their single-line layout; the shell's tree container owns scrolling. */
+const BrowseBody = styled.div`
     white-space: nowrap;
-    /* Hide scrollbar altoghether for Chrome, Safari, and Opera */
-    &::-webkit-scrollbar {
-        display: none;
-    }
-    scrollbar-gutter: stable;
-    -moz-scrollbar-gutter: stable;
-    -webkit-scrollbar-gutter: stable;
 `;
 
 type Props = {
     visible: boolean;
 };
 
+/**
+ * Search page "Navigate" sidebar: the shared {@link HierarchicalBrowseSidebar} shell (header,
+ * collapse, scroll, drag-resize) around the platform / entity browse tree.
+ */
 const BrowseSidebar = ({ visible }: Props) => {
+    const { t } = useTranslation('search');
     const isPlatformBrowseMode = useIsPlatformBrowseMode();
-    const [isClosed, setIsClosed] = useState(false);
-    const [isHidden, setIsHidden] = useState(false);
     const isShowNavBarRedesign = useShowNavBarRedesign();
-
-    const [sidebarWidth, setSidebarWidth] = useState(MIN_BROWSWER_WIDTH);
+    const [isCollapsed, setIsCollapsed] = useState(false);
+    const [isHidden, setIsHidden] = useState(false);
 
     const hideSidebar = useCallback(() => {
         setIsHidden(true);
-        setIsClosed(true);
+        setIsCollapsed(true);
     }, []);
-
     const unhideSidebar = useCallback(() => setIsHidden(false), []);
+    const expand = useCallback(() => setIsCollapsed(false), []);
+
+    const renderBrowse = (collapsed: boolean) => (
+        <BrowseBody id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
+            {isPlatformBrowseMode ? (
+                <PlatformBrowse
+                    collapsed={collapsed}
+                    expand={expand}
+                    visible={visible}
+                    hideSidebar={hideSidebar}
+                    unhideSidebar={unhideSidebar}
+                />
+            ) : (
+                <EntityBrowse visible={visible} />
+            )}
+        </BrowseBody>
+    );
 
     return (
-        <>
-            <StyledEntitySidebarContainer
-                isCollapsed={isClosed}
-                isHidden={isHidden}
-                $width={sidebarWidth}
-                $isShowNavBarRedesign={isShowNavBarRedesign}
+        <SidebarSlot $isHidden={isHidden} $isShowNavBarRedesign={isShowNavBarRedesign}>
+            <HierarchicalBrowseSidebar
+                title={t('sidebar.navigate')}
+                isCollapsed={isCollapsed}
+                onToggleCollapsed={() => setIsCollapsed((prev) => !prev)}
                 id="browse-v2"
+                dataTestId="browse-v2-results"
+                collapseButtonTestId="browse-v2-toggle"
+                defaultWidth={SEARCH_BROWSE_SIDEBAR_DEFAULT_WIDTH}
+                widthStorageKey={SEARCH_BROWSE_SIDEBAR_WIDTH_STORAGE_KEY}
             >
-                <Controls isCollapsed={isClosed}>
-                    {!isClosed ? (
-                        <NavigateTitle level={5} isClosed={isClosed}>
-                            Navigate
-                        </NavigateTitle>
-                    ) : null}
-                    <Button
-                        variant="text"
-                        color="gray"
-                        size="lg"
-                        isCircle
-                        icon={{ icon: isClosed ? ArrowLineRight : ArrowLineLeft }}
-                        isActive={!isClosed}
-                        onClick={() => setIsClosed(!isClosed)}
-                    />
-                </Controls>
-                <StyledSidebar id={SEARCH_RESULTS_BROWSE_SIDEBAR_ID}>
-                    <ThinDivider />
-                    <SidebarBody>
-                        {!isPlatformBrowseMode ? (
-                            <EntityBrowse visible={visible} />
-                        ) : (
-                            <PlatformBrowse
-                                collapsed={isClosed}
-                                expand={() => setIsClosed(false)}
-                                visible={visible}
-                                hideSidebar={hideSidebar}
-                                unhideSidebar={unhideSidebar}
-                            />
-                        )}
-                    </SidebarBody>
-                </StyledSidebar>
-            </StyledEntitySidebarContainer>
-            {!isClosed && (
-                <ProfileSidebarResizer
-                    setSidePanelWidth={(widthProp) => {
-                        setSidebarWidth(Math.min(Math.max(widthProp, MIN_BROWSWER_WIDTH), MAX_BROWSER_WIDTH));
-                    }}
-                    initialSize={sidebarWidth}
-                    isSidebarOnLeft
-                />
-            )}
-        </>
+                {/* Render prop keeps the browse tree mounted across collapse; collapsed, the
+                    platform rows render as an icon-only column. */}
+                {({ isCollapsed: collapsed }) =>
+                    collapsed ? <TreeContainer $isCollapsed>{renderBrowse(true)}</TreeContainer> : renderBrowse(false)
+                }
+            </HierarchicalBrowseSidebar>
+        </SidebarSlot>
     );
 };
 

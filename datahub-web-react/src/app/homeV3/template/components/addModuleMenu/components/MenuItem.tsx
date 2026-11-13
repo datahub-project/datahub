@@ -1,15 +1,17 @@
 import { Icon, Text, Tooltip } from '@components';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import spacing from '@components/theme/foundations/spacing';
 
-const Wrapper = styled.div`
+const Wrapper = styled.div<{ $isDisabled?: boolean }>`
     display: flex;
     gap: ${spacing.xsm};
     padding: ${spacing.xsm};
     align-items: center;
+    color: ${({ $isDisabled, theme }) => ($isDisabled ? theme.colors.textDisabled : theme.colors.text)};
 `;
 
 const Container = styled.div`
@@ -19,9 +21,14 @@ const Container = styled.div`
     word-wrap: nowrap;
 `;
 
-const IconWrapper = styled.div`
+const Description = styled.div<{ $isDisabled?: boolean }>`
+    color: ${({ $isDisabled, theme }) => ($isDisabled ? theme.colors.textDisabled : theme.colors.textSecondary)};
+`;
+
+const IconWrapper = styled.div<{ $isDisabled?: boolean }>`
     display: flex;
     flex-shrink: 0;
+    color: ${({ $isDisabled, theme }) => ($isDisabled ? theme.colors.iconDisabled : theme.colors.icon)};
 `;
 
 const SpaceFiller = styled.div`
@@ -38,36 +45,37 @@ interface Props {
 }
 
 export default function MenuItem({ icon, title, description, hasChildren, isDisabled, isSmallModule }: Props) {
+    const { t } = useTranslation('modules');
     const tooltipText = useMemo(() => {
         if (!isDisabled) return undefined;
         if (isSmallModule) {
-            return 'Cannot add small widget to large widget row';
+            return t('menu.cannotAddSmallToLarge');
         }
-        return 'Cannot add large widget to small widget row';
-    }, [isDisabled, isSmallModule]);
-
-    const iconColorLevel = isDisabled ? 300 : 1800;
+        return t('menu.cannotAddLargeToSmall');
+    }, [t, isDisabled, isSmallModule]);
 
     const content = (
-        <Wrapper>
-            <IconWrapper>
-                <Icon icon={icon} color="gray" colorLevel={iconColorLevel} size="2xl" />
+        <Wrapper $isDisabled={isDisabled}>
+            <IconWrapper $isDisabled={isDisabled}>
+                <Icon icon={icon} size="2xl" />
             </IconWrapper>
 
             <Container>
-                <Text weight="semiBold" color="gray" colorLevel={600}>
-                    {title}
-                </Text>
+                <Text weight="semiBold">{title}</Text>
                 {description && (
-                    <Text color="gray" colorLevel={isDisabled ? 300 : 1700} size="sm">
-                        {description}
-                    </Text>
+                    <Description $isDisabled={isDisabled}>
+                        <Text size="sm">{description}</Text>
+                    </Description>
                 )}
             </Container>
 
             <SpaceFiller />
 
-            {hasChildren && <Icon icon={CaretRight} color="gray" colorLevel={iconColorLevel} size="lg" />}
+            {hasChildren && (
+                <IconWrapper $isDisabled={isDisabled}>
+                    <Icon icon={CaretRight} size="lg" />
+                </IconWrapper>
+            )}
         </Wrapper>
     );
 

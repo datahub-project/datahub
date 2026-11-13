@@ -1,4 +1,5 @@
-import { BuildOutlined } from '@ant-design/icons';
+import { Wrench } from '@phosphor-icons/react/dist/csr/Wrench';
+import i18next from 'i18next';
 import React from 'react';
 
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
@@ -15,12 +16,12 @@ export class HasSiblingsRenderer implements FilterRenderer {
         return <HasSiblingsFilter {...props} icon={this.icon()} />;
     };
 
-    icon = () => <BuildOutlined />;
+    icon = () => <Wrench />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {
-            return <>Has Siblings</>;
+            return <>{i18next.t('search:filters.siblings.hasSiblingsLabel')}</>;
         }
-        return <>Has No Siblings</>;
+        return <>{i18next.t('search:filters.siblings.hasNoSiblingsLabel')}</>;
     };
 }

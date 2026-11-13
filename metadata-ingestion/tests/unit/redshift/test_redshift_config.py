@@ -1,6 +1,62 @@
+import logging
+
+import pytest
+
+from datahub.ingestion.agent.introspect import declares_qualifier
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 
 
 def test_incremental_lineage_default_to_false():
     config = RedshiftConfig(host_port="localhost:5439", database="test")
     assert config.incremental_lineage is False
+
+
+def test_extract_ownership_defaults_to_false():
+    config = RedshiftConfig(host_port="localhost:5439", database="test")
+    assert config.extract_ownership is False
+
+
+def test_probe_qualifies_tables_through_the_database_field():
+    # RedshiftSource is not a SQLAlchemySource, so the probe's get_identifier
+    # shim cannot build `database.schema.table`; the Qualifier on `database`
+    # declares it.
+    assert declares_qualifier(
+        RedshiftConfig(host_port="localhost:5439", database="test")
+    )
+
+
+def test_connect_args_are_promoted_to_extra_client_options():
+    config = RedshiftConfig(
+        host_port="localhost:5439",
+        database="test",
+        options={"connect_args": {"ssl": False}},
+    )
+    assert config.extra_client_options == {"ssl": False}
+
+
+def test_connect_args_and_extra_client_options_cannot_both_be_set():
+    with pytest.raises(ValueError):
+        RedshiftConfig(
+            host_port="localhost:5439",
+            database="test",
+            options={"connect_args": {"ssl": False}},
+            extra_client_options={"ssl": True},
+        )
+
+
+def test_schema_pattern_compatibility_warning_reaches_the_logging_hierarchy(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    """The validator used to log through a detached `logging.Logger(...)` that
+    no handler (file, CLI or caplog) was attached to, so the deprecation advice
+    never reached operators."""
+    with caplog.at_level(logging.WARNING):
+        RedshiftConfig(
+            host_port="localhost:5439",
+            database="test",
+            schema_pattern={"deny": ["internal"]},
+        )
+    assert any(
+        "match_fully_qualified_names" in record.getMessage()
+        for record in caplog.records
+    )

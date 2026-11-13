@@ -1,5 +1,6 @@
 import { Spin } from 'antd';
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 
 import {
     ErrorContainer,
@@ -46,10 +47,17 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
     onVideoCanPlay,
     videoRef,
 }) => {
+    const { t } = useTranslation('alchemy');
     const [isLoading, setIsLoading] = useState(true);
     const [hasError, setHasError] = useState(false);
     const internalVideoRef = useRef<HTMLVideoElement>(null);
     const currentVideoRef = videoRef || internalVideoRef;
+
+    const handleError = useCallback(() => {
+        setIsLoading(false);
+        setHasError(true);
+        onVideoError?.();
+    }, [onVideoError]);
 
     useEffect(() => {
         const video = currentVideoRef.current;
@@ -58,12 +66,6 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
         const handleLoadedData = () => {
             setIsLoading(false);
             onVideoLoad?.();
-        };
-
-        const handleError = () => {
-            setIsLoading(false);
-            setHasError(true);
-            onVideoError?.();
         };
 
         const handleCanPlay = () => {
@@ -93,11 +95,14 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
             video.removeEventListener('ended', handleEnded);
             video.removeEventListener('timeupdate', handleTimeUpdate);
         };
-    }, [onVideoLoad, onVideoError, onVideoCanPlay, onVideoEnded, onVideoTimeUpdate, currentVideoRef]);
+    }, [onVideoLoad, handleError, onVideoCanPlay, onVideoEnded, onVideoTimeUpdate, currentVideoRef]);
 
     if (hasError) {
-        return <ErrorContainer>Failed to load video</ErrorContainer>;
+        return <ErrorContainer>{t('loadedVideo.error')}</ErrorContainer>;
     }
+
+    // With a poster, show the video element immediately so the poster is visible while loading.
+    const showLoadingOverlay = isLoading && !posterSrc;
 
     return (
         <div
@@ -111,7 +116,7 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
                 margin: '0 auto',
             }}
         >
-            {isLoading && (
+            {showLoadingOverlay && (
                 <LoadingOverlay>
                     <Spin size="large" />
                 </LoadingOverlay>
@@ -129,15 +134,22 @@ export const LoadedVideo: React.FC<LoadedVideoProps> = ({
                     poster={posterSrc}
                     className={className}
                     style={{
-                        display: isLoading ? 'none' : 'block',
+                        display: showLoadingOverlay ? 'none' : 'block',
                     }}
                 >
-                    <source src={mp4Src} type="video/mp4" />
-                    {webmSrc && <source src={webmSrc} type="video/webm" />}
+                    {/* A failed source fires `error` on <source>, not <video>; only the last means all failed. */}
+                    <source src={mp4Src} type="video/mp4" onError={webmSrc ? undefined : handleError} />
+                    {webmSrc && <source src={webmSrc} type="video/webm" onError={handleError} />}
                     <track kind="captions" />
                     <p>
-                        Your browser doesn&apos;t support HTML5 video. Here&apos;s a{' '}
-                        <a href={mp4Src}>link to the video</a> instead.
+                        <Trans
+                            t={t}
+                            i18nKey="loadedVideo.unsupportedFallback"
+                            components={{
+                                // eslint-disable-next-line jsx-a11y/anchor-has-content, jsx-a11y/control-has-associated-label
+                                anchor: <a href={mp4Src} />,
+                            }}
+                        />
                     </p>
                 </video>
             </VideoPlayerContainer>

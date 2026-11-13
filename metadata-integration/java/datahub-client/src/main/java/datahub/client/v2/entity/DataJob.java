@@ -61,7 +61,8 @@ public class DataJob extends Entity
         HasOwners<DataJob>,
         HasDomains<DataJob>,
         HasSubTypes<DataJob>,
-        HasStructuredProperties<DataJob> {
+        HasStructuredProperties<DataJob>,
+        HasDocumentation<DataJob> {
 
   private static final String ENTITY_TYPE = "dataJob";
 

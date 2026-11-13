@@ -1,6 +1,6 @@
 import { Text } from '@components';
-import { Image } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 const HeaderContainer = styled.div`
@@ -10,7 +10,7 @@ const HeaderContainer = styled.div`
     padding: 8px 20px 4px 20px;
 `;
 
-const LogoImage = styled(Image)`
+const LogoImage = styled.img`
     width: 58px;
     height: auto;
 `;
@@ -21,24 +21,33 @@ const HeaderText = styled.div`
     gap: 4px;
 `;
 
+const Heading = styled(Text)`
+    color: ${(props) => props.theme.colors.text};
+`;
+
+const SubHeading = styled(Text)`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
+
 interface Props {
     subHeading?: string;
 }
 
 export default function ModalHeader({ subHeading }: Props) {
     const themeConfig = useTheme();
+    const { t } = useTranslation('auth');
 
     return (
         <HeaderContainer>
-            <LogoImage src={themeConfig.assets?.logoUrl} preview={false} />
+            <LogoImage src={themeConfig.assets?.logoUrl} alt="" />
             <HeaderText>
-                <Text size="3xl" color="gray" colorLevel={600} weight="bold" lineHeight="normal">
-                    Welcome to DataHub
-                </Text>
+                <Heading size="3xl" weight="bold" lineHeight="normal">
+                    {t('welcomeToDataHub')}
+                </Heading>
                 {subHeading && (
-                    <Text size="lg" color="gray" colorLevel={1700} lineHeight="normal">
+                    <SubHeading size="lg" lineHeight="normal">
                         {subHeading}
-                    </Text>
+                    </SubHeading>
                 )}
             </HeaderText>
         </HeaderContainer>

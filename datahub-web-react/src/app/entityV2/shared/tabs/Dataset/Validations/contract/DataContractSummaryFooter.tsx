@@ -1,9 +1,8 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
 import { getAssertionsSummary } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import {
     StyledCheckOutlined,
@@ -25,15 +24,15 @@ const StatusContainer = styled.div`
 `;
 
 const StatusText = styled.div`
-    color: ${ANTD_GRAY[8]};
+    color: ${(props) => props.theme.colors.textTertiary};
     margin-left: 4px;
 `;
 
 const ActionButton = styled(Button)`
-    color: ${REDESIGN_COLORS.BLUE};
+    color: ${(props) => props.theme.colors.textInformation};
 `;
 
-const StyledArrowRightOutlined = styled(ArrowRightOutlined)`
+const StyledArrowRightOutlined = styled(ArrowRight)`
     font-size: 8px;
 `;
 

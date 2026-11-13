@@ -2,6 +2,7 @@ package com.linkedin.metadata.kafka;
 
 import static com.linkedin.metadata.config.kafka.KafkaConfiguration.*;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.RecordUtils;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -17,21 +18,22 @@ import com.linkedin.gms.factory.kafka.SimpleKafkaConsumerFactory;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.kafka.config.CDCProcessorCondition;
+import com.linkedin.metadata.kafka.pause.ConsumerPauseSupport;
 import com.linkedin.metadata.kafka.util.KafkaListenerUtil;
 import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.UnknownDataGuard;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import jakarta.annotation.PostConstruct;
 import java.net.URISyntaxException;
-import java.time.Duration;
 import java.time.OffsetDateTime;
 import java.time.format.DateTimeFormatter;
 import java.time.format.DateTimeParseException;
 import java.util.Optional;
 import javax.annotation.Nonnull;
-import javax.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
@@ -40,14 +42,10 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Import;
-import org.springframework.kafka.annotation.EnableKafka;
-import org.springframework.kafka.annotation.KafkaListener;
-import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.stereotype.Component;
 
 @Slf4j
 @Component
-@EnableKafka
 @Conditional(CDCProcessorCondition.class)
 @Import({
   RestliEntityClientFactory.class,
@@ -56,6 +54,8 @@ import org.springframework.stereotype.Component;
 })
 @RequiredArgsConstructor
 public class CDCProcessor {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(CDCProcessor.class, "CDC row");
 
   // Constants for CDC JSON field names
   private static final String CDC_PAYLOAD_FIELD = "payload";
@@ -70,8 +70,8 @@ public class CDCProcessor {
   private static final String CDC_CREATED_FOR_FIELD = "createdfor";
   private static final String CDC_VERSION_FIELD = "version";
 
-  // Constants for consumer configuration
-  private static final String CDC_CONSUMER_GROUP_ID = "cdc-consumer-job-client";
+  /** Kafka listener id / default consumer group (see {@link CDCKafkaListener}). */
+  public static final String CDC_CONSUMER_GROUP_ID = "cdc-consumer-job-client";
 
   private final OperationContext systemOperationContext;
 
@@ -80,8 +80,8 @@ public class CDCProcessor {
   @Qualifier("kafkaThrottle")
   private final ThrottleSensor kafkaThrottle;
 
-  private final KafkaListenerEndpointRegistry registry;
   private final ConfigurationProvider provider;
+  private final ConsumerPauseSupport consumerPauseSupport;
 
   @Value("${mclProcessing.cdcSource.enabled:false}")
   @VisibleForTesting
@@ -97,39 +97,27 @@ public class CDCProcessor {
   @PostConstruct
   public void registerConsumerThrottle() {
     if (cdcMclProcessingEnabled) {
-      KafkaListenerUtil.registerThrottle(kafkaThrottle, provider, registry, cdcConsumerGroupId);
+      KafkaListenerUtil.registerThrottle(
+          kafkaThrottle, provider, consumerPauseSupport, cdcConsumerGroupId);
     }
   }
 
-  @KafkaListener(
-      id = CDC_CONSUMER_GROUP_ID,
-      topics =
-          "#{${mclProcessing.cdcSource.enabled:true}?'${kafka.topics.cdcTopic.name:datahub.datahub.metadata_aspect_v2}' : null}",
-      containerFactory = CDC_EVENT_CONSUMER_NAME,
-      autoStartup = "false")
-  public void consume(final ConsumerRecord<String, String> consumerRecord) {
+  /** Used by {@link CDCKafkaListener}. */
+  public void consumeKafka(final ConsumerRecord<String, String> consumerRecord) {
     try {
 
       systemOperationContext
           .getMetricUtils()
           .ifPresent(
-              metricUtils -> {
-                long queueTimeMs = System.currentTimeMillis() - consumerRecord.timestamp();
-
-                // Dropwizard legacy
-                metricUtils.histogram(this.getClass(), "kafkaLag", queueTimeMs);
-
-                // Micrometer with tags
-                metricUtils
-                    .getRegistry()
-                    .timer(
-                        MetricUtils.KAFKA_MESSAGE_QUEUE_TIME,
-                        "topic",
-                        consumerRecord.topic(),
-                        "consumer.group",
-                        cdcConsumerGroupId)
-                    .record(Duration.ofMillis(queueTimeMs));
-              });
+              metricUtils ->
+                  MetricUtils.recordInboundMessageQueueLag(
+                      metricUtils,
+                      this.getClass(),
+                      consumerRecord.topic(),
+                      cdcConsumerGroupId,
+                      consumerRecord.timestamp(),
+                      MetricUtils.MESSAGING_SYSTEM_KAFKA,
+                      null));
 
       final String record = consumerRecord.value();
 
@@ -223,11 +211,32 @@ public class CDCProcessor {
     // Step 5: Deserialize the "metadata" JSON strings to RecordTemplate objects
     Urn entityUrn = Urn.createFromString(urn);
     String entityType = entityUrn.getEntityType();
-    AspectSpec aspectSpec =
-        systemOperationContext
-            .getEntityRegistry()
-            .getEntitySpec(entityType)
-            .getAspectSpec(aspectName);
+    final AspectSpec aspectSpec;
+    if (handling().toleratesUnknownEntityAspect()) {
+      // A row of an entity type or aspect this registry doesn't know, or whose urn key references
+      // one (written by a newer version before a rollback), is skipped before any metadata is
+      // deserialized, as the MCL consumers do.
+      if (!handling()
+          .admitEvent(
+              UNKNOWN_DATA,
+              systemOperationContext.getEntityRegistry(),
+              systemOperationContext.getMetricUtils(),
+              entityUrn,
+              entityType,
+              aspectName)) {
+        return Optional.empty();
+      }
+      aspectSpec =
+          handling()
+              .aspectSpecForData(systemOperationContext.getEntityRegistry(), entityType, aspectName)
+              .orElseThrow();
+    } else {
+      aspectSpec =
+          systemOperationContext
+              .getEntityRegistry()
+              .getEntitySpec(entityType)
+              .getAspectSpec(aspectName);
+    }
 
     RecordTemplate oldValue = null;
     if (beforeMetadata != null) {

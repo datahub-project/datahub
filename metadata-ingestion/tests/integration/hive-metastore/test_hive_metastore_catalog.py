@@ -29,16 +29,18 @@ to force running these tests.
 """
 
 import os
+from datetime import datetime, timezone
 from typing import Dict, Sequence
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.testing import mce_helpers
 from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2020-04-14 07:00:00"
+FROZEN_TIME_DT = datetime.fromisoformat(FROZEN_TIME).replace(tzinfo=timezone.utc)
 
 # Skip these tests by default in CI - HMS 3.x Docker setup has platform compatibility issues
 # Run locally with: HMS3_EXTERNAL=1 pytest ... or force in CI with: RUN_HMS3_TESTS=1
@@ -208,13 +210,6 @@ def test_catalog_api_namespace_isolation(loaded_hms3):
 # =============================================================================
 
 # Ignore paths for dynamic/timestamp-based fields
-IGNORE_PATHS: Sequence[str] = [
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",
-]
-
 IGNORE_PATHS_V2: Sequence[str] = [
     "/customProperties/create_date",
     "/customProperties/transient_lastDdlTime",
@@ -226,9 +221,9 @@ IGNORE_PATHS_V2: Sequence[str] = [
 ]
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 def test_ingest_default_catalog(
-    loaded_hms3, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_hms3, test_resources_dir, pytestconfig, tmp_path
 ):
     """
     Test ingestion from default 'hive' catalog (no catalog_name specified).
@@ -238,7 +233,7 @@ def test_ingest_default_catalog(
     - URNs should NOT include catalog name (default behavior)
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_default_catalog_mces.json"
+    mce_out_file = "hive_metastore_hms3_default_catalog.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -269,15 +264,13 @@ def test_ingest_default_catalog(
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
-def test_ingest_spark_catalog(
-    loaded_hms3, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_ingest_spark_catalog(loaded_hms3, test_resources_dir, pytestconfig, tmp_path):
     """
     Test ingestion from spark_catalog with include_catalog_name_in_ids=False.
 
@@ -286,7 +279,7 @@ def test_ingest_spark_catalog(
     - URNs should NOT include catalog name
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_spark_catalog_mces.json"
+    mce_out_file = "hive_metastore_hms3_spark_catalog.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -318,14 +311,14 @@ def test_ingest_spark_catalog(
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
 def test_ingest_spark_catalog_with_catalog_ids(
-    loaded_hms3, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_hms3, test_resources_dir, pytestconfig, tmp_path
 ):
     """
     Test ingestion from spark_catalog with include_catalog_name_in_ids=True.
@@ -335,7 +328,7 @@ def test_ingest_spark_catalog_with_catalog_ids(
     - URNs SHOULD include catalog name
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_spark_catalog_with_ids_mces.json"
+    mce_out_file = "hive_metastore_hms3_spark_catalog_with_ids.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -367,8 +360,8 @@ def test_ingest_spark_catalog_with_catalog_ids(
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 
@@ -377,8 +370,8 @@ def test_ingest_spark_catalog_with_catalog_ids(
 # =============================================================================
 
 
-@freeze_time(FROZEN_TIME)
-def test_urn_without_catalog_name(loaded_hms3, tmp_path, mock_time):
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_urn_without_catalog_name(loaded_hms3, tmp_path):
     """
     Test that URNs do NOT include catalog name when include_catalog_name_in_ids=False.
     """
@@ -413,8 +406,8 @@ def test_urn_without_catalog_name(loaded_hms3, tmp_path, mock_time):
     assert "spark_catalog.test_db.users" not in content
 
 
-@freeze_time(FROZEN_TIME)
-def test_urn_with_catalog_name(loaded_hms3, tmp_path, mock_time):
+@time_machine.travel(FROZEN_TIME_DT, tick=False)
+def test_urn_with_catalog_name(loaded_hms3, tmp_path):
     """
     Test that URNs DO include catalog name when include_catalog_name_in_ids=True.
     """

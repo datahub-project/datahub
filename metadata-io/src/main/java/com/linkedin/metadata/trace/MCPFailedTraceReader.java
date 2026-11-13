@@ -15,7 +15,8 @@ import org.apache.kafka.clients.consumer.ConsumerRecord;
 
 @Getter
 @SuperBuilder
-public class MCPFailedTraceReader extends KafkaTraceReader<FailedMetadataChangeProposal> {
+public class MCPFailedTraceReader extends KafkaTraceReader<FailedMetadataChangeProposal>
+    implements McpFailedTracePort {
   @Nonnull private final String topicName;
   @Nullable private final String consumerGroupId;
 

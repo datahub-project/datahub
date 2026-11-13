@@ -1,0 +1,57 @@
+cases:
+  - operation_name: createView
+    kind: MUTATION
+    root_fields: [createView]
+    expected: other_write
+  - operation_name: updateGlobalSettings
+    kind: MUTATION
+    root_fields: [updateGlobalSettings]
+    expected: other_write
+  - operation_name: patchEntity
+    kind: MUTATION
+    root_fields: [patchEntity]
+    expected: metadata_write
+  - operation_name: deleteEntity
+    kind: MUTATION
+    root_fields: [deleteEntity]
+    expected: entity_delete
+  - operation_name: deleteView
+    kind: MUTATION
+    root_fields: [deleteView]
+    expected: other_write
+  - operation_name: search
+    kind: QUERY
+    root_fields: [search]
+    expected: search_query
+  - operation_name: getDataset
+    kind: QUERY
+    root_fields: [dataset]
+    expected: metadata_query
+  - operation_name: graphql
+    kind: QUERY
+    root_fields: [dataset]
+    expected: metadata_query
+  - operation_name: graphql
+    kind: QUERY
+    root_fields: [search]
+    expected: search_query
+  - operation_name: getInviteToken
+    kind: MUTATION
+    root_fields: [getInviteToken]
+    expected: other_write
+  - operation_name: createAccessToken
+    kind: MUTATION
+    root_fields: [createAccessToken]
+    expected: other_operations
+  - operation_name: createSubscription
+    kind: MUTATION
+    root_fields: [createSubscription]
+    expected: other_write
+  - operation_name: inferDocumentation
+    kind: MUTATION
+    root_fields: [inferDocumentation]
+    expected: other_operations
+  - operation_name: createDataHubAiConversation
+    kind: MUTATION
+    root_fields: [createDataHubAiConversation]
+    expected: other_operations

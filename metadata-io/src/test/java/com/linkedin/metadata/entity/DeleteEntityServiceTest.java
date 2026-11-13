@@ -27,6 +27,7 @@ import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.models.graph.Edge;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntities;
 import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
+import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.entity.ebean.EbeanAspectDao;
 import com.linkedin.metadata.event.EventProducer;
@@ -41,9 +42,12 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
-import com.linkedin.metadata.utils.aws.S3Util;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageClient;
+import com.linkedin.metadata.utils.objectstorage.ObjectStorageReference;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -57,6 +61,9 @@ import java.util.Optional;
 import java.util.Set;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 public class DeleteEntityServiceTest {
@@ -68,6 +75,16 @@ public class DeleteEntityServiceTest {
   protected DeleteEntityService _deleteEntityService;
   protected UpdateIndicesService _mockUpdateIndicesService;
   protected EntitySearchService _mockSearchService;
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   private static RelatedEntitiesScrollResult emptyScrollGraphResult() {
     return RelatedEntitiesScrollResult.builder()
@@ -103,7 +120,12 @@ public class DeleteEntityServiceTest {
     PreProcessHooks preProcessHooks = new PreProcessHooks();
     preProcessHooks.setUiEnabled(true);
     _entityServiceImpl =
-        new EntityServiceImpl(_aspectDao, mock(EventProducer.class), true, preProcessHooks, true);
+        new EntityServiceImpl(
+            _aspectDao,
+            mock(EventProducer.class),
+            preProcessHooks,
+            new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(true),
+            mock(MetricUtils.class));
     _entityServiceImpl.setUpdateIndicesService(_mockUpdateIndicesService);
     _deleteEntityService =
         new DeleteEntityService(_entityServiceImpl, _graphService, _mockSearchService, null, null);
@@ -206,7 +228,8 @@ public class DeleteEntityServiceTest {
     dbValue.setCreatedOn(new Timestamp(auditStamp.getTime()));
 
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries = Map.of(dbKey, dbValue);
-    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.anyBoolean())).thenReturn(dbEntries);
+    Mockito.when(_aspectDao.batchGet(Mockito.any(), Mockito.any(), Mockito.anyBoolean()))
+        .thenReturn(dbEntries);
 
     RollbackResult result =
         new RollbackResult(
@@ -221,7 +244,8 @@ public class DeleteEntityServiceTest {
             false,
             1);
 
-    Mockito.when(_aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.anyInt()))
+    Mockito.when(
+            _aspectDao.runInTransactionWithRetry(Mockito.any(), Mockito.any(), Mockito.anyInt()))
         .thenReturn(Optional.of(result));
 
     final DeleteReferencesResponse response =
@@ -611,14 +635,87 @@ public class DeleteEntityServiceTest {
             Mockito.anyBoolean());
   }
 
+  @DataProvider(name = "dryRun")
+  public static Object[][] dryRun() {
+    return new Object[][] {{true}, {false}};
+  }
+
+  @Test(dataProvider = "dryRun")
+  public void testReferrerOfUnknownEntityTypeIsSkipped(boolean dryRun) throws URISyntaxException {
+    // After a version rollback the graph can hold a reference from an entity type only a newer
+    // build knows. The reference cleanup and its dry-run preview skip it instead of failing.
+    EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
+    EntitySearchService mockSearchService = Mockito.mock(EntitySearchService.class);
+    GraphService mockGraphService = Mockito.mock(GraphService.class);
+    DeleteEntityService deleteEntityService =
+        new DeleteEntityService(mockEntityService, mockGraphService, mockSearchService, null, null);
+
+    final Urn tag = UrnUtils.getUrn("urn:li:tag:pii");
+    final Urn unknownTypeReferrer = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    final Urn knownReferrer = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:s,t1,PROD)");
+    RelatedEntitiesScrollResult page =
+        scrollGraphResult(
+            2,
+            null,
+            ImmutableList.of(
+                incomingRelation("TaggedWith", unknownTypeReferrer.toString(), tag.toString()),
+                incomingRelation("TaggedWith", knownReferrer.toString(), tag.toString())));
+    Mockito.when(
+            mockGraphService.scrollRelatedEntities(
+                any(OperationContext.class),
+                nullable(Set.class),
+                eq(newFilter("urn", tag.toString())),
+                nullable(Set.class),
+                eq(EMPTY_FILTER),
+                eq(ImmutableSet.of()),
+                eq(newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.INCOMING)),
+                eq(Edge.EDGE_SORT_CRITERION),
+                nullable(String.class),
+                eq("5m"),
+                eq(1000),
+                nullable(Long.class),
+                nullable(Long.class)))
+        .thenReturn(page);
+    ScrollResult emptyScrollResult = new ScrollResult();
+    emptyScrollResult.setEntities(new SearchEntityArray());
+    emptyScrollResult.setNumEntities(0);
+    Mockito.when(
+            mockSearchService.structuredScroll(
+                Mockito.any(OperationContext.class),
+                Mockito.any(),
+                Mockito.eq("*"),
+                Mockito.any(Filter.class),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.any(),
+                Mockito.anyInt()))
+        .thenReturn(emptyScrollResult);
+
+    final DeleteReferencesResponse response =
+        deleteEntityService.deleteReferencesTo(opContext, tag, dryRun);
+
+    assertEquals(2, (int) response.getTotal());
+    // The unknown-type referrer is never looked up; the known one still is.
+    Mockito.verify(mockEntityService, Mockito.never())
+        .getEntityV2(
+            any(OperationContext.class),
+            Mockito.anyString(),
+            eq(unknownTypeReferrer),
+            Mockito.anySet());
+    Mockito.verify(mockEntityService, Mockito.atLeastOnce())
+        .getEntityV2(
+            any(OperationContext.class), Mockito.anyString(), eq(knownReferrer), Mockito.anySet());
+  }
+
   /** Test that file cleanup is triggered when deleting an entity with files */
   @Test
   public void testDeleteFileReferences() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(
-            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -704,7 +801,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was called
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was soft-deleted
     Mockito.verify(mockEntityService, Mockito.times(1))
@@ -715,9 +813,9 @@ public class DeleteEntityServiceTest {
             eq(true));
   }
 
-  /** Test that file cleanup is skipped when S3Util is not configured */
+  /** Test that file cleanup is skipped when ObjectStorageClient is not configured */
   @Test
-  public void testDeleteFileReferencesWithoutS3Util() {
+  public void testDeleteFileReferencesWithoutObjectStorageClient() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(mockEntityService, _graphService, _mockSearchService, null, null);
@@ -805,7 +903,7 @@ public class DeleteEntityServiceTest {
     final DeleteReferencesResponse response =
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
-    // Verify file entity was still soft-deleted even without S3Util
+    // Verify file entity was still soft-deleted even without ObjectStorageClient
     Mockito.verify(mockEntityService, Mockito.times(1))
         .ingestProposal(
             any(OperationContext.class),
@@ -815,16 +913,18 @@ public class DeleteEntityServiceTest {
   }
 
   /**
-   * Test that file cleanup continues even if S3 deletion fails. We soft-delete the entity to avoid
-   * leaving the parent entity in limbo. The tradeoff is accepting a potential orphaned S3 object.
+   * Test that file cleanup continues even if object storage deletion fails. We soft-delete the
+   * entity to avoid leaving the parent entity in limbo. The tradeoff is accepting a potential
+   * orphaned storage object.
    */
   @Test
-  public void testDeleteFileReferencesWithS3Failure() {
+  public void testDeleteFileReferencesWithObjectStorageFailure() {
     EntityService<?> mockEntityService = Mockito.mock(EntityService.class);
-    S3Util mockS3Util = Mockito.mock(S3Util.class);
+    ObjectStorageClient mockObjectStorageClient = Mockito.mock(ObjectStorageClient.class);
+    Mockito.when(mockObjectStorageClient.isConfigured()).thenReturn(true);
     DeleteEntityService deleteEntityService =
         new DeleteEntityService(
-            mockEntityService, _graphService, _mockSearchService, mockS3Util, null);
+            mockEntityService, _graphService, _mockSearchService, mockObjectStorageClient, null);
 
     final Urn dataset = UrnUtils.toDatasetUrn("snowflake", "test", "DEV");
     final Urn fileUrn = UrnUtils.getUrn("urn:li:dataHubFile:test-file-id");
@@ -888,10 +988,10 @@ public class DeleteEntityServiceTest {
                 eq(Constants.DATAHUB_FILE_INFO_ASPECT_NAME)))
         .thenReturn(fileInfo);
 
-    // Make S3 deletion throw an exception
-    Mockito.doThrow(new RuntimeException("S3 error"))
-        .when(mockS3Util)
-        .deleteObject("test-bucket", "test-key");
+    // Make object storage deletion throw an exception
+    Mockito.doThrow(new RuntimeException("object storage error"))
+        .when(mockObjectStorageClient)
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // No other relationships
     Mockito.when(
@@ -916,7 +1016,8 @@ public class DeleteEntityServiceTest {
         deleteEntityService.deleteReferencesTo(opContext, dataset, false);
 
     // Verify S3 delete was attempted
-    Mockito.verify(mockS3Util, Mockito.times(1)).deleteObject("test-bucket", "test-key");
+    Mockito.verify(mockObjectStorageClient, Mockito.times(1))
+        .deleteObject(new ObjectStorageReference("test-bucket", "test-key"));
 
     // Verify file entity was still soft-deleted despite S3 failure to avoid leaving entity in limbo
     Mockito.verify(mockEntityService, Mockito.times(1))

@@ -13,6 +13,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -33,6 +34,8 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.test.metadata.aspect.TestEntityRegistry;
 import com.linkedin.test.metadata.aspect.batch.TestMCL;
@@ -42,10 +45,12 @@ import jakarta.json.JsonPatch;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class PropertyDefinitionDeleteSideEffectTest {
+
   private static final EntityRegistry TEST_REGISTRY = new TestEntityRegistry();
   private static final AspectPluginConfig TEST_PLUGIN_CONFIG =
       AspectPluginConfig.builder()
@@ -81,11 +86,23 @@ public class PropertyDefinitionDeleteSideEffectTest {
   private RetrieverContext retrieverContext;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
+
+  @BeforeMethod
   public void setup() {
     mockAspectRetriever = mock(CachingAspectRetriever.class);
     when(mockAspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
     when(mockAspectRetriever.getLatestAspectObject(
-            eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
         .thenReturn(new Aspect(TEST_PROPERTY_DEFINITION.data()));
 
     mockSearchRetriever = mock(SearchRetriever.class);
@@ -113,6 +130,7 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     List<MCPItem> result =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCL.builder()
                         .changeType(ChangeType.DELETE)
@@ -130,7 +148,9 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     verify(mockAspectRetriever, times(1))
         .getLatestAspectObject(
-            eq(TEST_PROPERTY_URN), eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME));
     verify(mockSearchRetriever, times(1))
         .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
 
@@ -140,12 +160,44 @@ public class PropertyDefinitionDeleteSideEffectTest {
   }
 
   @Test
+  public void testDeletePropertyKeyWithoutDefinitionSkipsCleanup() {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+
+    when(mockAspectRetriever.getLatestAspectObject(
+            any(OperationFingerprint.class),
+            eq(TEST_PROPERTY_URN),
+            eq(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)))
+        .thenReturn(null);
+
+    List<MCPItem> result =
+        test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
+                Set.of(
+                    TestMCL.builder()
+                        .changeType(ChangeType.DELETE)
+                        .urn(TEST_PROPERTY_URN)
+                        .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                        .aspectSpec(
+                            TEST_REGISTRY
+                                .getEntitySpec("structuredProperty")
+                                .getAspectSpec(STRUCTURED_PROPERTY_KEY_ASPECT_NAME))
+                        .build()),
+                retrieverContext)
+            .collect(Collectors.toList());
+
+    assertEquals(0, result.size());
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  @Test
   public void testDeletePropertyDefinition() {
     PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
     test.setConfig(TEST_PLUGIN_CONFIG);
 
     List<MCPItem> result =
         test.postMCPSideEffect(
+                OperationFingerprint.EMPTY,
                 Set.of(
                     TestMCL.builder()
                         .changeType(ChangeType.DELETE)
@@ -162,14 +214,84 @@ public class PropertyDefinitionDeleteSideEffectTest {
 
     assertEquals(1, result.size());
 
-    verify(mockAspectRetriever, times(0)).getLatestAspectObject(any(), any());
-    verify(mockAspectRetriever, times(0)).getLatestAspectObjects(any(), any());
+    verify(mockAspectRetriever, times(0))
+        .getLatestAspectObject(any(OperationFingerprint.class), any(), any());
+    verify(mockAspectRetriever, times(0))
+        .getLatestAspectObjects(any(OperationFingerprint.class), any(), any());
     verify(mockSearchRetriever, times(1))
         .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
 
     JsonPatch expectedPatch =
         Json.createPatchBuilder().remove("/properties/" + TEST_PROPERTY_URN).build();
     assertEquals(((PatchMCP) result.get(0)).getPatch(), expectedPatch);
+  }
+
+  @Test
+  public void testDeletePropertyDefinitionSkipsEntityTypesUnknownToRegistry() throws Exception {
+    // After a version rollback a definition can list entity types only a newer build knows.
+    // Searching them would fail the whole scroll, so only known types are searched, and a hit of
+    // an unknown type is not patched.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(
+                        UrnUtils.getUrn("urn:li:entityType:datahub.dataset"),
+                        UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+    ScrollResult scrollResult = new ScrollResult();
+    scrollResult.setPageSize(2);
+    scrollResult.setNumEntities(2);
+    scrollResult.setEntities(
+        new SearchEntityArray(
+            List.of(
+                new SearchEntity().setEntity(TEST_DATASET_URN),
+                new SearchEntity().setEntity(UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc")))));
+    when(mockSearchRetriever.scroll(
+            eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt()))
+        .thenReturn(scrollResult);
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    verify(mockSearchRetriever, times(1))
+        .scroll(eq(List.of("dataset")), eq(expectedFilter()), nullable(String.class), anyInt());
+    assertEquals(result.size(), 1);
+    assertEquals(result.get(0).getUrn(), TEST_DATASET_URN);
+  }
+
+  @Test
+  public void testDeletePropertyDefinitionWithOnlyUnknownEntityTypesDoesNotScroll()
+      throws Exception {
+    // An empty type list must not reach the scroll, where it would search every entity type.
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition(TEST_PROPERTY_DEFINITION.data().copy())
+            .setEntityTypes(
+                new UrnArray(
+                    List.of(UrnUtils.getUrn("urn:li:entityType:datahub.entityFromNewerBuild"))));
+
+    List<MCPItem> result = runDefinitionDelete(definition);
+
+    assertEquals(result.size(), 0);
+    verify(mockSearchRetriever, times(0)).scroll(any(), any(), nullable(String.class), anyInt());
+  }
+
+  private List<MCPItem> runDefinitionDelete(StructuredPropertyDefinition definition) {
+    PropertyDefinitionDeleteSideEffect test = new PropertyDefinitionDeleteSideEffect();
+    test.setConfig(TEST_PLUGIN_CONFIG);
+    return test.postMCPSideEffect(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCL.builder()
+                    .changeType(ChangeType.DELETE)
+                    .urn(TEST_PROPERTY_URN)
+                    .entitySpec(TEST_REGISTRY.getEntitySpec("structuredProperty"))
+                    .aspectSpec(
+                        TEST_REGISTRY
+                            .getEntitySpec("structuredProperty")
+                            .getAspectSpec(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME))
+                    .previousRecordTemplate(definition)
+                    .build()),
+            retrieverContext)
+        .collect(Collectors.toList());
   }
 
   private static Filter expectedFilter() {

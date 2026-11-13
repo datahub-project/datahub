@@ -1,19 +1,24 @@
 import { Breadcrumb } from '@components';
 import React, { useEffect } from 'react';
+import { useTranslation } from 'react-i18next';
 import { useLocation, useParams } from 'react-router';
 
 import { VerticalDivider } from '@components/components/Breadcrumb/components';
 
 import RunDetailsContent from '@app/ingestV2/runDetails/RunDetailsContent';
 import { formatDateTime } from '@app/ingestV2/shared/components/columns/DateTimeColumn';
-import { AIChat } from '@app/ingestV2/source/multiStepBuilder/AIChat';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import { PageLayout } from '@app/sharedV2/layouts/PageLayout';
 
 import { useGetIngestionExecutionRequestQuery } from '@graphql/ingestion.generated';
 
 export default function IngestionRunDetailsPage() {
-    const { urn } = useParams<{ urn: string }>();
+    const { t } = useTranslation('ingestion');
+    const { urn: urnParam } = useParams<{ urn: string }>();
+    // useParams returns the raw path segment — colons in the URN are usually
+    // URL-encoded (urn%3Ali%3A...), and GMS rejects encoded URNs as invalid.
+    // Decode once so the executionRequest query gets a clean URN.
+    const urn = decodeURIComponent(urnParam);
 
     const { state } = useLocation();
     const [fromUrl, setFromUrl] = React.useState<string>();
@@ -45,7 +50,10 @@ export default function IngestionRunDetailsPage() {
             items={[
                 {
                     key: 'back',
-                    label: fromUrl === tabUrlMap[TabType.RunHistory] ? 'Run history' : 'Manage Data Sources',
+                    label:
+                        fromUrl?.split('?')[0] === tabUrlMap[TabType.RunHistory]
+                            ? t('runDetails.breadcrumbRunHistory')
+                            : t('page.title'),
                     href: fromUrl ?? tabUrlMap[TabType.Sources],
                     separator: <VerticalDivider type="vertical" />,
                 },
@@ -70,7 +78,7 @@ export default function IngestionRunDetailsPage() {
     );
 
     return (
-        <PageLayout title="Run Details" titlePill={titlePill} rightPanelContent={<AIChat />} topBreadcrumb={breadCrumb}>
+        <PageLayout title={t('runDetails.title')} titlePill={titlePill} topBreadcrumb={breadCrumb}>
             <RunDetailsContent
                 urn={urn}
                 data={data}

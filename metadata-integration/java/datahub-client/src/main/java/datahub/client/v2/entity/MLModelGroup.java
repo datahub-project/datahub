@@ -81,7 +81,8 @@ public class MLModelGroup extends Entity
         HasOwners<MLModelGroup>,
         HasDomains<MLModelGroup>,
         HasSubTypes<MLModelGroup>,
-        HasStructuredProperties<MLModelGroup> {
+        HasStructuredProperties<MLModelGroup>,
+        HasDocumentation<MLModelGroup> {
 
   private static final String ENTITY_TYPE = "mlModelGroup";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -816,7 +817,7 @@ public class MLModelGroup extends Entity
 
     log.debug(
         "Transforming editableMLModelGroupProperties patch to full aspect for entity: {}",
-        patch.getEntityUrn().toString());
+        patch.getEntityUrn());
 
     // Step 1: Fetch current editableMLModelGroupProperties aspect
     datahub.client.v2.operations.AspectWithMetadata<EditableMLModelGroupProperties>

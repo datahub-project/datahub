@@ -1,10 +1,8 @@
 package com.datahub.gms.servlet;
 
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.SEARCHABLE_ENTITY_TYPES;
 import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2LegacySettingsBuilder.KEYWORD_ANALYZER;
 
 import com.datahub.gms.util.CSVWriter;
-import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchServiceConfiguration;
@@ -12,6 +10,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
+import com.linkedin.metadata.search.utils.EntityTypeUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import jakarta.servlet.http.HttpServlet;
 import jakarta.servlet.http.HttpServletRequest;
@@ -19,15 +18,22 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.PrintWriter;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
+import java.util.stream.Stream;
 import lombok.extern.slf4j.Slf4j;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.ConstantScoreQueryBuilder;
+import org.opensearch.index.query.DisMaxQueryBuilder;
 import org.opensearch.index.query.MatchAllQueryBuilder;
 import org.opensearch.index.query.MatchPhrasePrefixQueryBuilder;
+import org.opensearch.index.query.MatchPhraseQueryBuilder;
+import org.opensearch.index.query.MatchQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.SimpleQueryStringBuilder;
 import org.opensearch.index.query.TermQueryBuilder;
+import org.opensearch.index.query.WildcardQueryBuilder;
 import org.opensearch.index.query.functionscore.FieldValueFactorFunctionBuilder;
 import org.opensearch.index.query.functionscore.FunctionScoreQueryBuilder;
 import org.opensearch.index.query.functionscore.WeightBuilder;
@@ -74,15 +80,21 @@ public class ConfigSearchExport extends HttpServlet {
     };
     writer.println(header);
 
-    SEARCHABLE_ENTITY_TYPES.stream()
+    List<String> searchableEntityNames =
+        Optional.ofNullable(systemOpContext.getSearchContext().getDefaultSearchEntityNames())
+            .orElseGet(
+                () ->
+                    EntityTypeUtils.resolve(
+                        searchConfiguration.getSearch().getDefaultEntityTypes(), entityRegistry));
+
+    searchableEntityNames.stream()
         .map(
-            entityType -> {
+            entityName -> {
               try {
-                EntitySpec entitySpec =
-                    entityRegistry.getEntitySpec(EntityTypeMapper.getName(entityType));
+                EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
                 return Optional.of(entitySpec);
               } catch (IllegalArgumentException e) {
-                log.warn("Failed to resolve entity `{}`", entityType.name());
+                log.warn("Failed to resolve entity `{}`", entityName);
                 return Optional.<EntitySpec>empty();
               }
             })
@@ -99,13 +111,12 @@ public class ConfigSearchExport extends HttpServlet {
                           queryFilterRewriteChain,
                           searchServiceConfiguration)
                       .getSearchRequest(
-                          getOperationContext(ctx)
-                              .withSearchFlags(
-                                  flags ->
-                                      flags
-                                          .setFulltext(true)
-                                          .setSkipHighlighting(true)
-                                          .setSkipAggregates(true)),
+                          systemOpContext.withSearchFlags(
+                              flags ->
+                                  flags
+                                      .setFulltext(true)
+                                      .setSkipHighlighting(true)
+                                      .setSkipAggregates(true)),
                           "*",
                           null,
                           null,
@@ -116,66 +127,7 @@ public class ConfigSearchExport extends HttpServlet {
               FunctionScoreQueryBuilder rankingQuery =
                   ((FunctionScoreQueryBuilder)
                       ((BoolQueryBuilder) searchRequest.source().query()).must().get(0));
-              BoolQueryBuilder relevancyQuery = (BoolQueryBuilder) rankingQuery.query();
-              BoolQueryBuilder simpleQueryString =
-                  (BoolQueryBuilder) relevancyQuery.should().get(0);
-              BoolQueryBuilder exactPrefixMatch = (BoolQueryBuilder) relevancyQuery.should().get(1);
-
-              for (QueryBuilder simpBuilder : simpleQueryString.should()) {
-                SimpleQueryStringBuilder sqsb = (SimpleQueryStringBuilder) simpBuilder;
-                for (Map.Entry<String, Float> fieldWeight : sqsb.fields().entrySet()) {
-                  String[] row = {
-                    entitySpec.getName(),
-                    "relevancy",
-                    "fulltext",
-                    sqsb.getClass().getSimpleName(),
-                    fieldWeight.getKey(),
-                    fieldWeight.getValue().toString(),
-                    sqsb.analyzer(),
-                    "true",
-                    String.valueOf(sqsb.boost()),
-                    sqsb.toString().replaceAll("\n", "")
-                  };
-                  writer.println(row);
-                }
-              }
-
-              for (QueryBuilder builder : exactPrefixMatch.should()) {
-                if (builder instanceof TermQueryBuilder) {
-                  TermQueryBuilder tqb = (TermQueryBuilder) builder;
-                  String[] row = {
-                    entitySpec.getName(),
-                    "relevancy",
-                    "exact_match",
-                    tqb.getClass().getSimpleName(),
-                    tqb.fieldName(),
-                    String.valueOf(tqb.boost()),
-                    KEYWORD_ANALYZER,
-                    String.valueOf(tqb.caseInsensitive()),
-                    "",
-                    tqb.toString().replaceAll("\n", "")
-                  };
-                  writer.println(row);
-                } else if (builder instanceof MatchPhrasePrefixQueryBuilder) {
-                  MatchPhrasePrefixQueryBuilder mppqb = (MatchPhrasePrefixQueryBuilder) builder;
-                  String[] row = {
-                    entitySpec.getName(),
-                    "relevancy",
-                    "prefix_match",
-                    mppqb.getClass().getSimpleName(),
-                    mppqb.fieldName(),
-                    String.valueOf(mppqb.boost()),
-                    "",
-                    "true",
-                    "",
-                    mppqb.toString().replaceAll("\n", "")
-                  };
-                  writer.println(row);
-                } else {
-                  throw new IllegalStateException(
-                      "Unhandled exact prefix builder: " + builder.getClass().getName());
-                }
-              }
+              writeRelevancyRows(writer, entitySpec, rankingQuery.query());
 
               for (FunctionScoreQueryBuilder.FilterFunctionBuilder ffb :
                   rankingQuery.filterFunctionBuilders()) {
@@ -254,6 +206,106 @@ public class ConfigSearchExport extends HttpServlet {
                 }
               }
             });
+  }
+
+  /**
+   * Writes one row per clause of the relevancy query. The V2 query nests its clauses in bool
+   * queries and the Search V3 Stage 1 query in dis_max queries, so the walk descends into both.
+   */
+  private static void writeRelevancyRows(
+      CSVWriter writer, EntitySpec entitySpec, QueryBuilder query) {
+    if (query instanceof BoolQueryBuilder) {
+      BoolQueryBuilder bool = (BoolQueryBuilder) query;
+      Stream.of(bool.must(), bool.should(), bool.filter())
+          .flatMap(List::stream)
+          .forEach(child -> writeRelevancyRows(writer, entitySpec, child));
+    } else if (query instanceof DisMaxQueryBuilder) {
+      ((DisMaxQueryBuilder) query)
+          .innerQueries()
+          .forEach(child -> writeRelevancyRows(writer, entitySpec, child));
+    } else if (query instanceof SimpleQueryStringBuilder) {
+      SimpleQueryStringBuilder sqsb = (SimpleQueryStringBuilder) query;
+      for (Map.Entry<String, Float> fieldWeight : sqsb.fields().entrySet()) {
+        String[] row = {
+          entitySpec.getName(),
+          "relevancy",
+          "fulltext",
+          sqsb.getClass().getSimpleName(),
+          fieldWeight.getKey(),
+          fieldWeight.getValue().toString(),
+          // Unset when each field applies its own search analyzer
+          Objects.toString(sqsb.analyzer(), ""),
+          "true",
+          String.valueOf(sqsb.boost()),
+          sqsb.toString().replaceAll("\n", "")
+        };
+        writer.println(row);
+      }
+    } else if (query instanceof TermQueryBuilder) {
+      writeTermRow(writer, entitySpec, (TermQueryBuilder) query, query);
+    } else if (query instanceof ConstantScoreQueryBuilder
+        && ((ConstantScoreQueryBuilder) query).innerQuery() instanceof TermQueryBuilder) {
+      // An exact match scored with a constant instead of BM25
+      writeTermRow(
+          writer,
+          entitySpec,
+          (TermQueryBuilder) ((ConstantScoreQueryBuilder) query).innerQuery(),
+          query);
+    } else if (query instanceof MatchPhrasePrefixQueryBuilder) {
+      MatchPhrasePrefixQueryBuilder mppqb = (MatchPhrasePrefixQueryBuilder) query;
+      writeFieldRow(writer, entitySpec, "prefix_match", mppqb, mppqb.fieldName());
+    } else if (query instanceof MatchPhraseQueryBuilder) {
+      // Word gram subfields
+      MatchPhraseQueryBuilder mpqb = (MatchPhraseQueryBuilder) query;
+      writeFieldRow(writer, entitySpec, "phrase_match", mpqb, mpqb.fieldName());
+    } else if (query instanceof MatchQueryBuilder) {
+      MatchQueryBuilder mqb = (MatchQueryBuilder) query;
+      writeFieldRow(writer, entitySpec, "match", mqb, mqb.fieldName());
+    } else if (query instanceof WildcardQueryBuilder) {
+      WildcardQueryBuilder wqb = (WildcardQueryBuilder) query;
+      writeFieldRow(writer, entitySpec, "wildcard_match", wqb, wqb.fieldName());
+    } else {
+      throw new IllegalStateException(
+          "Unhandled relevancy query builder: " + query.getClass().getName());
+    }
+  }
+
+  private static void writeTermRow(
+      CSVWriter writer, EntitySpec entitySpec, TermQueryBuilder tqb, QueryBuilder query) {
+    String[] row = {
+      entitySpec.getName(),
+      "relevancy",
+      "exact_match",
+      query.getClass().getSimpleName(),
+      tqb.fieldName(),
+      String.valueOf(query.boost()),
+      KEYWORD_ANALYZER,
+      String.valueOf(tqb.caseInsensitive()),
+      "",
+      query.toString().replaceAll("\n", "")
+    };
+    writer.println(row);
+  }
+
+  private static void writeFieldRow(
+      CSVWriter writer,
+      EntitySpec entitySpec,
+      String matchCategory,
+      QueryBuilder query,
+      String fieldName) {
+    String[] row = {
+      entitySpec.getName(),
+      "relevancy",
+      matchCategory,
+      query.getClass().getSimpleName(),
+      fieldName,
+      String.valueOf(query.boost()),
+      "",
+      "true",
+      "",
+      query.toString().replaceAll("\n", "")
+    };
+    writer.println(row);
   }
 
   @Override

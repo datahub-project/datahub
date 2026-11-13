@@ -1,6 +1,6 @@
-import { Avatar } from '@components';
-import { Col, message } from 'antd';
+import { Avatar, toast } from '@components';
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
@@ -27,7 +27,7 @@ export type SidebarData = {
     email: string | undefined;
     slack: string | undefined;
     aboutText: string | undefined;
-    groupMemberRelationships: EntityRelationshipsResult;
+    groupMemberRelationships: EntityRelationshipsResult | undefined;
     groupOwnership: Ownership;
     isExternalGroup: boolean;
     externalGroupType: string | undefined;
@@ -41,6 +41,17 @@ const AvatarWithTitleContainer = styled.div`
     padding: 10px;
     background: ${(props) => props.theme.colors.brandGradient};
     gap: 0.5rem;
+    align-items: center;
+`;
+
+const AvatarColumn = styled.div`
+    flex: 0 0 auto;
+`;
+
+const InfoColumn = styled.div`
+    flex: 1 1 auto;
+    min-width: 0;
+    padding-right: 28px;
 `;
 
 type Props = {
@@ -49,6 +60,7 @@ type Props = {
 };
 
 export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
+    const { t } = useTranslation('entity.types');
     const {
         avatarName,
         name,
@@ -72,13 +84,13 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
     const handleTitleUpdate = async (name: string) => {
         await updateName({ variables: { input: { name, urn } } })
             .then(() => {
-                message.success({ content: 'Name Updated', duration: 2 });
+                toast.success(t('group.nameUpdatedSuccess'), { duration: 2 });
                 refetch();
             })
             .catch((e: unknown) => {
-                message.destroy();
+                toast.destroy();
                 if (e instanceof Error) {
-                    message.error({ content: `Failed to update name: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(t('group.updateNameError', { error: e.message || '' }), { duration: 3 });
                 }
             });
     };
@@ -95,17 +107,17 @@ export const GroupProfileInfoCard = ({ sidebarData, refetch }: Props) => {
             <CustomAvatarContainer>
                 <GroupInfo>
                     <AvatarWithTitleContainer>
-                        <Col xxl={2} xl={3} lg={4} md={4} sm={3} xs={3}>
+                        <AvatarColumn>
                             <Avatar name={avatarName || ''} imageUrl={photoUrl} type={AvatarType.group} size="xl" />
-                        </Col>
-                        <Col xxl={20} xl={18} lg={16} md={16} sm={19} xs={19}>
+                        </AvatarColumn>
+                        <InfoColumn>
                             <GroupInfoHeaderSection
                                 groupName={name}
                                 groupMemberRelationships={groupMemberRelationships}
                                 isExternalGroup={isExternalGroup}
                                 externalGroupType={externalGroupType}
                             />
-                        </Col>
+                        </InfoColumn>
                         <EditProfileButtonContainer className="edit-button-container">
                             <SectionActionButton
                                 button={<WhiteEditOutlinedIconStyle />}

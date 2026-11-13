@@ -8,7 +8,7 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ListBusinessAttributesQuery, useListBusinessAttributesQuery } from '@graphql/businessAttribute.generated';
 
 const BrowserWrapper = styled.div`
-    color: #262626;
+    color: ${(props) => props.theme.colors.text};
     font-size: 12px;
     max-height: calc(100% - 47px);
     padding: 10px 20px 20px 20px;

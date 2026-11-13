@@ -1,6 +1,6 @@
 from pathlib import Path
-from typing import Any
-from unittest.mock import patch
+from typing import Iterator
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -10,17 +10,15 @@ from datahub.entrypoints import init
 
 @pytest.fixture
 def temp_config(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    """Create temporary config file path and set it as DATAHUB_CONFIG_PATH."""
+    """Keep init credentials inside the test HOME."""
     config_path = tmp_path / ".datahubenv"
-    monkeypatch.setattr("datahub.entrypoints.DATAHUB_CONFIG_PATH", str(config_path))
-    monkeypatch.setattr(
-        "datahub.cli.config_utils.DATAHUB_CONFIG_PATH", str(config_path)
-    )
+    monkeypatch.setenv("HOME", str(tmp_path))
+    monkeypatch.delenv("DATAHUB_PROFILE", raising=False)
     return config_path
 
 
 @pytest.fixture
-def mock_generate_token():
+def mock_generate_token() -> Iterator[MagicMock]:
     """Mock generate_access_token to avoid actual API calls."""
     with patch("datahub.entrypoints.generate_access_token") as mock:
         mock.return_value = ("dummy_id", "generated-token-123")
@@ -66,7 +64,7 @@ class TestNonInteractiveCLIFlags:
         assert "test-token-123" in config_content
 
     def test_init_with_password_args(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test non-interactive init with --use-password, --host, --username, --password."""
         runner = CliRunner()
@@ -145,11 +143,13 @@ class TestNonInteractiveCLIFlags:
         assert result.exit_code == 1
         assert "Aborted" in result.output
 
-    def test_init_without_force_overwrites_on_non_tty(
+    def test_init_without_force_refreshes_same_server_on_non_tty(
         self, temp_config: Path, clean_env: None
     ) -> None:
-        """On a non-TTY (agent/CI), silently overwrite existing config without prompting."""
-        temp_config.write_text("existing config")
+        """Refreshing a token against the same server needs no force flag."""
+        temp_config.write_text(
+            "gms:\n  server: http://localhost:8080\n  token: old-token\n"
+        )
 
         runner = CliRunner()
         # CliRunner is non-TTY by default — no --force needed
@@ -188,7 +188,7 @@ class TestNonInteractiveEnvVars:
         self,
         temp_config: Path,
         monkeypatch: pytest.MonkeyPatch,
-        mock_generate_token: Any,
+        mock_generate_token: MagicMock,
     ) -> None:
         """Test password flow with environment variables."""
         monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")
@@ -363,7 +363,7 @@ class TestBackwardCompatibility:
         self,
         temp_config: Path,
         clean_env: None,
-        mock_generate_token: Any,
+        mock_generate_token: MagicMock,
     ) -> None:
         """Test interactive prompts work with --use-password (password flow)."""
         runner = CliRunner()
@@ -465,7 +465,7 @@ class TestRealWorldScenarios:
         assert "Configuration written" in result.output
 
     def test_localhost_silent_default_no_host_flag(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """When --username/--password are given without --host, silently default to localhost."""
         runner = CliRunner()
@@ -508,7 +508,7 @@ class TestAutoDetectionAndDeprecation:
     """Tests for auto-detection of token generation and --use-password deprecation."""
 
     def test_init_auto_detect_token_generation(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test auto-detection of token generation mode without --use-password."""
         runner = CliRunner()
@@ -535,7 +535,7 @@ class TestAutoDetectionAndDeprecation:
         assert "Generated token (expires: ONE_MONTH)" in result.output
 
     def test_init_use_password_deprecated(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test deprecation warning for --use-password."""
         runner = CliRunner()
@@ -636,7 +636,7 @@ class TestSSOLogin:
 
         # Verify frontend URL derivation: 8080 -> 9002
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False
+            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
         )
 
     def test_sso_with_custom_duration(self, temp_config: Path, clean_env: None) -> None:
@@ -657,7 +657,7 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "http://localhost:9002", "ONE_MONTH", support=False
+            "http://localhost:9002", "ONE_MONTH", support=False, ticket_id=None
         )
 
     def test_sso_with_acryl_cloud_url(self, temp_config: Path, clean_env: None) -> None:
@@ -677,7 +677,10 @@ class TestSSOLogin:
         assert result.exit_code == 0
         # For acryl.io, frontend URL is the base without /gms
         mock_browser_login.assert_called_once_with(
-            "https://my-instance.acryl.io", "ONE_HOUR", support=False
+            "https://my-instance.acryl.io",
+            "ONE_HOUR",
+            support=False,
+            ticket_id=None,
         )
 
     def test_sso_support_flag(self, temp_config: Path, clean_env: None) -> None:
@@ -697,7 +700,7 @@ class TestSSOLogin:
 
         assert result.exit_code == 0
         mock_browser_login.assert_called_once_with(
-            "https://customer.acryl.io", "ONE_HOUR", support=True
+            "https://customer.acryl.io", "ONE_HOUR", support=True, ticket_id=None
         )
 
     def test_support_without_sso_errors(
@@ -716,14 +719,14 @@ class TestSSOLogin:
             ],
         )
         assert result.exit_code != 0
-        assert "--support requires --sso" in result.output
+        assert "--support requires --oauth or --sso" in result.output
 
 
 class TestTokenDuration:
     """Tests for configurable token duration."""
 
     def test_init_with_custom_token_duration(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test token generation with custom duration."""
         runner = CliRunner()
@@ -751,7 +754,7 @@ class TestTokenDuration:
         )
 
     def test_init_with_no_expiry_duration(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test token generation with NO_EXPIRY duration."""
         runner = CliRunner()
@@ -779,7 +782,7 @@ class TestTokenDuration:
         )
 
     def test_init_case_insensitive_duration(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test token duration is case-insensitive."""
         runner = CliRunner()
@@ -807,7 +810,7 @@ class TestTokenDuration:
         )
 
     def test_init_default_duration_localhost(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test default token duration is ONE_MONTH for localhost."""
         runner = CliRunner()
@@ -833,7 +836,7 @@ class TestTokenDuration:
         )
 
     def test_init_default_duration_remote(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test default token duration is ONE_HOUR for remote instances."""
         runner = CliRunner()
@@ -859,7 +862,7 @@ class TestTokenDuration:
         )
 
     def test_init_with_password_flag_and_duration(
-        self, temp_config: Path, clean_env: None, mock_generate_token: Any
+        self, temp_config: Path, clean_env: None, mock_generate_token: MagicMock
     ) -> None:
         """Test custom duration works with deprecated --use-password flag."""
         runner = CliRunner()
@@ -892,7 +895,7 @@ class TestTokenDuration:
         self,
         temp_config: Path,
         monkeypatch: pytest.MonkeyPatch,
-        mock_generate_token: Any,
+        mock_generate_token: MagicMock,
     ) -> None:
         """Test token duration with environment variables."""
         monkeypatch.setenv("DATAHUB_GMS_URL", "http://localhost:8080")

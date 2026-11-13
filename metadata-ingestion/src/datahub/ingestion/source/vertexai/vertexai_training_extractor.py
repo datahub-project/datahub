@@ -120,6 +120,10 @@ class VertexAITrainingExtractor:
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
 
+    def reset_regional_caches(self) -> None:
+        """Clear the cached datasets, which are region-specific."""
+        self.datasets = None
+
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for training job extraction."""
         for class_name in TrainingJobTypes.all():
@@ -293,6 +297,9 @@ class VertexAITrainingExtractor:
         external_input_edges = urns_and_edges.input_edges
         external_output_edges = urns_and_edges.output_edges
 
+        if dataset_urn and model_urn:
+            self.model_usage_tracker.track_model_training_data(model_urn, dataset_urn)
+
         result_type = get_job_result_status(job)
         ml_metrics = self._extract_hyperparams_and_metrics(job_meta)
         hyperparams = ml_metrics.hyperparams
@@ -369,9 +376,9 @@ class VertexAITrainingExtractor:
             ).as_workunit()
 
     def _ensure_datasets_cached(self) -> None:
-        """Fetch and cache all datasets from Vertex AI (one-time operation)."""
+        """Fetch and cache all datasets from Vertex AI, once per region."""
         if self.datasets is None:
-            logger.info("Fetching Datasets from Vertex AI (one-time cache)")
+            logger.info("Fetching Datasets from Vertex AI (once per region)")
             self.datasets = {}
 
             for dtype in DatasetTypes.all():
@@ -502,7 +509,7 @@ class VertexAITrainingExtractor:
                         job_meta.output_model = model
                         job_meta.output_model_version = model_version
                 except (PermissionDenied, Unauthenticated) as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to permission issue",
                         message=format_api_error_message(
                             e,
@@ -513,7 +520,7 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
                 except ResourceExhausted as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to quota exceeded",
                         message=format_api_error_message(
                             e,
@@ -524,7 +531,7 @@ class VertexAITrainingExtractor:
                         exc=e,
                     )
                 except (DeadlineExceeded, ServiceUnavailable) as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version due to timeout or service unavailable",
                         message=format_api_error_message(
                             e,
@@ -544,7 +551,7 @@ class VertexAITrainingExtractor:
                         )
                     )
                 except GoogleAPICallError as e:
-                    self.report.report_failure(
+                    self.report.failure(
                         title="Unable to fetch model and model version",
                         message=format_api_error_message(
                             e,

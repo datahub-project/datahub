@@ -8,6 +8,7 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.TagAssociationArray;
 import com.linkedin.common.VersionProperties;
@@ -63,9 +64,11 @@ public class VersionSetSideEffectTest {
   private MockAspectRetriever mockAspectRetriever;
   private RetrieverContext retrieverContext;
   private VersionSetSideEffect sideEffect;
+  private OperationFingerprint mockOpContext;
 
   @BeforeMethod
   public void setup() {
+    mockOpContext = mock(OperationFingerprint.class);
     GraphRetriever graphRetriever = mock(GraphRetriever.class);
     VersionProperties existingProperties =
         new VersionProperties()
@@ -127,7 +130,8 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results
@@ -172,7 +176,8 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .applyMCPSideEffect(Collections.singletonList(changeItem), retrieverContext)
+            .applyMCPSideEffect(
+                mockOpContext, Collections.singletonList(changeItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify results - should still get one patch to set isLatest=true on current latest
@@ -205,7 +210,7 @@ public class VersionSetSideEffectTest {
     // Run side effect
     List<MCPItem> sideEffectResults =
         sideEffect
-            .postMCPSideEffect(Collections.singletonList(mclItem), retrieverContext)
+            .postMCPSideEffect(mockOpContext, Collections.singletonList(mclItem), retrieverContext)
             .collect(Collectors.toList());
 
     // Verify no changes for non-version set properties aspects

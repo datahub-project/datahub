@@ -1,3 +1,7 @@
+---
+description: "Set up no-code metadata ingestion in DataHub through the UI to automatically pull metadata from your data sources on a schedule."
+---
+
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Metadata Ingestion
@@ -34,6 +38,10 @@ These privileges can be granted in two ways:
 1. **Admin Role Assignment** - Users assigned to the **Admin Role** receive these privileges by default
 2. **Custom Policy with Platform Privileges** - Create a [Custom Policy](authorization/policies.md) that grants the `Manage Metadata Ingestion` and `Manage Secrets` platform privileges to specific users or groups
 
+:::caution Grant only to trusted operators
+`Manage Metadata Ingestion` lets you define and run recipes on the [ingestion executor](docker/ingestion-executor-security.md). Those recipes run as Python in that process (custom source types, transformers, Kafka `oauth_cb`, and extra pip packages on non-locked images). Treat this privilege like the ability to execute code there — not only as "create a Snowflake source."
+:::
+
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion-privileges.png"/>
 </p>
@@ -43,9 +51,9 @@ These privileges can be granted in two ways:
 For more granular control, administrators can create [Custom Policies](authorization/policies.md) that apply specifically to **Ingestion Sources**, allowing different users to have different levels of access:
 
 - **View** - View ingestion source configurations and run history
-- **Edit** - Modify ingestion source configurations
+- **Edit** - Modify ingestion source configurations (the recipe the executor will run)
 - **Delete** - Remove ingestion sources
-- **Execute** - Run ingestion sources on-demand
+- **Execute** - Run ingestion sources on-demand. Combined with **Edit**, this is the same code-execution capability as `Manage Metadata Ingestion`, scoped to those sources.
 
 **Prerequisites:**
 
@@ -70,13 +78,13 @@ If you're just getting started, you won't have any sources configured. The follo
 
 ### Step 1: Select a Data Source
 
-Begin by clicking **+ Create source** to start the ingestion source creation process.
+Begin by clicking **Create Source** to start the ingestion source creation process.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/create-new-ingestion-source-button.png"/>
 </p>
 
-Next, select the type of data source you want to connect. DataHub provides pre-built templates for popular platforms including:
+Next, on the **Choose a Data Source** page, select the type of data source you want to connect. DataHub provides pre-built templates for popular platforms including:
 
 - **Data Warehouses**: Snowflake, BigQuery, Redshift, Databricks
 - **Databases**: MySQL, PostgreSQL, SQL Server, Oracle
@@ -88,11 +96,11 @@ Next, select the type of data source you want to connect. DataHub provides pre-b
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/select-platform-template.png"/>
 </p>
 
-Select the template that matches your data source. If your specific platform isn't listed, you can choose **Custom** to configure a source manually, though this requires more technical knowledge.
+Select the template that matches your data source. If your specific platform isn't listed, you can choose **Other** to configure a source manually with a YAML recipe, though this requires more technical knowledge.
 
 ### Step 2: Configure Connection Details
 
-After selecting your data source template, you'll configure how DataHub connects to and extracts metadata from your source.
+After selecting your data source template, the **Connection Details** page opens. On this one page you configure how DataHub connects to and extracts metadata from your source, the sync schedule, and any advanced settings.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/ingestion-connection-ask-datahub.png"/>
@@ -100,20 +108,17 @@ After selecting your data source template, you'll configure how DataHub connects
 
 _Ask DataHub (Public Beta - Cloud only) provides contextual assistance throughout the ingestion configuration process_
 
-**Name and Owners**: First, provide a descriptive name for your ingestion source that will help you and your team identify it later. You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
+**Name and Owners**: First, provide a descriptive **Source Name** for your ingestion source that will help you and your team identify it later. You can also assign **Users** and/or **Groups** as owners of this ingestion source. By default, you (the creator) will be assigned as an owner, but you can add additional owners or change this at any time after creation.
 
-**Connection Information**: Next, you'll configure the connection details using a user-friendly form. The exact fields will vary depending on your chosen platform, but typically include:
+**Connection Information**: Next, you'll configure the connection details using a user-friendly form on the **Form** tab, or edit the recipe directly on the **YAML** tab. The exact fields will vary depending on your chosen platform, but typically include:
 
 - Host/server address and port
 - Database or project names
 - Authentication credentials
 
-**Asset Filters**: Configure what metadata to extract:
+**Asset Filters**: Optionally, limit which assets are extracted. Click **Add Filter** and, for each rule, pick a **Filter Type** (include or exclude), an **Asset Type** (such as database, schema, or table), and a **Name or Pattern**. Leave this section empty to ingest all accessible assets.
 
-- Which databases, schemas, or tables to include
-- Filtering options to exclude certain data
-
-**Ingestion Settings**: Configure ingestion behavior including profiling, stale metadata handling, and other operational settings. The defaults represent best practices for most use cases.
+**Settings**: Configure ingestion behavior including profiling, stale metadata handling, and other operational settings. The defaults represent best practices for most use cases.
 
 :::note Ask DataHub for Configuration Help (Public Beta)
 **Ask DataHub** (Public Beta) can help you understand the behavior and options of each configuration setting. Get tailored recommendations for your data source and use case.
@@ -141,7 +146,9 @@ To create a secret:
 Once created, secrets can be referenced in your ingestion configuration forms using the dropdown menus provided for credential fields.
 
 :::caution Security Note
-Users with the `Manage Secrets` privilege can retrieve plaintext secret values through DataHub's GraphQL API. Ensure secrets are only accessible to trusted administrators.
+DataHub is **secure by default** for secret retrieval: GMS sets `SECRET_SERVICE_CALLER_GUARD_MODE=ENFORCE`, which blocks browser sessions and user Personal Access Tokens from calling `getSecretValues` via GraphQL. Users with the `Manage Secrets` privilege can still create, update, and delete secrets; they cannot read plaintext values through the API unless an administrator relaxes the guard (for example `AUDIT` during a staged rollout).
+
+When a scheduled UI ingestion source runs, secrets are resolved by a trusted worker — [**datahub-actions**](actions/actions/executor.md) in OSS (system client credentials) or an **embedded executor** on DataHub Cloud (Remote Executor access token). UI secrets are decrypted server-side and sent to that worker over the DataHub API (TLS) at job time. For security-sensitive deployments, use [local secret backends](managed-datahub/operator-guide/setting-up-remote-ingestion-executor.md#secret-security-considerations) instead of DataHub UI Secrets.
 :::
 
 #### Test Your Connection
@@ -164,37 +171,40 @@ If the connection test fails, review your configuration and ensure that:
 
 #### Advanced Settings
 
-For users who need additional control, DataHub provides advanced configuration options accessible in the Advanced Settings section:
+For users who need additional control, DataHub provides advanced configuration options in the collapsible **Advanced Settings** section at the bottom of the page:
 
 - **CLI Version:** Specify a particular version of the DataHub CLI for ingestion execution
 - **Environment Variables:** Set custom environment variables for the ingestion process
+- **Extra pip packages:** Install additional Python packages at run time (not available on [locked executor images](docker/ingestion-executor-security.md))
 - **Executor ID:** Configure remote execution if needed
 - **Debug Mode:** Enable detailed logging for troubleshooting
 
 ### Step 3: Sync Schedule
 
-Configure how often DataHub should sync metadata from your source. You can enable or disable scheduled execution using the toggle (recommended: enabled). This ensures your metadata stays up-to-date without manual intervention.
+In the **Sync Schedule** section of the same page, configure how often DataHub should sync metadata from your source. You can enable or disable scheduled execution using the **Run on a schedule** toggle (recommended: enabled), then choose the frequency and timezone. This ensures your metadata stays up-to-date without manual intervention.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/schedule-ingestion.png"/>
 </p>
 
-If you prefer to run ingestion manually or on an ad-hoc basis, you can skip the scheduling step entirely.
+If you prefer to run ingestion manually or on an ad-hoc basis, leave the toggle off.
 
-### Step 4: Review and Save
+### Step 4: Save
 
-Review your configuration to ensure all settings are correct. When you're ready, you have two options:
+Review your configuration to ensure all settings are correct. When you're ready, use one of the buttons at the top of the page:
 
 - **Save**: Save the ingestion source configuration without executing it immediately
 - **Save and Run**: Save and immediately execute your first ingestion run
 
-Once you're happy with your configurations, click your preferred save option to finalize your source.
+**Cancel** leaves the page without saving your changes.
+
+To change an existing source later, select **Edit** from its menu on the **Sources** tab. This opens the same page with the source's current configuration.
 
 ## Running and Monitoring Ingestion
 
 ### Executing an Ingestion Source
 
-Once you've created your Ingestion Source, you can run it by clicking the 'Play' button. Shortly after, you should see the 'Last Status' column of the ingestion source change to `Running`, indicating that DataHub has successfully queued the ingestion job.
+Once you've created your Ingestion Source, you can run it by clicking the 'Play' button. Shortly after, you should see the 'Status' column of the ingestion source change to `Running`, indicating that DataHub has successfully queued the ingestion job.
 
 <p align="center">
   <img width="70%"  src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ingestion/running.png"/>
@@ -225,8 +235,8 @@ This makes it easy to track your ingestion performance and troubleshoot any issu
 
 After successful ingestion, you can view detailed information about what was extracted:
 
-1. Click the **Success** status button on a completed ingestion run
-2. Select **View All** to see the list of ingested entities
+1. Click the **Success** status of a completed ingestion run to open its **Run Details** page
+2. In the **Assets** section, select **View all** to see the list of ingested entities
 3. Click on individual entities to validate the extracted metadata
 
 <p align="center">
@@ -297,7 +307,9 @@ While the UI-based forms handle most common ingestion scenarios, advanced users 
 - Advanced filtering and processing logic
 - Integration with external systems
 
-For these advanced use cases, DataHub supports direct YAML recipe configuration. For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
+YAML recipes are executed as Python on the ingestion executor. Custom `source.type` values, transformers, and callbacks such as Kafka `oauth_cb` can import code already on that executor. Grant `Manage Metadata Ingestion` (or Edit plus Execute) only to trusted operators — see [Ingestion executor security](docker/ingestion-executor-security.md).
+
+For detailed information about YAML-based configuration, including syntax and examples, see the [Recipe Overview Guide](metadata-ingestion/recipe_overview.md).
 
 ### Deploying Recipes (CLI)
 

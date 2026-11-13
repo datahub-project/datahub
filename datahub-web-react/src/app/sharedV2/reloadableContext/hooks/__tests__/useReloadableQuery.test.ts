@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import * as ReloadableContext from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useReloadableQuery', () => {
     const useReloadableContextSpy = vi.spyOn(ReloadableContext, 'useReloadableContext');

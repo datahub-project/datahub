@@ -1,5 +1,6 @@
 package com.linkedin.metadata.graph.elastic;
 
+import static com.linkedin.metadata.Constants.GRAPH_SERVICE_INDEX;
 import static com.linkedin.metadata.aspect.models.graph.Edge.*;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusFieldName;
 import static com.linkedin.metadata.graph.elastic.utils.GraphFilterUtils.getUrnStatusQuery;
@@ -17,9 +18,11 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntity;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.graph.GraphServiceConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.GraphFilters;
 import com.linkedin.metadata.graph.GraphService;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
 import com.linkedin.metadata.graph.RelatedEntitiesResult;
@@ -37,7 +40,7 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
@@ -53,6 +56,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -72,7 +76,7 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 
 @Slf4j
 @RequiredArgsConstructor
-public class ElasticSearchGraphService implements GraphService, ElasticSearchIndexed {
+public class ElasticSearchGraphService implements GraphService, MigratableIndexed {
   private final LineageRegistry lineageRegistry;
   private final ESBulkProcessor esBulkProcessor;
   private final IndexConvention indexConvention;
@@ -80,7 +84,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   private final ESGraphQueryDAO graphReadDAO;
   private final ESIndexBuilder indexBuilder;
   private final String idHashAlgo;
-  public static final String INDEX_NAME = "graph_service_v1";
+  public static final String INDEX_NAME = GRAPH_SERVICE_INDEX;
   private static final Map<String, Object> EMPTY_HASH = new HashMap<>();
 
   private static String toDocument(@Nonnull final Edge edge) {
@@ -166,21 +170,21 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   }
 
   @Override
-  public void addEdge(@Nonnull final Edge edge) {
+  public void addEdge(@Nonnull OperationContext opContext, @Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
     String edgeDocument = toDocument(edge);
-    graphWriteDAO.upsertDocument(docId, edgeDocument);
+    graphWriteDAO.upsertDocument(opContext, docId, edgeDocument);
   }
 
   @Override
-  public void upsertEdge(@Nonnull final Edge edge) {
-    addEdge(edge);
+  public void upsertEdge(@Nonnull OperationContext opContext, @Nonnull final Edge edge) {
+    addEdge(opContext, edge);
   }
 
   @Override
-  public void removeEdge(@Nonnull final Edge edge) {
+  public void removeEdge(@Nonnull OperationContext opContext, @Nonnull final Edge edge) {
     String docId = edge.toDocId(idHashAlgo);
-    graphWriteDAO.deleteDocument(docId);
+    graphWriteDAO.deleteDocument(opContext, docId);
   }
 
   @Override
@@ -237,6 +241,17 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
   @Nonnull
   @WithSpan
   @Override
+  public LineageCountResult getLineageCount(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize) {
+    return graphReadDAO.getLineageCount(opContext, entityUrns, lineageGraphFilters, sampleSize);
+  }
+
+  @Nonnull
+  @WithSpan
+  @Override
   public EntityLineageResult getImpactLineage(
       @Nonnull final OperationContext opContext,
       @Nonnull Urn entityUrn,
@@ -276,7 +291,10 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
 
   @Override
   public void setEdgeStatus(
-      @Nonnull Urn urn, boolean removed, @Nonnull EdgeUrnType... edgeUrnTypes) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      boolean removed,
+      @Nonnull EdgeUrnType... edgeUrnTypes) {
 
     for (EdgeUrnType edgeUrnType : edgeUrnTypes) {
       // Update the graph status fields per urn type which do not match target state
@@ -292,7 +310,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
               scriptContent,
               Collections.singletonMap("newValue", removed));
 
-      graphWriteDAO.updateByQuery(script, negativeQuery);
+      graphWriteDAO.updateByQuery(opContext, script, negativeQuery);
     }
   }
 
@@ -313,7 +331,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     log.info("Setting up elastic graph index");
     try {
       for (ReindexConfig config : buildReindexConfigs(opContext, properties)) {
-        indexBuilder.buildIndex(config);
+        indexBuilder.buildIndex(opContext, config);
       }
     } catch (IOException e) {
       throw new RuntimeException(e);
@@ -325,25 +343,40 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException {
+    return buildReindexConfigsFor(opContext, properties, indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter)
+      throws IOException {
     return List.of(
-        indexBuilder.buildReindexState(
-            indexConvention.getIndexName(INDEX_NAME),
+        targetBuilder.buildReindexState(
+            opContext,
+            nameRewriter.apply(
+                indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME)),
             GraphRelationshipMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }
 
   @Override
-  public void clear() {
+  public void clear(@Nonnull OperationContext opContext) {
     // Instead of deleting all documents (inefficient), delete and recreate the index
-    String indexName = indexConvention.getIndexName(INDEX_NAME);
+    String indexName = indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME);
     try {
       // Build a config with the correct target mappings for recreation
       ReindexConfig config =
           indexBuilder.buildReindexState(
-              indexName, GraphRelationshipMappingsBuilder.getMappings(), Collections.emptyMap());
+              opContext,
+              indexName,
+              GraphRelationshipMappingsBuilder.getMappings(),
+              Collections.emptyMap());
 
       // Use clearIndex which handles deletion and recreation
-      indexBuilder.clearIndex(indexName, config);
+      indexBuilder.clearIndex(opContext, indexName, config);
 
       log.info("Cleared index {} by deleting and recreating it", indexName);
     } catch (IOException e) {
@@ -395,7 +428,7 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     String nextScrollId = SearchAfterWrapper.nextScrollId(searchHits, count, pitId, expirationTime);
     if (nextScrollId == null && pitId != null) {
       // Last scroll, we clean up the pitId assuming user has gone through all data
-      graphReadDAO.cleanupPointInTime(pitId);
+      graphReadDAO.cleanupPointInTime(opContext, pitId);
     }
 
     return RelatedEntitiesScrollResult.builder()
@@ -475,10 +508,11 @@ public class ElasticSearchGraphService implements GraphService, ElasticSearchInd
     searchSourceBuilder.size(getGraphServiceConfig().getLimit().getResults().getApiDefault());
 
     searchRequest.source(searchSourceBuilder);
-    searchRequest.indices(indexConvention.getIndexName(INDEX_NAME));
+    searchRequest.indices(
+        indexConvention.getIndexName(opContext, SearchComponent.GRAPH, INDEX_NAME));
 
     // Execute search using the graphReadDAO's search client
-    SearchResponse searchResponse = graphReadDAO.executeSearch(searchRequest);
+    SearchResponse searchResponse = graphReadDAO.executeSearch(opContext, searchRequest);
     SearchHits hits = searchResponse.getHits();
 
     // Process each hit

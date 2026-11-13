@@ -66,10 +66,13 @@ public class StructuredPropertyAssignmentChangeEvent extends ChangeEvent {
               }
             });
 
-    ImmutableMap.Builder<String, Object> builder =
-        new ImmutableMap.Builder<String, Object>()
-            .put("propertyUrn", structuredPropertyValueAssignment.getPropertyUrn().toString())
-            .put("propertyValues", arrayNode.toString());
-    return builder.build();
+    return new ImmutableMap.Builder<String, Object>()
+        .put("propertyUrn", structuredPropertyValueAssignment.getPropertyUrn().toString())
+        .put("propertyValues", arrayNode.toString())
+        .put(
+            "sourceDetails",
+            ChangeEventParameterUtils.serializeSourceDetail(
+                structuredPropertyValueAssignment.getAttribution()))
+        .build();
   }
 }

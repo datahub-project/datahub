@@ -1,13 +1,14 @@
 package com.linkedin.metadata.resources.entity;
 
 import static com.datahub.authorization.AuthUtil.isAPIAuthorized;
-import static com.datahub.authorization.AuthUtil.isAPIAuthorizedEntityUrns;
 import static com.datahub.authorization.AuthUtil.isAPIAuthorizedUrns;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.resources.restli.RestliConstants.*;
+import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 
 import com.codahale.metrics.MetricRegistry;
+import com.google.common.annotations.VisibleForTesting;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authorization.EntitySpec;
@@ -16,7 +17,9 @@ import com.linkedin.common.VersionedUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.resources.restli.RestliUtils;
 import com.linkedin.parseq.Task;
@@ -28,6 +31,7 @@ import com.linkedin.restli.server.annotations.RestLiCollection;
 import com.linkedin.restli.server.annotations.RestMethod;
 import com.linkedin.restli.server.resources.CollectionResourceTaskTemplate;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.usage.UsageOperation;
 import io.datahubproject.metadata.context.RequestContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.util.Arrays;
@@ -66,6 +70,21 @@ public class EntityVersionedV2Resource
     @Named("systemOperationContext")
     private OperationContext systemOperationContext;
 
+  @VisibleForTesting
+  void setEntityService(EntityService<?> entityService) {
+    this._entityService = entityService;
+  }
+
+  @VisibleForTesting
+  void setAuthorizer(Authorizer authorizer) {
+    this._authorizer = authorizer;
+  }
+
+  @VisibleForTesting
+  void setSystemOperationContext(OperationContext systemOperationContext) {
+    this.systemOperationContext = systemOperationContext;
+  }
+
   @RestMethod.BatchGet
   @Nonnull
   @WithSpan
@@ -78,9 +97,9 @@ public class EntityVersionedV2Resource
               .map(versionedUrn -> UrnUtils.getUrn(versionedUrn.getUrn())).collect(Collectors.toSet());
 
       Authentication auth = AuthenticationContext.getAuthentication();
-      final OperationContext opContext = OperationContext.asSession(
+      final OperationContext opContext = RestliUtils.asSession(
               systemOperationContext, RequestContext.builder().buildRestli(auth.getActor().toUrnStr(), getContext(), "authorizerChain", urns.stream()
-                      .map(Urn::getEntityType).collect(Collectors.toList())), _authorizer, auth, true);
+                      .map(Urn::getEntityType).collect(Collectors.toList())).withUsageOperation(UsageOperation.METADATA_READ), _authorizer, auth, true);
 
     if (!isAPIAuthorizedEntityUrns(
             opContext,
@@ -96,27 +115,34 @@ public class EntityVersionedV2Resource
     if (versionedUrnStrs.size() <= 0) {
       return Task.value(Collections.emptyMap());
     }
-    return RestliUtils.toTask(systemOperationContext,
+    return RestliUtils.toTask(opContext,
         () -> {
           final Set<String> projectedAspects =
               aspectNames == null
                   ? opContext.getEntityAspectNames(entityType)
                   : new HashSet<>(Arrays.asList(aspectNames));
           try {
-            return _entityService.getEntitiesVersionedV2(opContext,
-                versionedUrnStrs.stream()
-                    .map(
-                        versionedUrnTyperef -> {
-                          VersionedUrn versionedUrn =
-                              new VersionedUrn()
-                                  .setUrn(UrnUtils.getUrn(versionedUrnTyperef.getUrn()));
-                          if (versionedUrnTyperef.getVersionStamp() != null) {
-                            versionedUrn.setVersionStamp(versionedUrnTyperef.getVersionStamp());
-                          }
-                          return versionedUrn;
-                        })
-                    .collect(Collectors.toSet()),
-                projectedAspects);
+            Map<Urn, EntityResponse> response =
+                _entityService.getEntitiesVersionedV2(opContext,
+                    versionedUrnStrs.stream()
+                        .map(
+                            versionedUrnTyperef -> {
+                              VersionedUrn versionedUrn =
+                                  new VersionedUrn()
+                                      .setUrn(UrnUtils.getUrn(versionedUrnTyperef.getUrn()));
+                              if (versionedUrnTyperef.getVersionStamp() != null) {
+                                versionedUrn.setVersionStamp(versionedUrnTyperef.getVersionStamp());
+                              }
+                              return versionedUrn;
+                            })
+                        .collect(Collectors.toSet()),
+                    projectedAspects);
+            // This endpoint has no per-field mapper the way GraphQL has, so SQL-bearing aspects
+            // the actor lacks VIEW_ENTITY_QUERIES for are redacted from the response here, same
+            // as EntityV2Resource/EntitiesController do for the non-versioned equivalents.
+            EntityAuthorizationUtils.completelyRedactUnauthorizedQuerySqlAspects(
+                opContext, response);
+            return SensitiveAspectAuthUtil.omitUnauthorizedAspects(opContext, response);
           } catch (Exception e) {
             throw new RuntimeException(
                 String.format(

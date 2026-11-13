@@ -10,12 +10,14 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.availability.AvailabilityChangeEvent;
 import org.springframework.boot.availability.ReadinessState;
 import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.event.ContextClosedEvent;
 import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.KafkaListenerEndpointRegistry;
 import org.springframework.kafka.listener.MessageListenerContainer;
 import org.springframework.test.annotation.DirtiesContext;
 import org.springframework.test.context.ContextConfiguration;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -28,7 +30,7 @@ public class KafkaInitializationManagerTest extends AbstractTestNGSpringContextT
 
   @Autowired private KafkaInitializationManager manager;
 
-  @MockBean private KafkaListenerEndpointRegistry registry;
+  @MockitoBean private KafkaListenerEndpointRegistry registry;
 
   private MessageListenerContainer container1;
   private MessageListenerContainer container2;
@@ -155,6 +157,21 @@ public class KafkaInitializationManagerTest extends AbstractTestNGSpringContextT
     // Assert
     assertFalse(manager.isInitialized());
     verify(registry, never()).getAllListenerContainers();
+  }
+
+  @Test
+  public void testOnContextClosed_pausesRunningContainers() {
+    when(registry.getAllListenerContainers()).thenReturn(containers);
+    when(container1.isRunning()).thenReturn(true);
+    when(container2.isRunning()).thenReturn(false);
+    ContextClosedEvent event = new ContextClosedEvent(mock(ApplicationContext.class));
+
+    manager.onContextClosed(event);
+
+    verify(container1, times(1)).pause();
+    verify(container2, never()).pause();
+    verify(container1, never()).start();
+    verify(container2, never()).start();
   }
 
   @Test

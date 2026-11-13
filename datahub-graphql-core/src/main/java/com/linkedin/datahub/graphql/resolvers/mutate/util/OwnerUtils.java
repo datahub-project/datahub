@@ -1,10 +1,12 @@
 package com.linkedin.datahub.graphql.resolvers.mutate.util;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
+import static com.linkedin.metadata.aspect.utils.AssertionUtils.getEntityFromAssertionInfo;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
 import com.google.common.collect.ImmutableList;
+import com.linkedin.assertion.AssertionInfo;
 import com.linkedin.common.OwnerArray;
 import com.linkedin.common.Ownership;
 import com.linkedin.common.OwnershipSourceType;
@@ -18,6 +20,7 @@ import com.linkedin.datahub.graphql.generated.OwnerEntityType;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.datahub.graphql.generated.OwnershipType;
 import com.linkedin.datahub.graphql.generated.ResourceRefInput;
+import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.authorization.PoliciesConfig;
@@ -27,7 +30,9 @@ import com.linkedin.metadata.service.util.OwnerServiceUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -152,26 +157,54 @@ public class OwnerUtils {
   }
 
   public static void validateAuthorizedToUpdateOwners(
-      @Nonnull QueryContext context, Urn resourceUrn, EntityClient entityClient) {
+      @Nonnull QueryContext context,
+      Urn resourceUrn,
+      EntityClient entityClient,
+      EntityService<?> entityService) {
 
     if (GlossaryUtils.canUpdateGlossaryEntity(resourceUrn, context, entityClient)) {
       return;
     }
 
-    final DisjunctivePrivilegeGroup orPrivilegeGroups =
-        new DisjunctivePrivilegeGroup(
-            ImmutableList.of(
-                ALL_PRIVILEGES_GROUP,
-                new ConjunctivePrivilegeGroup(
-                    ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
-
-    boolean authorized =
-        AuthorizationUtils.isAuthorized(
-            context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
-    if (!authorized) {
-      throw new AuthorizationException(
-          "Unauthorized to update owners. Please contact your DataHub administrator.");
+    if (isAuthorizedToUpdateOwners(context, resourceUrn)) {
+      return;
     }
+
+    // Assertions are scoped to their assertee: actors who can edit assertions or owners on the
+    // assertee can also manage assertion ownership.
+    if (Constants.ASSERTION_ENTITY_NAME.equals(resourceUrn.getEntityType())
+        && isAuthorizedToUpdateOwnersFromAssertee(context, resourceUrn, entityService)) {
+      return;
+    }
+
+    throw new AuthorizationException(
+        "Unauthorized to update owners. Please contact your DataHub administrator.");
+  }
+
+  /**
+   * For an assertion URN, fetch the assertee and check whether the actor can edit owners or
+   * assertions on it. Mirrors the precedent set by {@link
+   * AssertionUtils#isAuthorizedToEditAssertionFromAssertee} for assertion CRUD: assertions are
+   * managed via their assertee's permissions, not their own URN.
+   */
+  private static boolean isAuthorizedToUpdateOwnersFromAssertee(
+      @Nonnull QueryContext context,
+      @Nonnull Urn assertionUrn,
+      @Nonnull EntityService<?> entityService) {
+    final AssertionInfo info =
+        (AssertionInfo)
+            EntityUtils.getAspectFromEntity(
+                context.getOperationContext(),
+                assertionUrn.toString(),
+                Constants.ASSERTION_INFO_ASPECT_NAME,
+                entityService,
+                null);
+    if (info == null) {
+      return false;
+    }
+    final Urn asserteeUrn = getEntityFromAssertionInfo(info);
+    return isAuthorizedToUpdateOwners(context, asserteeUrn)
+        || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, asserteeUrn);
   }
 
   public static void validateAddOwnerInput(
@@ -179,9 +212,8 @@ public class OwnerUtils {
       List<OwnerInput> owners,
       Urn resourceUrn,
       EntityService<?> entityService) {
-    for (OwnerInput owner : owners) {
-      validateAddOwnerInput(opContext, owner, resourceUrn, entityService);
-    }
+    validateResourceExists(opContext, resourceUrn, entityService);
+    validateOwners(opContext, owners, entityService);
   }
 
   public static void validateAddOwnerInput(
@@ -189,19 +221,38 @@ public class OwnerUtils {
       OwnerInput owner,
       Urn resourceUrn,
       EntityService<?> entityService) {
-
-    if (!entityService.exists(opContext, resourceUrn, true)) {
-      throw new IllegalArgumentException(
-          String.format(
-              "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
-    }
-
-    validateOwner(opContext, owner, entityService);
+    validateAddOwnerInput(opContext, List.of(owner), resourceUrn, entityService);
   }
 
   public static void validateOwner(
       @Nonnull OperationContext opContext, OwnerInput owner, EntityService<?> entityService) {
+    validateOwners(opContext, List.of(owner), entityService);
+  }
 
+  /**
+   * Batched form of {@link #validateOwner}: resolves every owner urn and custom ownership type urn
+   * in one call rather than one or two per owner. Owners are still inspected in input order, so the
+   * same owner is rejected first as when validating one at a time.
+   */
+  public static void validateOwners(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<OwnerInput> owners,
+      EntityService<?> entityService) {
+    final List<Urn> urnsToResolve = new ArrayList<>();
+    for (OwnerInput owner : owners) {
+      urnsToResolve.add(UrnUtils.getUrn(owner.getOwnerUrn()));
+      if (owner.getOwnershipTypeUrn() != null) {
+        urnsToResolve.add(UrnUtils.getUrn(owner.getOwnershipTypeUrn()));
+      }
+    }
+
+    final Set<Urn> resolvedUrns = existingUrns(opContext, urnsToResolve, entityService);
+    for (OwnerInput owner : owners) {
+      validateOwner(owner, resolvedUrns);
+    }
+  }
+
+  private static void validateOwner(OwnerInput owner, @Nonnull Set<Urn> resolvedUrns) {
     OwnerEntityType ownerEntityType = owner.getOwnerEntityType();
     Urn ownerUrn = UrnUtils.getUrn(owner.getOwnerUrn());
 
@@ -221,7 +272,7 @@ public class OwnerUtils {
               ownerUrn));
     }
 
-    if (!entityService.exists(opContext, ownerUrn, true)) {
+    if (!resolvedUrns.contains(ownerUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Owner with urn %s does not exist.",
@@ -229,7 +280,7 @@ public class OwnerUtils {
     }
 
     if (owner.getOwnershipTypeUrn() != null
-        && !entityService.exists(opContext, UrnUtils.getUrn(owner.getOwnershipTypeUrn()), true)) {
+        && !resolvedUrns.contains(UrnUtils.getUrn(owner.getOwnershipTypeUrn()))) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource(s). Custom Ownership type with "
@@ -246,7 +297,12 @@ public class OwnerUtils {
 
   public static void validateRemoveInput(
       @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
-    if (!entityService.exists(opContext, resourceUrn, true)) {
+    validateResourceExists(opContext, resourceUrn, entityService);
+  }
+
+  private static void validateResourceExists(
+      @Nonnull OperationContext opContext, Urn resourceUrn, EntityService<?> entityService) {
+    if (!existingUrns(opContext, List.of(resourceUrn), entityService).contains(resourceUrn)) {
       throw new IllegalArgumentException(
           String.format(
               "Failed to change ownership for resource %s. Resource does not exist.", resourceUrn));
@@ -303,5 +359,18 @@ public class OwnerUtils {
                     ImmutableList.of(PoliciesConfig.EDIT_ENTITY_OWNERS_PRIVILEGE.getType()))));
     return AuthorizationUtils.isAuthorized(
         context, resourceUrn.getEntityType(), resourceUrn.toString(), orPrivilegeGroups);
+  }
+
+  /**
+   * Whether the actor can edit owners on assertions belonging to {@code entityUrn}. Used to gate UI
+   * affordances at the parent-entity level before any specific assertion URN exists or is known.
+   *
+   * <p>Mirrors the assertee-delegation logic in {@link #validateAuthorizedToUpdateOwners}: anyone
+   * who can edit owners or edit assertions on the parent entity can manage assertion ownership.
+   */
+  public static boolean isAuthorizedToUpdateAssertionOwnersOnEntity(
+      @Nonnull QueryContext context, @Nonnull Urn entityUrn) {
+    return isAuthorizedToUpdateOwners(context, entityUrn)
+        || AssertionUtils.isAuthorizedToEditAssertionFromAssertee(context, entityUrn);
   }
 }

@@ -16,7 +16,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -32,7 +32,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -48,7 +48,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -66,7 +66,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -82,7 +82,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -98,152 +98,177 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.analytics_data,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.analytics_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.analytics_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "analytics_data",
+            "tags": [],
+            "description": "Aggregated analytics with Doris-specific types"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.analytics_data,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "dorisdb.analytics_data",
+            "platform": "urn:li:dataPlatform:doris",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "analytics_data",
-                        "tags": []
-                    }
+                    "fieldPath": "name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "dorisdb.analytics_data",
-                        "platform": "urn:li:dataPlatform:doris",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "name",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(100)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "created_at",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "datetime",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "user_ids_hll",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
-                                    }
-                                },
-                                "nativeDataType": "hll",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "user_bitmap",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
-                                    }
-                                },
-                                "nativeDataType": "bitmap",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "tags",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.ArrayType": {}
-                                    }
-                                },
-                                "nativeDataType": "array<varchar(50)>",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "metadata",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.RecordType": {}
-                                    }
-                                },
-                                "nativeDataType": "json",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "percentile_data",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.BytesType": {}
-                                    }
-                                },
-                                "nativeDataType": "quantile_state",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "datetime",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "user_ids_hll",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "hll",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "HyperLogLog for cardinality estimation"
+                },
+                {
+                    "fieldPath": "user_bitmap",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "bitmap",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Bitmap for set operations"
+                },
+                {
+                    "fieldPath": "tags",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.ArrayType": {}
+                        }
+                    },
+                    "nativeDataType": "array<varchar(50)>",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Array of tags"
+                },
+                {
+                    "fieldPath": "metadata",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.RecordType": {}
+                        }
+                    },
+                    "nativeDataType": "json",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "JSON binary format"
+                },
+                {
+                    "fieldPath": "percentile_data",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BytesType": {}
+                        }
+                    },
+                    "nativeDataType": "quantile_state",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Quantile state for percentile calculations"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -261,7 +286,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -282,7 +307,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -298,116 +323,140 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "customers",
+            "tags": [],
+            "description": "One row per registered customer"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customers,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "dorisdb.customers",
+            "platform": "urn:li:dataPlatform:doris",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Unique customer identifier"
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "customers",
-                        "tags": []
-                    }
+                    "fieldPath": "customer_name",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Customer's full name"
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "dorisdb.customers",
-                        "platform": "urn:li:dataPlatform:doris",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "customer_name",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(100)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "email",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(100)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "country",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(50)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "created_at",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "datetime",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "email",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "Contact email, may be \"unverified\""
+                },
+                {
+                    "fieldPath": "country",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(50)",
+                    "recursive": false,
+                    "isPartOfKey": false,
+                    "description": "\u56fd\u5bb6 (ISO country name)"
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "datetime",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -425,7 +474,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -446,7 +495,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -462,128 +511,147 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "dorisdb.orders",
+            "platform": "urn:li:dataPlatform:doris",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "order_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {},
-                        "name": "orders",
-                        "tags": []
-                    }
+                    "fieldPath": "customer_id",
+                    "nullable": false,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "dorisdb.orders",
-                        "platform": "urn:li:dataPlatform:doris",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "order_id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "customer_id",
-                                "nullable": false,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "order_date",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.DateType": {}
-                                    }
-                                },
-                                "nativeDataType": "date",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_amount",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "decimal(10,2)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "status",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(50)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "created_at",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.TimeType": {}
-                                    }
-                                },
-                                "nativeDataType": "datetime",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "order_date",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.DateType": {}
+                        }
+                    },
+                    "nativeDataType": "date",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_amount",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal(10,2)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "status",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(50)",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "created_at",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.TimeType": {}
+                        }
+                    },
+                    "nativeDataType": "datetime",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -601,7 +669,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -622,7 +690,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -638,107 +706,126 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-            "urn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
-            "aspects": [
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_view": "True",
+                "view_definition": "CREATE VIEW `customer_orders` AS SELECT \n    `dorisdb`.`c`.`customer_id`,\n    `dorisdb`.`c`.`customer_name`,\n    COUNT(`dorisdb`.`o`.`order_id`) as `order_count`,\n    SUM(`dorisdb`.`o`.`total_amount`) as `total_spent`\nFROM `dorisdb`.`customers` `c`\nLEFT JOIN `dorisdb`.`orders` `o` ON `dorisdb`.`c`.`customer_id` = `dorisdb`.`o`.`customer_id`\nGROUP BY `dorisdb`.`c`.`customer_id`, `dorisdb`.`c`.`customer_name`;"
+            },
+            "name": "customer_orders",
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586840400000,
+        "runId": "doris-profile-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:doris,dorisdb.customer_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "dorisdb.customer_orders",
+            "platform": "urn:li:dataPlatform:doris",
+            "version": 0,
+            "created": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.MySqlDDL": {
+                    "tableSchema": ""
+                }
+            },
+            "fields": [
                 {
-                    "com.linkedin.pegasus2avro.common.Status": {
-                        "removed": false
-                    }
+                    "fieldPath": "customer_id",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "int",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-                        "customProperties": {
-                            "is_view": "True",
-                            "view_definition": "CREATE VIEW `customer_orders` AS SELECT \n    `dorisdb`.`c`.`customer_id`,\n    `dorisdb`.`c`.`customer_name`,\n    COUNT(`dorisdb`.`o`.`order_id`) as `order_count`,\n    SUM(`dorisdb`.`o`.`total_amount`) as `total_spent`\nFROM `dorisdb`.`customers` `c`\nLEFT JOIN `dorisdb`.`orders` `o` ON `dorisdb`.`c`.`customer_id` = `dorisdb`.`o`.`customer_id`\nGROUP BY `dorisdb`.`c`.`customer_id`, `dorisdb`.`c`.`customer_name`;"
-                        },
-                        "name": "customer_orders",
-                        "tags": []
-                    }
+                    "fieldPath": "customer_name",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.StringType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "isPartOfKey": false
                 },
                 {
-                    "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-                        "schemaName": "dorisdb.customer_orders",
-                        "platform": "urn:li:dataPlatform:doris",
-                        "version": 0,
-                        "created": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        },
-                        "hash": "",
-                        "platformSchema": {
-                            "com.linkedin.pegasus2avro.schema.MySqlDDL": {
-                                "tableSchema": ""
-                            }
-                        },
-                        "fields": [
-                            {
-                                "fieldPath": "customer_id",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "int",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "customer_name",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.StringType": {}
-                                    }
-                                },
-                                "nativeDataType": "varchar(100)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "order_count",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "bigint",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            },
-                            {
-                                "fieldPath": "total_spent",
-                                "nullable": true,
-                                "type": {
-                                    "type": {
-                                        "com.linkedin.pegasus2avro.schema.NumberType": {}
-                                    }
-                                },
-                                "nativeDataType": "decimal(38,2)",
-                                "recursive": false,
-                                "isPartOfKey": false
-                            }
-                        ]
-                    }
+                    "fieldPath": "order_count",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "bigint",
+                    "recursive": false,
+                    "isPartOfKey": false
+                },
+                {
+                    "fieldPath": "total_spent",
+                    "nullable": true,
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.NumberType": {}
+                        }
+                    },
+                    "nativeDataType": "decimal(38,2)",
+                    "recursive": false,
+                    "isPartOfKey": false
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -756,7 +843,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -774,7 +861,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -789,7 +876,7 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 1586840400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -802,7 +889,7 @@
                 },
                 {
                     "auditStamp": {
-                        "time": 1615443388097,
+                        "time": 1586840400000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
                     "created": {
@@ -871,7 +958,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -892,7 +979,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -915,13 +1002,13 @@
                 "actor": "urn:li:corpuser:_ingestion"
             },
             "lastModified": {
-                "time": 1586844000197,
+                "time": 1586840400000,
                 "actor": "urn:li:corpuser:_ingestion"
             }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -971,7 +1058,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -987,7 +1074,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1003,7 +1090,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1015,7 +1102,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1032,6 +1119,7 @@
                     "min": "1",
                     "max": "1",
                     "mean": "1.0",
+                    "median": "1.0",
                     "stdev": "0.0",
                     "sampleValues": [
                         "1"
@@ -1053,10 +1141,10 @@
                     "uniqueProportion": 1,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:43",
+                    "max": "2026-05-15T16:39:43",
                     "sampleValues": [
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:43"
                     ]
                 },
                 {
@@ -1084,18 +1172,22 @@
                 {
                     "fieldPath": "metadata",
                     "nullCount": 0,
-                    "nullProportion": 0.0
+                    "nullProportion": 0.0,
+                    "sampleValues": [
+                        "{\"key\":\"value\"}"
+                    ]
                 },
                 {
                     "fieldPath": "percentile_data",
                     "nullCount": 0,
                     "nullProportion": 0.0
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1107,7 +1199,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1124,7 +1216,7 @@
                     "min": "1",
                     "max": "3",
                     "mean": "2.0",
-                    "median": "2",
+                    "median": "2.0",
                     "stdev": "1.0",
                     "sampleValues": [
                         "1",
@@ -1174,19 +1266,20 @@
                     "uniqueProportion": 0.3333333333333333,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:42",
+                    "max": "2026-05-15T16:39:42",
                     "sampleValues": [
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1198,7 +1291,7 @@
     "aspectName": "datasetProfile",
     "aspect": {
         "json": {
-            "timestampMillis": 1615443388097,
+            "timestampMillis": 1586840400000,
             "partitionSpec": {
                 "partition": "FULL_TABLE_SNAPSHOT",
                 "type": "FULL_TABLE"
@@ -1263,8 +1356,8 @@
                     "uniqueProportion": 1,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "75.5",
-                    "max": "300.0",
+                    "min": "75.50",
+                    "max": "300.00",
                     "mean": "181.375",
                     "median": "175.0",
                     "stdev": "94.18543323324118",
@@ -1294,20 +1387,21 @@
                     "uniqueProportion": 0.25,
                     "nullCount": 0,
                     "nullProportion": 0.0,
-                    "min": "2026-02-10T11:59:45",
-                    "max": "2026-02-10T11:59:45",
+                    "min": "2026-05-15T16:39:42",
+                    "max": "2026-05-15T16:39:42",
                     "sampleValues": [
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45",
-                        "2026-02-10 11:59:45"
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42",
+                        "2026-05-15 16:39:42"
                     ]
                 }
-            ]
+            ],
+            "sizeInBytes": 0
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1323,7 +1417,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1339,7 +1433,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1355,7 +1449,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1615443388097,
+        "lastObserved": 1586840400000,
         "runId": "doris-profile-test",
         "lastRunId": "no-run-id-provided"
     }

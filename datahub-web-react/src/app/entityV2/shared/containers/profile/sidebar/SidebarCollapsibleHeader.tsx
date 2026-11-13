@@ -1,7 +1,7 @@
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import MoreOptionsMenuAction from '@app/entityV2/shared/EntityDropdown/MoreOptionsMenuAction';
 import { TitleAction } from '@app/entityV2/shared/containers/profile/sidebar/TitleAction';
@@ -44,6 +44,7 @@ const Top = styled.div`
     display: flex;
     justify-content: space-between;
     width: 100%;
+    align-items: center;
 `;
 
 const RightActions = styled.div`

@@ -23,6 +23,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.entity.EntityAspectIdentifier;
+import com.linkedin.metadata.entity.storage.PrimaryStorageTestUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.sql.Timestamp;
@@ -31,6 +34,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -41,10 +45,17 @@ public class CassandraAspectDaoTest {
   private CqlSession mockSession;
   private OperationContext opContext = TestOperationContexts.systemContextNoValidate();
 
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
+
   @BeforeMethod
   public void setupTest() {
     mockSession = mock(CqlSession.class);
-    testDao = new CassandraAspectDao(mockSession, List.of(), null);
+    testDao =
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(mockSession), List.of(), null);
     testDao.setConnectionValidated(true); // Skip connection validation in tests
   }
 
@@ -78,7 +89,7 @@ public class CassandraAspectDaoTest {
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
     // Try to update aspect
-    Optional<EntityAspect> result = testDao.updateAspect(null, mockAspect);
+    Optional<EntityAspect> result = testDao.updateAspect(null, null, mockAspect);
 
     if (canWrite) {
       // When writable, operation should succeed
@@ -113,7 +124,7 @@ public class CassandraAspectDaoTest {
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
     // Try to insert aspect
-    Optional<EntityAspect> result = testDao.insertAspect(null, mockAspect, 1L);
+    Optional<EntityAspect> result = testDao.insertAspect(null, null, mockAspect, 1L);
 
     if (canWrite) {
       // When writable, operation should succeed
@@ -138,7 +149,7 @@ public class CassandraAspectDaoTest {
     ResultSet mockResultSet = mock(ResultSet.class);
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
-    testDao.deleteAspect(urn, aspectName, ASPECT_LATEST_VERSION);
+    testDao.deleteAspect(null, urn, aspectName, ASPECT_LATEST_VERSION);
 
     if (canWrite) {
       // When writable, delete should execute
@@ -176,6 +187,50 @@ public class CassandraAspectDaoTest {
   }
 
   @Test
+  public void testToleratedDeleteRemovesTheWholePartition() {
+    // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
+    // delete must remove them too, or they come back after re-upgrading.
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+
+    final List<String> queries = deletes(() -> testDao.deleteUrn(opContext, null, URN));
+
+    assertEquals(queries, List.of("DELETE FROM metadata_aspect_v2 WHERE urn='" + URN + "'"));
+  }
+
+  @Test
+  public void testToleratedDeleteKeepingAspectsDeletesTheRangesAroundThem() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+
+    final List<String> queries =
+        deletes(() -> testDao.deleteUrnExcept(opContext, null, URN, Set.of("status")));
+
+    final String where = "DELETE FROM metadata_aspect_v2 WHERE urn='" + URN + "' AND ";
+    assertEquals(
+        queries,
+        List.of(
+            where + "aspect<'corpUserKey'",
+            where + "aspect>'corpUserKey' AND aspect<'status'",
+            where + "aspect>'status'",
+            where + "aspect='corpUserKey'"));
+  }
+
+  private static final String URN = "urn:li:corpuser:testDeleteUnknownAspect";
+
+  private List<String> deletes(final Runnable delete) {
+    testDao.setWritable(true);
+    ResultSet deleteResult = mock(ResultSet.class);
+    ExecutionInfo executionInfo = mock(ExecutionInfo.class);
+    when(executionInfo.getErrors()).thenReturn(Collections.emptyList());
+    when(deleteResult.getExecutionInfo()).thenReturn(executionInfo);
+    when(mockSession.execute(any(SimpleStatement.class))).thenReturn(deleteResult);
+    delete.run();
+    org.mockito.ArgumentCaptor<SimpleStatement> statements =
+        org.mockito.ArgumentCaptor.forClass(SimpleStatement.class);
+    verify(mockSession, org.mockito.Mockito.atLeastOnce()).execute(statements.capture());
+    return statements.getAllValues().stream().map(SimpleStatement::getQuery).toList();
+  }
+
+  @Test
   public void testSetWritableToggle() {
     testDao.setWritable(true);
 
@@ -196,7 +251,8 @@ public class CassandraAspectDaoTest {
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
     // Insert should work when writable
-    Optional<EntityAspect> result1 = testDao.insertAspect(null, mockAspect, ASPECT_LATEST_VERSION);
+    Optional<EntityAspect> result1 =
+        testDao.insertAspect(null, null, mockAspect, ASPECT_LATEST_VERSION);
     assertTrue(result1.isPresent(), "Insert should work when writable");
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
 
@@ -210,7 +266,8 @@ public class CassandraAspectDaoTest {
     when(mockEntityAspect2.getAspect()).thenReturn("status");
     when(mockEntityAspect2.getVersion()).thenReturn(ASPECT_LATEST_VERSION);
 
-    Optional<EntityAspect> result2 = testDao.insertAspect(null, mockAspect2, ASPECT_LATEST_VERSION);
+    Optional<EntityAspect> result2 =
+        testDao.insertAspect(null, null, mockAspect2, ASPECT_LATEST_VERSION);
     assertFalse(result2.isPresent(), "Insert should fail when not writable");
     // Still only 1 execute call from before
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
@@ -230,7 +287,8 @@ public class CassandraAspectDaoTest {
     when(mockEntityAspect3.getCreatedFor()).thenReturn(null);
     when(mockEntityAspect3.getCreatedOn()).thenReturn(new Timestamp(System.currentTimeMillis()));
 
-    Optional<EntityAspect> result3 = testDao.insertAspect(null, mockAspect3, ASPECT_LATEST_VERSION);
+    Optional<EntityAspect> result3 =
+        testDao.insertAspect(null, null, mockAspect3, ASPECT_LATEST_VERSION);
     assertTrue(result3.isPresent(), "Insert should work again after re-enabling write");
     verify(mockSession, times(2)).execute(any(SimpleStatement.class));
   }
@@ -257,7 +315,8 @@ public class CassandraAspectDaoTest {
     when(mockSession.execute(any(SimpleStatement.class))).thenReturn(mockResultSet);
 
     // Read operations should still work
-    EntityAspect aspect = testDao.getAspect(urnString, aspectName, ASPECT_LATEST_VERSION);
+    EntityAspect aspect =
+        testDao.getAspect(opContext, urnString, aspectName, ASPECT_LATEST_VERSION);
     assertNotNull(aspect, "Read operations should work when not writable");
     assertEquals(aspect.getMetadata(), "test-metadata", "Read should return correct data");
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
@@ -265,6 +324,7 @@ public class CassandraAspectDaoTest {
     // Batch get should work
     Map<EntityAspectIdentifier, EntityAspect> batchResult =
         testDao.batchGet(
+            opContext,
             Set.of(new EntityAspectIdentifier(urnString, aspectName, ASPECT_LATEST_VERSION)),
             false);
     assertEquals(batchResult.size(), 1, "Batch get should work when not writable");
@@ -286,14 +346,14 @@ public class CassandraAspectDaoTest {
     when(mockEntityAspect.getAspect()).thenReturn("status");
     when(mockEntityAspect.getVersion()).thenReturn(ASPECT_LATEST_VERSION);
 
-    Optional<EntityAspect> updateResult = testDao.updateAspect(null, mockAspect);
+    Optional<EntityAspect> updateResult = testDao.updateAspect(null, null, mockAspect);
     assertFalse(updateResult.isPresent(), "Update blocked during migration");
 
-    Optional<EntityAspect> insertResult = testDao.insertAspect(null, mockAspect, 1L);
+    Optional<EntityAspect> insertResult = testDao.insertAspect(null, null, mockAspect, 1L);
     assertFalse(insertResult.isPresent(), "Insert blocked during migration");
 
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:migration");
-    testDao.deleteAspect(urn, "status", ASPECT_LATEST_VERSION);
+    testDao.deleteAspect(null, urn, "status", ASPECT_LATEST_VERSION);
     // Should not throw exception
 
     int deletedCount = testDao.deleteUrn(opContext, null, "urn:li:corpuser:migration");
@@ -325,7 +385,7 @@ public class CassandraAspectDaoTest {
 
     // Writes should work again
     Optional<EntityAspect> postMigrationResult =
-        testDao.insertAspect(null, postMigrationAspect, ASPECT_LATEST_VERSION);
+        testDao.insertAspect(null, null, postMigrationAspect, ASPECT_LATEST_VERSION);
     assertTrue(postMigrationResult.isPresent(), "Writes work after migration");
     verify(mockSession, times(1)).execute(any(SimpleStatement.class));
   }
@@ -335,7 +395,8 @@ public class CassandraAspectDaoTest {
     // Create a new DAO without validating connection
     CqlSession mockSessionInvalid = mock(CqlSession.class);
     CassandraAspectDao daoWithInvalidConnection =
-        new CassandraAspectDao(mockSessionInvalid, List.of(), null);
+        new CassandraAspectDao(
+            PrimaryStorageTestUtils.cassandraResolver(mockSessionInvalid), List.of(), null);
 
     // Don't set connection as validated (simulates validation failure)
     // The DAO should still allow reads but block writes implicitly through validation
@@ -374,15 +435,15 @@ public class CassandraAspectDaoTest {
     when(mockAspect.withVersion(anyLong())).thenReturn(mockEntityAspect);
 
     // Test all write operations return empty/0
-    Optional<EntityAspect> updateResult = testDao.updateAspect(null, mockAspect);
+    Optional<EntityAspect> updateResult = testDao.updateAspect(null, null, mockAspect);
     assertFalse(updateResult.isPresent(), "Update returns empty when not writable");
 
-    Optional<EntityAspect> insertResult = testDao.insertAspect(null, mockAspect, 1L);
+    Optional<EntityAspect> insertResult = testDao.insertAspect(null, null, mockAspect, 1L);
     assertFalse(insertResult.isPresent(), "Insert returns empty when not writable");
 
     // Delete operations don't throw exceptions
     Urn urn = UrnUtils.getUrn("urn:li:corpuser:test");
-    testDao.deleteAspect(urn, "status", ASPECT_LATEST_VERSION);
+    testDao.deleteAspect(null, urn, "status", ASPECT_LATEST_VERSION);
 
     int deleteUrnResult = testDao.deleteUrn(opContext, null, "urn:li:corpuser:test");
     assertEquals(deleteUrnResult, 0, "DeleteUrn returns 0 when not writable");

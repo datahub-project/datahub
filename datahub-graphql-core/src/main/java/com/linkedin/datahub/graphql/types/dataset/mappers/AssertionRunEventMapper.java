@@ -3,6 +3,7 @@ package com.linkedin.datahub.graphql.types.dataset.mappers;
 import com.linkedin.assertion.AssertionRunEvent;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AssertionResult;
+import com.linkedin.datahub.graphql.generated.AssertionResultSeverity;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
 import com.linkedin.datahub.graphql.generated.AssertionRunStatus;
 import com.linkedin.datahub.graphql.generated.BatchSpec;
@@ -38,7 +39,11 @@ public class AssertionRunEventMapper
     final com.linkedin.datahub.graphql.generated.AssertionRunEvent assertionRunEvent =
         new com.linkedin.datahub.graphql.generated.AssertionRunEvent();
 
-    assertionRunEvent.setLastObservedMillis(envelopedAspect.getSystemMetadata().getLastObserved());
+    if (envelopedAspect.hasSystemMetadata()
+        && envelopedAspect.getSystemMetadata().hasLastObserved()) {
+      assertionRunEvent.setLastObservedMillis(
+          envelopedAspect.getSystemMetadata().getLastObserved());
+    }
     assertionRunEvent.setTimestampMillis(gmsAssertionRunEvent.getTimestampMillis());
     assertionRunEvent.setAssertionUrn(gmsAssertionRunEvent.getAssertionUrn().toString());
     assertionRunEvent.setAsserteeUrn(gmsAssertionRunEvent.getAsserteeUrn().toString());
@@ -85,6 +90,11 @@ public class AssertionRunEventMapper
     if (gmsResult.hasNativeResults()) {
       datasetAssertionResult.setNativeResults(
           StringMapMapper.map(context, gmsResult.getNativeResults()));
+    }
+
+    if (gmsResult.hasSeverity()) {
+      datasetAssertionResult.setSeverity(
+          AssertionResultSeverity.valueOf(gmsResult.getSeverity().name()));
     }
 
     return datasetAssertionResult;

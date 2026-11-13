@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import analytics, { DocRequestCTASource, EventType } from '@app/analytics';
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { getFormAssociations } from '@app/entity/shared/containers/profile/sidebar/FormInfo/utils';
-import FormSelectionModal from '@app/entity/shared/entityForm/FormSelectionModal/FormSelectionModal';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import FormInfo from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/FormInfo';
+import { getFormAssociations } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/utils';
 import EntityFormModal from '@app/entityV2/shared/entityForm/EntityFormModal';
+import FormSelectionModal from '@app/entityV2/shared/entityForm/FormSelectionModal/FormSelectionModal';
 
 const FormInfoWrapper = styled.div`
     padding: 12px 0px;
     border-bottom: 1px dashed;
-    border-color: rgba(0, 0, 0, 0.3);
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 export default function SidebarFormInfoWrapper() {

@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade;
 
+import com.linkedin.datahub.upgrade.cleanup.CleanupCondition;
+import com.linkedin.datahub.upgrade.cleanup.CleanupUpgradeConfig;
 import com.linkedin.datahub.upgrade.conditions.GeneralUpgradeCondition;
 import com.linkedin.datahub.upgrade.conditions.LoadIndicesCondition;
 import com.linkedin.datahub.upgrade.conditions.SqlSetupCondition;
@@ -34,4 +36,10 @@ public class UpgradeConfigurationSelector {
   @Conditional(GeneralUpgradeCondition.class)
   @Import(GeneralUpgradeConfiguration.class)
   public static class GeneralConfiguration {}
+
+  /** Configuration for Cleanup upgrade - teardown of all DataHub infrastructure resources */
+  @Configuration
+  @Conditional(CleanupCondition.class)
+  @Import(CleanupUpgradeConfig.class)
+  public static class CleanupConfiguration {}
 }

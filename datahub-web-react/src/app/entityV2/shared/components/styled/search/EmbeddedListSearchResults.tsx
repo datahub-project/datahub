@@ -1,28 +1,30 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import LanguageIcon from '@mui/icons-material/Language';
-import { Pagination, Spin, Typography } from 'antd';
+import { Icon, Loader, Pagination, Text } from '@components';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import React from 'react';
+import { Trans, useTranslation } from 'react-i18next';
+import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
-import { EntityAndType } from '@app/entity/shared/types';
 import {
     EntityActionProps,
     EntitySearchResults,
 } from '@app/entityV2/shared/components/styled/search/EntitySearchResults';
 import MatchingViewsLabel from '@app/entityV2/shared/components/styled/search/MatchingViewsLabel';
-import { ANTD_GRAY, REDESIGN_COLORS } from '@app/entityV2/shared/constants';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { SearchFiltersSection } from '@app/search/SearchFiltersSection';
 import { UnionType } from '@app/search/utils/constants';
 import { combineSiblingsInSearchResults } from '@app/searchV2/utils/combineSiblingsInSearchResults';
+import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
-import { DataHubView, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
+import { DataHubView, Dataset, FacetFilterInput, FacetMetadata, SearchResults as SearchResultType } from '@types';
 
 const SearchBody = styled.div<{ showFilters?: boolean }>`
     height: 100%;
     overflow: hidden;
-    background-color: ${REDESIGN_COLORS.BACKGROUND};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     display: grid;
     grid-template-rows: minmax(0, 1fr) auto;
     grid-template-columns: ${(p) => (p.showFilters ? '0.2fr auto' : '1fr')};
@@ -38,19 +40,19 @@ const SearchBody = styled.div<{ showFilters?: boolean }>`
                `};
 `;
 
-const PaginationInfo = styled(Typography.Text)`
+const PaginationInfo = styled(Text)`
     padding: 0px;
 `;
 
 const FiltersContainer = styled.div`
     grid-area: filters;
-    background-color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     max-width: 260px;
     min-width: 260px;
     border-right: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
+    border-color: ${(props) => props.theme.colors.border};
 `;
 
 const ResultContainer = styled.div`
@@ -68,8 +70,8 @@ const PaginationInfoContainer = styled.div`
     padding: 8px;
     padding-left: 16px;
     border-top: 1px solid;
-    border-color: ${(props) => props.theme.styles['border-color-base']};
-    background-color: ${REDESIGN_COLORS.WHITE};
+    border-color: ${(props) => props.theme.colors.border};
+    background-color: ${(props) => props.theme.colors.bg};
     display: flex;
     flex-direction: column;
     gap: 8px;
@@ -101,14 +103,29 @@ const LoadingContainer = styled.div`
     flex: 1;
 `;
 
-const StyledLoading = styled(LoadingOutlined)`
-    font-size: 32px;
-    color: ${ANTD_GRAY[7]};
-    padding-bottom: 18px;
+const WarningMessage = styled.div`
+    gap: 8px;
+    padding: 8px;
+    display: flex;
+    margin: 8px 16px 0 16px;
+    align-items: center;
+    color: ${(props) => props.theme.colors.textWarning};
+    background-color: ${(props) => props.theme.colors.bgSurfaceWarning};
+    border-radius: 8px;
+`;
+
+const WarningIcon = styled(Warning)`
+    color: ${(props) => props.theme.colors.iconWarning};
+    font-size: 16px;
+`;
+
+const SearchAllAssetsLink = styled.span`
+    cursor: pointer;
+    text-decoration: underline;
 `;
 
 const ViewsContainer = styled.div`
-    background-color: ${REDESIGN_COLORS.BORDER_2};
+    background-color: ${(props) => props.theme.colors.bgSurface};
     padding: 10px 16px;
     width: 100%;
     display: flex;
@@ -117,21 +134,22 @@ const ViewsContainer = styled.div`
 `;
 
 const Pill = styled.div<{ selected?: boolean }>`
-    border: 1px solid ${(props) => (props.selected ? props.theme.styles['primary-color'] : `#797F98`)};
+    border: 1px solid ${(props) => (props.selected ? props.theme.colors.borderBrand : props.theme.colors.border)};
     white-space: nowrap;
     border-radius: 20px;
     padding: 5px 16px;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
+    color: ${(props) => (props.selected ? props.theme.colors.textBrand : props.theme.colors.textTertiary)};
     cursor: pointer;
     display: flex;
     gap: 0.5rem;
     align-items: center;
-    background: ${(props) => (props.selected ? '#E5E2F8' : 'none')};
+    background: ${(props) => (props.selected ? props.theme.colors.bgSurfaceBrand : 'none')};
 `;
 
 const Count = styled.div<{ selected: boolean }>`
-    background-color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#A3A7B9')};
-    color: ${REDESIGN_COLORS.WHITE};
+    background-color: ${(props) =>
+        props.selected ? props.theme.colors.buttonFillBrand : props.theme.colors.bgSurfaceDarker};
+    color: ${(props) => (props.selected ? props.theme.colors.textOnFillBrand : props.theme.colors.textSecondary)};
     border-radius: 20px;
     min-width: 25px;
     padding: 2px 4px;
@@ -143,14 +161,9 @@ const Count = styled.div<{ selected: boolean }>`
     font-size: 11px;
 `;
 
-const LanguageIconStyle = styled(LanguageIcon)<{ selected?: boolean }>`
-    font-size: 18px !important;
-    color: ${(props) => (props.selected ? props.theme.styles['primary-color'] : '#797F98')};
-`;
-
 const ViewLabel = styled.span`
     font-weight: 700;
-    color: #5f6685;
+    color: ${(props) => props.theme.colors.textSecondary};
     font-size: 16px;
     margin-right: 8px;
 `;
@@ -182,6 +195,8 @@ interface Props {
     view?: DataHubView;
     errorMessage?: string;
     selectLimit?: number;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
 }
 
 export const EmbeddedListSearchResults = ({
@@ -211,7 +226,11 @@ export const EmbeddedListSearchResults = ({
     view,
     errorMessage,
     selectLimit,
+    isViewAllMode = false,
+    handleViewAllClickWarning,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
+    const { t: tc } = useTranslation('common.actions');
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     const combinedSiblingSearchResults = combineSiblingsInSearchResults(
         showSeparateSiblings,
@@ -222,6 +241,17 @@ export const EmbeddedListSearchResults = ({
     const pageSize = searchResponse?.count || 0;
     const totalResults = searchResponse?.total || 0;
     const lastResultIndex = pageStart + pageSize > totalResults ? totalResults : pageStart + pageSize;
+
+    const history = useHistory();
+    const platformUrn = searchResponse?.facets?.find((facet) => facet.field === 'platform')?.aggregations?.[0]?.value;
+    const platform = (combinedSiblingSearchResults?.[0]?.entity as Dataset | undefined)?.platform?.name;
+
+    const handleSearchAllAssetsClick = () => {
+        handleViewAllClickWarning?.();
+        if (platformUrn) {
+            navigateToSearchUrl({ filters: [{ field: 'platform', values: [platformUrn] }], history });
+        }
+    };
 
     return (
         <>
@@ -239,13 +269,13 @@ export const EmbeddedListSearchResults = ({
                     </FiltersContainer>
                 )}
 
-                <ResultContainer>
-                    {view && (
+                <ResultContainer data-testid="embedded-list-search-results">
+                    {applyView && view && (
                         <ViewsContainer>
-                            <ViewLabel>View</ViewLabel>
+                            <ViewLabel>{t('embeddedSearch.viewLabel')}</ViewLabel>
                             <Pill selected={!selectedViewUrn} onClick={() => setSelectedViewUrn?.(undefined)}>
-                                <LanguageIconStyle selected={!selectedViewUrn} />
-                                <span>All</span>
+                                <Icon icon={Globe} size="xl" color={!selectedViewUrn ? 'iconBrand' : 'icon'} />
+                                <span>{tc('all')}</span>
                                 {allSearchCount > 0 && <Count selected={!selectedViewUrn}>{allSearchCount}</Count>}
                             </Pill>
                             {defaultViewUrn === view.urn && (
@@ -261,9 +291,32 @@ export const EmbeddedListSearchResults = ({
                             )}
                         </ViewsContainer>
                     )}
+                    {isViewAllMode && (
+                        <WarningMessage>
+                            <WarningIcon weight="fill" />
+                            <Text weight="bold" style={{ lineHeight: 'normal' }}>
+                                {t('viewAll.resultsIncomplete')}{' '}
+                                {platform && (
+                                    <SearchAllAssetsLink
+                                        onClick={handleSearchAllAssetsClick}
+                                        onKeyDown={(e) => {
+                                            if (e.key === 'Enter' || e.key === ' ') {
+                                                e.preventDefault();
+                                                handleSearchAllAssetsClick();
+                                            }
+                                        }}
+                                        role="button"
+                                        tabIndex={0}
+                                    >
+                                        {t('viewAll.searchAllAssets', { platform })}
+                                    </SearchAllAssetsLink>
+                                )}
+                            </Text>
+                        </WarningMessage>
+                    )}
                     {loading && (
                         <LoadingContainer>
-                            <Spin indicator={<StyledLoading />} />
+                            <Loader size="md" />
                         </LoadingContainer>
                     )}
                     {!loading && (
@@ -288,20 +341,26 @@ export const EmbeddedListSearchResults = ({
                         />
                     )}
                 </ResultContainer>
-                <PaginationInfoContainer>
+                <PaginationInfoContainer data-testid="embedded-list-search-pagination">
                     <PaginationRow>
                         <PaginationInfo>
-                            <b>
-                                {lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0} - {lastResultIndex}
-                            </b>{' '}
-                            of <b>{totalResults}</b>
+                            <Trans
+                                t={t}
+                                i18nKey="embeddedSearch.paginationRange"
+                                components={{ bold: <b /> }}
+                                values={{
+                                    rangeStart: lastResultIndex > 0 ? (page - 1) * pageSize + 1 : 0,
+                                    rangeEnd: lastResultIndex,
+                                    total: totalResults,
+                                }}
+                            />
                         </PaginationInfo>
                         <StyledPagination
-                            current={page}
-                            pageSize={numResultsPerPage}
+                            currentPage={page}
+                            itemsPerPage={numResultsPerPage}
                             total={totalResults}
                             showLessItems
-                            onChange={onChangePage}
+                            onPageChange={onChangePage}
                             showSizeChanger={totalResults > SearchCfg.RESULTS_PER_PAGE}
                             onShowSizeChange={(_currNum, newNum) => setNumResultsPerPage(newNum)}
                             pageSizeOptions={['10', '20', '30']}

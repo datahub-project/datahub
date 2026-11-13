@@ -1,18 +1,19 @@
-/* eslint-disable rulesdir/no-hardcoded-colors */
-import { Icon } from '@components';
-import { X } from '@phosphor-icons/react/dist/csr/X';
-import { message } from 'antd';
+import { toast } from '@components';
+import { Database } from '@phosphor-icons/react/dist/csr/Database';
 import React, { useState } from 'react';
 import Highlight from 'react-highlighter';
-import styled from 'styled-components';
+import { useTranslation } from 'react-i18next';
+import styled, { useTheme } from 'styled-components';
 
-import { StyledTag } from '@app/entityV2/shared/components/styled/StyledTag';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
+import { formatAttributionOrigin, getAttributionOrigin, isExternal } from '@app/entityV2/shared/propagation/utils';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import TagPill from '@app/sharedV2/tags/TagPill';
+import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useIsEmbeddedProfile } from '@src/app/shared/useEmbeddedProfileLinkProps';
+import { useIsEmbeddedProfile } from '@src/app/sharedV2/useEmbeddedProfileLinkProps';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';
@@ -30,21 +31,36 @@ const TagLink = styled.span<{ $showOneAndCount?: boolean; $shouldNotAddBottomMar
  `}
 `;
 
-const DisplayNameContainer = styled.span<{ maxWidth?: number }>`
-    padding-left: 4px;
-    padding-right: 4px;
+const StyledHighlight = styled(Highlight)<{ $maxWidth?: number }>`
     overflow: hidden;
-    display: flex;
+    text-overflow: ellipsis;
+    max-width: ${(props) => (props.$maxWidth ? `${props.$maxWidth}px` : '120px')};
+`;
+
+// The DeprecationIcon renders a 16x16 SVG by default. Inside a tag pill it sits next to the
+// 12px PillRemoveIcon (X), so we constrain its SVG size to match for visual balance. Popover
+// content is portalled to document.body, so this selector only affects the inline trigger SVG.
+const PillDeprecationSlot = styled.span`
+    display: inline-flex;
     align-items: center;
-    width: 100%;
-    span {
-        overflow: hidden;
-        text-overflow: ellipsis;
-        max-width: ${(props) => (props.maxWidth ? `${props.maxWidth}px` : '120px')};
+    & svg {
+        width: 12px;
+        height: 12px;
     }
 `;
 
-const highlightMatchStyle = { background: '#ffe58f', padding: '0' };
+// Indicates the tag was ingested from an external source (e.g. Lake Formation)
+// rather than added in DataHub. The icon inherits the pill's text color; full
+// provenance (source + time) is shown in the pill's hover card.
+const PillIngestedSlot = styled.span`
+    display: inline-flex;
+    align-items: center;
+    margin-right: 2px;
+    & svg {
+        width: 12px;
+        height: 12px;
+    }
+`;
 
 interface Props {
     tag: TagAssociation;
@@ -83,16 +99,23 @@ export default function Tag({
     tagStyle,
     options,
 }: Props) {
+    const theme = useTheme();
+    const { t } = useTranslation('shared.tags');
+    const { t: tp } = useTranslation('shared.propagation');
     const entityRegistry = useEntityRegistry();
     const isEmbeddedProfile = useIsEmbeddedProfile();
     const [removeTagMutation] = useRemoveTagMutation();
     const highlightTag = useHasMatchedFieldByUrn(tag.tag.urn, 'tags');
+    const highlightMatchStyle = { background: theme.colors.bgHighlight, padding: '0' };
 
     const [tagProfileDrawerVisible, setTagProfileDrawerVisible] = useState(false);
     const [addTagUrn, setAddTagUrn] = useState('');
     const [showConfirmDelete, setShowConfirmDelete] = useState(false);
     const displayName = entityRegistry.getDisplayName(EntityType.Tag, tag.tag);
     const previewContext = { propagationDetails: { context, attribution: tag.attribution } };
+    const isDeprecated = !!(tag.tag.deprecation && tag.tag.deprecation.deprecated);
+    const isExternalTag = isExternal(tag.attribution?.sourceDetail);
+    const externalOrigin = formatAttributionOrigin(getAttributionOrigin(tag.attribution?.sourceDetail));
 
     const showTagProfileDrawer = (urn: string) => {
         if (!readOnly) {
@@ -120,66 +143,85 @@ export default function Tag({
             })
                 .then(({ errors }) => {
                     if (!errors) {
-                        message.success({ content: 'Removed Tag!', duration: 2 });
+                        toast.success(t('removeTagSuccess'), { duration: 2 });
                     }
                 })
                 .then(refetch)
                 .catch((e) => {
-                    message.destroy();
-                    message.error({ content: `Failed to remove tag: \n ${e.message || ''}`, duration: 3 });
+                    toast.error(t('removeTagError', { error: e.message || '' }), { duration: 3 });
                 });
+        }
+    };
+
+    const handleTagClick = () => {
+        if (isEmbeddedProfile) {
+            window.open(resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)), '_blank');
+        } else if (!options?.shouldNotOpenDrawerOnClick) {
+            showTagProfileDrawer(tag?.tag?.urn);
         }
     };
 
     return (
         <>
-            <HoverEntityTooltip entity={tag.tag} width={250} previewContext={previewContext}>
+            <HoverEntityTooltip entity={tag.tag} previewContext={previewContext}>
                 <TagLink
                     data-testid={`tag-${displayName}`}
                     $showOneAndCount={showOneAndCount}
                     $shouldNotAddBottomMargin={options?.shouldNotAddBottomMargin}
+                    onClick={handleTagClick}
+                    style={tagStyle}
                 >
-                    <StyledTag
-                        onClick={() => {
-                            if (isEmbeddedProfile) {
-                                window.open(
-                                    resolveRuntimePath(entityRegistry.getEntityUrl(EntityType.Tag, tag.tag.urn)),
-                                    '_blank',
-                                );
-                            } else if (!options?.shouldNotOpenDrawerOnClick) {
-                                showTagProfileDrawer(tag?.tag?.urn);
-                            }
-                        }}
-                        style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', ...tagStyle }}
-                        $colorHash={tag?.tag?.urn}
-                        $color={tag?.tag?.properties?.colorHex}
-                        closable={canRemove && !readOnly}
-                        onClose={(e) => {
-                            e.preventDefault();
-                            onOpenModal?.();
-                            setShowConfirmDelete(true);
-                        }}
-                        closeIcon={<Icon icon={X} size="sm" data-testid="remove-icon" />}
-                        fontSize={fontSize}
-                        $highlightTag={highlightTag}
-                        $showOneAndCount={showOneAndCount}
+                    <TagPill
+                        name={displayName}
+                        color={tag?.tag?.properties?.colorHex}
+                        colorHash={tag?.tag?.urn}
+                        clickable
+                        variant={highlightTag ? 'highlighted' : 'default'}
+                        size={fontSize && fontSize <= 10 ? 'sm' : 'md'}
+                        dataTestId={`tag-${displayName}-pill`}
+                        rightAdornment={
+                            isExternalTag || isDeprecated ? (
+                                <>
+                                    {isExternalTag && (
+                                        <PillIngestedSlot
+                                            data-testid={`tag-${displayName}-ingested`}
+                                            title={tp('ingestedFrom', { origin: externalOrigin ?? '' })}
+                                        >
+                                            <Database weight="fill" />
+                                        </PillIngestedSlot>
+                                    )}
+                                    {tag.tag.deprecation?.deprecated && (
+                                        <PillDeprecationSlot>
+                                            <DeprecationIcon
+                                                urn={tag.tag.urn}
+                                                deprecation={tag.tag.deprecation}
+                                                showUndeprecate={false}
+                                                showText={false}
+                                            />
+                                        </PillDeprecationSlot>
+                                    )}
+                                </>
+                            ) : undefined
+                        }
+                        onRemove={
+                            canRemove && !readOnly
+                                ? (e) => {
+                                      e.preventDefault();
+                                      e.stopPropagation();
+                                      onOpenModal?.();
+                                      setShowConfirmDelete(true);
+                                  }
+                                : undefined
+                        }
                     >
-                        <Highlight
-                            style={{ marginLeft: 0, fontSize, overflow: 'hidden', textOverflow: 'ellipsis' }}
-                            matchStyle={highlightMatchStyle}
-                            search={highlightText}
-                        >
+                        <StyledHighlight $maxWidth={maxWidth} matchStyle={highlightMatchStyle} search={highlightText}>
                             {options?.shouldShowEllipses ? (
-                                <DisplayNameContainer maxWidth={maxWidth}>
-                                    <span className="test-mini-preview-class">{displayName}</span>
-                                </DisplayNameContainer>
+                                <span className="test-mini-preview-class">{displayName}</span>
                             ) : (
-                                <DisplayNameContainer maxWidth={maxWidth}>
-                                    <span>{displayName}</span>
-                                </DisplayNameContainer>
+                                displayName
                             )}
-                        </Highlight>
-                    </StyledTag>
+                        </StyledHighlight>
+                    </TagPill>
                 </TagLink>
             </HoverEntityTooltip>
             {tagProfileDrawerVisible && (
@@ -193,8 +235,8 @@ export default function Tag({
                 isOpen={showConfirmDelete}
                 handleClose={() => setShowConfirmDelete(false)}
                 handleConfirm={() => removeTag(tag)}
-                modalTitle={`Delete Tag '${displayName}'`}
-                modalText="Are you sure you want to remove this tag?"
+                modalTitle={t('deleteTagTitle', { name: displayName })}
+                modalText={t('removeTagConfirmation')}
             />
         </>
     );

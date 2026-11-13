@@ -134,6 +134,7 @@ class SchemaProcessor(EntityProcessor):
                 self._build_field_version_mappings(data_structures)
 
         # Apply filters
+        data_structures = self._filter_by_deployment_env(data_structures)
         data_structures = self._filter_by_deployed_since(data_structures)
         data_structures = self._filter_by_schema_pattern(data_structures)
 
@@ -153,7 +154,7 @@ class SchemaProcessor(EntityProcessor):
             )
         except (requests.RequestException, ValueError) as e:
             # Expected errors: API failures, parsing errors
-            self.report.report_failure(
+            self.report.failure(
                 title="Failed to fetch data structures",
                 message="Unable to retrieve schemas from BDP API. Check API credentials and network connectivity.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
@@ -163,13 +164,55 @@ class SchemaProcessor(EntityProcessor):
         except Exception as e:
             # Unexpected error - indicates a bug
             logger.error("Unexpected error fetching data structures", exc_info=True)
-            self.report.report_failure(
+            self.report.failure(
                 title="Unexpected error fetching data structures",
                 message="This may indicate a bug in the connector. Please report this issue.",
                 context=f"organization_id={self.config.bdp_connection.organization_id if self.config.bdp_connection else 'N/A'}",
                 exc=e,
             )
             return []
+
+    def _filter_by_deployment_env(
+        self, data_structures: List[DataStructure]
+    ) -> List[DataStructure]:
+        """Filter data structures by Snowplow deployment environment.
+
+        Only includes schemas that have at least one deployment matching
+        config.deployment_environment. Schemas with no deployments (e.g., drafts)
+        are still included. Skipped when deployment_environment is not set.
+        """
+        if not self.config.deployment_environment:
+            return data_structures
+
+        # Already normalized to uppercase by config validator
+        target_env = self.config.deployment_environment
+        filtered = []
+        for ds in data_structures:
+            schema_key = f"{ds.vendor}/{ds.name}"
+            if not ds.deployments:
+                # No deployment info — include (could be a draft or Iglu-only schema)
+                filtered.append(ds)
+                continue
+
+            has_matching_env = any(
+                dep.env and dep.env.upper() == target_env for dep in ds.deployments
+            )
+            if has_matching_env:
+                filtered.append(ds)
+            else:
+                deployed_envs = {dep.env for dep in ds.deployments if dep.env}
+                logger.info(
+                    f"Filtering out schema {schema_key}: "
+                    f"no {target_env} deployment (deployed to: {deployed_envs})"
+                )
+                self.report.report_schema_filtered_by_env(schema_key)
+
+        if len(filtered) < len(data_structures):
+            logger.info(
+                f"Filtered schemas by deployment_environment={target_env}: "
+                f"{len(filtered)}/{len(data_structures)} schemas retained"
+            )
+        return filtered
 
     def _filter_by_deployed_since(
         self, data_structures: List[DataStructure]
@@ -268,10 +311,12 @@ class SchemaProcessor(EntityProcessor):
                     f"Failed to process data structure {schema_id}: {e}",
                     exc_info=True,
                 )
-                self.report.report_warning(
+                self.report.warning(
                     title="Failed to process data structure",
-                    message=f"Skipping schema {schema_id}: {e}. "
-                    "Remaining schemas will still be processed.",
+                    message="Skipping schema. Remaining schemas will still be processed.",
+                    context=schema_id,
+                    exc=e,
+                    log=False,
                 )
                 continue
 
@@ -293,7 +338,7 @@ class SchemaProcessor(EntityProcessor):
                 "No schemas found in Iglu registry. Either the registry is empty or "
                 "your Iglu Server doesn't support the /api/schemas endpoint (requires Iglu Server 0.6+)."
             )
-            self.report.report_failure(
+            self.report.failure(
                 title="No schemas found",
                 message="Automatic schema discovery returned no results",
                 context="Iglu-only mode requires Iglu Server 0.6+ with /api/schemas endpoint support",
@@ -344,8 +389,8 @@ class SchemaProcessor(EntityProcessor):
 
             except Exception as e:
                 logger.error(f"Failed to fetch schema {uri} from Iglu: {e}")
-                self.report.report_failure(
-                    title=f"Failed to fetch schema {uri}",
+                self.report.failure(
+                    title="Failed to fetch schema from Iglu registry",
                     message="Error fetching schema from Iglu registry",
                     context=uri,
                     exc=e,

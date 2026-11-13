@@ -8,7 +8,7 @@ Tests focus on:
 - Auto-discovery orchestration
 """
 
-from typing import Optional
+from typing import List, Optional
 from unittest import mock
 
 import pytest
@@ -33,9 +33,10 @@ class TestAutoDiscoveryConfig:
     """Tests for AutoDiscoveryConfig model validation."""
 
     def test_auto_discovery_config_defaults(self) -> None:
-        """Auto-discovery should default to disabled with allow-all pattern."""
+        """Should default to disabled with allow-all pattern."""
         config = AutoDiscoveryConfig()
         assert config.enabled is False
+        assert config.require_generate_docs is False
         assert config.job_id_pattern.allowed("12345")
         assert config.job_id_pattern.allowed("99999")
 
@@ -284,7 +285,10 @@ class TestAutoDiscoverProjectsAndJobs:
     """Tests for _auto_discover_projects_and_jobs orchestration."""
 
     def _create_source_with_autodiscovery(
-        self, job_id_pattern: Optional[AllowDenyPattern] = None
+        self,
+        job_id_pattern: Optional[AllowDenyPattern] = None,
+        require_generate_docs: bool = False,
+        write_semantics: str = "PATCH",
     ) -> DBTCloudSource:
         """Helper to create a DBTCloudSource with auto-discovery enabled."""
         pattern = job_id_pattern or AllowDenyPattern.allow_all()
@@ -293,30 +297,58 @@ class TestAutoDiscoverProjectsAndJobs:
             token="dummy_token",
             account_id=123456,
             project_id=1234567,
-            auto_discovery=AutoDiscoveryConfig(enabled=True, job_id_pattern=pattern),
+            auto_discovery=AutoDiscoveryConfig(
+                enabled=True,
+                job_id_pattern=pattern,
+                require_generate_docs=require_generate_docs,
+            ),
             target_platform="snowflake",
+            write_semantics=write_semantics,
         )
         ctx = PipelineContext(run_id="test-run-id", pipeline_name="test-pipeline")
         return DBTCloudSource(config, ctx)
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discover_filters_by_generate_docs(
+    def test_auto_discover_default_includes_all_jobs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
     ) -> None:
-        """Should only return jobs with generate_docs=True."""
+        """By default, should return all jobs regardless of generate_docs."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
         mock_get_jobs.return_value = [
             DBTCloudJob(id=100, generate_docs=True),
-            DBTCloudJob(id=200, generate_docs=False),  # Should be filtered out
+            DBTCloudJob(id=200, generate_docs=False),
             DBTCloudJob(id=300, generate_docs=True),
         ]
 
         source = self._create_source_with_autodiscovery()
+        job_ids = source._auto_discover_projects_and_jobs()
+
+        assert len(job_ids) == 3
+        assert set(job_ids) == {100, 200, 300}
+
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discover_filters_by_generate_docs_when_required(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """When require_generate_docs=True, should only return jobs with generate_docs=True."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=False),
+            DBTCloudJob(id=300, generate_docs=True),
+        ]
+
+        source = self._create_source_with_autodiscovery(require_generate_docs=True)
         job_ids = source._auto_discover_projects_and_jobs()
 
         assert len(job_ids) == 2
@@ -391,12 +423,12 @@ class TestAutoDiscoverProjectsAndJobs:
 
     @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
-    def test_auto_discover_no_matching_jobs(
+    def test_auto_discover_no_matching_jobs_with_require_generate_docs(
         self,
         mock_get_envs: mock.Mock,
         mock_get_jobs: mock.Mock,
     ) -> None:
-        """Should return empty list when no jobs match filters."""
+        """Should return empty list when require_generate_docs=True and no jobs have it enabled."""
         mock_get_envs.return_value = [
             DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
         ]
@@ -405,10 +437,85 @@ class TestAutoDiscoverProjectsAndJobs:
             DBTCloudJob(id=200, generate_docs=False),
         ]
 
-        source = self._create_source_with_autodiscovery()
+        source = self._create_source_with_autodiscovery(require_generate_docs=True)
         job_ids = source._auto_discover_projects_and_jobs()
 
         assert len(job_ids) == 0
+
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_auto_discover_no_matching_jobs_by_pattern(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+    ) -> None:
+        """Should return empty list when no jobs match the pattern filter."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = [
+            DBTCloudJob(id=100, generate_docs=True),
+            DBTCloudJob(id=200, generate_docs=False),
+        ]
+
+        pattern = AllowDenyPattern(allow=["^999.*"])
+        source = self._create_source_with_autodiscovery(job_id_pattern=pattern)
+        job_ids = source._auto_discover_projects_and_jobs()
+
+        assert len(job_ids) == 0
+
+    @pytest.mark.parametrize(
+        "jobs, pattern, expected_cause",
+        [
+            pytest.param(
+                [], None, "No jobs found in production environment 1", id="no_jobs"
+            ),
+            pytest.param(
+                [DBTCloudJob(id=100, generate_docs=True)],
+                AllowDenyPattern(allow=["^999$"]),
+                "No job in the production environment matches",
+                id="pattern_rejects_all",
+            ),
+            pytest.param(
+                [
+                    DBTCloudJob(id=100, generate_docs=False),
+                    DBTCloudJob(id=200, generate_docs=True),
+                ],
+                AllowDenyPattern(allow=["^100$"]),
+                "require_generate_docs",
+                id="generate_docs_rejects_all",
+            ),
+        ],
+    )
+    @mock.patch.object(DBTCloudSource, "_get_jobs_for_project")
+    @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
+    def test_no_discovered_jobs_reports_failure(
+        self,
+        mock_get_envs: mock.Mock,
+        mock_get_jobs: mock.Mock,
+        jobs: List[DBTCloudJob],
+        pattern: Optional[AllowDenyPattern],
+        expected_cause: str,
+    ) -> None:
+        """An empty job list turns a silently empty run into a failure that
+        names the actual cause."""
+        mock_get_envs.return_value = [
+            DBTCloudEnvironment(id=1, deployment_type=DBTCloudDeploymentType.PRODUCTION)
+        ]
+        mock_get_jobs.return_value = jobs
+
+        source = self._create_source_with_autodiscovery(
+            job_id_pattern=pattern,
+            require_generate_docs=True,
+            write_semantics="OVERRIDE",
+        )
+        workunits = list(source.get_workunits())
+
+        assert workunits == []
+        failures = list(source.report.failures)
+        assert len(failures) == 1
+        assert failures[0].title == "No dbt Cloud jobs discovered"
+        assert expected_cause in failures[0].message
 
     @mock.patch.object(DBTCloudSource, "_get_environments_for_project")
     def test_auto_discover_environment_api_failure(

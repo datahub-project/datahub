@@ -5,9 +5,13 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.DisplayProperties;
 import com.linkedin.common.Forms;
+import com.linkedin.common.GlobalTags;
 import com.linkedin.common.InstitutionalMemory;
 import com.linkedin.common.Ownership;
+import com.linkedin.common.Status;
+import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
@@ -19,14 +23,18 @@ import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.AssetSettingsMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.DeprecationMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.DisplayPropertiesMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
+import com.linkedin.datahub.graphql.types.common.mappers.StatusMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.MappingHelper;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.form.FormsMapper;
 import com.linkedin.datahub.graphql.types.glossary.GlossaryTermUtils;
 import com.linkedin.datahub.graphql.types.mappers.ModelMapper;
 import com.linkedin.datahub.graphql.types.structuredproperty.StructuredPropertiesMapper;
+import com.linkedin.datahub.graphql.types.tag.mappers.GlobalTagsMapper;
+import com.linkedin.datahub.graphql.types.versioning.VersionPropertiesMapper;
 import com.linkedin.datahub.graphql.util.EntityResponseUtils;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.EntityResponse;
@@ -87,6 +95,11 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         (glossaryTerm, dataMap) ->
             glossaryTerm.setOwnership(
                 OwnershipMapper.map(context, new Ownership(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        GLOBAL_TAGS_ASPECT_NAME,
+        (glossaryTerm, dataMap) ->
+            glossaryTerm.setTags(
+                GlobalTagsMapper.map(context, new GlobalTags(dataMap), entityUrn)));
     mappingHelper.mapToResult(context, DOMAINS_ASPECT_NAME, this::mapDomains);
     mappingHelper.mapToResult(
         DEPRECATION_ASPECT_NAME,
@@ -115,6 +128,20 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
         ASSET_SETTINGS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
+    mappingHelper.mapToResult(
+        DISPLAY_PROPERTIES_ASPECT_NAME,
+        ((glossaryTerm, dataMap) ->
+            glossaryTerm.setDisplayProperties(
+                DisplayPropertiesMapper.map(context, new DisplayProperties(dataMap)))));
+    mappingHelper.mapToResult(
+        STATUS_ASPECT_NAME,
+        (glossaryTerm, dataMap) ->
+            glossaryTerm.setStatus(StatusMapper.map(context, new Status(dataMap))));
+    mappingHelper.mapToResult(
+        VERSION_PROPERTIES_ASPECT_NAME,
+        (entity, dataMap) ->
+            entity.setVersionProperties(
+                VersionPropertiesMapper.map(context, new VersionProperties(dataMap))));
 
     // If there's no name property, resort to the legacy name computation.
     if (result.getGlossaryTermInfo() != null && result.getGlossaryTermInfo().getName() == null) {

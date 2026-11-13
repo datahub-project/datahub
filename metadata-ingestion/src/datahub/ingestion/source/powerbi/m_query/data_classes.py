@@ -9,6 +9,17 @@ from datahub.sql_parsing.sqlglot_lineage import ColumnLineageInfo
 TRACE_POWERBI_MQUERY_PARSER: bool = get_trace_powerbi_mquery_parser()
 
 
+@dataclass(frozen=True)
+class ColumnRename:
+    source_name: str
+    renamed_name: str
+
+
+@dataclass
+class ColumnRenameStep:
+    renames: List[ColumnRename] = field(default_factory=list)
+
+
 @dataclass
 class IdentifierAccessor:
     """
@@ -32,13 +43,19 @@ class IdentifierAccessor:
 
 @dataclass
 class DataAccessFunctionDetail:
-    arg_list: dict  # InvokeExpression node dict from NodeIdMap
+    # arg_list (an InvokeExpression subtree) and node_map (the full NodeIdMap)
+    # are both large parse-tree structures. They are kept out of repr because
+    # this object is logged at debug level and embedded in warning contexts on
+    # nearly every table; rendering the whole tree produced multi-GB logs and
+    # heavy transient/retained memory. See repr=False below.
+    arg_list: dict = field(repr=False)  # InvokeExpression node dict from NodeIdMap
     data_access_function_name: (
         str  # matches FunctionName.value (e.g. "Snowflake.Databases")
     )
     identifier_accessor: Optional[IdentifierAccessor]
-    node_map: Dict[int, dict]  # full NodeIdMap for ast_utils navigation
+    node_map: Dict[int, dict] = field(repr=False)  # full NodeIdMap for ast_utils
     parameters: Dict[str, str] = field(default_factory=dict)
+    column_rename_steps: List[ColumnRenameStep] = field(default_factory=list)
 
 
 @dataclass
@@ -60,6 +77,10 @@ class DataPlatformTable:
 class Lineage:
     upstreams: List[DataPlatformTable]
     column_lineage: List[ColumnLineageInfo]
+    # Table navigation copies Power BI field names onto both sides of an edge, so
+    # renames are applied afterwards by mapping the upstream side back. Native SQL
+    # lineage applies renames to the query's output names inside parse_custom_sql.
+    downstream_names_are_powerbi_fields: bool = True
 
     @staticmethod
     def empty() -> "Lineage":
@@ -81,3 +102,5 @@ class FunctionName(Enum):
     MYSQL_DATA_ACCESS = "MySQL.Database"
     ODBC_DATA_ACCESS = "Odbc.DataSource"
     ODBC_QUERY = "Odbc.Query"
+    STARBURST_AAD_DATA_ACCESS = "StarburstAad.Contents"
+    STARBURST_PRESTO_DATA_ACCESS = "StarburstPresto.Contents"

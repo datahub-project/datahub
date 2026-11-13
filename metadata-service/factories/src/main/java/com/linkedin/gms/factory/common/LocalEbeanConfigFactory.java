@@ -1,15 +1,19 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.config.DatabaseConfig;
 import io.ebean.datasource.DataSourceConfig;
 import io.ebean.datasource.DataSourcePoolListener;
 import java.sql.Connection;
+import java.util.List;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 
 @Slf4j
 @Configuration
@@ -26,6 +30,10 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.url}")
   private String ebeanDatasourceUrl;
+
+  /** Metadata schema ({@code DATAHUB_POSTGRES_SCHEMA}). Applied to Postgres Ebean URLs. */
+  @Value("${postgres.schema:public}")
+  private String postgresMetadataSchema;
 
   @Value("${ebean.minConnections:2}")
   private Integer ebeanMinConnections;
@@ -44,6 +52,9 @@ public class LocalEbeanConfigFactory {
 
   @Value("${ebean.waitTimeoutMillis:1000}")
   private Integer ebeanWaitTimeoutMillis;
+
+  @Value("${ebean.autoCommit:true}")
+  private Boolean ebeanAutoCommit;
 
   @Value("${ebean.autoCreateDdl:false}")
   private Boolean ebeanAutoCreate;
@@ -79,6 +90,10 @@ public class LocalEbeanConfigFactory {
   @Value("${INSTANCE_CONNECTION_NAME:#{null}}")
   private String instanceConnectionName;
 
+  @Autowired(required = false)
+  @Qualifier("defaultAwsCredentialsProvider")
+  private AwsCredentialsProvider defaultAwsCredentialsProvider;
+
   public static DataSourcePoolListener getListenerToTrackCounts(
       MetricUtils metricUtils, String metricName) {
     final String counterName = "ebeans_connection_pool_size_" + metricName;
@@ -97,6 +112,9 @@ public class LocalEbeanConfigFactory {
 
   @Bean("ebeanDataSourceConfig")
   public DataSourceConfig buildDataSourceConfig(MetricUtils metricUtils) {
+    log.debug(
+        "Building ebean datasource (shared AWS credentials present={})",
+        defaultAwsCredentialsProvider != null);
     return buildDataSourceConfig(ebeanDatasourceUrl, metricUtils);
   }
 
@@ -122,7 +140,8 @@ public class LocalEbeanConfigFactory {
 
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
-    dataSourceConfig.setUrl(crossCloudConfig.url);
+    dataSourceConfig.setUrl(
+        JdbcUrlParser.applyPostgresMetadataSchema(crossCloudConfig.url, postgresMetadataSchema));
     dataSourceConfig.setDriver(crossCloudConfig.driver);
     dataSourceConfig.setMinConnections(ebeanMinConnections);
     dataSourceConfig.setMaxConnections(ebeanMaxConnections);
@@ -130,7 +149,9 @@ public class LocalEbeanConfigFactory {
     dataSourceConfig.setMaxAgeMinutes(ebeanMaxAgeMinutes);
     dataSourceConfig.setLeakTimeMinutes(ebeanLeakTimeMinutes);
     dataSourceConfig.setWaitTimeoutMillis(ebeanWaitTimeoutMillis);
+    dataSourceConfig.setAutoCommit(ebeanAutoCommit);
     dataSourceConfig.setListener(getListenerToTrackCounts(metricUtils, "main"));
+    EbeanPoolDefaults.applyDefaultTransactionIsolation(dataSourceConfig);
 
     // Set custom properties for IAM authentication
     if (crossCloudConfig.customProperties != null) {
@@ -142,12 +163,14 @@ public class LocalEbeanConfigFactory {
 
   @Bean(name = "gmsEbeanDatabaseConfig")
   protected DatabaseConfig createInstance(
-      @Qualifier("ebeanDataSourceConfig") DataSourceConfig config) {
+      @Qualifier("ebeanDataSourceConfig") DataSourceConfig config,
+      List<EbeanConfigCustomizer> customizers) {
     DatabaseConfig serverConfig = new DatabaseConfig();
     serverConfig.setName("gmsEbeanDatabaseConfig");
     serverConfig.setDataSourceConfig(config);
     serverConfig.setDdlGenerate(ebeanAutoCreate);
     serverConfig.setDdlRun(ebeanAutoCreate);
+    customizers.forEach(customizer -> customizer.customize(serverConfig));
     return serverConfig;
   }
 }

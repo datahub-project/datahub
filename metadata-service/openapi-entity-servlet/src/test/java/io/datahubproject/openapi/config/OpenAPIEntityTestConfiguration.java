@@ -15,7 +15,6 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistryException;
@@ -25,15 +24,10 @@ import com.linkedin.metadata.models.registry.SnapshotEntityRegistry;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchService;
-import com.linkedin.metadata.systemmetadata.SystemMetadataService;
-import com.linkedin.metadata.timeline.TimelineService;
 import io.datahubproject.metadata.context.OperationContext;
-import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.openapi.dto.UrnResponseMap;
 import io.datahubproject.openapi.generated.EntityResponse;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
-import io.datahubproject.openapi.v1.relationships.RelationshipsController;
-import io.datahubproject.openapi.v2.controller.TimelineControllerV2;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import jakarta.servlet.http.HttpServletRequest;
 import java.util.Arrays;
@@ -41,27 +35,16 @@ import java.util.Map;
 import java.util.stream.Collectors;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.boot.test.mock.mockito.MockBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Primary;
 import org.springframework.http.ResponseEntity;
 
 @TestConfiguration
 public class OpenAPIEntityTestConfiguration {
-  @MockBean SystemTelemetryContext systemTelemetryContext;
-
-  @Bean
-  public TracingInterceptor tracingInterceptor(
-      final SystemTelemetryContext systemTelemetryContext) {
-    return new TracingInterceptor(systemTelemetryContext);
-  }
-
   @Bean
   public ObjectMapper objectMapper() {
     return new ObjectMapper(new YAMLFactory());
   }
-
-  @MockBean EntityService<?> entityService;
 
   @Bean
   @Primary
@@ -86,11 +69,6 @@ public class OpenAPIEntityTestConfiguration {
 
     return authorizerChain;
   }
-
-  @MockBean(name = "elasticSearchSystemMetadataService")
-  public SystemMetadataService systemMetadataService;
-
-  @MockBean public TimelineService timelineService;
 
   @Bean("entityRegistry")
   @Primary
@@ -137,10 +115,6 @@ public class OpenAPIEntityTestConfiguration {
 
     return entitiesController;
   }
-
-  @MockBean public TimelineControllerV2 timelineControllerV2;
-
-  @MockBean public RelationshipsController relationshipsController;
 
   @Bean(name = "systemOperationContext")
   public OperationContext operationContext(final EntityRegistry entityRegistry) {

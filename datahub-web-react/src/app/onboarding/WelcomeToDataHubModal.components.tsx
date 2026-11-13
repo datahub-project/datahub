@@ -1,8 +1,9 @@
+import { Heading, Text } from '@components';
 import { Spin } from 'antd';
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import styled from 'styled-components';
 
-import colors from '@components/theme/foundations/colors';
+import { typography } from '@components/theme';
 
 /**
  * Container for individual carousel slides with centered content
@@ -14,6 +15,24 @@ export const SlideContainer = styled.div`
     min-height: 470px;
 `;
 
+const SlideTitleWrapper = styled.div`
+    margin: 0 0 4px;
+`;
+
+export const SlideTitle: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <SlideTitleWrapper>
+        <Heading type="h2" size="2xl" weight="bold">
+            {children}
+        </Heading>
+    </SlideTitleWrapper>
+);
+
+export const SlideDescription: React.FC<{ children: React.ReactNode }> = ({ children }) => (
+    <Text type="p" size="lg" color="textSecondary">
+        {children}
+    </Text>
+);
+
 /**
  * Container for video elements with centered alignment
  */
@@ -24,9 +43,30 @@ export const VideoContainer = styled.div`
     padding-top: 16px;
 `;
 
+const TOUR_MEDIA_WIDTH_PX = 620;
+const TOUR_MEDIA_HEIGHT_PX = Math.ceil((TOUR_MEDIA_WIDTH_PX * 720) / 1208);
+const TOUR_SLIDE_MIN_HEIGHT_PX = 470;
+const TOUR_TITLE_LINE_PX = 32;
+const TOUR_DESCRIPTION_LINE_PX = 28;
+// One slide, tall enough for a 2-line title and a 3-line description above the
+// 620px video, plus the slide's bottom margin. Still well under two slides,
+// so the list cannot open at the stacked height.
+const TOUR_LIST_MAX_HEIGHT_PX =
+    Math.max(
+        TOUR_SLIDE_MIN_HEIGHT_PX,
+        TOUR_TITLE_LINE_PX * 2 + 4 + TOUR_DESCRIPTION_LINE_PX * 3 + 16 + TOUR_MEDIA_HEIGHT_PX,
+    ) + 32;
+
 /**
- * Styled loading container base
+ * Cap the list at one wrapped slide so the modal doesn't open at the stacked height of every slide.
  */
+export const TourSlides = styled.div`
+    .slick-list {
+        max-height: ${TOUR_LIST_MAX_HEIGHT_PX}px !important;
+        overflow: hidden !important;
+    }
+`;
+
 const LoadingContainerBase = styled.div<{ width: string }>`
     width: ${(props) => props.width};
     height: 350px; /* Match video aspect ratio for 620px width */
@@ -34,40 +74,27 @@ const LoadingContainerBase = styled.div<{ width: string }>`
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    background-color: ${colors.gray[1500]};
-    border: 2px dashed ${colors.gray[100]};
+    background-color: ${(props) => props.theme.colors.bgSurface};
+    border: 2px dashed ${(props) => props.theme.colors.border};
     border-radius: 8px;
-    font-size: 16px;
-    color: ${colors.gray[1700]};
-    font-weight: 500;
     margin: 0 auto;
     gap: 16px;
 `;
 
-/**
- * Loading state container with Spin component
- * @param width - CSS width value for the container
- * @param children - Optional loading text
- */
-export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({
-    width,
-    children = 'Loading video...',
-}) => (
+export const LoadingContainer: React.FC<{ width: string; children?: React.ReactNode }> = ({ width, children }) => (
     <LoadingContainerBase width={width}>
         <Spin size="large" />
-        {children}
+        <Text size="lg" weight="medium" color="textSecondary">
+            {children}
+        </Text>
     </LoadingContainerBase>
 );
 
-/**
- * Styled anchor for DataHub Docs link
- */
 export const StyledDocsLink = styled.a`
-    color: ${colors.primary[500]};
+    color: ${(props) => props.theme.colors.textBrand};
     text-align: center;
-    font-size: 14px;
-    font-style: normal;
-    font-weight: 650;
+    font-size: ${typography.fontSizes.md};
+    font-weight: ${typography.fontWeights.semiBold};
     line-height: normal;
     letter-spacing: -0.07px;
     text-decoration: none;
@@ -76,52 +103,110 @@ export const StyledDocsLink = styled.a`
     padding: 10px 12px;
 
     &:hover {
-        background-color: ${colors.gray[1500]};
+        background-color: ${(props) => props.theme.colors.bgHover};
     }
 `;
 
-/**
- * Styled video element for visible videos
- */
-const StyledVideo = styled.video<{ width: string }>`
-    width: ${(props) => props.width};
+const MediaBox = styled.div<{ $width: string }>`
+    position: relative;
+    display: block;
+    width: ${(props) => props.$width};
+    height: calc(${(props) => props.$width} * 720 / 1208);
+    aspect-ratio: 1208 / 720;
+    margin: 0 auto;
 `;
 
-/**
- * Styled video element for hidden preload videos
- */
-const HiddenPreloadVideo = styled.video<{ width: string }>`
-    width: ${(props) => props.width};
-    opacity: 0;
+const PosterImage = styled.img`
+    display: block;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+`;
+
+const StyledVideo = styled.video`
+    display: block;
     position: absolute;
-    pointer-events: none;
-    top: 0;
-    left: 0;
+    inset: 0;
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
 `;
 
-/**
- * Reusable video slide component that handles loading states
- */
 interface VideoSlideProps {
     videoSrc?: string;
-    isReady: boolean;
-    onVideoLoad: () => void;
+    posterSrc: string;
     width: string;
+    /** The visible slide plays. A prefetched slide only downloads. */
+    active?: boolean;
+    onPlaying?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onTimeUpdate?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onEnded?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
+    onError?: (event: React.SyntheticEvent<HTMLVideoElement>) => void;
 }
 
-export const VideoSlide: React.FC<VideoSlideProps> = ({ videoSrc, isReady, onVideoLoad, width }) => (
-    <>
-        {isReady ? (
-            <StyledVideo width={width} autoPlay loop muted playsInline>
-                <source src={videoSrc} type="video/mp4" />
-            </StyledVideo>
-        ) : (
-            <LoadingContainer width={width}>Loading video...</LoadingContainer>
-        )}
-        {videoSrc && !isReady && (
-            <HiddenPreloadVideo width={width} autoPlay loop muted playsInline onCanPlay={onVideoLoad}>
-                <source src={videoSrc} type="video/mp4" />
-            </HiddenPreloadVideo>
-        )}
-    </>
-);
+// Paint the WebP poster as an <img> first so first-visit LCP can be that image.
+// Mount the <video> only after the poster has painted and an MP4 URL is ready.
+// src on the video element restarts resource selection when the MP4 URL arrives.
+// A <source> child inserted after the first pass does not, so autoplay never starts.
+// The video sits on top of the img, so it also gets the poster and stays transparent
+// until a frame has decoded. Hiding the still at mount leaves an empty box.
+export const VideoSlide: React.FC<VideoSlideProps> = ({
+    videoSrc,
+    posterSrc,
+    width,
+    active = true,
+    onPlaying,
+    onTimeUpdate,
+    onEnded,
+    onError,
+}) => {
+    const [posterReady, setPosterReady] = useState(false);
+    const [frameReady, setFrameReady] = useState(false);
+    const videoRef = useRef<HTMLVideoElement>(null);
+    const showVideo = Boolean(posterReady && videoSrc);
+
+    useEffect(() => {
+        setFrameReady(false);
+    }, [videoSrc]);
+
+    // autoPlay only applies on mount. A slide that already has its MP4 has to be
+    // started when it becomes the visible one, and paused when it is not, or a
+    // hidden clip keeps playing.
+    useEffect(() => {
+        const video = videoRef.current;
+        if (!video) return undefined;
+        try {
+            if (!active) {
+                if (!video.paused) video.pause();
+                return undefined;
+            }
+            video.play()?.catch(() => {});
+        } catch {
+            // jsdom does not implement media playback.
+        }
+        return undefined;
+    }, [active, videoSrc]);
+
+    return (
+        <MediaBox $width={width}>
+            <PosterImage src={posterSrc} alt="" width={1208} height={720} onLoad={() => setPosterReady(true)} />
+            {showVideo ? (
+                <StyledVideo
+                    ref={videoRef}
+                    src={videoSrc}
+                    poster={posterSrc}
+                    autoPlay={active}
+                    muted
+                    playsInline
+                    preload="auto"
+                    style={{ opacity: frameReady ? 1 : 0 }}
+                    onLoadedData={() => setFrameReady(true)}
+                    onPlaying={onPlaying}
+                    onTimeUpdate={onTimeUpdate}
+                    onEnded={onEnded}
+                    onError={onError}
+                />
+            ) : null}
+        </MediaBox>
+    );
+};

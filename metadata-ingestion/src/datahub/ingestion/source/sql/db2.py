@@ -26,7 +26,7 @@ from datahub.ingestion.api.decorators import (
 )
 from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.sql_config import BasicSQLAlchemyConfig
-from datahub.ingestion.source.sql.stored_procedures.base import BaseProcedure
+from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 
 logger = logging.getLogger(__name__)
 
@@ -103,6 +103,12 @@ class Db2Config(BasicSQLAlchemyConfig):
             {**self.uri_args, **(uri_opts or {})}, database
         )
 
+    # No probe_catalog_scope here on purpose. sqlglot has no db2 dialect, so
+    # sql_gate cannot parse a DB2 query and refuses it at dialect resolution --
+    # before any scope is consulted. Declaring SYSCAT relations would read as though
+    # `probe sql` worked on DB2, which it cannot; the typed commands do. Revisit if
+    # sqlglot gains a db2 dialect, and see test_dialects_the_gate_cannot_resolve.
+
 
 def _quote_identifier(value: str) -> str:
     return '"' + value.replace('"', '""') + '"'
@@ -110,17 +116,23 @@ def _quote_identifier(value: str) -> str:
 
 @platform_name("IBM Db2", id="db2")
 @config_class(Db2Config)
-@support_status(SupportStatus.TESTING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DOMAINS, "Supported via the `domain` config field")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
 @capability(
     SourceCapability.DELETION_DETECTION, "Enabled by default via stateful ingestion"
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class Db2Source(SQLAlchemySource):
     def __init__(self, config: Db2Config, ctx: PipelineContext):
         # The ibm_db package is not installable on ARM aside from macOS ARM
-        if not (platform.machine() == "x86_64" or platform.system() == "Darwin"):
+        if not (
+            platform.machine() in ("amd64", "x86_64") or platform.system() == "Darwin"
+        ):
             raise NotImplementedError(
                 f"Db2 ingestion is not supported on {platform.system()}-{platform.machine()}"
             )
@@ -156,7 +168,11 @@ class Db2Source(SQLAlchemySource):
         # Db2 views on LUW and z/OS look up unqualified names in the schema from the session
         # when the view was created. Not the schema that the view itself lives in!
         database, schema, view = dataset_identifier.split(".")
-        implicit_schema_name = _db2_get_view_qualifier_quoted(inspector, schema, view)
+        implicit_schema_name = _db2_get_view_qualifier(inspector, schema, view)
+        if implicit_schema_name:
+            # the schema name must be quoted so that case-sensitive names make it through
+            # to the sqlglot lineage parser without being normalized.
+            implicit_schema_name = _quote_identifier(implicit_schema_name)
         return database, implicit_schema_name
 
     def get_procedures_for_schema(
@@ -186,55 +202,74 @@ class Db2Source(SQLAlchemySource):
             )
 
 
-def _db2_get_view_qualifier_quoted(
+def _db2_get_view_qualifier(
     inspector: Inspector, schema: str, view: str
 ) -> Optional[str]:
+    # Queries use the DBAPI's qmark (`?`) paramstyle, so execute them via
+    # exec_driver_sql to pass the statement and positional params straight to the
+    # driver without SQLAlchemy attempting to compile the `?` placeholders.
     if inspector.has_table("VIEWS", schema="SYSCAT"):
         # Db2 LUW
-        result = inspector.bind.execute(
-            """
-            select QUALIFIER
-            from SYSCAT.VIEWS
-            where VIEWSCHEMA = ?
-            and VIEWNAME = ?
-        """,
-            (
-                schema,
-                view,
-            ),
-        ).scalar()
+        with inspector.engine.connect() as conn:
+            result = conn.exec_driver_sql(
+                """
+                select QUALIFIER
+                from SYSCAT.VIEWS
+                where VIEWSCHEMA = ?
+                and VIEWNAME = ?
+            """,
+                (
+                    schema,
+                    view,
+                ),
+            ).scalar()
         if not result:
             return None
 
-        # the schema name must be quoted so that case-sensitive names make it through
-        # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(result.rstrip())
+        return result.rstrip()
 
     elif inspector.has_table("SYSVIEWS", schema="SYSIBM"):
         # Db2 z/OS
-        result = inspector.bind.execute(
-            """
-                select PATHSCHEMAS
-                from SYSIBM.SYSVIEWS
-                where CREATOR = ?
-                and NAME = ?
-            """,
-            (
-                schema,
-                view,
-            ),
-        ).scalar()
+        with inspector.engine.connect() as conn:
+            result = conn.exec_driver_sql(
+                """
+                    select PATHSCHEMAS
+                    from SYSIBM.SYSVIEWS
+                    where CREATOR = ?
+                    and NAME = ?
+                """,
+                (
+                    schema,
+                    view,
+                ),
+            ).scalar()
         if not result:
             return None
 
         logger.debug(f"Got PATHSCHEMAS={repr(result)} view {repr(schema)}.{repr(view)}")
         pathschemas = _split_zos_pathschemas(result.strip())
         if len(pathschemas) > 1:
+            # PATHSCHEMAS values have been observed which contain various system-level schemas
+            # as well as an actual, single user-level schema (which is highly likely to be where
+            # names will actually resolve). So, until we add support for default lookup of unqualified
+            # names across _multiple_ schemas, remove known system-level schemas and hope we end up
+            # with a single schema left over.
+            pathschemas = [
+                path
+                for path in pathschemas
+                if path
+                not in (
+                    "SYSFUN",
+                    "SYSIBM",
+                    "SYSIBMADM",
+                    "SYSPROC",
+                )
+            ]
+
+        if len(pathschemas) > 1:
             raise NotImplementedError(f"len(PATHSCHEMAS) > 1: {repr(pathschemas)}")
 
-        # the schema name must be quoted so that case-sensitive names make it through
-        # to the sqlglot lineage parser without being normalized.
-        return _quote_identifier(pathschemas[0])
+        return pathschemas[0]
 
     elif inspector.has_table("SYSVIEWS", schema="QSYS2"):
         # Db2 i/AS400 doesn't have this concept.
@@ -248,63 +283,71 @@ def _db2_get_view_qualifier_quoted(
 
 def _db2_get_procedures(
     inspector: Inspector, schema: str
-) -> Iterable[sqlalchemy.engine.Row]:
+) -> Iterable[sqlalchemy.engine.RowMapping]:
+    # Queries use the DBAPI's qmark (`?`) paramstyle, so execute them via
+    # exec_driver_sql to pass the statement and positional params straight to the
+    # driver without SQLAlchemy attempting to compile the `?` placeholders.
+    # `.mappings()` yields dict-like RowMapping objects so callers can use string
+    # column access (Row string subscripting was removed in SQLAlchemy 2.0).
     if inspector.has_table("ROUTINES", schema="SYSCAT"):
         # Db2 LUW
-        yield from inspector.bind.execute(
-            """
-            select
-                ROUTINENAME,
-                LANGUAGE,
-                CREATE_TIME,
-                ALTER_TIME,
-                QUALIFIER,
-                TEXT,
-                REMARKS
-            from SYSCAT.ROUTINES
-            where ROUTINESCHEMA = ?
-            and ROUTINETYPE = 'P'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    ROUTINENAME,
+                    LANGUAGE,
+                    CREATE_TIME,
+                    ALTER_TIME,
+                    QUALIFIER,
+                    TEXT,
+                    REMARKS
+                from SYSCAT.ROUTINES
+                where ROUTINESCHEMA = ?
+                and ROUTINETYPE = 'P'
+            """,
+                (schema,),
+            ).mappings()
 
     elif inspector.has_table("SYSROUTINES", schema="SYSIBM"):
         # Db2 z/OS
-        yield from inspector.bind.execute(
-            """
-            select
-                NAME as ROUTINENAME,
-                LANGUAGE,
-                CREATEDTS as CREATE_TIME,
-                ALTEREDTS as ALTER_TIME,
-                NULL as QUALIFIER,
-                TEXT,
-                REMARKS
-            from SYSIBM.SYSROUTINES
-            where SCHEMA = ?
-            and ROUTINETYPE = 'P'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    NAME as ROUTINENAME,
+                    LANGUAGE,
+                    CREATEDTS as CREATE_TIME,
+                    ALTEREDTS as ALTER_TIME,
+                    cast(NULL as varchar(1)) as QUALIFIER,
+                    TEXT,
+                    REMARKS
+                from SYSIBM.SYSROUTINES
+                where SCHEMA = ?
+                and ROUTINETYPE = 'P'
+            """,
+                (schema,),
+            ).mappings()
 
     elif inspector.has_table("SYSROUTINES", schema="QSYS2"):
         # Db2 i/AS400
-        yield from inspector.bind.execute(
-            """
-            select
-                ROUTINE_NAME as ROUTINENAME,
-                ROUTINE_BODY as LANGUAGE,
-                ROUTINE_CREATED as CREATE_TIME,
-                LAST_ALTERED as ALTER_TIME,
-                SQL_PATH as QUALIFIER,
-                ROUTINE_DEFINITION as TEXT,
-                LONG_COMMENT as REMARKS
-            from QSYS2.SYSROUTINES
-            where ROUTINE_SCHEMA = ?
-            and ROUTINE_TYPE = 'PROCEDURE'
-        """,
-            (schema,),
-        )
+        with inspector.engine.connect() as conn:
+            yield from conn.exec_driver_sql(
+                """
+                select
+                    ROUTINE_NAME as ROUTINENAME,
+                    ROUTINE_BODY as LANGUAGE,
+                    ROUTINE_CREATED as CREATE_TIME,
+                    LAST_ALTERED as ALTER_TIME,
+                    SQL_PATH as QUALIFIER,
+                    ROUTINE_DEFINITION as TEXT,
+                    LONG_COMMENT as REMARKS
+                from QSYS2.SYSROUTINES
+                where ROUTINE_SCHEMA = ?
+                and ROUTINE_TYPE = 'PROCEDURE'
+            """,
+                (schema,),
+            ).mappings()
 
     else:
         raise NotImplementedError(

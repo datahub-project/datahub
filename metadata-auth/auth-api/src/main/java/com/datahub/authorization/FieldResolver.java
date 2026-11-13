@@ -1,10 +1,12 @@
 package com.datahub.authorization;
 
 import java.util.Collections;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import javax.annotation.Nullable;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;
@@ -21,7 +23,7 @@ public class FieldResolver {
   @Getter(lazy = true)
   private final CompletableFuture<FieldValue> fieldValuesFuture = resolveField.get();
 
-  private static final FieldValue EMPTY = new FieldValue(Collections.emptySet());
+  private static final FieldValue EMPTY = new FieldValue(Collections.emptySet(), null);
 
   /** Helper function that returns FieldResolver for precomputed values */
   public static FieldResolver getResolverFromValues(Set<String> values) {
@@ -40,13 +42,11 @@ public class FieldResolver {
     return EMPTY;
   }
 
-  /**
-   * Container for storing the field value, in case we need to extend this to have more types of
-   * field values
-   */
+  /** Container for storing field values: traditional values or structured property values. */
   @Value
   @Builder
   public static class FieldValue {
     Set<String> values;
+    @Nullable Map<String, Set<String>> structuredPropertyValues;
   }
 }

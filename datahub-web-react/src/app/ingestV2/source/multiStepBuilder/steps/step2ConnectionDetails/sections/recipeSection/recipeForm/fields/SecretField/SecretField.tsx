@@ -1,9 +1,10 @@
 import { useApolloClient } from '@apollo/client';
 import { AutoComplete, Input, radius, spacing } from '@components';
-import { Divider } from 'antd';
 import React, { ReactNode, useMemo } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
 import { RecipeFormItem } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/RecipeFormItem';
 import CreateSecretButton from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/SecretField/CreateSecretButton';
@@ -11,11 +12,14 @@ import { useSecrets } from '@app/ingestV2/source/multiStepBuilder/steps/step2Con
 import { CommonFieldProps } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/types';
 import { encodeSecret } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/utils';
 
-const StyledDivider = styled(Divider)`
+const StyledDivider = styled.hr`
     margin: ${spacing.xsm} 0;
+    border: none;
+    border-top: 1px solid ${(props) => props.theme.colors.border};
 `;
 
 function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNode }) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     return (
         <div>
             {tooltipLabel && (
@@ -25,22 +29,28 @@ function SecretFieldTooltip({ tooltipLabel }: { tooltipLabel?: string | ReactNod
                 </>
             )}
             <p>
-                This field requires you to use a DataHub Secret. For more information on Secrets in DataHub, please
-                review{' '}
-                <a
-                    href="https://docs.datahub.com/docs/ui-ingestion/#creating-a-secret"
-                    target="_blank"
-                    rel="noreferrer"
-                >
-                    the docs
-                </a>
-                .
+                <Trans
+                    t={t}
+                    i18nKey="multiStep.secret.docsHint"
+                    components={{
+                        docsLink: (
+                            <a
+                                href="https://docs.datahub.com/docs/ui-ingestion/#creating-a-secret"
+                                target="_blank"
+                                rel="noreferrer"
+                            >
+                                {null}
+                            </a>
+                        ),
+                    }}
+                />
             </p>
         </div>
     );
 }
 
 export function SecretField({ field, updateFormValue }: CommonFieldProps) {
+    const { t } = useTranslation('ingestion.sourceBuilder');
     const { secrets, refetchSecrets } = useSecrets();
 
     const options = useMemo(
@@ -48,6 +58,8 @@ export function SecretField({ field, updateFormValue }: CommonFieldProps) {
         [secrets],
     );
     const apolloClient = useApolloClient();
+    // The backend rejects createSecret without this privilege, so don't offer it.
+    const canManageSecrets = !!useUserContext().platformPrivileges?.manageSecrets;
 
     return (
         <RecipeFormItem
@@ -59,21 +71,25 @@ export function SecretField({ field, updateFormValue }: CommonFieldProps) {
                 filterOption={(input, option) =>
                     !!option?.value?.toString()?.toLowerCase().includes(input.toLowerCase())
                 }
-                notFoundContent={<>No secrets found</>}
+                notFoundContent={<>{t('multiStep.secret.notFound')}</>}
                 options={options}
                 clickOutsideWidth="100%"
                 dropdownRender={(menu) => {
                     return (
                         <>
                             {menu}
-                            <StyledDivider />
-                            <CreateSecretButton
-                                onSubmit={(state) => {
-                                    updateFormValue(field.name, encodeSecret(state.name as string));
-                                    setTimeout(() => clearSecretListCache(apolloClient), 3000);
-                                }}
-                                refetchSecrets={refetchSecrets}
-                            />
+                            {canManageSecrets && (
+                                <>
+                                    <StyledDivider />
+                                    <CreateSecretButton
+                                        onSubmit={(state) => {
+                                            updateFormValue(field.name, encodeSecret(state.name as string));
+                                            setTimeout(() => clearSecretListCache(apolloClient), 3000);
+                                        }}
+                                        refetchSecrets={refetchSecrets}
+                                    />
+                                </>
+                            )}
                         </>
                     );
                 }}

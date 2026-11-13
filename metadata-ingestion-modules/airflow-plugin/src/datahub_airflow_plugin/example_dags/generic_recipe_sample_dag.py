@@ -4,11 +4,10 @@ This example demonstrates how to load any configuration file and run a
 DataHub ingestion pipeline within an Airflow DAG.
 """
 
-from datetime import timedelta
+from datetime import datetime, timedelta
 
 from airflow import DAG
 from airflow.operators.python import PythonOperator
-from airflow.utils.dates import days_ago
 
 from datahub.configuration.config_loader import load_config_file
 from datahub.ingestion.run.pipeline import Pipeline
@@ -38,8 +37,8 @@ with DAG(
     "datahub_ingest_using_recipe",
     default_args=default_args,
     description="An example DAG which runs a DataHub ingestion recipe",
-    schedule_interval=timedelta(days=1),
-    start_date=days_ago(2),
+    schedule=timedelta(days=1),
+    start_date=datetime(2023, 1, 1),
     catchup=False,
 ) as dag:
     ingest_task = PythonOperator(

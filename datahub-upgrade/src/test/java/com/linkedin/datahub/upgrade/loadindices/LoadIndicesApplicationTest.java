@@ -1,27 +1,43 @@
 package com.linkedin.datahub.upgrade.loadindices;
 
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 import static org.testng.AssertJUnit.assertNotNull;
 
 import com.linkedin.datahub.upgrade.UpgradeCliApplication;
 import com.linkedin.datahub.upgrade.UpgradeCliApplicationTestConfiguration;
 import com.linkedin.datahub.upgrade.restoreindices.RestoreIndices;
+import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducer;
 import com.linkedin.datahub.upgrade.system.SystemUpdate;
 import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
-import javax.inject.Named;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.event.EventProducer;
+import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
 import org.testng.annotations.Test;
 
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
     args = {"-u", "LoadIndices"})
 public class LoadIndicesApplicationTest extends AbstractTestNGSpringContextTests {
+
+  // No kafkaEventProducer override here on purpose: the LoadIndices context must supply its own
+  // (EntityServiceFactory depends on it), otherwise `-u LoadIndices` fails to start.
+
+  @Autowired
+  @Named("kafkaEventProducer")
+  private EventProducer kafkaEventProducer;
+
+  @Autowired
+  @Named("entityService")
+  private EntityService<?> entityService;
 
   @Autowired
   @Named("loadIndices")
@@ -50,6 +66,14 @@ public class LoadIndicesApplicationTest extends AbstractTestNGSpringContextTests
     assertNull(systemUpdate, "Expected no additional execution components.");
     assertNull(systemUpdateBlocking, "Expected no additional execution components.");
     assertNull(systemUpdateNonBlocking, "Expected no additional execution components.");
+  }
+
+  @Test
+  public void testKafkaEventProducerIsNoOp() {
+    assertTrue(
+        kafkaEventProducer instanceof NoOpKafkaEventProducer,
+        "LoadIndices must not publish to Kafka; got " + kafkaEventProducer.getClass());
+    assertSame(((EntityServiceImpl) entityService).getProducer(), kafkaEventProducer);
   }
 
   @Test

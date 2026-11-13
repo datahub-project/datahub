@@ -1,3 +1,7 @@
+---
+description: "Step-by-step tutorial for managing DataFlow and DataJob pipeline entities in DataHub via the GraphQL API and Python SDK."
+---
+
 import Tabs from '@theme/Tabs';
 import TabItem from '@theme/TabItem';
 

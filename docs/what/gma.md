@@ -1,3 +1,7 @@
+---
+description: "GMA (Generalized Metadata Architecture) is the backend infrastructure that powers DataHub using multiple specialized storage technologies."
+---
+
 # What is Generalized Metadata Architecture (GMA)?
 
 GMA is the backend infrastructure for DataHub. Unlike existing architectures, GMA leverages multiple storage technologies to efficiently service the four most commonly used query patterns

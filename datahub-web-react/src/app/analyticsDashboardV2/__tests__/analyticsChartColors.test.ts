@@ -1,3 +1,5 @@
+// Disabling hardcoded colors rule in test file
+/* eslint-disable rulesdir/no-hardcoded-colors */
 /**
  * Unit tests for Analytics Chart Color Assignment System
  *
@@ -8,15 +10,43 @@
  * - Generated colors for large series
  * - User override functionality
  */
+import { DefaultTheme } from 'styled-components';
 import { describe, expect, test } from 'vitest';
 
 import { assignAnalyticsChartColors } from '@app/analyticsDashboardV2/utils/analyticsChartColors';
-import { DATAHUB_ENTITY_COLORS, QUALITATIVE_COLORS } from '@app/analyticsDashboardV2/utils/chartColorConstants';
+import { QUALITATIVE_COLORS, getDatahubEntityColors } from '@app/analyticsDashboardV2/utils/chartColorConstants';
 import { findDataHubEntityColor, getAllEntityMatches } from '@app/analyticsDashboardV2/utils/chartColorMatcher';
+
+const mockTheme = {
+    colors: {
+        tagsCobaltBlueText: '#303F9F',
+        chartsInformationHigh: '#09739A',
+        chartsInformationMedium: '#4897B4',
+        chartsInformationLow: '#5ABDE1',
+        chartsBrandHigh: '#533FD1',
+        chartsBrandMedium: '#705EE4',
+        chartsBrandLow: '#B0A7EA',
+        chartsRedHigh: '#8B1A1A',
+        chartsRedMedium: '#D23939',
+        iconError: '#E54D1F',
+        iconWarning: '#EE9521',
+        textWarning: '#C77100',
+        iconSuccess: '#248F5B',
+        chartsGreenHigh: '#6CA749',
+        chartsGreenMedium: '#92C573',
+        chartsGreenLow: '#C0DEAF',
+        chartsBlueHigh: '#10737F',
+        chartsSeafoamHigh: '#20594B',
+        chartsSeafoamMedium: '#80CBC4',
+        textTertiary: '#8088A3',
+    },
+} as unknown as DefaultTheme;
+
+const DATAHUB_ENTITY_COLORS = getDatahubEntityColors(mockTheme);
 
 describe('DataHub Entity Color Matching', () => {
     test('assigns entity colors correctly for exact matches', () => {
-        const result = assignAnalyticsChartColors(['schema', 'incidents', 'dataset']);
+        const result = assignAnalyticsChartColors(['schema', 'incidents', 'dataset'], mockTheme);
 
         expect(result.assignments.schema.color).toBe(DATAHUB_ENTITY_COLORS.schema);
         expect(result.assignments.incidents.color).toBe(DATAHUB_ENTITY_COLORS.incidents);
@@ -25,43 +55,41 @@ describe('DataHub Entity Color Matching', () => {
     });
 
     test('handles entity name variations - case insensitive', () => {
-        expect(findDataHubEntityColor('DATASET')).toBe(DATAHUB_ENTITY_COLORS.dataset);
-        expect(findDataHubEntityColor('Dataset')).toBe(DATAHUB_ENTITY_COLORS.dataset);
-        expect(findDataHubEntityColor('DaTaSeT')).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('DATASET', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('Dataset', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('DaTaSeT', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
     });
 
     test('handles entity name variations - separators', () => {
-        expect(findDataHubEntityColor('data_set')).toBe(DATAHUB_ENTITY_COLORS.dataset);
-        expect(findDataHubEntityColor('data-set')).toBe(DATAHUB_ENTITY_COLORS.dataset);
-        expect(findDataHubEntityColor('data set')).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('data_set', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('data-set', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
+        expect(findDataHubEntityColor('data set', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataset);
     });
 
     test('handles entity name variations - compound names', () => {
-        expect(findDataHubEntityColor('data_product')).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
-        expect(findDataHubEntityColor('DataProduct')).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
-        expect(findDataHubEntityColor('DATA_PRODUCT')).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
+        expect(findDataHubEntityColor('data_product', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
+        expect(findDataHubEntityColor('DataProduct', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
+        expect(findDataHubEntityColor('DATA_PRODUCT', mockTheme)).toBe(DATAHUB_ENTITY_COLORS.dataproduct);
     });
 
     test('handles partial matches for entity types', () => {
-        // Note: partial matching works when the entity type is contained in the key
-        const datasetMatch = findDataHubEntityColor('dataset_view');
-        const schemaMatch = findDataHubEntityColor('schema_tab');
+        const datasetMatch = findDataHubEntityColor('dataset_view', mockTheme);
+        const schemaMatch = findDataHubEntityColor('schema_tab', mockTheme);
 
-        // These should match because 'dataset' is contained in 'dataset_view'
         expect(datasetMatch).not.toBeNull();
         expect(schemaMatch).not.toBeNull();
     });
 
     test('returns null for unknown entity types', () => {
-        expect(findDataHubEntityColor('unknown_type')).toBeNull();
-        expect(findDataHubEntityColor('random_entity')).toBeNull();
+        expect(findDataHubEntityColor('unknown_type', mockTheme)).toBeNull();
+        expect(findDataHubEntityColor('random_entity', mockTheme)).toBeNull();
     });
 });
 
 describe('Qualitative Color Fallback', () => {
     test('falls back to qualitative colors for unknown entities', () => {
         const unknownEntities = ['unknownType1', 'unknownType2', 'unknownType3'];
-        const result = assignAnalyticsChartColors(unknownEntities);
+        const result = assignAnalyticsChartColors(unknownEntities, mockTheme);
 
         expect(result.assignments.unknownType1.strategy.type).toBe('qualitative');
         expect(result.assignments.unknownType1.color).toBe(QUALITATIVE_COLORS[0]);
@@ -71,7 +99,7 @@ describe('Qualitative Color Fallback', () => {
 
     test('uses qualitative colors after entity colors are exhausted', () => {
         const mixedEntities = ['dataset', 'unknownType1', 'schema', 'unknownType2'];
-        const result = assignAnalyticsChartColors(mixedEntities);
+        const result = assignAnalyticsChartColors(mixedEntities, mockTheme);
 
         expect(result.assignments.dataset.strategy.source).toBe('datahub-entity');
         expect(result.assignments.schema.strategy.source).toBe('datahub-entity');
@@ -80,7 +108,7 @@ describe('Qualitative Color Fallback', () => {
     });
 
     test('tracks unused qualitative colors', () => {
-        const result = assignAnalyticsChartColors(['unknownType1', 'unknownType2']);
+        const result = assignAnalyticsChartColors(['unknownType1', 'unknownType2'], mockTheme);
 
         expect(result.unusedColors.length).toBe(QUALITATIVE_COLORS.length - 2);
         expect(result.unusedColors).not.toContain(QUALITATIVE_COLORS[0]);
@@ -91,7 +119,7 @@ describe('Qualitative Color Fallback', () => {
 describe('Generated Colors for Large Series', () => {
     test('generates colors for large series beyond qualitative palette', () => {
         const manyEntities = Array.from({ length: 20 }, (_, i) => `entity${i}`);
-        const result = assignAnalyticsChartColors(manyEntities);
+        const result = assignAnalyticsChartColors(manyEntities, mockTheme);
 
         expect(Object.keys(result.assignments)).toHaveLength(20);
         expect(result.generatedCount).toBeGreaterThan(0);
@@ -99,7 +127,7 @@ describe('Generated Colors for Large Series', () => {
 
     test('generated colors have correct strategy', () => {
         const manyEntities = Array.from({ length: 15 }, (_, i) => `entity${i}`);
-        const result = assignAnalyticsChartColors(manyEntities);
+        const result = assignAnalyticsChartColors(manyEntities, mockTheme);
 
         const generatedAssignments = Object.values(result.assignments).filter((a) => a.strategy.type === 'generated');
 
@@ -111,7 +139,7 @@ describe('Generated Colors for Large Series', () => {
 
     test('all series get unique colors', () => {
         const manyEntities = Array.from({ length: 25 }, (_, i) => `entity${i}`);
-        const result = assignAnalyticsChartColors(manyEntities);
+        const result = assignAnalyticsChartColors(manyEntities, mockTheme);
 
         const colors = Object.values(result.assignments).map((a) => a.color);
         const uniqueColors = new Set(colors);
@@ -123,7 +151,7 @@ describe('Generated Colors for Large Series', () => {
 describe('User Override Functionality', () => {
     test('respects user overrides', () => {
         const overrides = { schema: '#FF0000', dataset: '#00FF00' };
-        const result = assignAnalyticsChartColors(['schema', 'dataset'], overrides);
+        const result = assignAnalyticsChartColors(['schema', 'dataset'], mockTheme, overrides);
 
         expect(result.assignments.schema.color).toBe('#FF0000');
         expect(result.assignments.schema.userOverride).toBe('#FF0000');
@@ -133,7 +161,7 @@ describe('User Override Functionality', () => {
 
     test('user overrides take precedence over entity colors', () => {
         const overrides = { dataset: '#123456' };
-        const result = assignAnalyticsChartColors(['dataset'], overrides);
+        const result = assignAnalyticsChartColors(['dataset'], mockTheme, overrides);
 
         expect(result.assignments.dataset.color).toBe('#123456');
         expect(result.assignments.dataset.color).not.toBe(DATAHUB_ENTITY_COLORS.dataset);
@@ -141,7 +169,7 @@ describe('User Override Functionality', () => {
 
     test('partial overrides work with automatic assignment', () => {
         const overrides = { entity1: '#AAAAAA' };
-        const result = assignAnalyticsChartColors(['entity1', 'dataset', 'entity2'], overrides);
+        const result = assignAnalyticsChartColors(['entity1', 'dataset', 'entity2'], mockTheme, overrides);
 
         expect(result.assignments.entity1.color).toBe('#AAAAAA');
         expect(result.assignments.dataset.color).toBe(DATAHUB_ENTITY_COLORS.dataset);
@@ -154,22 +182,17 @@ describe('Color Assignment Priority', () => {
         const overrides = { override: '#CUSTOM' };
         const seriesKeys = ['override', 'dataset', 'unknown', 'another'];
 
-        const result = assignAnalyticsChartColors(seriesKeys, overrides);
+        const result = assignAnalyticsChartColors(seriesKeys, mockTheme, overrides);
 
-        // Priority 1: User override
         expect(result.assignments.override.strategy.source).toBe('user-override');
-
-        // Priority 2: Entity color
         expect(result.assignments.dataset.strategy.source).toBe('datahub-entity');
-
-        // Priority 3: Qualitative
         expect(result.assignments.unknown.strategy.type).toBe('qualitative');
         expect(result.assignments.another.strategy.type).toBe('qualitative');
     });
 
     test('does not reuse colors across different sources', () => {
         const seriesKeys = ['dataset', 'schema', 'unknown1', 'unknown2'];
-        const result = assignAnalyticsChartColors(seriesKeys);
+        const result = assignAnalyticsChartColors(seriesKeys, mockTheme);
 
         const colors = Object.values(result.assignments).map((a) => a.color);
         const uniqueColors = new Set(colors);
@@ -180,7 +203,7 @@ describe('Color Assignment Priority', () => {
 
 describe('Edge Cases', () => {
     test('handles empty series array', () => {
-        const result = assignAnalyticsChartColors([]);
+        const result = assignAnalyticsChartColors([], mockTheme);
 
         expect(Object.keys(result.assignments)).toHaveLength(0);
         expect(result.generatedCount).toBe(0);
@@ -188,14 +211,14 @@ describe('Edge Cases', () => {
     });
 
     test('handles single series', () => {
-        const result = assignAnalyticsChartColors(['dataset']);
+        const result = assignAnalyticsChartColors(['dataset'], mockTheme);
 
         expect(Object.keys(result.assignments)).toHaveLength(1);
         expect(result.assignments.dataset.color).toBe(DATAHUB_ENTITY_COLORS.dataset);
     });
 
     test('handles duplicate series keys', () => {
-        const result = assignAnalyticsChartColors(['dataset', 'dataset']);
+        const result = assignAnalyticsChartColors(['dataset', 'dataset'], mockTheme);
 
         expect(Object.keys(result.assignments)).toHaveLength(1);
         expect(result.assignments.dataset.color).toBe(DATAHUB_ENTITY_COLORS.dataset);
@@ -203,7 +226,7 @@ describe('Edge Cases', () => {
 
     test('handles very long series names', () => {
         const longName = 'a'.repeat(100);
-        const result = assignAnalyticsChartColors([longName]);
+        const result = assignAnalyticsChartColors([longName], mockTheme);
 
         expect(result.assignments[longName]).toBeDefined();
         expect(result.assignments[longName].color).toBeTruthy();
@@ -212,7 +235,7 @@ describe('Edge Cases', () => {
 
 describe('getAllEntityMatches utility', () => {
     test('returns all matching entities', () => {
-        const matches = getAllEntityMatches('dataset');
+        const matches = getAllEntityMatches('dataset', mockTheme);
 
         expect(matches.length).toBeGreaterThan(0);
         expect(matches.some((m) => m.entity === 'dataset')).toBe(true);
@@ -222,7 +245,7 @@ describe('getAllEntityMatches utility', () => {
     });
 
     test('returns empty array for no matches', () => {
-        const matches = getAllEntityMatches('xyz123notfound');
+        const matches = getAllEntityMatches('xyz123notfound', mockTheme);
 
         expect(matches.length).toBe(0);
     });

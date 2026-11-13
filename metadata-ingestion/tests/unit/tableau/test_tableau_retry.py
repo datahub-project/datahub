@@ -2,7 +2,7 @@ from typing import List
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from tableauserverclient import Server
 from tableauserverclient.models import UserItem
 from tableauserverclient.server.endpoint.exceptions import (
@@ -74,7 +74,7 @@ def create_tableau_source(mock_config, mock_server):
     )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_internal_server_error_with_backoff():
     """Test that InternalServerError (503) retries with exponential backoff."""
     mock_config = mock.MagicMock()
@@ -109,7 +109,7 @@ def test_internal_server_error_with_backoff():
         assert result is not None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_internal_server_error_exhausts_retries():
     """Test that InternalServerError raises after exhausting retries."""
     mock_config = mock.MagicMock()
@@ -136,7 +136,7 @@ def test_internal_server_error_exhausts_retries():
         assert mock_sleep.call_args_list[1][0][0] == 4
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_internal_server_error_backoff_calculation():
     """Test that backoff time increases with each retry attempt."""
     mock_config = mock.MagicMock()
@@ -162,7 +162,7 @@ def test_internal_server_error_backoff_calculation():
         assert result is not None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_internal_server_error_raises_after_max_retries():
     """Test that InternalServerError is raised after exactly max_retries attempts."""
     max_retries = 3
@@ -218,7 +218,7 @@ def test_internal_server_error_raises_after_max_retries():
         )
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_non_xml_response_error_with_backoff():
     """Test that NonXMLResponseError (REAUTHENTICATE_ERRORS) retries with exponential backoff."""
     mock_config = mock.MagicMock()
@@ -252,7 +252,7 @@ def test_non_xml_response_error_with_backoff():
         assert result is not None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_non_xml_response_error_exhausts_retries():
     """Test that NonXMLResponseError raises after exhausting retries."""
     mock_config = mock.MagicMock()
@@ -281,7 +281,7 @@ def test_non_xml_response_error_exhausts_retries():
         assert mock_sleep.call_args_list[1][0][0] == 4
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_os_error_with_backoff():
     """Test that OSError retries with exponential backoff."""
     mock_config = mock.MagicMock()
@@ -308,7 +308,7 @@ def test_os_error_with_backoff():
         assert result is not None
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 def test_os_error_exhausts_retries():
     """Test that OSError raises after exhausting retries."""
     mock_config = mock.MagicMock()

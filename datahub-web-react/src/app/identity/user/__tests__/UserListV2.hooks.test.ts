@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +7,7 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserListV2.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted(() => ({
     mockUseSearchUsersQuery: vi.fn(),
@@ -15,7 +16,7 @@ const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted((
 
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: () => ({
-        platformPrivileges: { managePolicies: true },
+        platformPrivileges: { manageUserCredentials: true },
     }),
 }));
 
@@ -68,7 +69,7 @@ describe('UserListV2.hooks', () => {
             expect(result.current.usersList).toEqual([]);
             expect(result.current.isViewingResetToken).toBe(false);
             expect(result.current.resetTokenUser).toBeNull();
-            expect(result.current.canManagePolicies).toBe(true);
+            expect(result.current.canManageUserCredentials).toBe(true);
         });
 
         it('should update query state', () => {
@@ -141,6 +142,7 @@ describe('UserListV2.hooks', () => {
                     },
                 },
                 fetchPolicy: 'no-cache',
+                errorPolicy: 'all',
             });
         });
 
@@ -158,6 +160,7 @@ describe('UserListV2.hooks', () => {
                     },
                 },
                 fetchPolicy: 'no-cache',
+                errorPolicy: 'all',
             });
         });
 
@@ -168,6 +171,34 @@ describe('UserListV2.hooks', () => {
             expect(result.current.loading).toBe(false);
             expect(result.current.totalUsers).toBe(1);
             expect(result.current.selectRoleOptions).toHaveLength(2);
+        });
+
+        it('should keep search results when the query also returns an error', () => {
+            const searchUsers = {
+                searchResults: [
+                    {
+                        entity: {
+                            __typename: 'CorpUser',
+                            urn: 'urn:li:corpuser:user1',
+                            username: 'user1',
+                        },
+                    },
+                ],
+                total: 1,
+            };
+            const error = { message: 'Cannot return null for non-nullable field DataHubRole.name' };
+
+            mockUseSearchUsersQuery.mockImplementation((options?: { errorPolicy?: string }) => ({
+                data: options?.errorPolicy === 'all' ? { searchUsers } : null,
+                loading: false,
+                error,
+                refetch: vi.fn(),
+            }));
+
+            const { result } = renderHook(() => useUserListData('*', 1, 25, 'all'));
+
+            expect(result.current.totalUsers).toBe(1);
+            expect(result.current.error).toEqual(expect.objectContaining({ message: error.message }));
         });
     });
 

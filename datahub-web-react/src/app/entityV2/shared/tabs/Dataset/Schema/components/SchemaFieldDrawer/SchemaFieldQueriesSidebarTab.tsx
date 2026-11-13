@@ -1,15 +1,16 @@
-import Icon from '@ant-design/icons';
 import { Button, Typography } from 'antd';
 import React, { useEffect } from 'react';
+import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useRouteToTab } from '@app/entityV2/shared/EntityContext';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import Query from '@app/entityV2/shared/tabs/Dataset/Queries/Query';
 import { QueryCreatedBy } from '@app/entityV2/shared/tabs/Dataset/Queries/queryColumns';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { generateSchemaFieldUrn } from '@app/entityV2/shared/tabs/Lineage/utils';
-import Loading from '@app/shared/Loading';
-import { useIsSeparateSiblingsMode } from '@src/app/entity/shared/siblingUtils';
+import Loading from '@app/sharedV2/Loading';
+import { useIsSeparateSiblingsMode } from '@src/app/entityV2/shared/siblingUtils';
 import dayjs from '@utils/dayjs';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -43,7 +44,7 @@ const StyledQueryCard = styled.div`
     margin-right: 10px;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 4px;
-    box-shadow: ${(props) => props.theme.styles['box-shadow']};
+    box-shadow: ${(props) => props.theme.colors.shadowMd};
 `;
 
 const QuerySubtitleContainer = styled.div`
@@ -85,8 +86,9 @@ const NoDataContainer = styled.div`
     align-items: center;
 `;
 
-const StyledIcon = styled(Icon)`
-    font-size: 80px;
+const NoStatsIcon = styled(NoStatsAvailble)`
+    width: 80px;
+    height: 80px;
     margin-bottom: 6px;
     color: ${(props) => props.theme.colors.bg};
 `;
@@ -109,6 +111,7 @@ const QueriesTitle = styled(Typography.Text)`
 `;
 
 export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath } }: Props) {
+    const { t } = useTranslation('entity.profile.schema');
     const isSeparateSiblings = useIsSeparateSiblingsMode();
     const baseEntity = useBaseEntity<GetDatasetQuery>();
     const urn = (baseEntity && baseEntity.dataset && baseEntity.dataset?.urn) || '';
@@ -118,12 +121,14 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
     const schemaFieldUrn = generateSchemaFieldUrn(fieldPath, urn) || '';
     const siblingSchemaFieldUrn =
         !isSeparateSiblings && siblingUrn ? generateSchemaFieldUrn(fieldPath, siblingUrn) || '' : '';
+    const canViewQueries = baseEntity?.dataset?.privileges?.canViewQueries ?? false;
 
     const { popularQueries, loading, total, selectedColumnsFilter, setSelectedColumnsFilter } = usePopularQueries({
         entityUrn: urn,
         siblingUrn,
         filterText: '',
         defaultSelectedColumns: [schemaFieldUrn || '', siblingSchemaFieldUrn],
+        canViewQueries,
     });
 
     useEffect(() => {
@@ -144,12 +149,12 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
         <QueriesTabContainer>
             {!loading && hasNoQueries && (
                 <NoDataContainer>
-                    <StyledIcon component={NoStatsAvailble} />
-                    <Section>No queries for this column found</Section>
+                    <NoStatsIcon />
+                    <Section>{t('queriesSidebarTab.noQueriesFound')}</Section>
                 </NoDataContainer>
             )}
             {loading && <Loading />}
-            {!loading && firstQueries.length > 0 && <QueriesTitle>Queries</QueriesTitle>}
+            {!loading && firstQueries.length > 0 && <QueriesTitle>{t('queriesSidebarTab.sectionTitle')}</QueriesTitle>}
 
             {firstQueries.length > 0 &&
                 firstQueries.map((query, idx) => (
@@ -158,13 +163,21 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                             <Query query={query.query} index={idx} isCompact showDetails={false} showHeader={false} />
                             <QuerySubtitleContainer>
                                 <SubtitleSection>
-                                    Last run by{' '}
-                                    {query.createdBy && (
-                                        <StyledCreatedBy>
-                                            <QueryCreatedBy createdBy={query.createdBy} />
-                                        </StyledCreatedBy>
-                                    )}
-                                    on {dayjs(query.lastRun).format('MM/DD/YYYY')}
+                                    <Trans
+                                        t={t}
+                                        i18nKey="queriesSidebarTab.lastRunBy"
+                                        values={{
+                                            name: query.createdBy?.username,
+                                            date: dayjs(query.lastRun).format('MM/DD/YYYY'),
+                                        }}
+                                        components={{
+                                            1: (
+                                                <StyledCreatedBy>
+                                                    {query.createdBy && <QueryCreatedBy createdBy={query.createdBy} />}
+                                                </StyledCreatedBy>
+                                            ),
+                                        }}
+                                    />
                                 </SubtitleSection>
                             </QuerySubtitleContainer>
                         </StyledQueryCard>
@@ -174,12 +187,12 @@ export default function SchemaFieldQueriesSidebarTab({ properties: { fieldPath }
                 <SeeAllButton
                     onClick={() => {
                         routeToTab({
-                            tabName: 'Queries',
+                            tabName: EntityTabPath.QUERIES,
                             tabParams: { column: schemaFieldUrn, siblingColumn: siblingSchemaFieldUrn },
                         });
                     }}
                 >
-                    See All Queries
+                    {t('queriesSidebarTab.seeAllQueries')}
                 </SeeAllButton>
             )}
         </QueriesTabContainer>

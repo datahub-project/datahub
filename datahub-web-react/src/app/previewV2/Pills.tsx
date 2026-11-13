@@ -1,17 +1,25 @@
-import { LayoutOutlined } from '@ant-design/icons';
-import AccountCircleOutlinedIcon from '@mui/icons-material/AccountCircleOutlined';
-import FindInPageOutlinedIcon from '@mui/icons-material/FindInPageOutlined';
-import SellOutlinedIcon from '@mui/icons-material/SellOutlined';
 import { BookmarkSimple } from '@phosphor-icons/react/dist/csr/BookmarkSimple';
+import { FileMagnifyingGlass } from '@phosphor-icons/react/dist/csr/FileMagnifyingGlass';
+import { Layout } from '@phosphor-icons/react/dist/csr/Layout';
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
+import { UserCircle } from '@phosphor-icons/react/dist/csr/UserCircle';
 import React, { useContext } from 'react';
 import styled from 'styled-components';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
-import SearchPill from '@app/previewV2/SearchPill';
+import SearchPill, {
+    PILL_DOWNSTREAM_COLUMN_COUNT,
+    PILL_MATCH_COUNT,
+    PILL_OWNER_COUNT,
+    PILL_TAG_COUNT,
+    PILL_TERM_COUNT,
+    PILL_UPSTREAM_COLUMN_COUNT,
+} from '@app/previewV2/SearchPill';
 import { entityHasCapability, getHighlightedTag } from '@app/previewV2/utils';
 import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
-import MatchesContext, { PreviewSection } from '@app/shared/MatchesContext';
+import MatchesContext, { PreviewSection } from '@app/sharedV2/MatchesContext';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 
 import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
 
@@ -34,13 +42,14 @@ interface Props {
 
 const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityType }: Props) => {
     const { lineageDirection, isColumnLevelLineage, selectedColumn } = useContext(LineageTabContext);
-    const lineageDirectionText = lineageDirection === LineageDirection.Downstream ? 'downstream' : 'upstream';
     const { setExpandedSection, expandedSection } = useContext(MatchesContext);
     const groupedMatches = useMatchedFieldsForList('fieldLabels');
     const showGlossaryTermsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.GLOSSARY_TERMS);
     const showTagsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
     const showOwnersBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
     const highlightedTag = getHighlightedTag(tags);
+    const liveTerms = glossaryTerms?.terms?.filter((association) => !isRemovedAssociation(association)) ?? [];
+    const liveTags = tags?.tags?.filter((association) => !isRemovedAssociation(association)) ?? [];
 
     const handlePillClick = (section: PreviewSection | undefined, data) => (e) => {
         if (!data?.length) return;
@@ -54,47 +63,47 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
             {showGlossaryTermsBadge && glossaryTerms && (
                 <SearchPill
                     icon={<BookmarkSimple />}
-                    count={glossaryTerms.terms?.length || 0}
-                    enabled={!!glossaryTerms.terms?.length}
+                    count={liveTerms.length}
+                    enabled={!!liveTerms.length}
                     active={expandedSection === PreviewSection.GLOSSARY_TERMS}
                     label=""
-                    countLabel="term"
-                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
-                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0]?.term?.properties?.name : ''}
+                    countLabelKey={PILL_TERM_COUNT}
+                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, liveTerms)}
+                    highlightedText={liveTerms[0]?.term?.properties?.name ?? ''}
                 />
             )}
             {showTagsBadge && tags && (
                 <SearchPill
-                    icon={<SellOutlinedIcon />}
-                    count={tags.tags?.length || 0}
-                    enabled={!!tags.tags?.length}
+                    icon={<Tag />}
+                    count={liveTags.length}
+                    enabled={!!liveTags.length}
                     active={expandedSection === PreviewSection.TAGS}
                     label=""
-                    countLabel="tag"
-                    onClick={handlePillClick(PreviewSection.TAGS, tags.tags)}
+                    countLabelKey={PILL_TAG_COUNT}
+                    onClick={handlePillClick(PreviewSection.TAGS, liveTags)}
                     highlightedText={highlightedTag}
                 />
             )}
             {showOwnersBadge && owners && (
                 <SearchPill
-                    icon={<AccountCircleOutlinedIcon />}
+                    icon={<UserCircle />}
                     count={owners.length || 0}
                     enabled={!!owners.length}
                     active={expandedSection === PreviewSection.OWNERS}
                     label=""
-                    countLabel="owner"
+                    countLabelKey={PILL_OWNER_COUNT}
                     onClick={handlePillClick(PreviewSection.OWNERS, owners)}
                 />
             )}
 
             {groupedMatches.length > 0 && (
                 <SearchPill
-                    icon={<FindInPageOutlinedIcon />}
+                    icon={<FileMagnifyingGlass />}
                     count={groupedMatches?.length || 0}
                     enabled
                     active={expandedSection === PreviewSection.MATCHES}
                     label=""
-                    countLabel="match"
+                    countLabelKey={PILL_MATCH_COUNT}
                     onClick={handlePillClick(PreviewSection.MATCHES, groupedMatches)}
                 />
             )}
@@ -105,12 +114,17 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
                 isColumnLevelLineage &&
                 selectedColumn && (
                     <SearchPill
-                        icon={<LayoutOutlined />}
+                        data-testid="show-column-path-button"
+                        icon={<Layout />}
                         count={paths.length || 0}
                         enabled={!!paths.length}
                         active={expandedSection === PreviewSection.COLUMN_PATHS}
                         label=""
-                        countLabel={`${lineageDirectionText} column`}
+                        countLabelKey={
+                            lineageDirection === LineageDirection.Downstream
+                                ? PILL_DOWNSTREAM_COLUMN_COUNT
+                                : PILL_UPSTREAM_COLUMN_COUNT
+                        }
                         onClick={handlePillClick(PreviewSection.COLUMN_PATHS, paths)}
                     />
                 )}

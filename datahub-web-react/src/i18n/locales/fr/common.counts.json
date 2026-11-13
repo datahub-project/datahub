@@ -1,0 +1,16 @@
+{
+    "columnCount_one": "{{count}} colonne",
+    "columnCount_other": "{{count}} colonnes",
+    "matchCount_one": "{{count}} correspondance",
+    "matchCount_other": "{{count}} correspondances",
+    "ownerCount_one": "{{count}} propriétaire",
+    "ownerCount_other": "{{count}} propriétaires",
+    "queryCount_one": "{{count}} requête",
+    "queryCount_other": "{{count}} requêtes",
+    "rowCount_one": "{{count}} ligne",
+    "rowCount_other": "{{count}} lignes",
+    "tagCount_one": "{{count}} tag",
+    "tagCount_other": "{{count}} tags",
+    "termCount_one": "{{count}} terme",
+    "termCount_other": "{{count}} termes"
+}

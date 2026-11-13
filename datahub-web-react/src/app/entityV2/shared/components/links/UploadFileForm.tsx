@@ -1,15 +1,16 @@
 import { FileDragAndDropArea } from '@components';
 import { Form } from 'antd';
 import React, { useCallback, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { getFileNameFromUrl } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 import { FileNode } from '@components/components/FileNode/FileNode';
 import { FontSizeOptions } from '@components/theme/config';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { LinkFormData, LinkFormVariant } from '@app/entityV2/shared/components/links/types';
-import { useUploadFileHandler } from '@app/shared/hooks/useUploadFileHandler';
+import { useUploadFileHandler } from '@app/sharedV2/hooks/useUploadFileHandler';
 
 import { UploadDownloadScenario } from '@types';
 
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export function UploadFileForm({ initialValues, fontSize: _fontSize }: Props) {
+    const { t } = useTranslation('entity.shared.components');
     const { urn } = useEntityData();
 
     const handleFileUpload = useUploadFileHandler({
@@ -92,7 +94,7 @@ export function UploadFileForm({ initialValues, fontSize: _fontSize }: Props) {
                 rules={[
                     {
                         required: isRequired,
-                        message: 'A file is required.',
+                        message: t('links.fileRequired'),
                     },
                 ]}
             >

@@ -18,9 +18,9 @@ export const useSidebarFilters = (): SidebarFilters => {
 
     const filterOverrides = useMemo(
         () => [
-            ...(entityType ? [{ field: ENTITY_FILTER_NAME, value: entityType }] : []),
-            ...(environment ? [{ field: ORIGIN_FILTER_NAME, value: environment }] : []),
-            ...(platform ? [{ field: PLATFORM_FILTER_NAME, value: platform }] : []),
+            ...(entityType ? [{ field: ENTITY_FILTER_NAME, values: [entityType] }] : []),
+            ...(environment ? [{ field: ORIGIN_FILTER_NAME, values: [environment] }] : []),
+            ...(platform ? [{ field: PLATFORM_FILTER_NAME, values: [platform] }] : []),
         ],
         [entityType, environment, platform],
     );

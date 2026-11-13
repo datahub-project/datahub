@@ -3,6 +3,7 @@ package com.datahub.authentication.token;
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.OperationContext;
@@ -14,7 +15,6 @@ import io.jsonwebtoken.SignatureAlgorithm;
 import java.nio.charset.StandardCharsets;
 import java.security.Key;
 import java.util.ArrayList;
-import java.util.Base64;
 import java.util.Date;
 import java.util.HashMap;
 import java.util.List;
@@ -23,6 +23,7 @@ import java.util.Objects;
 import java.util.UUID;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import javax.crypto.SecretKey;
 import javax.crypto.spec.SecretKeySpec;
 
 /**
@@ -130,11 +131,11 @@ public class StatelessTokenService {
     Objects.requireNonNull(accessToken);
     try {
       byte[] apiKeySecretBytes = this.signingKey.getBytes(StandardCharsets.UTF_8);
-      final String base64Key = Base64.getEncoder().encodeToString(apiKeySecretBytes);
-      final Jws<Claims> jws =
-          Jwts.parserBuilder().setSigningKey(base64Key).build().parseClaimsJws(accessToken);
+      final SecretKey key =
+          new SecretKeySpec(apiKeySecretBytes, this.signingAlgorithm.getJcaName());
+      final Jws<Claims> jws = Jwts.parser().verifyWith(key).build().parseSignedClaims(accessToken);
       validateTokenAlgorithm(jws.getHeader().getAlgorithm());
-      final Claims claims = jws.getBody();
+      final Claims claims = jws.getPayload();
       final String tokenVersion = claims.get(TokenClaims.TOKEN_VERSION_CLAIM_NAME, String.class);
       final String tokenType = claims.get(TokenClaims.TOKEN_TYPE_CLAIM_NAME, String.class);
       final String actorId = claims.get(TokenClaims.ACTOR_ID_CLAIM_NAME, String.class);
@@ -164,23 +165,37 @@ public class StatelessTokenService {
 
   /** Validates that the actor is active using the OperationContext's built-in validation */
   private void validateActor(@Nonnull final String actorId) throws TokenException {
+    final AspectRetriever aspectRetriever;
+    final ActorContext actorContext;
     try {
-      AspectRetriever aspectRetriever = systemOperationContext.getAspectRetriever();
-      ActorContext actorContext =
+      final Actor actor = new Actor(ActorType.USER, actorId);
+      // Fail a malformed actor id here, as an invalid token, before any store read.
+      UrnUtils.getUrn(actor.toUrnStr());
+      aspectRetriever = systemOperationContext.getAspectRetriever();
+      actorContext =
           ActorContext.builder()
-              .authentication(new Authentication(new Actor(ActorType.USER, actorId), ""))
+              .authentication(new Authentication(actor, ""))
               .enforceExistenceEnabled(true)
               .build();
-
-      // Use the existing isActive check from ActorContext
-      if (!actorContext.isActive(aspectRetriever)) {
-        throw new TokenException("Actor is not active");
-      }
-    } catch (Exception e) {
-      if (e instanceof TokenException) {
-        throw (TokenException) e;
-      }
+    } catch (RuntimeException e) {
       throw new TokenException("Failed to validate actor status", e);
+    }
+
+    final boolean active;
+    try {
+      // Use the existing isActive check from ActorContext
+      active = actorContext.isActive(systemOperationContext, aspectRetriever);
+    } catch (RuntimeException e) {
+      if (TokenStoreFailures.isStoreUnavailable(e)) {
+        // The actor's status could not be read, which says nothing about the token itself.
+        throw new TokenStoreUnavailableException(
+            "Failed to validate DataHub token: Unable to load actor status from store", e);
+      }
+      // Anything else (for example a corrupt status aspect) will not clear on retry.
+      throw new TokenException("Failed to validate actor status", e);
+    }
+    if (!active) {
+      throw new TokenException("Actor is not active");
     }
   }
 

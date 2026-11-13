@@ -1,9 +1,11 @@
 import { Button } from '@components';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useBaseEntity, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
@@ -21,6 +23,7 @@ const InfoRow = styled.div`
 const INFO_ITEM_WIDTH_PX = '150px';
 
 export const SidebarViewDefinitionSection = () => {
+    const { t } = useTranslation('entity.shared.containers');
     const baseEntity = useBaseEntity<GetDatasetQuery>();
 
     const materialized = baseEntity?.dataset?.viewProperties?.materialized;
@@ -30,19 +33,27 @@ export const SidebarViewDefinitionSection = () => {
 
     return (
         <SidebarSection
-            title="Definition"
+            title={t('sidebar.viewDefinition.sectionTitle')}
             content={
                 <>
                     <InfoRow>
-                        <InfoItem title="Materialized" width={INFO_ITEM_WIDTH_PX}>
-                            <HeaderInfoBody>{materialized ? 'True' : 'False'}</HeaderInfoBody>
+                        <InfoItem title={t('sidebar.viewDefinition.materializedLabel')} width={INFO_ITEM_WIDTH_PX}>
+                            <HeaderInfoBody>
+                                {materialized
+                                    ? t('sidebar.viewDefinition.materializedTrue')
+                                    : t('sidebar.viewDefinition.materializedFalse')}
+                            </HeaderInfoBody>
                         </InfoItem>
-                        <InfoItem title="Language" width={INFO_ITEM_WIDTH_PX}>
+                        <InfoItem title={t('sidebar.viewDefinition.languageLabel')} width={INFO_ITEM_WIDTH_PX}>
                             <HeaderInfoBody>{language.toUpperCase()}</HeaderInfoBody>
                         </InfoItem>
                     </InfoRow>
-                    <Button variant="link" color="violet" onClick={() => routeToTab({ tabName: 'View Definition' })}>
-                        View full definition &gt;
+                    <Button
+                        variant="link"
+                        color="primary"
+                        onClick={() => routeToTab({ tabName: EntityTabPath.VIEW_DEFINITION })}
+                    >
+                        {t('sidebar.viewDefinition.viewFullDefinitionLink')}
                     </Button>
                 </>
             }

@@ -11,9 +11,11 @@ import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.RelationshipFilter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.AllArgsConstructor;
@@ -30,20 +32,20 @@ public interface GraphService {
   /**
    * Adds an edge to the graph. This creates the source and destination nodes, if they do not exist.
    */
-  void addEdge(final Edge edge);
+  void addEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Adds or updates an edge to the graph. This creates the source and destination nodes, if they do
    * not exist.
    */
-  void upsertEdge(final Edge edge);
+  void upsertEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Remove an edge from the graph.
    *
    * @param edge the edge to delete
    */
-  void removeEdge(final Edge edge);
+  void removeEdge(@Nonnull final OperationContext opContext, @Nonnull final Edge edge);
 
   /**
    * Find related entities (nodes) connected to a source entity via edges of given relationship
@@ -168,6 +170,41 @@ public interface GraphService {
       int maxHops);
 
   /**
+   * Counts the entities one hop away from any of {@code entityUrns} in the direction of {@code
+   * graphFilters}, excluding the urns themselves. Passing a sibling group counts it as one entity:
+   * a neighbour shared by several members is counted once. Implementations with a cheaper count
+   * than walking the edges override this; the default reads every page of each urn's one-hop
+   * lineage and merges.
+   *
+   * @param sampleSize how many of the counted neighbours to return for post-processing
+   */
+  @Nonnull
+  default LineageCountResult getLineageCount(
+      @Nonnull final OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters graphFilters,
+      int sampleSize) {
+    Set<Urn> neighbours = new LinkedHashSet<>();
+    for (Urn urn : entityUrns) {
+      // getLineage returns one page (the backend's default size) while reporting the full count
+      // in total, so read every page; an empty page also ends the loop in case total is unset.
+      int offset = 0;
+      while (true) {
+        EntityLineageResult page = getLineage(opContext, urn, graphFilters, offset, null, 1);
+        List<LineageRelationship> relationships = page.getRelationships();
+        relationships.forEach(relationship -> neighbours.add(relationship.getEntity()));
+        offset += relationships.size();
+        if (relationships.isEmpty() || page.getTotal() == null || offset >= page.getTotal()) {
+          break;
+        }
+      }
+    }
+    neighbours.removeAll(entityUrns);
+    return new LineageCountResult(
+        neighbours.size(), neighbours.stream().limit(sampleSize).collect(Collectors.toList()));
+  }
+
+  /**
    * Returns lineage information for impact analysis with configurable limits and timeout.
    *
    * @param opContext operation context
@@ -207,7 +244,7 @@ public interface GraphService {
   default void configure() {}
 
   /** Removes all edges and nodes from the graph. */
-  void clear();
+  void clear(@Nonnull OperationContext opContext);
 
   /** Whether or not this graph service supports multi-hop */
   default boolean supportsMultiHop() {
@@ -222,7 +259,10 @@ public interface GraphService {
    * @param edgeUrnTypes which URNs to update (source, destination, lifecycleOwner, etc)
    */
   default void setEdgeStatus(
-      @Nonnull Urn urn, boolean removed, @Nonnull EdgeUrnType... edgeUrnTypes) {}
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      boolean removed,
+      @Nonnull EdgeUrnType... edgeUrnTypes) {}
 
   /**
    * Access graph edges

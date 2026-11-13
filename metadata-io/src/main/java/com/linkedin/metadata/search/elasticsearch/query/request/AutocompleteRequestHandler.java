@@ -170,7 +170,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
             opContext,
             entityName != null ? List.of(entityName) : Collections.emptyList(),
             filter,
-            baseQuery);
+            baseQuery,
+            searchConfiguration.getEntityIndex());
 
     // Apply scoring
     FunctionScoreQueryBuilder functionScoreQueryBuilder =
@@ -358,7 +359,8 @@ public class AutocompleteRequestHandler extends BaseRequestHandler {
 
     return Stream.concat(
         Stream.of(fieldName, fieldName + ".*", fieldName + ".ngram", fieldName + ".delimited"),
-        Stream.of(ESUtils.toKeywordField(fieldName, false, opContext.getAspectRetriever())));
+        Stream.of(
+            ESUtils.toKeywordField(opContext, fieldName, false, opContext.getAspectRetriever())));
   }
 
   private List<Pair<String, String>> getAutocompleteFields(@Nullable String field) {

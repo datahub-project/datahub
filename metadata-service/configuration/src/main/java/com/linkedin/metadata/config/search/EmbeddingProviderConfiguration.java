@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.search;
 
+import java.util.Locale;
 import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -7,12 +8,17 @@ import lombok.NoArgsConstructor;
 /**
  * Configuration for embedding providers used to generate query embeddings for semantic search.
  *
- * <p>Supports three providers:
+ * <p>Supports seven providers:
  *
  * <ul>
  *   <li><b>aws-bedrock</b>: AWS Bedrock Runtime API with Cohere/Titan models
  *   <li><b>openai</b>: OpenAI Embeddings API with text-embedding-3-small/large/ada-002 models
  *   <li><b>cohere</b>: Cohere Embed API with embed-english-v3.0/multilingual-v3.0 models
+ *   <li><b>local</b>: Any locally-running OpenAI-compatible server (Ollama, LM Studio, etc.)
+ *   <li><b>vertex_ai</b>: Google Vertex AI Embeddings API with Gemini embedding models
+ *   <li><b>onnx</b>: In-process ONNX Runtime inference (no external server required)
+ *   <li><b>classical</b>: Deterministic in-process lexical hashing (no external service or model
+ *       files)
  * </ul>
  */
 @Data
@@ -21,8 +27,8 @@ import lombok.NoArgsConstructor;
 public class EmbeddingProviderConfiguration {
 
   /**
-   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere". Defaults to
-   * "openai".
+   * Type of embedding provider. Supported values: "openai", "aws-bedrock", "cohere", "local",
+   * "vertex_ai", "onnx", "classical". Defaults to "openai".
    */
   private String type = "openai";
 
@@ -41,6 +47,18 @@ public class EmbeddingProviderConfiguration {
   /** Configuration for Cohere embedding provider. */
   private CohereConfig cohere = new CohereConfig();
 
+  /** Configuration for local embedding provider (Ollama or any OpenAI-compatible server). */
+  private LocalConfig local = new LocalConfig();
+
+  /** Configuration for Google Vertex AI embedding provider. */
+  private VertexAiConfig vertexai = new VertexAiConfig();
+
+  /** Configuration for in-process ONNX embedding provider. */
+  private OnnxConfig onnx = new OnnxConfig();
+
+  /** Configuration for the classical (deterministic hashing) embedding provider. */
+  private ClassicalConfig classical = new ClassicalConfig();
+
   /**
    * Returns the model ID for the configured provider type, pulling from the appropriate sub-config.
    */
@@ -48,13 +66,21 @@ public class EmbeddingProviderConfiguration {
     if (type == null) {
       return null;
     }
-    switch (type.toLowerCase()) {
+    switch (type.toLowerCase(Locale.ROOT)) {
       case "openai":
         return openai != null ? openai.getModel() : null;
       case "cohere":
         return cohere != null ? cohere.getModel() : null;
       case "aws-bedrock":
         return bedrock != null ? bedrock.getModel() : null;
+      case "local":
+        return local != null ? local.getModel() : null;
+      case "vertex_ai":
+        return vertexai != null ? vertexai.getModel() : null;
+      case "onnx":
+        return onnx != null ? onnx.getModelName() : null;
+      case "classical":
+        return classical != null ? classical.getModel() : null;
       default:
         return null;
     }
@@ -112,6 +138,32 @@ public class EmbeddingProviderConfiguration {
     private String endpoint = "https://api.openai.com/v1/embeddings";
   }
 
+  /** Local server configuration (Ollama or any OpenAI-compatible embeddings endpoint). */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class LocalConfig {
+    /**
+     * URL of the local OpenAI-compatible embeddings endpoint. Defaults to Ollama's default address.
+     * When running inside Docker Compose with the ollama service, use
+     * "http://ollama:11434/v1/embeddings".
+     */
+    private String endpoint = "http://localhost:11434/v1/embeddings";
+
+    /**
+     * Embedding model to use. Must be pulled on the local server before use.
+     *
+     * <ul>
+     *   <li><b>nomic-embed-text</b> (default): 768 dimensions, good quality/speed balance
+     *   <li><b>mxbai-embed-large</b>: 1024 dimensions, higher quality
+     *   <li><b>all-minilm</b>: 384 dimensions, fastest
+     * </ul>
+     *
+     * Pull a model with: {@code ollama pull <model>}
+     */
+    private String model = "nomic-embed-text";
+  }
+
   /** Cohere-specific configuration. */
   @Data
   @NoArgsConstructor
@@ -141,5 +193,101 @@ public class EmbeddingProviderConfiguration {
      * specify the full embed endpoint URL.
      */
     private String endpoint = "https://api.cohere.ai/v1/embed";
+  }
+
+  /** Google Vertex AI-specific configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class VertexAiConfig {
+    /**
+     * GCP project ID where Vertex AI is enabled. Required when type is "vertex_ai". Can be set via
+     * VERTEX_AI_PROJECT_ID environment variable.
+     */
+    private String projectId;
+
+    /**
+     * GCP region for the Vertex AI endpoint (e.g., "us-central1", "us-east1"). Defaults to
+     * "us-east1".
+     */
+    private String location = "us-east1";
+
+    /**
+     * Vertex AI embedding model name. Defaults to "gemini-embedding-001" (768 dimensions). Other
+     * options include "text-embedding-005" (768 dimensions).
+     */
+    private String model = "gemini-embedding-001";
+
+    /**
+     * Number of output embedding dimensions. Set to 0 to use the model's native dimensionality.
+     * Defaults to 768 (native dimensionality for gemini-embedding-001).
+     */
+    private int outputDimensionality = 768;
+  }
+
+  /** In-process ONNX Runtime configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class OnnxConfig {
+    /**
+     * Logical model name used as the key in the {@code semanticSearch.models} map and in
+     * Elasticsearch field paths. Must match an entry in the models map exactly (e.g., {@code
+     * snowflake_arctic_embed_s}). Required when type is "onnx".
+     */
+    private String modelName;
+
+    /**
+     * Path to the directory containing the ONNX model and tokenizer files. Must contain model.onnx
+     * (or model_quantized.onnx) and tokenizer.json. Required when type is "onnx".
+     */
+    private String modelDir;
+
+    /**
+     * Number of threads for ONNX Runtime intra-op parallelism. Set to 0 to use ONNX Runtime's
+     * default (all CPU cores). In containerized environments with CPU limits, set this to the
+     * container's CPU limit (e.g., 2 or 4) to avoid thread over-subscription. Defaults to 4.
+     */
+    private int intraOpThreads = 4;
+
+    /**
+     * Sentence-pooling strategy applied to token-level ONNX output ({@code last_hidden_state}):
+     * {@code "cls"} takes the [CLS] token vector, {@code "mean"} averages tokens weighted by the
+     * attention mask. This must match the pooling the model was trained with and the pooling used
+     * to embed documents, or query and document vectors land in different subspaces and kNN recall
+     * collapses. All bundled models (Arctic-embed-s/l, BGE-base-en-v1.5) are CLS-pooled, so the
+     * default is {@code "cls"}. Ignored when the model already outputs a pooled sentence embedding.
+     */
+    private String pooling = "cls";
+
+    /**
+     * Instruction prefix prepended to query text before embedding (task type {@code QUERY} only);
+     * document embeddings are never prefixed. Asymmetric retrieval models require this — e.g.
+     * Arctic-embed and BGE expect {@code "Represent this sentence for searching relevant passages:
+     * "}. Empty (the default) disables prefixing for symmetric models.
+     */
+    private String queryInstruction = "";
+  }
+
+  /** Classical (deterministic hashing) provider configuration. */
+  @Data
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class ClassicalConfig {
+    /**
+     * Model name in the form {@code hash-v1-<dims>} (dims 1..4096). It fixes the algorithm version
+     * and the vector width, and derives the {@code semanticSearch.models} key ({@code hash_v1_2048}
+     * for the default), which must exist with the same {@code vectorDimension} and a cosine space
+     * type. Ingestion must be configured with the same model name so document and query vectors
+     * match. Defaults to "hash-v1-2048".
+     */
+    private String model = "hash-v1-2048";
+
+    /**
+     * The provider ranks by hashed lexical overlap, not meaning, and exists for CI, smoke tests and
+     * quickstarts. Startup refuses {@code type: classical} unless this is true, so a deployment
+     * cannot land on it without reading what it is. Defaults to false.
+     */
+    private boolean acknowledgeLexicalOnly = false;
   }
 }

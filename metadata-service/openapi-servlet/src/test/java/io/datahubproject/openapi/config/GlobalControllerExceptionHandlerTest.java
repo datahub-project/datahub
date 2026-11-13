@@ -3,11 +3,17 @@ package io.datahubproject.openapi.config;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
+import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.fasterxml.jackson.core.JsonProcessingException;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.plugins.validation.ValidationSubType;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.entity.validation.ValidationException;
+import com.linkedin.metadata.throttle.ThrottleMechanismType;
+import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
+import com.linkedin.metadata.throttle.ThrottleResponseSource;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import graphql.parser.InvalidSyntaxException;
 import io.datahubproject.metadata.exception.ActorAccessException;
@@ -25,8 +31,10 @@ import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.springframework.core.convert.ConversionFailedException;
 import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpInputMessage;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.web.context.request.async.AsyncRequestTimeoutException;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.NoHandlerFoundException;
@@ -95,8 +103,79 @@ public class GlobalControllerExceptionHandlerTest {
   }
 
   @Test
+  public void testSanitizeExceptionMessageStripsJavaClassNames() {
+    String message = "com.fasterxml.jackson.core.JsonParseException: Unexpected character (']')";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("com.fasterxml.jackson.core.JsonParseException"));
+    assertTrue(sanitized.contains("Unexpected character"));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageStripsSourceLocation() {
+    String message =
+        "Unexpected character [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); line: 1, column: 18]";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("[Source:"));
+    assertFalse(sanitized.contains("StreamReadFeature"));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessagePreservesSimpleMessages() {
+    assertEquals(
+        GlobalControllerExceptionHandler.sanitizeExceptionMessage("Invalid argument"),
+        "Invalid argument");
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageHandlesNull() {
+    assertNull(GlobalControllerExceptionHandler.sanitizeExceptionMessage(null));
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageHandlesEmpty() {
+    assertEquals(GlobalControllerExceptionHandler.sanitizeExceptionMessage(""), "");
+  }
+
+  @Test
+  public void testSanitizeExceptionMessageFullJacksonError() {
+    String message =
+        "com.fasterxml.jackson.core.JsonParseException: Unexpected character (&#x27;]&#x27;) "
+            + "(code 93): expected a valid value (JSON String, Number, Array, Object or token "
+            + "&#x27;null&#x27;, &#x27;true&#x27; or &#x27;false&#x27;)\n"
+            + " at [Source: REDACTED (`StreamReadFeature.INCLUDE_SOURCE_IN_LOCATION` disabled); "
+            + "line: 1, column: 18]";
+    String sanitized = GlobalControllerExceptionHandler.sanitizeExceptionMessage(message);
+    assertFalse(sanitized.contains("com.fasterxml.jackson"));
+    assertFalse(sanitized.contains("StreamReadFeature"));
+    assertFalse(sanitized.contains("[Source:"));
+  }
+
+  @Test
+  public void testHandleHttpMessageNotReadable() {
+    when(mockRequest.getRequestURI()).thenReturn("/api/graphql");
+    HttpMessageNotReadableException ex =
+        new HttpMessageNotReadableException(
+            "JSON parse error: com.fasterxml.jackson.core.JsonParseException: Unexpected",
+            (HttpInputMessage) null);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleHttpMessageNotReadable(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Malformed request body");
+    assertFalse(response.getBody().containsKey("message"));
+  }
+
+  @Test
   public void testHandleThrottleExceptionWithDuration() {
-    APIThrottleException ex = new APIThrottleException(5000L, "Too many requests");
+    APIThrottleException ex =
+        new APIThrottleException(
+            5000L,
+            "Too many requests",
+            "MCL_VERSIONED_LAG",
+            ThrottleMechanismType.INGEST,
+            ThrottleResponseSource.METADATA_WRITE);
 
     ResponseEntity<Map<String, String>> response =
         GlobalControllerExceptionHandler.handleThrottleException(ex);
@@ -107,7 +186,10 @@ public class GlobalControllerExceptionHandlerTest {
 
     HttpHeaders headers = response.getHeaders();
     assertNotNull(headers);
-    assertEquals(headers.getFirst(HttpHeaders.RETRY_AFTER), "5");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.RETRY_AFTER), "5");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.TYPE), "ingest");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.SOURCE), "metadata-write");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.RULE), "MCL_VERSIONED_LAG");
   }
 
   @Test
@@ -122,7 +204,9 @@ public class GlobalControllerExceptionHandlerTest {
     assertEquals(response.getBody().get("error"), "Too many requests");
 
     HttpHeaders headers = response.getHeaders();
-    assertNull(headers.getFirst(HttpHeaders.RETRY_AFTER));
+    assertNull(headers.getFirst(ThrottleResponseHeaders.RETRY_AFTER));
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.TYPE), "ingest");
+    assertEquals(headers.getFirst(ThrottleResponseHeaders.SOURCE), "metadata-write");
   }
 
   @Test
@@ -203,6 +287,31 @@ public class GlobalControllerExceptionHandlerTest {
     assertNotNull(response.getBody());
     assertEquals(response.getBody().get("error"), "Authorization Error");
     assertEquals(response.getBody().get("message"), "Authorization validation failed");
+  }
+
+  @Test
+  public void testHandleValidationExceptionPreservesAuthorizationFromCollectionCtor() {
+    // Regression: AspectsBatchImpl used to throw ValidationException(String) which dropped the
+    // collection, so AUTHORIZATION subtype mapped to HTTP 400 instead of 403.
+    when(mockRequest.getRequestURI()).thenReturn("/openapi/v3/entity/dataset");
+
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(mock(com.linkedin.common.urn.Urn.class));
+    when(item.getAspectName()).thenReturn("domains");
+    when(item.getChangeType()).thenReturn(com.linkedin.events.metadata.ChangeType.UPSERT);
+    collection.addException(
+        AspectValidationException.forAuth(item, "Unauthorized to create domains on entity"));
+
+    ValidationException ex = new ValidationException(collection);
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleValidationException(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.FORBIDDEN);
+    assertNotNull(response.getBody());
+    assertEquals(response.getBody().get("error"), "Authorization Error");
+    assertTrue(response.getBody().get("message").contains("Unauthorized"));
   }
 
   @Test
@@ -312,6 +421,23 @@ public class GlobalControllerExceptionHandlerTest {
   }
 
   @Test
+  public void testHandleJsonExceptionSanitizesInternalDetails() {
+    when(mockRequest.getRequestURI()).thenReturn("/test/endpoint");
+    JsonProcessingException ex =
+        new JsonProcessingException(
+            "com.fasterxml.jackson.core.JsonParseException: Unexpected char") {};
+
+    ResponseEntity<Map<String, String>> response =
+        exceptionHandler.handleJsonException(ex, mockRequest);
+
+    assertEquals(response.getStatusCode(), HttpStatus.BAD_REQUEST);
+    assertNotNull(response.getBody());
+    assertFalse(
+        response.getBody().get("message").contains("com.fasterxml.jackson"),
+        "Response must not contain internal Java class names");
+  }
+
+  @Test
   public void testHandleJakartaJsonException() {
     when(mockRequest.getRequestURI()).thenReturn("/test/endpoint");
     jakarta.json.JsonException ex = new jakarta.json.JsonException("Jakarta JSON parsing failed");
@@ -409,6 +535,38 @@ public class GlobalControllerExceptionHandlerTest {
     double count =
         meterRegistry.counter("datahub.http.async_timeout", "request_path", "unknown").count();
     assertEquals(count, 1.0);
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflict() {
+    DatabaseTransactionConflictException ex =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001");
+
+    ResponseEntity<Map<String, Object>> response =
+        exceptionHandler.handleDatabaseTransactionConflict(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertNotNull(response.getBody());
+    assertEquals(
+        response.getBody().get("error"),
+        "Failed to add after 3 retries due to transaction conflict");
+    assertEquals(response.getBody().get("code"), DatabaseTransactionConflictException.CODE);
+    assertEquals(response.getBody().get("retryable"), true);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "1");
+  }
+
+  @Test
+  public void testHandleDatabaseTransactionConflict_usesConfiguredRetryAfter() {
+    DatabaseTransactionConflictException ex =
+        new DatabaseTransactionConflictException(
+            "Failed to add after 3 retries due to transaction conflict", "40001", null, 5L);
+
+    ResponseEntity<Map<String, Object>> response =
+        exceptionHandler.handleDatabaseTransactionConflict(ex);
+
+    assertEquals(response.getStatusCode(), HttpStatus.SERVICE_UNAVAILABLE);
+    assertEquals(response.getHeaders().getFirst("Retry-After"), "5");
   }
 
   private static void injectMetricUtils(

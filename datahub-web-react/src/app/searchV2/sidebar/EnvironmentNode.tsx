@@ -1,6 +1,5 @@
-import { Typography } from 'antd';
+import { Stack } from '@phosphor-icons/react/dist/csr/Stack';
 import React from 'react';
-import styled from 'styled-components';
 
 import {
     BrowseProvider,
@@ -8,64 +7,60 @@ import {
     useEnvironmentAggregation,
     useIsEnvironmentSelected,
 } from '@app/searchV2/sidebar/BrowseContext';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
+import BrowseRowIcon from '@app/searchV2/sidebar/BrowseRowIcon';
 import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import useToggle from '@app/shared/useToggle';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
+import useToggle from '@app/sharedV2/useToggle';
 
-const Count = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${(props) => props.color};
-    padding-right: 8px;
-`;
+type Props = {
+    level: number;
+};
 
-const EnvironmentNode = () => {
+const EnvironmentNode = ({ level }: Props) => {
     const isSelected = useIsEnvironmentSelected();
     const entityAggregation = useEntityAggregation();
     const environmentAggregation = useEnvironmentAggregation();
     const { count } = environmentAggregation;
     const { trackToggleNodeEvent } = useSidebarAnalytics();
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, toggle } = useToggle({
         initialValue: isSelected,
-        closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'environment'),
     });
 
-    const onClickHeader = () => {
+    const onToggle = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, platformAggregations, retry } = useAggregationsQuery({
+    const { error, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [PLATFORM_FILTER_NAME],
     });
 
-    const color = '#000';
-
     return (
-        <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            header={
-                <ExpandableNode.Header isOpen={isOpen} showBorder onClick={onClickHeader}>
-                    <ExpandableNode.HeaderLeft>
-                        <ExpandableNode.TriangleButton
-                            isOpen={isOpen && !isClosing}
-                            isVisible={!!count}
-                            onClick={onClickHeader}
-                        />
-                        <ExpandableNode.Title color={color} size={14}>
-                            {environmentAggregation?.value}
-                        </ExpandableNode.Title>
-                    </ExpandableNode.HeaderLeft>
-                    <Count color={color}>{formatNumber(count)}</Count>
-                </ExpandableNode.Header>
-            }
-            body={
-                <ExpandableNode.Body>
+        <>
+            <HierarchicalBrowseTreeRow
+                level={level}
+                isSelected={false}
+                hasChildren={!!count}
+                isExpanded={isOpen}
+                count={count}
+                icon={
+                    <BrowseRowIcon>
+                        <Stack size={TREE_ROW_ENTITY_ICON_SIZE} />
+                    </BrowseRowIcon>
+                }
+                label={environmentAggregation?.value}
+                labelTitle={environmentAggregation?.value}
+                onSelect={onToggle}
+                onToggleExpand={onToggle}
+            />
+            {isOpen && (
+                <>
                     {platformAggregations?.map((platformAggregation) => (
                         <BrowseProvider
                             key={platformAggregation.value}
@@ -73,13 +68,13 @@ const EnvironmentNode = () => {
                             environmentAggregation={environmentAggregation}
                             platformAggregation={platformAggregation}
                         >
-                            <PlatformNode />
+                            <PlatformNode level={level + 1} />
                         </BrowseProvider>
                     ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
-                </ExpandableNode.Body>
-            }
-        />
+                </>
+            )}
+        </>
     );
 };
 

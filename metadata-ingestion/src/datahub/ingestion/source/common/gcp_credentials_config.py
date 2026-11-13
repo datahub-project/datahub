@@ -1,5 +1,3 @@
-import json
-import tempfile
 from typing import Dict, Optional
 
 from pydantic import Field, model_validator
@@ -52,13 +50,6 @@ class GCPCredential(ConfigModel):
         if project_id:
             configs["project_id"] = project_id
         return configs
-
-    def create_credential_temp_file(self, project_id: Optional[str] = None) -> str:
-        configs = self._dump_with_secrets(project_id)
-        with tempfile.NamedTemporaryFile(delete=False) as fp:
-            cred_json = json.dumps(configs, indent=4, separators=(",", ": "))
-            fp.write(cred_json.encode())
-            return fp.name
 
     def to_dict(self, project_id: Optional[str] = None) -> Dict[str, str]:
         return self._dump_with_secrets(project_id)

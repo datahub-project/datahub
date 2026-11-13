@@ -151,6 +151,63 @@ class TestHelperFunctions:
         for query in graphql_queries:
             assert _is_file_path(query) is False
 
+    def test_is_file_path_short_of_limit_does_not_raise(self):
+        """Strings at exactly 255 bytes must not raise [Errno 63] File name too long."""
+        # Build a 255-byte ASCII string — right at the OS limit, no exception expected.
+        value_255 = "a" * 255
+        assert len(value_255.encode("utf-8")) == 255
+        # The file doesn't exist, so the result is False — but importantly no OSError.
+        assert _is_file_path(value_255) is False
+
+    def test_is_file_path_over_limit_returns_false_without_stat(self):
+        """Strings longer than 255 bytes must return False without calling os.stat.
+
+        Before the fix, Path.exists() would call os.stat() on the raw string and
+        macOS would raise [Errno 63] File name too long for anything over 255 bytes.
+        """
+        value_256 = "a" * 256
+        assert len(value_256.encode("utf-8")) == 256
+
+        # Patch Path.exists to blow up if ever called — the guard must exit early.
+        with patch("datahub.cli.graphql_cli.Path") as mock_path_cls:
+            mock_path_cls.return_value.resolve.return_value.exists.side_effect = (
+                OSError(63, "File name too long")
+            )
+            result = _is_file_path(value_256)
+
+        assert result is False
+        # exists() must never have been called.
+        mock_path_cls.return_value.resolve.return_value.exists.assert_not_called()
+
+    def test_is_file_path_multibyte_utf8_over_limit_returns_false(self):
+        """Multi-byte chars whose *byte* length exceeds 255 must be rejected.
+
+        The OS limit is in bytes, not characters — a string of 128 two-byte chars
+        is only 128 chars long but 256 bytes, so it must not reach os.stat().
+        """
+        # "é" encodes as 2 bytes in UTF-8.
+        value = "é" * 128
+        assert len(value) == 128  # character count is under 255
+        assert len(value.encode("utf-8")) == 256  # byte count exceeds limit
+
+        assert _is_file_path(value) is False
+
+    def test_is_file_path_long_inline_graphql_returns_false(self):
+        """A realistic long inline GraphQL query must not raise [Errno 63]."""
+        # Mirrors real-world usage: an inline query passed via --query that is
+        # long enough to exceed macOS's 255-byte filename limit.
+        long_query = (
+            '{ search(input: { type: DATASET, query: "orders", start: 0, count: 10,'
+            ' filters: [{ field: "platform", value: "snowflake" }] }) '
+            "{ start count total searchResults { entity { urn type "
+            "... on Dataset { name platform { name } description "
+            "ownership { owners { owner { urn } } } } } } } }"
+        )
+        # Must be longer than 255 bytes to exercise the byte-length guard.
+        assert len(long_query.encode("utf-8")) > 255
+        # Must return False cleanly — no exception.
+        assert _is_file_path(long_query) is False
+
     def test_load_content_or_file_with_file(self):
         """Test loading content from a file."""
         content = "query { me { username } }"

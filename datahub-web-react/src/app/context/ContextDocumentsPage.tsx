@@ -1,6 +1,7 @@
-import { LoadingOutlined } from '@ant-design/icons';
+import { Loader } from '@components';
 import { Result } from 'antd';
 import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import { Redirect } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -9,7 +10,6 @@ import { useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useCreateDocumentTreeMutation } from '@app/document/hooks/useDocumentTreeMutations';
 import { useLoadDocumentTree } from '@app/document/hooks/useLoadDocumentTree';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { colors } from '@src/alchemy-components';
 
 import { EntityType } from '@types';
 
@@ -21,10 +21,9 @@ const ContentCard = styled.div`
     gap: 16px;
     height: 100%;
     width: 100%;
-    background-color: #ffffff;
-    border-radius: 12px;
-    box-shadow: 0 0 6px 0px rgba(93, 102, 139, 0.2);
-    margin: 4px;
+    background-color: ${(props) => props.theme.colors.bg};
+    border-radius: ${(props) => props.theme.styles['border-radius-navbar-redesign']};
+    box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
 /**
@@ -36,6 +35,7 @@ const ContentCard = styled.div`
  * 3. If no documents AND user cannot create: show unauthorized/empty state
  */
 export default function ContextDocumentsPage() {
+    const { t } = useTranslation('misc');
     const entityRegistry = useEntityRegistry();
     const { getRootNodes } = useDocumentTree();
     const { loading: treeLoading } = useLoadDocumentTree();
@@ -56,6 +56,7 @@ export default function ContextDocumentsPage() {
         setIsCreating(true);
         try {
             const newUrn = await createDocument({
+                /* untranslated-text -- default new-document title persisted as backend data, not UI chrome */
                 title: 'New Document',
                 parentDocument: null,
             });
@@ -105,7 +106,7 @@ export default function ContextDocumentsPage() {
     if (treeLoading) {
         return (
             <ContentCard data-testid="context-documents-loading">
-                <LoadingOutlined style={{ fontSize: 36, color: colors.gray[400] }} />
+                <Loader size="lg" />
             </ContentCard>
         );
     }
@@ -114,7 +115,7 @@ export default function ContextDocumentsPage() {
     if (isCreating) {
         return (
             <ContentCard data-testid="context-documents-creating">
-                <LoadingOutlined style={{ fontSize: 36, color: colors.gray[400] }} />
+                <Loader size="lg" />
             </ContentCard>
         );
     }
@@ -125,8 +126,8 @@ export default function ContextDocumentsPage() {
             <ContentCard data-testid="context-documents-empty-unauthorized">
                 <Result
                     status="403"
-                    title="No Documents Available"
-                    subTitle="There are no documents available. Contact your DataHub administrator to get started."
+                    title={t('document.noDocumentsTitle')}
+                    subTitle={t('document.noDocumentsSubtitle')}
                 />
             </ContentCard>
         );
@@ -135,7 +136,7 @@ export default function ContextDocumentsPage() {
     // Fallback loading state while redirecting
     return (
         <ContentCard data-testid="context-documents-redirecting">
-            <LoadingOutlined style={{ fontSize: 36, color: colors.gray[400] }} />
+            <Loader size="lg" />
         </ContentCard>
     );
 }

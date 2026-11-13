@@ -1,27 +1,16 @@
 """Data models for Microsoft Fabric OneLake entities.
 
 References:
-- Workspace API: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces
 - Items API: https://learn.microsoft.com/en-us/rest/api/fabric/items
 - Tables API: https://learn.microsoft.com/en-us/rest/api/fabric/tables
 """
 
 from dataclasses import dataclass
+from datetime import datetime
 from typing import List, Literal, Optional
 
-
-@dataclass
-class FabricWorkspace:
-    """Microsoft Fabric workspace metadata.
-
-    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces/list
-    """
-
-    id: str
-    name: str
-    description: Optional[str] = None
-    type: Optional[str] = None  # Workspace type
-    capacity_id: Optional[str] = None
+# The Fabric item types OneLake ingests.
+FabricItemType = Literal["Lakehouse", "Warehouse"]
 
 
 @dataclass
@@ -33,7 +22,7 @@ class FabricItem:
 
     id: str
     name: str
-    type: Literal["Lakehouse", "Warehouse"]  # Item type
+    type: FabricItemType
     workspace_id: str
     description: Optional[str] = None
     # TODO: Add support for shortcuts when available in API
@@ -88,8 +77,37 @@ class FabricColumn:
 
 
 @dataclass
+class FabricView:
+    """Microsoft Fabric view metadata, discovered via INFORMATION_SCHEMA.VIEWS.
+
+    Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-information-schema-views/views-transact-sql
+    """
+
+    name: str
+    schema_name: str
+    item_id: str
+    workspace_id: str
+    view_definition: Optional[str] = None
+
+
+@dataclass
 class FabricTableSchema:
     """Complete schema for a Fabric table."""
 
     table: FabricTable
     columns: List[FabricColumn]
+
+
+@dataclass
+class FabricQueryInsightsRow:
+    """A single row from `queryinsights.exec_requests_history`.
+
+    Reference: https://learn.microsoft.com/en-us/sql/relational-databases/system-views/queryinsights-exec-requests-history-transact-sql?view=fabric
+    """
+
+    start_time: datetime
+    statement_type: str
+    status: str
+    command: str
+    login_name: Optional[str]
+    row_count: Optional[int]

@@ -6,7 +6,6 @@ import { ChangeMessage } from '@app/entityV2/document/changeHistory/changeMessag
 import { extractChangeDetails, getActorDisplayName } from '@app/entityV2/document/changeHistory/utils/changeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Popover, Text } from '@src/alchemy-components';
-import { colors } from '@src/alchemy-components/theme';
 import dayjs from '@utils/dayjs';
 
 import { DocumentChange, DocumentChangeType } from '@types';
@@ -25,7 +24,7 @@ const TimeRow = styled.div`
 `;
 
 const TimeText = styled(Text)`
-    color: ${colors.gray[500]};
+    color: ${(props) => props.theme.colors.textSecondary};
 `;
 
 interface DocumentChangeTimelineContentProps {
@@ -69,6 +68,7 @@ export const DocumentChangeTimelineContent: React.FC<DocumentChangeTimelineConte
                 />
 
                 {/* Timestamp with full date on hover */}
+                {/* eslint-disable-next-line i18next/no-literal-string -- (untranslated-text) dayjs date format token, not user-facing copy */}
                 <Popover content={timestamp.format('ll LTS')} placement="right">
                     <TimeRow>
                         <TimeText type="span" size="sm">

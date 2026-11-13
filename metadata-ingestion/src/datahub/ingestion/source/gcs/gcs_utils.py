@@ -1,6 +1,16 @@
 from typing import Optional
 
+from pydantic import Field, SecretStr
+
+from datahub.configuration.common import ConfigModel
+
 GCS_PREFIX = "gs://"
+GCS_ENDPOINT_URL = "https://storage.googleapis.com"
+
+
+class HMACKey(ConfigModel):
+    hmac_access_id: str = Field(description="Access ID")
+    hmac_access_secret: SecretStr = Field(description="Secret")
 
 
 def is_gcs_uri(uri: str) -> bool:

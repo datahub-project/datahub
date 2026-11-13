@@ -1,9 +1,9 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 
 import { Pagination } from '@components/components/Pagination/Pagination';
-import { paginationDefaults } from '@components/components/Pagination/types';
+import { PaginationProps, paginationDefaults } from '@components/components/Pagination/types';
 
 // Auto Docs
 const meta = {
@@ -40,7 +40,7 @@ const meta = {
             },
         },
         total: {
-            description: 'Total number of pages',
+            description: 'Total number of items across all pages',
             table: {
                 defaultValue: { summary: `${paginationDefaults.total}` },
             },
@@ -79,12 +79,30 @@ type Story = StoryObj<typeof meta>;
 
 // Basic story is what is displayed 1st in storybook
 // Pass props to this so that it can be customized via the UI props panel
-export const sandbox: Story = {
-    tags: ['dev'],
-    render: (props) => <Pagination {...props} />,
+const PaginationWithState = (args: PaginationProps) => {
+    const [page, setPage] = useState(args.currentPage);
+    const [pageSize, setPageSize] = useState(args.itemsPerPage);
+    useEffect(() => setPage(args.currentPage), [args.currentPage]);
+    useEffect(() => setPageSize(args.itemsPerPage), [args.itemsPerPage]);
+    return (
+        <Pagination
+            {...args}
+            currentPage={page}
+            itemsPerPage={pageSize}
+            onPageChange={(nextPage, nextPageSize) => {
+                setPage(nextPage);
+                setPageSize(nextPageSize);
+                args.onPageChange?.(nextPage, nextPageSize);
+            }}
+        />
+    );
 };
 
-export const WithSizeChanger = () => {
-    const [current, setCurrent] = React.useState(3);
-    return <Pagination currentPage={current} itemsPerPage={1} total={10} onPageChange={setCurrent} showSizeChanger />;
+export const sandbox: Story = {
+    tags: ['dev'],
+    render: (props) => <PaginationWithState {...props} />,
 };
+
+export const WithSizeChanger = () => (
+    <PaginationWithState currentPage={3} itemsPerPage={10} total={500} showSizeChanger />
+);

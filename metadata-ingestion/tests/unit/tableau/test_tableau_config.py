@@ -4,7 +4,7 @@ from typing import Dict
 from unittest import mock
 
 import pytest
-from freezegun import freeze_time
+import time_machine
 from pydantic import ValidationError
 from tableauserverclient import Server
 from tableauserverclient.models import SiteItem
@@ -16,40 +16,9 @@ from datahub.ingestion.source.tableau.tableau import (
     TableauSiteSource,
     TableauSourceReport,
 )
+from tests.unit.tableau.conftest import default_config
 
 FROZEN_TIME = "2021-12-07 07:00:00"
-
-GMS_PORT = 8080
-GMS_SERVER = f"http://localhost:{GMS_PORT}"
-
-default_config = {
-    "username": "username",
-    "password": "pass`",
-    "connect_uri": "https://do-not-connect",
-    "site": "acryl",
-    "projects": ["default", "Project 2", "Samples"],
-    "extract_project_hierarchy": False,
-    "page_size": 1000,
-    "workbook_page_size": None,
-    "ingest_tags": True,
-    "ingest_owner": True,
-    "ingest_tables_external": True,
-    "default_schema_map": {
-        "dvdrental": "public",
-        "someotherdb": "schema",
-    },
-    "platform_instance_map": {"postgres": "demo_postgres_instance"},
-    "extract_usage_stats": True,
-    "stateful_ingestion": {
-        "enabled": True,
-        "remove_stale_metadata": True,
-        "fail_safe_threshold": 100.0,
-        "state_provider": {
-            "type": "datahub",
-            "config": {"datahub_api": {"server": GMS_SERVER}},
-        },
-    },
-}
 
 
 def test_value_error_projects_and_project_pattern(
@@ -111,7 +80,7 @@ def test_ingest_hidden_assets_invalid():
         TableauConfig.model_validate(config)
 
 
-@freeze_time(FROZEN_TIME)
+@time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.parametrize(
     "extract_project_hierarchy, allowed_projects",
     [

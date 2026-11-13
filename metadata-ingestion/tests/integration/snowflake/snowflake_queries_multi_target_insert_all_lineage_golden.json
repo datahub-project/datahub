@@ -1,0 +1,338 @@
+[
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1777977740835,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1777549800000,
+                        "actor": "urn:li:corpuser:etl_user"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD),amount)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740836,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT ALL WHEN amount > 100 THEN INTO stage_dwh.large_orders (id, amount) VALUES (id, amount) WHEN amount <= 100 THEN INTO stage_dwh.small_orders (id, amount) VALUES (id, amount) SELECT id, amount FROM raw_betler.orders_source",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            },
+            "lastModified": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740837,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),amount)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD),amount)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740837,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740837,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": {
+            "upstreams": [
+                {
+                    "auditStamp": {
+                        "time": 1777977740836,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1777549800000,
+                        "actor": "urn:li:corpuser:etl_user"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD)",
+                    "type": "TRANSFORMED",
+                    "query": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8"
+                }
+            ],
+            "fineGrainedLineages": [
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD),id)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),amount)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD),amount)"
+                    ],
+                    "confidenceScore": 1.0,
+                    "query": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740838,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "statement": {
+                "value": "INSERT ALL WHEN amount > 100 THEN INTO stage_dwh.large_orders (id, amount) VALUES (id, amount) WHEN amount <= 100 THEN INTO stage_dwh.small_orders (id, amount) VALUES (id, amount) SELECT id, amount FROM raw_betler.orders_source",
+                "language": "SQL"
+            },
+            "source": "SYSTEM",
+            "created": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            },
+            "lastModified": {
+                "time": 1777549800000,
+                "actor": "urn:li:corpuser:etl_user"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740838,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+        "json": {
+            "subjects": [
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD)"
+                },
+                {
+                    "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),amount)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.raw_betler.orders_source,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD),id)"
+                },
+                {
+                    "entity": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD),amount)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740838,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:snowflake"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740839,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.large_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740839,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.stage_dwh.small_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740839,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:2db5d5b57ce54880ec850ad0f93f0ea4506a48947725b7582b6d85354915fc29",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740839,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "query",
+    "entityUrn": "urn:li:query:7be96aeb623367751176fca0a5561f470d4b7598bf424e21844f014bca174de8",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1777977740839,
+        "runId": "snowflake-queries-2026_05_05-16_12_19-ziijh3",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

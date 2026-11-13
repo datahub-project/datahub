@@ -29,6 +29,7 @@ import graphql.com.google.common.collect.ImmutableSet;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ReadPreference;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -66,10 +67,12 @@ public class UpsertStructuredPropertiesResolver
         () -> {
           try {
             // check authorization first
-            if (!AuthorizationUtils.canEditProperties(assetUrn, context)) {
+            final List<Urn> propertyUrns =
+                updateMap.keySet().stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+            if (!AuthorizationUtils.canEditProperties(assetUrn, context, propertyUrns)) {
               throw new AuthorizationException(
                   String.format(
-                      "Not authorized to update properties on the gives urn %s", assetUrn));
+                      "Not authorized to update properties on the given urn %s", assetUrn));
             }
 
             final AuditStamp auditStamp =
@@ -77,7 +80,9 @@ public class UpsertStructuredPropertiesResolver
 
             // schemaField entities often don't exist, create it if upserting on a schema field
             if (!assetUrn.getEntityType().equals(SCHEMA_FIELD_ENTITY_NAME)
-                && !_entityClient.exists(context.getOperationContext(), assetUrn)) {
+                && !_entityClient.exists(
+                    context.getOperationContext().withReadPreference(ReadPreference.PRIMARY),
+                    assetUrn)) {
               throw new RuntimeException(
                   String.format("Asset with provided urn %s does not exist", assetUrn));
             }
@@ -117,13 +122,15 @@ public class UpsertStructuredPropertiesResolver
       @Nonnull OperationContext opContext, Urn assetUrn) throws Exception {
     EntityResponse response =
         _entityClient.getV2(
-            opContext,
+            opContext.withReadPreference(ReadPreference.PRIMARY),
             assetUrn.getEntityType(),
             assetUrn,
             ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
     StructuredProperties structuredProperties = new StructuredProperties();
     structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
+    if (response != null
+        && response.getAspects() != null
+        && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
       structuredProperties =
           new StructuredProperties(
               response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());

@@ -9,7 +9,7 @@ import com.linkedin.metadata.aspect.consistency.ConsistencyCheckRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyFixRegistry;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
 import com.linkedin.metadata.systemmetadata.ESSystemMetadataDAO;
-import javax.inject.Named;
+import jakarta.inject.Named;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.test.context.ActiveProfiles;
@@ -23,10 +23,9 @@ import org.testng.annotations.Test;
  * <p>This verifies that ESSystemMetadataDAO is properly exposed as a bean and can be injected into
  * ConsistencyService.
  */
-@ActiveProfiles("test")
+@ActiveProfiles({"upgrade", "test"})
 @SpringBootTest(
     classes = {UpgradeCliApplication.class, UpgradeCliApplicationTestConfiguration.class},
-    properties = {"kafka.schemaRegistry.type=INTERNAL"},
     args = {"-u", "SystemUpdateNonBlocking"})
 public class ConsistencyServiceBeanTest extends AbstractTestNGSpringContextTests {
 

@@ -2,7 +2,7 @@
 
 Db2 is a data platform used to store and query analytical or operational data. Learn more in the [official Db2 documentation](https://www.ibm.com/products/db2).
 
-The DataHub integration for Db2 covers core metadata entities such as datasets/tables/views, schema fields, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Db2 covers core metadata entities such as datasets/tables/views, schema fields, and containers. It also captures table- and column-level lineage, data profiling, and stateful deletion detection.
 
 ## Concept Mapping
 

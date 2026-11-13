@@ -47,7 +47,7 @@ public class ClearSystemMetadataServiceStep implements UpgradeStep {
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
       try {
-        _systemMetadataService.clear();
+        _systemMetadataService.clear(context.opContext());
       } catch (Exception e) {
         context.report().addLine("Failed to clear system metadata service", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);

@@ -29,6 +29,8 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.FailedMetadataChangeProposal;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -52,10 +54,12 @@ import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class TraceServiceImplTest {
+
   private static final String TEST_TRACE_ID_FUTURE =
       SystemTelemetryContext.TRACE_ID_GENERATOR.generateTraceId(
           Instant.now().toEpochMilli() + 1000);
@@ -70,12 +74,20 @@ public class TraceServiceImplTest {
   @Mock private EntityService<?> entityService;
   @Mock private MCPTraceReader mcpTraceReader;
   @Mock private MCPFailedTraceReader mcpFailedTraceReader;
-  @Mock private MCLTraceReader mclVersionedTraceReader;
-  @Mock private MCLTraceReader mclTimeseriesTraceReader;
 
   private TraceServiceImpl traceService;
   private static final OperationContext operationContext =
       TestOperationContexts.systemContextNoSearchAuthorization();
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   @BeforeMethod
   public void setup() throws Exception {
@@ -88,8 +100,6 @@ public class TraceServiceImplTest {
             .entityService(entityService)
             .mcpTraceReader(mcpTraceReader)
             .mcpFailedTraceReader(mcpFailedTraceReader)
-            .mclVersionedTraceReader(mclVersionedTraceReader)
-            .mclTimeseriesTraceReader(mclTimeseriesTraceReader)
             .build();
   }
 
@@ -123,7 +133,8 @@ public class TraceServiceImplTest {
     when(summary.getUrn()).thenReturn(TEST_URN.toString());
     when(summary.getAspectName()).thenReturn(ASPECT_NAME);
     when(summary.getTelemetryTraceId()).thenReturn(TEST_TRACE_ID);
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.singletonList(summary));
 
     // Act
@@ -210,6 +221,56 @@ public class TraceServiceImplTest {
   }
 
   @Test
+  public void testTraceSkipsAspectUnknownToRegistry() throws Exception {
+    String unknownAspect = "aspectFromNewerBuild";
+    Map<Urn, List<String>> aspectNames =
+        Collections.singletonMap(TEST_URN, List.of(ASPECT_NAME, unknownAspect));
+
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
+    Map<String, TraceStorageStatus> pendingStatus = new LinkedHashMap<>();
+    pendingStatus.put(
+        ASPECT_NAME,
+        TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Consumer has not processed offset."));
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(TEST_TRACE_ID), any(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, pendingStatus));
+
+    Map<Urn, Map<String, TraceStatus>> result =
+        traceService.trace(operationContext, TEST_TRACE_ID, aspectNames, false, false);
+
+    Map<String, TraceStatus> urnStatus = result.get(TEST_URN);
+    assertEquals(
+        urnStatus.get(ASPECT_NAME).getPrimaryStorage().getWriteStatus(), TraceWriteStatus.PENDING);
+    assertFalse(urnStatus.containsKey(unknownAspect));
+  }
+
+  @Test
+  public void testTraceSkipsEntityTypeUnknownToRegistry() throws Exception {
+    Urn unknownEntityUrn = UrnUtils.getUrn("urn:li:entityFromNewerBuild:abc");
+    Map<Urn, List<String>> aspectNames = new LinkedHashMap<>();
+    aspectNames.put(TEST_URN, List.of(ASPECT_NAME));
+    aspectNames.put(unknownEntityUrn, List.of(ASPECT_NAME));
+
+    when(entityService.getEntitiesV2(any(), anyString(), anySet(), anySet(), anyBoolean()))
+        .thenReturn(Collections.emptyMap());
+    Map<String, TraceStorageStatus> pendingStatus = new LinkedHashMap<>();
+    pendingStatus.put(
+        ASPECT_NAME,
+        TraceStorageStatus.ok(TraceWriteStatus.PENDING, "Consumer has not processed offset."));
+    when(mcpTraceReader.tracePendingStatuses(any(), eq(TEST_TRACE_ID), any(), anyBoolean()))
+        .thenReturn(Collections.singletonMap(TEST_URN, pendingStatus));
+
+    // detailed=true also runs the failed-MCP lookup over every traced urn
+    Map<Urn, Map<String, TraceStatus>> result =
+        traceService.trace(operationContext, TEST_TRACE_ID, aspectNames, false, true);
+
+    assertEquals(
+        result.get(TEST_URN).get(ASPECT_NAME).getPrimaryStorage().getWriteStatus(),
+        TraceWriteStatus.PENDING);
+    assertFalse(result.containsKey(unknownEntityUrn));
+  }
+
+  @Test
   public void testTraceWithTimeseriesAspect() throws Exception {
     // Arrange
     Map<Urn, List<String>> aspectNames =
@@ -269,7 +330,8 @@ public class TraceServiceImplTest {
         .thenReturn(TraceIdGenerator.getTimestampMillis(TEST_TRACE_ID_FUTURE)); // Future timestamp
     when(summary.getTelemetryTraceId()).thenReturn(TEST_TRACE_ID_FUTURE);
 
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.singletonList(summary));
 
     // Act
@@ -423,7 +485,8 @@ public class TraceServiceImplTest {
 
     // Mock systemMetadataService to return empty list to ensure
     // we don't get a pre-existing search status
-    when(systemMetadataService.findAspectsByUrn(eq(TEST_URN), anyList(), eq(true)))
+    when(systemMetadataService.findAspectsByUrn(
+            any(OperationContext.class), eq(TEST_URN), anyList(), eq(true)))
         .thenReturn(Collections.emptyList());
 
     // Act

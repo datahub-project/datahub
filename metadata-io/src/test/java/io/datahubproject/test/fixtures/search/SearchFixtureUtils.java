@@ -126,7 +126,7 @@ public class SearchFixtureUtils {
     FixtureReader reader =
         FixtureReader.builder()
             .bulkProcessor(bulkProcessor)
-            .fixtureName("long_tail")
+            .fixtureName("sample_data")
             .refreshIntervalSeconds(SearchTestContainerConfiguration.REFRESH_INTERVAL_SECONDS)
             .build();
 

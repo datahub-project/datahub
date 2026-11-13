@@ -1,15 +1,19 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
-import { DocumentEntity } from '@app/entityV2/document/DocumentEntity';
+import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';
+import { getDocumentOverrideProperties } from '@app/entityV2/document/document.utils';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { EntityProfile } from '@app/entityV2/shared/containers/profile/EntityProfile';
 import DataProductSection from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/DataProductSection';
 import { SidebarDomainSection } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SidebarDomainSection';
 import { SidebarOwnerSection } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/sidebar/SidebarOwnerSection';
+import { SidebarRelatedAssetsSection } from '@app/entityV2/shared/containers/profile/sidebar/RelatedAssets/SidebarRelatedAssetsSection';
 import { SidebarGlossaryTermsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarGlossaryTermsSection';
 import { SidebarTagsSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarTagsSection';
+import StatusSection from '@app/entityV2/shared/containers/profile/sidebar/shared/StatusSection';
 import { PropertiesTab } from '@app/entityV2/shared/tabs/Properties/PropertiesTab';
-import SummaryTab from '@app/entityV2/summary/SummaryTab';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';
 import { EntityType } from '@types';
@@ -21,24 +25,27 @@ const headerDropdownItems = new Set([EntityMenuItems.COPY_URL, EntityMenuItems.S
  * Uses the traditional EntityProfile with tabs instead of the custom DocumentSimpleProfile
  */
 export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element => {
+    const { t } = useTranslation('entity.types');
     return (
         <EntityProfile
             urn={urn}
             entityType={EntityType.Document}
             useEntityQuery={useGetDocumentQuery}
-            getOverrideProperties={new DocumentEntity().getOverridePropertiesFromEntity}
+            getOverrideProperties={getDocumentOverrideProperties}
             headerDropdownItems={headerDropdownItems}
             tabs={[
                 {
-                    name: 'Summary',
-                    component: SummaryTab,
+                    name: t('tab.summary'),
+                    path: EntityTabPath.SUMMARY,
+                    component: ExternalDocumentInlineSummaryTab,
                     display: {
                         visible: () => true,
                         enabled: () => true,
                     },
                 },
                 {
-                    name: 'Properties',
+                    name: t('tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     display: {
                         visible: () => true,
@@ -75,6 +82,18 @@ export const DocumentExternalProfile = ({ urn }: { urn: string }): JSX.Element =
                     component: DataProductSection,
                     display: {
                         visible: () => true,
+                    },
+                },
+                {
+                    component: SidebarRelatedAssetsSection,
+                    display: {
+                        visible: () => true,
+                    },
+                },
+                {
+                    component: StatusSection,
+                    display: {
+                        visible: (entityData) => !!entityData?.lastIngested,
                     },
                 },
             ]}

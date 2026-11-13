@@ -5,14 +5,9 @@ import requests
 import time_machine
 
 from datahub.configuration.common import AllowDenyPattern
-from datahub.ingestion.glossary.classifier import (
-    ClassificationConfig,
-    DynamicTypedClassifierConfig,
-)
-from datahub.ingestion.glossary.datahub_classifier import DataHubClassifierConfig
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.sink.file import FileSinkConfig
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.sql.trino import ConnectorDetail, TrinoConfig
 from datahub.testing import mce_helpers
 from tests.test_helpers import fs_helpers
@@ -36,10 +31,10 @@ def trino_runner(docker_compose_runner, pytestconfig):
         docker_services.wait_until_responsive(
             timeout=30,
             pause=1,
-            check=lambda: requests.get("http://localhost:5300/v1/info").json()[
-                "starting"
-            ]
-            is False,
+            check=lambda: (
+                requests.get("http://localhost:5300/v1/info").json()["starting"]
+                is False
+            ),
         )
 
         yield docker_services
@@ -58,13 +53,11 @@ def loaded_trino(trino_runner):
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline.
     with fs_helpers.isolated_filesystem(tmp_path):
         # Run the metadata ingestion pipeline for trino catalog referring to postgres database
-        mce_out_file = "trino_mces.json"
+        mce_out_file = "trino.json"
         events_file = tmp_path / mce_out_file
 
         pipeline_config = {
@@ -79,7 +72,7 @@ def test_trino_ingest(
                     profile_pattern=AllowDenyPattern(
                         allow=["postgresqldb.librarydb.*"]
                     ),
-                    profiling=GEProfilingConfig(
+                    profiling=ProfilingConfig(
                         enabled=True,
                         include_field_null_count=True,
                         include_field_distinct_count=True,
@@ -92,18 +85,6 @@ def test_trino_ingest(
                         include_field_distinct_value_frequencies=True,
                         include_field_histogram=True,
                         include_field_sample_values=True,
-                    ),
-                    classification=ClassificationConfig(
-                        enabled=True,
-                        classifiers=[
-                            DynamicTypedClassifierConfig(
-                                type="datahub",
-                                config=DataHubClassifierConfig(
-                                    minimum_values_threshold=1,
-                                ),
-                            )
-                        ],
-                        max_workers=1,
                     ),
                     catalog_to_connector_details={
                         "postgresqldb": ConnectorDetail(
@@ -127,17 +108,16 @@ def test_trino_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path="trino_mces.json",
-            golden_path=test_resources_dir / "trino_mces_golden.json",
+            fail_on_output_mces=True,
+            output_path="trino.json",
+            golden_path=test_resources_dir / "trino_golden.json",
         )
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)
-def test_trino_hive_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
-):
+def test_trino_hive_ingest(loaded_trino, test_resources_dir, pytestconfig, tmp_path):
     # Run the metadata ingestion pipeline for trino catalog referring to postgres database
-    mce_out_file = "trino_hive_mces.json"
+    mce_out_file = "trino_hive.json"
     events_file = tmp_path / mce_out_file
 
     pipeline_config = {
@@ -149,18 +129,6 @@ def test_trino_hive_ingest(
                 database="hivedb",
                 username="foo",
                 schema_pattern=AllowDenyPattern(allow=["^db1"]),
-                classification=ClassificationConfig(
-                    enabled=True,
-                    classifiers=[
-                        DynamicTypedClassifierConfig(
-                            type="datahub",
-                            config=DataHubClassifierConfig(
-                                minimum_values_threshold=1,
-                            ),
-                        )
-                    ],
-                    max_workers=1,
-                ),
             ).model_dump(),
         },
         "sink": {
@@ -187,12 +155,13 @@ def test_trino_hive_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "trino_hive_mces_golden.json",
+        golden_path=test_resources_dir / "trino_hive_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['numfiles'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['totalsize'\]",
         ],
     )
 
@@ -201,9 +170,9 @@ def test_trino_hive_ingest(
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_trino_instance_ingest(
-    loaded_trino, test_resources_dir, pytestconfig, tmp_path, mock_time
+    loaded_trino, test_resources_dir, pytestconfig, tmp_path
 ):
-    mce_out_file = "trino_instance_mces.json"
+    mce_out_file = "trino_instance.json"
     events_file = tmp_path / mce_out_file
     pipeline_config = {
         "run_id": "trino-hive-instance-test",
@@ -238,9 +207,10 @@ def test_trino_instance_ingest(
     # Verify the output.
     mce_helpers.check_golden_file(
         pytestconfig,
+        fail_on_output_mces=True,
         output_path=events_file,
-        golden_path=test_resources_dir / "trino_hive_instance_mces_golden.json",
+        golden_path=test_resources_dir / "trino_hive_instance_golden.json",
         ignore_paths=[
-            r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastddltime'\]",
+            r"root\[\d+\]\['aspect'\]\['json'\]\['customProperties'\]\['transient_lastddltime'\]",
         ],
     )

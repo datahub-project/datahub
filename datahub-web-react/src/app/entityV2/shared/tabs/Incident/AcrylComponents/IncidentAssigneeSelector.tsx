@@ -1,15 +1,15 @@
-import { LoadingOutlined } from '@ant-design/icons';
-import _ from 'lodash';
+import uniqBy from 'lodash/uniqBy';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { LoadingWrapper } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/styledComponents';
 import { IncidentTableRow } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN } from '@app/entityV2/shared/tabs/Incident/utils';
-import { Avatar, SimpleSelect } from '@src/alchemy-components';
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
-import { useGetRecommendations } from '@src/app/shared/recommendation';
-import { addUserFiltersToAutoCompleteInput } from '@src/app/shared/userSearchUtils';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { EntityNestedSelectOption } from '@app/sharedV2/select/select.types';
+import { Avatar, Loader, SimpleSelect } from '@src/alchemy-components';
+import { useGetRecommendations } from '@src/app/sharedV2/recommendation';
+import { addUserFiltersToAutoCompleteInput } from '@src/app/sharedV2/userSearchUtils';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntitiesLazyQuery } from '@src/graphql/entity.generated';
 import { useGetAutoCompleteResultsLazyQuery } from '@src/graphql/search.generated';
 import { Entity, EntityType } from '@src/types.generated';
@@ -20,19 +20,20 @@ interface AssigneeSelectorProps {
     setCachedAssignees: React.Dispatch<React.SetStateAction<any[]>>;
 }
 
-const renderSelectedAssignee = (selectedOption: NestedSelectOption) => {
+const renderSelectedAssignee = (selectedOption: EntityNestedSelectOption) => {
     return selectedOption ? <Avatar name={selectedOption?.label} showInPill /> : null;
 };
 
-const renderCustomAssigneeOption = (option: NestedSelectOption) => {
+const renderCustomAssigneeOption = (option: EntityNestedSelectOption) => {
     return <Avatar name={option?.label} showInPill />;
 };
 
 export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: AssigneeSelectorProps) => {
+    const { t } = useTranslation('entity.profile.incident');
     const { recommendedData, loading: recommendationsLoading } = useGetRecommendations([EntityType.CorpUser]);
     const [useSearch, setUseSearch] = useState(false);
     const assigneeValues = data?.assignees && getAssigneeWithURN(data.assignees);
-    const [selectedAssigneeOptions, setSelectedAssigneeOptions] = useState<NestedSelectOption[]>([]);
+    const [selectedAssigneeOptions, setSelectedAssigneeOptions] = useState<EntityNestedSelectOption[]>([]);
 
     const [assigneeList, setAssigneeList] = useState<any>(assigneeValues || []);
 
@@ -41,7 +42,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     const ownerSearchResults: Array<Entity> = userSearchData?.autoComplete?.entities || [];
     const ownerResult = useSearch ? ownerSearchResults : recommendedData;
     const [getAssigneeEntities, { data: resolvedAssigneeEntities }] = useGetEntitiesLazyQuery();
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     useEffect(() => {
         if (data?.assignees?.length) {
@@ -66,7 +67,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
                 label: entityRegistry.getDisplayName(entity.type, entity),
                 entity,
             })) || [];
-        const uniqueOptions = _.uniqBy(options, 'value');
+        const uniqueOptions = uniqBy(options, 'value');
         return uniqueOptions;
     }, [ownerResult, entityRegistry, resolvedAssigneeEntities]);
 
@@ -88,7 +89,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
     }, [resolvedAssigneeEntities]);
 
     const onUpdateAssignees = (values: string[]) => {
-        const newSelectedAssigneeOptions: NestedSelectOption[] = [];
+        const newSelectedAssigneeOptions: EntityNestedSelectOption[] = [];
         values.forEach((value) => {
             const alreadySelected = newSelectedAssigneeOptions.some((item) => item?.value === value);
 
@@ -98,7 +99,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
                     selectedAssigneeOptions.find((o) => o?.value === value);
 
                 if (option) {
-                    newSelectedAssigneeOptions.push(option as NestedSelectOption);
+                    newSelectedAssigneeOptions.push(option as EntityNestedSelectOption);
                 }
             }
         });
@@ -130,15 +131,17 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
             setUseSearch(false);
         }
     };
+    const combinedAssigneeOptions = uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value');
+
     return recommendationsLoading ? (
         <LoadingWrapper>
-            <LoadingOutlined />
+            <Loader size="xs" />
         </LoadingWrapper>
     ) : (
         <SimpleSelect
             options={ownerSearchOptions}
             isMultiSelect
-            placeholder="Select assignee"
+            placeholder={t('editor.assigneePlaceholder')}
             width="full"
             optionListStyle={{
                 maxHeight: '20vh',
@@ -148,7 +151,7 @@ export const IncidentAssigneeSelector = ({ data, form, setCachedAssignees }: Ass
             values={assigneeList}
             onSearchChange={(value: string) => handleSearch(EntityType.CorpUser, value)}
             showSearch
-            combinedSelectedAndSearchOptions={_.uniqBy([...ownerSearchOptions, ...selectedAssigneeOptions], 'value')}
+            combinedSelectedAndSearchOptions={combinedAssigneeOptions}
             renderCustomSelectedValue={renderSelectedAssignee}
             renderCustomOptionText={renderCustomAssigneeOption}
             selectLabelProps={{ variant: 'custom' }}

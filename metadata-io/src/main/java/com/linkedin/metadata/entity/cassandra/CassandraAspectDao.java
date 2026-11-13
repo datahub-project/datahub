@@ -3,6 +3,7 @@ package com.linkedin.metadata.entity.cassandra;
 import static com.datastax.oss.driver.api.querybuilder.QueryBuilder.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.entity.cassandra.CassandraAspect.rowToEntityAspect;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ModelConversionException;
 import com.datahub.util.exception.RetryLimitReached;
@@ -14,6 +15,7 @@ import com.datastax.oss.driver.api.core.cql.SimpleStatement;
 import com.datastax.oss.driver.api.core.paging.OffsetPager;
 import com.datastax.oss.driver.api.core.paging.OffsetPager.Page;
 import com.datastax.oss.driver.api.querybuilder.QueryBuilder;
+import com.datastax.oss.driver.api.querybuilder.delete.Delete;
 import com.datastax.oss.driver.api.querybuilder.insert.Insert;
 import com.datastax.oss.driver.api.querybuilder.select.Selector;
 import com.datastax.oss.driver.api.querybuilder.term.Term;
@@ -37,18 +39,21 @@ import com.linkedin.metadata.entity.TransactionResult;
 import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.PartitionedStream;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.storage.PrimaryStorageResolver;
 import com.linkedin.metadata.query.ExtraInfo;
 import com.linkedin.metadata.query.ExtraInfoArray;
 import com.linkedin.metadata.query.ListResultMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -62,18 +67,24 @@ import lombok.extern.slf4j.Slf4j;
 public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   private final CqlSession _cqlSession;
+  private final PrimaryStorageResolver primaryStorageResolver;
   private boolean canWrite = true;
   @Setter private boolean connectionValidated = false;
   @Getter @Nonnull private final List<SystemAspectValidator> systemAspectValidators;
   @Getter @Nullable private final AspectSizeValidationConfiguration validationConfig;
 
   public CassandraAspectDao(
-      @Nonnull final CqlSession cqlSession,
+      @Nonnull final PrimaryStorageResolver primaryStorageResolver,
       @Nonnull List<SystemAspectValidator> systemAspectValidators,
       @Nullable AspectSizeValidationConfiguration validationConfig) {
-    _cqlSession = cqlSession;
+    this.primaryStorageResolver = primaryStorageResolver;
+    this._cqlSession = primaryStorageResolver.resolveCassandraPrimary();
     this.systemAspectValidators = systemAspectValidators;
     this.validationConfig = validationConfig;
+  }
+
+  private CqlSession readSession(@Nullable OperationContext opContext, boolean forUpdate) {
+    return primaryStorageResolver.resolveCassandra(opContext, forUpdate);
   }
 
   private boolean validateConnection() {
@@ -97,7 +108,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull String aspectName,
       boolean forUpdate) {
     validateConnection();
-    return Optional.ofNullable(getAspect(urn, aspectName, ASPECT_LATEST_VERSION))
+    return Optional.ofNullable(getAspect(opContext, urn, aspectName, ASPECT_LATEST_VERSION))
         .map(
             a -> {
               // Pre-patch validation if this is for update
@@ -135,21 +146,27 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public long getMaxVersion(@Nonnull final String urn, @Nonnull final String aspectName) {
+  public long getMaxVersion(
+      OperationContext operationContext,
+      @Nonnull final String urn,
+      @Nonnull final String aspectName) {
     validateConnection();
-    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
+    Map<String, Pair<Long, Long>> result =
+        getVersionRanges(null, urn, ImmutableSet.of(aspectName), false);
     return result.get(aspectName).getSecond();
   }
 
   @Override
   @Nonnull
-  public Pair<Long, Long> getVersionRange(@Nonnull String urn, @Nonnull String aspectName) {
-    Map<String, Pair<Long, Long>> result = getVersionRanges(urn, ImmutableSet.of(aspectName));
+  public Pair<Long, Long> getVersionRange(
+      OperationContext operationContext, @Nonnull String urn, @Nonnull String aspectName) {
+    Map<String, Pair<Long, Long>> result =
+        getVersionRanges(operationContext, urn, ImmutableSet.of(aspectName), false);
     return result.get(aspectName);
   }
 
   @Override
-  public long countEntities() {
+  public long countEntities(OperationContext operationContext) {
     validateConnection();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
@@ -167,7 +184,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public boolean checkIfAspectExists(@Nonnull String aspectName) {
+  public boolean checkIfAspectExists(
+      OperationContext operationContext, @Nonnull String aspectName) {
     validateConnection();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
@@ -183,7 +201,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   private Map<String, Pair<Long, Long>> getVersionRanges(
-      @Nonnull final String urn, @Nonnull final Set<String> aspectNames) {
+      @Nullable OperationContext opContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> aspectNames,
+      boolean forUpdate) {
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
             .selectors(
@@ -203,7 +224,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
                     Selector.column(CassandraAspect.ASPECT_COLUMN)))
             .build();
 
-    ResultSet rs = _cqlSession.execute(ss);
+    ResultSet rs = readSession(opContext, forUpdate).execute(ss);
     Map<String, Pair<Long, Long>> aspectVersionRanges =
         rs.all().stream()
             .collect(
@@ -224,7 +245,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Optional<EntityAspect> updateAspect(
-      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect) {
+      OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect aspect) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -239,7 +262,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public Optional<EntityAspect> insertAspect(
-      @Nullable TransactionContext txContext, @Nonnull SystemAspect aspect, long version) {
+      OperationContext operationContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull SystemAspect aspect,
+      long version) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -256,35 +282,40 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public Map<EntityAspectIdentifier, EntityAspect> batchGet(
-      @Nonnull final Set<EntityAspectIdentifier> keys, boolean forUpdate) {
+      @Nonnull OperationContext opContext,
+      @Nonnull final Set<EntityAspectIdentifier> keys,
+      boolean forUpdate) {
     validateConnection();
     return keys.stream()
-        .map(this::getAspect)
+        .map(key -> getAspect(opContext, key))
         .filter(Objects::nonNull)
         .collect(Collectors.toMap(EntityAspectIdentifier::fromEntityAspect, aspect -> aspect));
   }
 
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull EntityAspectIdentifier key) {
+  public EntityAspect getAspect(
+      @Nonnull OperationContext opContext, @Nonnull EntityAspectIdentifier key) {
     validateConnection();
-    return getAspect(key.getUrn(), key.getAspect(), key.getVersion());
+    return getAspect(opContext, key.getUrn(), key.getAspect(), key.getVersion());
   }
 
   @Override
   @Nonnull
   public ListResult<String> listLatestAspectMetadata(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
       final int pageSize) {
     validateConnection();
-    return listAspectMetadata(entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
+    return listAspectMetadata(null, entityName, aspectName, ASPECT_LATEST_VERSION, start, pageSize);
   }
 
   @Override
   @Nonnull
   public ListResult<String> listAspectMetadata(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final long version,
@@ -345,7 +376,9 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Nonnull
   @Override
   public <T> Optional<T> runInTransactionWithRetry(
-      @Nonnull Function<TransactionContext, TransactionResult<T>> block, int maxTransactionRetry) {
+      OperationContext operationContext,
+      @Nonnull Function<TransactionContext, TransactionResult<T>> block,
+      int maxTransactionRetry) {
     validateConnection();
     TransactionContext txContext = TransactionContext.empty(maxTransactionRetry);
     do {
@@ -425,7 +458,10 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Override
   public void deleteAspect(
-      @Nonnull final Urn urn, @Nonnull final String aspect, @Nonnull final Long version) {
+      OperationContext operationContext,
+      @Nonnull final Urn urn,
+      @Nonnull final String aspect,
+      @Nonnull final Long version) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -450,6 +486,15 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
       @Nonnull OperationContext opContext,
       @Nullable TransactionContext txContext,
       @Nonnull final String urn) {
+    return deleteUrnExcept(opContext, txContext, urn, Set.of());
+  }
+
+  @Override
+  public int deleteUrnExcept(
+      @Nonnull OperationContext opContext,
+      @Nullable TransactionContext txContext,
+      @Nonnull final String urn,
+      @Nonnull final Set<String> keptAspectNames) {
     validateConnection();
     if (!canWrite) {
       log.warn(READ_ONLY_LOG);
@@ -460,6 +505,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     String keyAspectName = opContext.getKeyAspectName(urnObj);
     String entityType = urnObj.getEntityType();
 
+    // While unknown data is tolerated, rows of aspects this registry doesn't know (written by a
+    // newer version before a rollback) must go too, or they come back after re-upgrading. Deleting
+    // by registry aspect name can't reach them, so delete by urn instead.
+    if (handling().toleratesUnknownEntityAspect()) {
+      return deleteUrnKeeping(urn, keyAspectName, keptAspectNames);
+    }
+
     // Get all aspect names for this entity type
     Set<String> allAspectNames =
         opContext.getEntityRegistryContext().getEntityAspectNames(entityType);
@@ -468,6 +520,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     List<String> nonKeyAspectNames =
         allAspectNames.stream()
             .filter(aspectName -> !aspectName.equals(keyAspectName))
+            .filter(aspectName -> !keptAspectNames.contains(aspectName))
             .collect(Collectors.toList());
 
     ResultSet nonKeyResult = null;
@@ -489,20 +542,22 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     }
 
     // Then, delete the key aspect
-    SimpleStatement deleteKeyAspect =
-        deleteFrom(CassandraAspect.TABLE_NAME)
-            .whereColumn(CassandraAspect.URN_COLUMN)
-            .isEqualTo(literal(urn))
-            .whereColumn(CassandraAspect.ASPECT_COLUMN)
-            .isEqualTo(literal(keyAspectName))
-            .build();
-    keyResult = _cqlSession.execute(deleteKeyAspect);
+    if (!keptAspectNames.contains(keyAspectName)) {
+      SimpleStatement deleteKeyAspect =
+          deleteFrom(CassandraAspect.TABLE_NAME)
+              .whereColumn(CassandraAspect.URN_COLUMN)
+              .isEqualTo(literal(urn))
+              .whereColumn(CassandraAspect.ASPECT_COLUMN)
+              .isEqualTo(literal(keyAspectName))
+              .build();
+      keyResult = _cqlSession.execute(deleteKeyAspect);
+    }
 
     // TODO: look into how to get around this for counts in Cassandra
     // https://stackoverflow.com/questions/28611459/how-to-know-affected-rows-in-cassandracql
     // Check for errors in both operations
     if ((nonKeyResult != null && nonKeyResult.getExecutionInfo().getErrors().size() > 0)
-        || keyResult.getExecutionInfo().getErrors().size() > 0) {
+        || (keyResult != null && keyResult.getExecutionInfo().getErrors().size() > 0)) {
       log.error("Failed to delete URN {} - errors in execution", urn);
       return 0;
     }
@@ -510,9 +565,74 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
     return -1;
   }
 
+  /**
+   * Deletes every row of {@code urn} except those of {@code keptAspectNames}, whatever their aspect
+   * names. With none kept, the urn's partition is deleted at once; otherwise the ranges of aspect
+   * names around the kept ones and the key aspect, then the key aspect last, as by name.
+   */
+  private int deleteUrnKeeping(
+      @Nonnull final String urn,
+      @Nonnull final String keyAspectName,
+      @Nonnull final Set<String> keptAspectNames) {
+    final List<SimpleStatement> deletes = new ArrayList<>();
+    if (keptAspectNames.isEmpty()) {
+      deletes.add(
+          deleteFrom(CassandraAspect.TABLE_NAME)
+              .whereColumn(CassandraAspect.URN_COLUMN)
+              .isEqualTo(literal(urn))
+              .build());
+    } else {
+      final TreeSet<String> bounds = new TreeSet<>(keptAspectNames);
+      bounds.add(keyAspectName);
+      String lower = null;
+      for (String upper : bounds) {
+        deletes.add(aspectRange(urn, lower, upper));
+        lower = upper;
+      }
+      deletes.add(aspectRange(urn, lower, null));
+      if (!keptAspectNames.contains(keyAspectName)) {
+        deletes.add(
+            deleteFrom(CassandraAspect.TABLE_NAME)
+                .whereColumn(CassandraAspect.URN_COLUMN)
+                .isEqualTo(literal(urn))
+                .whereColumn(CassandraAspect.ASPECT_COLUMN)
+                .isEqualTo(literal(keyAspectName))
+                .build());
+      }
+    }
+    for (SimpleStatement delete : deletes) {
+      if (_cqlSession.execute(delete).getExecutionInfo().getErrors().size() > 0) {
+        log.error("Failed to delete URN {} - errors in execution", urn);
+        return 0;
+      }
+    }
+    return -1;
+  }
+
+  /** Deletes the rows of {@code urn} whose aspect name is strictly between the given bounds. */
+  @Nonnull
+  private static SimpleStatement aspectRange(
+      @Nonnull final String urn, @Nullable final String lower, @Nullable final String upper) {
+    Delete delete =
+        deleteFrom(CassandraAspect.TABLE_NAME)
+            .whereColumn(CassandraAspect.URN_COLUMN)
+            .isEqualTo(literal(urn));
+    if (lower != null) {
+      delete = delete.whereColumn(CassandraAspect.ASPECT_COLUMN).isGreaterThan(literal(lower));
+    }
+    if (upper != null) {
+      delete = delete.whereColumn(CassandraAspect.ASPECT_COLUMN).isLessThan(literal(upper));
+    }
+    return delete.build();
+  }
+
   @Override
   @Nullable
-  public EntityAspect getAspect(@Nonnull String urn, @Nonnull String aspectName, long version) {
+  public EntityAspect getAspect(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nonnull String aspectName,
+      long version) {
     validateConnection();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
@@ -526,7 +646,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .limit(1)
             .build();
 
-    ResultSet rs = _cqlSession.execute(ss);
+    ResultSet rs = readSession(opContext, false).execute(ss);
     Row row = rs.one();
     return row == null ? null : rowToEntityAspect(row);
   }
@@ -534,6 +654,7 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public ListResult<String> listUrns(
+      OperationContext operationContext,
       @Nonnull final String entityName,
       @Nonnull final String aspectName,
       final int start,
@@ -586,28 +707,59 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
 
   @Nonnull
   @Override
-  public Integer countAspect(@Nonnull String aspectName, @Nullable String urnLike) {
+  public Integer countAspect(
+      OperationContext operationContext, @Nonnull String aspectName, @Nullable String urnLike) {
     // Not implemented
     return -1;
   }
 
   @Nonnull
   @Override
-  public Integer countAspect(final RestoreIndicesArgs args) {
+  public Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args) {
     // Not implemented
     return -1;
   }
 
-  @Nonnull
-  public PartitionedStream<EbeanAspectV2> streamAspectBatches(final RestoreIndicesArgs args) {
+  @Override
+  public int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn) {
     // Not implemented
-    return null;
+    return -1;
   }
 
-  @Nonnull
   @Override
-  public Stream<EntityAspect> streamAspects(String entityName, String aspectName) {
-    SimpleStatement ss =
+  @Nullable
+  public <R> R streamAspectBatches(
+      @Nonnull final OperationContext operationContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    // Not implemented for Cassandra — hand the consumer an empty partitioned stream so it doesn't
+    // NPE. There is nothing to scope here.
+    try (PartitionedStream<EbeanAspectV2> partitioned =
+        PartitionedStream.<EbeanAspectV2>builder()
+            .delegateStream(java.util.stream.Stream.empty())
+            .build()) {
+      return consumer.apply(partitioned);
+    }
+  }
+
+  @Override
+  @Nonnull
+  public PartitionedStream<EbeanAspectV2> streamAspectBatchesForMigration(
+      @Nonnull final java.util.Map<String, Long> aspectTargetVersions,
+      final long afterCreatedOnMs,
+      final int batchSize,
+      final int limit) {
+    // Not implemented for Cassandra — return an empty partitioned stream.
+    return PartitionedStream.<EbeanAspectV2>builder()
+        .delegateStream(java.util.stream.Stream.empty())
+        .build();
+  }
+
+  @Override
+  @Nonnull
+  public Stream<EntityAspect> streamAspects(
+      @Nonnull final String entityName, @Nonnull final String aspectName) {
+    final SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
             .all()
             // assumes alpha characters after the entityType prefix
@@ -625,17 +777,19 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
                             "|")))) // this is used for slicing prefixes with alpha characters
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .isEqualTo(literal(aspectName))
+            .whereColumn(CassandraAspect.VERSION_COLUMN)
+            .isEqualTo(literal(ASPECT_LATEST_VERSION))
             .allowFiltering() // performance impact, however # of properties expected to be
             // relatively small
             .build();
 
-    ResultSet rs = _cqlSession.execute(ss);
+    final ResultSet rs = _cqlSession.execute(ss);
     return rs.all().stream().map(CassandraAspect::rowToEntityAspect);
   }
 
   @Override
   @Nonnull
-  public Iterable<String> listAllUrns(int start, int pageSize) {
+  public Iterable<String> listAllUrns(OperationContext operationContext, int start, int pageSize) {
     validateConnection();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME).column(CassandraAspect.URN_COLUMN).build();
@@ -652,13 +806,17 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   }
 
   @Override
-  public Map<String, Map<String, Long>> getNextVersions(Map<String, Set<String>> urnAspectMap) {
+  public Map<String, Map<String, Long>> getNextVersions(
+      @Nonnull OperationContext opContext,
+      Map<String, Set<String>> urnAspectMap,
+      boolean lockLatestForWrite) {
     validateConnection();
     Map<String, Map<String, Long>> result = new HashMap<>();
 
     for (Map.Entry<String, Set<String>> aspectNames : urnAspectMap.entrySet()) {
       Map<String, Pair<Long, Long>> maxVersions =
-          getVersionRanges(aspectNames.getKey(), aspectNames.getValue());
+          getVersionRanges(
+              opContext, aspectNames.getKey(), aspectNames.getValue(), lockLatestForWrite);
       Map<String, Long> nextVersions = new HashMap<>();
 
       for (String aspectName : aspectNames.getValue()) {
@@ -727,7 +885,11 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
   @Override
   @Nonnull
   public List<EntityAspect> getAspectsInRange(
-      @Nonnull Urn urn, Set<String> aspectNames, long startTimeMillis, long endTimeMillis) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      Set<String> aspectNames,
+      long startTimeMillis,
+      long endTimeMillis) {
     validateConnection();
     SimpleStatement ss =
         selectFrom(CassandraAspect.TABLE_NAME)
@@ -737,13 +899,13 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .in(aspectNamesToLiterals(aspectNames))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isLessThanOrEqualTo(literal(startTimeMillis))
+            .isGreaterThanOrEqualTo(literal(startTimeMillis))
             .whereColumn(CassandraAspect.CREATED_ON_COLUMN)
-            .isGreaterThan(literal(endTimeMillis))
+            .isLessThan(literal(endTimeMillis))
             .allowFiltering()
             .build();
 
-    ResultSet rs = _cqlSession.execute(ss);
+    ResultSet rs = readSession(opContext, false).execute(ss);
 
     return rs.all().stream().map(CassandraAspect::rowToEntityAspect).collect(Collectors.toList());
   }

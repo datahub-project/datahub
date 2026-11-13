@@ -2,7 +2,7 @@
 
 Excel is a storage and lakehouse platform. Learn more in the [official Excel documentation](https://www.microsoft.com/microsoft-365/excel).
 
-The DataHub integration for Excel covers file/lakehouse metadata entities such as datasets, paths, and containers. Depending on module capabilities, it can also capture features such as lineage, usage, profiling, ownership, tags, and stateful deletion detection.
+The DataHub integration for Excel covers file/lakehouse metadata entities such as datasets, paths, and containers. It also captures data profiling and stateful deletion detection.
 
 ## Concept Mapping
 

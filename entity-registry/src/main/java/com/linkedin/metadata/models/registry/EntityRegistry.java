@@ -4,6 +4,7 @@ import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -13,6 +14,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EventSpec;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
@@ -80,6 +82,7 @@ public interface EntityRegistry {
   default Set<String> getSearchGroups() {
     return getEntitySpecs().values().stream()
         .map(EntitySpec::getSearchGroup)
+        .filter(group -> group != null && !group.isBlank())
         .collect(Collectors.toSet());
   }
 
@@ -157,6 +160,20 @@ public interface EntityRegistry {
   }
 
   /**
+   * Returns observers to apply to {@link com.linkedin.mxe.MetadataChangeProposal} before the
+   * database transaction. Observers do not produce additional MCPs or MCLs.
+   *
+   * <p>Prefer {@link com.linkedin.metadata.aspect.batch.AspectsBatch} instead of using this method
+   * directly.
+   *
+   * @return MCP observers
+   */
+  @Nonnull
+  default List<MCPObserver> getAllMCPObservers() {
+    return getPluginFactory().getMcpObservers();
+  }
+
+  /**
    * Returns underlying plugin factory
    *
    * @return the plugin factory
@@ -170,5 +187,33 @@ public interface EntityRegistry {
   default BiFunction<PluginConfiguration, List<ClassLoader>, PluginFactory>
       getPluginFactoryProvider() {
     return null;
+  }
+
+  /**
+   * Safe lookup: returns the {@link AspectSpec} for the given entity/aspect pair, or empty if
+   * either the entity type or the aspect name is not in this registry. Handles both implementations
+   * that throw on unknown entities and those that return null.
+   */
+  @Nonnull
+  default Optional<AspectSpec> findAspectSpec(
+      @Nonnull String entityName, @Nonnull String aspectName) {
+    return findEntitySpec(entityName).map(entitySpec -> entitySpec.getAspectSpec(aspectName));
+  }
+
+  /**
+   * Safe lookup: returns the {@link EntitySpec} for the given entity name, or empty if the entity
+   * type is not in this registry. The production registries override it to look the name up without
+   * an exception; this default serves the others (e.g. test and mock registries), mapping only "not
+   * found" to empty so any other failure still propagates. An empty result means "not registered
+   * now": plugins can add entity types later, so callers must not cache a miss.
+   */
+  @Nonnull
+  default Optional<EntitySpec> findEntitySpec(@Nonnull String entityName) {
+    try {
+      return Optional.ofNullable(getEntitySpec(entityName));
+    } catch (IllegalArgumentException e) {
+      // Registries throw IllegalArgumentException for entity names they don't know.
+      return Optional.empty();
+    }
   }
 }

@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 import Fuse from 'fuse.js';
-import React from 'react';
 
 import {
     INCIDENT_PRIORITY,
@@ -25,10 +24,9 @@ import {
     IncidentTable,
     IncidentTableRow,
 } from '@app/entityV2/shared/tabs/Incident/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import {
     EntityType,
     Incident,
@@ -89,11 +87,6 @@ const createIncidentGroupsFromMap = (
             untransformedIncidents: groupedIncidents,
             incidents: mapIncidentData(groupedIncidents),
             [keyName]: key, // Dynamically set the group key (type, stage, or priority)
-            groupName: (
-                <>
-                    {getCapitalizeWord(key)} <span>({groupedIncidents.length})</span>
-                </>
-            ),
         };
         incidentGroups.push(newGroup);
     });
@@ -157,10 +150,10 @@ const generateStageFilters = (data: IncidentStage[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((stage) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === stage?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);
@@ -176,10 +169,10 @@ const generatePriorityFilters = (data: IncidentPriority[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((priority) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === priority?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);
@@ -195,10 +188,10 @@ const generateStateFilters = (data: IncidentState[], order: string[]) => {
 
     if (Array.isArray(data)) {
         // ✅ Type guard ensures 'find' exists
-        order.forEach((state) => {
+        order.forEach((orderKey) => {
             const foundItem = data.find((item) => {
                 const filter = item as unknown as IncidentRecommendedFilter;
-                return filter?.displayName?.toLowerCase() === state?.toLowerCase();
+                return filter?.name?.toLowerCase() === orderKey?.toLowerCase();
             });
             if (foundItem) {
                 newOrderedArray.push(foundItem);
@@ -403,7 +396,7 @@ const getFilteredIncidents = (incidents: Incident[], filter: IncidentListFilter)
     });
 };
 
-/** Return return filter incident as per selected type status and other things
+/** Return filter incident as per selected type status and other things
  * it returns transformated into
  * 1. group of incidents as per type , status
  * 2. Transform data into {@link IncidentListTableRow }  data
@@ -480,37 +473,6 @@ export const getFormattedDateForResolver = (lastUpdate) => {
 // Helper function for validating the form errors
 export const validateForm = (form) => !form.getFieldsError().some(({ errors }) => errors.length > 0);
 
-export const getSortedIncidents = (record: any, sortedOptions: { sortColumn: string; sortOrder: SortingState }) => {
-    const { sortOrder, sortColumn } = sortedOptions;
-
-    if (sortOrder === SortingState.ORIGINAL) return record.incidents;
-
-    const localeOptions = { sensitivity: 'base' };
-
-    const sortFunctions = {
-        created: (a, b) => (sortOrder === SortingState.ASCENDING ? b.created - a.created : a.created - b.created),
-        name: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? (a.title || '').localeCompare(b.title || '', undefined, localeOptions)
-                : (b.title || '').localeCompare(a.title || '', undefined, localeOptions),
-        type: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? (a.type || '').localeCompare(b.type || '', undefined, localeOptions)
-                : (b.type || '').localeCompare(a.type || '', undefined, localeOptions),
-        linkedAssets: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? b.linkedAssets.length - a.linkedAssets.length
-                : a.linkedAssets.length - b.linkedAssets.length,
-        assignees: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? b.assignees?.length - a.assignees?.length
-                : a.assignees?.length - b.assignees?.length,
-    };
-
-    const sortFunction = sortFunctions[sortColumn];
-    return sortFunction ? [...record.incidents].sort(sortFunction) : record.incidents;
-};
-
 export const getExistingIncidents = (currData) => {
     return [...(currData?.entity?.incidents?.incidents || [])];
 };
@@ -559,4 +521,10 @@ export const useSiblingOptionsForIncidentBuilder = (
         });
     });
     return optionsToAuthorOn;
+};
+
+export const buildIncidentUrlSearch = ({ urn, baseUrl }: { urn: string; baseUrl?: string }): string => {
+    const queryParams = new URLSearchParams();
+    queryParams.set('incident_urn', urn);
+    return `${baseUrl}?${queryParams.toString()}`;
 };

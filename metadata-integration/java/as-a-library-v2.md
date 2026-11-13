@@ -1,3 +1,7 @@
+---
+description: "Use the DataHub Java SDK V2 to programmatically create and manage metadata entities with a modern, type-safe, fluent API."
+---
+
 # Java SDK V2
 
 The DataHub Java SDK V2 provides a modern, type-safe interface for interacting with DataHub's metadata platform. Built on top of the existing DataHub infrastructure, SDK V2 offers an intuitive, fluent API for creating and managing metadata entities.

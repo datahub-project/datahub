@@ -78,7 +78,8 @@ public class Dataset extends Entity
         HasOwners<Dataset>,
         HasDomains<Dataset>,
         HasSubTypes<Dataset>,
-        HasStructuredProperties<Dataset> {
+        HasStructuredProperties<Dataset>,
+        HasDocumentation<Dataset> {
 
   private static final String ENTITY_TYPE = "dataset";
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -718,7 +719,7 @@ public class Dataset extends Entity
 
     log.debug(
         "Transforming editableDatasetProperties patch to full aspect for entity: {}",
-        patch.getEntityUrn().toString());
+        patch.getEntityUrn());
 
     // Step 1: Fetch current editableDatasetProperties aspect
     datahub.client.v2.operations.AspectWithMetadata<EditableDatasetProperties> aspectWithMetadata =

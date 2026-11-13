@@ -8,8 +8,19 @@ record AssertionResult {
   *  The final result, e.g. either SUCCESS, FAILURE, or ERROR.
   */
   @TimeseriesField = {}
-  @Searchable = {}
+  @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    }
+  }
   type: AssertionResultType
+
+  /**
+   * The severity of a failure result. Only meaningful when type is FAILURE.
+   * Indicates how far the observed value deviated from expected bounds.
+   */
+  @TimeseriesField = {}
+  severity: optional AssertionResultSeverity
 
   /**
    * Number of rows for evaluated batch

@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.plugins;
 
 import static org.testng.Assert.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
@@ -10,6 +11,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.aspect.plugins.hooks.MCLSideEffect;
+import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
@@ -307,13 +309,15 @@ public class PluginFactoryMergeTest {
             configs, // aspectPayloadValidators
             Collections.emptyList(), // mutationHooks
             Collections.emptyList(), // mclSideEffects
-            Collections.emptyList() // mcpSideEffects
+            Collections.emptyList(), // mcpSideEffects
+            Collections.emptyList() // mcpObservers
             );
 
     return new PluginFactory(
         pluginConfiguration,
         Collections.emptyList(),
         validators,
+        Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList());
@@ -337,7 +341,8 @@ public class PluginFactoryMergeTest {
             List.of(config), // aspectPayloadValidators
             List.of(config), // mutationHooks
             List.of(config), // mclSideEffects
-            List.of(config) // mcpSideEffects
+            List.of(config), // mcpSideEffects
+            List.of(config) // mcpObservers
             );
 
     return new PluginFactory(
@@ -346,7 +351,160 @@ public class PluginFactoryMergeTest {
         List.of((AspectPayloadValidator) new MockAspectPayloadValidator().setConfig(config)),
         List.of((MutationHook) new MockMutationHook().setConfig(config)),
         List.of((MCLSideEffect) new MockMCLSideEffect().setConfig(config)),
-        List.of((MCPSideEffect) new MockMCPSideEffect().setConfig(config)));
+        List.of((MCPSideEffect) new MockMCPSideEffect().setConfig(config)),
+        List.of((MCPObserver) new MockMCPObserver().setConfig(config)));
+  }
+
+  // --- appendPlugins tests ---
+
+  @Test
+  public void testAppendPluginsAddsNewPlugins() {
+    PluginFactory factory = createFactoryWithAllPluginTypes("Original");
+
+    assertEquals(factory.getAspectPayloadValidators().size(), 1);
+    assertEquals(factory.getMcpObservers().size(), 1);
+
+    AspectPluginConfig newConfig = createConfig("NewPlugin", true);
+    factory.appendPlugins(
+        List.of((AspectPayloadValidator) new LateValidator().setConfig(newConfig)),
+        List.of((MutationHook) new LateMutationHook().setConfig(newConfig)),
+        List.of((MCLSideEffect) new LateMCLSideEffect().setConfig(newConfig)),
+        List.of((MCPSideEffect) new LateMCPSideEffect().setConfig(newConfig)),
+        List.of((MCPObserver) new LateMCPObserver().setConfig(newConfig)));
+
+    assertEquals(factory.getAspectPayloadValidators().size(), 2);
+    assertEquals(factory.getMutationHooks().size(), 2);
+    assertEquals(factory.getMclSideEffects().size(), 2);
+    assertEquals(factory.getMcpSideEffects().size(), 2);
+    assertEquals(factory.getMcpObservers().size(), 2);
+
+    assertEquals(
+        factory.getAspectPayloadValidators().get(0).getConfig().getClassName(),
+        "ValidatorOriginal");
+    assertTrue(factory.getAspectPayloadValidators().get(1) instanceof LateValidator);
+    assertEquals(
+        factory.getAspectPayloadValidators().get(1).getConfig().getClassName(), "NewPlugin");
+
+    assertEquals(factory.getMutationHooks().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMutationHooks().get(1) instanceof LateMutationHook);
+
+    assertEquals(
+        factory.getMclSideEffects().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMclSideEffects().get(1) instanceof LateMCLSideEffect);
+
+    assertEquals(
+        factory.getMcpSideEffects().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMcpSideEffects().get(1) instanceof LateMCPSideEffect);
+
+    assertEquals(factory.getMcpObservers().get(0).getConfig().getClassName(), "ValidatorOriginal");
+    assertTrue(factory.getMcpObservers().get(1) instanceof LateMCPObserver);
+    assertEquals(factory.getMcpObservers().get(1).getConfig().getClassName(), "NewPlugin");
+  }
+
+  @Test
+  public void testAppendPluginsDeduplicatesSameInstance() {
+    AspectPluginConfig config = createConfig("Observer", true);
+    MockMCPObserver observer = new MockMCPObserver();
+    observer.setConfig(config);
+
+    PluginFactory factory =
+        new PluginFactory(
+            PluginConfiguration.EMPTY,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            List.of(observer));
+
+    assertEquals(factory.getMcpObservers().size(), 1);
+
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of(observer));
+
+    assertEquals(factory.getMcpObservers().size(), 1);
+
+    // Distinct instance with the same config exercises the config-equality branch
+    // of PluginSpec.equals rather than the this==o short-circuit
+    MockMCPObserver duplicate = new MockMCPObserver();
+    duplicate.setConfig(config);
+
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of(duplicate));
+
+    assertEquals(factory.getMcpObservers().size(), 1);
+  }
+
+  @Test
+  public void testAppendPluginsToEmptyFactory() {
+    PluginFactory factory =
+        new PluginFactory(
+            PluginConfiguration.EMPTY,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList());
+
+    assertTrue(factory.getMcpObservers().isEmpty());
+
+    AspectPluginConfig config = createConfig("LateObserver", true);
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of((MCPObserver) new MockMCPObserver().setConfig(config)));
+
+    assertEquals(factory.getMcpObservers().size(), 1);
+    assertEquals(factory.getMcpObservers().get(0).getConfig().getClassName(), "LateObserver");
+  }
+
+  @Test
+  public void testAppendPluginsEmptyListIsNoop() {
+    PluginFactory factory = createFactoryWithAllPluginTypes("Existing");
+    int originalSize = factory.getMcpObservers().size();
+
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList());
+
+    assertEquals(factory.getMcpObservers().size(), originalSize);
+  }
+
+  @Test
+  public void testAppendPluginsFiltersDisabledPlugins() {
+    PluginFactory factory =
+        new PluginFactory(
+            PluginConfiguration.EMPTY,
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList(),
+            Collections.emptyList());
+
+    AspectPluginConfig disabledConfig = createConfig("DisabledObserver", false);
+    factory.appendPlugins(
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        Collections.emptyList(),
+        List.of((MCPObserver) new MockMCPObserver().setConfig(disabledConfig)));
+
+    assertTrue(factory.getMcpObservers().isEmpty());
   }
 
   // Mock plugin implementations for testing
@@ -367,6 +525,7 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validateProposedAspects(
+        @Nonnull OperationFingerprint operationContext,
         @Nonnull Collection<? extends BatchItem> mcpItems,
         @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
@@ -374,7 +533,9 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<AspectValidationException> validatePreCommitAspects(
-        @Nonnull Collection<ChangeMCP> changeMCPs, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> changeMCPs,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }
@@ -431,14 +592,53 @@ public class PluginFactoryMergeTest {
 
     @Override
     protected Stream<ChangeMCP> applyMCPSideEffect(
-        @Nonnull Collection<ChangeMCP> mcpItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<ChangeMCP> mcpItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
 
     @Override
     protected Stream<MCPItem> postMCPSideEffect(
-        @Nonnull Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+        @Nonnull OperationFingerprint operationContext,
+        @Nonnull Collection<MCLItem> mclItems,
+        @Nonnull RetrieverContext retrieverContext) {
       return Stream.empty();
     }
   }
+
+  private static class MockMCPObserver extends MCPObserver {
+    private AspectPluginConfig config;
+
+    @Override
+    public AspectPluginConfig getConfig() {
+      return config;
+    }
+
+    @Override
+    public PluginSpec setConfig(AspectPluginConfig config) {
+      this.config = config;
+      return this;
+    }
+
+    @Override
+    protected void observeMCPs(
+        Collection<? extends BatchItem> items, @Nonnull RetrieverContext retrieverContext) {
+      // no-op for testing
+    }
+  }
+
+  // Distinct "late" plugin classes for appendPlugins tests. PluginSpec uses @EqualsAndHashCode
+  // which compares by class, so distinct classes are needed to represent different plugin beans
+  // (mirroring production where e.g. IngestionBillingEmitter != IngestionMetricsEmitter).
+
+  private static class LateValidator extends MockAspectPayloadValidator {}
+
+  private static class LateMutationHook extends MockMutationHook {}
+
+  private static class LateMCLSideEffect extends MockMCLSideEffect {}
+
+  private static class LateMCPSideEffect extends MockMCPSideEffect {}
+
+  private static class LateMCPObserver extends MockMCPObserver {}
 }

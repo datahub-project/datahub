@@ -2,13 +2,16 @@ package com.linkedin.metadata.entity.versioning.sideeffects;
 
 import static com.linkedin.metadata.Constants.*;
 
+import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
+import com.linkedin.common.Status;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataMap;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.lifecycle.LifecycleStageTypeInfo;
 import com.linkedin.metadata.aspect.RetrieverContext;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.batch.MCLItem;
@@ -42,22 +45,32 @@ import lombok.extern.slf4j.Slf4j;
 @Setter
 @Accessors(chain = true)
 public class VersionPropertiesSideEffect extends MCPSideEffect {
+
+  private static final String LIFECYCLE_STAGE_TYPE_INFO_ASPECT = "lifecycleStageTypeInfo";
+
   @Nonnull private AspectPluginConfig config;
 
   @Override
   protected Stream<ChangeMCP> applyMCPSideEffect(
-      Collection<ChangeMCP> changeMCPS, @Nonnull RetrieverContext retrieverContext) {
-    return changeMCPS.stream().flatMap(item -> processMCP(item, retrieverContext));
+      @Nonnull OperationFingerprint operationContext,
+      Collection<ChangeMCP> changeMCPS,
+      @Nonnull RetrieverContext retrieverContext) {
+    return changeMCPS.stream()
+        .flatMap(item -> processMCP(operationContext, item, retrieverContext));
   }
 
   @Override
   protected Stream<MCPItem> postMCPSideEffect(
-      Collection<MCLItem> mclItems, @Nonnull RetrieverContext retrieverContext) {
+      @Nonnull OperationFingerprint operationContext,
+      Collection<MCLItem> mclItems,
+      @Nonnull RetrieverContext retrieverContext) {
     return Stream.of();
   }
 
   private static Stream<ChangeMCP> processMCP(
-      ChangeMCP changeMCP, @Nonnull RetrieverContext retrieverContext) {
+      OperationFingerprint operationFingerprint,
+      ChangeMCP changeMCP,
+      @Nonnull RetrieverContext retrieverContext) {
     Urn entityUrn = changeMCP.getUrn();
 
     if (!VERSION_PROPERTIES_ASPECT_NAME.equals(changeMCP.getAspectName())) {
@@ -74,7 +87,8 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
     Aspect versionSetPropertiesAspect =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
+            .getLatestAspectObject(
+                operationFingerprint, versionSetUrn, VERSION_SET_PROPERTIES_ASPECT_NAME);
     if (versionSetPropertiesAspect == null) {
       return createVersionSet(versionProperties, changeMCP, retrieverContext);
     }
@@ -91,19 +105,38 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
     Aspect prevLatestVersionPropertiesAspect =
         retrieverContext
             .getAspectRetriever()
-            .getLatestAspectObject(prevLatest, VERSION_PROPERTIES_ASPECT_NAME);
+            .getLatestAspectObject(
+                operationFingerprint, prevLatest, VERSION_PROPERTIES_ASPECT_NAME);
     if (prevLatestVersionPropertiesAspect != null) {
       prevLatestVersionProperties =
           RecordUtils.toRecordTemplate(
               VersionProperties.class, prevLatestVersionPropertiesAspect.data());
-      if (versionProperties.getSortId().compareTo(prevLatestVersionProperties.getSortId()) <= 0) {
+      if (!supersedes(versionProperties, prevLatestVersionProperties)) {
         return Stream.empty();
       }
+    }
+
+    // Don't re-promote entities that are in a hidden lifecycle stage. LifecycleVersionSideEffect
+    // may have intentionally demoted this entity by patching isLatest=false while keeping a higher
+    // sortId than the new VSP.latest. Without this guard, a subsequent patch on this entity's
+    // VersionProperties would re-promote it, undoing the effective-latest demotion.
+    if (isEntityInHiddenStage(operationFingerprint, entityUrn, retrieverContext)) {
+      return Stream.empty();
     }
 
     // New version properties is the new latest
     return updateVersionSetLatest(
         versionProperties, prevLatestVersionProperties, prevLatest, changeMCP, retrieverContext);
+  }
+
+  /**
+   * Whether {@code proposed} becomes the version set's new latest over {@code previousLatest}.
+   * Shared with {@code VersionPropertiesAuthorizationValidator} so authorization tracks exactly the
+   * entities this side effect rewrites.
+   */
+  public static boolean supersedes(
+      @Nonnull VersionProperties proposed, @Nonnull VersionProperties previousLatest) {
+    return proposed.getSortId().compareTo(previousLatest.getSortId()) > 0;
   }
 
   private static Stream<ChangeMCP> createVersionSet(
@@ -209,6 +242,46 @@ public class VersionPropertiesSideEffect extends MCPSideEffect {
             .applyPatch(prevLatestVersionProperties, retrieverContext.getAspectRetriever());
 
     return Stream.of(updateVersionSetProperties, updateOldLatestVersionProperties, setIsLatest);
+  }
+
+  /**
+   * Returns {@code true} if the entity at {@code entityUrn} currently has a lifecycle stage whose
+   * {@code hideInSearch} setting is {@code true}. Used to prevent re-promoting a hidden entity to
+   * {@code isLatest} via sortId comparison — see the guard in {@link #processMCP}.
+   */
+  private static boolean isEntityInHiddenStage(
+      @Nonnull OperationFingerprint operationFingerprint,
+      @Nonnull Urn entityUrn,
+      @Nonnull RetrieverContext retrieverContext) {
+    try {
+      Aspect statusAspect =
+          retrieverContext
+              .getAspectRetriever()
+              .getLatestAspectObject(operationFingerprint, entityUrn, STATUS_ASPECT_NAME);
+      if (statusAspect == null) {
+        return false;
+      }
+      Status status = new Status(statusAspect.data());
+      if (!status.hasLifecycleStage()) {
+        return false;
+      }
+      Aspect stageAspect =
+          retrieverContext
+              .getAspectRetriever()
+              .getLatestAspectObject(
+                  operationFingerprint,
+                  status.getLifecycleStage(),
+                  LIFECYCLE_STAGE_TYPE_INFO_ASPECT);
+      if (stageAspect == null) {
+        return false;
+      }
+      LifecycleStageTypeInfo info = new LifecycleStageTypeInfo(stageAspect.data());
+      return info.getSettings() != null && info.getSettings().isHideInSearch();
+    } catch (Exception e) {
+      log.warn(
+          "Failed to check hidden lifecycle stage for {}, treating as not hidden", entityUrn, e);
+      return false;
+    }
   }
 
   /**
