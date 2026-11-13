@@ -885,3 +885,17 @@ def test_qvd_path_from_a_variable_known_at_that_point_resolves(
     # the script first sets it, as variables persist between reloads.
     parsed = parse_script(script, app_variables={"vTable": "Orders"})
     assert [load.file.path for load in parsed.qvd_loads] == [path]
+
+
+def test_loop_connection_prefix_is_not_an_unset_prefix() -> None:
+    parsed = parse_script(
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "FOR EACH vPrefix IN 'Dev ', 'Prod '\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);\n"
+        "NEXT vPrefix;",
+        app_variables={},
+    )
+    # Unresolved, so the app's QVD writes are not taken as all known.
+    assert not parsed.qvd_stores
+    assert parsed.has_unresolved_store
+    assert parsed.unresolved_qvd_paths == ["lib://$(vPrefix)QVD Data/orders.qvd"]
