@@ -361,5 +361,6 @@
     "user.titleRoleLabel": "Title/Role",
     "tab.outputPorts": "Output Ports",
     "dataProduct.outputPortsToggle": "Output ports · {{count}}",
-    "dataProduct.allAssetsToggle": "All assets · {{count}}"
+    "dataProduct.allAssetsToggle": "All assets · {{count}}",
+    "container.workbookSheets": "Sheets"
 }
