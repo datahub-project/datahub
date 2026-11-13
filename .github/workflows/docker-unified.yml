@@ -1990,6 +1990,22 @@ jobs:
       tier_plan_artifact: ${{ needs.playwright_plan.outputs.run_mode == 'p0' && 'playwright-tier-plan' || '' }}
     secrets: inherit
 
+  # Fails when a Java SDK v2 integration test class added or modified by the PR did not execute
+  # against the running stack (e.g. a class name the `--tests "*Integration*"` filter misses).
+  new-tests-ran:
+    needs: [setup, java_integration_tests]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-new-tests-ran.yml
+    with:
+      artifact-pattern: "Test Results (java integration tests)"
+      runs-on: ${{ needs.setup.outputs.test_runner_type_small }}
+      include: |
+        metadata-integration/java/datahub-client/src/test/java/datahub/client/v2/integration/*
+
   playwright_report:
     name: Merge Playwright HTML report
     needs: [setup, playwright_test]

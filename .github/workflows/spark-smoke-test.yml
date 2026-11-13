@@ -120,3 +120,17 @@ jobs:
             **/build/test-results/test/**/*.xml
             **/build/test-results/sparkRealSmokeTest/**/*.xml
             **/build/test-results/sparkSmoke4Test/**/*.xml
+
+  # Fails when an acryl-spark-lineage test class added or modified by the PR did not execute.
+  new-tests-ran:
+    needs: [spark-smoke-test]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-new-tests-ran.yml
+    with:
+      artifact-pattern: "Test Results (smoke tests)"
+      include: |
+        metadata-integration/java/acryl-spark-lineage/*

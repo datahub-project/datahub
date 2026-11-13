@@ -174,7 +174,7 @@ jobs:
           artifact-name: build-and-test-except_metadata_ingestion-UTC
           test-results-paths: |
             **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/test-results/**/*.xml
             **/junit.*.xml
             !**/binary/**
           junit-file-globs: |
@@ -302,6 +302,15 @@ jobs:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
       - name: Ensure codegen is updated
         uses: ./.github/actions/ensure-codegen-updated
+      - name: Report test results (datahub-frontend Java)
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-frontend-java
+          test-results-paths: |
+            datahub-frontend/build/test-results/**/*.xml
+          junit-file-globs: |
+            datahub-frontend/build/test-results/**/*.xml
       - name: Upload frontend build artifacts
         uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
         with:
@@ -573,6 +582,15 @@ jobs:
             -x :docker:build
         env:
           CODECOV_TOKEN: ${{ secrets.CODECOV_TOKEN }}
+      - name: Report test results (custom test tasks run by `build`)
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: build-and-test-backend-seed
+          test-results-paths: |
+            **/build/test-results/**/*.xml
+          junit-file-globs: |
+            **/build/test-results/**/*.xml
       - name: Ensure codegen is updated
         # Same hard gate as build-except-metadata-ingestion — the sharded path must still fail
         # if generated sources are stale (shards only run tests and would skip this check).
@@ -652,7 +670,7 @@ jobs:
           artifact-name: build-and-test-backend-shard${{ matrix.batch }}
           test-results-paths: |
             **/build/reports/tests/test/**
-            **/build/test-results/test/**
+            **/build/test-results/**/*.xml
             **/junit.*.xml
             !**/binary/**
           junit-file-globs: |
@@ -775,6 +793,35 @@ jobs:
           # override_branch only on release (empty otherwise) — same as build-except's test-results
           # upload, which sets it only in its release variant.
           override_branch: ${{ github.event_name == 'release' && (github.head_ref || github.ref_name) || '' }}
+
+  # Fails when a Java test class added or modified by the PR has no executed test case in this
+  # run's JUnit XML (see reusable-new-tests-ran.yml). Out of scope here because another workflow
+  # runs and checks them: metadata-io (metadata-io.yml), acryl-spark-lineage (spark-smoke-test.yml),
+  # Java SDK v2 integration tests (docker-unified.yml; they skip here without a server).
+  # productUpdateCiGate runs in lint-jobs, which ci-optimization keeps out of the backend filter.
+  new-tests-ran:
+    needs:
+      [
+        setup,
+        build-except-metadata-ingestion,
+        backend-seed,
+        backend-test-shard,
+        frontend-build,
+      ]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-new-tests-ran.yml
+    with:
+      artifact-pattern: "build-and-test-*"
+      runs-on: ${{ needs.setup.outputs.runner_type }}
+      exclude: |
+        metadata-io/src/*
+        metadata-integration/java/acryl-spark-lineage/*
+        metadata-service/configuration/src/productUpdateCiGate/*
+        metadata-integration/java/datahub-client/src/test/java/datahub/client/v2/integration/*
 
   event-file:
     runs-on: ubuntu-24.04
