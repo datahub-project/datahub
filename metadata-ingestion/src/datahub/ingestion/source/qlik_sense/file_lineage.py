@@ -164,16 +164,15 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
         )
     for platform, store in (("s3", S3ObjectStore), ("gcs", GCSObjectStore)):
         if store.is_uri(uri):
-            location = [
-                store.get_bucket_name(uri),
-                store.get_object_key(uri).strip("/"),
-            ]
-            if location[0]:
+            bucket = store.get_bucket_name(uri)
+            if bucket:
                 return FileStorage(
                     platform=platform,
-                    location="/".join(filter(None, location)),
+                    location="/".join(
+                        filter(None, [bucket, store.get_object_key(uri).strip("/")])
+                    ),
                     # An S3 connection's QRI part also holds its region.
-                    likely_qri_connection_id=qri_part_id(location[0])
+                    likely_qri_connection_id=qri_part_id(bucket)
                     if platform == "gcs"
                     else None,
                 )
