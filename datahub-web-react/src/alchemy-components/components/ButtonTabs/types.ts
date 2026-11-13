@@ -14,6 +14,9 @@ export type Tab = TabButtonItem & {
 
 export type TabButtonsFit = 'fill' | 'hug';
 
+/** `sm` is a compact 26px-tall switch that fits beside 32px controls such as filter chips. */
+export type TabButtonsSize = 'sm' | 'md';
+
 export type TabButtonsProps = {
     tabs: TabButtonItem[];
     activeTab: string | undefined;
@@ -23,6 +26,7 @@ export type TabButtonsProps = {
      * `hug` — tabs size to content (icon-only switches like schema raw/table).
      */
     fit?: TabButtonsFit;
+    size?: TabButtonsSize;
     className?: string;
     'data-testid'?: string;
     'aria-label'?: string;

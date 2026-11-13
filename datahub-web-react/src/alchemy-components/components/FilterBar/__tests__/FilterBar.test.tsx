@@ -188,6 +188,46 @@ describe('FilterBar', () => {
         });
     });
 
+    describe('in a nested group', () => {
+        const nestedValue: FilterGroup = {
+            id: 'root',
+            match: 'all',
+            filters: [value.filters[0]],
+            groups: [{ id: 'nested', match: 'all', filters: [value.filters[1]] }],
+        };
+
+        const renderNested = (onChange: (updatedValue: FilterGroup) => void) => {
+            render(
+                <CustomThemeProvider>
+                    <FilterBar value={nestedValue} fields={fields} onChange={onChange} allowGroups />
+                </CustomThemeProvider>,
+            );
+            // The root group's rule row comes first, then the nested group's.
+            return within(screen.getAllByTestId('filter-bar-rules')[1]);
+        };
+
+        it("switches the group's match without changing the root's", () => {
+            const onChange = vi.fn();
+            const nestedRow = renderNested(onChange);
+
+            fireEvent.click(nestedRow.getByRole('tab', { name: 'any' }));
+
+            expect(onChange).toHaveBeenCalledWith({
+                ...nestedValue,
+                groups: [{ ...nestedValue.groups![0], match: 'any' }],
+            });
+        });
+
+        it('removes the group from the end of its row', () => {
+            const onChange = vi.fn();
+            const nestedRow = renderNested(onChange);
+
+            fireEvent.click(nestedRow.getByRole('button', { name: 'Remove group' }));
+
+            expect(onChange).toHaveBeenCalledWith({ ...nestedValue, groups: [] });
+        });
+    });
+
     it('should apply the values edited in an open menu when the bar is removed', () => {
         const onChange = vi.fn();
         const multiFields: FilterField[] = [

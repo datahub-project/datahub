@@ -54,19 +54,12 @@ export const GroupActions = styled.div`
     gap: ${spacing.xxsm};
 `;
 
-/** The all/any switch, sized to sit in the rule row beside the chips. */
+/** The all/any switch, framed like a chip so it sits in the rule row. Use with `size="sm"`. */
 export const MatchTabs = styled(TabButtons)`
     height: 32px;
     align-items: center;
     border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: ${radius.md};
-
-    && button {
-        height: 26px;
-        min-height: 0;
-        padding: 0 ${spacing.xsm};
-        font-size: ${typography.fontSizes.md};
-    }
 `;
 
 /** Shared reset for the inline text affordances: no button chrome, just a hit target. */

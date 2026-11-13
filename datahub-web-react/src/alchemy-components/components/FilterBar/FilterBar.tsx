@@ -1010,6 +1010,7 @@ function FilterGroupView({
                             activeTab={group.match}
                             onTabClick={(key) => updateMatch(key as FilterMatchMode)}
                             fit="hug"
+                            size="sm"
                             data-testid="filter-bar-match"
                             aria-label={`${labels.where} ${labels.all} or ${labels.any}`}
                         />
