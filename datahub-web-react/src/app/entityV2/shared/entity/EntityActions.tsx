@@ -11,6 +11,7 @@ import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityCont
 import CreateGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/CreateGlossaryEntityModal';
 import { SearchSelectModal } from '@app/entityV2/shared/components/styled/search/SearchSelectModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
+import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
@@ -77,6 +78,7 @@ function EntityActions(props: Props) {
     const { t } = useTranslation('entity.shared.actions');
     const { t: tc } = useTranslation('common.actions');
     const { t: tcf } = useTranslation('common.feedback');
+    const { t: tdd } = useTranslation('entity.shared.entityDropdown');
     const entityRegistry = useEntityRegistry();
     const { urn, actionItems, refetchForEntity, refetchForTerms, refetchForNodes } = props;
     const { setShouldRefetchEmbeddedListSearch, entityState } = useEntityContext();
@@ -248,7 +250,10 @@ function EntityActions(props: Props) {
     };
 
     const { entityData } = useEntityData();
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const { canCreate: canCreateGlossaryEntity } = useGlossaryCreatePrivileges(
+        !!entityData?.privileges?.canManageChildren,
+    );
+    const canManageDataProduct = !!entityData?.privileges?.canManageEntity;
 
     return (
         <>
@@ -279,27 +284,41 @@ function EntityActions(props: Props) {
                 )}
                 {actionItems.has(EntityActionItem.BATCH_ADD_DATA_PRODUCT) && (
                     <Tooltip
-                        title={t('addDataProductTooltip')}
+                        title={canManageDataProduct ? t('addDataProductTooltip') : t('addDataProductUnauthorized')}
                         showArrow={false}
                         placement="bottom"
                         data-testid="data-product-batch-add"
                     >
-                        <Button
-                            variant="outline"
-                            onClick={() => setIsBatchSetDataProductModalVisible(true)}
-                            size="sm"
-                            data-testid="data-product-batch-add"
-                        >
-                            <LinkSimple size={14} />
-                            {t('addAssets')}
-                        </Button>
+                        <span>
+                            <Button
+                                variant="outline"
+                                onClick={() => setIsBatchSetDataProductModalVisible(true)}
+                                size="sm"
+                                disabled={!canManageDataProduct}
+                                data-testid="data-product-batch-add"
+                            >
+                                <LinkSimple size={14} />
+                                {t('addAssets')}
+                            </Button>
+                        </span>
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_NODE) && (
-                    <Tooltip title={t('createTermGroupTooltip')} showArrow={false} placement="bottom">
+                    <Tooltip
+                        title={
+                            canCreateGlossaryEntity
+                                ? t('createTermGroupTooltip')
+                                : tdd('createGlossary.noCreatePermission', {
+                                      entityName: entityRegistry.getEntityName(EntityType.GlossaryNode),
+                                  })
+                        }
+                        showArrow={false}
+                        placement="bottom"
+                    >
                         <Button
                             data-testid="add-term-group-button-v2"
                             variant="outline"
+                            disabled={!canCreateGlossaryEntity}
                             onClick={() => setIsCreateNodeModalVisible(true)}
                         >
                             <StyledPlus size={12} /> {t('addTermGroup')}
@@ -307,8 +326,22 @@ function EntityActions(props: Props) {
                     </Tooltip>
                 )}
                 {actionItems.has(EntityActionItem.ADD_CHILD_GLOSSARY_TERM) && (
-                    <Tooltip title={t('createTermTooltip')} showArrow={false} placement="bottom">
-                        <Button data-testid="add-term-button" onClick={() => setIsCreateTermModalVisible(true)}>
+                    <Tooltip
+                        title={
+                            canCreateGlossaryEntity
+                                ? t('createTermTooltip')
+                                : tdd('createGlossary.noCreatePermission', {
+                                      entityName: entityRegistry.getEntityName(EntityType.GlossaryTerm),
+                                  })
+                        }
+                        showArrow={false}
+                        placement="bottom"
+                    >
+                        <Button
+                            data-testid="add-term-button"
+                            disabled={!canCreateGlossaryEntity}
+                            onClick={() => setIsCreateTermModalVisible(true)}
+                        >
                             <StyledPlus size={12} /> {t('addTerm')}
                         </Button>
                     </Tooltip>

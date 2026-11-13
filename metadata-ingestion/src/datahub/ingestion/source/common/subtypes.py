@@ -21,6 +21,8 @@ class DatasetSubTypes(StrEnum):
     SALESFORCE_CUSTOM_OBJECT = "Custom Object"
     SALESFORCE_STANDARD_OBJECT = "Object"
     QLIK_DATASET = "Qlik Dataset"
+    QLIK_TABLE = "Qlik Table"
+    QLIK_QVD = "QVD"
     GRAFANA_DATASET = "Grafana Dataset"
     QUICKSIGHT_DATASET = "Dataset"
     BIGQUERY_TABLE_SNAPSHOT = "Bigquery Table Snapshot"
@@ -48,6 +50,9 @@ class DatasetSubTypes(StrEnum):
     TIMESCALEDB_CONTINUOUS_AGGREGATE = "Continuous Aggregate"
     GOOGLE_SHEETS = "Google Sheets"
     GOOGLE_SHEETS_NAMED_RANGE = "Google Sheets Named Range"
+    HIGHTOUCH_MODEL = "Hightouch Model"
+    HIGHTOUCH_EVENT_CONTRACT = "Event Contract"
+    HIGHTOUCH_EVENT_SOURCE = "Event Source"
     CONNECTION = "Connection"
     SEMANTIC_MODEL = "Semantic Model"
     SEMANTIC_MODEL_DATASET = "Semantic Model Dataset"
@@ -73,6 +78,7 @@ class GenericContainerSubTypes(StrEnum):
     FABRIC_WORKSPACE = "Fabric Workspace"
     # AWS region containers (kinesis, sqs, sns, lambda, eventbridge, eventbridge-pipes).
     AWS_REGION = "Region"
+    HIGHTOUCH_WORKSPACE = "Workspace"
 
 
 class DatasetContainerSubTypes(StrEnum):
@@ -124,6 +130,8 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    # A BI platform's container of dashboards, such as a Qlik app's sheets.
+    WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
@@ -176,12 +184,17 @@ class BIAssetSubTypes(StrEnum):
     THOUGHTSPOT_LIVEBOARD = "Liveboard"
     THOUGHTSPOT_VISUALIZATION = "Visualization"
     MICROSTRATEGY_DOSSIER = "Dossier"
+    MICROSTRATEGY_DOCUMENT = "Document"
     MICROSTRATEGY_VISUALIZATION = "Visualization"
 
     # PowerBI
     POWERBI_TILE = "PowerBI Tile"
     POWERBI_PAGE = "PowerBI Page"
     POWERBI_APP = "App"
+    # Qlik Sense, in Qlik's own terms: an app as a lineage node (its container
+    # is the "Qlik App"), and a sheet of an app.
+    QLIK_APP_DASHBOARD = "App"
+    QLIK_SHEET = "Sheet"
     POWERBI_PAGINATED_REPORT = "PaginatedReport"
 
     # Mode
@@ -300,6 +313,9 @@ class DataJobSubTypes(StrEnum):
     ADF_SYNAPSE_SPARK_JOB = "Synapse Spark Job"
     ADF_SQL_POOL_STORED_PROCEDURE = "SQL Pool Stored Procedure"
     ADF_FAIL_ACTIVITY = "Fail Activity"
+
+    # Hightouch
+    HIGHTOUCH_SYNC = "Sync"
 
     # Fabric Data Factory Activity Types (Fabric-specific, not in ADF)
     FABRIC_SPARK_JOB_DEFINITION = "Spark Job Definition"

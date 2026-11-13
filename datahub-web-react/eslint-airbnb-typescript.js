@@ -3,6 +3,8 @@
 // That package only supports @typescript-eslint v5-v7, so this keeps its TypeScript
 // equivalents of Airbnb's rules for @typescript-eslint v8. Formatting rules are left out:
 // they were removed in v8, and `prettier` turns them off anyway.
+// TODO: remove this shim when we move to ESLint 9 flat config and a maintained Airbnb-style
+// config (or typescript-eslint's own presets) that supports current TypeScript.
 const { rules: baseBestPracticesRules } = require('eslint-config-airbnb-base/rules/best-practices');
 const { rules: baseES6Rules } = require('eslint-config-airbnb-base/rules/es6');
 const { rules: baseImportsRules } = require('eslint-config-airbnb-base/rules/imports');

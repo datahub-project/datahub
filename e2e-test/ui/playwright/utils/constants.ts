@@ -31,6 +31,7 @@ export const TIMEOUTS = {
   BETWEEN_OPS: 500, // Wait between sequential operations
   QUICK: 300, // Brief pause for rendering
   INGESTION_EXECUTION: 100000, // Ingestion source execution completion
+  TEST_LONG: 120000, // Per-test budget for specs with several mutate-and-reload cycles
 } as const;
 
 // Interaction delays

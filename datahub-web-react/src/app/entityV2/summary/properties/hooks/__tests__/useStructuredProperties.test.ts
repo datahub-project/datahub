@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import useStructuredProperties from '@app/entityV2/summary/properties/hooks/useStructuredProperties';
 import * as governUtils from '@app/govern/structuredProperties/utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { EntityType, SummaryElementType } from '@types';

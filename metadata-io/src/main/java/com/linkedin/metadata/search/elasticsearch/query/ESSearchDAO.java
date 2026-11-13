@@ -59,6 +59,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateB
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
@@ -1416,6 +1417,17 @@ public class ESSearchDAO {
     Map<String, Object> context = new HashMap<>();
     context.put(
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    // The whole-name prefix reads the default name only, and only when the entity's name opted
+    // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
+    // lowercase subfield exists only on the name.
+    if (isDefaultAutocompleteField(field)
+        && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    context.put(
+        SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
     context.put(SearchTemplateContextVariables.UNQUOTED, query);
     context.put(
         SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS,
@@ -1462,10 +1474,15 @@ public class ESSearchDAO {
     return shipped.getQuery();
   }
 
+  /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
+  private static boolean isDefaultAutocompleteField(@Nullable String field) {
+    return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
   @Nonnull
   private static String autocompletePrefixField(
       @Nonnull EntitySpec entitySpec, @Nullable String field) {
-    if (field == null || field.isBlank()) {
+    if (isDefaultAutocompleteField(field)) {
       return "name" + V3SearchFields.TEXT_SUFFIX;
     }
     SearchFieldResolver resolver = new SearchFieldResolver(List.of(entitySpec));
@@ -2086,6 +2103,14 @@ public class ESSearchDAO {
         : EntityFilter.toEntityFilter(opContext, filter);
   }
 
+  Filter transformFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull IndexConvention indexConvention) {
+    return transformFilter(opContext, filter, indexConvention);
+  }
+
   @Nonnull
   String[] entityIndexNames(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> entityNames) {
@@ -2148,18 +2173,14 @@ public class ESSearchDAO {
     } else {
       templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-      // Same sibling hiding as search, browse and autocomplete, so counts match the lists.
       query =
-          ESUtils.filterNonPrimarySiblings(
+          SearchRequestHandler.getFilterQuery(
+              opContext,
+              List.of(entityName),
               filter,
-              SearchRequestHandler.getFilterQuery(
-                  opContext,
-                  List.of(entityName),
-                  filter,
-                  entitySpec.getSearchableFieldTypes(),
-                  queryFilterRewriteChain,
-                  searchConfiguration.getEntityIndex()),
-              searchConfiguration.getSearch());
+              entitySpec.getSearchableFieldTypes(),
+              queryFilterRewriteChain,
+              searchConfiguration.getEntityIndex());
     }
     return new CountRequest(entityIndexName(opContext, entityName)).query(query);
   }

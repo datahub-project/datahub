@@ -30,13 +30,8 @@ public class SearchConfiguration {
 
   private boolean pointInTimeCreationEnabled;
 
-  /**
-   * Hide non-primary members of dataset sibling groups from search, autocomplete and browse so a
-   * group surfaces as one result. Callers whose filter references the siblings fields are exempt.
-   * Every sibling group needs exactly one primary member: a group with none is hidden entirely. Env
-   * var: {@code ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS}.
-   */
-  private boolean hideNonPrimarySiblings;
+  /** Use the v2.5 analyzer chain in legacy index settings. Off keeps the original v2 analyzers. */
+  @Builder.Default private boolean enableSearchV2_5 = false;
 
   private ExactMatchConfiguration exactMatch;
   private PartialConfiguration partial;

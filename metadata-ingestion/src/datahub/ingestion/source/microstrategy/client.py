@@ -1,6 +1,17 @@
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Type, TypeVar, Union
+from typing import (
+    Any,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Type,
+    TypeVar,
+    Union,
+)
 
 import requests
 import urllib3
@@ -15,12 +26,14 @@ from datahub.ingestion.source.microstrategy.constants import (
     MSTR_API_AUTH_LOGIN,
     MSTR_API_AUTH_LOGOUT,
     MSTR_API_AUTH_PREFIX,
+    MSTR_API_FOLDERS_PREDEFINED,
     MSTR_API_METADATA_SEARCHES,
     MSTR_API_OBJECT,
     MSTR_API_PROJECTS,
     MSTR_API_SEARCHES,
     MSTR_LOGIN_MODE_GUEST,
     MSTR_LOGIN_MODE_STANDARD,
+    MSTR_MS_INSTANCE_HEADER,
     MSTR_OBJECT_TYPE_DASHBOARD,
     MSTR_OBJECT_TYPE_METRIC,
     MSTR_OBJECT_TYPE_REPORT,
@@ -30,6 +43,7 @@ from datahub.ingestion.source.microstrategy.models import (
     DatasourceConnection,
     MicroStrategyObject,
     ModelTablesResponse,
+    PredefinedFolder,
     Project,
     SqlView,
 )
@@ -43,13 +57,38 @@ _ModelT = TypeVar("_ModelT", bound=BaseModel)
 # credentials or missing objects are not re-hammered max_retries times.
 _RETRYABLE_STATUS_CODES = {429, 500, 502, 503, 504}
 
+# Modeling-service metric reads return a deterministic 500 for metrics the
+# service cannot model (over a thousand in one retail project), so retrying
+# 500 there only adds backoff; throttling and gateway errors still retry.
+_METRIC_MODEL_RETRYABLE_STATUS_CODES = _RETRYABLE_STATUS_CODES - {500}
+
 # Cap backoff so a hostile Retry-After header or large max_retries cannot
 # stall ingestion for minutes per request.
 _MAX_RETRY_DELAY_SECONDS = 60
 
 
 class MicroStrategyAPIError(RuntimeError):
-    pass
+    """An API call failed. `status_code` and `url` are set when the failure
+    was an HTTP error response, so callers that swallow the error can still
+    record which endpoint answered with what (e.g. a 403 on the Modeling
+    service vs. a 404 on an older server that lacks it)."""
+
+    def __init__(
+        self,
+        message: str,
+        status_code: Optional[int] = None,
+        url: Optional[str] = None,
+    ) -> None:
+        super().__init__(message)
+        self.status_code = status_code
+        self.url = url
+
+    def summary(self) -> str:
+        """One-line form for report samples: the HTTP status when known,
+        then the message."""
+        if self.status_code is not None:
+            return f"HTTP {self.status_code}: {self}"
+        return str(self)
 
 
 class MicroStrategyAuthError(RuntimeError):
@@ -104,10 +143,20 @@ class MicroStrategyClient:
         self.session.headers.update({"X-MSTR-AuthToken": token})
 
     def close(self) -> None:
+        if self._auth_dead or "X-MSTR-AuthToken" not in self.session.headers:
+            # No live session to close: never logged in, or auth was lost.
+            self.session.close()
+            return
         try:
             self._request("POST", MSTR_API_AUTH_LOGOUT)
-        except Exception:
-            logger.debug("MicroStrategy logout failed", exc_info=True)
+        except (MicroStrategyAPIError, MicroStrategyAuthError) as error:
+            # A session left open counts towards the user's session limit
+            # until it times out.
+            self.report.warning(
+                title="MicroStrategy logout failed",
+                message="The session could not be closed and stays open until it times out.",
+                exc=error,
+            )
         self.session.close()
 
     def _parse_model(
@@ -168,6 +217,26 @@ class MicroStrategyClient:
             Datasource, datasources, f"GET {path} project_id={project_id}"
         )
 
+    def get_predefined_folders(
+        self, project_id: str, folder_types: Sequence[int]
+    ) -> List[PredefinedFolder]:
+        """GET /api/folders/preDefined?folderType=... -- resolves the id and
+        MicroStrategy-assigned label for one or more EnumDSSXMLFolderNames
+        predefined folders (e.g. 7 = Shared Reports) for this project."""
+        path = MSTR_API_FOLDERS_PREDEFINED
+        params = {
+            "folderType": ",".join(str(folder_type) for folder_type in folder_types)
+        }
+        payload = self._get_json(path, project_id=project_id, params=params)
+        folders = self._extract_list(payload, "preDefined")
+        if not folders:
+            self._warn_if_unrecognized_shape(
+                payload, path, recognized_keys={"preDefined", "result", "items"}
+            )
+        return self._parse_models(
+            PredefinedFolder, folders, f"GET {path} project_id={project_id}"
+        )
+
     def list_project_datasources(self, project_id: str) -> List[Datasource]:
         path = f"/api/projects/{project_id}/datasources"
         payload = self._get_json(path, project_id=project_id)
@@ -218,11 +287,22 @@ class MicroStrategyClient:
         report_id: str,
     ) -> Optional[MicroStrategyObject]:
         """Fetch one report (with folder ancestors) by id, avoiding a full library scan."""
-        path = MSTR_API_OBJECT.format(object_id=report_id)
+        return self.get_object_info(project_id, report_id, MSTR_OBJECT_TYPE_REPORT)
+
+    def get_object_info(
+        self,
+        project_id: str,
+        object_id: str,
+        object_type: int,
+    ) -> Optional[MicroStrategyObject]:
+        """GET /api/objects/{id}?type=... -- one object's metadata including its
+        subtype and folder ancestors. Reports and cubes both use object type 3
+        (EnumDSSXMLObjectTypes report definition); the subtype tells them apart."""
+        path = MSTR_API_OBJECT.format(object_id=object_id)
         payload = self._get_json(
             path,
             project_id=project_id,
-            params={"type": MSTR_OBJECT_TYPE_REPORT},
+            params={"type": object_type},
         )
         item = payload
         if "id" not in item and isinstance(item.get("result"), dict):
@@ -235,7 +315,10 @@ class MicroStrategyClient:
         return self._parse_model(
             MicroStrategyObject,
             item,
-            f"report object info project_id={project_id}, report_id={report_id}",
+            (
+                f"object info project_id={project_id}, object_id={object_id}, "
+                f"type={object_type}"
+            ),
         )
 
     def _search_typed_objects(
@@ -293,6 +376,7 @@ class MicroStrategyClient:
             f"/api/model/metrics/{metric_id}",
             project_id=project_id,
             params={"showExpressionAs": "tokens"},
+            retry_statuses=_METRIC_MODEL_RETRYABLE_STATUS_CODES,
         )
 
     def get_attribute_relationships(
@@ -315,14 +399,47 @@ class MicroStrategyClient:
             project_id=project_id,
         )
 
+    def get_model_report(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: Optional[str] = None,
+    ) -> Dict[str, object]:
+        """GET /api/model/reports/{id} (Modeling service, 2021 Update 7+): the
+        report's full definition including its report-level derived metrics
+        with expressions; parsed by models.extract_embedded_metric_definitions.
+
+        The spec documents this endpoint's X-MSTR-MS-Instance header as the
+        report instance id, created by create_model_report_instance. Without
+        it the definition is read statically, which can return metric
+        elements carrying no expression. Reading through an instance resolves
+        expressions; it is opt-in because it adds two calls per report."""
+        return self._get_json(
+            f"/api/model/reports/{report_id}",
+            project_id=project_id,
+            params={"showExpressionAs": "tokens"},
+            headers=({MSTR_MS_INSTANCE_HEADER: instance_id} if instance_id else None),
+        )
+
     def get_model_document(
-        self, project_id: str, document_id: str
+        self,
+        project_id: str,
+        document_id: str,
+        instance_id: Optional[str] = None,
     ) -> Dict[str, object]:
         """Raw modeling JSON for a document/dossier; its per-dataset derived objects let
-        the lineage helpers resolve which dataset a visualization reads."""
+        the lineage helpers resolve which dataset a visualization reads, and its
+        per-dataset derivedMetrics carry document-level derived metrics.
+
+        The endpoint is not in Strategy's published OpenAPI specification, and
+        the Modeling service has no document instance endpoint; a dossier or
+        document execution instance in X-MSTR-MS-Instance is rejected with
+        400. The source therefore reads it statically. The header parameter
+        is kept for a future documented instance route."""
         return self._get_json(
             f"/api/model/documents/{document_id}",
             project_id=project_id,
+            headers=({MSTR_MS_INSTANCE_HEADER: instance_id} if instance_id else None),
         )
 
     def list_model_tables(
@@ -374,7 +491,7 @@ class MicroStrategyClient:
             f"/api/dossiers/{dossier_id}/instances",
             project_id=project_id,
             method="POST",
-            json={},
+            json=self._dashboard_instance_body(),
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
             # Instance execution and SQL-view calls are expensive (the server
             # runs the dashboard/report); retrying a 180s timeout multiplies
@@ -394,7 +511,7 @@ class MicroStrategyClient:
             f"/api/documents/{document_id}/instances",
             project_id=project_id,
             method="POST",
-            json={},
+            json=self._dashboard_instance_body(),
             timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
             # Instance execution and SQL-view calls are expensive (the server
             # runs the dashboard/report); retrying a 180s timeout multiplies
@@ -409,7 +526,20 @@ class MicroStrategyClient:
             )
         return instance_id
 
+    def _dashboard_instance_body(self) -> Dict[str, Any]:
+        """resolveOnly is documented for both dossier and document instances
+        as resolving without executing; see dashboard_instance_resolve_only."""
+        if self.config.dashboard_instance_resolve_only:
+            return {"resolveOnly": True}
+        return {}
+
     def create_report_instance(self, project_id: str, report_id: str) -> str:
+        """POST /api/v2/reports/{id}/instances: the execution instance that
+        get_report_sql_view reads from, for report source datasets and for the
+        grid reports backing a Report Services document. This is the one call
+        that may run the report against the warehouse; the execution stage
+        requested here is the single place to adjust if the SQL view turns out
+        to be readable without a full execution."""
         response = self._get_json(
             f"/api/v2/reports/{report_id}/instances",
             project_id=project_id,
@@ -429,6 +559,45 @@ class MicroStrategyClient:
                 f"an instance id for {report_id}"
             )
         return instance_id
+
+    def create_model_report_instance(self, project_id: str, report_id: str) -> str:
+        """POST /api/model/reports/{id}/instances (ms-createReportInstance):
+        a Modeling-service report instance, the only kind GET
+        /api/model/reports/{id} accepts in X-MSTR-MS-Instance - an execution
+        instance from /api/v2/reports/{id}/instances is rejected with 400.
+        executionStage is left at its default, no_action, so the report's
+        definition is loaded without running it against the warehouse."""
+        response = self._get_json(
+            f"/api/model/reports/{report_id}/instances",
+            project_id=project_id,
+            method="POST",
+            timeout_seconds=self.config.warehouse_lineage_sql_timeout_seconds,
+            max_attempts=1,
+        )
+        instance_id = self._extract_instance_id(response)
+        if not instance_id:
+            raise MicroStrategyAPIError(
+                "MicroStrategy Modeling report instance response did not include "
+                f"an instance id for {report_id}"
+            )
+        return instance_id
+
+    def delete_model_report_instance(
+        self,
+        project_id: str,
+        report_id: str,
+        instance_id: str,
+    ) -> bool:
+        """DELETE /api/model/reports/{id}/instances (ms-deleteReportInstance);
+        the instance is named by X-MSTR-MS-Instance, not by the path."""
+        response = self._request(
+            "DELETE",
+            f"/api/model/reports/{report_id}/instances",
+            project_id=project_id,
+            expected_statuses={200, 202, 204, 404, 405},
+            headers={MSTR_MS_INSTANCE_HEADER: instance_id},
+        )
+        return response.status_code not in {404, 405}
 
     def get_dossier_datasets_sql(
         self,
@@ -744,6 +913,8 @@ class MicroStrategyClient:
         json: Optional[Dict[str, Any]] = None,
         timeout_seconds: Optional[int] = None,
         max_attempts: Optional[int] = None,
+        headers: Optional[Dict[str, str]] = None,
+        retry_statuses: Optional[Set[int]] = None,
     ) -> Dict[str, Any]:
         response = self._request(
             method,
@@ -753,6 +924,8 @@ class MicroStrategyClient:
             json=json,
             timeout_seconds=timeout_seconds,
             max_attempts=max_attempts,
+            retry_statuses=retry_statuses,
+            headers=dict(headers) if headers else {},
         )
         if not response.content:
             return {}
@@ -801,6 +974,9 @@ class MicroStrategyClient:
             headers["X-MSTR-ProjectID"] = project_id
         timeout_seconds = kwargs.pop("timeout_seconds", None)
         max_attempts = kwargs.pop("max_attempts", None)
+        retry_statuses = kwargs.pop("retry_statuses", None)
+        if retry_statuses is None:
+            retry_statuses = _RETRYABLE_STATUS_CODES
 
         attempts = max_attempts or self.config.max_retries + 1
         last_error: Optional[Exception] = None
@@ -844,10 +1020,7 @@ class MicroStrategyClient:
                 self._reauthenticate_or_die(method, path, reauth_attempted)
                 reauth_attempted = True
                 continue
-            if (
-                response.status_code in _RETRYABLE_STATUS_CODES
-                and attempt < attempts - 1
-            ):
+            if response.status_code in retry_statuses and attempt < attempts - 1:
                 time.sleep(self._retry_delay(response, attempt))
                 attempt += 1
                 continue
@@ -856,7 +1029,9 @@ class MicroStrategyClient:
             except requests.HTTPError as error:
                 self.report.report_api_error()
                 raise MicroStrategyAPIError(
-                    f"MicroStrategy API request failed: {method} {path}: {error}"
+                    f"MicroStrategy API request failed: {method} {path}: {error}",
+                    status_code=response.status_code,
+                    url=url,
                 ) from error
             return response
 

@@ -49,7 +49,11 @@ record MetricUpstreams {
       "fieldName": "datasetUpstreams",
       "fieldType": "URN",
       "hasValuesFieldName": "hasDatasetUpstreams",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "datasetUpstreams",
+        "queryByDefault": false
+      }
     }
   }
   datasetUpstreams: optional array[Edge]
@@ -80,7 +84,11 @@ record MetricUpstreams {
       "fieldName": "fieldUpstreams",
       "fieldType": "URN",
       "hasValuesFieldName": "hasFieldUpstreams",
-      "queryByDefault": false
+      "queryByDefault": false,
+      "v3": {
+        "searchLabel": "fieldUpstreams",
+        "queryByDefault": false
+      }
     }
   }
   fieldUpstreams: optional array[Edge]

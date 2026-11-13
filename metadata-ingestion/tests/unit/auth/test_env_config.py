@@ -5,11 +5,11 @@ path, and precedence over static tokens (env, ~/.datahubenv, sink blocks)."""
 
 import concurrent.futures
 import logging
+from pathlib import Path
 
 import pytest
 import yaml
 
-import datahub.cli.config_utils as config_utils
 import datahub.ingestion.sink.datahub_rest as sink_mod
 from datahub.cli.config_utils import MissingConfigError, load_client_config
 from datahub.configuration.common import ConfigurationError
@@ -19,6 +19,8 @@ from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.sink.datahub_rest import DatahubRestSink, DatahubRestSinkConfig
 
 _AUTH_ENV_VARS = [
+    "DATAHUB_PROFILE",
+    "DATAHUB_SKIP_CONFIG",
     "DATAHUB_AUTH_TYPE",
     "DATAHUB_AUTH_TOKEN_FILE",
     "DATAHUB_AUTH_AUDIENCE",
@@ -38,7 +40,8 @@ _AUTH_ENV_VARS = [
 
 
 @pytest.fixture(autouse=True)
-def _clean_env(monkeypatch):
+def _clean_env(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HOME", str(tmp_path))
     for var in _AUTH_ENV_VARS:
         monkeypatch.delenv(var, raising=False)
 
@@ -343,7 +346,7 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
     path.write_text(
         yaml.safe_dump({"gms": {"server": "http://gms:8080", "token": "stored-pat"}})
     )
-    monkeypatch.setattr(config_utils, "DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 
     with caplog.at_level(logging.WARNING):
@@ -356,9 +359,7 @@ def test_load_client_config_file_branch_env_auth_overrides_stored_token(
 def test_missing_server_error_names_gms_url_when_env_auth_set(tmp_path, monkeypatch):
     # A fully env-configured OAuth container missing only DATAHUB_GMS_URL should
     # be told exactly that, not to run `datahub init`.
-    monkeypatch.setattr(
-        config_utils, "DATAHUB_CONFIG_PATH", str(tmp_path / "missing-datahubenv")
-    )
+    monkeypatch.setenv("HOME", str(tmp_path))
     monkeypatch.setenv("DATAHUB_AUTH_TYPE", "k8s_oidc")
 
     with pytest.raises(MissingConfigError, match="DATAHUB_GMS_URL"):

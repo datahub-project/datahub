@@ -58,6 +58,7 @@ import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { DrawerType, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getFirstSubType } from '@app/entityV2/shared/utils';
+import useGlossaryCreatePrivileges from '@app/glossaryV2/useGlossaryCreatePrivileges';
 import { getEntityProfileDeleteRedirectPath } from '@app/sharedV2/deleteUtils';
 import { useAppConfig, useIsNestedDomainsEnabled } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -196,7 +197,9 @@ const EntityDropdown = (props: Props) => {
     const pageUrl = window.location.href;
     const isGlossaryEntity = entityType === EntityType.GlossaryNode || entityType === EntityType.GlossaryTerm;
     const isDomainEntity = entityType === EntityType.Domain;
-    const canCreateGlossaryEntity = !!entityData?.privileges?.canManageChildren;
+    const { canCreate: canCreateGlossaryEntity } = useGlossaryCreatePrivileges(
+        !!entityData?.privileges?.canManageChildren,
+    );
     const isDomainMoveHidden = !isNestedDomainsEnabled && isDomainEntity;
 
     /**
@@ -290,6 +293,12 @@ const EntityDropdown = (props: Props) => {
             key: '2',
             title: t('menuItem.addTerm'),
             icon: Plus,
+            disabled: !canCreateGlossaryEntity,
+            tooltip: canCreateGlossaryEntity
+                ? undefined
+                : t('createGlossary.noCreatePermission', {
+                      entityName: entityRegistry.getEntityName(EntityType.GlossaryTerm),
+                  }),
             onClick: () => setIsCreateTermModalVisible(true),
             'data-testid': 'entity-menu-add-term-button',
         });
@@ -301,28 +310,44 @@ const EntityDropdown = (props: Props) => {
             key: '3',
             title: t('menuItem.addTermGroup'),
             icon: FolderPlus,
+            disabled: !canCreateGlossaryEntity,
+            tooltip: canCreateGlossaryEntity
+                ? undefined
+                : t('createGlossary.noCreatePermission', {
+                      entityName: entityRegistry.getEntityName(EntityType.GlossaryNode),
+                  }),
             onClick: () => setIsCreateNodeModalVisible(true),
         });
     }
 
     if (!isDomainMoveHidden && menuItems.has(EntityMenuItems.MOVE)) {
+        const moveDisabled = isMoveDisabled(entityType, entityData, me.platformPrivileges);
         menuItemsList.push({
             type: 'item' as const,
             key: '4',
             title: tc('move'),
             icon: FolderOpen,
-            disabled: isMoveDisabled(entityType, entityData, me.platformPrivileges),
+            disabled: moveDisabled,
+            tooltip:
+                moveDisabled && entityType === EntityType.DataProduct
+                    ? t('move.noPermission', { entityName: entityRegistry.getEntityName(entityType) })
+                    : undefined,
             onClick: () => setIsMoveModalVisible(true),
             'data-testid': 'entity-menu-move-button',
         });
     }
 
     if (menuItems.has(EntityMenuItems.EDIT) && onEdit) {
+        const editDisabled = entityType === EntityType.DataProduct && !entityData?.privileges?.canManageEntity;
         menuItemsList.push({
             type: 'item' as const,
             key: '9',
             title: tc('edit'),
             icon: Pencil,
+            disabled: editDisabled,
+            tooltip: editDisabled
+                ? t('edit.noPermission', { entityName: entityRegistry.getEntityName(entityType) })
+                : undefined,
             onClick: onEdit,
         });
     }
@@ -509,11 +534,14 @@ const EntityDropdown = (props: Props) => {
     // Delete should always be last (destructive action)
     if (menuItems.has(EntityMenuItems.DELETE)) {
         let deleteTooltip: string | undefined;
+        const deleteDisabled = isDeleteDisabled(entityType, entityData, me.platformPrivileges);
+        const entityName = entityRegistry.getEntityName(entityType);
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
-            const entityName = entityRegistry.getEntityName(entityType);
             deleteTooltip = isDomainEntity
                 ? t('delete.cantDeleteSubDomain', { entityName })
                 : t('delete.cantDeleteChild', { entityName });
+        } else if (deleteDisabled) {
+            deleteTooltip = t('delete.noPermission', { entityName });
         }
         menuItemsList.push({
             type: 'item' as const,
@@ -521,7 +549,7 @@ const EntityDropdown = (props: Props) => {
             title: isGlossaryTermVersion(entityType, entityData) ? t('delete.versionTitle') : tc('delete'),
             icon: Trash,
             danger: true,
-            disabled: isDeleteDisabled(entityType, entityData, me.platformPrivileges),
+            disabled: deleteDisabled,
             tooltip: deleteTooltip,
             onClick: onDeleteEntity,
             'data-testid': 'entity-menu-delete-button',

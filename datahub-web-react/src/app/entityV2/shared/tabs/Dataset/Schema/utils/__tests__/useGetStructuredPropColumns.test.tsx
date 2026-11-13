@@ -1,11 +1,14 @@
 import { render, screen } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { vi } from 'vitest';
 
+import { Column } from '@components/components/Table/types';
+
+import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
 import { useGetStructuredPropColumns } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetStructuredPropColumns';
 import { SearchResult } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const testTheme = { colors: { bgSkeleton: '#f0f0f0', bgSkeletonShimmer: '#e0e0e0' } } as any;
 
@@ -40,6 +43,10 @@ const properties = [
     },
 ] as unknown as SearchResult[];
 
+// A schema row whose field entity the cell should hand to StructuredPropValues.
+const ROW = { fieldPath: 'x', schemaFieldEntity: { urn: 'urn:li:schemaField:x' } } as unknown as ExtendedSchemaFields;
+const renderCell = (column: Column<ExtendedSchemaFields> | undefined) => column?.render?.(ROW, 0);
+
 describe('useGetStructuredPropColumns', () => {
     it('returns undefined when no properties are given', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(undefined));
@@ -54,16 +61,11 @@ describe('useGetStructuredPropColumns', () => {
             'urn:li:structuredProperty:retention',
             'urn:li:structuredProperty:steward',
         ]);
-        expect(result.current?.every((c) => c.dataIndex === 'schemaFieldEntity')).toBe(true);
     });
 
     it('renders real values once full metadata is loaded', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'ready'));
-        render(
-            <ThemeProvider theme={testTheme}>
-                {result.current?.[1].render({ urn: 'urn:li:schemaField:x' })}
-            </ThemeProvider>,
-        );
+        render(<ThemeProvider theme={testTheme}>{renderCell(result.current?.[1])}</ThemeProvider>);
         // The cell receives the row's schemaFieldEntity and its own (second) property column.
         expect(screen.getByTestId('prop-values')).toHaveTextContent(
             'urn:li:schemaField:x|urn:li:structuredProperty:steward',
@@ -73,11 +75,7 @@ describe('useGetStructuredPropColumns', () => {
 
     it('renders an unavailable marker instead of values when full metadata failed', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'error'));
-        render(
-            <ThemeProvider theme={testTheme}>
-                {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
-            </ThemeProvider>,
-        );
+        render(<ThemeProvider theme={testTheme}>{renderCell(result.current?.[0])}</ThemeProvider>);
         expect(screen.getByTestId('metadata-unavailable')).toBeInTheDocument();
         expect(screen.queryByTestId('prop-values')).not.toBeInTheDocument();
         expect(screen.queryByTestId('prop-cell-skeleton')).not.toBeInTheDocument();
@@ -85,11 +83,7 @@ describe('useGetStructuredPropColumns', () => {
 
     it('renders skeleton placeholders while full metadata is still loading', () => {
         const { result } = renderHook(() => useGetStructuredPropColumns(properties, 'loading'));
-        render(
-            <ThemeProvider theme={testTheme}>
-                {result.current?.[0].render({ urn: 'urn:li:schemaField:x' })}
-            </ThemeProvider>,
-        );
+        render(<ThemeProvider theme={testTheme}>{renderCell(result.current?.[0])}</ThemeProvider>);
         expect(screen.getByTestId('prop-cell-skeleton')).toBeInTheDocument();
         expect(screen.queryByTestId('prop-values')).not.toBeInTheDocument();
     });
