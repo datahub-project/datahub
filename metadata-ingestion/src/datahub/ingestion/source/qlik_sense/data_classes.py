@@ -381,6 +381,7 @@ class App(Item):
     data_model_tables: List[DataModelTable] = []
     # Variable definitions by name, used to expand $(name) in chart expressions.
     variables: Dict[str, str] = {}
+    variables_read_failed: bool = False
     script: Optional[str] = None
     fingerprint: Optional[str] = None
     script_read_failed: bool = False

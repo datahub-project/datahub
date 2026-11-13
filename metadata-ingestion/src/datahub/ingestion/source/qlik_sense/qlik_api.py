@@ -379,7 +379,9 @@ class QlikAPI(QlikBaseAPI):
             if script_app:
                 app.qri = f"qri:app:dataprep://{app_id}"
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
-            app.variables = self._read_variables(websocket_connection, app_id)
+            variables = self._read_variables(websocket_connection, app_id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
             if not app.tables and len(errors.messages) == read_errors:

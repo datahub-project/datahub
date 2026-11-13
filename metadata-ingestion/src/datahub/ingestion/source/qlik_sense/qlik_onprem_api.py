@@ -363,7 +363,9 @@ class QlikOnPremAPI(QlikBaseAPI):
                 # Every sheet of an unpublished app is still private.
                 keep_private=app.spaceId == UNPUBLISHED_APPS_ID,
             )
-            app.variables = self._read_variables(websocket_connection, app.id)
+            variables = self._read_variables(websocket_connection, app.id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             app.script = self._read_load_script(
                 websocket_connection, app.id, on_error=errors.record
             )

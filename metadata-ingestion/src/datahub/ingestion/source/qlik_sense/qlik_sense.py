@@ -2166,6 +2166,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             },
             ignored_connections=on_prem.qvd_ignored_connections,
             folder_aliases=on_prem.qvd_folder_aliases,
+            variables_known=not app.variables_read_failed,
         )
         lineage = app_qvd_lineage(
             app.id,
