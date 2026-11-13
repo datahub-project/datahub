@@ -5,6 +5,7 @@ from typing import (
     Any,
     Dict,
     Iterable,
+    Iterator,
     List,
     Literal,
     Optional,
@@ -17,7 +18,7 @@ import requests
 from typing_extensions import deprecated
 
 from datahub._codegen.aspect import _Aspect
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.filters import RawSearchFilter, RawSearchFilterRule
@@ -690,3 +691,84 @@ class OpenApiAPI(OpenAPIGraphProtocol):
         return self._deserialize_entities(
             response.json(), with_system_metadata=with_system_metadata
         )
+
+    def get_entities_raw(
+        self, entity_name: str, urns: List[str], aspects: List[str]
+    ) -> Dict[str, Dict[str, Any]]:
+        """
+        Get entities using the OpenAPI v3 batchGet endpoint, without deserializing aspects.
+
+        Unlike :meth:`get_entities`, aspects this client has no class for (e.g. ones
+        added by a registry plugin) are kept.
+
+        Args:
+            entity_name: The entity type name
+            urns: List of entity URNs to fetch
+            aspects: Aspect names to fetch
+
+        Returns:
+            A dictionary mapping URNs to their raw OpenAPI v3 payloads
+            (``{"urn": ..., "<aspectName>": {"value": {...}}}``).
+        """
+        request_payload = [
+            {"urn": urn, **{aspect_name: {} for aspect_name in aspects}} for urn in urns
+        ]
+        url = f"{self._gms_server}/openapi/v3/entity/{entity_name}/batchGet"
+        response = self._session.post(
+            url, data=json.dumps(request_payload), headers=_JSON_HEADERS
+        )
+        response.raise_for_status()
+        return {
+            entity["urn"]: entity
+            for entity in response.json()
+            if isinstance(entity, dict) and entity.get("urn")
+        }
+
+    def scroll_entities_raw(
+        self,
+        entity_name: str,
+        aspects: List[str],
+        *,
+        count: Optional[int] = None,
+        query: str = "*",
+    ) -> Iterator[Dict[str, Any]]:
+        """
+        Scroll all entities of one type using the OpenAPI v3 scroll endpoint, without
+        deserializing aspects.
+
+        Unlike :meth:`scroll_entities`, this follows the scroll cursor itself and keeps
+        aspects this client has no class for (e.g. ones added by a registry plugin).
+
+        Args:
+            entity_name: The entity type name
+            aspects: Aspect names to fetch
+            count: Number of results per page; None uses the server's default.
+            query: Search query string.
+
+        Yields:
+            Raw OpenAPI v3 entity payloads (``{"urn": ..., "<aspectName>": {"value": {...}}}``).
+
+        Raises:
+            GraphError: If a response has no ``entities`` list, so that a failed scroll
+                is not mistaken for an empty one.
+        """
+        url = f"{self._gms_server}/openapi/v3/entity/scroll"
+        scroll_id: Optional[str] = None
+        while True:
+            params: Dict[str, Any] = {"query": query}
+            if count is not None:
+                params["count"] = count
+            if scroll_id:
+                params["scrollId"] = scroll_id
+            response = self._post_generic(
+                url, {"entities": [entity_name], "aspects": aspects}, params=params
+            )
+            entities = response.get("entities")
+            if not isinstance(entities, list):
+                raise GraphError(
+                    f"Scroll response for {entity_name} has no 'entities' list"
+                )
+            yield from (e for e in entities if isinstance(e, dict) and e.get("urn"))
+            scroll_id = response.get("scrollId")
+            if not scroll_id or not entities:
+                return

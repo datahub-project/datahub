@@ -8,7 +8,7 @@ from unittest.mock import MagicMock
 import pytest
 from requests.exceptions import HTTPError
 
-from datahub.configuration.common import OperationalError
+from datahub.configuration.common import GraphError, OperationalError
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.graph.client import _APPEND_MAX_ATTEMPTS, DataHubGraph
 from datahub.metadata.schema_classes import (
@@ -52,6 +52,70 @@ class TestPaginateOffset:
         session.request.return_value = _page([], total=0, count=0)
         assert list(_graph(session)._paginate_offset("http://x/list")) == []
         assert session.request.call_count == 1
+
+
+class TestGetEntitySpecifications:
+    def test_returns_raw_specs(self) -> None:
+        spec = {"name": "dataset", "searchableFieldSpecs": [{"name": "description"}]}
+        session = MagicMock()
+        session.request.return_value = _page([spec], total=1, count=1)
+        assert _graph(session).get_entity_specifications() == [spec]
+
+    def test_raises_on_http_errors(self) -> None:
+        # Unlike get_entity_aspect_specs, so callers can name a missing privilege.
+        session = MagicMock()
+        session.request.return_value.raise_for_status.side_effect = HTTPError(
+            response=MagicMock(status_code=403)
+        )
+        session.request.return_value.json.return_value = {"message": "forbidden"}
+        with pytest.raises(OperationalError):
+            _graph(session).get_entity_specifications()
+
+
+class TestScrollEntitiesRaw:
+    def test_follows_the_scroll_cursor_and_keeps_unknown_aspects(self) -> None:
+        first = {"urn": "urn:li:dashboard:(looker,1)", "pluginAspect": {"value": {}}}
+        second = {"urn": "urn:li:dashboard:(looker,2)"}
+        session = MagicMock()
+        session.request.side_effect = [
+            _json_response({"entities": [first], "scrollId": "next"}),
+            _json_response({"entities": [second], "scrollId": None}),
+        ]
+        entities = list(
+            _graph(session).scroll_entities_raw("dashboard", ["dashboardInfo"], count=1)
+        )
+        assert entities == [first, second]
+        first_call, second_call = session.request.call_args_list
+        assert first_call.kwargs["json"] == {
+            "entities": ["dashboard"],
+            "aspects": ["dashboardInfo"],
+        }
+        assert first_call.kwargs["params"] == {"query": "*", "count": 1}
+        assert second_call.kwargs["params"]["scrollId"] == "next"
+
+    def test_malformed_response_raises(self) -> None:
+        # Ending the scroll instead would look like an empty catalog.
+        session = MagicMock()
+        session.request.return_value = _json_response({"error": "unsupported"})
+        with pytest.raises(GraphError):
+            list(_graph(session).scroll_entities_raw("dataset", []))
+
+
+class TestGetEntitiesRaw:
+    def test_returns_raw_payloads_by_urn(self) -> None:
+        urn = "urn:li:dataset:(urn:li:dataPlatform:dbt,a,PROD)"
+        payload = {"urn": urn, "datasetProperties": {"value": {"name": "a"}}}
+        session = MagicMock()
+        session.post.return_value = _json_response([payload])
+        result = _graph(session).get_entities_raw(
+            "dataset", [urn], ["datasetProperties", "schemaMetadata"]
+        )
+        assert result == {urn: payload}
+        url = session.post.call_args.args[0]
+        assert url == "http://localhost:8080/openapi/v3/entity/dataset/batchGet"
+        assert json.loads(session.post.call_args.kwargs["data"]) == [
+            {"urn": urn, "datasetProperties": {}, "schemaMetadata": {}}
+        ]
 
 
 class TestGetEntityAspectSpecs:
@@ -173,7 +237,7 @@ class TestGetEntityAspectSpecs:
         assert session2.request.call_count == 0
 
 
-def _json_response(payload: dict) -> MagicMock:
+def _json_response(payload: Any) -> MagicMock:
     resp = MagicMock()
     resp.json.return_value = payload
     resp.raise_for_status.return_value = None
