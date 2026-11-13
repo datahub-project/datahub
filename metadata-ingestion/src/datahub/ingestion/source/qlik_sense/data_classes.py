@@ -198,6 +198,7 @@ class ListedDataset(BaseModel):
     # None when the listing gives none, so the dataset can't be matched to
     # the lineage graph.
     secure_qri: Optional[str] = None
+    type: str = ""
 
 
 class QlikDataset(Item):

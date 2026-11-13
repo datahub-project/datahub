@@ -200,15 +200,14 @@ class QlikAPI(QlikBaseAPI):
             for item in self._paginate(
                 f"{self.rest_api_url}/items?resourceType={Constant.DATASET}"
             ):
-                secure_qri = (item.get(Constant.RESOURCEATTRIBUTES) or {}).get(
-                    Constant.SECUREQRI
-                )
+                attributes = item.get(Constant.RESOURCEATTRIBUTES) or {}
                 datasets.append(
                     ListedDataset(
                         space_id=item.get(Constant.SPACEID)
                         or Constant.PERSONAL_SPACE_ID,
                         name=item[Constant.NAME],
-                        secure_qri=secure_qri or None,
+                        secure_qri=attributes.get(Constant.SECUREQRI) or None,
+                        type=attributes.get(Constant.TYPE) or "",
                     )
                 )
         except Exception as e:

@@ -62,6 +62,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     Chart,
     Item,
     LineageTable,
+    ListedDataset,
     QlikDataset,
     QlikTable,
     SchemaField as QlikDatasetSchemaField,
@@ -190,7 +191,7 @@ QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QVD_EXTENSION = ".qvd"
 
 
-def _is_qvd(dataset: QlikDataset) -> bool:
+def _is_qvd(dataset: Union[QlikDataset, ListedDataset]) -> bool:
     return dataset.type.upper() == "QVD" or dataset.name.lower().endswith(QVD_EXTENSION)
 
 
@@ -1469,7 +1470,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # Qlik traces QVDs, so one listed without a QRI may be a source the
         # graph names; files it doesn't trace, such as text files, never are.
         self._datasets_without_qri = any(
-            d.secure_qri is None and d.name.lower().endswith(".qvd") for d in allowed
+            d.secure_qri is None and _is_qvd(d) for d in allowed
         )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
