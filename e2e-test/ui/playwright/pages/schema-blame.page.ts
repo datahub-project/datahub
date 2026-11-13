@@ -67,7 +67,15 @@ export class SchemaBlamePage extends BasePage {
     const escapedVersion = version.replace(/\./g, '\\.');
     const versionRegex = new RegExp(`(^|\\s)${escapedVersion}(\\.0)*\\s+-`);
     const versionText = this.page.getByText(versionRegex);
-    await versionButton.or(versionText).click({ timeout: TIMEOUTS.LONG });
+    const versionOption = versionButton.or(versionText);
+    // A field drawer that finishes opening after the selector was clicked takes focus and closes the
+    // dropdown, so reopen it if the option isn't showing.
+    await expect(async () => {
+      if (!(await versionOption.isVisible())) {
+        await this.schemaVersionSelector.click();
+      }
+      await versionOption.click({ timeout: TIMEOUTS.SHORT });
+    }).toPass({ timeout: TIMEOUTS.LONG });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
 
@@ -132,7 +140,10 @@ export class SchemaBlamePage extends BasePage {
 
   async navigateToDataset(urn: string): Promise<void> {
     this.logger?.step('navigate to dataset', { urn });
-    const datasetPath = `/dataset/${urn}`;
+    // Navigate directly to the Columns tab rather than relying on it being the default
+    // landing tab on a bare dataset URL — that default varies with feature flags such as
+    // datasetSummaryPageV1 (which puts "Summary" first).
+    const datasetPath = `/dataset/${urn}/Columns`;
     await this.navigate(datasetPath);
     await this.waitForSchemaLoad();
   }

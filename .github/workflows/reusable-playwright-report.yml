@@ -16,14 +16,17 @@ jobs:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
 
       - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        uses: ./.github/actions/setup-toolchain
         with:
-          node-version: "22"
+          java: false
+          python: false
+          gradle: false
+          node: true
 
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
         with:
           path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json') }}
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
           restore-keys: playwright-${{ runner.os }}-yarn-
 
       - name: Install Playwright dependencies
@@ -57,6 +60,29 @@ jobs:
           name: playwright-html-report
           path: playwright-report/
           retention-days: 5
+
+      # PR P0 tier shadow check: on a full run where the tier would have narrowed the
+      # run (plan_playwright_tier.py), list failing tests outside its selection -- the
+      # regressions the tier would have let through. Never fails the job.
+      - name: Download Playwright P0 tier plan
+        id: tier-plan
+        if: ${{ always() && !cancelled() && github.event_name == 'pull_request' }}
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: playwright-tier-plan
+          path: playwright-tier-plan
+
+      - name: Check P0 tier escapes
+        if: ${{ always() && !cancelled() && steps.tier-plan.outcome == 'success' }}
+        continue-on-error: true
+        env:
+          PLAYWRIGHT_JSON_OUTPUT_NAME: merged-report.json
+        run: |
+          ./e2e-test/ui/playwright/node_modules/.bin/playwright merge-reports --reporter json ./playwright-blobs-flat
+          python3 .github/scripts/playwright_tier_escapes.py \
+            --plan playwright-tier-plan/playwright-tier-plan.json \
+            --report merged-report.json >> "$GITHUB_STEP_SUMMARY"
 
       - name: Configure AWS credentials for S3 report upload
         uses: aws-actions/configure-aws-credentials@8df5847569e6427dd6c4fb1cf565c83acfa8afa7 # v6.0.0

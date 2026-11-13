@@ -1,5 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { CLI_EXECUTOR_ID } from '@app/ingestV2/constants';
 import { EXECUTOR_TYPE_FIELD, INGESTION_SOURCE_FIELD } from '@app/ingestV2/executions/components/Filters';
 import useFilters from '@app/ingestV2/executions/hooks/useFilters';
@@ -7,6 +5,7 @@ import {
     EXECUTOR_TYPE_ALL_VALUE,
     EXECUTOR_TYPE_CLI_VALUE,
 } from '@app/ingestV2/shared/components/filters/ExecutorTypeFilter';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useFilters Hook', () => {
     it('returns no filters when appliedFilters is empty', () => {

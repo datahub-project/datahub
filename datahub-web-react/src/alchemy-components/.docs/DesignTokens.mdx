@@ -1,63 +1,57 @@
-import { Meta, Source } from '@storybook/blocks';
+import { Meta } from '@storybook/blocks';
 
-import theme from '@components/theme';
-
-import { ColorCard, CopyButton } from './mdx-components';
+import { ColorTokenTable } from './mdx-components';
 
 <Meta title="Design Tokens" />
 
 <div className="custom-docs">
 	## Design Tokens
 
-    To streamline the design process and ensure consistency across all DataHub products, we use a set of design tokens that define the visual properties of our design system. These tokens include colors, typography, spacing, and other visual elements that can be used to create a cohesive user experience.
+    Colors are applied through **semantic tokens**: names that describe what a color is for (`text`, `textSecondary`, `bgSurface`, `border`, `iconError`) rather than which shade it is. Each theme maps every token to a concrete value, so code written against tokens works in both light and dark mode without changes. Switch the theme in the toolbar to see the components follow.
 
-    ### Colors
+    Tokens are defined by the `ColorTheme` type in `src/conf/theme/colorThemes/types.ts`, with values in `light.ts` and `dark.ts` next to it.
+
+    ### Using tokens
+
+    In styled-components, read tokens from the theme; no import is needed:
 
     ```tsx
-    import theme from '@components/theme';
-
-    // Accessing a color via object path
-    <div style={{ color: theme.semanticTokens.colors.primary }}>Hello, World!</div>
-
-    // Using CSS variables
-    <div style={{ color: 'var(--alch-color-primary)' }}>Hello, World!</div>
+    const Panel = styled.div`
+        background: ${(props) => props.theme.colors.bgSurface};
+        color: ${(props) => props.theme.colors.text};
+        border: 1px solid ${(props) => props.theme.colors.border};
+    `;
     ```
 
-    <table style={{ width: '100%' }}>
-    	<thead style={{ textAlign: 'left' }}>
-    		<tr>
-    			<th>Token Value</th>
-    			<th>Selector</th>
-    			<th>CSS Variable <small>(coming soon)</small></th>
-    		</tr>
-    	</thead>
-    	<tbody>
-    		{Object.keys(theme.semanticTokens.colors).map((color) => {
-    			const objectKey = `colors['${color}']`;
-    			const hexValue = theme.semanticTokens.colors[color];
-    			const cssVar = `--alch-color-${color}`;
+    Alchemy components such as `Icon` and `Text` take the token name directly:
 
-    			return (
-    				<tr key={color}>
-    					<td>
-    						<ColorCard color={hexValue} size="sm">
-    							<span className="colorChip" />
-    							<div>
-    								<span className="colorValue">{color}</span>
-    								<span className="hex">{hexValue}</span>
-    							</div>
-    						</ColorCard>
-    					</td>
-    					<td>
-    						<span style={{ display: 'flex', alignItems: 'center', fontSize: 'inherit' }}>
-    							{objectKey} <CopyButton text={objectKey} />
-    						</span>
-    					</td>
-    					<td>{cssVar}</td>
-    				</tr>
-    			);
-    		})}
-    	</tbody>
-    </table>
+    ```tsx
+    import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+
+    import { Icon } from '@components';
+
+    <Icon icon={Warning} color="iconWarning" />;
+    ```
+
+    Elsewhere in a component body, use the `useTheme` hook:
+
+    ```tsx
+    import { useTheme } from 'styled-components';
+
+    function StatusDot() {
+        const theme = useTheme();
+        return (
+            <svg width={8} height={8}>
+                <circle cx={4} cy={4} r={4} fill={theme.colors.iconWarning} />
+            </svg>
+        );
+    }
+    ```
+
+    Don't hardcode hex values or import the raw palette (`colors.gray[500]`) for styling: those don't change with the theme. The palette on the [Style Guide](/?path=/docs/style-guide--docs) page is what the tokens are built from, not something to style with directly.
+
+    ### All color tokens
+
+    <ColorTokenTable />
 
 </div>

@@ -1,12 +1,14 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     canCreateTermVersion,
     canShowEditDeprecation,
     getDeprecationMenuActions,
     getSelectableStages,
+    isDeleteDisabled,
     isGlossaryTermVersion,
+    isMoveDisabled,
     suggestNextVersionLabel,
 } from '@app/entityV2/shared/EntityDropdown/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityPrivileges, EntityType } from '@types';
 
@@ -126,5 +128,28 @@ describe('isGlossaryTermVersion', () => {
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, versioned)).toBe(true);
         expect(isGlossaryTermVersion(EntityType.GlossaryTerm, {} as GenericEntityProperties)).toBe(false);
         expect(isGlossaryTermVersion(EntityType.Dataset, versioned)).toBe(false);
+    });
+});
+
+describe('isDeleteDisabled', () => {
+    describe('DataProduct deletion', () => {
+        it('disables delete when user lacks canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: false } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(true);
+        });
+
+        it('enables delete when user has canDeleteEntity', () => {
+            const entityData = { privileges: { canDeleteEntity: true } as EntityPrivileges };
+            expect(isDeleteDisabled(EntityType.DataProduct, entityData as GenericEntityProperties, null)).toBe(false);
+        });
+    });
+});
+
+describe('isMoveDisabled', () => {
+    it('follows canManageEntity for data products', () => {
+        const canManage = { privileges: { canManageEntity: true } as EntityPrivileges };
+        const cannotManage = { privileges: { canManageEntity: false } as EntityPrivileges };
+        expect(isMoveDisabled(EntityType.DataProduct, canManage as GenericEntityProperties, null)).toBe(false);
+        expect(isMoveDisabled(EntityType.DataProduct, cannotManage as GenericEntityProperties, null)).toBe(true);
     });
 });

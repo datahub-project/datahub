@@ -8,11 +8,13 @@ import com.datahub.authentication.AuthenticationConstants;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.authentication.AuthenticatorContext;
 import com.datahub.authentication.token.StatefulTokenService;
 import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenExpiredException;
+import com.datahub.authentication.token.TokenStoreUnavailableException;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import com.linkedin.metadata.entity.EntityService;
 import java.util.Map;
@@ -81,6 +83,9 @@ public class DataHubTokenAuthenticator implements Authenticator {
           new Actor(claims.getActorType(), claims.getActorId()), credentials, claims.asMap());
     } catch (TokenExpiredException e) {
       throw new AuthenticationExpiredException(e.getMessage(), e);
+    } catch (TokenStoreUnavailableException e) {
+      // The token may be valid; the store that records revocations could not be read.
+      throw new AuthenticationUnavailableException(e.getMessage(), e);
     } catch (Exception e) {
       // Failed to validate the token
       throw new AuthenticationException("Unable to verify the provided token.", e);

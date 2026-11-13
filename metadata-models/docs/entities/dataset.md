@@ -54,6 +54,13 @@ The following code snippet shows you how to add a Schema containing 3 fields to 
 
 </details>
 
+#### Primary keys for datasets without key constraints
+
+When the source declares no key constraint (files, object stores, unconstrained tables), write the `editablePrimaryKeys` aspect with the field paths of the key, through any write API (Edit Entity privilege). Ingestion does not write this aspect. The UI shows the source primary key (`schemaMetadata.primaryKeys` plus fields with `isPartOfKey`) when there is one, and the edited key only otherwise.
+
+- Field paths should match `schemaMetadata.fields[].fieldPath`. The UI also matches v2 paths by their simple form, so a key declared as `id` marks the field `[version=2.0].[type=string].id`. A path that matches no field shows no badge and raises no error.
+- In a combined sibling view, the edited keys of both siblings are combined, and a source key on either sibling takes precedence.
+
 ### Tags and Glossary Terms
 
 Datasets can have Tags or Terms attached to them. Read [this blog](https://medium.com/datahub-project/tags-and-terms-two-powerful-datahub-features-used-in-two-different-scenarios-b5b4791e892e) to understand the difference between tags and terms so you understand when you should use which.

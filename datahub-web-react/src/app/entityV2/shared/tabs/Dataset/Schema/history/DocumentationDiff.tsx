@@ -1,14 +1,19 @@
-import React, { useState } from 'react';
-import ReactDiffViewer, { DiffMethod } from 'react-diff-viewer';
+import React, { Suspense, lazy, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
 import {
     PARAM_DESCRIPTION,
     PARAM_PREVIOUS_DESCRIPTION,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/history/HistorySidebar.utils';
+import { SuspenseBlock } from '@app/sharedV2/SuspenseBlock';
 
 import { ChangeEvent, ChangeOperationType } from '@types';
+
+// Only shown after "show diff" is clicked, so keep the diff library out of the logged-in shell bundle.
+const DocumentationDiffViewer = lazy(
+    () => import('@app/entityV2/shared/tabs/Dataset/Schema/history/DocumentationDiff.components'),
+);
 
 // Strip surrounding triple-backtick fences so the diff sees clean text.
 function stripCodeFences(text: string): string {
@@ -63,21 +68,6 @@ interface Props {
 
 function DocumentationDiff({ changeEvent, inheritedPreviousDescription }: Props) {
     const { t: tc } = useTranslation('common.actions');
-    const theme = useTheme();
-
-    const diffViewerStyles = {
-        diffContainer: {
-            fontSize: '12px',
-        },
-        wordAdded: {
-            background: theme.colors.bgSurfaceSuccess,
-            color: theme.colors.textSuccess,
-        },
-        wordRemoved: {
-            background: theme.colors.bgSurfaceError,
-            color: theme.colors.textError,
-        },
-    };
     const [expanded, setExpanded] = useState(false);
 
     const newText = stripCodeFences(getParameter(changeEvent.parameters, PARAM_DESCRIPTION));
@@ -113,14 +103,9 @@ function DocumentationDiff({ changeEvent, inheritedPreviousDescription }: Props)
             </ToggleLink>
             {expanded && (
                 <DiffContainer data-testid="documentation-diff-content">
-                    <ReactDiffViewer
-                        oldValue={oldValue}
-                        newValue={newValue}
-                        compareMethod={DiffMethod.LINES}
-                        splitView={false}
-                        hideLineNumbers
-                        styles={diffViewerStyles}
-                    />
+                    <Suspense fallback={<SuspenseBlock />}>
+                        <DocumentationDiffViewer oldValue={oldValue} newValue={newValue} />
+                    </Suspense>
                 </DiffContainer>
             )}
         </>

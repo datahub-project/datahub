@@ -43,6 +43,21 @@ fragment runRelationshipResults on EntityRelationshipsResult {
         entity {
             urn
             type
+            ... on HasEditableProperties {
+                editableProperties {
+                    description
+                }
+            }
+            ... on HasSubTypes {
+                subTypes {
+                    typeNames
+                }
+            }
+            ... on HasStatus {
+                status {
+                    removed
+                }
+            }
             ... on Dataset {
                 name
                 properties {
@@ -50,17 +65,8 @@ fragment runRelationshipResults on EntityRelationshipsResult {
                     description
                     qualifiedName
                 }
-                editableProperties {
-                    description
-                }
                 platform {
                     ...platformFields
-                }
-                subTypes {
-                    typeNames
-                }
-                status {
-                    removed
                 }
             }
             ... on DataJob {
@@ -84,15 +90,6 @@ fragment runRelationshipResults on EntityRelationshipsResult {
                 }
                 dataPlatformInstance {
                     ...dataPlatformInstanceFields
-                }
-                subTypes {
-                    typeNames
-                }
-                editableProperties {
-                    description
-                }
-                status {
-                    removed
                 }
             }
         }

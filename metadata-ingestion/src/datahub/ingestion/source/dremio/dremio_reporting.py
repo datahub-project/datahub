@@ -1,5 +1,5 @@
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Dict, Optional
 
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
@@ -23,6 +23,9 @@ class DremioSourceReport(
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
+    # Set when the job-history fetch stopped early; the stateful time window
+    # is then left in place so the next run re-reads it.
+    query_fetch_incomplete: bool = False
     containers_scanned: int = 0
     containers_filtered: int = 0
 
@@ -55,6 +58,9 @@ class DremioSourceReport(
     # whole catalog; query lineage then falls back to the filters alone. Set
     # only through DremioAPIOperations._report_dataset_fetch_failure.
     dataset_fetch_incomplete: bool = False
+    # One upstream URN per mapped Dremio source, to compare against the URNs the
+    # source's own connector ingests.
+    source_mapping_sample_upstream_urns: Dict[str, str] = field(default_factory=dict)
 
     api_calls_total: int = 0
     api_calls_by_method_and_path: TopKDict[str, int] = field(

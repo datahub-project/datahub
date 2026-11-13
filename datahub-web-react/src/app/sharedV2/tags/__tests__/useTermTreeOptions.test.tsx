@@ -1,11 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import {
     buildTermTreeOptions,
     groupGlossaryEntitiesByRoot,
     partitionGroupByDirectParent,
     useTermTreeOptions,
 } from '@app/sharedV2/tags/useTermTreeOptions';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { Entity, EntityType, GlossaryNode, GlossaryTerm, ParentNodesResult } from '@types';
 

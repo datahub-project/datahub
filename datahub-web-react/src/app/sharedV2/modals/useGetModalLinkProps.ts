@@ -1,6 +1,6 @@
 import { useMemo } from 'react';
 
-import { useModalContext } from '@app/sharedV2/modals/ModalContext';
+import { useModalContext } from '@components/components/Modal/ModalContext';
 
 export const useGetModalLinkProps = () => {
     const { isInsideModal } = useModalContext();
