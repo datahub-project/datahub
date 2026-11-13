@@ -35,6 +35,12 @@ class ReadBackend(Protocol):
         """
         ...
 
+    def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
+        """Each document's urn, subType, title and body (``document_content.gql``);
+        None for one that is deleted or not viewable. URNs GMS does not know may be
+        left out."""
+        ...
+
     def related_documents(self, urn: str, start: int, count: int) -> JsonObject:
         """``getRelatedDocuments`` for the variables of ``related_documents.gql``."""
         ...
@@ -115,6 +121,24 @@ class GraphQLReadBackend:
             else:
                 entity[SIBLINGS_SEARCH_KEY] = (siblings or {}).get(SIBLINGS_SEARCH_KEY)
         return entity
+
+    def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
+        entities = cast(
+            list[JsonObject | None],
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("document_content.gql"),
+                variables={"urns": urns},
+                operation_name="documentContent",
+            ).get("entities")
+            or [],
+        )
+        # entities(urns:) returns a hard-deleted or unviewable document as a stub
+        # with info null: the same as a URN the server did not return.
+        return [
+            None if entity and "info" in entity and entity["info"] is None else entity
+            for entity in entities
+        ]
 
     def related_documents(self, urn: str, start: int, count: int) -> JsonObject:
         return cast(
