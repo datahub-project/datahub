@@ -49,24 +49,32 @@ public class PolicyUpdateInputInfoMapper
   /**
    * Applies an update input onto {@code existingInfo}, mutating and returning it in place so fields
    * absent from {@link PolicyUpdateInput} are preserved.
+   *
+   * @param privilegeConstraintsProvided whether the request carried {@code
+   *     resources.privilegeConstraints} at all (even as an explicit null). When it didn't, the
+   *     stored constraints are kept: the policy editor UI has no field for them, and dropping them
+   *     on every UI edit would silently remove a security restriction.
    */
   public static DataHubPolicyInfo mapToExisting(
       @Nullable QueryContext context,
       @Nonnull final PolicyUpdateInput policyInput,
-      @Nonnull final DataHubPolicyInfo existingInfo) {
-    return INSTANCE.applyToExisting(context, policyInput, existingInfo);
+      @Nonnull final DataHubPolicyInfo existingInfo,
+      final boolean privilegeConstraintsProvided) {
+    return INSTANCE.applyToExisting(
+        context, policyInput, existingInfo, privilegeConstraintsProvided);
   }
 
   @Override
   public DataHubPolicyInfo apply(
       @Nullable QueryContext queryContext, @Nonnull final PolicyUpdateInput policyInput) {
-    return applyToExisting(queryContext, policyInput, new DataHubPolicyInfo());
+    return applyToExisting(queryContext, policyInput, new DataHubPolicyInfo(), true);
   }
 
   private DataHubPolicyInfo applyToExisting(
       @Nullable QueryContext queryContext,
       @Nonnull final PolicyUpdateInput policyInput,
-      @Nonnull final DataHubPolicyInfo result) {
+      @Nonnull final DataHubPolicyInfo result,
+      final boolean privilegeConstraintsProvided) {
     if (policyInput.getDescription() != null) {
       result.setDescription(policyInput.getDescription());
     }
@@ -79,7 +87,13 @@ public class PolicyUpdateInputInfoMapper
             result.hasActors() ? result.getActors() : new DataHubActorFilter()));
     result.setState(policyInput.getState().toString());
     if (policyInput.getResources() != null) {
-      result.setResources(mapResources(policyInput.getResources()));
+      final DataHubResourceFilter resources = mapResources(policyInput.getResources());
+      if (!privilegeConstraintsProvided
+          && result.hasResources()
+          && result.getResources().hasPrivilegeConstraints()) {
+        resources.setPrivilegeConstraints(result.getResources().getPrivilegeConstraints());
+      }
+      result.setResources(resources);
     } else {
       result.removeResources();
     }
