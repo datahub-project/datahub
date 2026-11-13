@@ -163,6 +163,25 @@ Mutation tools are available on DataHub Cloud v0.3.17+ and on DataHub Core v1.9.
 
 </details>
 
+### Ingestion Tools (opt-in) {#ingestion-tools}
+
+:::info
+On self-hosted DataHub Core, the **Ingestion** tool group is off unless an admin selects it on the [settings page](#mcp-settings-page). "All tools" never includes it.
+:::
+
+**Ingestion** — Write and check ingestion recipes, as the `datahub recipe` CLI does. Recipe credentials must be secret references such as `${SNOWFLAKE_PASSWORD}` to [DataHub secrets](../../ui-ingestion.md); the tools refuse a recipe with a literal password, token or key.
+
+<details>
+  <summary>Tools</summary>
+
+`list_connector_types` — List the connector types (`source.type` values) DataHub supports.
+
+`get_recipe_schema` — Describe a connector's config fields, and build a recipe template from the fields you know. The MCP server describes only connectors whose packages it has installed (`file` and `demo-data` on a default install); for others it links the connector's docs.
+
+`validate_recipe` — Check a recipe without connecting to anything: its YAML, its connector type, that credentials are secret references and, for a connector the server has installed, its field names and types.
+
+</details>
+
 # Connecting to Managed MCP Server with OAuth - Recommended {#managed-mcp-server-usage}
 
 _Available in DataHub Cloud v1.0.2+_
@@ -746,7 +765,7 @@ Custom connectors in claude.ai and Claude Desktop, and the Claude API's MCP conn
 Users with the **Manage Platform Settings** privilege manage MCP under **Settings > Platform > AI > MCP Server**:
 
 - **Enable MCP Server** turns the server at `/mcp` on or off for all users. While it is off, `/mcp` returns 404.
-- **Edit** the server to choose its tools, by tool or by group (**Read metadata**, **Write metadata**; with none selected, every tool is served), and its instructions: base instructions (**None**, **Small** or **Large**) followed by your own custom instructions.
+- **Edit** the server to choose its tools, by tool or by group (**Read metadata**, **Write metadata**, **Ingestion**; with none selected, every tool except the [ingestion tools](#ingestion-tools) is served), and its instructions: base instructions (**None**, **Small** or **Large**) followed by your own custom instructions.
 - **Connect a client** shows the setup for each MCP client, with your URL and authentication.
 
 How the service applies these settings:
@@ -755,6 +774,7 @@ How the service applies these settings:
 - The tool selection filters both the tool list and direct calls: a tool that isn't selected can't be called by name either.
 - If the service can't read the settings, `/mcp` fails closed with a 503 rather than serving tools the settings might have turned off.
 - `TOOLS_IS_MUTATION_ENABLED=false` on the service always wins: the settings page can't turn write tools back on.
+- The **Ingestion** group is opt-in: it is served only when the selection names the group or one of its tools, and `INGESTION_TOOLS_ENABLED=false` on the service removes it whatever the settings say.
 - The tool picker offers the tools the service serves and the connected GMS can run, from `/ai/catalog/tools` on the frontend (signed-in users only).
 - `GET /health` on the service reports the settings state (`enabled`, `disabled`, `unavailable`, or `unknown` before the first request), never the settings themselves.
 - Against a GMS that has no MCP settings API (one older than the service), the defaults apply: MCP on, every tool, default instructions.
@@ -785,6 +805,7 @@ These environment variables on `datahub-ai-service` (or the stdio server) choose
 | `SAVE_DOCUMENT_ORGANIZE_BY_USER` | `false`  | `true` puts each user's saved documents in their own sub-folder                                 |
 | `LIST_SCHEMA_FIELDS_ENABLED`     | `true`   | `list_schema_fields`                                                                            |
 | `GREP_ENTITIES_ENABLED`          | `true`   | `grep_entities`                                                                                 |
+| `INGESTION_TOOLS_ENABLED`        | `true`   | `false` removes the [ingestion tools](#ingestion-tools), which are opt-in on the settings page  |
 | `ENTITY_VERSIONING_ENABLED`      | `false`  | Glossary term version tools (`create_glossary_term_version`, `get_glossary_term_versions`, ...) |
 | `SEMANTIC_SEARCH_ENABLED`        | `false`  | `true` adds semantic search to `search_documents`; GMS must have semantic search set up         |
 
@@ -841,7 +862,7 @@ The frontend waits up to `DATAHUB_AI_PROXY_TIMEOUT_SECONDS` (600) for the servic
 }
 ```
 
-Without `DATAHUB_GMS_URL` it uses the `~/.datahubenv` that `datahub init` writes. Leave out `DATAHUB_GMS_TOKEN` when GMS authentication is off. The [tool switches](#tool-switches) apply, tools the connected DataHub is too old for are hidden, and it sends the same anonymous telemetry (`DATAHUB_TELEMETRY_ENABLED=false` turns it off). It has no settings page and records no usage events.
+Without `DATAHUB_GMS_URL` it uses the `~/.datahubenv` that `datahub init` writes. Leave out `DATAHUB_GMS_TOKEN` when GMS authentication is off. The [tool switches](#tool-switches) apply, tools the connected DataHub is too old for are hidden, and it sends the same anonymous telemetry (`DATAHUB_TELEMETRY_ENABLED=false` turns it off). It has no settings page and records no usage events. Instead, `DATAHUB_MCP_TOOL_GROUPS` (comma-separated group ids) chooses its tool groups: unset, it serves `read_metadata` and `write_metadata`; add `ingestion` (for example `read_metadata,write_metadata,ingestion`) to serve the opt-in [ingestion tools](#ingestion-tools).
 
 ### Migrating from `mcp-server-datahub` {#migrating-from-mcp-server-datahub}
 

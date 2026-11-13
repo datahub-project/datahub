@@ -14,7 +14,11 @@ from fastmcp import Client
 from fastmcp.client.transports import StdioTransport
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
-from datahub_core_mcp_tools.stdio import build_stdio_server, client_from_env
+from datahub_core_mcp_tools.stdio import (
+    build_stdio_server,
+    client_from_env,
+    groups_from_env,
+)
 
 _CONFIG = {
     "versions": {"acryldata/datahub": {"version": "v1.8.0"}},
@@ -184,3 +188,41 @@ async def test_embedded_server_serves_selected_groups_with_stdio_telemetry() -> 
     assert events[0][0] == "mcp-server-tool-call"
     assert events[0][1]["deployment"] == "stdio"
     assert events[0][1]["tool"] == "get_me"
+
+
+@pytest.mark.parametrize(
+    ("value", "groups"),
+    [
+        (None, None),
+        ("  ", None),
+        ("read_metadata, ingestion", ["read_metadata", "ingestion"]),
+    ],
+)
+def test_tool_groups_from_the_environment(
+    monkeypatch: pytest.MonkeyPatch, value: Optional[str], groups: Optional[list[str]]
+) -> None:
+    if value is None:
+        monkeypatch.delenv("DATAHUB_MCP_TOOL_GROUPS", raising=False)
+    else:
+        monkeypatch.setenv("DATAHUB_MCP_TOOL_GROUPS", value)
+
+    assert groups_from_env() == groups
+
+
+@pytest.mark.parametrize(
+    ("groups", "has_ingestion"), [(None, False), (["ingestion"], True)]
+)
+async def test_stdio_serves_ingestion_only_when_named(
+    groups: Optional[list[str]], has_ingestion: bool
+) -> None:
+    mcp = build_stdio_server(
+        _FakeClient(),  # type: ignore[arg-type]
+        groups=groups,
+        server_info=lambda: GmsServerInfo(version="v1.8.0", server_env="core"),
+        telemetry_ping=lambda name, properties: None,
+    )
+    async with Client(mcp) as client:
+        tools = {tool.name for tool in await client.list_tools()}
+
+    assert ("validate_recipe" in tools) == has_ingestion
+    assert ("search" in tools) == (not has_ingestion)

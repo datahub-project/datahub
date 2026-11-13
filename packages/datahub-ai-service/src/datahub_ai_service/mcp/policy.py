@@ -23,11 +23,7 @@ from starlette.types import ASGIApp, Receive, Scope, Send
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 from datahub_core_mcp_tools.mcp_instructions import build_instructions
-from datahub_core_mcp_tools.tool_groups import (
-    SYSTEM_TOOL_IDS,
-    ToolLike,
-    resolve_tool_refs,
-)
+from datahub_core_mcp_tools.tool_groups import ToolLike, is_tool_selected
 from datahub_core_mcp_tools.version_filter import filter_tools_by_version
 
 from ..metrics import ServiceMetrics
@@ -48,12 +44,10 @@ SETTINGS_READ_LIMIT_SECONDS = 10.0
 
 
 def is_tool_allowed(tool: ToolLike, policy: McpPolicy) -> bool:
-    if policy.tool_refs is None or tool.name in SYSTEM_TOOL_IDS:
-        return True
-    # A tool's groups come from its own tags, so resolving against it alone
-    # gives the same answer as resolving against every tool.
-    allowed = resolve_tool_refs(policy.tool_refs, [tool])
-    return allowed is None or tool.name in allowed
+    """Whether the policy serves ``tool``. With no selection that is every tool
+    except the opt-in groups' (ingestion), which only a selection naming them
+    serves."""
+    return is_tool_selected(tool, policy.tool_refs)
 
 
 async def _respond(send: Send, status: int, error: str, description: str) -> None:
@@ -186,7 +180,7 @@ class McpPolicyMiddleware(Middleware):
     ) -> Any:
         policy = current_policy()
         name = getattr(context.message, "name", None)
-        if name and policy.tool_refs is not None and context.fastmcp_context:
+        if name and context.fastmcp_context:
             tool = await context.fastmcp_context.fastmcp.get_tool(name)
             if tool is not None and not is_tool_allowed(tool, policy):
                 raise ToolError(

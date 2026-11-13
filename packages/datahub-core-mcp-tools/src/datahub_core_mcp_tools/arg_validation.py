@@ -17,12 +17,12 @@ OpenAI-compatible endpoints, which reject the *whole* tool list with a 422
   union and ``WithJsonSchema`` publishes a plain array.
 """
 
-from typing import Annotated, List, Optional, Tuple, TypedDict
+from typing import Annotated, Dict, List, Optional, Tuple, TypedDict
 
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn, Urn
 from datahub.utilities.urns.error import InvalidUrnError
 from fastmcp.exceptions import ToolError
-from pydantic import AliasChoices, BeforeValidator, WithJsonSchema
+from pydantic import AliasChoices, BeforeValidator, JsonValue, WithJsonSchema
 from pydantic_core import from_json
 
 
@@ -70,6 +70,30 @@ OptionalNullableItemStrList = Annotated[
     Optional[List[Optional[str]]], BeforeValidator(coerce_str_list)
 ]
 """Like ``OptionalStrList``, but items may be null (e.g. ``column_paths``)."""
+
+
+def coerce_json_object(value: object) -> object:
+    """Parse an object argument a client sent as a JSON string.
+
+    Anything that does not parse to an object is passed on unchanged for the
+    outer type to reject. ``""`` and ``"null"`` mean omitted, as for lists.
+    """
+    if not isinstance(value, str):
+        return value
+    stripped = value.strip()
+    if not stripped:
+        return None
+    try:
+        parsed = from_json(stripped)
+    except ValueError:
+        return value
+    return parsed if parsed is None or isinstance(parsed, dict) else value
+
+
+OptionalJsonObject = Annotated[
+    Optional[Dict[str, JsonValue]], BeforeValidator(coerce_json_object)
+]
+"""A JSON object that may be omitted; a JSON-stringified object is parsed."""
 
 StrListOrStr = Annotated[
     List[str] | str,

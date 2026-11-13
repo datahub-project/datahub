@@ -55,6 +55,9 @@ async def test_catalog_lists_selectable_tools_without_a_token(gms: FakeGms) -> N
     assert tools["search"]["description"]
     assert tools["add_tags"]["category"] == "mutation"
     assert tools["add_tags"]["groups"] == ["write_metadata"]
+    # Listed although not selected, so the opt-in group can be turned on.
+    assert tools["validate_recipe"]["groups"] == ["ingestion"]
+    assert tools["validate_recipe"]["category"] == "read_only"
     # A system tool is always served, so it isn't offered for selection.
     assert "get_me" not in tools
     assert "agents" not in response.json()
