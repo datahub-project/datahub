@@ -1764,7 +1764,7 @@ module.exports = {
             type: "doc",
             id: "docs/rfcs/README",
           },
-          items: [],
+          items: ["docs/rfcs/active/15918-cli-profile-management"],
         },
         "SECURITY",
       ],

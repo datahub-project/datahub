@@ -129,6 +129,8 @@ runs:
             - "metadata-operation-context/**"
             - "metadata-integration/**"
             - "datahub-graphql-core/**"
+            # Checked by ListEntityIncidentsQueryTest in datahub-graphql-core.
+            - "datahub-agent-context/src/datahub_agent_context/mcp_tools/gql/list_entity_incidents.gql"
             - "docker/**"
           kafka-setup:
             - "docker/kafka-setup/**"
