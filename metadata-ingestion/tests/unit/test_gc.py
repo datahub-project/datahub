@@ -377,8 +377,22 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # delete would strip, so the search must not exclude any of them.
         search = self.mock_graph.get_urns_by_filter.call_args.kwargs
         self.assertEqual(search["status"], RemovedStatusFilter.ALL)
-        # Not among the server's default search types, so it must be named.
-        self.assertIn("dataProcessInstance", search["entity_types"])
+        # Every type with a container aspect, including dataProcessInstance,
+        # which the server's default search types leave out.
+        self.assertEqual(
+            search["entity_types"],
+            [
+                "dataset",
+                "chart",
+                "dashboard",
+                "dataFlow",
+                "dataJob",
+                "dataProcessInstance",
+                "container",
+                "mlModel",
+                "mlModelGroup",
+            ],
+        )
         self.assertTrue(search["include_draft"])
         self.assertTrue(search["include_hidden_lifecycle_stages"])
         self.assertEqual(

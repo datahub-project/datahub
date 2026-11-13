@@ -298,6 +298,9 @@ class SoftDeletedEntitiesCleanup:
                 message="Not hard-deleting soft-deleted containers that still have "
                 "children. Restore the container, or delete its children first.",
                 context=urn.urn(),
+                # Retained again on every run; the counter and sampled report
+                # entry already record it.
+                log=False,
             )
 
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
