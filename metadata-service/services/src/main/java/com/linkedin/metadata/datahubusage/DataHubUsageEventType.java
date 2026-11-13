@@ -162,6 +162,7 @@ public enum DataHubUsageEventType {
   WELCOME_TO_DATAHUB_MODAL_CLICK_VIEW_DOCUMENTATION_EVENT(
       "WelcomeToDataHubModalClickViewDocumentationEvent"),
   PRODUCT_TOUR_BUTTON_CLICK_EVENT("ProductTourButtonClickEvent"),
+  GITHUB_STAR_CLICK_EVENT("GithubStarClickEvent"),
   CREATE_DOCUMENT_EVENT("CreateDocumentEvent"),
   MOVE_DOCUMENT_EVENT("MoveDocumentEvent"),
   EDIT_DOCUMENT_EVENT("EditDocumentEvent"),

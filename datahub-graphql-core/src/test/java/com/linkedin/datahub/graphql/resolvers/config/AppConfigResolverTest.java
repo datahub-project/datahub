@@ -145,6 +145,7 @@ public class AppConfigResolverTest {
     when(mockFeatureFlags.isShowProductUpdates()).thenReturn(false);
     when(mockFeatureFlags.isLogicalModelsEnabled()).thenReturn(false);
     when(mockFeatureFlags.isShowHomepageUserRole()).thenReturn(false);
+    when(mockFeatureFlags.isShowGithubStarPrompt()).thenReturn(true);
     when(mockFeatureFlags.isAssetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDatasetSummaryPageV1()).thenReturn(false);
     when(mockFeatureFlags.isDocumentationFileUploadV1()).thenReturn(false);
@@ -189,6 +190,7 @@ public class AppConfigResolverTest {
     assertNotNull(result.getFeatureFlags());
     assertTrue(result.getFeatureFlags().getShowIngestionPageRedesign());
     assertTrue(result.getFeatureFlags().getIngestionOnboardingRedesignV1());
+    assertTrue(result.getFeatureFlags().getShowGithubStarPrompt());
     assertNotNull(result.getChromeExtensionConfig());
     assertFalse(result.getChromeExtensionConfig().getEnabled());
   }

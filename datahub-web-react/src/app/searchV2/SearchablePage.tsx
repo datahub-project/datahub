@@ -11,6 +11,7 @@ import { SearchHeader } from '@app/searchV2/SearchHeader';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { getAutoCompleteInputFromQuickFilter } from '@app/searchV2/utils/filterUtils';
+import GithubStarButton from '@app/sharedV2/githubStar/GithubStarButton';
 import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import ProductUpdates from '@app/sharedV2/product/update/ProductUpdates';
 import { useAppConfig } from '@app/useAppConfig';
@@ -70,6 +71,22 @@ const Content = styled.div<{
     max-height: ${(props) => props.$hideSearchBar && `calc(100vh - ${props.$isShowNavBarRedesign ? 0 : 6}px)`};
     width: 100%;
     overflow: ${(props) => (props.$isShowNavBarRedesign ? 'hidden' : 'auto')};
+`;
+
+const GITHUB_STAR_TOP_PX = 22;
+const GITHUB_STAR_TOP_ON_HOME_PX = 42;
+// Below this width the button overlaps the search bar's "Discover" link.
+const GITHUB_STAR_MIN_VIEWPORT_PX = 1200;
+
+const GithubStarSlot = styled.div<{ $hideSearchBar?: boolean }>`
+    position: fixed;
+    top: ${(props) => (props.$hideSearchBar ? GITHUB_STAR_TOP_ON_HOME_PX : GITHUB_STAR_TOP_PX)}px;
+    right: 24px;
+    z-index: 1;
+
+    @media (max-width: ${GITHUB_STAR_MIN_VIEWPORT_PX - 1}px) {
+        display: none;
+    }
 `;
 
 const FIFTH_SECOND_IN_MS = 200;
@@ -167,6 +184,9 @@ export const SearchablePage = ({ children, hideSearchBar }: Props) => {
                     {children}
                 </Content>
             </Body>
+            <GithubStarSlot $hideSearchBar={hideSearchBar}>
+                <GithubStarButton />
+            </GithubStarSlot>
             <ProductUpdates />
         </>
     );

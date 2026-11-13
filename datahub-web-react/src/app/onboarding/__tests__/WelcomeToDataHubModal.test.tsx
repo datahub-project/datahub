@@ -2,9 +2,12 @@ import { MockedProvider } from '@apollo/client/testing';
 import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 
+import analytics, { EventType } from '@app/analytics';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import { WelcomeToDataHubModal } from '@app/onboarding/WelcomeToDataHubModal';
+import { DATAHUB_GITHUB_URL } from '@app/sharedV2/constants';
+import { DEFAULT_APP_CONFIG } from '@src/appConfigContext';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 vi.mock('@images/FTE-search.mp4', () => ({ default: '/search.mp4' }));
@@ -20,6 +23,23 @@ function ReopenTour() {
         </button>
     );
 }
+
+const { githubStarFlag } = vi.hoisted(() => ({ githubStarFlag: { enabled: false } }));
+
+vi.mock('@app/useAppConfig', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@app/useAppConfig')>();
+    return {
+        ...actual,
+        useAppConfig: () => ({
+            config: {
+                ...DEFAULT_APP_CONFIG,
+                featureFlags: { ...DEFAULT_APP_CONFIG.featureFlags, showGithubStarPrompt: githubStarFlag.enabled },
+            },
+            loaded: true,
+            refreshContext: () => null,
+        }),
+    };
+});
 
 const { carouselNext, carouselPrev, slideChange } = vi.hoisted(() => ({
     carouselNext: vi.fn(),
@@ -228,5 +248,53 @@ describe('WelcomeToDataHubModal slide advance', () => {
 
         expect(document.querySelector('video[src="/lineage.mp4"]')).toBe(lineage);
         expect(document.querySelector('video[src="/search.mp4"]')).toBeNull();
+    });
+});
+
+describe('WelcomeToDataHubModal GitHub star slide', () => {
+    beforeEach(() => {
+        localStorage.clear();
+        carouselNext.mockClear();
+        slideChange.current = undefined;
+        vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] });
+        vi.spyOn(HTMLMediaElement.prototype, 'play').mockImplementation(() => Promise.resolve());
+        vi.spyOn(HTMLMediaElement.prototype, 'pause').mockImplementation(() => {});
+        vi.stubGlobal(
+            'fetch',
+            vi.fn(() => Promise.reject(new Error('offline'))),
+        );
+    });
+
+    afterEach(() => {
+        githubStarFlag.enabled = false;
+        vi.useRealTimers();
+        vi.restoreAllMocks();
+        vi.unstubAllGlobals();
+    });
+
+    it('is hidden when the flag is off', () => {
+        renderTour();
+
+        expect(screen.queryByTestId('welcome-modal-github-star-button')).toBeNull();
+    });
+
+    it('adds a slide before the last one that opens the DataHub repo', () => {
+        githubStarFlag.enabled = true;
+        const eventSpy = vi.spyOn(analytics, 'event');
+        renderTour();
+
+        // Slide 3 is the GitHub slide, so moving right is still allowed; slide 4 is now the last.
+        act(() => {
+            slideChange.current?.(3);
+        });
+        fireEvent.keyDown(document, { key: 'ArrowRight' });
+        expect(carouselNext).toHaveBeenCalledTimes(1);
+
+        const starLink = screen.getByTestId('welcome-modal-github-star-button');
+        expect(starLink).toHaveAttribute('href', DATAHUB_GITHUB_URL);
+        expect(starLink).toHaveAttribute('target', '_blank');
+
+        fireEvent.click(starLink);
+        expect(eventSpy).toHaveBeenCalledWith({ type: EventType.GithubStarClickEvent, source: 'welcomeModal' });
     });
 });

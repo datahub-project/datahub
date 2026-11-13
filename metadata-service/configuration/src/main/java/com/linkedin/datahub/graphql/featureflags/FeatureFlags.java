@@ -68,6 +68,8 @@ public class FeatureFlags {
   private String productUpdatesJsonFallbackResource;
   private boolean logicalModelsEnabled = true;
   private boolean showHomepageUserRole = false;
+  // OSS-only GitHub star asks. Cloud turns this off.
+  private boolean showGithubStarPrompt = true;
   private boolean assetSummaryPageV1 = false;
   private boolean datasetSummaryPageV1 = false;
   private boolean metricsEnabled = true;

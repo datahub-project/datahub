@@ -4,9 +4,11 @@ import { unstable_batchedUpdates } from 'react-dom';
 import { useTranslation } from 'react-i18next';
 
 import analytics, { EventType } from '@app/analytics';
+import GithubStarSlide from '@app/onboarding/GithubStarSlide';
 import { useOnboardingTour } from '@app/onboarding/OnboardingTourContext.hooks';
 import { ANT_NOTIFICATION_Z_INDEX } from '@app/sharedV2/constants';
 import { checkShouldSkipWelcomeModal, setSkipWelcomeModal } from '@app/sharedV2/localStorageUtils';
+import { useAppConfig } from '@app/useAppConfig';
 import {
     SlideContainer,
     SlideDescription,
@@ -72,7 +74,8 @@ export const WelcomeToDataHubModal = () => {
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
     const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
     const isDocumentationSlideEnabled = false;
-    const TOTAL_CAROUSEL_SLIDES = isDocumentationSlideEnabled ? 5 : 4;
+    const isGithubStarSlideEnabled = useAppConfig().config.featureFlags.showGithubStarPrompt;
+    const TOTAL_CAROUSEL_SLIDES = 4 + (isDocumentationSlideEnabled ? 1 : 0) + (isGithubStarSlideEnabled ? 1 : 0);
     const MODAL_IMAGE_WIDTH_RAW = 620;
     const MODAL_IMAGE_WIDTH = `${MODAL_IMAGE_WIDTH_RAW}px`;
     const MODAL_WIDTH_NUM = MODAL_IMAGE_WIDTH_RAW + 45; // Add padding
@@ -406,6 +409,9 @@ export const WelcomeToDataHubModal = () => {
                             <SlideDescription>{t('welcome.slideDocsDescription')}</SlideDescription>
                             <VideoContainer>{tourVideo(3, videoSources.aiDocs, aiDocumentationPoster)}</VideoContainer>
                         </SlideContainer>
+                    )}
+                    {isGithubStarSlideEnabled && (
+                        <GithubStarSlide />
                     )}
                     <SlideContainer>
                         <SlideTitle>{t('welcome.slideReadyTitle')}</SlideTitle>

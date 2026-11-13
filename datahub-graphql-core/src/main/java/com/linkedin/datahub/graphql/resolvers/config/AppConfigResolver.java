@@ -317,6 +317,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setI18nEnabled(_featureFlags.isI18nEnabled())
                   .setBrowserTracingEnabled(_featureFlags.isBrowserTracingEnabled())
                   .setBrowserWebVitalsEnabled(_featureFlags.isBrowserWebVitalsEnabled())
+                  .setShowGithubStarPrompt(_featureFlags.isShowGithubStarPrompt())
                   .build();
 
           appConfig.setFeatureFlags(featureFlagsConfig);

@@ -119,6 +119,7 @@ export const DEFAULT_APP_CONFIG = {
         multipleDataProductsPerAsset: false,
         showTestsInHealthIcon: false,
         i18nEnabled: true,
+        showGithubStarPrompt: false,
     },
     chromeExtensionConfig: {
         enabled: false,
