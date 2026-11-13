@@ -18,6 +18,8 @@ import org.opensearch.common.unit.TimeValue;
  * Prints {@code READY <port>} on stdout once the cluster is yellow.
  *
  * <p>Usage: {@code --port <n> (0 = pick free)} {@code --data <dir>} {@code --cluster <name>}.
+ * Direct {@code java} launchers must supply their own {@code -Xmx}; Gradle and generated start
+ * scripts default to 4 GB, configurable at build time with {@code EMBEDDED_OPENSEARCH_HEAP}.
  */
 public final class EmbeddedOpenSearchMain {
 
@@ -36,7 +38,7 @@ public final class EmbeddedOpenSearchMain {
   public static void main(String[] args) throws Exception {
     int port = 0;
     Path dataDir = null;
-    String clusterName = "gms-lite";
+    String clusterName = "embedded-opensearch";
     for (int i = 0; i < args.length; i++) {
       switch (args[i]) {
         case "--port" -> port = Integer.parseInt(args[++i]);
@@ -49,7 +51,7 @@ public final class EmbeddedOpenSearchMain {
       port = findAvailablePort();
     }
     if (dataDir == null) {
-      dataDir = Files.createTempDirectory("gms-lite-opensearch-");
+      dataDir = Files.createTempDirectory("embedded-opensearch-");
     }
     Files.createDirectories(dataDir);
     final int httpPort = port;
@@ -60,6 +62,7 @@ public final class EmbeddedOpenSearchMain {
         (i, settingsBuilder) ->
             settingsBuilder
                 .put("http.port", String.valueOf(httpPort))
+                .put("transport.port", 0)
                 .put("path.data", base.resolve("data").toString())
                 .put("path.logs", base.resolve("logs").toString())
                 .put("discovery.type", "single-node")
@@ -89,6 +92,7 @@ public final class EmbeddedOpenSearchMain {
       Runnable awaitReady) {
     CountDownLatch shutdown = new CountDownLatch(1);
     AtomicBoolean closed = new AtomicBoolean();
+    AtomicBoolean shuttingDown = new AtomicBoolean();
     Runnable close =
         () -> {
           synchronized (runner) {
@@ -107,6 +111,7 @@ public final class EmbeddedOpenSearchMain {
         .addShutdownHook(
             new Thread(
                 () -> {
+                  shuttingDown.set(true);
                   close.run();
                   shutdown.countDown();
                 }));
@@ -125,6 +130,10 @@ public final class EmbeddedOpenSearchMain {
       }
       shutdown.await();
     } catch (Throwable failure) {
+      if (shuttingDown.get()) {
+        // The shutdown hook owns cleanup once JVM shutdown has begun.
+        return;
+      }
       System.err.println("Failed to start embedded OpenSearch");
       failure.printStackTrace(System.err);
       close.run();

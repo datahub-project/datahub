@@ -7,11 +7,14 @@ plugins {
 
 application {
     mainClass = 'com.linkedin.metadata.opensearch.embedded.EmbeddedOpenSearchMain'
+    // Apply the same heap cap to Gradle run and the generated start scripts.
+    applicationDefaultJvmArgs = ["-Xmx${System.getenv('EMBEDDED_OPENSEARCH_HEAP') ?: '4g'}"]
 }
 
 // The k-NN plugin artifact is a zip (OpenSearch plugin distribution), not a jar. We extract the
 // jars and add them to the classpath only with OPENSEARCH_KNN_ENABLED=true or -Pknn at build
-// time, so a k-NN-off build carries no plugin dependencies or unversioned plugin jars.
+// time, so a k-NN-off build carries no unversioned plugin jars. Guava and the gRPC SPI stay
+// on every build to keep dependency locking independent of the flag.
 def knnEnabled = System.getenv('OPENSEARCH_KNN_ENABLED') == 'true' || project.hasProperty('knn')
 
 if (knnEnabled) {
@@ -19,22 +22,28 @@ if (knnEnabled) {
 }
 
 dependencies {
-    implementation 'org.codelibs.opensearch:opensearch-runner:2.19.1.0'
+    implementation 'org.codelibs.opensearch:opensearch-runner:3.7.0.0'
     // The repo pins io.netty to 4.2.x (CVE alignment in the root build), which split netty-codec;
-    // OpenSearch 2.19's transport needs the full set (MessageToMessageDecoder is in codec-base).
+    // OpenSearch 3.7's transport needs the full set (MessageToMessageDecoder is in codec-base).
     implementation "io.netty:netty-all:${rootProject.ext.nettyVersion}"
+    // The k-NN zip expects Guava from the server libraries, and KNNPlugin references the
+    // optional gRPC transport's query-builder SPI even on a node without that transport.
+    implementation externalDependency.guava
+    implementation 'org.opensearch.plugin:transport-grpc-spi:3.7.0'
 
     if (knnEnabled) {
-        knnZip 'org.opensearch.plugin:opensearch-knn:2.19.1.0'
+        knnZip 'org.opensearch.plugin:opensearch-knn:3.7.0.0'
     }
 
     testImplementation 'junit:junit:4.13.2'
 }
 
 if (knnEnabled) {
-    def extractKnnJar = tasks.register('extractKnnJar', Copy) {
+    def extractKnnJar = tasks.register('extractKnnJar', Sync) {
         from(zipTree(configurations.knnZip.singleFile)) {
             include '*.jar'
+            // Use the locked runtime dependencies instead of duplicate bundled libraries.
+            exclude 'httpclient5-*.jar', 'httpcore5-*.jar', 'httpcore5-h2-*.jar', 'slf4j-api-*.jar'
         }
         into layout.buildDirectory.dir('knn-libs')
     }
@@ -50,7 +59,7 @@ if (knnEnabled) {
 }
 
 // The root build force-pins org.antlr:antlr4-runtime to 4.9.3 for every subproject. OpenSearch
-// 2.19's painless grammar is generated with ANTLR 4.13.1; with 4.9.3 the script engine throws
+// 3.7's painless grammar is generated with ANTLR 4.13.1; with 4.9.3 the script engine throws
 // ExceptionInInitializerError on the search thread and every scripted search times out. This
 // module runs only OpenSearch, so it takes OpenSearch's own versions.
 configurations.all {
@@ -63,9 +72,6 @@ configurations.all {
 tasks.named('run') {
     systemProperties System.properties
     environment 'OPENSEARCH_KNN_ENABLED', knnEnabled ? 'true' : 'false'
-    // Without a cap the JVM takes a quarter of RAM (16 GB on a 64 GB machine). 4 GB covers
-    // ~2000 small shards from 10 worktree stacks; override with GMS_LITE_OPENSEARCH_HEAP.
-    maxHeapSize = System.getenv('GMS_LITE_OPENSEARCH_HEAP') ?: '4g'
 }
 
 tasks.named('test') {

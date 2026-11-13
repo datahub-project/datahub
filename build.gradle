@@ -1004,8 +1004,11 @@ subprojects {
     // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'tools.jackson.core'
-      exclude group: 'tools.jackson'
+      // OpenSearch 3.7's x-content needs Jackson 3 in its standalone process.
+      if (project.path != ':metadata-service:opensearch-embedded') {
+        exclude group: 'tools.jackson.core'
+        exclude group: 'tools.jackson'
+      }
     }
 
     dependencies {

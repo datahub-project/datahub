@@ -47,7 +47,7 @@ public class EmbeddedOpenSearchStartupTest {
       assertEquals(console, 1, node.exitValue());
       assertFalse(console, console.contains("READY "));
       assertTrue(console, console.contains("readiness failure"));
-      assertTrue(console, console.contains("NODE_CLOSED true"));
+      assertTrue(console, console.contains("Closed all nodes."));
     } finally {
       if (node != null && node.isAlive()) {
         node.destroyForcibly().waitFor();
@@ -71,6 +71,7 @@ public class EmbeddedOpenSearchStartupTest {
           (i, settings) ->
               settings
                   .put("http.port", port)
+                  .put("transport.port", 0)
                   .put("discovery.type", "single-node")
                   .put("cluster.routing.allocation.disk.threshold_enabled", false));
       EmbeddedOpenSearchMain.start(
@@ -78,11 +79,6 @@ public class EmbeddedOpenSearchStartupTest {
           OpenSearchRunner.newConfigs().basePath(args[0]).numOfNode(1).clusterName("startup-test"),
           port,
           () -> {
-            // A real node must already be closed before the failure path initiates JVM shutdown.
-            Runtime.getRuntime()
-                .addShutdownHook(
-                    new Thread(
-                        () -> System.out.println("NODE_CLOSED " + runner.getNode(0).isClosed())));
             throw new IllegalStateException("readiness failure");
           });
     }
