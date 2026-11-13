@@ -19,6 +19,7 @@ from datahub_core_mcp_tools.gms_server_info import GmsServerInfo, GmsServerInfoC
 from datahub_core_mcp_tools.telemetry import Ping, sdk_ping
 
 from ._version import __version__
+from .catalog import CATALOG_PATH, catalog_endpoint
 from .config import AiServiceConfig
 from .mcp.auth import DataHubTokenVerifier, McpAuthMiddleware
 from .mcp.auth_mode import GmsAuth, GmsAuthDetector
@@ -118,6 +119,11 @@ def create_app(
                 *([usage_events] if usage_events is not None else []),
             ],
             metrics=metrics,
+        )
+        # Unauthenticated, like /health: tool metadata only. The frontend serves
+        # it to signed-in users at /ai/catalog/tools.
+        routes.append(
+            Route(CATALOG_PATH, catalog_endpoint(mcp, server_info), methods=["GET"])
         )
         mcp_app = mcp.http_app(
             path=MCP_PATH,

@@ -25,6 +25,13 @@ back to defaults the settings may have overridden. Only two answers mean default
 tool, Large instructions): GMS returning no settings, and a GMS whose schema has no `mcpSettings`
 query. `TOOLS_IS_MUTATION_ENABLED=false` always wins over the selection.
 
+`GET /catalog/tools` lists the tools the settings page can select: each registered tool the
+connected GMS can run, with its `toolId`, `description`, `category` (`read_only` or `mutation`),
+`groups` (e.g. `read_metadata`) and, for version-gated tools, `minVersion`. It ignores the current
+selection and leaves out `get_me`, which is always served. Like `/health` it needs no credential,
+since it holds only the tools' published metadata; browsers reach it through the frontend's
+`/ai/catalog/tools`, which requires a DataHub session.
+
 `/health` reports the auth mode and settings state (`unknown` until the first caller's request
 reads them, then `enabled`, `disabled` or `unavailable`) it last saw, for status pages and
 debugging. It never shows the settings themselves.
