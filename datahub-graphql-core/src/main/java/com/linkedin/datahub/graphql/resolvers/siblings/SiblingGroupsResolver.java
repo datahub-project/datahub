@@ -66,6 +66,10 @@ public class SiblingGroupsResolver implements DataFetcher<CompletableFuture<List
         bindArgument(environment.getArgument("input"), SiblingGroupsInput.class);
     final List<String> requested = new ArrayList<>(new LinkedHashSet<>(input.getUrns()));
     final int maxUrns = context.getMaxSiblingGroupUrns();
+    if (maxUrns <= 0) {
+      throw new IllegalArgumentException(
+          "siblingGroups is off. Set GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS above 0 to enable it.");
+    }
     if (requested.size() > maxUrns) {
       throw new IllegalArgumentException(
           String.format(
