@@ -154,7 +154,7 @@ public class PgQueueEventProducer extends EventProducer {
       fmcp.setMetadataChangeProposal(mcp);
       GenericRecord record = EventUtils.pegasusToAvroFailedMCP(fmcp);
       return enqueueConfluentGenericRecord(
-          opContext, topicName, mcp.getEntityUrn().toString(), record, "FMCP");
+          opContext, topicName, failedProposalKey(mcp), record, "FMCP");
     } catch (IOException e) {
       log.error("Failed to convert FailedMetadataChangeProposal to Avro", e);
       return CompletableFuture.failedFuture(

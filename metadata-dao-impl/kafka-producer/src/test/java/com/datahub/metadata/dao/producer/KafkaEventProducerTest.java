@@ -9,6 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
@@ -43,6 +44,7 @@ import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.apache.kafka.clients.producer.RecordMetadata;
 import org.apache.kafka.common.TopicPartition;
+import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -224,6 +226,30 @@ public class KafkaEventProducerTest {
       assertTrue(value instanceof Optional);
       assertTrue(((Optional<?>) value).isEmpty());
     }
+  }
+
+  @Test
+  public void testProduceFailedMetadataChangeProposalWithoutEntityUrn() {
+    // Only an entityKeyAspect, for an entity type this version doesn't know: validation failed
+    // before it could fill in the urn, so the record is keyed by the entity type instead.
+    OperationContext mockOpContext = mock(OperationContext.class);
+    when(mockOpContext.traceException(any())).thenReturn("Error trace");
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityType("entityFromNewerBuild");
+    mcp.setChangeType(ChangeType.UPSERT);
+    mcp.setEntityKeyAspect(
+        new com.linkedin.mxe.GenericAspect()
+            .setContentType("application/json")
+            .setValue(
+                ByteString.copyString("{\"id\":\"x\"}", java.nio.charset.StandardCharsets.UTF_8)));
+
+    eventProducer.produceFailedMetadataChangeProposalAsync(
+        opContext, mcp, Set.of(new RuntimeException("Unknown entity type")));
+
+    ArgumentCaptor<ProducerRecord> sent = ArgumentCaptor.forClass(ProducerRecord.class);
+    verify(mockProducer, times(1)).send(sent.capture(), any(Callback.class));
+    assertEquals(sent.getValue().topic(), FMCP_TOPIC);
+    assertEquals(sent.getValue().key(), "entityFromNewerBuild");
   }
 
   @Test(dataProvider = "writabilityConfig")
