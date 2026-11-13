@@ -131,7 +131,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
-    strip_set_quotes,
+    unquoted_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -1730,22 +1730,31 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     ) -> FileSourceResolver:
         references = []
         unnamed = []
-        for file_path in parsed.file_loads:
+        for load in parsed.file_loads:
             # Paths are often built from variables the script sets with LET or
-            # in an included script, which the app's variables hold.
-            path = strip_set_quotes(expand_variables(file_path, app.variables).strip())
-            lib_path = LIB_PATH_RE.match(path)
-            if lib_path and not any(part in path for part in ("$(", "*", "?")):
-                references.append(
-                    FileReference(
-                        connection=lib_path.group("connection"),
-                        path=lib_path.group("path"),
-                    )
+            # in an included script, which the app's variables hold. The graph
+            # follows the last reload, so either spelling may be the file's.
+            candidates = [
+                load.expanded,
+                expand_variables(
+                    load.as_written, unquoted_values(app.variables)
+                ).strip(),
+            ]
+            named = [
+                FileReference(
+                    connection=lib_path.group("connection"),
+                    path=lib_path.group("path"),
                 )
+                for path in dict.fromkeys(candidates)
+                if (lib_path := LIB_PATH_RE.match(path))
+                and not any(part in path for part in ("$(", "*", "?"))
+            ]
+            if named:
+                references.extend(named)
             else:
                 # A wildcard reads files the graph names one by one, which
                 # this path can't be matched against.
-                unnamed.append(path)
+                unnamed.append(load.expanded)
         if unnamed and self.config.on_prem is None:
             # On-prem apps have no lineage graph files to match.
             self._apps_file_paths_unknown.add(app.id)

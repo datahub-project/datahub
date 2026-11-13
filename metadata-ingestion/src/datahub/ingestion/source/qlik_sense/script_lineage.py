@@ -352,6 +352,15 @@ class QvdStore(BaseModel):
     fields: Optional[PrecedingLoad] = None
 
 
+class FileLoad(BaseModel):
+    """A file a LOAD reads: its path as the script's own SET and LET
+    variables expand it, and as written, for the app's variables from its last
+    reload to expand instead."""
+
+    expanded: str
+    as_written: str
+
+
 class ParsedScript(BaseModel):
     tables: List[ScriptTable] = []
     qvd_loads: List[QvdLoad] = []
@@ -364,10 +373,8 @@ class ParsedScript(BaseModel):
     has_unresolved_store: bool = False
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
-    # The path of every file a LOAD reads, in any format: as the script's own
-    # SET and LET variables expand it, and as written, for the app's variables
-    # from its last reload to expand instead.
-    file_loads: List[str] = []
+    # Every file a LOAD reads, in any format.
+    file_loads: List[FileLoad] = []
     # The script includes other scripts, whose loads are not read.
     has_includes: bool = False
 
@@ -622,6 +629,13 @@ def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
     return unquoted
 
 
+def _load_path(statement: str) -> Optional[str]:
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+    keyword = STORE_FROM_RE.search(masked)
+    source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+    return _unquote(source.group("path").strip()).strip() if source else None
+
+
 def _unquote(name: str) -> str:
     if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
         return name[1:-1]
@@ -768,7 +782,7 @@ class _ScriptParser(BaseModel):
     unresolved_qvd_paths: List[str] = []
     has_unresolved_store: bool = False
     unlabelled_qvd_loads: List[str] = []
-    file_loads: List[str] = []
+    file_loads: List[FileLoad] = []
     has_includes: bool = False
     # The current statement before the script's variables are expanded.
     raw_statement: str = ""
@@ -941,7 +955,6 @@ class _ScriptParser(BaseModel):
                 # Every file a LOAD reads is in Qlik's lineage graph, mapping
                 # loads included.
                 self._record_file_load(statement)
-                self._record_file_load(self.raw_statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
                     self._qvd_load(label or self.pending_label, statement)
                 # A preceding LOAD's label names the table a later Concatenate
@@ -1001,13 +1014,15 @@ class _ScriptParser(BaseModel):
         return None
 
     def _record_file_load(self, statement: str) -> None:
-        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
-        keyword = STORE_FROM_RE.search(masked)
-        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
-        if source is not None:
-            path = _unquote(source.group("path").strip()).strip()
-            if path not in self.file_loads:
-                self.file_loads.append(path)
+        expanded = _load_path(statement)
+        if expanded is None:
+            return
+        load = FileLoad(
+            expanded=expanded,
+            as_written=_load_path(self.raw_statement) or expanded,
+        )
+        if load not in self.file_loads:
+            self.file_loads.append(load)
 
     def _qvd_load(self, label: Optional[str], statement: str) -> None:
         # FROM is found with quoted text masked, so a quoted field or path
