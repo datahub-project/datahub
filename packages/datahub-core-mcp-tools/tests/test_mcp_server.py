@@ -56,6 +56,8 @@ async def test_registration_is_per_instance() -> None:
         "add_owners",
         "remove_owners",
         "update_description",
+        "add_structured_properties",
+        "remove_structured_properties",
     }
     assert await _tools(untouched) == {}
 
@@ -94,6 +96,8 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "add_owners",
             "remove_owners",
             "update_description",
+            "add_structured_properties",
+            "remove_structured_properties",
         }
     )
 
@@ -146,6 +150,8 @@ async def test_write_tools_are_registered_by_default(
         "add_owners",
         "remove_owners",
         "update_description",
+        "add_structured_properties",
+        "remove_structured_properties",
     } <= writes
     assert writes <= set(registered)
 
@@ -168,8 +174,12 @@ async def test_writes_switch_off_registers_no_write_tool(
 
 
 def _multi_type_unions(node: Any, path: str) -> Iterator[str]:
-    """The path of every anyOf/oneOf whose non-null branches differ in type."""
+    """The path of every anyOf/oneOf whose non-null branches differ in type, and
+    of every `type` list with more than one non-null type."""
     if isinstance(node, dict):
+        declared = node.get("type")
+        if isinstance(declared, list) and len([t for t in declared if t != "null"]) > 1:
+            yield f"{path}.type: {json.dumps(declared)}"
         for key in ("anyOf", "oneOf"):
             branches = node.get(key)
             if isinstance(branches, list):
@@ -191,8 +201,8 @@ async def test_no_tool_parameter_is_a_multi_type_union(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     # Several OpenAI-compatible endpoints and Gemini reject the whole tool list
-    # when one parameter is e.g. anyOf [array, string]. A nullable anyOf [T, null]
-    # is accepted.
+    # when one parameter is e.g. anyOf [array, string], and Gemini also rejects
+    # {"type": ["string", "number"]}. A nullable anyOf [T, null] is accepted.
     monkeypatch.setenv("ENTITY_VERSIONING_ENABLED", "true")
     mcp = FastMCP("t")
     register_tools(mcp, is_oss=True)

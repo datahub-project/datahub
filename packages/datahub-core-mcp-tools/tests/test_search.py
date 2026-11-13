@@ -78,6 +78,9 @@ class FakeBackend:
     def tags_named(self, name: str, count: int) -> list[JsonObject]:
         return []
 
+    def structured_property(self, urn: str) -> dict | None:
+        return None
+
     def description_sources(self, urn: str) -> dict | None:
         return None
 

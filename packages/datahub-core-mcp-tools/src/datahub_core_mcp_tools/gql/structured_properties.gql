@@ -1,0 +1,44 @@
+# Structured property writes and the definition they are checked against. All
+# exist on GMS 1.7.0.
+
+mutation upsertStructuredProperties($input: UpsertStructuredPropertiesInput!) {
+  upsertStructuredProperties(input: $input) {
+    properties {
+      structuredProperty {
+        urn
+      }
+    }
+  }
+}
+
+mutation removeStructuredProperties($input: RemoveStructuredPropertiesInput!) {
+  removeStructuredProperties(input: $input) {
+    properties {
+      structuredProperty {
+        urn
+      }
+    }
+  }
+}
+
+# GMS answers a property that does not exist with exists=false and a
+# placeholder definition, so the caller checks exists.
+query getStructuredPropertyDefinition($urn: String!) {
+  entity(urn: $urn) {
+    urn
+    type
+    ... on StructuredPropertyEntity {
+      exists
+      definition {
+        qualifiedName
+        cardinality
+        valueType {
+          urn
+          info {
+            qualifiedName
+          }
+        }
+      }
+    }
+  }
+}

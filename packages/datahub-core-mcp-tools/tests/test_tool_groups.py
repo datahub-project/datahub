@@ -99,6 +99,8 @@ WRITE_TOOLS = {
     "add_owners",
     "remove_owners",
     "update_description",
+    "add_structured_properties",
+    "remove_structured_properties",
 }
 
 
