@@ -583,3 +583,47 @@ def test_odbc_navigation_warns_and_skips(
     assert expected_warning_title in warning_titles, (
         f"Expected warning '{expected_warning_title}'; got: {warning_titles}"
     )
+
+
+@pytest.mark.parametrize(
+    "sql, expected_urns",
+    [
+        pytest.param(
+            "SELECT id FROM sales.public.orders "
+            "UNION ALL SELECT id FROM sales.public.returns",
+            [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,sales.public.orders,PROD)",
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,sales.public.returns,PROD)",
+            ],
+            id="union",
+        ),
+        pytest.param("CALL refresh_orders()", [], id="not-a-select"),
+    ],
+)
+def test_odbc_query_is_never_treated_as_navigation(
+    sql: str, expected_urns: List[str]
+) -> None:
+    """Odbc.Query always carries SQL, so anything other than a bare SELECT must
+    still be parsed as SQL rather than reported as navigation with no table."""
+    expression = (
+        'let\n    Source = Odbc.Query("driver={PostgreSQL Unicode};'
+        f'dsn=pg_prod", "{sql}")\nin\n    Source'
+    )
+    table = powerbi_data_classes.Table(
+        columns=[], measures=[], expression=expression, name="t", full_name="t"
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert sorted(u.urn for u in combine_upstreams_from_lineage(lineages)) == (
+        expected_urns
+    )
+    assert "ODBC navigation has no table" not in [w.title for w in reporter.warnings]

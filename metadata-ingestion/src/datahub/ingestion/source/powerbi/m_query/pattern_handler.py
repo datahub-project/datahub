@@ -2303,7 +2303,11 @@ class OdbcLineage(AbstractLineage):
 
         platform_detail = self._resolve_platform_detail(server_name, platform_pair)
 
-        if self.is_sql_query(query, platform_pair.datahub_data_platform_name):
+        # Odbc.Query always carries SQL, so it must not fall into navigation when
+        # the SQL is not a bare SELECT (e.g. UNION, CALL, or unparseable SQL).
+        if data_access_func_detail.data_access_function_name == (
+            FunctionName.ODBC_QUERY.value
+        ) or self.is_sql_query(query, platform_pair.datahub_data_platform_name):
             return self.query_lineage(
                 query, platform_pair, server_name, dsn, platform_detail
             )
