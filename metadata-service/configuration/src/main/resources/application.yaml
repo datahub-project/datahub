@@ -25,6 +25,12 @@ authentication:
 
   verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
 
+  # When a token cannot be checked because the token store is unavailable (for example a database
+  # outage), protected paths answer 503 with this Retry-After (seconds) plus random jitter (percent
+  # of it), instead of 401.
+  unavailableRetryAfterSeconds: ${AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS:3}
+  unavailableRetryAfterJitterPercent: ${AUTH_UNAVAILABLE_RETRY_AFTER_JITTER_PERCENT:50}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
