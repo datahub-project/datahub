@@ -15,9 +15,9 @@ from typing import Any, Optional
 import pytest
 
 from tests.e2e.privileges.utils import is_graphql_auth_denied, remove_policy
-from tests.e2e.utils import unique_suffix
+from tests.e2e.utils import get_frontend_url, unique_suffix
 from utilities.domains import Domain
-from utilities.env_vars import get_frontend_url, get_policy_cache_sql_source_enabled
+from utilities.env_vars import get_policy_cache_sql_source_enabled
 from utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 
 logger = logging.getLogger(__name__)
