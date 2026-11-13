@@ -20,7 +20,7 @@ import { getGovernanceTabName, getQualityTabName } from '@app/entityV2/dataset/c
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
-import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
 import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -50,6 +50,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
+import { isSourceMergedIntoSibling } from '@app/entityV2/shared/transformationPlatforms';
 import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
@@ -58,7 +59,6 @@ import {
     isOutputPort,
 } from '@app/entityV2/shared/utils';
 import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetSummaryPage';
-import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
@@ -404,12 +404,7 @@ export class DatasetEntity implements Entity<Dataset> {
     ];
 
     #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlags): boolean {
-        // Lineage query must include platform and typeNames on dataset and its sibling
-        return (
-            !!flags?.hideDbtSourceInLineage &&
-            dataset?.platform?.urn === DBT_URN &&
-            !!dataset?.subTypes?.typeNames?.includes(SubType.DbtSource)
-        );
+        return isSourceMergedIntoSibling(dataset, flags);
     }
 
     getOverridePropertiesFromEntity = (dataset?: Dataset | null, flags?: FeatureFlags): GenericEntityProperties => {

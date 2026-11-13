@@ -176,11 +176,6 @@ class LineageMixin(SqlmeshSourceBase):
             return []
 
         model_name = str(getattr(model, "name", ""))
-        convert_lower = (
-            self.config.convert_column_urns_to_lowercase
-            if self.config.convert_column_urns_to_lowercase is not None
-            else effective.convert_urns_to_lowercase
-        )
 
         fine_grained: List[FineGrainedLineageClass] = []
         for col_name in columns_to_types:
@@ -205,7 +200,7 @@ class LineageMixin(SqlmeshSourceBase):
             if not deps:
                 continue
 
-            downstream_col = col_name.lower() if convert_lower else col_name
+            downstream_col = self._normalize_column_name(col_name, effective)
             downstream_field_urn = make_schema_field_urn(
                 model_sqlmesh_urn, downstream_col
             )
@@ -231,7 +226,7 @@ class LineageMixin(SqlmeshSourceBase):
                 )
                 # upstream_cols is a set; sort for deterministic URN ordering.
                 for upstream_col in sorted(upstream_cols):
-                    up_col = upstream_col.lower() if convert_lower else upstream_col
+                    up_col = self._normalize_column_name(upstream_col, effective)
                     upstream_field_urns.append(
                         make_schema_field_urn(upstream_dataset_urn, up_col)
                     )

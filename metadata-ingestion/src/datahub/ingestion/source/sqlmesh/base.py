@@ -1,6 +1,7 @@
 import logging
 import re
 from typing import (
+    Any,
     Dict,
     List,
     Optional,
@@ -323,6 +324,28 @@ class SqlmeshSourceBase:
                     e,
                 )
         return result
+
+    def _normalize_column_name(
+        self, column: str, effective: _EffectiveProjectConfig
+    ) -> str:
+        """Column-name counterpart of ``_normalize_name``: lowercase when
+        ``convert_column_urns_to_lowercase`` says so, else when the project lowercases
+        URNs. Schema field paths and column lineage both go through here, so they
+        always name a column the same way."""
+        lowercase = (
+            self.config.convert_column_urns_to_lowercase
+            if self.config.convert_column_urns_to_lowercase is not None
+            else effective.convert_urns_to_lowercase
+        )
+        return column.lower() if lowercase else column
+
+    def _warehouse_edge_columns(
+        self, model: "SqlmeshModel", effective: _EffectiveProjectConfig
+    ) -> List[str]:
+        """Column names for the model <-> warehouse table mapping edge, cased like
+        the schema field paths and column lineage."""
+        columns: Dict[str, Any] = getattr(model, "columns_to_types", None) or {}
+        return [self._normalize_column_name(str(c), effective) for c in columns]
 
     def _normalize_name(self, name: str, effective: _EffectiveProjectConfig) -> str:
         parts = []
