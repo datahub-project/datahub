@@ -18,7 +18,7 @@ from .._version import __version__
 from ..metrics import ServiceMetrics
 from .caller import CallerClientMiddleware
 from .client_factory import CallerClientFactory
-from .policy import McpPolicyMiddleware
+from .policy import IS_OSS, McpPolicyMiddleware
 from .telemetry import ToolCallObserver, ToolCallTelemetryMiddleware
 
 
@@ -33,10 +33,10 @@ def build_mcp_server(
     metrics: Optional[ServiceMetrics] = None,
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
-    # Every group, the opt-in ones too: McpPolicyMiddleware serves an opt-in
-    # group only to a selection that names it.
+    # Every group, whatever the deployment's default: McpPolicyMiddleware
+    # serves each request the groups its settings select.
     served = register_tools(
-        mcp, is_oss=True, groups=[group.id for group in TOOL_GROUPS]
+        mcp, is_oss=IS_OSS, groups=[group.id for group in TOOL_GROUPS]
     )
     # The default; McpPolicyMiddleware serves each request the settings' own.
     mcp.instructions = build_instructions(InstructionSize.LARGE, served)

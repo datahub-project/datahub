@@ -77,8 +77,8 @@ describe('transformServersToRows', () => {
 
 describe('resolveEnabledToolItems', () => {
     const catalog = [
-        { toolId: 'search', label: 'Search', description: '', groups: ['read_metadata'] },
-        { toolId: 'add_tags', label: 'Add Tags', description: '', groups: ['write_metadata'] },
+        { toolId: 'search', label: 'Search', description: '', groups: ['read_metadata'], optIn: false },
+        { toolId: 'add_tags', label: 'Add Tags', description: '', groups: ['write_metadata'], optIn: false },
     ];
     const readOnly = server({ tools: [{ refType: ToolRefType.Group, toolId: 'read_metadata', enabled: true }] });
 

@@ -90,8 +90,8 @@ class ToolType(Enum):
     # Read-only tools outside the search surface. Like SEARCH, they belong to the
     # read group, so they are selected by default rather than left ungrouped.
     READ_ONLY = "read_only"
-    # The opt-in ingestion group, reads and writes alike: groups stay disjoint,
-    # so a write here carries readOnlyHint false rather than MUTATION.
+    # The ingestion group, reads and writes alike: groups stay disjoint, so a
+    # write here carries readOnlyHint false rather than MUTATION.
     INGESTION = "ingestion"
 
 
@@ -198,9 +198,9 @@ def register_tools(
         is_oss: Whether the tools talk to DataHub Core (True) or DataHub Cloud
             (False). Some tools describe themselves differently on each.
         groups: Register only these tool groups (see tool_groups), plus the
-            system tools every server serves. None registers every group
-            except the opt-in ones (``ingestion``), which are registered only
-            when named.
+            system tools every server serves. None registers every group on
+            DataHub Core; on DataHub Cloud, every group except the opt-in ones
+            (``ingestion``), which are registered only when named.
         schema_field_matcher: How the schema tools rank columns against names
             and keywords on this server; substring matching by default.
 
@@ -222,7 +222,7 @@ def register_tools(
     ingestion_enabled = get_boolean_env_variable(
         "INGESTION_TOOLS_ENABLED", default=True
     )
-    wanted_groups = set(default_group_ids() if groups is None else groups)
+    wanted_groups = set(default_group_ids(is_oss=is_oss) if groups is None else groups)
     logger.info(
         f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups}, "
         f"mutations={'on' if mutations_enabled else 'off'}, "
@@ -350,7 +350,8 @@ def register_tools(
             "Glossary term versioning tools not registered "
             "(ENTITY_VERSIONING_ENABLED is not set or false)"
         )
-    # The opt-in ingestion group: registered only when `groups` names it.
+    # The ingestion group: by default on Core; on Cloud only when `groups`
+    # names it.
     add("list_connector_types", list_connector_types, ToolType.INGESTION)
     add("get_recipe_schema", get_recipe_schema, ToolType.INGESTION)
     add("validate_recipe", validate_recipe, ToolType.INGESTION)

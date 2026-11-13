@@ -39,15 +39,19 @@ from .settings import (
 
 POLICY_STATE_KEY = "datahub_mcp_policy"
 
+# This service serves DataHub Core; DataHub Cloud serves the tools its own way.
+# It decides each deployment rule the tools have, such as which groups "every
+# tool" includes.
+IS_OSS = True
+
 # Bounds how long one settings read can hold up the requests queued behind it.
 SETTINGS_READ_LIMIT_SECONDS = 10.0
 
 
 def is_tool_allowed(tool: ToolLike, policy: McpPolicy) -> bool:
-    """Whether the policy serves ``tool``. With no selection that is every tool
-    except the opt-in groups' (ingestion), which only a selection naming them
-    serves."""
-    return is_tool_selected(tool, policy.tool_refs)
+    """Whether the policy serves ``tool``. With no selection that is every tool,
+    the ingestion group's too: DataHub Core has no opt-in groups."""
+    return is_tool_selected(tool, policy.tool_refs, is_oss=IS_OSS)
 
 
 async def _respond(send: Send, status: int, error: str, description: str) -> None:

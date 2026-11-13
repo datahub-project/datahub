@@ -210,10 +210,15 @@ def test_tool_groups_from_the_environment(
 
 
 @pytest.mark.parametrize(
-    ("groups", "has_ingestion"), [(None, False), (["ingestion"], True)]
+    ("groups", "has_ingestion", "has_search"),
+    [
+        (None, True, True),
+        (["ingestion"], True, False),
+        (["read_metadata", "write_metadata"], False, True),
+    ],
 )
-async def test_stdio_serves_ingestion_only_when_named(
-    groups: Optional[list[str]], has_ingestion: bool
+async def test_stdio_serves_ingestion_unless_the_groups_leave_it_out(
+    groups: Optional[list[str]], has_ingestion: bool, has_search: bool
 ) -> None:
     mcp = build_stdio_server(
         _FakeClient(),  # type: ignore[arg-type]
@@ -225,4 +230,4 @@ async def test_stdio_serves_ingestion_only_when_named(
         tools = {tool.name for tool in await client.list_tools()}
 
     assert ("validate_recipe" in tools) == has_ingestion
-    assert ("search" in tools) == (not has_ingestion)
+    assert ("search" in tools) == has_search

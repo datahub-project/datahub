@@ -252,8 +252,7 @@ async def test_legacy_gms_and_missing_settings_serve_defaults(
         names = {tool.name for tool in await client.list_tools()}
         instructions = client.instructions or ""
 
-    assert {"search", "add_tags"} <= names
-    assert not names & INGESTION_TOOLS
+    assert {"search", "add_tags"} | INGESTION_TOOLS <= names
     assert "Use cases:" in instructions
 
 
@@ -311,21 +310,26 @@ async def test_a_caller_refused_the_settings_never_fails_open(gms: FakeGms) -> N
     assert bob_again.status_code == 403
 
 
-@pytest.mark.parametrize(
-    "tools",
-    [
-        None,
-        [
+async def test_all_tools_include_the_ingestion_tools(gms: FakeGms) -> None:
+    gms.mcp_settings = _default_server(tools=None)
+
+    async with serve(_app(gms)) as url, _client(url) as client:
+        names = {tool.name for tool in await client.list_tools()}
+        listed = await client.call_tool("list_connector_types", {"query": "file"})
+
+    assert INGESTION_TOOLS | {"search", "add_tags"} <= names
+    assert "file" in listed.data["connectors"]
+
+
+async def test_a_selection_without_the_ingestion_group_leaves_it_out(
+    gms: FakeGms,
+) -> None:
+    gms.mcp_settings = _default_server(
+        tools=[
             {"refType": "GROUP", "toolId": "read_metadata", "enabled": True},
             {"refType": "GROUP", "toolId": "write_metadata", "enabled": True},
-        ],
-    ],
-    ids=["all-tools", "read-and-write"],
-)
-async def test_ingestion_tools_are_off_unless_selected(
-    gms: FakeGms, tools: Optional[list[dict[str, Any]]]
-) -> None:
-    gms.mcp_settings = _default_server(tools=tools)
+        ]
+    )
 
     async with serve(_app(gms)) as url, _client(url) as client:
         names = {tool.name for tool in await client.list_tools()}
@@ -360,15 +364,40 @@ async def test_the_ingestion_group_or_one_of_its_tools_can_be_selected(
     assert one == {"get_me", "validate_recipe"}
 
 
+@pytest.mark.parametrize(
+    "tools",
+    [None, [{"refType": "GROUP", "toolId": "ingestion", "enabled": True}]],
+    ids=["all-tools", "ingestion-group"],
+)
 async def test_ingestion_kill_switch_beats_the_settings(
-    gms: FakeGms, monkeypatch: pytest.MonkeyPatch
+    gms: FakeGms,
+    monkeypatch: pytest.MonkeyPatch,
+    tools: Optional[list[dict[str, Any]]],
 ) -> None:
     monkeypatch.setenv("INGESTION_TOOLS_ENABLED", "false")
-    gms.mcp_settings = _default_server(
-        tools=[{"refType": "GROUP", "toolId": "ingestion", "enabled": True}]
-    )
+    gms.mcp_settings = _default_server(tools=tools)
 
     async with serve(_app(gms)) as url, _client(url) as client:
         names = {tool.name for tool in await client.list_tools()}
 
-    assert names == {"get_me"}
+    assert not names & INGESTION_TOOLS
+    assert "get_me" in names
+
+
+async def test_mutation_switch_drops_the_ingestion_writes_from_all_tools(
+    gms: FakeGms, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", "false")
+    gms.mcp_settings = _default_server(tools=None)
+
+    async with serve(_app(gms)) as url, _client(url) as client:
+        names = {tool.name for tool in await client.list_tools()}
+
+    assert names & INGESTION_TOOLS == {
+        "list_connector_types",
+        "get_recipe_schema",
+        "validate_recipe",
+        "list_ingestion_sources",
+        "list_ingestion_runs",
+        "list_ingestion_run_entities",
+    }

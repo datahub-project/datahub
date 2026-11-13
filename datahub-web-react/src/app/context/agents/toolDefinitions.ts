@@ -14,36 +14,36 @@ export interface ToolDefinition {
     // Capability groups this tool belongs to (e.g. read_metadata). Selecting a
     // group persists a GROUP ToolSelection that auto-includes future members.
     groups: string[];
+    /**
+     * Whether the tool is in an opt-in group (the catalog's optInGroups): NOT on
+     * the default MCP server, so nothing gets it without naming it, and an empty
+     * ("all tools") selection does not imply it. Every helper below reads this off
+     * the tool rather than taking the opt-in groups as an argument, so a caller
+     * can't forget them and silently drop the group on save.
+     */
+    optIn: boolean;
 }
 
 export interface ToolGroupOption {
     id: string;
     label: string;
     toolIds: string[];
+    /** Whether its tools are opt-in (see {@link ToolDefinition.optIn}). */
+    optIn: boolean;
 }
 
-/**
- * Groups whose tools are NOT on the default MCP server, so nothing gets them
- * without naming them. An empty ("all tools") selection therefore does not imply
- * them, and every helper below consults this rather than taking it as an
- * argument — a caller that forgot would silently drop the group on save.
- * The picker only lists them when the tool catalog has tools in them.
- */
-export const OPT_IN_GROUP_IDS: ReadonlySet<string> = new Set(['evals', 'ingestion']);
+/** The opt-in groups when the tool catalog doesn't name them (DataHub Cloud's catalog). */
+export const DEFAULT_OPT_IN_GROUP_IDS: readonly string[] = ['evals', 'ingestion'];
 
 /**
- * Opt-in groups that only MCP servers attach (an agent's own palette already holds
- * tools under the same names).
+ * Groups that only MCP servers attach (an agent's own palette already holds tools
+ * under the same names).
  */
 export const MCP_SERVER_ONLY_GROUP_IDS: ReadonlySet<string> = new Set(['ingestion']);
 
-export function isOptInGroupId(groupId: string): boolean {
-    return OPT_IN_GROUP_IDS.has(groupId);
-}
-
 /** Whether a tool belongs to an opt-in group (and so is never implied by "all tools"). */
 export function isOptInTool(tool: ToolDefinition): boolean {
-    return tool.groups.some(isOptInGroupId);
+    return tool.optIn;
 }
 
 /** Whether an opt-in group is selected. Unlike {@link isToolGroupSelected}, empty means off. */
@@ -116,9 +116,7 @@ export function toolIdToLabel(toolId: string): string {
  */
 export function materializeSelection(groups: ToolGroupOption[], ungroupedTools: ToolDefinition[]): ToolSelection[] {
     return [
-        ...groups
-            .filter((g) => !isOptInGroupId(g.id))
-            .map((g) => ({ refType: ToolRefType.Group, toolId: g.id, enabled: true })),
+        ...groups.filter((g) => !g.optIn).map((g) => ({ refType: ToolRefType.Group, toolId: g.id, enabled: true })),
         ...ungroupedTools
             .filter((tool) => !isOptInTool(tool))
             .map((tool) => ({ refType: ToolRefType.Tool, toolId: tool.toolId, enabled: true })),
@@ -180,12 +178,13 @@ export function setAllToolsSelection(
     allEnabled: boolean,
 ): ToolSelection[] {
     // Opt-in TOOL refs are preserved too, matching collapseSelectionToGroups. (allTools
-    // excludes opt-in tools, so an unknown tool id is one of theirs.)
+    // excludes opt-in tools, so an unknown tool or group id is one of theirs.)
     const knownToolIds = new Set(allTools.map((tool) => tool.toolId));
+    const knownGroupIds = new Set(allTools.filter((tool) => !tool.optIn).flatMap((tool) => tool.groups));
     const preserved = value.filter(
         (v) =>
             v.refType === ToolRefType.Agent ||
-            (v.refType === ToolRefType.Group && v.enabled && isOptInGroupId(v.toolId)) ||
+            (v.refType === ToolRefType.Group && v.enabled && !knownGroupIds.has(v.toolId)) ||
             (v.refType === ToolRefType.Tool && v.enabled && !knownToolIds.has(v.toolId)),
     );
     if (allEnabled) {
@@ -226,13 +225,14 @@ export function collapseSelectionToGroups(
     const toolsById = new Map(collapsible.map((tool) => [tool.toolId, tool]));
     const desired = new Map(collapsible.map((tool) => [tool.toolId, isToolSelectionEnabled(value, tool)]));
 
-    const knownGroupIds = new Set(groups.filter((g) => !isOptInGroupId(g.id)).map((g) => g.id));
+    const knownGroupIds = new Set(groups.filter((g) => !g.optIn).map((g) => g.id));
+    const optInGroupIds = new Set(groups.filter((g) => g.optIn).map((g) => g.id));
     const preserved: ToolSelection[] = value.filter(
         (v) =>
             v.refType === ToolRefType.Agent ||
-            (v.refType === ToolRefType.Group && v.enabled && isOptInGroupId(v.toolId)) ||
+            (v.refType === ToolRefType.Group && v.enabled && optInGroupIds.has(v.toolId)) ||
             (v.refType === ToolRefType.Tool && !toolsById.has(v.toolId)) ||
-            (v.refType === ToolRefType.Group && !knownGroupIds.has(v.toolId) && !isOptInGroupId(v.toolId)),
+            (v.refType === ToolRefType.Group && !knownGroupIds.has(v.toolId) && !optInGroupIds.has(v.toolId)),
     );
 
     const allEnabled = collapsible.length > 0 && collapsible.every((tool) => !!desired.get(tool.toolId));
@@ -242,7 +242,7 @@ export function collapseSelectionToGroups(
 
     // One GROUP ref per group whose members all share the same enabled state.
     groups.forEach((group) => {
-        if (isOptInGroupId(group.id)) return;
+        if (group.optIn) return;
         const members = group.toolIds.filter((id) => toolsById.has(id));
         if (members.length === 0) return;
         const first = !!desired.get(members[0]);
@@ -277,17 +277,17 @@ export interface LoadState<T> {
 /** The tools an MCP server can expose, from the tool catalog. */
 export function useAvailableAgentToolsState(): LoadState<ToolDefinition> {
     const { catalog, loading, failed, retry } = useMcpToolCatalog();
-    const items = useMemo(
-        () =>
-            (catalog?.tools ?? []).map(({ toolId, description, category, groups }) => ({
-                toolId,
-                label: toolIdToLabel(toolId),
-                description,
-                category: category ?? 'read_only',
-                groups,
-            })),
-        [catalog],
-    );
+    const items = useMemo(() => {
+        const optInGroupIds = new Set(catalog?.optInGroups ?? DEFAULT_OPT_IN_GROUP_IDS);
+        return (catalog?.tools ?? []).map(({ toolId, description, category, groups }) => ({
+            toolId,
+            label: toolIdToLabel(toolId),
+            description,
+            category: category ?? 'read_only',
+            groups,
+            optIn: groups.some((groupId) => optInGroupIds.has(groupId)),
+        }));
+    }, [catalog]);
     return { items, loading, failed, retry };
 }
 
@@ -350,8 +350,14 @@ export function toolGroupOptions(tools: ToolDefinition[]): ToolGroupOption[] {
             const existing = byId.get(groupId);
             if (existing) {
                 existing.toolIds.push(tool.toolId);
+                existing.optIn = existing.optIn || tool.optIn;
             } else {
-                byId.set(groupId, { id: groupId, label: toolIdToLabel(groupId), toolIds: [tool.toolId] });
+                byId.set(groupId, {
+                    id: groupId,
+                    label: toolIdToLabel(groupId),
+                    toolIds: [tool.toolId],
+                    optIn: tool.optIn,
+                });
             }
         });
     });

@@ -73,6 +73,32 @@ describe('ToolSelector', () => {
         expect(screen.queryByRole('checkbox', { name: 'Ingestion' })).not.toBeInTheDocument();
     });
 
+    it('treats ingestion as opt-in when the catalog does not name its opt-in groups', () => {
+        setCatalog({ tools: [...BASE_TOOLS, INGESTION_TOOL] });
+        renderSelector();
+
+        expect(screen.getByRole('checkbox', { name: 'Ingestion' })).not.toBeChecked();
+        expect(screen.getByText(/not included by "Include all"/)).toBeInTheDocument();
+        expect(screen.queryByRole('checkbox', { name: 'Validate Recipe' })).not.toBeInTheDocument();
+    });
+
+    it('shows ingestion as a normal group, on with "all tools", when the catalog has no opt-in groups', () => {
+        setCatalog({ tools: [...BASE_TOOLS, INGESTION_TOOL], optInGroups: [] });
+        const onChange = renderSelector();
+
+        expect(screen.getByRole('checkbox', { name: 'Ingestion' })).toBeChecked();
+        expect(screen.getByRole('checkbox', { name: 'Validate Recipe' })).toBeChecked();
+        expect(screen.queryByText(/not included by "Include all"/)).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('checkbox', { name: 'Ingestion' }));
+
+        expect(onChange).toHaveBeenCalledWith([
+            { refType: ToolRefType.Group, toolId: 'read_metadata', enabled: true },
+            { refType: ToolRefType.Group, toolId: 'write_metadata', enabled: true },
+            { refType: ToolRefType.Group, toolId: 'ingestion', enabled: false },
+        ]);
+    });
+
     it('turns one tool off by keeping the rest of its group on', () => {
         const onChange = renderSelector();
 

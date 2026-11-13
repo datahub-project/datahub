@@ -3,9 +3,12 @@
 ``GET /catalog/tools`` lists every tool this service registered (after its
 tool switches, such as TOOLS_IS_MUTATION_ENABLED) that the connected GMS can
 run, whatever the settings select, so a deselected tool can be selected again.
-System tools (get_me) are always served, so they aren't offered. The opt-in
-``ingestion`` group's tools are listed too, so it can be selected: their
-``groups`` tell the settings page that "all tools" does not include them.
+System tools (get_me) are always served, so they aren't offered.
+``optInGroups`` names the groups an empty ("all tools") selection leaves out,
+so the settings page shows them as opt-in: none on DataHub Core, where the
+``ingestion`` group is served by default like any other. (DataHub Cloud's own
+catalog leaves the field out, and the page then treats ``evals`` and
+``ingestion`` as opt-in.)
 
 It needs no credential, like /health: it holds only the tools' published
 names, descriptions and groups, never settings, metadata or anything about a
@@ -24,11 +27,17 @@ from starlette.responses import JSONResponse
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 from datahub_core_mcp_tools.mcp_server import ToolType
-from datahub_core_mcp_tools.tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
+from datahub_core_mcp_tools.tool_groups import (
+    SYSTEM_TOOL_IDS,
+    groups_for_tags,
+    opt_in_group_ids,
+)
 from datahub_core_mcp_tools.version_filter import (
     filter_tools_by_version,
     tool_version_requirement,
 )
+
+from .mcp.policy import IS_OSS
 
 CATALOG_PATH = "/catalog/tools"
 
@@ -80,7 +89,8 @@ def build_catalog(
     return {
         "tools": [
             catalog_entry(tool) for tool in tools if tool.name not in SYSTEM_TOOL_IDS
-        ]
+        ],
+        "optInGroups": opt_in_group_ids(is_oss=IS_OSS),
     }
 
 

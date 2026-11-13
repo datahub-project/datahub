@@ -14,8 +14,10 @@ from datahub_core_mcp_tools.tool_groups import (
     TOOL_REF_TYPE_GROUP,
     TOOL_REF_TYPE_TOOL,
     ToolRef,
+    default_group_ids,
     groups_for_tags,
     is_tool_selected,
+    opt_in_group_ids,
     resolve_tool_refs,
 )
 
@@ -75,25 +77,48 @@ def test_resolve_tool_refs(
     assert resolved == (None if expected is None else frozenset(expected))
 
 
+METADATA = {"search", "get_lineage", "add_tags", "remove_tags", "get_me"}
+EVERY_TOOL = {*METADATA, "validate_recipe"}
+
+# A selection that names groups serves only those, on either deployment.
+_GROUP_SELECTIONS = [
+    ([group("read_metadata"), group("write_metadata")], METADATA),
+    ([group("ingestion")], {"validate_recipe", "get_me"}),
+    ([tool("validate_recipe")], {"validate_recipe", "get_me"}),
+    ([group("ingestion"), tool("validate_recipe", False)], {"get_me"}),
+]
+
+
 @pytest.mark.parametrize(
     ("refs", "served"),
-    [
-        # "All tools" never includes an opt-in group.
-        (None, {"search", "get_lineage", "add_tags", "remove_tags", "get_me"}),
-        ([], {"search", "get_lineage", "add_tags", "remove_tags", "get_me"}),
-        (
-            [group("read_metadata"), group("write_metadata")],
-            {"search", "get_lineage", "add_tags", "remove_tags", "get_me"},
-        ),
-        ([group("ingestion")], {"validate_recipe", "get_me"}),
-        ([tool("validate_recipe")], {"validate_recipe", "get_me"}),
-        ([group("ingestion"), tool("validate_recipe", False)], {"get_me"}),
-    ],
+    [(None, EVERY_TOOL), ([], EVERY_TOOL), *_GROUP_SELECTIONS],
 )
-def test_opt_in_groups_are_served_only_when_selected(
+def test_core_serves_every_group_by_default(
     refs: Optional[list[ToolRef]], served: set[str]
 ) -> None:
-    assert {t.name for t in AVAILABLE if is_tool_selected(t, refs)} == served
+    selected = {t.name for t in AVAILABLE if is_tool_selected(t, refs, is_oss=True)}
+
+    assert selected == served
+
+
+@pytest.mark.parametrize(
+    ("refs", "served"),
+    # "All tools" never includes an opt-in group.
+    [(None, METADATA), ([], METADATA), *_GROUP_SELECTIONS],
+)
+def test_cloud_serves_opt_in_groups_only_when_selected(
+    refs: Optional[list[ToolRef]], served: set[str]
+) -> None:
+    selected = {t.name for t in AVAILABLE if is_tool_selected(t, refs, is_oss=False)}
+
+    assert selected == served
+
+
+def test_only_cloud_has_opt_in_groups() -> None:
+    assert opt_in_group_ids(is_oss=True) == []
+    assert opt_in_group_ids(is_oss=False) == ["ingestion"]
+    assert "ingestion" in default_group_ids(is_oss=True)
+    assert "ingestion" not in default_group_ids(is_oss=False)
 
 
 READ_TOOLS = {
@@ -143,21 +168,24 @@ INGESTION_TOOLS = {
 
 
 @pytest.mark.parametrize(
-    ("groups", "expected"),
+    ("is_oss", "groups", "expected"),
     [
-        (None, {"get_me", *READ_TOOLS, *WRITE_TOOLS}),
-        ([], {"get_me"}),
-        (["write_metadata"], {"get_me", *WRITE_TOOLS}),
-        (["read_metadata"], {"get_me", *READ_TOOLS}),
-        (["ingestion"], {"get_me", *INGESTION_TOOLS}),
+        (True, None, {"get_me", *READ_TOOLS, *WRITE_TOOLS, *INGESTION_TOOLS}),
+        # Cloud's default server must not gain the ingestion tools.
+        (False, None, {"get_me", *READ_TOOLS, *WRITE_TOOLS}),
+        (False, ["ingestion"], {"get_me", *INGESTION_TOOLS}),
+        (True, [], {"get_me"}),
+        (True, ["write_metadata"], {"get_me", *WRITE_TOOLS}),
+        (True, ["read_metadata"], {"get_me", *READ_TOOLS}),
+        (True, ["ingestion"], {"get_me", *INGESTION_TOOLS}),
     ],
 )
 async def test_register_tools_by_group_always_keeps_system_tools(
-    groups: Optional[list[str]], expected: set[str]
+    is_oss: bool, groups: Optional[list[str]], expected: set[str]
 ) -> None:
     mcp = FastMCP("t")
 
-    registered = register_tools(mcp, is_oss=True, groups=groups)
+    registered = register_tools(mcp, is_oss=is_oss, groups=groups)
 
     async with Client(mcp) as client:
         assert (
@@ -207,11 +235,12 @@ async def test_ingestion_kill_switch_beats_the_groups(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     monkeypatch.setenv("INGESTION_TOOLS_ENABLED", "false")
-    mcp = FastMCP("t")
 
-    registered = register_tools(mcp, is_oss=True, groups=["ingestion"])
+    named = register_tools(FastMCP("t"), is_oss=True, groups=["ingestion"])
+    by_default = register_tools(FastMCP("t"), is_oss=True)
 
-    assert registered == ["get_me"]
+    assert named == ["get_me"]
+    assert not set(by_default) & INGESTION_TOOLS
 
 
 async def test_the_writes_switch_removes_the_ingestion_groups_writes(
@@ -220,12 +249,13 @@ async def test_the_writes_switch_removes_the_ingestion_groups_writes(
     monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", "false")
     mcp = FastMCP("t")
 
-    registered = register_tools(mcp, is_oss=True, groups=["ingestion"])
+    registered = register_tools(mcp, is_oss=True)
 
     async with Client(mcp) as client:
         tools = await client.list_tools()
     assert set(registered) == {
         "get_me",
+        *READ_TOOLS,
         "list_connector_types",
         "get_recipe_schema",
         "validate_recipe",

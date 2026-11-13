@@ -14,6 +14,13 @@ export type McpToolCatalog = {
      * send an empty list, when there are none: the picker then shows no Agents tab.
      */
     agents?: McpCatalogAgent[];
+    /**
+     * Group ids an empty ("all tools") selection leaves out: their tools are only on a
+     * server that names the group or the tool, so the picker shows them as opt-in. DataHub
+     * Core's catalog sends `[]` (it serves every group by default). Left out (DataHub
+     * Cloud's catalog), the picker treats "evals" and "ingestion" as opt-in.
+     */
+    optInGroups?: string[];
 };
 
 export type McpCatalogTool = {
@@ -24,8 +31,8 @@ export type McpCatalogTool = {
     category?: 'read_only' | 'mutation';
     /**
      * Capability group ids the tool belongs to (e.g. ["read_metadata"]), stored as a GROUP
-     * ref's toolId. Tools in the opt-in groups "evals" and "ingestion" are only on a server
-     * that names them; the picker lists those groups only when a tool carries them.
+     * ref's toolId. Tools in an opt-in group (see `optInGroups`) are only on a server that
+     * names them; the picker lists a group only when a tool carries it.
      */
     groups: string[];
 };
@@ -61,6 +68,7 @@ function parseCatalog(body: unknown): McpToolCatalog {
             groups: Array.isArray(tool.groups) ? tool.groups : [],
         })),
         agents: Array.isArray(raw.agents) ? raw.agents : [],
+        optInGroups: Array.isArray(raw.optInGroups) ? raw.optInGroups : undefined,
     };
 }
 
