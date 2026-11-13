@@ -34,7 +34,7 @@ def convert_upstream_lineage_to_patch(
     for upstream in aspect.upstreams:
         patch_builder.add_upstream_lineage(upstream)
     for fine_upstream in aspect.fineGrainedLineages or []:
-        patch_builder.add_fine_grained_upstream_lineage(fine_upstream)
+        patch_builder.add_fine_grained_lineage(fine_upstream)
     mcp = next(iter(patch_builder.build()))
     return MetadataWorkUnit(id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp)
 

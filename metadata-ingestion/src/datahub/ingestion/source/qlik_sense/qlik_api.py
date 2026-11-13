@@ -11,6 +11,8 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     PERSONAL_SPACE_DICT,
     App,
     Item,
+    LineageTable,
+    ListedDataset,
     QlikDataset,
     QlikTable,
     Space,
@@ -103,7 +105,118 @@ class QlikAPI(QlikBaseAPI):
         response.raise_for_status()
         response_dict = response.json()
         response_dict[Constant.ITEMID] = item_id
-        return QlikDataset.model_validate(response_dict)
+        dataset = QlikDataset.model_validate(response_dict)
+        try:
+            tables = self.get_table_lineage(dataset.secureQri)
+            # No graph (404) leaves the storing apps unknown, while an empty
+            # graph means none store into it any more.
+            if tables is not None:
+                dataset.stored_from_qris = [
+                    qri for table in tables for qri in table.source_qris
+                ]
+                dataset.stored_field_lineage_failed = any(
+                    table.field_lineage_failed for table in tables
+                )
+                for table in tables:
+                    for name, sources in table.field_source_qris.items():
+                        dataset.stored_field_source_qris.setdefault(name, []).extend(
+                            sources
+                        )
+        except Exception as e:
+            log_read_error(
+                f"Unable to fetch table lineage of dataset {dataset_id}. Exception: {e}"
+            )
+            self.lineage_read_failures.append(f"{dataset_id}: {e}")
+        return dataset
+
+    def get_table_lineage(self, qri: str) -> Optional[List[LineageTable]]:
+        """The resource's tables with the tables they are loaded from, or None
+        when Qlik has no lineage graph for it (404)."""
+        encoded_qri = quote(qri, safe="")
+        response = self.session.get(
+            f"{self.rest_api_url}/lineage-graphs/nodes/{encoded_qri}/actions/expand"
+            f"?node={encoded_qri}&level=TABLE"
+        )
+        # Qlik has no lineage for a resource it has not loaded or stored yet, or
+        # has not computed it since.
+        if response.status_code == 404:
+            return None
+        response.raise_for_status()
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"Lineage graph response for {qri} has no graph")
+        # Only the resource's own tables: neighbouring nodes would otherwise be
+        # read as its tables, and their sources as its sources.
+        tables = {
+            table_qri: LineageTable(qri=table_qri, label=node.get(Constant.LABEL) or "")
+            for table_qri, node in (graph.get(Constant.NODES) or {}).items()
+            if table_qri.startswith(f"{qri}#")
+        }
+        for edge in graph.get(Constant.EDGES) or []:
+            table = tables.get(edge.get(Constant.TARGET))
+            if table and edge.get(Constant.SOURCE):
+                table.source_qris.append(edge[Constant.SOURCE])
+        if self.config.include_column_lineage:
+            for table in tables.values():
+                # The table graph is complete without its field level, which
+                # only adds column lineage.
+                try:
+                    self._add_field_lineage(qri, table)
+                except Exception as e:
+                    log_read_error(
+                        f"Unable to fetch field lineage of {table.qri}. Exception: {e}"
+                    )
+                    table.field_lineage_failed = True
+                    self.field_lineage_failures.append(f"{table.qri}: {e}")
+        return list(tables.values())
+
+    def _add_field_lineage(self, qri: str, table: LineageTable) -> None:
+        """Expanding a table node at field level gives its field nodes, named,
+        and the field nodes each is loaded or stored from."""
+        response = self.session.get(
+            f"{self.rest_api_url}/lineage-graphs/nodes/{quote(qri, safe='')}"
+            f"/actions/expand?node={quote(table.qri, safe='')}&level=FIELD"
+        )
+        response.raise_for_status()
+        graph = response.json().get(Constant.GRAPH)
+        if graph is None:
+            raise ValueError(f"Field lineage response for {table.qri} has no graph")
+        names = {
+            field_qri: node.get(Constant.LABEL)
+            for field_qri, node in (graph.get(Constant.NODES) or {}).items()
+            if field_qri.startswith(f"{table.qri}#") and node.get(Constant.LABEL)
+        }
+        table.fields = list(names.values())
+        for edge in graph.get(Constant.EDGES) or []:
+            name = names.get(edge.get(Constant.TARGET))
+            if name and edge.get(Constant.SOURCE):
+                table.field_source_qris.setdefault(name, []).append(
+                    edge[Constant.SOURCE]
+                )
+
+    def list_datasets(self) -> Optional[List[ListedDataset]]:
+        datasets: List[ListedDataset] = []
+        try:
+            for item in self._paginate(
+                f"{self.rest_api_url}/items?resourceType={Constant.DATASET}"
+            ):
+                attributes = item.get(Constant.RESOURCEATTRIBUTES) or {}
+                datasets.append(
+                    ListedDataset(
+                        space_id=item.get(Constant.SPACEID)
+                        or Constant.PERSONAL_SPACE_ID,
+                        name=item[Constant.NAME],
+                        secure_qri=attributes.get(Constant.SECUREQRI) or None,
+                        type=attributes.get(Constant.TYPE) or "",
+                    )
+                )
+        except Exception as e:
+            # Only lineage needs the list, and it falls back to adding edges,
+            # so this is not a failed read of the run's entities.
+            log_read_error(f"Unable to list datasets. Exception: {e}")
+            self.dataset_listing_error = str(e)
+            return None
+        return datasets
 
     def get_user_name(self, user_id: str) -> Optional[str]:
         try:
@@ -251,7 +364,7 @@ class QlikAPI(QlikBaseAPI):
         logger.debug(f"Qlik Cloud data connections: {connections}")
         return connections
 
-    def _get_app(self, app_id: str) -> App:
+    def _get_app(self, app_id: str, script_app: bool = False) -> App:
         errors = ReadErrors()
         websocket_connection = self._open_engine(app_id)
         try:
@@ -263,9 +376,25 @@ class QlikAPI(QlikBaseAPI):
                 method="GetAppLayout"
             )
             app = App.model_validate(response[Constant.QLAYOUT])
+            if script_app:
+                app.qri = f"qri:app:dataprep://{app_id}"
             app.sheets = self._get_app_sheets(websocket_connection, app_id, errors)
+            variables = self._read_variables(websocket_connection, app_id)
+            app.variables = variables or {}
+            app.variables_read_failed = variables is None
             read_errors = len(errors.messages)
             app.tables = self._get_app_used_tables(websocket_connection, app_id, errors)
+            if not app.tables and len(errors.messages) == read_errors:
+                # Script-built apps have no data model, but Qlik still traces
+                # their tables, including QVDs they load.
+                try:
+                    lineage_tables = self.get_table_lineage(app.qri)
+                    app.lineage_graph_missing = lineage_tables is None
+                    app.lineage_tables = lineage_tables or []
+                except Exception as e:
+                    errors.record(
+                        f"Unable to fetch table lineage of app {app_id}. Exception: {e}"
+                    )
             app.tables_read_failed = len(errors.messages) > read_errors
             if not app.tables or not all(table.tableQri for table in app.tables):
                 try:
@@ -285,6 +414,17 @@ class QlikAPI(QlikBaseAPI):
                         errors.record(
                             f"Unable to fetch load script of app {app_id}. Exception: {e}"
                         )
+            if not app.tables or not all(table.tableQri for table in app.tables):
+                # Graph and script tables carry no fields of their own; the
+                # data model has them as the last reload left them.
+                model_errors = len(errors.messages)
+                app.data_model_tables = self._read_data_model(
+                    websocket_connection, app_id, errors
+                )
+                if len(errors.messages) > model_errors:
+                    # Unlabelled script tables are named from the data model,
+                    # so without it they may not match their graph tables.
+                    app.tables_read_failed = True
             app.read_errors = errors.messages
             app.read_fallbacks = errors.fallbacks
             return app
@@ -315,7 +455,12 @@ class QlikAPI(QlikBaseAPI):
         resource_id = item[Constant.RESOURCEID]
         try:
             if resource_type == Constant.APP:
-                return self._get_app(resource_id)
+                return self._get_app(
+                    resource_id,
+                    # A script app's node in the lineage graph is a dataprep
+                    # resource; an analytics app's is a sense resource.
+                    script_app=item.get("resourceSubType") == "script",
+                )
             if resource_type == Constant.DATASET:
                 return self._get_dataset(resource_id, item[Constant.ID])
         except Exception as e:

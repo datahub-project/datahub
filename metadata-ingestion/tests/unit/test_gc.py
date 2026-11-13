@@ -256,19 +256,41 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # Call the method
         self.cleanup.delete_entity(self.sample_urn)
 
-        # Verify deletion happened
         self.mock_graph.delete_entity.assert_called_once_with(
             urn=self.sample_urn.urn(), hard=True
-        )
-        self.mock_graph.delete_references_to_urn.assert_called_once_with(
-            urn=self.sample_urn.urn(),
-            dry_run=False,
         )
 
         # Report update
         self.assertEqual(self.report.num_hard_deleted, 1)
         self.assertEqual(self.report.num_hard_deleted_by_type.get("dataset"), 1)
         self.assertEqual(self.report.num_soft_deleted_entity_removal_started, 1)
+
+    def test_delete_entity_removes_references_first_for_allowed_types(self):
+        tag_urn = Urn.from_string("urn:li:tag:example")
+
+        self.cleanup.delete_entity(tag_urn)
+
+        # References are removed before the hard delete drops the graph edges.
+        assert self.mock_graph.mock_calls == [
+            call.delete_references_to_urn(urn=tag_urn.urn(), dry_run=False),
+            call.delete_entity(urn=tag_urn.urn(), hard=True),
+        ]
+
+    def test_delete_entity_skips_reference_cleanup_for_other_types(self):
+        # Removing a reference to a dataFlow or container deletes whole aspects of
+        # entities that still exist: the flow's jobs lose their key aspect, which
+        # hard-deletes them, and the container's children lose their parent link.
+        for urn in [
+            "urn:li:dataFlow:(airflow,example_flow,PROD)",
+            "urn:li:container:example",
+            "urn:li:dataset:(urn:li:dataPlatform:example,example,PROD)",
+        ]:
+            self.mock_graph.reset_mock()
+
+            self.cleanup.delete_entity(Urn.from_string(urn))
+
+            self.mock_graph.delete_entity.assert_called_once_with(urn=urn, hard=True)
+            self.mock_graph.delete_references_to_urn.assert_not_called()
 
     def test_delete_entity_respects_deletion_limit(self):
         """Test that delete_entity respects the deletion limit."""

@@ -9,6 +9,7 @@ from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
+from datahub.cli.delete_cli import DELETE_WITH_REFERENCES_TYPES
 from datahub.configuration import ConfigModel
 from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
@@ -222,17 +223,20 @@ class SoftDeletedEntitiesCleanup:
         if self._deletion_limit_reached() or self._times_up():
             return
         self._increment_removal_started_count()
+        # Same policy as `datahub delete --hard`. References go first: they are found
+        # through graph edges that the hard delete removes asynchronously.
+        if urn.entity_type in DELETE_WITH_REFERENCES_TYPES:
+            self.ctx.graph.delete_references_to_urn(
+                urn=urn.urn(),
+                dry_run=False,
+            )
         self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
-        self.ctx.graph.delete_references_to_urn(
-            urn=urn.urn(),
-            dry_run=False,
-        )
         self._update_report(urn.urn(), urn.entity_type)
 
     def _has_children(self, urn: Urn) -> bool:
         # Children in any state count, soft-deleted, draft and hidden ones included:
         # each still holds a `container` link that hard-deleting this container
-        # would strip. The `container` field is matched rather than browsePathsV2,
+        # would leave dangling. The `container` field is matched rather than browsePathsV2,
         # which entities emitted outside ingestion sources often lack.
         search = functools.partial(
             self.graph.get_urns_by_filter,
@@ -319,10 +323,10 @@ class SoftDeletedEntitiesCleanup:
                 if urn.entity_type == ContainerUrn.ENTITY_TYPE:
                     if self._deletion_limit_reached() or self._times_up():
                         return
-                    # Hard-deleting a container makes delete_references_to_urn drop
-                    # the required `container` aspect from every child, orphaning the
-                    # subtree with no way to rebuild the links. While children remain
-                    # it stays soft-deleted, so restoring it brings the tree back.
+                    # Hard-deleting a container leaves every child linked to a
+                    # container that no longer exists, so the subtree can't be
+                    # restored. While children remain it stays soft-deleted, so
+                    # restoring it brings the tree back.
                     try:
                         has_children = self._has_children(urn)
                     except Exception as e:
