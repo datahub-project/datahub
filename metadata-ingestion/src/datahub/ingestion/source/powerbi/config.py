@@ -27,6 +27,7 @@ from datahub.configuration.common import (
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.configuration.validate_multiline_string import pydantic_multiline_string
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
@@ -129,6 +130,11 @@ class Constant:
     EMBED_URL = "embedUrl"
     ACCESS_TOKEN = "access_token"
     ACCESS_TOKEN_EXPIRY = "expires_in"
+    AUTH_ERROR = "error"
+    AUTH_ERROR_CODES = "error_codes"
+    AUTH_ERROR_DESCRIPTION = "error_description"
+    AUTH_TRACE_ID = "trace_id"
+    AUTH_CORRELATION_ID = "correlation_id"
     IS_READ_ONLY = "isReadOnly"
     WEB_URL = "webUrl"
     ODATA_COUNT = "@odata.count"
@@ -178,6 +184,23 @@ class Constant:
 
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
+
+    # workspace_apis mode: regular-API endpoints and refresh-history keys
+    DATASET_REFRESHES = "DATASET_REFRESHES"
+    WORKSPACE_USERS = "WORKSPACE_USERS"
+    REQUEST_ID = "requestId"
+    REFRESH_TYPE = "refreshType"
+    START_TIME = "startTime"
+    END_TIME = "endTime"
+    REFRESH_STATUS_COMPLETED = "Completed"
+    CUSTOM_OPERATION_REFRESH = "REFRESH"
+    VISUAL_COUNT = "visualCount"
+    VISUAL_TYPES = "visualTypes"
+    TOP = "$top"
+    # Scan-API column types reproduced for TMDL-sourced columns
+    COLUMN_TYPE_DATA = "Data"
+    COLUMN_TYPE_CALCULATED = "Calculated"
+    NULL_DATA_TYPE = "Null"
 
 
 @dataclass
@@ -297,6 +320,27 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_external_query_connections_resolved: int = 0
     m_query_external_query_connections_unmapped: int = 0
     m_query_external_query_failures: int = 0
+
+    # workspace_apis mode (Fabric item definitions)
+    fabric_definitions_fetched: int = 0
+    fabric_definitions_failed: int = 0
+    fabric_report_definitions_denied: int = 0
+    dataset_parameters_failed: int = 0
+    fabric_lro_timeouts: int = 0
+    tmdl_tables_parsed: int = 0
+    tmdl_parts_failed: int = 0
+    report_definitions_parsed: int = 0
+    report_definition_parts_failed: int = 0
+    report_pages_unmatched: int = 0
+    report_field_references_resolved: int = 0
+    report_field_references_unresolved: int = 0
+    relationships_parsed: int = 0
+    relationships_skipped: int = 0
+    relationships_unresolved: int = 0
+    measure_references_unresolved: int = 0
+    semantic_models_not_processed: int = 0
+    refresh_history_fetched: int = 0
+    refresh_history_unparseable: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -538,6 +582,15 @@ class PowerBiAppUrlPattern(ConfigEnum):
     REDIRECT_BASED = "REDIRECT_BASED"
 
 
+class PowerBiMetadataApiMode(ConfigEnum):
+    # Admin Scanner API (POST /admin/workspaces/getInfo): needs tenant-admin
+    # API access; the only source of endorsements, apps and per-item users.
+    ADMIN_SCAN = "ADMIN_SCAN"
+    # Workspace-scoped Power BI + Fabric APIs (semantic-model TMDL and report
+    # definitions): needs the Contributor role on each workspace instead.
+    WORKSPACE_APIS = "WORKSPACE_APIS"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -660,12 +713,37 @@ class PowerBiDashboardSourceConfig(
     # Azure app client identifier
     client_id: str = pydantic.Field(description="Azure app client identifier")
     # Azure app client secret
-    client_secret: TransparentSecretStr = pydantic.Field(
-        description="Azure app client secret"
+    client_secret: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Azure app client secret. Required unless certificate-based "
+        "authentication is configured via `certificate_path` or `certificate_data`.",
     )
+    certificate_path: Optional[str] = pydantic.Field(
+        default=None,
+        description="Path to a PEM file containing both the private key and the "
+        "certificate uploaded to the Azure app registration, if using "
+        "certificate-based authentication. Mutually exclusive with `client_secret` "
+        "and `certificate_data`.",
+    )
+    certificate_data: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Inline PEM content containing both the private key and the "
+        "certificate uploaded to the Azure app registration, if using "
+        "certificate-based authentication. Newlines may be escaped as '\\n', so the "
+        "value can be stored as a single-line secret. Mutually exclusive with "
+        "`client_secret` and `certificate_path`.",
+    )
+    certificate_password: Optional[TransparentSecretStr] = pydantic.Field(
+        default=None,
+        description="Passphrase for the private key referenced by `certificate_path` "
+        "or `certificate_data`, if the key is encrypted.",
+    )
+    _fix_certificate_data_newlines = pydantic_multiline_string("certificate_data")
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
-        default=60, description="timeout for PowerBI metadata scanning"
+        default=60,
+        description="Seconds to wait for a PowerBI admin scan to complete, and, with "
+        "`metadata_api_mode: workspace_apis`, for each Fabric getDefinition operation.",
     )
     scan_batch_size: int = pydantic.Field(
         default=1,
@@ -681,7 +759,8 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
         default=False,
-        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled, "
+        "except with `metadata_api_mode: workspace_apis`, where owners are derived from workspace role assignments. "
         "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
     # Enable/Disable extracting report information. When off,
@@ -848,6 +927,39 @@ class PowerBiDashboardSourceConfig(
         description="timeout in seconds for Metadata Rest Api.",
     )
 
+    metadata_api_mode: PowerBiMetadataApiMode = pydantic.Field(
+        default=PowerBiMetadataApiMode.ADMIN_SCAN,
+        description="Which API family supplies semantic-model metadata (tables, columns, "
+        "measures, M expressions, lineage). `admin_scan` (default) uses the Admin Scanner "
+        "API and requires tenant-level admin API access. `workspace_apis` instead reads "
+        "semantic-model (TMDL) and report definitions through the Fabric item APIs and "
+        "needs only the Contributor role on each ingested workspace plus the tenant "
+        "setting 'Service principals can use Fabric APIs'. In `workspace_apis` mode "
+        "endorsements, apps, `modified_since` and per-report owners are unavailable "
+        "(ownership comes from workspace roles), and the `environment` must be COMMERCIAL.",
+    )
+    extract_model_relationships: bool = pydantic.Field(
+        default=False,
+        description="Emit semantic-model relationships as foreign-key constraints on the "
+        "`from` table's schema. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_report_field_usage: bool = pydantic.Field(
+        default=False,
+        description="Read each report's definition to record which model columns and "
+        "measures its visuals use, emitted as `inputFields` on the page charts together "
+        "with visual counts and types. Adds one Fabric getDefinition call per report. "
+        "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_refresh_history: bool = pydantic.Field(
+        default=False,
+        description="Fetch each dataset's most recent refresh and emit it as an Operation "
+        "aspect on the dataset's tables. Adds one API call per dataset; works in both "
+        "metadata API modes and needs only the Viewer role, but uses the workspace "
+        "API, so it cannot be combined with `admin_apis_only`.",
+    )
+
     @classmethod
     def probe_provider_class(cls) -> type:
         # Late import: powerbi_probe imports this module, so a top-level import
@@ -887,6 +999,117 @@ class PowerBiDashboardSourceConfig(
             workspace_kind=str(BIContainerSubTypes.POWERBI_WORKSPACE),
             child_kinds=self.probe_unfiltered_kinds(),
         )
+
+    @model_validator(mode="after")
+    def validate_workspace_apis_mode(self) -> "PowerBiDashboardSourceConfig":
+        if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+            return self
+        if self.admin_apis_only:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis cannot be combined with "
+                "admin_apis_only: true; the two modes use disjoint API families."
+            )
+        admin_only_features = [
+            name
+            for name, enabled in (
+                ("modified_since", self.modified_since is not None),
+                ("extract_app", self.extract_app),
+                ("extract_endorsements_to_tags", self.extract_endorsements_to_tags),
+                (
+                    "filter_dataset_endorsements",
+                    self.filter_dataset_endorsements != AllowDenyPattern.allow_all(),
+                ),
+            )
+            if enabled
+        ]
+        if admin_only_features:
+            raise ValueError(
+                f"{admin_only_features} require the Admin Scanner API and are not "
+                "available with metadata_api_mode: workspace_apis."
+            )
+        if self.environment == PowerBiEnvironment.GOVERNMENT:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis is only supported for the "
+                "COMMERCIAL environment; the Fabric API has no verified GCC endpoint."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_refresh_history_needs_workspace_api(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # /groups/{id}/datasets/{id}/refreshes has no admin-API variant.
+        if self.extract_refresh_history and self.admin_apis_only:
+            raise ValueError(
+                "extract_refresh_history requires the workspace API and cannot be "
+                "combined with admin_apis_only: true."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
+        # Both flags are derived from TMDL / report definitions, which only the
+        # workspace_apis mode fetches, and attach to schema fields.
+        for flag, extra_requirements in (
+            ("extract_model_relationships", ("extract_dataset_schema",)),
+            (
+                "extract_report_field_usage",
+                ("extract_dataset_schema", "extract_reports"),
+            ),
+        ):
+            if not getattr(self, flag):
+                continue
+            if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+                raise ValueError(f"{flag} requires metadata_api_mode: workspace_apis.")
+            missing = [name for name in extra_requirements if not getattr(self, name)]
+            if missing:
+                raise ValueError(f"{flag} requires these flags enabled: {missing}")
+        return self
+
+    @model_validator(mode="before")
+    @classmethod
+    def treat_empty_auth_values_as_unset(cls, values: Dict) -> Dict:
+        # A recipe with `client_secret: "${SECRET}"` and an unset variable resolves
+        # to an empty string; treat that as "not configured" so users get the
+        # actionable auth-method error instead of an opaque MSAL failure.
+        if isinstance(values, dict):
+            for field in (
+                "client_secret",
+                "certificate_path",
+                "certificate_data",
+                "certificate_password",
+            ):
+                value = values.get(field)
+                if isinstance(value, str) and not value.strip():
+                    values[field] = None
+        return values
+
+    @model_validator(mode="after")
+    def validate_service_principal_auth(self) -> "PowerBiDashboardSourceConfig":
+        if self.certificate_path is not None and self.certificate_data is not None:
+            raise ValueError(
+                "Specify only one of `certificate_path` or `certificate_data`."
+            )
+        uses_certificate = (
+            self.certificate_path is not None or self.certificate_data is not None
+        )
+        if self.client_secret is not None and uses_certificate:
+            raise ValueError(
+                "Specify only one authentication method: either `client_secret` or "
+                "a certificate (`certificate_path`/`certificate_data`)."
+            )
+        if self.client_secret is None and not uses_certificate:
+            raise ValueError(
+                "No authentication method configured. Set `client_secret` for "
+                "secret-based authentication, or `certificate_path`/`certificate_data` "
+                "for certificate-based authentication."
+            )
+        if self.certificate_password is not None and not uses_certificate:
+            raise ValueError(
+                "`certificate_password` is set but no certificate is configured. "
+                "Set `certificate_path` or `certificate_data`."
+            )
+        return self
 
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
