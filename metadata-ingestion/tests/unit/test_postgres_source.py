@@ -1,7 +1,10 @@
+import logging
+from io import StringIO
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
@@ -40,6 +43,12 @@ from datahub.ingestion.source.sql.postgres.source import (
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.ingestion.source.sql.sqlalchemy_uri import (
+    UNPARSEABLE_URL_PLACEHOLDER,
+    url_for_logging,
+)
+from datahub.masking.masking_filter import install_masking_filter
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -52,6 +61,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
+from tests.test_helpers.masking_state_helpers import reset_masking_process_state
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
 from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
@@ -865,3 +875,100 @@ def test_add_profile_metadata_survives_permission_errors():
     source.add_profile_metadata(inspector)
 
     assert source.profile_metadata_info.dataset_name_to_storage_bytes == {}
+
+
+_SOURCE_LOGGER = "datahub.ingestion.source.sql.postgres.source"
+
+
+@pytest.fixture
+def masked_source_log() -> Iterator[StringIO]:
+    """Captures the postgres source's log output with the secret masking filter
+    installed, the way the CLI runs it."""
+    reset_masking_process_state()
+    stream = StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setFormatter(logging.Formatter("%(message)s"))
+    source_logger = logging.getLogger(_SOURCE_LOGGER)
+    previous_level = source_logger.level
+    source_logger.setLevel(logging.DEBUG)
+    source_logger.addHandler(handler)
+    install_masking_filter(
+        secret_registry=SecretRegistry.get_instance(), install_stdout_wrapper=False
+    )
+    try:
+        yield stream
+    finally:
+        source_logger.removeHandler(handler)
+        source_logger.setLevel(previous_level)
+        reset_masking_process_state()
+
+
+def _log_connection_url(config_dict: Dict[str, Any]) -> None:
+    config = PostgresConfig.model_validate(config_dict)
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.create_engine"
+    ) as create_engine_mock:
+        execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+        execute_mock.return_value = []
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+        list(source.get_inspectors())
+
+
+def _assert_password_not_logged(output: str, password: str) -> None:
+    assert "sql_alchemy_url=" in output, output
+    assert password not in output, output
+    assert quote(password, safe=" +") not in output, output
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param("alphanumericpassword123", id="alphanumeric"),
+        pytest.param("Str0ng!Pass#2024", id="special_characters"),
+    ],
+)
+def test_debug_connection_url_log_hides_password(
+    masked_source_log: StringIO, password: str
+) -> None:
+    _log_connection_url(
+        {
+            "username": "my_user",
+            "password": password,
+            "host_port": "my-host:5432",
+            "database": "my_db",
+        }
+    )
+    _assert_password_not_logged(masked_source_log.getvalue(), password)
+
+
+def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
+    masked_source_log: StringIO,
+) -> None:
+    password = "placeholder-uri-secret-42"
+    _log_connection_url(
+        {
+            "sqlalchemy_uri": f"postgresql+psycopg2://my_user:{password}@my-host:5432/my_db",
+            "host_port": "my-host:5432",
+        }
+    )
+    _assert_password_not_logged(masked_source_log.getvalue(), password)
+
+
+@pytest.mark.parametrize(
+    "url, expected",
+    [
+        pytest.param(
+            "postgresql+psycopg2://my_user:Str0ng%21Pass%232024@my-host:5432/my_db",
+            "postgresql+psycopg2://my_user:***@my-host:5432/my_db",
+            id="password_hidden",
+        ),
+        pytest.param("not a url", UNPARSEABLE_URL_PLACEHOLDER, id="unparseable"),
+        pytest.param(
+            "postgresql://my_user:my_secret@my-host:not_a_port/my_db",
+            UNPARSEABLE_URL_PLACEHOLDER,
+            id="invalid_port",
+        ),
+    ],
+)
+def test_url_for_logging(url: str, expected: str) -> None:
+    assert url_for_logging(url) == expected

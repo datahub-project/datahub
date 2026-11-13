@@ -1,6 +1,9 @@
 from typing import Any, Dict, Optional, Tuple
 
-from sqlalchemy.engine import URL
+from sqlalchemy.engine import URL, make_url
+from sqlalchemy.exc import ArgumentError
+
+UNPARSEABLE_URL_PLACEHOLDER = "<unparseable SQLAlchemy URL>"
 
 
 def parse_host_port(
@@ -67,6 +70,20 @@ def make_sqlalchemy_uri(
         database=db,
         query=uri_opts or {},
     ).render_as_string(hide_password=False)
+
+
+def url_for_logging(url: str) -> str:
+    """Render a SQLAlchemy URL with its password replaced by "***", for logs.
+
+    Don't rely on the secret masking filter for connection URLs: SQLAlchemy
+    percent-encodes the password, so the logged form may not match any
+    registered secret, and a password embedded in `sqlalchemy_uri` is never
+    registered at all. A URL that can't be parsed is not logged, since we
+    can't tell where its password is."""
+    try:
+        return make_url(url).render_as_string(hide_password=True)
+    except (ArgumentError, ValueError):
+        return UNPARSEABLE_URL_PLACEHOLDER
 
 
 def url_dialect_and_driver(url: str) -> Tuple[str, str]:
