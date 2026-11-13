@@ -17,7 +17,9 @@ Copilot in VS Code reads MCP servers from `~/.copilot/mcp-config.json`, which th
 2. Choose **HTTP**, enter `https://mcp.datahub.com/mcp` as the URL and `datahub` as the server ID.
 3. Choose **Global**, then **Copilot Global**.
 
-<!-- screenshot: MCP: Add Server, HTTP, URL entered -->
+<p align="center">
+  <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/github-copilot/github_copilot_vscode_add_server.png" alt="VS Code asking for the MCP server URL"/>
+</p>
 
 The resulting `~/.copilot/mcp-config.json` looks like this:
 
@@ -35,7 +37,9 @@ The resulting `~/.copilot/mcp-config.json` looks like this:
 
 When Copilot first connects, it opens a browser for the DataHub OAuth flow. Enter your DataHub domain (e.g. `<tenant>` for `https://<tenant>.acryl.io`), sign in, and approve. If the prompt doesn't appear, select **Authenticate** in the server's actions.
 
-<!-- screenshot: DataHub sign-in / domain prompt -->
+<p align="center">
+  <img width="50%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/github-copilot/github_copilot_oauth_signin.png" alt="DataHub asking for your domain before signing VS Code in"/>
+</p>
 
 Prefer your tenant URL directly? Use `https://<tenant>.acryl.io/mcp` as the URL instead.
 
@@ -62,9 +66,11 @@ Set `DATAHUB_TOKEN` in the environment VS Code starts from, for example your she
 
 ### Verify
 
-Open Copilot Chat in **Agent** mode and ask _"Search DataHub for datasets about revenue"_. Expand the tool call in the reply to confirm Copilot called a DataHub tool. An answer without a tool call doesn't confirm the connection.
+Open Copilot Chat in **Agent** mode and ask _"Search DataHub for datasets about revenue"_. Allow the DataHub tool when Copilot asks. Expand **Completed N steps** at the top of the reply to confirm Copilot called a DataHub tool. An answer without a tool call doesn't confirm the connection.
 
-<!-- screenshot: Copilot Chat agent mode answer with an expanded DataHub tool call -->
+<p align="center">
+  <img width="60%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/github-copilot/github_copilot_chat_answer.png" alt="Copilot Chat answering from DataHub search results"/>
+</p>
 
 ## Copilot CLI
 
@@ -104,7 +110,9 @@ The Copilot cloud agent, which works on issues assigned to Copilot, reads MCP se
 
 3. Click **Save MCP configuration**.
 
-<!-- screenshot: repository Settings → Copilot → MCP servers with the DataHub config -->
+<p align="center">
+  <img width="80%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/ai/agent-context/github-copilot/github_copilot_cloud_agent_mcp.png" alt="Repository settings with the DataHub MCP configuration saved"/>
+</p>
 
 The cloud agent uses these tools without asking for approval. To limit it to reading metadata, replace `"*"` in `tools` with the names of the read-only DataHub tools you want it to use.
 
