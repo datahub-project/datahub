@@ -805,6 +805,9 @@ class FakeBackend:
     def exists(self, urn: str) -> bool:
         return urn not in self.missing
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return None
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 

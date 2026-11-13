@@ -172,6 +172,9 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def document_contents(self, urns: list[str]) -> list:
             return []
 
+        def dataset_usage(self, urn: str, time_range: str) -> None:
+            return None
+
         def list_queries(self, variables: dict) -> dict:
             return {}
 

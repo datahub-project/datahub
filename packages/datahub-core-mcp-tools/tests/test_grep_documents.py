@@ -73,6 +73,9 @@ class FakeBackend:
         ]
         return found + [None for urn in urns if urn in self.stubs]
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return None
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 
