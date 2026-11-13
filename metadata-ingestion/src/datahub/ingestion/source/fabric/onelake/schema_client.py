@@ -27,6 +27,10 @@ from datahub.ingestion.source.fabric.common.auth import (
     FabricAuthHelper,
 )
 from datahub.ingestion.source.fabric.onelake.config import SqlEndpointConfig
+from datahub.ingestion.source.fabric.onelake.constants import (
+    FABRIC_SQL_APP_NAME,
+    FABRIC_SYSTEM_SCHEMAS,
+)
 from datahub.ingestion.source.fabric.onelake.models import (
     FabricColumn,
     FabricQueryInsightsRow,
@@ -48,17 +52,6 @@ SQL_COPT_SS_ACCESS_TOKEN = 1256
 # Pattern to match Fabric SQL Analytics Endpoint hostname in connection strings
 _FABRIC_ENDPOINT_HOST_PATTERN = re.compile(
     r"[a-zA-Z0-9_-]+\.datawarehouse\.fabric\.microsoft\.com"
-)
-
-# Schemas excluded from table and view discovery:
-# - INFORMATION_SCHEMA, sys: standard SQL Server system schemas.
-# - queryinsights: Fabric Warehouse's Microsoft-managed Query Insights views
-#   (exec_requests_history, long_running_queries, etc.) — not user metadata.
-#   See https://learn.microsoft.com/fabric/data-warehouse/query-insights
-_FABRIC_SYSTEM_SCHEMAS: Tuple[str, ...] = (
-    "INFORMATION_SCHEMA",
-    "sys",
-    "queryinsights",
 )
 
 
@@ -139,6 +132,10 @@ class SchemaExtractionClient(Protocol):
         Yields:
             One `FabricQueryInsightsRow` per matching row, ordered by `start_time`.
         """
+        ...
+
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the SQLAlchemy engine for this item's SQL Analytics Endpoint."""
         ...
 
 
@@ -467,7 +464,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 columns_by_table: Dict[Tuple[str, str], List[FabricColumn]] = {}
                 for row in result:
@@ -538,7 +535,7 @@ class SqlAnalyticsEndpointClient:
 
             with engine.connect() as connection:
                 result = connection.execute(
-                    query, {"system_schemas": list(_FABRIC_SYSTEM_SCHEMAS)}
+                    query, {"system_schemas": list(FABRIC_SYSTEM_SCHEMAS)}
                 )
                 views: List[FabricView] = []
                 for row in result:
@@ -584,6 +581,7 @@ class SqlAnalyticsEndpointClient:
                 start_time,
                 statement_type,
                 login_name,
+                program_name,
                 row_count,
                 status,
                 command
@@ -618,6 +616,7 @@ class SqlAnalyticsEndpointClient:
                             start_time=row_mapping["start_time"],
                             statement_type=row_mapping["statement_type"],
                             login_name=row_mapping["login_name"],
+                            program_name=row_mapping["program_name"],
                             row_count=row_mapping["row_count"],
                             status=row_mapping["status"],
                             command=row_mapping["command"],
@@ -635,6 +634,18 @@ class SqlAnalyticsEndpointClient:
                 exc_info=True,
             )
             raise
+
+    def get_engine(self, workspace_id: str, item_id: str) -> Engine:
+        """Return the cached SQLAlchemy engine for this item.
+
+        The engine uses `mssql+pyodbc` with the Microsoft ODBC Driver for SQL
+        Server, the same driver the `mssql-odbc` source profiles with.
+        """
+        if not self.endpoint_url:
+            raise ValueError(
+                f"SQL Analytics Endpoint URL is required for item {item_id}."
+            )
+        return self._get_engine(workspace_id, item_id, self.endpoint_url)
 
     def _get_engine(self, workspace_id: str, item_id: str, endpoint_url: str) -> Engine:
         """Get or create SQLAlchemy engine for a workspace/item combination.
@@ -680,17 +691,6 @@ class SqlAnalyticsEndpointClient:
             f"server={endpoint_url}, connection_string={connection_string}"
         )
 
-        # Get token before creating engine (needed for attrs_before)
-        # SQL Analytics Endpoint requires database scope for Azure AD authentication
-        token = self.auth_helper.get_bearer_token(scope=SQL_ANALYTICS_ENDPOINT_SCOPE)
-
-        # Convert token to bytes format required by pyodbc
-        # Token needs to be encoded as UTF-16-LE and packed with length prefix
-        token_bytes = token.encode("utf-16-le")
-        token_struct = struct.pack(
-            f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
-        )
-
         # Create a custom connection creator that passes attrs_before to pyodbc
         # SQLAlchemy doesn't support attrs_before directly, so the code uses a custom
         # connection creator that passes the token to pyodbc before the connection is
@@ -705,6 +705,19 @@ class SqlAnalyticsEndpointClient:
             using the attrs_before parameter with SQL_COPT_SS_ACCESS_TOKEN (1256).
             This enables passwordless authentication with the Fabric SQL Analytics Endpoint.
             """
+            # Fetched per connection, not once per engine: the pool recycles
+            # connections hourly and a long profiling run outlives the token.
+            # get_bearer_token caches it and refreshes it shortly before expiry.
+            # SQL Analytics Endpoint requires database scope for Azure AD authentication
+            token = self.auth_helper.get_bearer_token(
+                scope=SQL_ANALYTICS_ENDPOINT_SCOPE
+            )
+
+            # Token needs to be encoded as UTF-16-LE and packed with length prefix
+            token_bytes = token.encode("utf-16-le")
+            token_struct = struct.pack(
+                f"<I{len(token_bytes)}s", len(token_bytes), token_bytes
+            )
             return pyodbc_module.connect(
                 connection_string,
                 timeout=self.config.query_timeout,
@@ -754,6 +767,7 @@ class SqlAnalyticsEndpointClient:
             f"Database={self.item_display_name};",
             f"Encrypt={self.config.encrypt};",
             f"TrustServerCertificate={self.config.trust_server_certificate};",
+            f"APP={FABRIC_SQL_APP_NAME};",
         ]
         return "".join(parts)
 
