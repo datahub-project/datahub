@@ -2379,6 +2379,8 @@ graphQL:
     maxParentDepth: ${GRAPHQL_QUERY_MAX_PARENT_DEPTH:50}
     # Relationship resolution cap per request (cycle/unbounded protection)
     maxVisitedUrns: ${GRAPHQL_QUERY_MAX_VISITED_URNS:20000}
+    # Max datasets per siblingGroups request; search sends one per result on the page (up to 30)
+    maxSiblingGroupUrns: ${GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS:30}
     slowQueryThresholdMs: ${GRAPHQL_QUERY_SLOW_QUERY_THRESHOLD_MS:1000}
     # Stream the JSON response to the socket instead of buffering it as one String (bounds GMS heap
     # on large fan-out responses). Opt-in kill switch; default off preserves the buffered behavior.

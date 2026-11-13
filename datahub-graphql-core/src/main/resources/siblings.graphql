@@ -1,0 +1,74 @@
+extend type Query {
+  """
+  The sibling groups of the given datasets: each group's size and a page of its other members,
+  primary member first. A group is every dataset reachable through siblings lists, transitively,
+  capped at 1,000 members (Dataset.siblingsSearch follows one link only and has no primary flag).
+  Members the caller can't view and soft-deleted members are left out, and a dataset the caller
+  can't view gets an empty group.
+  """
+  siblingGroups(input: SiblingGroupsInput!): [SiblingGroup!]!
+}
+
+"""
+Input for siblingGroups
+"""
+input SiblingGroupsInput {
+  """
+  Dataset urns to resolve, at most 30 by default (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS). Other
+  entity types are rejected.
+  """
+  urns: [String!]!
+
+  """
+  Offset into each group's member list, for paging. Defaults to 0.
+  """
+  start: Int
+
+  """
+  Members to return per group, at most 200. Defaults to 5. Each urn adds 5 plus this count to the
+  query's complexity, so many urns with a large count can exceed the complexity limit.
+  """
+  count: Int
+}
+
+"""
+A dataset's sibling group
+"""
+type SiblingGroup {
+  """
+  The dataset the group was resolved for
+  """
+  urn: String!
+
+  """
+  How many other members the group has, after visibility and soft-delete filtering
+  """
+  total: Int!
+
+  """
+  True when the group is larger than the 1,000-member cap, so total and members cover only part
+  of it
+  """
+  truncated: Boolean!
+
+  """
+  A page of the other members, primary member first
+  """
+  members: [SiblingMember!]!
+}
+
+"""
+A member of a sibling group
+"""
+type SiblingMember {
+  """
+  The member dataset. Null when it couldn't be loaded, so one member that fails doesn't fail the
+  whole response; clients should skip such members.
+  """
+  entity: Entity
+
+  """
+  Whether the member's siblings aspect marks it as the group's primary
+  """
+  isPrimary: Boolean!
+}

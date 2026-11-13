@@ -264,6 +264,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsS
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.GlobalViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.view.UpdateGlobalViewsSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.siblings.SiblingGroupsResolver;
 import com.linkedin.datahub.graphql.resolvers.siblings.SiblingsSearchResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchGetStepStatesResolver;
 import com.linkedin.datahub.graphql.resolvers.step.BatchUpdateStepStatesResolver;
@@ -969,6 +970,7 @@ public class GmsGraphQLEngine {
         .addSchema(fileBasedSchema(TESTS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(STEPS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(LINEAGE_SCHEMA_FILE))
+        .addSchema(fileBasedSchema(SIBLINGS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(PROPERTIES_SCHEMA_FILE))
         .addSchema(fileBasedSchema(FORMS_SCHEMA_FILE))
         .addSchema(fileBasedSchema(COMMON_SCHEMA_FILE))
@@ -1238,6 +1240,7 @@ public class GmsGraphQLEngine {
                     new ProductUpdateResolver(
                         this.productUpdateService, this.featureFlags, this.entityService))
                 .dataFetcher("me", new MeResolver(this.entityClient, featureFlags))
+                .dataFetcher("siblingGroups", new SiblingGroupsResolver(this.siblingGraphService))
                 .dataFetcher("search", new SearchResolver(this.entityClient))
                 .dataFetcher(
                     "searchAcrossEntities",
@@ -1870,6 +1873,13 @@ public class GmsGraphQLEngine {
                     "entity",
                     new EntityTypeResolver(
                         entityTypes, (env) -> ((SearchResult) env.getSource()).getEntity())))
+        .type(
+            "SiblingMember",
+            typeWiring ->
+                typeWiring.dataFetcher(
+                    "entity",
+                    new EntityTypeResolver(
+                        entityTypes, (env) -> ((SiblingMember) env.getSource()).getEntity())))
         .type(
             "MatchedField",
             typeWiring ->

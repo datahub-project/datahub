@@ -21,6 +21,12 @@ public class GraphQLQueryConfiguration {
    */
   private int maxVisitedUrns;
 
+  /**
+   * Max datasets one {@code siblingGroups} request may ask for. Each one walks its sibling group,
+   * so this bounds the work of a single request. Default in application.yaml.
+   */
+  private int maxSiblingGroupUrns;
+
   /** Requests taking longer than this threshold (in ms) are logged at INFO. Default 1000ms. */
   private long slowQueryThresholdMs;
 
