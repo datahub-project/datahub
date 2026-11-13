@@ -53,6 +53,9 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
     DatasetSubTypes,
 )
+from datahub.ingestion.source.data_lake_common.data_lake_utils import (
+    ContainerWUCreator,
+)
 from datahub.ingestion.source.qlik_sense.app_state import (
     AppCheckpoint,
     QlikAppStateHandler,
@@ -2646,6 +2649,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
     def _gen_qvd_entities(self, lineage: AppQvdLineage) -> Iterable[MetadataWorkUnit]:
         # Emitted by every app that touches the QVD, so it stays while any of
         # them does; its schema and lineage come from all of them at the end.
+        # The folders too: each app's checkpoint only keeps what it emitted,
+        # so they are deduplicated per app, not per run.
+        containers = ContainerWUCreator(
+            self.platform, self.config.platform_instance, self.config.env
+        )
         for urn, path in lineage.paths.items():
             yield self._gen_entity_status_aspect(urn)
             name = posixpath.basename(path)
@@ -2669,6 +2677,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 entityUrn=urn,
                 aspect=SubTypes(typeNames=[DatasetSubTypes.QLIK_QVD]),
             ).as_workunit()
+            # In Folder containers from the server and share (or drive) down,
+            # as the data lake sources place files; without a container the
+            # browse path would be cut at the dots of the server name. A
+            # relative path has no known root to start the folders from.
+            if CANONICAL_ABSOLUTE_PATH_RE.match(path):
+                yield from containers.create_container_hierarchy(path.lstrip("/"), urn)
 
     def _gen_qvd_lineage(self) -> Iterable[MetadataWorkUnit]:
         """Schema and lineage of on-prem QVDs, from every app that writes or

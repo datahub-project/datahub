@@ -912,8 +912,10 @@ pulsar = [
 ]
 
 qlik-sense = [
+    "parse>=1.19.0,<2.0.0",
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
+    "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
 ]
 

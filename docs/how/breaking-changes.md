@@ -85,6 +85,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
+
 - [#21186](https://github.com/datahub-project/datahub/pull/21186) **(Ingestion / Qlik Sense)** A few Qlik datasets get new identities or details, so the first run after upgrading soft-deletes their old versions when stale metadata removal is on:
 
   - Load script tables that have no label in the script were named `<app id>.table_<n>`. When exactly one table of the app's data model has the same columns, they now take that table's name, which changes their URN; otherwise they keep `table_<n>`. Give such loads a label in the script to keep their name stable.
