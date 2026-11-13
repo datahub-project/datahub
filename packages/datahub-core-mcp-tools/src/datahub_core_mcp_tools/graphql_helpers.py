@@ -349,3 +349,66 @@ def describe_datahub_error(error: Exception) -> str:
     if isinstance(error, GraphError):
         return str(error)
     return f"DataHub request failed: {error}"
+
+
+# Appended to a batch write's success message: an agent asked to cover "every
+# table in X" otherwise reports done after one batch of it.
+PER_CALL_SCOPE_NOTE = (
+    " — this reflects exactly the URNs provided to this call, not confirmation that "
+    "a broader scope (a whole schema, container, or 'all X') is fully covered. When "
+    "the user's goal spans a scope, report affected vs. total in scope and claim "
+    "completion only when they match."
+)
+
+
+def _graph_error_text(error: GraphError) -> str:
+    errors = error.args[0] if error.args else None
+    if isinstance(errors, list):
+        messages = [
+            str(e.get("message")) if isinstance(e, dict) else str(e) for e in errors
+        ]
+        return "; ".join(m for m in messages if m) or str(error)
+    return str(error)
+
+
+def execute_write(
+    graph: DataHubGraph,
+    *,
+    query: str,
+    operation_name: str,
+    variables: Dict[str, Any],
+    unknown_outcome_hint: str,
+) -> Any:
+    """Run a GraphQL mutation once and turn its failure into a ToolError.
+
+    A write is never retried here, and the caller's client retries only requests
+    GMS never received. When GMS answers with errors, the write did not happen
+    and the message gives GMS's reason (a refused privilege reads "Unauthorized
+    ..."). When no answer arrives (a timeout, a dropped connection, a 5xx), the
+    write may or may not have been applied: the message says so and adds
+    ``unknown_outcome_hint``, which names what to check, instead of inviting a
+    blind retry.
+    """
+    try:
+        return execute_graphql(
+            graph,
+            query=query,
+            operation_name=operation_name,
+            variables=variables,
+            format_exception=False,
+        )
+    except ToolError:
+        raise
+    except GraphError as e:
+        raise ToolError(
+            f"DataHub rejected {operation_name}: {_graph_error_text(e)}"
+        ) from e
+    except Exception as e:
+        status = http_status(e)
+        if status is not None and status < 500:
+            raise ToolError(describe_datahub_error(e)) from e
+        raise ToolError(
+            f"{operation_name} got no reply from DataHub "
+            f"({status or type(e).__name__}), so it may or may not have been "
+            f"applied. {unknown_outcome_hint}"
+        ) from e

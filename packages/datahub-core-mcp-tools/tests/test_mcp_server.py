@@ -42,6 +42,8 @@ async def test_registration_is_per_instance() -> None:
         "search_documents",
         "grep_documents",
         "grep_entities",
+        "add_tags",
+        "remove_tags",
     }
     assert await _tools(untouched) == {}
 
@@ -67,6 +69,8 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "search_documents",
             "grep_documents",
             "grep_entities",
+            "add_tags",
+            "remove_tags",
         }
     )
 
@@ -86,6 +90,44 @@ async def test_tools_carry_tags_and_explicit_annotations() -> None:
     assert search.annotations.read_only_hint is True
     assert search.annotations.destructive_hint is False
     assert set(search.meta["fastmcp"]["tags"]) == {"search", "trust_labeled"}
+
+
+@pytest.mark.parametrize("value", [None, "true"])
+async def test_write_tools_are_registered_by_default(
+    monkeypatch: pytest.MonkeyPatch, value: str | None
+) -> None:
+    if value is None:
+        monkeypatch.delenv("TOOLS_IS_MUTATION_ENABLED", raising=False)
+    else:
+        monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", value)
+    mcp = FastMCP("t")
+
+    registered = register_tools(mcp, is_oss=True)
+
+    writes = {
+        name
+        for name, tool in (await _tools(mcp)).items()
+        if "mutation" in tool.meta["fastmcp"]["tags"]
+    }
+    assert {"add_tags", "remove_tags"} <= writes
+    assert writes <= set(registered)
+
+
+async def test_writes_switch_off_registers_no_write_tool(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", "false")
+    # Every gated tool on, so the switch is shown to cover them too.
+    monkeypatch.setenv("ENTITY_VERSIONING_ENABLED", "true")
+    mcp = FastMCP("t")
+
+    registered = register_tools(mcp, is_oss=True)
+
+    tools = await _tools(mcp)
+    assert set(registered) == set(tools)
+    assert not [n for n, t in tools.items() if "mutation" in t.meta["fastmcp"]["tags"]]
+    assert all(t.annotations.read_only_hint for t in tools.values())
+    assert {"search", "get_entities", "get_glossary_term_versions"} <= set(tools)
 
 
 async def test_no_proposal_tools_or_modules() -> None:

@@ -1,0 +1,9 @@
+# Tag writes. All of these exist on every supported GMS (1.7.0 and later).
+
+mutation batchAddTags($input: BatchAddTagsInput!) {
+  batchAddTags(input: $input)
+}
+
+mutation batchRemoveTags($input: BatchRemoveTagsInput!) {
+  batchRemoveTags(input: $input)
+}
