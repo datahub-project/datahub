@@ -485,12 +485,16 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
                 )
                 self.report.pending_requests += 1
             else:
-                # execute synchronously
+                # Execute synchronously, then run the result through the same
+                # handler as the async modes so failures reach the sink report.
+                future: concurrent.futures.Future = concurrent.futures.Future()
                 try:
                     self._emit_wrapper(record, emit_mode=self._gms_emit_mode)
-                    write_callback.on_success(record_envelope, success_metadata={})
+                    future.set_result(None)
                 except Exception as e:
-                    write_callback.on_failure(record_envelope, e, failure_metadata={})
+                    future.set_exception(e)
+                self.report.pending_requests += 1
+                self._write_done_callback(record_envelope, write_callback, future)
 
     def emit_async(
         self,
