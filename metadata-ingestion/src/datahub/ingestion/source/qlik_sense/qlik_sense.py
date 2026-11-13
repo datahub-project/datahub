@@ -36,8 +36,8 @@ from datahub.ingestion.api.decorators import (
     support_status,
 )
 from datahub.ingestion.api.incremental_lineage_helper import (
-    convert_dashboard_info_to_patch,
     convert_upstream_lineage_to_patch,
+    dashboard_info_patch_builder,
 )
 from datahub.ingestion.api.source import (
     CapabilityReport,
@@ -187,7 +187,6 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.metadata.urns import DatasetUrn, SchemaFieldUrn
 from datahub.specific.chart import ChartPatchBuilder
-from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.sql_parsing.sqlglot_lineage import (
     SqlParsingResult,
@@ -216,6 +215,8 @@ ENTITY_CHECK_BATCH_SIZE = 100
 # An analytics app is a sense resource in the lineage graph, a script app a
 # dataprep resource.
 QLIK_APP_QRI_RE = re.compile(r"^qri:app:(?:sense|dataprep)://([^#]+)")
+# Qlik Cloud datasets, such as QVDs stored in a space.
+QLIK_DATASET_QRI_PREFIX = "qri:qdf:"
 QVD_EXTENSION = ".qvd"
 
 
@@ -364,6 +365,8 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
         self._unnamed_field_lineage: Set[str] = set()
+        # A listed QVD of an allowed space had no secure QRI to match.
+        self._datasets_without_qri = False
         # App tables whose lineage waits for field names read later in the run.
         self._pending_table_lineage: List[PendingTableLineage] = []
         # Table QRI -> dataset URN for the tables of apps read or kept this run.
@@ -1075,14 +1078,16 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Sheets or tables that could not be read this run may still exist,
             # so the edges read are added to the last full read's, while the
             # app's own fields are still set.
-            patch = convert_dashboard_info_to_patch(dashboard_urn, info, None)
-            if patch is not None:
-                yield patch
+            patch = dashboard_info_patch_builder(dashboard_urn, info, None)
             if app.sheets_complete:
                 # The sheets are all known, so sheet edges this run doesn't
-                # have, such as those of sheets no longer ingested, go.
-                yield from self._gen_stale_sheet_edge_removals(
-                    dashboard_urn, sheet_urns
+                # have, such as those of sheets no longer ingested, go, in the
+                # same patch so the two can't be applied to different bases.
+                for urn in self._stale_sheet_edges(dashboard_urn, sheet_urns):
+                    patch.remove_dashboard(urn)
+            for mcp in patch.build():
+                yield MetadataWorkUnit(
+                    id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
                 )
         yield MetadataChangeProposalWrapper(
             entityUrn=dashboard_urn,
@@ -1103,19 +1108,37 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
 
     def _last_known_table_urns(self, app: App) -> List[str]:
         """The app's tables this run registered, such as those its lineage
-        graph names, and those its last read recorded."""
+        graph names, and those its last read recorded, including on-prem
+        tables, which have no QRI and are named after the app."""
         urns = dict.fromkeys(self._app_table_urns(app).values())
         previous = self._usable_checkpoint(app.id, [])
-        if previous is not None and previous.table_urns_by_qri:
-            urns.update(dict.fromkeys(previous.table_urns_by_qri.values()))
+        if previous is not None:
+            urns.update(dict.fromkeys((previous.table_urns_by_qri or {}).values()))
+            urns.update(
+                dict.fromkeys(
+                    urn for urn in previous.urns if self._is_app_table_urn(urn, app.id)
+                )
+            )
         return list(urns)
 
-    def _gen_stale_sheet_edge_removals(
+    def _is_app_table_urn(self, urn: str, app_id: str) -> bool:
+        if guess_entity_type(urn) != "dataset":
+            return False
+        try:
+            name = DatasetUrn.from_string(urn).name
+        except Exception:
+            return False
+        instance = self.config.platform_instance
+        if instance and name.startswith(f"{instance}."):
+            name = name[len(instance) + 1 :]
+        return name.startswith(f"{app_id.lower()}.")
+
+    def _stale_sheet_edges(
         self, dashboard_urn: str, sheet_urns: List[str]
-    ) -> Iterable[MetadataWorkUnit]:
+    ) -> List[str]:
         graph = self.ctx.graph
         if graph is None:
-            return
+            return []
         try:
             current = graph.get_aspect(dashboard_urn, DashboardInfoClass)
         except Exception as e:
@@ -1126,21 +1149,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 context=dashboard_urn,
                 exc=e,
             )
-            return
-        stale = [
+            return []
+        return [
             edge.destinationUrn
             for edge in (current.dashboards or [] if current else [])
             if edge.destinationUrn not in sheet_urns
         ]
-        if not stale:
-            return
-        patch = DashboardPatchBuilder(dashboard_urn)
-        for urn in stale:
-            patch.remove_dashboard(urn)
-        for mcp in patch.build():
-            yield MetadataWorkUnit(
-                id=MetadataWorkUnit.generate_workunit_id(mcp), mcp_raw=mcp
-            )
 
     def _gen_sheets_workunit(
         self,
@@ -1663,12 +1677,18 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
             return None
         # Only datasets of allowed spaces are ingested.
+        allowed = [d for d in datasets if d.space_id in self._allowed_space_ids]
+        # Qlik traces QVDs, so one listed without a QRI may be a source the
+        # graph names; files it doesn't trace, such as text files, never are.
+        self._datasets_without_qri = any(
+            d.secure_qri is None and d.name.lower().endswith(".qvd") for d in allowed
+        )
         return {
             dataset.secure_qri: self._gen_qlik_dataset_urn(
                 self._qlik_dataset_identifier(dataset.space_id, dataset.name)
             )
-            for dataset in datasets
-            if dataset.space_id in self._allowed_space_ids
+            for dataset in allowed
+            if dataset.secure_qri is not None
         }
 
     @staticmethod
@@ -1758,7 +1778,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # as ADLS, are datasets. Other sources, such as database tables,
             # have opaque QRIs; the load script parser traces SQL loads instead.
             datasets = self._dataset_urns_by_secure_qri
-            urn = datasets.get(table_qri.rpartition("#")[0]) if datasets else None
+            urn = (
+                datasets.get(table_qri.rpartition("#")[0]) or datasets.get(table_qri)
+                if datasets
+                else None
+            )
             if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
                 # Files on a storage connection resolve from the load script,
                 # without the list of datasets.
@@ -1769,6 +1793,13 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                     # so the last run's edge to it must stay.
                     return None, False
             if urn is None and datasets is None:
+                return None, False
+            if (
+                urn is None
+                and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
+                and self._datasets_without_qri
+            ):
+                # It may be an ingested dataset the listing gave no QRI for.
                 return None, False
         return (urn if urn != dataset_urn else None), True
 
