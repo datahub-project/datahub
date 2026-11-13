@@ -1,5 +1,5 @@
 ---
-description: "Use DataHub Cloud Change Proposals to crowdsource Tags, Terms, Owners, and other metadata edits with reviewer approval workflows."
+description: "Use DataHub Cloud Change Proposals to crowdsource Tags, Terms, Owners, Domains, Data Products, and other metadata edits with reviewer approval."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
@@ -10,7 +10,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Overview
 
-Keeping your data organized can be hard work when you have a limited number of data owners. With DataHub Cloud, you can crowdsource metadata completion using change proposals. Change Proposals enable data users to suggest Tags, Terms, Domains, Owners, Descriptions, and even Structured Properties to be added to data assets. Once a change proposal is raised, data owners and stewards can review change proposals, approving or denying these suggestion.
+Keeping your data organized can be hard work when you have a limited number of data owners. With DataHub Cloud, you can crowdsource metadata completion using change proposals. Change Proposals enable data users to suggest Tags, Terms, Domains, Owners, Descriptions, and even Structured Properties to be added to data assets, and to propose creation of new Glossary Terms, Glossary Nodes, Domains, and Data Products. Once a change proposal is raised, data owners and stewards can review change proposals, approving or denying these suggestion.
 
 ## Permissions
 
@@ -29,10 +29,12 @@ To create proposals on assets, users need to have the following resource privile
 - `Propose Dataset Column Structured Properties`
 - `Propose Dataset Column Descriptions`
 
-To create proposals to change the Business Glossary, users need to have the following platform privileges:
+To create proposals to change the Business Glossary, Domains, or Data Products, users need to have the following platform privileges:
 
 - `Propose Create Glossary Term`
 - `Propose Create Glossary Node`
+- `Propose Create Domain`
+- `Propose Create Data Product`
 
 Which are granted by default using the **Reader**, **Editor**, and **Admin** roles by default.
 
@@ -50,6 +52,14 @@ To review proposals for an asset, users need to have the following resource priv
 To review proposals to change the Business Glossary, users need to have the following platform privileges:
 
 - `Manage Glossaries`
+
+To review proposals to create a new Domain, users need:
+
+- `Manage Domains`
+
+To review proposals to create a new Data Product, users need:
+
+- `Manage Data Products` on the parent Domain of the proposed Data Product
 
 Which are granted by default **Editor** and **Admin** roles.
 
@@ -173,6 +183,22 @@ Which are granted by default **Editor** and **Admin** roles.
 
 4. From there, they can choose to either accept or reject the proposal. A full log of all accepted or rejected proposals is kept for each user.
 
+### Proposing a new Domain
+
+1. Navigate to **Govern > Domains**. The plus button on the Domains page and in the Domains sidebar is available if you have `Create Domains` or `Propose Create Domain`. Users who can only propose see a **Propose new Domain** tooltip on that button.
+2. Click plus to open **Create New Domain**. To nest the Domain, pick a parent Domain (or open plus from an existing parent Domain).
+3. Fill in the Domain name (required). Optionally add a description and a custom id.
+4. Click **Propose**. **Save** creates the Domain immediately and requires `Create Domains`. **Propose** requires `Propose Create Domain`. You can add an optional note for reviewers.
+5. The proposal appears in the **Task Center** for users with `Manage Domains`. Accepting creates the Domain (nested under the parent Domain when one was set). Rejecting leaves no Domain behind.
+
+### Proposing a new Data Product
+
+1. Open the Domain that should own the Data Product and go to the **Data Products** tab.
+2. Click plus to open the create Data Product modal. The parent Domain is the Domain you launched from.
+3. Fill in the Data Product name (required) and optionally a description.
+4. Click **Propose**. **Create** writes the Data Product immediately and requires `Manage Data Products` on that Domain. **Propose** requires `Propose Create Data Product`. You can add an optional note for reviewers.
+5. The proposal appears in the **Task Center** for users with `Manage Data Products` on that Domain. Accepting creates the Data Product in the parent Domain. Rejecting leaves no Data Product behind.
+
 ### Reviewing Proposals
 
 Proposals will be visible inside your **Task Center**, which is accessible via the navigation sidebar. From the task center, you can choose to accept or deny proposals sourced for assets you are responsible for.
@@ -233,7 +259,7 @@ These identifiers can be copied from the url of the corresponding entity pages.
 
 Once we've constructed an Entity URN, any relevant sub-resource identifiers, we're ready to propose! To do so, we'll use the DataHub GraphQL API.
 
-In particular, we'll be using the proposeTags, proposeTerms, proposeDomain, proposeOwners, proposeStructuredProperties, proposeCreateGlossaryTerm, proposeCreateGlossaryNode, proposeDataContract, and proposeUpdateDescription Mutations, which have the following interface:
+In particular, we'll be using the proposeTags, proposeTerms, proposeDomain, proposeOwners, proposeStructuredProperties, proposeCreateGlossaryTerm, proposeCreateGlossaryNode, proposeCreateDomain, proposeCreateDataProduct, proposeDataContract, and proposeUpdateDescription Mutations, which have the following interface:
 
 ```
 type Mutation {
@@ -337,6 +363,33 @@ input CreateGlossaryEntityInput {
   name: String! # Required. e.g. "Marketing"
   description: String # Optional
   parentNode: String # Optional. e.g. "urn:li:glossaryNode:(...)"
+  proposalNote: String # Optional. Context for the proposal
+}
+```
+
+```
+type Mutation {
+  proposeCreateDomain(input: CreateDomainProposalInput!): Boolean
+}
+
+input CreateDomainProposalInput {
+  name: String! # Required. e.g. "Marketing"
+  description: String # Optional
+  parentDomain: String # Optional. e.g. "urn:li:domain:(...)"
+  id: String # Optional. Otherwise uuid is generated when the steward accepts
+  proposalNote: String # Optional. Context for the proposal
+}
+```
+
+```
+type Mutation {
+  proposeCreateDataProduct(input: CreateDataProductProposalInput!): Boolean
+}
+
+input CreateDataProductProposalInput {
+  name: String! # Required. e.g. "Customer 360"
+  domain: String! # Required. Parent Domain URN, e.g. "urn:li:domain:(...)"
+  description: String # Optional
   proposalNote: String # Optional. Context for the proposal
 }
 ```
