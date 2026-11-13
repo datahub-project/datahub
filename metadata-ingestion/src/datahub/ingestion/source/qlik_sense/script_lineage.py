@@ -52,9 +52,6 @@ VARIABLE_RE = re.compile(
     r"^(?P<kind>SET|LET)\s+(?P<name>[^\s=]+)\s*=(?P<value>.*)$",
     re.IGNORECASE | re.DOTALL,
 )
-LET_NAME_RE = re.compile(
-    r"^\s*LET\s+(?P<name>[^\s=]+)\s*=", re.IGNORECASE | re.MULTILINE
-)
 EXPRESSION_NAME_RE = re.compile(r"[^\W\d]\w*")
 STRING_LITERAL_RE = re.compile(r"'(?P<single>[^']*)'|\"(?P<double>[^\"]*)\"")
 VARIABLE_REFERENCE_RE = re.compile(r"\$\((?P<name>[^()=]+)\)")
@@ -533,11 +530,15 @@ class _ControlFlowTracker(BaseModel):
 
     state: _BranchState = Field(default_factory=_BranchState)
     blocks: List[_Block] = []
-    # FOR or DO loops the current statement runs in.
-    loop_depth: int = 0
-    # Variables the script sets with LET more than once, so the value the
-    # app's last reload left is only the last of several.
-    reassigned: Set[str] = set()
+    # The variables each FOR or DO loop the current statement runs in made
+    # unknown, innermost last. After the loop they hold their last value,
+    # which is the app's.
+    loops: List[Set[str]] = []
+    # How often the script assigns each variable, as it runs, and in all. The
+    # app keeps a variable's value from its last assignment, which is also
+    # its value before the first, as variables persist between reloads.
+    assignments: Counter = Field(default_factory=Counter)
+    total_assignments: Counter = Field(default_factory=Counter)
 
     def apply_control(self, control: "re.Match[str]") -> None:
         if control.group("if") or control.group("switch"):
@@ -560,15 +561,29 @@ class _ControlFlowTracker(BaseModel):
         elif self.blocks and (control.group("endif") or control.group("endswitch")):
             self._end_block(self.blocks.pop())
         elif control.group("forloop"):
-            self.loop_depth += 1
+            self.loops.append(set())
             # The loop variable takes values that are not known here.
             variable = FOR_VARIABLE_RE.match(control.group("forloop"))
             if variable:
-                self.state.forget_variable(variable.group("name"))
+                self._forget_variable(variable.group("name"))
         elif control.group("doloop"):
-            self.loop_depth += 1
-        elif control.group("loopend"):
-            self.loop_depth = max(self.loop_depth - 1, 0)
+            self.loops.append(set())
+        elif control.group("loopend") and self.loops:
+            varied = self.loops.pop()
+            if self.loops:
+                self.loops[-1].update(varied)
+            else:
+                self.state.unknown.difference_update(
+                    name for name in varied if self._assigned_for_the_last_time(name)
+                )
+
+    def _assigned_for_the_last_time(self, name: str) -> bool:
+        return self.assignments[name] >= self.total_assignments[name]
+
+    def _forget_variable(self, name: str) -> None:
+        self.state.forget_variable(name)
+        if self.loops:
+            self.loops[-1].add(name)
 
     def forget_state(self) -> None:
         # An included script can't make a loop variable or a disagreeing
@@ -609,19 +624,26 @@ class _ControlFlowTracker(BaseModel):
         value = match.group("value").strip()
         literal = STRING_LITERAL_RE.fullmatch(value)
         name = match.group("name")
-        if self._reads_unknown(value, literal is None):
+        is_let = match.group("kind").upper() == "LET"
+        self.assignments[name] += 1
+        if self._reads_unknown(value, is_let and literal is None):
             # Such as SET vPath = $(vFile) in a loop over files: a copy of an
             # unknown value is unknown too.
-            self.state.forget_variable(name)
+            self._forget_variable(name)
         elif literal:
             self.state.set_variable(match.group("name"), _first_group(literal))
         elif match.group("kind").upper() == "SET":
             self.state.set_variable(match.group("name"), value)
-        elif self.loop_depth or in_sub or self.blocks or name in self.reassigned:
+        elif (
+            self.loops
+            or in_sub
+            or self.blocks
+            or not self._assigned_for_the_last_time(name)
+        ):
             # Run more than once, in a branch that may not have run, or set
             # again later, so the value the app's last reload left need not be
             # this one.
-            self.state.forget_variable(match.group("name"))
+            self._forget_variable(name)
         else:
             # LET evaluates an expression the parser can't, so the value the
             # app's last reload left, if any, stands in for it.
@@ -634,7 +656,7 @@ class _ControlFlowTracker(BaseModel):
             for reference in VARIABLE_REFERENCE_RE.finditer(value)
         }
         if is_expression:
-            # An expression can read a variable by its bare name.
+            # A LET expression can read a variable by its bare name.
             names.update(EXPRESSION_NAME_RE.findall(STRING_LITERAL_RE.sub("", value)))
         return not names.isdisjoint(self.state.unknown)
 
@@ -1104,11 +1126,12 @@ def parse_script(
     script: str, app_variables: Optional[Dict[str, str]] = None
 ) -> ParsedScript:
     parsed = _script_pieces(script)
+    # A first pass counts the assignments the script runs, leaving out
+    # comments, SUBs it never calls and anything after EXIT SCRIPT.
+    first = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
+    first.run(parsed.pieces)
     parser = _ScriptParser(subs=parsed.subs, app_variables=app_variables or {})
-    let_counts = Counter(match.group("name") for match in LET_NAME_RE.finditer(script))
-    reassigned = {name for name, count in let_counts.items() if count > 1}
-    parser.flow.reassigned = reassigned
-    parser.flow.state.unknown.update(reassigned)
+    parser.flow.total_assignments = first.flow.assignments
     parser.run(parsed.pieces)
     return ParsedScript(
         tables=parser.tables,
