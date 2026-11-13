@@ -29,6 +29,11 @@ from .tools.dataset_usage import get_dataset_usage_history
 from .tools.documents import grep_documents, search_documents
 from .tools.entities import SchemaFieldsTool, get_entities, list_schema_fields
 from .tools.get_me import get_me
+from .tools.glossary_versioning import (
+    compare_glossary_term_versions,
+    get_glossary_term_versions,
+    is_entity_versioning_enabled,
+)
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.search import search, search_description
@@ -220,4 +225,16 @@ def register_tools(
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
     if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
         add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
+    if is_entity_versioning_enabled():
+        add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
+        add(
+            "compare_glossary_term_versions",
+            compare_glossary_term_versions,
+            ToolType.SEARCH,
+        )
+    else:
+        logger.info(
+            "Glossary term versioning tools not registered "
+            "(ENTITY_VERSIONING_ENABLED is not set or false)"
+        )
     return registered

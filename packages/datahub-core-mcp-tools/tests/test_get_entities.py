@@ -80,6 +80,15 @@ class FakeBackend:
     def aspect_versions(self, pairs: list[VersionedAspectPair]) -> RawVersionedBatch:
         return RawVersionedBatch(aspects={}, errors={}, http_calls=0)
 
+    def glossary_term_version(self, urn: str) -> dict | None:
+        return None
+
+    def version_set_history(self, urn: str, start: int, count: int) -> dict | None:
+        return None
+
+    def glossary_terms(self, urns: list[str]) -> list:
+        return []
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 
