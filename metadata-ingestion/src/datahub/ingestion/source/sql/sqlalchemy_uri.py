@@ -8,9 +8,21 @@ from sqlalchemy.exc import ArgumentError
 
 logger = logging.getLogger(__name__)
 
-# Query parameters that carry a password in a connection URL (libpq and most
-# DBAPI drivers accept these as an alternative to the userinfo password).
-_PASSWORD_QUERY_PARAMS = frozenset({"password", "passwd", "pwd", "sslpassword"})
+# Query parameters that carry a credential in a connection URL: the password
+# aliases libpq and most DBAPI drivers accept instead of the userinfo password,
+# plus scalar credentials drivers document as URI parameters (snowflake-sqlalchemy
+# `token` / `private_key`, sqlalchemy-bigquery `credentials_base64`).
+_SECRET_QUERY_PARAMS = frozenset(
+    {
+        "password",
+        "passwd",
+        "pwd",
+        "sslpassword",
+        "token",
+        "private_key",
+        "credentials_base64",
+    }
+)
 # An ODBC connection string passed whole as a query parameter (mssql+pyodbc).
 _ODBC_CONNECT_PARAM = "odbc_connect"
 # ODBC lets a value hold ";" when it is wrapped in braces: PWD={pa;ss}.
@@ -20,7 +32,10 @@ _ODBC_PASSWORD = re.compile(
 )
 # The same, read from the connect string as written in the URI, where its
 # separators may be percent-encoded (";" as %3B, "=" as %3D, braces as %7B/%7D)
-# and spaces form-encoded.
+# and spaces form-encoded. Both patterns fall back to the plain form for an
+# unterminated brace, keeping the opening brace in the value: that is exactly
+# what appears in the log, and masking a superset only over-masks. Both may
+# match an empty value; _query_passwords drops it.
 _ODBC_SPACE = r"(?:\s|\+|%20)*"
 _ODBC_PASSWORD_AS_WRITTEN = re.compile(
     rf"(?:^|;|%3B){_ODBC_SPACE}(?:PWD|PASSWORD){_ODBC_SPACE}(?:=|%3D){_ODBC_SPACE}"
@@ -101,8 +116,8 @@ def make_sqlalchemy_uri(
 
 def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
     """Passwords embedded in a SQLAlchemy URL, keyed by a name for the secret
-    registry: the userinfo password, password-like query parameters and the
-    PWD of an ODBC connect string, each both exactly as written and decoded.
+    registry: the userinfo password, credential query parameters and the PWD
+    of an ODBC connect string, each both exactly as written and decoded.
 
     The as-written form matters because sources log the URI verbatim, in
     whatever encoding the user chose; the decoded form covers the URL that
@@ -167,7 +182,7 @@ def _query_passwords(
 ) -> List[str]:
     """The passwords one query parameter carries: its values when the key names
     a password, the PWD of each value when it is an ODBC connect string."""
-    if key.lower() in _PASSWORD_QUERY_PARAMS:
+    if key.lower() in _SECRET_QUERY_PARAMS:
         return [value for value in values if value]
     if key.lower() != _ODBC_CONNECT_PARAM:
         return []
