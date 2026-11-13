@@ -181,8 +181,12 @@ from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
-from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.hive_schema_to_avro import (
+    get_column_descriptions_from_type_json,
+    get_schema_fields_for_hive_column,
+)
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
@@ -2871,6 +2875,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             fields = get_schema_fields_for_hive_column(
                 column.name, column.type_text.lower(), description=description
             )
+            if column.type_json:
+                comment_map = {
+                    k.lower(): v
+                    for k, v in get_column_descriptions_from_type_json(
+                        column.type_json, column_name=column.name
+                    ).items()
+                }
+                for field in fields:
+                    if not field.description:
+                        simple_path = get_simple_field_path_from_v2_field_path(
+                            field.fieldPath
+                        ).lower()
+                        if simple_path in comment_map:
+                            field.description = comment_map[simple_path]
             # Complex types: tag the root field only; children carry no semantics.
             if fields and extra_tags:
                 fields[0].globalTags = GlobalTags(

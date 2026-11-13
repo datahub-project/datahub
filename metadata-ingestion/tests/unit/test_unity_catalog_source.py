@@ -1793,6 +1793,84 @@ class TestUnityCatalogMetricViews:
         for child in fields[1:]:
             assert child.globalTags is None
 
+    def test_struct_column_populates_nested_descriptions_from_type_json(self):
+        import json
+
+        from datahub.ingestion.source.unity.proxy_types import ColumnTypeName
+        from datahub.utilities.urns.field_paths import (
+            get_simple_field_path_from_v2_field_path,
+        )
+
+        type_json = json.dumps(
+            {
+                "name": "address",
+                "type": {
+                    "type": "struct",
+                    "fields": [
+                        {
+                            "name": "streetName",
+                            "type": "string",
+                            "nullable": True,
+                            "metadata": {"comment": "Street address line"},
+                        },
+                        {
+                            "name": "zipCode",
+                            "type": "string",
+                            "nullable": True,
+                            "metadata": {},
+                        },
+                        {
+                            "name": "items",
+                            "type": {
+                                "type": "array",
+                                "elementType": {
+                                    "type": "struct",
+                                    "fields": [
+                                        {
+                                            "name": "itemId",
+                                            "type": "string",
+                                            "nullable": True,
+                                            "metadata": {"comment": "Item identifier"},
+                                        }
+                                    ],
+                                },
+                                "containsNull": True,
+                            },
+                            "nullable": True,
+                            "metadata": {"comment": "Nested items array"},
+                        },
+                    ],
+                },
+                "nullable": True,
+                "metadata": {"comment": "Root comment from type_json"},
+            }
+        )
+        column = Column(
+            id="cat.sch.tbl.address",
+            name="address",
+            comment="Top-level column comment",
+            type_text="struct<streetName:string,zipCode:string,items:array<struct<itemId:string>>>",
+            type_name=ColumnTypeName.STRUCT,
+            type_precision=0,
+            type_scale=0,
+            position=0,
+            nullable=True,
+            type_json=type_json,
+        )
+
+        fields = UnityCatalogSource._create_schema_field(column, tags=None)
+        by_simple_path = {
+            get_simple_field_path_from_v2_field_path(f.fieldPath): f.description
+            for f in fields
+        }
+        assert by_simple_path == {
+            "address": "Top-level column comment",
+            "address.streetname": "Street address line",
+            "address.zipcode": None,
+            "address.items": "Nested items array",
+            "address.items.itemid": "Item identifier",
+        }
+
     def test_load_metric_view_spec_non_dict_warns_and_counts(self):
         """YAML that parses to a non-mapping must warn and bump the shape-invalid counter."""
         source = self._build_source(include_metric_views=True)

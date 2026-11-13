@@ -1654,6 +1654,22 @@ signature:
         # The method handles JSON decode errors gracefully
         assert result is None or result.inputs is None or result.outputs is None
 
+    def test_create_column_populates_type_json(self, mock_proxy):
+        from databricks.sdk.service.catalog import ColumnInfo, ColumnTypeName
+
+        raw_type_json = '{"name":"details","type":{"type":"struct","fields":[{"name":"col_a","type":"string","nullable":true,"metadata":{"comment":"Nested comment"}}]},"nullable":true,"metadata":{}}'
+        col_info = ColumnInfo(
+            name="details",
+            type_text="struct<col_a:string>",
+            type_name=ColumnTypeName.STRUCT,
+            type_json=raw_type_json,
+            nullable=True,
+            comment="Top-level comment",
+        )
+        column = mock_proxy._create_column("cat.sch.tbl", col_info)
+        assert column is not None
+        assert column.type_json == raw_type_json
+
 
 class TestUnityCatalogProxyAuthentication:
     def test_basic_proxy_auth_header(self):
