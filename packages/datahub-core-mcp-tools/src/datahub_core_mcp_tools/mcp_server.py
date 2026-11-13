@@ -27,7 +27,7 @@ from .tools.documents import grep_documents, search_documents
 from .tools.entities import SchemaFieldsTool, get_entities, list_schema_fields
 from .tools.get_me import get_me
 from .tools.grep_entities import grep_entities
-from .tools.lineage import get_lineage
+from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.search import search, search_description
 from .version_requirements import tool_annotations
 
@@ -201,6 +201,13 @@ def register_tools(
             schema_tools.list_schema_fields if schema_tools else list_schema_fields,
             ToolType.SEARCH,
         )
+    # Up to two 10-hop upstream searches when the direction is not given.
+    add(
+        "get_lineage_paths_between",
+        get_lineage_paths_between,
+        ToolType.SEARCH,
+        slow=True,
+    )
     add("search_documents", search_documents, ToolType.SEARCH)
     # Regex over whole document bodies: many large documents can take a while.
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
