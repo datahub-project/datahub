@@ -65,3 +65,17 @@ def test_multiple_acks() -> None:
 
     ack_manager.ack(meta2, processed=True)
     assert ack_manager.outstanding_acks() == 0
+
+
+def test_ack_covers_earlier_events() -> None:
+    # Actions that batch (Action.act() returns False) ack only the last event
+    # of a written batch, as a Kafka offset commit would.
+    ack_manager = AckManager()
+    ack_manager.new_batch()
+    metas = [ack_manager.get_meta(f"event{i}") for i in range(3)]
+
+    ack_manager.ack(metas[1], processed=True)
+    assert ack_manager.outstanding_acks() == 1
+
+    ack_manager.ack(metas[2], processed=True)
+    assert ack_manager.outstanding_acks() == 0
