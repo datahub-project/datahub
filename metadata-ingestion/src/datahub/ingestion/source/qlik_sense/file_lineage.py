@@ -91,6 +91,10 @@ class FileStorage(BaseModel):
     # The id of the connection part of its files' secure QRIs, when the
     # connection's properties are known.
     qri_connection_id: Optional[str] = None
+    # That id as a connection holding exactly this location would have it,
+    # when only a storage URI is known. A match only tells candidates apart,
+    # as the connection's own property may be spelled differently.
+    likely_qri_connection_id: Optional[str] = None
 
 
 def qri_part_id(text: str) -> str:
@@ -150,8 +154,14 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
             return None
         if not azure.container_name:
             return None
-        location = [azure.container_name, azure.object_path.strip("/")]
-        return FileStorage(platform="abs", location="/".join(filter(None, location)))
+        location = "/".join(
+            filter(None, [azure.container_name, azure.object_path.strip("/")])
+        )
+        return FileStorage(
+            platform="abs",
+            location=location,
+            likely_qri_connection_id=qri_part_id(location),
+        )
     for platform, store in (("s3", S3ObjectStore), ("gcs", GCSObjectStore)):
         if store.is_uri(uri):
             location = [
@@ -160,7 +170,12 @@ def file_storage_of_uri(uri: str) -> Optional[FileStorage]:
             ]
             if location[0]:
                 return FileStorage(
-                    platform=platform, location="/".join(filter(None, location))
+                    platform=platform,
+                    location="/".join(filter(None, location)),
+                    # An S3 connection's QRI part also holds its region.
+                    likely_qri_connection_id=qri_part_id(location[0])
+                    if platform == "gcs"
+                    else None,
                 )
     return None
 
