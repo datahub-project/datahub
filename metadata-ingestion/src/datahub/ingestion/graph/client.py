@@ -1828,7 +1828,7 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
         Returns:
             A string containing the result of the restore indices operation. This format is subject to change.
         """
-        payload_obj = {}
+        payload_obj: Dict[str, Union[str, int]] = {}
         if file is not None:
             with open(file) as f:
                 for urn in progressbar.progressbar(f.readlines()):
