@@ -291,6 +291,19 @@ export const QLIK_SPACE_DENY: FilterRecipeField = {
 };
 
 // The connector ingests owners unless the recipe sets ingest_owner: false.
+const includeSheetsAndChartsFieldPath = 'source.config.include_sheets_and_charts';
+export const QLIK_INCLUDE_SHEETS_AND_CHARTS: RecipeField = {
+    name: 'include_sheets_and_charts',
+    label: 'Include Sheets and Charts',
+    helper: "Ingest each app's sheets and charts",
+    tooltip:
+        "Ingest each app's sheets as dashboards and their charts. Turn off to keep only apps and their tables: each app dashboard then links only to its tables, and sheets and charts ingested earlier are removed when stale metadata removal is on. As they are usually most of the ingested entities, set stateful_ingestion.fail_safe_threshold to 100 in the recipe for that first run, or stale removal is skipped.",
+    type: FieldType.BOOLEAN,
+    fieldPath: includeSheetsAndChartsFieldPath,
+    rules: null,
+    getValueFromRecipeOverride: (recipe: any) => get(recipe, includeSheetsAndChartsFieldPath) !== false,
+};
+
 const ingestOwnerFieldPath = 'source.config.ingest_owner';
 export const QLIK_INGEST_OWNER: RecipeField = {
     name: 'ingest_owner',

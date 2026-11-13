@@ -342,6 +342,13 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
             hookTimeout: 30000, // 30 seconds timeout for hooks
             teardownTimeout: 15000, // 15 seconds timeout for teardown
             ...(isCI ? {} : { maxWorkers: 2, minWorkers: 1 }),
+            server: {
+                deps: {
+                    // ESM package importing `react/jsx-runtime`, which React 17 lacks an `exports` entry for,
+                    // so Node's resolver fails. Let Vite resolve it instead. Remove once on React 18+.
+                    inline: ['react-diff-viewer-continued'],
+                },
+            },
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.
