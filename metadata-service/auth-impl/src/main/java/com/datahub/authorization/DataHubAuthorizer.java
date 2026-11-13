@@ -26,7 +26,9 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.Executors;
+import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
@@ -66,6 +68,12 @@ public class DataHubAuthorizer
   private final ScheduledExecutorService refreshExecutorService =
       Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable policyRefreshRunnable;
+
+  // Set when policies load from SQL (POLICY_CACHE_SQL_SOURCE_ENABLED); null keeps the search-based
+  // refresh. See requestLoad() for how loads are ordered and joined.
+  @Nullable private final PolicyLoader policyLoader;
+  private final Object loadQueueLock = new Object();
+  @Nullable private CompletableFuture<Void> queuedLoad;
   private final PolicyEngine policyEngine;
   private final GroupService groupService;
   private EntitySpecResolver entitySpecResolver;
@@ -73,6 +81,7 @@ public class DataHubAuthorizer
   @Getter private final OperationContext systemOpContext;
 
   public static final String ALL = "ALL";
+  private static final long INITIAL_LOAD_TIMEOUT_SECONDS = 60;
 
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -82,11 +91,45 @@ public class DataHubAuthorizer
       final int refreshIntervalSeconds,
       final AuthorizationMode mode,
       final int policyFetchSize) {
+    this(
+        systemOpContext,
+        entityClient,
+        groupService,
+        delayIntervalSeconds,
+        refreshIntervalSeconds,
+        mode,
+        policyFetchSize,
+        null);
+  }
+
+  /**
+   * @param policyLoader when not null, policies load from the primary store with this loader
+   *     instead of the search index. The caller should then call {@link #initialLoad} before the
+   *     authorizer serves requests.
+   */
+  public DataHubAuthorizer(
+      @Nonnull final OperationContext systemOpContext,
+      final EntityClient entityClient,
+      @Nonnull final GroupService groupService,
+      final int delayIntervalSeconds,
+      final int refreshIntervalSeconds,
+      final AuthorizationMode mode,
+      final int policyFetchSize,
+      @Nullable final PolicyLoader policyLoader) {
     this.systemOpContext = systemOpContext;
     this.mode = Objects.requireNonNull(mode);
     this.groupService = Objects.requireNonNull(groupService);
+    this.policyLoader = policyLoader;
     policyEngine = new PolicyEngine(entityClient, groupService);
-    if (refreshIntervalSeconds > 0) {
+    if (policyLoader != null) {
+      policyRefreshRunnable = null;
+      // The first load is synchronous (initialLoad), so the timer starts one interval later.
+      // An interval <= 0 only turns off the timer; requested loads still run.
+      if (refreshIntervalSeconds > 0) {
+        refreshExecutorService.scheduleAtFixedRate(
+            this::requestLoad, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+      }
+    } else if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
               systemOpContext, new PolicyFetcher(entityClient), this::publish, policyFetchSize);
@@ -410,9 +453,129 @@ public class DataHubAuthorizer
    * created, modified, or deleted.
    */
   public void invalidateCache() {
-    if (policyRefreshRunnable != null) {
+    if (policyLoader != null) {
+      requestLoad();
+    } else if (policyRefreshRunnable != null) {
       refreshExecutorService.execute(policyRefreshRunnable);
     }
+  }
+
+  public boolean isSqlSourceEnabled() {
+    return policyLoader != null;
+  }
+
+  /**
+   * Requests a full load of all policies from the primary store, and returns a future that
+   * completes when a load that started after this call has replaced the cached policies.
+   *
+   * <p>All loads run on the single refresh thread, so they finish in the order they start, and a
+   * load that starts later reads newer committed data. That ordering is what keeps the cache
+   * correct: no per-policy versions or merges are needed. A request joins a load that is queued but
+   * not yet started, because that load will still see everything committed before the request. A
+   * load that is already running may have started too early, so a request then queues a new one.
+   */
+  public CompletableFuture<Void> requestLoad() {
+    if (policyLoader == null) {
+      return CompletableFuture.completedFuture(null);
+    }
+    increment("policyCache.load.requested");
+    synchronized (loadQueueLock) {
+      if (queuedLoad == null) {
+        final CompletableFuture<Void> load = new CompletableFuture<>();
+        queuedLoad = load;
+        try {
+          refreshExecutorService.execute(() -> runLoad(load));
+        } catch (RejectedExecutionException e) {
+          queuedLoad = null;
+          load.completeExceptionally(e);
+          return load.copy();
+        }
+      }
+      // A copy, so callers cannot complete the shared future.
+      return queuedLoad.copy();
+    }
+  }
+
+  private void runLoad(@Nonnull CompletableFuture<Void> load) {
+    synchronized (loadQueueLock) {
+      if (queuedLoad == load) {
+        // From now on, new requests must queue another load.
+        queuedLoad = null;
+      }
+    }
+    final long start = System.nanoTime();
+    try {
+      final PolicySnapshot next = PolicySnapshot.of(policyLoader.loadAll());
+      publish(next);
+      increment("policyCache.load.run");
+      systemOpContext
+          .getMetricUtils()
+          .ifPresent(
+              m -> {
+                m.time(
+                    DataHubAuthorizer.class.getName() + ".policyCache.load.duration",
+                    System.nanoTime() - start);
+                m.setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", next.size());
+              });
+      load.complete(null);
+    } catch (Throwable t) {
+      increment("policyCache.load.failed");
+      log.error("Failed to load policies. Keeping the current policies.", t);
+      load.completeExceptionally(t);
+    }
+  }
+
+  /**
+   * Loads the policies synchronously, trying up to {@code attempts} times. Call this once at
+   * startup so the authorizer never serves requests with an empty cache.
+   *
+   * @return true if a load succeeded; false if every attempt failed, in which case the timer and
+   *     later requests keep trying.
+   */
+  public boolean initialLoad(int attempts, long backoffMillis) {
+    if (policyLoader == null) {
+      return false;
+    }
+    log.info("policy cache source=sql, loading policies");
+    final long start = System.nanoTime();
+    for (int attempt = 1; attempt <= attempts; attempt++) {
+      try {
+        requestLoad().get(INITIAL_LOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        log.info(
+            "policy cache loaded, policies={}, load={} ms",
+            snapshot.size(),
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start));
+        return true;
+      } catch (InterruptedException e) {
+        Thread.currentThread().interrupt();
+        break;
+      } catch (Exception e) {
+        log.warn("Initial policy load attempt {} of {} failed.", attempt, attempts, e);
+        if (attempt < attempts && backoffMillis > 0) {
+          try {
+            Thread.sleep(backoffMillis);
+          } catch (InterruptedException ie) {
+            Thread.currentThread().interrupt();
+            break;
+          }
+        }
+      }
+    }
+    log.error(
+        "Could not load policies at startup. Continuing with no policies until a later load"
+            + " succeeds.");
+    return false;
+  }
+
+  @VisibleForTesting
+  PolicySnapshot currentSnapshot() {
+    return snapshot;
+  }
+
+  private void increment(@Nonnull String metricName) {
+    systemOpContext
+        .getMetricUtils()
+        .ifPresent(m -> m.increment(DataHubAuthorizer.class, metricName, 1));
   }
 
   public AuthorizationMode mode() {
