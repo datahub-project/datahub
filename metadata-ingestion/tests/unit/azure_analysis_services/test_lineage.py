@@ -471,6 +471,28 @@ def test_sql_partition_uses_connection_catalog_and_schema() -> None:
     ]
 
 
+def test_sql_partition_with_leading_comment_uses_connection() -> None:
+    extractor = _extractor()
+    table = AasTable(
+        name="FactOpex",
+        partitions=[
+            AasPartition(
+                name="p",
+                query_definition="-- keep the last four years\nSELECT Amount FROM FactOpex",
+                databricks_catalog="prod",
+                databricks_schema="finance",
+            )
+        ],
+    )
+    dataset_urn = builder.make_dataset_urn(
+        "azure-analysis-services", "SalesModel.FactOpex"
+    )
+    result = extractor.extract_upstream_for_table(table, dataset_urn)
+    assert [u.dataset for u in result.upstreams] == [
+        builder.make_dataset_urn("databricks", "prod.finance.factopex")
+    ]
+
+
 def test_sql_partition_without_connection_catalog_stays_on_m_parser() -> None:
     extractor = _extractor()
     table = AasTable(

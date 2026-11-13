@@ -1,4 +1,4 @@
-from typing import Dict, Generator, cast
+from typing import Dict, Generator, List, cast
 
 import pytest
 
@@ -27,13 +27,23 @@ from datahub.ingestion.source.azure_analysis_services.report import (
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
-    DatasetPropertiesClass,
+    DateTypeClass,
+    ERModelRelationshipCardinalityClass,
+    GlobalTagsClass,
+    MetricInfoClass,
+    MetricUpstreamsClass,
     NullTypeClass,
-    SchemaMetadataClass,
+    NumberTypeClass,
+    SemanticFieldAnnotationClass,
+    SemanticFieldTypeClass,
+    SemanticModelInfoClass,
+    SemanticModelKeyClass,
+    SemanticModelPropertiesClass,
     SubTypesClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
+from datahub.metadata.urns import MetricUrn, SemanticModelUrn
 
 _SERVER = "asazure://westeurope.asazure.windows.net/myserver"
 _POWERBI_SERVER = "powerbi://api.powerbi.com/v1.0/myorg/salesws"
@@ -62,11 +72,287 @@ def _mapper(**config_overrides: object) -> AasMapper:
 
 def test_convert_urns_to_lowercase_folds_dataset_urns() -> None:
     mapper = _mapper(convert_urns_to_lowercase=True)
-    assert mapper._cube_dataset_urn("SalesModel") == builder.make_dataset_urn(
-        "azure-analysis-services", "salesmodel"
-    )
     assert mapper._table_dataset_urn("SalesModel", "Sales") == builder.make_dataset_urn(
         "azure-analysis-services", "salesmodel.sales"
+    )
+
+
+def test_semantic_model_lists_tables_and_replaces_cube_dataset() -> None:
+    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        description="Sales semantic model",
+        definition='{"name":"SalesModel"}',
+        tables=[
+            AasTable(
+                name="Sales",
+                measures=[
+                    AasMeasure(name="Total Sales", expression="SUM(Sales[Amount])")
+                ],
+            ),
+            AasTable(name="Product"),
+            AasTable(name="Ignored"),
+        ],
+        relationships=[
+            AasRelationship(
+                from_table="sales",
+                from_column="ProductKey",
+                to_table="Product",
+                to_column="ProductKey",
+            ),
+            AasRelationship(
+                from_table="Sales",
+                from_column="InactiveKey",
+                to_table="Product",
+                to_column="ProductKey",
+                is_active=False,
+            ),
+            AasRelationship(
+                from_table="Sales",
+                from_column="IgnoredKey",
+                to_table="Ignored",
+                to_column="Key",
+            ),
+        ],
+    )
+
+    aspects = [
+        (wu.get_urn(), getattr(wu.metadata, "aspect", None))
+        for wu in mapper.map_model(model)
+    ]
+    model_urn = str(
+        SemanticModelUrn(
+            "urn:li:dataPlatform:azure-analysis-services", "myserver", "SalesModel"
+        )
+    )
+    assert any(
+        u == model_urn and isinstance(a, SemanticModelKeyClass) for u, a in aspects
+    )
+    info = next(
+        a
+        for u, a in aspects
+        if u == model_urn and isinstance(a, SemanticModelInfoClass)
+    )
+    assert info.name == "SalesModel"
+    assert info.description == "Sales semantic model"
+    assert info.nativeDefinition == '{"name":"SalesModel"}'
+    assert info.relationships is not None
+    assert len(info.relationships) == 1
+    relationship = info.relationships[0]
+    assert relationship.from_ == "Sales"
+    assert relationship.to == "Product"
+    assert relationship.cardinality == ERModelRelationshipCardinalityClass.N_ONE
+
+    sales_urn = mapper._table_dataset_urn("SalesModel", "Sales")
+    membership = next(
+        a
+        for u, a in aspects
+        if u == sales_urn and isinstance(a, SemanticModelPropertiesClass)
+    )
+    assert membership.alias == "Sales"
+    assert membership.semanticModel == model_urn
+
+    ignored_urn = mapper._table_dataset_urn("SalesModel", "Ignored")
+    assert not any(u == ignored_urn for u, _ in aspects)
+
+    sales_subtypes = next(
+        a for u, a in aspects if u == sales_urn and isinstance(a, SubTypesClass)
+    )
+    assert sales_subtypes.typeNames[0] == DatasetSubTypes.SEMANTIC_MODEL_DATASET
+    catalog_dataset = builder.make_dataset_urn("azure-analysis-services", "SalesModel")
+    assert not any(u == catalog_dataset for u, _ in aspects)
+
+
+def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
+    mapper = _mapper(table_pattern={"deny": ["Ignored"]})
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                columns=[
+                    AasColumn(
+                        name="Region",
+                        data_type=constants.TomDataType.STRING,
+                        datahub_data_type=NullTypeClass(),
+                    ),
+                    AasColumn(
+                        name="OrderDate",
+                        data_type=constants.TomDataType.DATETIME,
+                        datahub_data_type=DateTypeClass(),
+                    ),
+                    AasColumn(
+                        name="InternalKey",
+                        data_type=constants.TomDataType.INT64,
+                        datahub_data_type=NumberTypeClass(),
+                        is_hidden=True,
+                    ),
+                ],
+                measures=[
+                    AasMeasure(
+                        name="Total Sales",
+                        description="Sum of sales",
+                        expression="SUM(Sales[Amount])",
+                    ),
+                    AasMeasure(name="Margin (%)", expression="1", is_hidden=True),
+                    AasMeasure(
+                        name="Ratio", expression="DIVIDE([Total Sales], Product[Cost])"
+                    ),
+                ],
+            ),
+            AasTable(name="Product"),
+            AasTable(
+                name="Hidden",
+                is_hidden=True,
+                columns=[
+                    AasColumn(
+                        name="Secret",
+                        data_type=constants.TomDataType.STRING,
+                        datahub_data_type=NullTypeClass(),
+                    )
+                ],
+                measures=[AasMeasure(name="Not Exposed", expression="1")],
+            ),
+            AasTable(
+                name="Ignored",
+                measures=[AasMeasure(name="Ignored Measure", expression="1")],
+            ),
+        ],
+        calc_dependencies=[
+            AasCalcDependency(
+                object_type="MEASURE",
+                table="Sales",
+                object_name="Ratio",
+                referenced_object_type="COLUMN",
+                referenced_table="Product",
+                referenced_object="Cost",
+            )
+        ],
+    )
+
+    aspects = [
+        (wu.get_urn(), getattr(wu.metadata, "aspect", None))
+        for wu in mapper.map_model(model)
+    ]
+
+    sales_urn = mapper._table_dataset_urn("SalesModel", "Sales")
+    product_urn = mapper._table_dataset_urn("SalesModel", "Product")
+    annotations = {
+        u: a for u, a in aspects if isinstance(a, SemanticFieldAnnotationClass)
+    }
+    assert set(annotations) == {
+        builder.make_schema_field_urn(sales_urn, "Region"),
+        builder.make_schema_field_urn(sales_urn, "OrderDate"),
+    }
+    order_date = annotations[builder.make_schema_field_urn(sales_urn, "OrderDate")]
+    assert order_date.type == SemanticFieldTypeClass.DIMENSION
+    assert order_date.dimension is not None and order_date.dimension.isTime
+
+    model_urn = mapper._semantic_model_urn("SalesModel")
+
+    def metric_urn(metric_id: str) -> str:
+        return str(
+            MetricUrn(
+                "urn:li:dataPlatform:azure-analysis-services",
+                "myserver.SalesModel",
+                metric_id,
+            )
+        )
+
+    assert {u for u, a in aspects if isinstance(a, MetricInfoClass)} == {
+        metric_urn("Total Sales"),
+        metric_urn("Ratio"),
+    }
+    total_urn = metric_urn("Total Sales")
+    info = next(
+        a for u, a in aspects if u == total_urn and isinstance(a, MetricInfoClass)
+    )
+    assert info.semanticModel == model_urn
+    assert info.expression is not None
+    assert info.expression.dialects[0].expression == "SUM(Sales[Amount])"
+
+    def upstreams(metric_id: str) -> List[str]:
+        aspect = next(
+            a
+            for u, a in aspects
+            if u == metric_urn(metric_id) and isinstance(a, MetricUpstreamsClass)
+        )
+        return [edge.destinationUrn for edge in aspect.datasetUpstreams]
+
+    assert upstreams("Total Sales") == [sales_urn]
+    assert upstreams("Ratio") == [sales_urn, product_urn]
+    assert not any(u == metric_urn("Margin _%_") for u, _ in aspects)
+    assert not any(u == metric_urn("Not Exposed") for u, _ in aspects)
+
+
+def test_ingest_hidden_metrics_tags_only_the_hidden_ones() -> None:
+    mapper = _mapper(
+        ingest_hidden_metrics={
+            "enabled": True,
+            "tag_hidden_metrics": True,
+            "hidden_metric_tag": "Internal",
+        },
+    )
+    model = AasTabularModel(
+        catalog="SalesModel",
+        name="Model",
+        tables=[
+            AasTable(
+                name="Sales",
+                measures=[
+                    AasMeasure(name="Total Sales", expression="1"),
+                    AasMeasure(name="Margin", expression="1", is_hidden=True),
+                ],
+            ),
+            AasTable(
+                name="Hidden",
+                is_hidden=True,
+                measures=[AasMeasure(name="Not Exposed", expression="1")],
+            ),
+        ],
+    )
+    aspects = [
+        (wu.get_urn(), getattr(wu.metadata, "aspect", None))
+        for wu in mapper.map_model(model)
+    ]
+
+    def metric_urn(metric_id: str) -> str:
+        return str(
+            MetricUrn(
+                "urn:li:dataPlatform:azure-analysis-services",
+                "myserver.SalesModel",
+                metric_id,
+            )
+        )
+
+    def tags(metric_id: str) -> List[str]:
+        aspect = next(
+            (
+                a
+                for u, a in aspects
+                if u == metric_urn(metric_id) and isinstance(a, GlobalTagsClass)
+            ),
+            None,
+        )
+        return [tag.tag for tag in aspect.tags] if aspect is not None else []
+
+    assert tags("Total Sales") == []
+    assert tags("Margin") == [builder.make_tag_urn("Internal")]
+    assert tags("Not Exposed") == [builder.make_tag_urn("Internal")]
+
+
+def test_semantic_model_urn_follows_lowercase_and_platform_instance() -> None:
+    mapper = _mapper(
+        convert_urns_to_lowercase=True, platform_instance="finance_instance"
+    )
+    assert mapper._semantic_model_urn("SalesModel") == str(
+        SemanticModelUrn(
+            "urn:li:dataPlatform:azure-analysis-services",
+            "finance_instance.myserver",
+            "salesmodel",
+        )
     )
 
 
@@ -79,7 +365,7 @@ def test_subtypes_query_table_is_view() -> None:
         ],
     )
     assert mapper._table_subtypes(table) == [
-        DatasetSubTypes.TABLE,
+        DatasetSubTypes.SEMANTIC_MODEL_DATASET,
         DatasetSubTypes.VIEW,
     ]
 
@@ -92,7 +378,7 @@ def test_subtypes_calculated_table() -> None:
         partitions=[AasPartition(name="c", query_definition="SUMMARIZE(Sales)")],
     )
     assert mapper._table_subtypes(table) == [
-        DatasetSubTypes.TABLE,
+        DatasetSubTypes.SEMANTIC_MODEL_DATASET,
         DatasetSubTypes.CALCULATED_TABLE,
     ]
 
@@ -100,7 +386,7 @@ def test_subtypes_calculated_table() -> None:
 def test_subtypes_import_table_without_expression() -> None:
     mapper = _mapper()
     table = AasTable(name="Static")
-    assert mapper._table_subtypes(table) == [DatasetSubTypes.TABLE]
+    assert mapper._table_subtypes(table) == [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
 
 
 def test_view_properties_language() -> None:
@@ -274,36 +560,6 @@ def test_foreign_keys_missing_target_dropped() -> None:
     assert keys == []
 
 
-def test_cube_dataset_field_naming_and_dual_subtypes() -> None:
-    mapper = _mapper()
-    model = AasTabularModel(
-        catalog="SalesModel",
-        name="Sales Model",
-        tables=[
-            AasTable(
-                name="Sales",
-                measures=[
-                    AasMeasure(name="Total Sales", expression="SUM(Sales[Amount])")
-                ],
-            )
-        ],
-    )
-    aspects = [
-        getattr(wu.metadata, "aspect", None)
-        for wu in mapper._map_cube_dataset(model, mapper._model_key("SalesModel"))
-    ]
-
-    subtypes = next(a for a in aspects if isinstance(a, SubTypesClass))
-    assert subtypes.typeNames == [
-        DatasetSubTypes.CUBE,
-        DatasetSubTypes.SEMANTIC_MODEL,
-    ]
-
-    schema = next(a for a in aspects if isinstance(a, SchemaMetadataClass))
-    # Measures are re-emitted on the cube dataset qualified as <table>.<measure>.
-    assert [f.fieldPath for f in schema.fields] == ["Sales.Total Sales"]
-
-
 def test_cube_metadata_and_table_count_respect_table_pattern() -> None:
     mapper = _mapper(table_pattern={"deny": ["Ignored"]})
     model = AasTabularModel(
@@ -320,10 +576,6 @@ def test_cube_metadata_and_table_count_respect_table_pattern() -> None:
             ),
         ],
     )
-
-    # A denied table's measures must not surface as cube fields.
-    schema = mapper._cube_schema_metadata(model)
-    assert [f.fieldPath for f in schema.fields] == ["Sales.Total"]
 
     # table_count must reflect the filtered set, not every model table.
     props = mapper._model_container_properties(model)
@@ -417,11 +669,13 @@ def test_model_named_by_catalog_and_dax_edges_get_dataset_upstreams() -> None:
         a.name for _, a in aspects if isinstance(a, ContainerPropertiesClass)
     ]
     assert container_names == ["myserver", "SalesModel"]
-    cube_urn = mapper._cube_dataset_urn("SalesModel")
-    [cube_props] = [
-        a for u, a in aspects if u == cube_urn and isinstance(a, DatasetPropertiesClass)
+    model_urn = mapper._semantic_model_urn("SalesModel")
+    [model_info] = [
+        a
+        for u, a in aspects
+        if u == model_urn and isinstance(a, SemanticModelInfoClass)
     ]
-    assert cube_props.name == "SalesModel"
+    assert model_info.name == "SalesModel"
 
     summary_urn = mapper._table_dataset_urn("SalesModel", "SalesSummary")
     [lineage] = [

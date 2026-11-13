@@ -17,6 +17,8 @@ class AzureAnalysisServicesReport(StaleEntityRemovalSourceReport, MQueryLineageR
     calculated_tables_scanned: int = 0
     relationships_scanned: int = 0
     roles_scanned: int = 0
+    dimensions_emitted: int = 0
+    metrics_emitted: int = 0
 
     # Lineage counters.
     tables_with_upstream_lineage: int = 0

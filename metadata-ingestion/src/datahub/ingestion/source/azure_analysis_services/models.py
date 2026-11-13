@@ -318,11 +318,18 @@ def _pairs_are_databricks(pairs: Dict[str, str]) -> bool:
     host = pairs.get("host", "").lower()
     provider = pairs.get("provider", "").lower()
     driver = pairs.get("driver", "").lower()
+    dsn = pairs.get("dsn", "").lower()
+    # A DSN connection often has only DSN, Catalog, and Schema. The host and
+    # token live in the DSN definition, not in the string AAS returns.
+    # Catalog plus Schema (or Database) is the Unity Catalog shape. SQL Server
+    # uses Initial Catalog, so it does not match.
     return (
         "databricks" in host
         or "databricks" in provider
         or "databricks" in driver
+        or "databricks" in dsn
         or "httppath" in pairs
+        or ("catalog" in pairs and ("schema" in pairs or "database" in pairs))
     )
 
 
@@ -339,7 +346,9 @@ def databricks_catalog_and_schema(
 
     Other platforms, including SQL Server ``Initial Catalog``, return
     ``(None, None)``. ``Database`` is accepted as the schema when ``Schema``
-    is absent, which is how some Databricks drivers spell it.
+    is absent, which is how some Databricks drivers spell it. A DSN string
+    such as ``DSN=warehouse;Catalog=prod;Schema=finance`` is included: AAS
+    often returns that shape, with the host kept in the DSN definition.
     """
     if not connection_string or not is_databricks_connection(connection_string):
         return None, None
@@ -370,5 +379,5 @@ class AasTabularModel(BaseModel):
     data_sources: List[AasDataSource] = Field(default_factory=list)
     calc_dependencies: List[AasCalcDependency] = Field(default_factory=list)
     # Full TMSL/TMDL model definition (DISCOVER_XML_METADATA), attached to the
-    # model-level cube dataset's ViewProperties when extraction is enabled.
+    # semantic model's native definition when extraction is enabled.
     definition: Optional[str] = None

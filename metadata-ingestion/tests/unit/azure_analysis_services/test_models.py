@@ -107,3 +107,9 @@ def test_databricks_database_key_is_the_schema() -> None:
 def test_sql_server_connection_is_not_a_databricks_catalog() -> None:
     connection = "Server=tcp:sql.example;Initial Catalog=salesdb;PWD=secret"
     assert databricks_catalog_and_schema(connection) == (None, None)
+
+
+def test_dsn_connection_with_catalog_and_schema() -> None:
+    # AAS often returns a DSN plus Catalog and Schema, with the host in the DSN.
+    connection = "DSN=warehouse;Catalog=prod;Schema=finance"
+    assert databricks_catalog_and_schema(connection) == ("prod", "finance")

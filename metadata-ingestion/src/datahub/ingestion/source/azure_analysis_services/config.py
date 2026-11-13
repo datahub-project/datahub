@@ -2,7 +2,7 @@ from typing import Dict, List, Literal, Optional, Union
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, HiddenFromDocs
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, HiddenFromDocs
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     LowerCaseDatasetUrnConfigMixin,
@@ -32,6 +32,39 @@ class AasAuthType(StrEnum):
     DEVICE_CODE = "device_code"
     INTERACTIVE = "interactive"
     USERNAME_PASSWORD = "username_password"
+
+
+class IngestHiddenMetricsConfig(ConfigModel):
+    enabled: bool = Field(
+        default=False,
+        description=(
+            "Ingest measures marked hidden, and measures on a hidden table, as "
+            "metrics. Hidden measures are skipped otherwise. They still appear as "
+            "schema fields on their table."
+        ),
+    )
+    tag_hidden_metrics: bool = Field(
+        default=False,
+        description=(
+            "Tag metrics created from hidden measures. Ignored when ``enabled`` "
+            "is false. The tag name is ``hidden_metric_tag``."
+        ),
+    )
+    hidden_metric_tag: str = Field(
+        default="hidden_metric",
+        description="Tag applied to hidden metrics when ``tag_hidden_metrics`` is enabled.",
+    )
+
+    @model_validator(mode="after")
+    def _validate_tagging(self) -> "IngestHiddenMetricsConfig":
+        if not self.enabled or not self.tag_hidden_metrics:
+            return self
+        if not self.hidden_metric_tag.strip():
+            raise ValueError(
+                "ingest_hidden_metrics.tag_hidden_metrics requires "
+                "ingest_hidden_metrics.hidden_metric_tag to be a non-empty tag name"
+            )
+        return self
 
 
 class AzureAnalysisServicesConfig(
@@ -125,10 +158,17 @@ class AzureAnalysisServicesConfig(
     )
     extract_model_definition: bool = Field(
         default=True,
-        description="Attach the full TMSL model definition to the model-level cube dataset.",
+        description="Attach the full TMSL model definition to the semantic model.",
     )
     extract_roles: bool = Field(
         default=True, description="Extract security roles as custom properties."
+    )
+    ingest_hidden_metrics: IngestHiddenMetricsConfig = Field(
+        default_factory=IngestHiddenMetricsConfig,
+        description=(
+            "Whether to ingest hidden measures as metrics, and optionally tag them. "
+            "See ``IngestHiddenMetricsConfig``."
+        ),
     )
 
     # Shared M-Query engine surface (MQueryLineageConfig protocol)

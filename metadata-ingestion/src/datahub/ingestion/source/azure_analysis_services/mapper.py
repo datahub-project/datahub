@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional, Set, Tuple
 
 from datahub.emitter import mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -32,20 +32,32 @@ from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
+    DateTypeClass,
+    DialectClass,
+    DialectExpressionClass,
+    DimensionClass,
+    ERModelRelationshipCardinalityClass,
     FineGrainedLineageClass,
     ForeignKeyConstraintClass,
+    MetricExpressionClass,
     NumberTypeClass,
     OtherSchemaClass,
     SchemaFieldClass,
     SchemaFieldDataTypeClass,
     SchemaMetadataClass,
+    SemanticFieldAnnotationClass,
+    SemanticFieldTypeClass,
+    SemanticModelInfoClass,
+    SemanticModelPropertiesClass,
+    SemanticModelRelationshipClass,
     StatusClass,
     SubTypesClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
-from datahub.metadata.urns import SchemaFieldUrn
+from datahub.metadata.urns import SchemaFieldUrn, SemanticModelUrn
+from datahub.sdk.metric import Metric
 
 logger = logging.getLogger(__name__)
 
@@ -131,11 +143,30 @@ class AasMapper:
     def _table_dataset_urn(self, catalog: str, table_name: str) -> str:
         return self._dataset_urn(self._table_dataset_name(catalog, table_name))
 
-    def _cube_dataset_name(self, catalog: str) -> str:
-        return catalog
+    def _semantic_model_path_and_id(self, catalog: str) -> Tuple[str, str]:
+        # The semanticModel key has no env or platform-instance field, so the
+        # instance is embedded in the path the same way Snowflake does. The
+        # displayed name stays the catalog; only the URN id and server segment
+        # follow convert_urns_to_lowercase.
+        server = self.server_name
+        model_id = catalog
+        if self.config.convert_urns_to_lowercase:
+            server = server.lower()
+            model_id = model_id.lower()
+        path = server
+        if self.config.platform_instance:
+            path = f"{self.config.platform_instance}.{path}"
+        return path, model_id
 
-    def _cube_dataset_urn(self, catalog: str) -> str:
-        return self._dataset_urn(self._cube_dataset_name(catalog))
+    def _semantic_model_urn(self, catalog: str) -> str:
+        path, model_id = self._semantic_model_path_and_id(catalog)
+        return str(
+            SemanticModelUrn(
+                platform=builder.make_data_platform_urn(self.config.platform),
+                path=path,
+                id=model_id,
+            )
+        )
 
     # Shared dataset aspects
 
@@ -237,14 +268,15 @@ class AasMapper:
                 continue
             yield from workunits
 
-        yield from self._map_cube_dataset(model, model_key)
+        # The catalog is the semantic model. Its summary lists the tables.
+        yield from self._map_semantic_model(model)
+        yield from self._map_metrics(model, dataset_urn_by_table)
 
     # Model container properties
 
     def _allowed_tables(self, model: AasTabularModel) -> List[AasTable]:
-        # table_pattern gates what is emitted; container/cube counts and the
-        # cube's measure fields must reflect the same filtered set so denied
-        # tables never leak back in through the model-level surfaces.
+        # table_pattern gates what is emitted; container counts must reflect the
+        # same filtered set so a denied table never leaks back in.
         return [t for t in model.tables if self.config.table_pattern.allowed(t.name)]
 
     def _model_container_properties(self, model: AasTabularModel) -> Dict[str, str]:
@@ -308,6 +340,17 @@ class AasMapper:
         ).as_workunit()
 
         yield from add_dataset_to_container(model_key, dataset_urn)
+        yield from self._dimension_annotations(table, dataset_urn)
+
+        # Membership is stored on the table, not on the semantic model. The
+        # alias is the table name the model's relationships use.
+        yield MetadataChangeProposalWrapper(
+            entityUrn=dataset_urn,
+            aspect=SemanticModelPropertiesClass(
+                alias=table.name,
+                semanticModel=self._semantic_model_urn(model.catalog),
+            ),
+        ).as_workunit()
 
         upstream = self.lineage_extractor.extract_upstream_for_table(table, dataset_urn)
         intra_model = intra_model_fgl.get(dataset_urn, [])
@@ -347,11 +390,10 @@ class AasMapper:
         }
 
     def _table_subtypes(self, table: AasTable) -> List[str]:
-        # Every tabular-model table is a Table. A calculated table additionally
-        # carries the Calculated Table subtype; a table backed by an M/Power
-        # Query partition is additionally a View (its logic lives in
-        # ViewProperties). Import tables get the single Table subtype.
-        subtypes: List[str] = [DatasetSubTypes.TABLE]
+        # Each table is a logical dataset of the model's semantic model. A
+        # calculated table additionally carries Calculated Table; a table backed
+        # by an M/Power Query partition additionally carries View.
+        subtypes: List[str] = [DatasetSubTypes.SEMANTIC_MODEL_DATASET]
         if table.is_calculated:
             subtypes.append(DatasetSubTypes.CALCULATED_TABLE)
         elif table.expression:
@@ -499,68 +541,172 @@ class AasMapper:
             )
         return constraints
 
-    # Model-level cube dataset
-
-    def _map_cube_dataset(
-        self, model: AasTabularModel, model_key: AasModelContainerKey
-    ) -> Iterable[MetadataWorkUnit]:
-        dataset_urn = self._cube_dataset_urn(model.catalog)
-
+    def _map_semantic_model(self, model: AasTabularModel) -> Iterable[MetadataWorkUnit]:
+        model_urn = self._semantic_model_urn(model.catalog)
+        # The key aspect is what makes the semantic model exist and be searchable;
+        # without it only the info aspect lands and the entity never surfaces.
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=DatasetPropertiesClass(
+            entityUrn=model_urn,
+            aspect=SemanticModelUrn.from_string(model_urn).to_key_aspect(),
+        ).as_workunit()
+        yield MetadataChangeProposalWrapper(
+            entityUrn=model_urn,
+            aspect=SemanticModelInfoClass(
                 name=model.catalog,
                 description=model.description,
-                customProperties=self._model_container_properties(model),
+                nativeDefinition=model.definition,
+                relationships=self._semantic_model_relationships(model),
             ),
         ).as_workunit()
-
-        yield self._status_wu(dataset_urn)
-
-        # Dual subtypes mirror Tableau's cube-with-definition pattern: the model
-        # is both a Cube and a Semantic Model.
         yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn,
-            aspect=SubTypesClass(
-                typeNames=[DatasetSubTypes.CUBE, DatasetSubTypes.SEMANTIC_MODEL]
-            ),
+            entityUrn=model_urn, aspect=StatusClass(removed=False)
         ).as_workunit()
+        yield from self._platform_instance_wus(model_urn)
 
-        yield from self._platform_instance_wus(dataset_urn)
+    @staticmethod
+    def _dax_expression(expression: str) -> MetricExpressionClass:
+        # The semantic model dialect enum has no DAX symbol, so DAX is OTHER.
+        return MetricExpressionClass(
+            dialects=[
+                DialectExpressionClass(
+                    dialect=DialectClass.OTHER, expression=expression
+                )
+            ]
+        )
 
-        if model.definition:
+    @staticmethod
+    def _is_exposed(table: AasTable, is_hidden: bool) -> bool:
+        # A hidden table hides every column on it, the same as flagging the
+        # column itself.
+        return not (table.is_hidden or is_hidden)
+
+    def _dimension_annotations(
+        self, table: AasTable, dataset_urn: str
+    ) -> Iterable[MetadataWorkUnit]:
+        # Every column that is not hidden is a dimension of the model. The
+        # annotation is anchored on the column's schemaField entity.
+        for column in table.columns:
+            if not self._is_exposed(table, column.is_hidden):
+                continue
+            reference = column.expression or f"{table.name}[{column.name}]"
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=ViewPropertiesClass(
-                    materialized=False,
-                    viewLogic=model.definition,
-                    viewLanguage=constants.VIEW_LANGUAGE_TMSL,
+                entityUrn=builder.make_schema_field_urn(dataset_urn, column.name),
+                aspect=SemanticFieldAnnotationClass(
+                    type=SemanticFieldTypeClass.DIMENSION,
+                    expression=self._dax_expression(reference),
+                    dimension=DimensionClass(
+                        isTime=isinstance(column.datahub_data_type, DateTypeClass)
+                    ),
                 ),
             ).as_workunit()
+            self.report.dimensions_emitted += 1
 
-        yield MetadataChangeProposalWrapper(
-            entityUrn=dataset_urn, aspect=self._cube_schema_metadata(model)
-        ).as_workunit()
+    @staticmethod
+    def _urn_safe(value: str) -> str:
+        # Measure names are free text; tuple URN keys cannot carry these.
+        return value.replace(",", "_").replace("(", "_").replace(")", "_")
 
-        yield from add_dataset_to_container(model_key, dataset_urn)
+    def _measure_upstream_datasets(
+        self,
+        model: AasTabularModel,
+        table: AasTable,
+        measure: AasMeasure,
+        dataset_urn_by_table: Dict[str, str],
+    ) -> List[str]:
+        # The measure's own table first, then every other table its DAX reads
+        # (available when column-level lineage is on, from calc dependencies).
+        upstreams: List[str] = [dataset_urn_by_table[table.name.lower()]]
+        for dependency in model.calc_dependencies:
+            if (
+                dependency.object_type.upper() != "MEASURE"
+                or dependency.table.lower() != table.name.lower()
+                or dependency.object_name.lower() != measure.name.lower()
+            ):
+                continue
+            referenced = dataset_urn_by_table.get(dependency.referenced_table.lower())
+            if referenced and referenced not in upstreams:
+                upstreams.append(referenced)
+        return upstreams
 
-    def _cube_schema_metadata(self, model: AasTabularModel) -> SchemaMetadataClass:
-        # The cube dataset exposes every measure in the model as a field so the
-        # model's analytical surface is browsable in one place.
-        fields: List[SchemaFieldClass] = []
+    def _map_metrics(
+        self, model: AasTabularModel, dataset_urn_by_table: Dict[str, str]
+    ) -> Iterable[MetadataWorkUnit]:
+        model_urn = self._semantic_model_urn(model.catalog)
+        path, model_id = self._semantic_model_path_and_id(model.catalog)
+        hidden_metrics = self.config.ingest_hidden_metrics
+        seen_ids: Set[str] = set()
         for table in self._allowed_tables(model):
+            if table.name.lower() not in dataset_urn_by_table:
+                continue
             for measure in table.measures:
-                field = self._field_for_measure(measure)
-                field.fieldPath = f"{table.name}.{measure.name}"
-                fields.append(field)
-        return SchemaMetadataClass(
-            schemaName=model.catalog,
-            platform=builder.make_data_platform_urn(self.config.platform),
-            version=0,
-            hash="",
-            platformSchema=OtherSchemaClass(rawSchema=""),
-            fields=fields,
-        )
+                hidden = not self._is_exposed(table, measure.is_hidden)
+                if hidden and not hidden_metrics.enabled:
+                    continue
+                metric_id = self._urn_safe(measure.name)
+                if self.config.convert_urns_to_lowercase:
+                    metric_id = metric_id.lower()
+                # DAX measure names are unique within a model, but two names
+                # that differ only by case collapse once URNs are lowercased.
+                if metric_id in seen_ids:
+                    self.report.warning(
+                        title="Duplicate measure name",
+                        message="Two measures resolve to the same metric URN; only the first is emitted.",
+                        context=f"catalog={model.catalog}, measure={measure.name}",
+                    )
+                    continue
+                seen_ids.add(metric_id)
+                metric = Metric(
+                    platform=self.config.platform,
+                    path=f"{path}.{model_id}",
+                    id=metric_id,
+                    semantic_model=model_urn,
+                    platform_instance=self.config.platform_instance,
+                    name=measure.name,
+                    description=measure.description,
+                    expression=(
+                        self._dax_expression(measure.expression)
+                        if measure.expression
+                        else None
+                    ),
+                    upstream_datasets=self._measure_upstream_datasets(
+                        model, table, measure, dataset_urn_by_table
+                    ),
+                    tags=(
+                        [builder.make_tag_urn(hidden_metrics.hidden_metric_tag.strip())]
+                        if hidden and hidden_metrics.tag_hidden_metrics
+                        else None
+                    ),
+                )
+                yield from metric.as_workunits()
+                self.report.metrics_emitted += 1
+
+    def _semantic_model_relationships(
+        self, model: AasTabularModel
+    ) -> Optional[List[SemanticModelRelationshipClass]]:
+        # Join aliases must be the table names written on semanticModelProperties.
+        # A relationship that names a filtered-out table is dropped so the
+        # summary does not point at a dataset this run did not emit.
+        alias_by_name = {t.name.lower(): t.name for t in self._allowed_tables(model)}
+        relationships: List[SemanticModelRelationshipClass] = []
+        for rel in model.relationships:
+            if not rel.is_active:
+                continue
+            from_alias = alias_by_name.get(rel.from_table.lower())
+            to_alias = alias_by_name.get(rel.to_table.lower())
+            if not from_alias or not to_alias:
+                continue
+            # Tabular relationships point from the many side to the one side.
+            relationships.append(
+                SemanticModelRelationshipClass(
+                    name=f"{from_alias}.{rel.from_column}->{to_alias}.{rel.to_column}",
+                    from_=from_alias,
+                    fromColumns=[rel.from_column],
+                    to=to_alias,
+                    toColumns=[rel.to_column],
+                    cardinality=ERModelRelationshipCardinalityClass.N_ONE,
+                )
+            )
+        return relationships or None
 
     # Intra-model DAX lineage
 

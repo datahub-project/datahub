@@ -197,6 +197,72 @@ export const AAS_EXTRACT_COLUMN_LINEAGE: RecipeField = {
     rules: null,
 };
 
+const ingestHiddenMetricsPath = 'source.config.ingest_hidden_metrics.enabled';
+export const AAS_INGEST_HIDDEN_METRICS: RecipeField = {
+    name: 'ingest_hidden_metrics.enabled',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.ingestHiddenMetrics.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.ingestHiddenMetrics.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.ingestHiddenMetrics.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: ingestHiddenMetricsPath,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, ingestHiddenMetricsPath);
+        if (value !== undefined && value !== null) {
+            return value;
+        }
+        return false;
+    },
+    rules: null,
+};
+
+const tagHiddenMetricsPath = 'source.config.ingest_hidden_metrics.tag_hidden_metrics';
+export const AAS_TAG_HIDDEN_METRICS: RecipeField = {
+    name: 'ingest_hidden_metrics.tag_hidden_metrics',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tagHiddenMetrics.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tagHiddenMetrics.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.tagHiddenMetrics.tooltip');
+    },
+    type: FieldType.BOOLEAN,
+    fieldPath: tagHiddenMetricsPath,
+    getValueFromRecipeOverride: (recipe: any) => {
+        const value = get(recipe, tagHiddenMetricsPath);
+        if (value !== undefined && value !== null) {
+            return value;
+        }
+        return false;
+    },
+    rules: null,
+};
+
+const hiddenMetricTagPath = 'source.config.ingest_hidden_metrics.hidden_metric_tag';
+export const AAS_HIDDEN_METRIC_TAG: RecipeField = {
+    name: 'ingest_hidden_metrics.hidden_metric_tag',
+    get label() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.hiddenMetricTag.label');
+    },
+    get helper() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.hiddenMetricTag.helper');
+    },
+    get tooltip() {
+        return i18next.t('ingestion.sourceBuilder:azureAnalysisServices.hiddenMetricTag.tooltip');
+    },
+    type: FieldType.TEXT,
+    fieldPath: hiddenMetricTagPath,
+    placeholder: 'hidden_metric',
+    rules: null,
+};
+
 const databaseAllowFieldPath = 'source.config.database_pattern.allow';
 export const AAS_DATABASE_ALLOW: FilterRecipeField = {
     name: 'database_pattern.allow',

@@ -41,10 +41,23 @@ _DATABRICKS_PLATFORM = "databricks"
 _DATABRICKS_QUALIFIED_PARTS = 3
 
 
+def _strip_leading_sql_comments(query: str) -> str:
+    text = query.lstrip()
+    while text.startswith("--") or text.startswith("/*"):
+        if text.startswith("--"):
+            newline = text.find("\n")
+            text = "" if newline < 0 else text[newline + 1 :]
+        else:
+            end = text.find("*/")
+            text = "" if end < 0 else text[end + 2 :]
+        text = text.lstrip()
+    return text
+
+
 def _is_bare_sql(query: str) -> bool:
     # Partition QueryDefinition is either an M expression (``let ...``) or the
-    # SQL text of a query partition.
-    head = query.lstrip().lower()
+    # SQL text of a query partition. A leading ``--`` comment is still SQL.
+    head = _strip_leading_sql_comments(query).lower()
     if head.startswith(("let ", "let\n", "let\r")):
         return False
     return head.startswith(("select", "with ", "with\n", "with\r"))
@@ -201,6 +214,9 @@ class AasLineageExtractor:
                     if urn in seen_upstreams:
                         continue
                     seen_upstreams.add(urn)
+                    # Reference only. A Databricks table that has not been
+                    # ingested has no entity, so DataHub draws this as a
+                    # hidden edge until that dataset exists.
                     result.upstreams.append(
                         UpstreamClass(
                             dataset=urn, type=DatasetLineageTypeClass.TRANSFORMED

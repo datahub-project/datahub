@@ -166,8 +166,6 @@ VIEW_LANGUAGE_DAX = "DAX"
 # Fallback field name for an unnamed query partition when multiple partitions are
 # wrapped into a single M record literal for the stored view definition.
 PARTITION_FIELD_NAME_PREFIX = "Partition"
-VIEW_LANGUAGE_TMSL = "TMSL"
-
 # customProperties keys.
 PROP_CATALOG = "catalog"
 PROP_CULTURE = "culture"

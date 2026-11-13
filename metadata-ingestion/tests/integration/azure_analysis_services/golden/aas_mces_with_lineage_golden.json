@@ -246,13 +246,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table",
+                "Semantic Model Dataset",
                 "View"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684848,
+        "lastObserved": 1794560904585,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -378,6 +378,50 @@
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
     "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "Sales",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794560904586,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "Sales[Amount]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268815,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)",
+    "changeType": "UPSERT",
     "aspectName": "upstreamLineage",
     "aspect": {
         "json": {
@@ -399,6 +443,33 @@
     },
     "systemMetadata": {
         "lastObserved": 1784936684848,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),ProductKey)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "Sales[ProductKey]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268815,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -473,13 +544,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table",
+                "Semantic Model Dataset",
                 "View"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684866,
+        "lastObserved": 1794560904592,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -603,6 +674,77 @@
 },
 {
     "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "Product",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794560904594,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductName)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "Product[ProductName]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268832,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductKey)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "Product[ProductKey]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268832,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetProperties",
@@ -646,13 +788,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table",
+                "Semantic Model Dataset",
                 "View"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684870,
+        "lastObserved": 1794560904595,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -776,6 +918,33 @@
     }
 },
 {
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD),Amount)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "SalesRemote[Amount]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268837,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
     "entityType": "dataset",
     "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
     "changeType": "UPSERT",
@@ -796,6 +965,23 @@
     },
     "systemMetadata": {
         "lastObserved": 1784936684871,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "SalesRemote",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794560904595,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -845,13 +1031,13 @@
     "aspect": {
         "json": {
             "typeNames": [
-                "Table",
+                "Semantic Model Dataset",
                 "Calculated Table"
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684874,
+        "lastObserved": 1794560904596,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -1025,31 +1211,106 @@
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),ProductName)",
     "changeType": "UPSERT",
-    "aspectName": "datasetProperties",
+    "aspectName": "semanticFieldAnnotation",
     "aspect": {
         "json": {
-            "customProperties": {
-                "catalog": "SalesModel",
-                "table_count": "4",
-                "culture": "en-US",
-                "role.Reader": ""
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "SalesSummary[ProductName]"
+                    }
+                ]
             },
-            "name": "SalesModel",
-            "tags": []
+            "dimension": {
+                "isTime": false
+            }
         }
     },
     "systemMetadata": {
-        "lastObserved": 1793918741956,
+        "lastObserved": 1794563268839,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),Amt)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "SalesSummary[Amt]"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268839,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),TotalAmount)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticFieldAnnotation",
+    "aspect": {
+        "json": {
+            "type": "DIMENSION",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "SUM('Sales'[Amount])"
+                    }
+                ]
+            },
+            "dimension": {
+                "isTime": false
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268839,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "semanticModelProperties",
+    "aspect": {
+        "json": {
+            "alias": "SalesSummary",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794560904597,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)",
     "changeType": "UPSERT",
     "aspectName": "status",
     "aspect": {
@@ -1058,132 +1319,279 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684876,
+        "lastObserved": 1794560904599,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)",
     "changeType": "UPSERT",
-    "aspectName": "subTypes",
+    "aspectName": "semanticModelKey",
     "aspect": {
         "json": {
-            "typeNames": [
-                "Cube",
-                "Semantic Model"
-            ]
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1784936684876,
-        "runId": "aas-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "viewProperties",
-    "aspect": {
-        "json": {
-            "materialized": false,
-            "viewLogic": "<ns0:Database xmlns:ns0=\"http://schemas.microsoft.com/analysisservices/2003/engine\" xmlns:ns1=\"http://schemas.microsoft.com/analysisservices/2010/engine/200/200\"><ns0:Name>SalesModel</ns0:Name><ns0:ID>SalesModel</ns0:ID><ns0:CreatedTimestamp>2026-07-24T22:13:05.796667</ns0:CreatedTimestamp><ns0:LastSchemaUpdate>2026-07-24T22:13:05.796667</ns0:LastSchemaUpdate><ns0:Description /><ns0:LastProcessed>2026-07-24T22:13:13.03</ns0:LastProcessed><ns0:State>Unprocessed</ns0:State><ns0:LastUpdate>2026-07-24T22:13:13.313333</ns0:LastUpdate><ns0:AggregationPrefix /><ns0:Language>1033</ns0:Language><ns0:Collation>Latin1_General_CI_AS</ns0:Collation><ns0:Visible>true</ns0:Visible><ns0:MasterDataSourceID /><ns0:ProcessingPriority>0</ns0:ProcessingPriority><ns1:StorageEngineUsed>InMemory</ns1:StorageEngineUsed><ns0:EstimatedSize>372884</ns0:EstimatedSize><ns0:Translations /><ns0:DataSourceImpersonationInfo><ns0:ImpersonationMode>Default</ns0:ImpersonationMode><ns0:Account /><ns0:Password /><ns0:ImpersonationInfoSecurity>Unchanged</ns0:ImpersonationInfoSecurity></ns0:DataSourceImpersonationInfo></ns0:Database>",
-            "viewLanguage": "TMSL"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1784936684876,
-        "runId": "aas-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "schemaMetadata",
-    "aspect": {
-        "json": {
-            "schemaName": "SalesModel",
             "platform": "urn:li:dataPlatform:azure-analysis-services",
-            "version": 0,
-            "created": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "lastModified": {
-                "time": 0,
-                "actor": "urn:li:corpuser:unknown"
-            },
-            "hash": "",
-            "platformSchema": {
-                "com.linkedin.schema.OtherSchema": {
-                    "rawSchema": ""
-                }
-            },
-            "fields": [
-                {
-                    "fieldPath": "Sales.Total Sales",
-                    "nullable": false,
-                    "description": "SUM('Sales'[Amount])",
-                    "type": {
-                        "type": {
-                            "com.linkedin.schema.NumberType": {}
-                        }
-                    },
-                    "nativeDataType": "measure",
-                    "recursive": false,
-                    "isPartOfKey": false
-                }
-            ]
+            "path": "salesws",
+            "id": "SalesModel"
         }
     },
     "systemMetadata": {
-        "lastObserved": 1793918741956,
+        "lastObserved": 1794560904598,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }
 },
 {
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
+    "entityType": "semanticModel",
+    "entityUrn": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)",
     "changeType": "UPSERT",
-    "aspectName": "container",
+    "aspectName": "semanticModelInfo",
     "aspect": {
         "json": {
-            "container": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
-        }
-    },
-    "systemMetadata": {
-        "lastObserved": 1784936684876,
-        "runId": "aas-test",
-        "lastRunId": "no-run-id-provided"
-    }
-},
-{
-    "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel,PROD)",
-    "changeType": "UPSERT",
-    "aspectName": "browsePathsV2",
-    "aspect": {
-        "json": {
-            "path": [
+            "name": "SalesModel",
+            "nativeDefinition": "<ns0:Database xmlns:ns0=\"http://schemas.microsoft.com/analysisservices/2003/engine\" xmlns:ns1=\"http://schemas.microsoft.com/analysisservices/2010/engine/200/200\"><ns0:Name>SalesModel</ns0:Name><ns0:ID>SalesModel</ns0:ID><ns0:CreatedTimestamp>2026-07-24T22:13:05.796667</ns0:CreatedTimestamp><ns0:LastSchemaUpdate>2026-07-24T22:13:05.796667</ns0:LastSchemaUpdate><ns0:Description /><ns0:LastProcessed>2026-07-24T22:13:13.03</ns0:LastProcessed><ns0:State>Unprocessed</ns0:State><ns0:LastUpdate>2026-07-24T22:13:13.313333</ns0:LastUpdate><ns0:AggregationPrefix /><ns0:Language>1033</ns0:Language><ns0:Collation>Latin1_General_CI_AS</ns0:Collation><ns0:Visible>true</ns0:Visible><ns0:MasterDataSourceID /><ns0:ProcessingPriority>0</ns0:ProcessingPriority><ns1:StorageEngineUsed>InMemory</ns1:StorageEngineUsed><ns0:EstimatedSize>372884</ns0:EstimatedSize><ns0:Translations /><ns0:DataSourceImpersonationInfo><ns0:ImpersonationMode>Default</ns0:ImpersonationMode><ns0:Account /><ns0:Password /><ns0:ImpersonationInfoSecurity>Unchanged</ns0:ImpersonationInfoSecurity></ns0:DataSourceImpersonationInfo></ns0:Database>",
+            "datasets": [],
+            "relationships": [
                 {
-                    "id": "urn:li:container:0acc5985e97a35bb1df50f348f38800f",
-                    "urn": "urn:li:container:0acc5985e97a35bb1df50f348f38800f"
-                },
-                {
-                    "id": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61",
-                    "urn": "urn:li:container:b2eb91aeefeb6592ef7a79171a286c61"
+                    "name": "Sales.ProductKey->Product.ProductKey",
+                    "from": "Sales",
+                    "fromColumns": [
+                        "ProductKey"
+                    ],
+                    "to": "Product",
+                    "toColumns": [
+                        "ProductKey"
+                    ],
+                    "cardinality": "N_ONE"
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1784936684876,
+        "lastObserved": 1794560904598,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:azure-analysis-services,salesws.SalesModel,Total Sales)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:azure-analysis-services"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794561989807,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:azure-analysis-services,salesws.SalesModel,Total Sales)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794561989807,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:azure-analysis-services,salesws.SalesModel,Total Sales)",
+    "changeType": "UPSERT",
+    "aspectName": "metricInfo",
+    "aspect": {
+        "json": {
+            "name": "Total Sales",
+            "semanticModel": "urn:li:semanticModel:(urn:li:dataPlatform:azure-analysis-services,salesws,SalesModel)",
+            "expression": {
+                "dialects": [
+                    {
+                        "dialect": "OTHER",
+                        "expression": "SUM('Sales'[Amount])"
+                    }
+                ]
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794561989807,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:azure-analysis-services,salesws.SalesModel,Total Sales)",
+    "changeType": "UPSERT",
+    "aspectName": "metricRelationships",
+    "aspect": {
+        "json": {
+            "derivedFrom": [],
+            "relatedMetrics": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794561989807,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "metric",
+    "entityUrn": "urn:li:metric:(urn:li:dataPlatform:azure-analysis-services,salesws.SalesModel,Total Sales)",
+    "changeType": "UPSERT",
+    "aspectName": "metricUpstreams",
+    "aspect": {
+        "json": {
+            "datasetUpstreams": [
+                {
+                    "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794561989807,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),ProductKey)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductKey)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Sales,PROD),Amount)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.Product,PROD),ProductName)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),TotalAmount)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),Amt)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesRemote,PROD),Amount)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
+        "runId": "aas-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "schemaField",
+    "entityUrn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:azure-analysis-services,SalesModel.SalesSummary,PROD),ProductName)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1794563268841,
         "runId": "aas-test",
         "lastRunId": "no-run-id-provided"
     }

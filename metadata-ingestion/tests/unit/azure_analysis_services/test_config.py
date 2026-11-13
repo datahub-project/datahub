@@ -37,6 +37,44 @@ def test_service_principal_valid():
     assert config.convert_urns_to_lowercase is False
 
 
+def test_hidden_metrics_are_off_by_default():
+    config = AzureAnalysisServicesConfig.model_validate(_service_principal())
+    assert config.ingest_hidden_metrics.enabled is False
+    assert config.ingest_hidden_metrics.tag_hidden_metrics is False
+    assert config.ingest_hidden_metrics.hidden_metric_tag == "hidden_metric"
+
+
+def test_disabled_hidden_metrics_accepts_tagging_options():
+    disabled = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(
+            ingest_hidden_metrics={"enabled": False, "tag_hidden_metrics": True},
+        )
+    )
+    assert disabled.ingest_hidden_metrics.enabled is False
+    assert disabled.ingest_hidden_metrics.tag_hidden_metrics is True
+    with pytest.raises(ValidationError):
+        AzureAnalysisServicesConfig.model_validate(
+            _service_principal(
+                ingest_hidden_metrics={
+                    "enabled": True,
+                    "tag_hidden_metrics": True,
+                    "hidden_metric_tag": "  ",
+                },
+            )
+        )
+    config = AzureAnalysisServicesConfig.model_validate(
+        _service_principal(
+            ingest_hidden_metrics={
+                "enabled": True,
+                "tag_hidden_metrics": True,
+                "hidden_metric_tag": "Internal",
+            },
+        )
+    )
+    assert config.ingest_hidden_metrics.enabled is True
+    assert config.ingest_hidden_metrics.hidden_metric_tag == "Internal"
+
+
 def test_convert_urns_to_lowercase_is_accepted():
     config = AzureAnalysisServicesConfig.model_validate(
         _service_principal(convert_urns_to_lowercase=True)
