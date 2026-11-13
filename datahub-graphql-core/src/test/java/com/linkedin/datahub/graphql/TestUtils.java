@@ -116,6 +116,7 @@ public class TestUtils {
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
     when(mockContext.getMaxParentDepth()).thenReturn(50);
+    when(mockContext.getMaxSiblingGroupUrns()).thenReturn(30);
 
     OperationContext operationContext =
         withDefaultSearchEntityTypes(
@@ -261,6 +262,7 @@ public class TestUtils {
     when(mockContext.getAuthorizer()).thenReturn(mockAuthorizer);
     when(mockContext.getAuthentication()).thenReturn(authentication);
     when(mockContext.getMaxParentDepth()).thenReturn(50);
+    when(mockContext.getMaxSiblingGroupUrns()).thenReturn(30);
 
     OperationContext operationContext =
         withDefaultSearchEntityTypes(

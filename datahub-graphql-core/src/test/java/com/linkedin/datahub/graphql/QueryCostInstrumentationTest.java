@@ -38,6 +38,15 @@ public class QueryCostInstrumentationTest {
                         node: Node
                         search(input: SearchInput): SearchResults
                         searchWithDefault(input: SearchInput = {count: 7}): SearchResults
+                        siblingGroups(input: SiblingGroupsInput!): [SiblingGroup]
+                      }
+                      input SiblingGroupsInput {
+                        urns: [String!]!
+                        start: Int
+                        count: Int
+                      }
+                      type SiblingGroup {
+                        urn: String
                       }
                       type Mutation {
                         patch(input: [PatchInput!]): [String]
@@ -290,6 +299,64 @@ public class QueryCostInstrumentationTest {
                 + " }"
                 + LINEAGE_FRAGMENT),
         LINEAGE_FIELDS);
+  }
+
+  /** siblingGroups + urn. */
+  private static final int SIBLING_GROUPS_FIELDS = 2;
+
+  private static String siblingGroups(int urns, String countArgument) {
+    final StringBuilder list = new StringBuilder();
+    for (int i = 0; i < urns; i++) {
+      list.append(i == 0 ? "" : ", ").append("\"u").append(i).append('"');
+    }
+    return "{ siblingGroups(input: {urns: [" + list + "]" + countArgument + "}) { urn } }";
+  }
+
+  /** Each distinct urn costs a walk (5) plus the page of members it loads. */
+  @Test
+  public void testSiblingGroupsPricesWalksAndPages() {
+    assertEquals(complexity(siblingGroups(3, ", count: 10")), SIBLING_GROUPS_FIELDS + 3 * 15);
+    // No count, or a null one, is the resolver's default page of 5.
+    assertEquals(complexity(siblingGroups(3, "")), SIBLING_GROUPS_FIELDS + 3 * 10);
+    assertEquals(complexity(siblingGroups(3, ", count: null")), SIBLING_GROUPS_FIELDS + 3 * 10);
+    // Priced at the page size the resolver uses: capped at 200, never below 0.
+    assertEquals(complexity(siblingGroups(2, ", count: 5000")), SIBLING_GROUPS_FIELDS + 2 * 205);
+    // count 0 still walks every group, so it is not free.
+    assertEquals(complexity(siblingGroups(2, ", count: 0")), SIBLING_GROUPS_FIELDS + 2 * 5);
+    assertEquals(complexity(siblingGroups(2, ", count: -3")), SIBLING_GROUPS_FIELDS + 2 * 5);
+    assertEquals(complexity(siblingGroups(0, ", count: 10")), SIBLING_GROUPS_FIELDS);
+  }
+
+  /** The resolver walks each distinct urn once, so repeats are not charged. */
+  @Test
+  public void testSiblingGroupsChargesDistinctUrns() {
+    String query = "query q($input: SiblingGroupsInput!) { siblingGroups(input: $input) { urn } }";
+    assertEquals(
+        complexity(query, Map.of("input", Map.of("urns", List.of("a", "a", "a"), "count", 0))),
+        SIBLING_GROUPS_FIELDS + 5);
+  }
+
+  @Test
+  public void testSiblingGroupsFromVariables() {
+    String query = "query q($input: SiblingGroupsInput!) { siblingGroups(input: $input) { urn } }";
+    assertEquals(
+        complexity(query, Map.of("input", Map.of("urns", List.of("a", "b"), "count", 7))),
+        SIBLING_GROUPS_FIELDS + 2 * 12);
+    // A cached cost must not reuse the previous request's input values.
+    assertEquals(
+        complexity(query, Map.of("input", Map.of("urns", List.of("a", "b", "c", "d")))),
+        SIBLING_GROUPS_FIELDS + 4 * 10);
+  }
+
+  /**
+   * The search page's request (up to 30 results, 5 siblings each) and the expanded group (one
+   * result, 200 siblings) fit under the default limit of 2010; 30 results with 200 each does not.
+   */
+  @Test
+  public void testSiblingGroupsAgainstTheDefaultLimit() {
+    assertTrue(complexity(siblingGroups(30, ", count: 5")) < 2010);
+    assertTrue(complexity(siblingGroups(1, ", count: 200")) < 2010);
+    assertTrue(complexity(siblingGroups(30, ", count: 200")) > 2010);
   }
 
   @Test
