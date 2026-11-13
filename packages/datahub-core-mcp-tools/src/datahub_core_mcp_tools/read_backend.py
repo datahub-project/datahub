@@ -161,6 +161,17 @@ class ReadBackend(Protocol):
         None when GMS returns no entity."""
         ...
 
+    def ingestion_source(self, urn: str) -> JsonObject | None:
+        """The ingestion source with its recipe, executor, CLI version, extra
+        args and schedule (``getIngestionSource`` in ``ingestion.gql``); None when
+        GMS has none at ``urn``."""
+        ...
+
+    def ingestion_sources(self, variables: JsonObject) -> list[JsonObject]:
+        """``listIngestionSources`` for the ``input`` of ``ingestion.gql``: each
+        source's urn, name, type, schedule and latest run."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -461,6 +472,29 @@ class GraphQLReadBackend:
                 operation_name="getStructuredPropertyDefinition",
             ).get("entity"),
         )
+
+    def ingestion_source(self, urn: str) -> JsonObject | None:
+        return cast(
+            JsonObject | None,
+            graphql_helpers.execute_graphql(
+                self.graph,
+                query=graphql_helpers.load_gql_document("ingestion.gql"),
+                variables={"urn": urn},
+                operation_name="getIngestionSource",
+            ).get("ingestionSource"),
+        )
+
+    def ingestion_sources(self, variables: JsonObject) -> list[JsonObject]:
+        result = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("ingestion.gql"),
+            variables={"input": variables},
+            operation_name="listIngestionSources",
+        )
+        sources = (result.get("listIngestionSources") or {}).get(
+            "ingestionSources"
+        ) or []
+        return [cast(JsonObject, s) for s in sources if isinstance(s, dict)]
 
 
 def _live_siblings(entity: JsonObject, urn: str) -> set[str]:

@@ -29,7 +29,14 @@ INITIALIZE = {
 }
 MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
 WRITE_TOOLS = {"add_tags", "remove_tags", "create_tag", "update_description"}
-INGESTION_TOOLS = {"list_connector_types", "get_recipe_schema", "validate_recipe"}
+INGESTION_TOOLS = {
+    "list_connector_types",
+    "get_recipe_schema",
+    "validate_recipe",
+    "list_ingestion_sources",
+    "create_ingestion_source",
+    "update_ingestion_source",
+}
 
 
 class _Clock:

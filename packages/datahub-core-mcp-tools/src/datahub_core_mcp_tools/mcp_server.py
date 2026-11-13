@@ -53,6 +53,11 @@ from .tools.ingestion_recipes import (
     list_connector_types,
     validate_recipe,
 )
+from .tools.ingestion_sources import (
+    create_ingestion_source,
+    list_ingestion_sources,
+    update_ingestion_source,
+)
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.owners import add_owners, remove_owners
 from .tools.save_document import is_save_document_enabled, save_document
@@ -343,4 +348,7 @@ def register_tools(
     add("list_connector_types", list_connector_types, ToolType.INGESTION)
     add("get_recipe_schema", get_recipe_schema, ToolType.INGESTION)
     add("validate_recipe", validate_recipe, ToolType.INGESTION)
+    add("list_ingestion_sources", list_ingestion_sources, ToolType.INGESTION)
+    add("create_ingestion_source", create_ingestion_source, ToolType.INGESTION)
+    add("update_ingestion_source", update_ingestion_source, ToolType.INGESTION)
     return registered

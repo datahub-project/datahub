@@ -169,7 +169,11 @@ Mutation tools are available on DataHub Cloud v0.3.17+ and on DataHub Core v1.9.
 On self-hosted DataHub Core, the **Ingestion** tool group is off unless an admin selects it on the [settings page](#mcp-settings-page). "All tools" never includes it.
 :::
 
-**Ingestion** — Write and check ingestion recipes, as the `datahub recipe` CLI does. Recipe credentials must be secret references such as `${SNOWFLAKE_PASSWORD}` to [DataHub secrets](../../ui-ingestion.md); the tools refuse a recipe with a literal password, token or key.
+**Ingestion** — Write and check ingestion recipes, as the `datahub recipe` CLI does, and create and change the ingestion sources DataHub runs on its executor. Recipe credentials must be secret references such as `${SNOWFLAKE_PASSWORD}` to [DataHub secrets](../../ui-ingestion.md); the tools refuse a recipe with a literal password, token or key, and mask literal ones already stored in a source.
+
+:::caution
+Selecting the Ingestion group lets an agent create and change ingestion sources, which can then write metadata into DataHub. Select it only for agents you trust to do that. Each call runs with the caller's own privileges: managing sources needs the **Manage Metadata Ingestion** privilege.
+:::
 
 <details>
   <summary>Tools</summary>
@@ -179,6 +183,12 @@ On self-hosted DataHub Core, the **Ingestion** tool group is off unless an admin
 `get_recipe_schema` — Describe a connector's config fields, and build a recipe template from the fields you know. The MCP server describes only connectors whose packages it has installed (`file` and `demo-data` on a default install); for others it links the connector's docs.
 
 `validate_recipe` — Check a recipe without connecting to anything: its YAML, its connector type, that credentials are secret references and, for a connector the server has installed, its field names and types.
+
+`list_ingestion_sources` — List ingestion sources with their type, schedule and latest run, or read one source in full (recipe, executor, schedule, CLI version).
+
+`create_ingestion_source` — Create an ingestion source from a recipe, with an optional cron schedule. It does not run it.
+
+`update_ingestion_source` — Change named fields of a source's recipe (`profiling.enabled`, ...), its name, schedule or executor, keeping everything else.
 
 </details>
 

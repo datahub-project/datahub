@@ -196,6 +196,12 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def structured_property(self, urn: str) -> dict | None:
             return None
 
+        def ingestion_source(self, urn: str) -> dict | None:
+            return None
+
+        def ingestion_sources(self, variables: dict) -> list:
+            return []
+
         def description_sources(self, urn: str) -> dict | None:
             return None
 

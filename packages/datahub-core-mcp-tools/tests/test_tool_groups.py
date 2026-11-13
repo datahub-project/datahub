@@ -128,7 +128,14 @@ WRITE_TOOLS = {
     "save_document",
     "update_document",
 }
-INGESTION_TOOLS = {"list_connector_types", "get_recipe_schema", "validate_recipe"}
+INGESTION_TOOLS = {
+    "list_connector_types",
+    "get_recipe_schema",
+    "validate_recipe",
+    "list_ingestion_sources",
+    "create_ingestion_source",
+    "update_ingestion_source",
+}
 
 
 @pytest.mark.parametrize(
@@ -201,3 +208,23 @@ async def test_ingestion_kill_switch_beats_the_groups(
     registered = register_tools(mcp, is_oss=True, groups=["ingestion"])
 
     assert registered == ["get_me"]
+
+
+async def test_the_writes_switch_removes_the_ingestion_groups_writes(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("TOOLS_IS_MUTATION_ENABLED", "false")
+    mcp = FastMCP("t")
+
+    registered = register_tools(mcp, is_oss=True, groups=["ingestion"])
+
+    async with Client(mcp) as client:
+        tools = await client.list_tools()
+    assert set(registered) == {
+        "get_me",
+        "list_connector_types",
+        "get_recipe_schema",
+        "validate_recipe",
+        "list_ingestion_sources",
+    }
+    assert all(t.annotations.read_only_hint for t in tools)

@@ -1,0 +1,65 @@
+# Ingestion sources: the ingestion tool group's reads and writes. All exist on
+# GMS 1.7.0.
+
+query getIngestionSource($urn: String!) {
+  ingestionSource(urn: $urn) {
+    urn
+    name
+    type
+    source {
+      type
+    }
+    config {
+      recipe
+      executorId
+      version
+      debugMode
+      extraArgs {
+        key
+        value
+      }
+    }
+    schedule {
+      interval
+      timezone
+    }
+  }
+}
+
+query listIngestionSources($input: ListIngestionSourcesInput!) {
+  listIngestionSources(input: $input) {
+    total
+    ingestionSources {
+      urn
+      name
+      type
+      schedule {
+        interval
+        timezone
+      }
+      executions(start: 0, count: 1) {
+        executionRequests {
+          urn
+          result {
+            status
+            startTimeMs
+            durationMs
+          }
+        }
+      }
+    }
+  }
+}
+
+mutation createIngestionSource($input: UpdateIngestionSourceInput!) {
+  createIngestionSource(input: $input)
+}
+
+# Replaces the source's whole info aspect: the caller sends every field it
+# means to keep.
+mutation updateIngestionSource(
+  $urn: String!
+  $input: UpdateIngestionSourceInput!
+) {
+  updateIngestionSource(urn: $urn, input: $input)
+}
