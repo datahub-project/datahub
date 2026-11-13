@@ -8,6 +8,8 @@ import type {
 } from '@components/components/Editor/types';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { useMentionChipReady } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
+import { MentionEntitiesContextProvider } from '@app/sharedV2/editor/mentions/MentionEntitiesContextProvider';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 import { lazyNamed } from '@app/sharedV2/lazyPage';
 
@@ -35,8 +37,11 @@ function LazyMentionsPicker(props: EditorMentionsPickerProps) {
 }
 
 // Read-only documentation renders mentions too, so the name paints first and the chip follows.
+// There the chip, its chunk and its data also wait until the content is in view and the browser is idle.
 function LazyMentionView(props: EditorMentionViewProps) {
+    const { ref, ready } = useMentionChipReady();
     const placeholder = <span>{props.name}</span>;
+    if (!ready) return <span ref={ref}>{props.name}</span>;
     return (
         <ErrorBoundary fallback={() => placeholder}>
             <Suspense fallback={placeholder}>
@@ -46,7 +51,7 @@ function LazyMentionView(props: EditorMentionViewProps) {
     );
 }
 
-export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionView' | 'imageUploadEnabled'>;
+export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionView' | 'mentionsProvider' | 'imageUploadEnabled'>;
 
 /** The alchemy Editor with DataHub mentions and the documentation file upload flag. */
 export const Editor = forwardRef<unknown, Props>((props, ref) => {
@@ -58,6 +63,7 @@ export const Editor = forwardRef<unknown, Props>((props, ref) => {
             ref={ref}
             mentionsPicker={LazyMentionsPicker}
             mentionView={LazyMentionView}
+            mentionsProvider={MentionEntitiesContextProvider}
             imageUploadEnabled={imageUploadEnabled}
         />
     );
