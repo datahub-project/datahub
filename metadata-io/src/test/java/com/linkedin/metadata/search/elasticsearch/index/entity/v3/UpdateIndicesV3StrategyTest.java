@@ -1785,6 +1785,209 @@ public class UpdateIndicesV3StrategyTest {
   }
 
   @Test
+  public void testSemanticContentUpdateReachesOnlyDocumentsTheFillAlreadyWrote() throws Exception {
+    String alias = v3IndexName("dataset");
+    String next = alias + "_0_14_0-0_1679000000000";
+    UpdateIndicesV3Strategy filling =
+        createStrategyWithWriteTargets(
+            new IncrementalReindexWriteTargets(Map.of(), Map.of(alias, next), null, null, true));
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+    mockSearchDocument.put("name", "embedded");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    filling.processBatch(operationContext, Map.of(testUrn, List.of(mockEvent)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService, times(2))
+        .writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    V3SearchDocumentWrite live = writeCaptor.getAllValues().get(0);
+    V3SearchDocumentWrite mirrored = writeCaptor.getAllValues().get(1);
+    assertEquals(live.indexName(), alias);
+    assertEquals(live.kind(), V3SearchDocumentWrite.Kind.MERGE);
+    assertEquals(mirrored.indexName(), next);
+    assertEquals(mirrored.kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testSemanticContentUpdateDoesNotCreateADocumentWhileTheAliasIsFilledInPlace()
+      throws Exception {
+    String alias = v3IndexName("dataset");
+    UpdateIndicesV3Strategy fillingInPlace =
+        createStrategyWithWriteTargets(
+            new IncrementalReindexWriteTargets(Map.of(), Map.of(alias, alias), null, null, true));
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+    mockSearchDocument.put("name", "embedded");
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(mockSearchDocument));
+
+    fillingInPlace.processBatch(operationContext, Map.of(testUrn, List.of(mockEvent)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().indexName(), alias);
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testSemanticContentDiffUpdatesAnExistingDocument() throws Exception {
+    when(mockAspectSpec.getName()).thenReturn("semanticContent");
+    when(mockEvent.getAspectName()).thenReturn("semanticContent");
+    when(mockEvent.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(searchDocument("embedded")));
+
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(mockEvent)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testCoalescedSemanticContentCreateAndUpdateMerges() throws Exception {
+    AspectSpec semanticSpec = mock(AspectSpec.class);
+    when(semanticSpec.getName()).thenReturn("semanticContent");
+    when(semanticSpec.isTimeseries()).thenReturn(false);
+    RecordTemplate created = mock(RecordTemplate.class);
+    RecordTemplate updated = mock(RecordTemplate.class);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(searchDocument("embedded")));
+    MCLItem create = aspectEvent(semanticSpec, created, ChangeType.UPSERT, null, null);
+    MCLItem update = aspectEvent(semanticSpec, updated, ChangeType.UPSERT, null, null);
+    when(update.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(create, update)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE);
+  }
+
+  @Test
+  public void testCoalescedSemanticContentDiffUsesTheFirstPrevious() throws Exception {
+    AspectSpec semanticSpec = mock(AspectSpec.class);
+    when(semanticSpec.getName()).thenReturn("semanticContent");
+    when(semanticSpec.isTimeseries()).thenReturn(false);
+    RecordTemplate earlier = mock(RecordTemplate.class);
+    RecordTemplate later = mock(RecordTemplate.class);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(searchDocument("embedded")));
+    MCLItem first = aspectEvent(semanticSpec, earlier, ChangeType.UPSERT, null, null);
+    MCLItem second = aspectEvent(semanticSpec, later, ChangeType.UPSERT, null, null);
+    when(first.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(first, second)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testCoalescedSemanticContentCreateAndDeleteDoesNotCreateADocument() throws Exception {
+    AspectSpec semanticSpec = mock(AspectSpec.class);
+    when(semanticSpec.getName()).thenReturn("semanticContent");
+    when(semanticSpec.isTimeseries()).thenReturn(false);
+    when(mockEntitySpec.getAspectSpec("semanticContent")).thenReturn(semanticSpec);
+    RecordTemplate created = mock(RecordTemplate.class);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(searchDocument("embedded")));
+    MCLItem create = aspectEvent(semanticSpec, created, ChangeType.UPSERT, null, null);
+    MCLItem delete = aspectEvent(semanticSpec, null, ChangeType.DELETE, null, null);
+    when(delete.getPreviousRecordTemplate()).thenReturn(mock(RecordTemplate.class));
+
+    strategy.processBatch(operationContext, Map.of(testUrn, List.of(create, delete)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
+  public void testMixedBatchWithASemanticContentDiffDoesNotCreateWhileFilledInPlace()
+      throws Exception {
+    String alias = v3IndexName("dataset");
+    UpdateIndicesV3Strategy fillingInPlace =
+        createStrategyWithWriteTargets(
+            new IncrementalReindexWriteTargets(Map.of(), Map.of(alias, alias), null, null, true));
+    AspectSpec propertiesSpec = mock(AspectSpec.class);
+    when(propertiesSpec.getName()).thenReturn(DATASET_PROPERTIES_ASPECT_NAME);
+    when(propertiesSpec.isTimeseries()).thenReturn(false);
+    AspectSpec semanticSpec = mock(AspectSpec.class);
+    when(semanticSpec.getName()).thenReturn("semanticContent");
+    when(semanticSpec.isTimeseries()).thenReturn(false);
+    RecordTemplate properties = mock(RecordTemplate.class);
+    RecordTemplate semantic = mock(RecordTemplate.class);
+    RecordTemplate previousSemantic = mock(RecordTemplate.class);
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(searchDocument("mixed")));
+    MCLItem propertiesEvent =
+        aspectEvent(propertiesSpec, properties, ChangeType.UPSERT, null, null);
+    MCLItem semanticEvent = aspectEvent(semanticSpec, semantic, ChangeType.UPSERT, null, null);
+    when(semanticEvent.getPreviousRecordTemplate()).thenReturn(previousSemantic);
+
+    fillingInPlace.processBatch(
+        operationContext, Map.of(testUrn, List.of(propertiesEvent, semanticEvent)), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    assertEquals(writeCaptor.getValue().indexName(), alias);
+    assertEquals(writeCaptor.getValue().kind(), V3SearchDocumentWrite.Kind.MERGE_EXISTING);
+  }
+
+  @Test
   public void testLiveSemanticContentMergesLikeAnyOtherAspect() throws Exception {
     when(mockAspectSpec.getName()).thenReturn("semanticContent");
     when(mockEvent.getAspectName()).thenReturn("semanticContent");

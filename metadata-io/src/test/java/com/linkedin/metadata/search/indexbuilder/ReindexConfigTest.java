@@ -216,6 +216,67 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testNewEmbeddingProfileKeyIsAppliedInPlace() {
+    Map<String, Object> modelA = embeddingModelMapping("knn_vector");
+    Map<String, Object> current = embeddingMappings(Map.of("model_a", modelA));
+    Map<String, Object> target =
+        embeddingMappings(
+            Map.of("model_a", modelA, "model_b", embeddingModelMapping("knn_vector")));
+
+    ReindexConfig config = embeddingReindexConfig(current, target);
+
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.isPureMappingsAddition());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testChangedEmbeddingVectorTypeReindexes() {
+    Map<String, Object> current =
+        embeddingMappings(Map.of("model_a", embeddingModelMapping("knn_vector")));
+    Map<String, Object> target =
+        embeddingMappings(Map.of("model_a", embeddingModelMapping("keyword")));
+
+    ReindexConfig config = embeddingReindexConfig(current, target);
+
+    Assert.assertFalse(config.isPureMappingsAddition());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  private static Map<String, Object> embeddingModelMapping(String vectorType) {
+    return Map.of(
+        PROPERTIES_KEY,
+        Map.of(
+            "vector", Map.of(TYPE_KEY, vectorType, "dimension", 8),
+            "sourceTextSha256", Map.of(TYPE_KEY, "keyword")));
+  }
+
+  private static Map<String, Object> embeddingMappings(Map<String, Object> models) {
+    Map<String, Object> mappings = new HashMap<>();
+    mappings.put(
+        PROPERTIES_KEY,
+        Map.of(
+            "resolvedTextSha256",
+            Map.of(TYPE_KEY, "keyword"),
+            "embeddings",
+            Map.of(PROPERTIES_KEY, models)));
+    return mappings;
+  }
+
+  private static ReindexConfig embeddingReindexConfig(
+      Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+    return ReindexConfig.builder()
+        .name(TEST_INDEX_NAME)
+        .exists(true)
+        .currentMappings(currentMappings)
+        .targetMappings(targetMappings)
+        .currentSettings(Settings.EMPTY)
+        .targetSettings(new HashMap<>())
+        .enableIndexMappingsReindex(true)
+        .build();
+  }
+
+  @Test
   void testPureMappingsAddition() {
     // Arrange
     Map<String, Object> currentMappings = createBasicMappings();

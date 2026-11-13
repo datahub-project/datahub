@@ -1200,7 +1200,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             preparedBatch.targetFill()
                 ? V3SearchDocumentWrite.Kind.CREATE
                 : V3SearchDocumentWrite.Kind.REPLACE),
-        carriesDelete(preparedBatch));
+        carriesDelete(preparedBatch),
+        false);
     log.debug(
         "V3 wrote combined document for URN: {} to search group: {} with {} aspects",
         urn,
@@ -1251,7 +1252,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       final RecordTemplate previous = aspectEvents.get(0).getPreviousRecordTemplate();
       final Optional<V3SearchDocumentProjector.ProjectedAspect> projection;
       try {
-        projection = searchDocumentProjector.projectAspect(opContext, event, previous);
+        // A rebuild keeps every profile. A live merge must not resend vectors that did not change.
+        projection = searchDocumentProjector.projectAspect(opContext, event, previous, true);
       } catch (RetryableIndexingException e) {
         // A failed aspect read. Redeliver it; skipping the aspect commits the offset past a
         // document this event never writes again.
@@ -1295,8 +1297,18 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     // An in-place fill creates into this same alias. A versioned write can leave a partial
     // document, because catch-up replays that row and replaces it. A timeseries-only batch is not
     // in primary storage, so catch-up never sees it, and a document created here would make the
-    // fill skip the entity.
-    final boolean updateOnly = timeseriesOnlyDuringInPlaceFill(preparedBatch);
+    // fill skip the entity. A semanticContent-only batch during that fill updates a document the
+    // fill has already written. Creating one here would make the create-only fill skip the entity.
+    // A diff against the batch's first semanticContent previous omits unchanged chunks, so that
+    // payload must not create a document: a new document would store the content hash with no
+    // vectors, and an in-place fill would then skip the entity. A later event's previous does
+    // not count. The projector diffs the surviving value against that first previous, and a
+    // create coalesced with an update still sends every profile.
+    final boolean semanticContentOnly = semanticContentOnly(preparedBatch);
+    final boolean updateOnly =
+        timeseriesOnlyDuringInPlaceFill(preparedBatch)
+            || semanticContentDiff(preparedBatch)
+            || (semanticContentOnly && fillingAliasInPlace(preparedBatch));
     writeV3Document(
         opContext,
         new V3SearchDocumentWrite(
@@ -1307,8 +1319,9 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             updateOnly
                 ? V3SearchDocumentWrite.Kind.MERGE_EXISTING
                 : V3SearchDocumentWrite.Kind.MERGE),
-        carriesDelete);
-    appendLiveRunIds(opContext, preparedBatch, carriesDelete, updateOnly);
+        carriesDelete,
+        semanticContentOnly);
+    appendLiveRunIds(opContext, preparedBatch, carriesDelete, updateOnly, semanticContentOnly);
   }
 
   /**
@@ -1322,7 +1335,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
       @Nonnull final OperationContext opContext,
       @Nonnull final PreparedUrnBatch preparedBatch,
       final boolean carriesDelete,
-      final boolean updateOnly) {
+      final boolean updateOnly,
+      final boolean mirrorToFill) {
     final List<String> runIds = getDistinctRunIds(preparedBatch.originalEvents());
     if (runIds.isEmpty()) {
       return;
@@ -1356,7 +1370,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
                 }
               }
             });
-    if (carriesDelete) {
+    if (carriesDelete || mirrorToFill) {
       incrementalReindexWriteTargets
           .fillTargetFor(preparedBatch.indexName())
           .ifPresent(
@@ -1374,6 +1388,57 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     for (String runId : runIds) {
       elasticSearchService.appendRunIdToExistingDocument(opContext, indexName, docId, runId);
     }
+  }
+
+  /**
+   * True when this write must not create a search document because of semanticContent.
+   *
+   * <p>The live projector keeps the last semanticContent event and diffs it against the first
+   * event's previous aspect. Only that first previous can omit {@code chunks}. A create coalesced
+   * with a later update has no first previous, sends every profile, and has to be allowed to create
+   * the document; a later update then finds it. A surviving delete nulls embeddings. When any
+   * semanticContent event in that batch had a previous aspect, creating a document from the delete
+   * would leave a stub an in-place fill then skips. A mixed batch is included: the other aspects
+   * ride on the same write.
+   */
+  private static boolean semanticContentDiff(@Nonnull final PreparedUrnBatch preparedBatch) {
+    MCLItem baseline = null;
+    MCLItem surviving = null;
+    boolean hadPrevious = false;
+    for (MCLItem event : preparedBatch.originalEvents()) {
+      if (!Constants.SEMANTIC_CONTENT_ASPECT_NAME.equals(event.getAspectName())) {
+        continue;
+      }
+      if (baseline == null) {
+        baseline = event;
+      }
+      surviving = event;
+      hadPrevious |= event.getPreviousRecordTemplate() != null;
+    }
+    if (baseline == null || surviving == null) {
+      return false;
+    }
+    if (ChangeType.DELETE.equals(surviving.getChangeType())) {
+      return hadPrevious;
+    }
+    return baseline.getPreviousRecordTemplate() != null;
+  }
+
+  /** True when every event in the batch is a semanticContent change. */
+  private static boolean semanticContentOnly(@Nonnull final PreparedUrnBatch preparedBatch) {
+    return !preparedBatch.originalEvents().isEmpty()
+        && preparedBatch.originalEvents().stream()
+            .allMatch(
+                event -> Constants.SEMANTIC_CONTENT_ASPECT_NAME.equals(event.getAspectName()));
+  }
+
+  /** True when this alias is the index an in-place fill is creating. */
+  private boolean fillingAliasInPlace(@Nonnull final PreparedUrnBatch preparedBatch) {
+    return incrementalReindexWriteTargets != null
+        && incrementalReindexWriteTargets
+            .activeFillTargetFor(preparedBatch.indexName())
+            .filter(preparedBatch.indexName()::equals)
+            .isPresent();
   }
 
   /**
@@ -1438,7 +1503,8 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             preparedBatch.urn(),
             tombstoneDocument.toString(),
             kind),
-        carriesDelete(preparedBatch));
+        carriesDelete(preparedBatch),
+        false);
     log.debug(
         "V3 wrote {} for URN: {} to search group: {} due to absent key aspect",
         kind,
@@ -1476,15 +1542,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
    * alias, while that fill is in flight: the alias still serves the old index, and catch-up
    * re-derives its window from primary storage, which holds nothing for a removed entity or aspect.
    * The fill creates only absent documents, so a delete is mirrored as a tombstone that keeps the
-   * entity deleted. A mirrored merge only updates a document the fill already wrote, so it cannot
-   * leave a partial one for the fill to skip. Unlike the rollback copy, a mirrored delete that
-   * cannot be handed to the bulk processor fails the write as retryable: nothing replays a hard
-   * delete, so the consumer has to redeliver it.
+   * entity deleted. A semanticContent merge is mirrored the same way, as an update of a document
+   * the fill has already written, so a profile change reaches that document and cannot create the
+   * partial one the fill would then skip. Unlike the rollback copy, a mirrored write that cannot be
+   * handed to the bulk processor fails the write as retryable: the consumer has to redeliver it.
    */
   private void writeV3Document(
       @Nonnull final OperationContext opContext,
       @Nonnull final V3SearchDocumentWrite write,
-      final boolean carriesDelete) {
+      final boolean carriesDelete,
+      final boolean mirrorMergeToFill) {
     elasticSearchService.writeV3SearchDocument(opContext, write);
     if (incrementalReindexWriteTargets == null) {
       return;
@@ -1492,7 +1559,7 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
     incrementalReindexWriteTargets
         .oldBackingIndexFor(write.indexName())
         .ifPresent(oldBackingIndex -> writeRollbackCopy(opContext, write, oldBackingIndex));
-    if (carriesDelete) {
+    if (carriesDelete || mirrorMergeToFill) {
       incrementalReindexWriteTargets
           .fillTargetFor(write.indexName())
           .ifPresent(fillTarget -> writeFillTargetCopy(opContext, write, fillTarget));

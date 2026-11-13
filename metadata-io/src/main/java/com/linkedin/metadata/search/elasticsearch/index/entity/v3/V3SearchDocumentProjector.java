@@ -125,6 +125,18 @@ public class V3SearchDocumentProjector {
       @Nonnull final OperationContext opContext,
       @Nonnull final MCLItem event,
       @Nullable final RecordTemplate previousAspect) {
+    return projectAspect(opContext, event, previousAspect, false);
+  }
+
+  /**
+   * @param diffEmbeddingProfiles a live merge sends only the embedding fields that changed. A
+   *     rebuild replaces the document, so it keeps every profile.
+   */
+  public Optional<ProjectedAspect> projectAspect(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nullable final RecordTemplate previousAspect,
+      final boolean diffEmbeddingProfiles) {
     final Urn urn = event.getUrn();
     final AspectSpec aspectSpec = event.getAspectSpec();
 
@@ -171,7 +183,9 @@ public class V3SearchDocumentProjector {
             sharedHasValues,
             parsedUrnNames,
             event.getUrn(),
-            opContext);
+            opContext,
+            diffEmbeddingProfiles ? previousSearchDocument.orElse(null) : null,
+            diffEmbeddingProfiles);
     if (!STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
       for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
         final String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
@@ -293,7 +307,9 @@ public class V3SearchDocumentProjector {
         sharedHasValues,
         parsedUrnNames,
         urn,
-        opContext);
+        opContext,
+        null,
+        false);
   }
 
   public void applyProjection(
@@ -616,7 +632,9 @@ public class V3SearchDocumentProjector {
       @Nonnull final Set<String> sharedHasValues,
       @Nonnull final ParsedUrnNames parsedUrns,
       @Nonnull final Urn urn,
-      @Nonnull final OperationContext opContext) {
+      @Nonnull final OperationContext opContext,
+      @Nullable final ObjectNode previousSearchDocument,
+      final boolean diffEmbeddingProfiles) {
     final String aspectName = aspectSpec.getName();
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
@@ -651,6 +669,10 @@ public class V3SearchDocumentProjector {
       aspectFields.remove(EMBEDDINGS_FIELD);
       if (shouldProjectRootEmbeddings(entitySpec)) {
         filterRetiredModelsAndValidateVectorDimensions(opContext, rootFields);
+        if (diffEmbeddingProfiles) {
+          // Dimension checks need the chunks array. Strip unchanged vectors only after that.
+          retainChangedEmbeddingProfiles(rootFields, previousSearchDocument);
+        }
       } else {
         rootFields.remove(EMBEDDINGS_FIELD);
       }
@@ -675,6 +697,56 @@ public class V3SearchDocumentProjector {
     return isPrimaryEntity(entitySpec) || semanticEntityNames.contains(entitySpec.getName());
   }
 
+  /**
+   * A partial update merges, so an unchanged profile would resend its vectors. Drop a profile that
+   * matches the previous one, and inside a changed profile drop fields that match, including {@code
+   * chunks} when the vectors did not change. A null profile is a removal and stays.
+   */
+  private static void retainChangedEmbeddingProfiles(
+      @Nonnull final ObjectNode rootFields, @Nullable final ObjectNode previousSearchDocument) {
+    final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
+    if (!(embeddings instanceof ObjectNode currentEmbeddings)) {
+      return;
+    }
+    final JsonNode previousEmbeddings =
+        previousSearchDocument == null ? null : previousSearchDocument.get(EMBEDDINGS_FIELD);
+    if (!(previousEmbeddings instanceof ObjectNode previousProfiles)) {
+      return;
+    }
+    final Iterator<Map.Entry<String, JsonNode>> profiles = currentEmbeddings.fields();
+    while (profiles.hasNext()) {
+      final Map.Entry<String, JsonNode> profile = profiles.next();
+      final JsonNode currentProfile = profile.getValue();
+      if (currentProfile == null || currentProfile.isNull() || !currentProfile.isObject()) {
+        continue;
+      }
+      final JsonNode previousProfile = previousProfiles.get(profile.getKey());
+      if (previousProfile == null || previousProfile.isNull() || !previousProfile.isObject()) {
+        continue;
+      }
+      if (currentProfile.equals(previousProfile)) {
+        profiles.remove();
+        continue;
+      }
+      retainChangedFields((ObjectNode) currentProfile, (ObjectNode) previousProfile);
+    }
+    if (currentEmbeddings.isEmpty()) {
+      rootFields.remove(EMBEDDINGS_FIELD);
+    }
+  }
+
+  private static void retainChangedFields(
+      @Nonnull final ObjectNode current, @Nonnull final ObjectNode previous) {
+    final Iterator<Map.Entry<String, JsonNode>> fields = current.fields();
+    while (fields.hasNext()) {
+      final Map.Entry<String, JsonNode> field = fields.next();
+      final JsonNode previousValue = previous.get(field.getKey());
+      if (previousValue != null && field.getValue().equals(previousValue)) {
+        fields.remove();
+      }
+    }
+  }
+
   private void filterRetiredModelsAndValidateVectorDimensions(
       @Nonnull final OperationContext opContext, @Nonnull final ObjectNode rootFields) {
     final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
@@ -690,7 +762,9 @@ public class V3SearchDocumentProjector {
     expectedVectorDimensions.forEach(
         (modelKey, expectedDimension) -> {
           final JsonNode model = embeddingsObject.get(modelKey);
-          if (model == null) {
+          // A null profile removes the key. It has no chunks to validate, and dropping it would
+          // leave the stored vectors in place on a merge.
+          if (model == null || model.isNull() || model.isMissingNode()) {
             return;
           }
           final String rejection = invalidModelReason(model, expectedDimension);
