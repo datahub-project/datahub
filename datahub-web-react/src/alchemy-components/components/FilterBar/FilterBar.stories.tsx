@@ -11,7 +11,12 @@ import styled from 'styled-components';
 
 import { FilterBar } from '@components/components/FilterBar/FilterBar';
 import { FilterPopover } from '@components/components/FilterBar/components';
-import { FilterField, FilterGroup, FilterValueEditorProps } from '@components/components/FilterBar/types';
+import {
+    FilterBarProps,
+    FilterField,
+    FilterGroup,
+    FilterValueEditorProps,
+} from '@components/components/FilterBar/types';
 
 import DbtLogo from '@images/dbtlogo.png';
 import KafkaLogo from '@images/kafkalogo.png';
@@ -455,6 +460,84 @@ const meta = {
 export default meta;
 
 type Story = StoryObj<typeof meta>;
+
+// Stateful wrapper so the controls panel can change props while the bar keeps its rules.
+function PlaygroundDemo({ value: initialValue, ...props }: FilterBarProps) {
+    const [value, setValue] = useState(initialValue);
+    return (
+        <Frame>
+            <FilterBar {...props} value={value} onChange={setValue} />
+        </Frame>
+    );
+}
+
+export const playground: Story = {
+    args: {
+        value: {
+            id: 'playground-root',
+            match: 'all',
+            filters: [
+                { id: 'type-filter', field: 'entityType', operator: 'is', values: ['dataset'] },
+                { id: 'platform-filter', field: 'platform', operator: 'is_not', values: ['looker'] },
+            ],
+        },
+        fields,
+        onChange: () => {},
+        allowGroups: false,
+        addFilterPlacement: 'inline',
+        menuPlacement: 'bottom',
+        maxDepth: 2,
+    },
+    argTypes: {
+        allowGroups: { control: 'boolean', description: 'Allow nested all/any groups of rules.' },
+        addFilterPlacement: {
+            control: 'inline-radio',
+            options: ['inline', 'below'],
+            description: 'Add filter after the chips, or on the row below beside Clear all.',
+        },
+        menuPlacement: { control: 'inline-radio', options: ['bottom', 'right'] },
+        maxDepth: { control: { type: 'number', min: 1, max: 4 }, description: 'How deep groups can nest.' },
+        value: { control: false },
+        fields: { control: false },
+        onChange: { control: false },
+    },
+    render: (args) => <PlaygroundDemo {...args} />,
+};
+
+export const empty: Story = {
+    args: {
+        value: { id: 'empty-root', match: 'all', filters: [] },
+        fields,
+        onChange: () => {},
+    },
+    render: () => (
+        <FilterBarDemo
+            title="No filters yet"
+            description="Only the Add filter button shows until a rule is added."
+            initialValue={{ id: 'empty-root', match: 'all', filters: [] }}
+        />
+    ),
+};
+
+export const loadingValues: Story = {
+    args: {
+        value: { id: 'loading-root', match: 'all', filters: [] },
+        fields,
+        onChange: () => {},
+    },
+    render: () => (
+        <FilterBarDemo
+            title="Loading values"
+            description="Platform's values are still loading, and Domain's counts are on the way. Open Add filter to see each."
+            initialValue={{ id: 'loading-root', match: 'all', filters: [] }}
+            availableFields={fields.map((field) => {
+                if (field.field === 'platform') return { ...field, values: [], loading: true };
+                if (field.field === 'domain') return { ...field, countsLoading: true };
+                return field;
+            })}
+        />
+    ),
+};
 
 export const searchResults: Story = {
     args: {
