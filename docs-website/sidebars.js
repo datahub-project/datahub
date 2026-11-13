@@ -840,11 +840,6 @@ module.exports = {
         },
       ],
     },
-    {
-      type: "doc",
-      label: "Use Docs with AI Tools",
-      id: "docs/use-docs-with-ai",
-    },
     // DataHub Cloud.
     {
       type: "html",
@@ -1754,6 +1749,11 @@ module.exports = {
         "docs/community",
         "docs/slack",
         { type: "doc", label: "Otto (Community Assistant)", id: "docs/otto" },
+        {
+          type: "doc",
+          label: "Use Docs with AI Tools",
+          id: "docs/use-docs-with-ai",
+        },
         "docs/townhalls",
         //        "docs/townhall-history",
         "docs/CODE_OF_CONDUCT",
