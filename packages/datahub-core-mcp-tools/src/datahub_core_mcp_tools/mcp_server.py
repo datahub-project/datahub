@@ -42,7 +42,7 @@ from .tools.glossary_versioning import (
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.search import search, search_description
-from .tools.tags import add_tags, remove_tags
+from .tools.tags import add_tags, create_tag, remove_tags
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -138,7 +138,7 @@ def register_tool(
 
     The function runs in a worker thread (see ``async_background``), is tagged
     with its tool type, and carries MCP annotations from its @read_only,
-    @destructive and @open_world markers. A ``slow`` tool also reports progress
+    @destructive, @idempotent and @open_world markers. A ``slow`` tool also reports progress
     while it runs, to clients that ask for it.
     """
     mcp_instance.tool(
@@ -251,6 +251,7 @@ def register_tools(
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
     if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
         add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
+    add("create_tag", create_tag, ToolType.MUTATION)
     add("add_tags", add_tags, ToolType.MUTATION)
     add("remove_tags", remove_tags, ToolType.MUTATION)
     if is_entity_versioning_enabled():

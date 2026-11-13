@@ -117,6 +117,13 @@ class ReadBackend(Protocol):
         (``getGlossaryTermsForCompare`` in ``glossary_versioning.gql``)."""
         ...
 
+    def tags_named(self, name: str, count: int) -> list[JsonObject]:
+        """Up to ``count`` tags a search for ``name`` finds, each with its urn and
+        ``properties.name`` (``findTagsByName`` in ``tags.gql``). Search matches
+        loosely and lags writes: the caller compares names, and a tag created
+        moments ago may be missing."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -335,6 +342,26 @@ class GraphQLReadBackend:
             ).get("entities")
             or [],
         )
+
+    def tags_named(self, name: str, count: int) -> list[JsonObject]:
+        results = cast(
+            list[JsonObject],
+            (
+                graphql_helpers.execute_graphql(
+                    self.graph,
+                    query=graphql_helpers.load_gql_document("tags.gql"),
+                    variables={"query": name, "count": count},
+                    operation_name="findTagsByName",
+                )["search"]
+                or {}
+            ).get("searchResults")
+            or [],
+        )
+        return [
+            cast(JsonObject, r["entity"])
+            for r in results
+            if isinstance(r, dict) and isinstance(r.get("entity"), dict)
+        ]
 
 
 def get_read_backend() -> ReadBackend:
