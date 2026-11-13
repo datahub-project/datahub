@@ -4117,12 +4117,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         opContext, urn, aspectName, conditions, hardDelete, deletePurpose, null);
   }
 
-  /**
-   * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
-   *     read under lock in the delete transaction, is at or below its captured version and none is
-   *     new since the capture; otherwise nothing is deleted
-   */
-  @Nullable
   private static boolean isPolicy(@Nullable Urn urn) {
     return urn != null && POLICY_ENTITY_NAME.equals(urn.getEntityType());
   }
@@ -4140,6 +4134,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
   }
 
+  /**
+   * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
+   *     read under lock in the delete transaction, is at or below its captured version and none is
+   *     new since the capture; otherwise nothing is deleted
+   */
+  @Nullable
   private RollbackResult deleteAspectWithoutMCL(
       @Nonnull OperationContext opContext,
       String urn,
