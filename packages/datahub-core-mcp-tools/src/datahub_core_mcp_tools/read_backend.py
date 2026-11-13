@@ -19,6 +19,11 @@ from loguru import logger
 from pydantic import JsonValue
 
 from . import graphql_helpers
+from .openapi_client import (
+    RawVersionedBatch,
+    VersionedAspectPair,
+    VersionedOpenApiClient,
+)
 from .sibling_merge import SIBLINGS_KEY, SIBLINGS_SEARCH_KEY, sibling_merge_enabled
 
 JsonObject = dict[str, JsonValue]
@@ -86,6 +91,12 @@ class ReadBackend(Protocol):
         """The dataset's ``usageStats`` over ``time_range`` (a GraphQL TimeRange)
         as ``dataset_usage.gql`` selects them, under ``usageStats``; None when GMS
         returns no dataset."""
+        ...
+
+    def aspect_versions(self, pairs: list[VersionedAspectPair]) -> RawVersionedBatch:
+        """One stored version of each (urn, aspect) pair as its raw envelope
+        (``value``, ``systemMetadata``, ``auditStamp``); version 0 is the current
+        value. A failed read is reported per pair in ``errors``, not raised."""
         ...
 
 
@@ -261,6 +272,10 @@ class GraphQLReadBackend:
                 operation_name="getDatasetUsageHistory",
             )["dataset"],
         )
+
+    def aspect_versions(self, pairs: list[VersionedAspectPair]) -> RawVersionedBatch:
+        # GraphQL serves only current values; OpenAPI v3 reads stored versions.
+        return VersionedOpenApiClient(self.graph).get_entities(pairs)
 
 
 def get_read_backend() -> ReadBackend:
