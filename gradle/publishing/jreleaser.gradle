@@ -1,0 +1,57 @@
+/**
+ Maven Central (Central Portal) deployment of the published Java artifacts via JReleaser.
+
+ The publishing modules (datahub-client, acryl-spark-lineage, datahub-protobuf, auth-api,
+ custom-plugin-lib) each declare a local `centralStaging` Maven repository at
+ build/central-staging. A GA release publishes them there (signed by the Gradle signing
+ plugin), then `jreleaserDeploy` uploads everything staged as ONE bundle, i.e. one Central
+ Portal deployment, instead of one deployment per module.
+
+ Usage (see .github/workflows/publish-datahub-jars.yml):
+   ./gradlew -PreleaseVersion=<version> <module>:publishAllPublicationsToCentralStagingRepository ...
+   ./gradlew -PreleaseVersion=<version> jreleaserDeploy
+
+ Credentials come from the JRELEASER_MAVENCENTRAL_USERNAME / JRELEASER_MAVENCENTRAL_PASSWORD
+ environment variables (a Central Portal user token).
+ **/
+
+jreleaser {
+  project {
+    java {
+      // The root project has no group; JReleaser requires one.
+      groupId = 'io.acryl'
+    }
+  }
+
+  // Artifacts are signed by the Gradle signing plugin when they are published to the staging repository.
+  signing {
+    active = 'NEVER'
+  }
+
+  deploy {
+    maven {
+      mavenCentral {
+        sonatype {
+          // Only for release versions; never deploys a -SNAPSHOT version.
+          active = 'RELEASE'
+          url = 'https://central.sonatype.com/api/v1/publisher'
+          namespace = 'io.acryl'
+          // Verify POMs (PomChecker) and the presence of sources/javadoc jars before uploading.
+          applyMavenCentralRules = true
+          // Signatures and md5/sha1 checksums are already staged by Gradle.
+          sign = false
+          checksums = false
+          // The Central Portal rejects bundles larger than 1 GB; a GA bundle is currently ~535 MB.
+          // The upload is a single large request, so allow more than the default 60s for the response.
+          readTimeout = 600
+          // Deployment status is polled every 20s, up to 100 times (retryDelay/maxRetries defaults, ~33 min).
+          // If validation takes longer, jreleaserDeploy fails even though the deployment may still go
+          // through: check https://central.sonatype.com/publishing/deployments.
+          retryDelay = 20
+          maxRetries = 100
+          stagingRepository(layout.buildDirectory.dir('central-staging').get().asFile.path)
+        }
+      }
+    }
+  }
+}

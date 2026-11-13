@@ -210,6 +210,7 @@ def _run(
     api.change_check_failures = []
     api.lineage_read_failures = []
     api.field_lineage_failures = []
+    api.opened_without_data = []
     api.get_user_name.return_value = None
     api.list_datasets.return_value = datasets
     api.get_items.return_value = [
@@ -370,7 +371,7 @@ def test_script_table_in_lineage_graph_keeps_its_urn(mock_api_cls: MagicMock) ->
     with patch.object(
         QlikSenseSource,
         "_build_script_tables",
-        lambda self, app: [script_table] if app.id == "etl-app" else [],
+        lambda self, app, parsed=None: [script_table] if app.id == "etl-app" else [],
     ):
         _, written, added = _run(mock_api_cls, DATASETS)
 
@@ -398,7 +399,7 @@ def test_failed_dataset_listing_keeps_table_lineage(mock_api_cls: MagicMock) -> 
     with patch.object(
         QlikSenseSource,
         "_build_script_tables",
-        lambda self, app: [script_table] if app.id == "etl-app" else [],
+        lambda self, app, parsed=None: [script_table] if app.id == "etl-app" else [],
     ):
         source, written, added = _run(mock_api_cls, None)
 

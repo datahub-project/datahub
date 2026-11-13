@@ -85,6 +85,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
+
 - [#21186](https://github.com/datahub-project/datahub/pull/21186) **(Ingestion / Qlik Sense)** A few Qlik datasets get new identities or details, so the first run after upgrading soft-deletes their old versions when stale metadata removal is on:
 
   - Load script tables that have no label in the script were named `<app id>.table_<n>`. When exactly one table of the app's data model has the same columns, they now take that table's name, which changes their URN; otherwise they keep `table_<n>`. Give such loads a label in the script to keep their name stable.
@@ -340,6 +342,8 @@ Requirements:
 - [#20962](https://github.com/datahub-project/datahub/pull/20962) **(Ingestion / Kafka emitter, Airflow)** Emitting a `MetadataChangeEvent` with `DatahubKafkaEmitter` (`emit` or `emit_mce_async`) is deprecated. **Action:** emit `MetadataChangeProposalWrapper` instead.
 
 ### Other Notable Changes
+
+- [#20589](https://github.com/datahub-project/datahub/pull/20589) **(Ingestion / datahub-gc, CLI)** When the soft-deleted entity cleanup hard-deletes an entity, it now removes references to it only for the types `datahub delete --hard` already handles this way: tags, users, groups, domains, glossary terms and nodes, forms and roles. Before, it did this for every type, which could delete data from entities that still exist. Purging a data flow hard-deleted all of its data jobs, including live ones, and purging a container removed the parent link from all of its children. References to other purged entities, such as a dataset listed in another dataset's upstream lineage, now stay in place, as they already do after `datahub delete --hard`. Both commands now also remove references before the hard delete rather than after, so the cleanup no longer misses them. Roles can now be soft-deleted. **Action:** none.
 
 - [#21162](https://github.com/datahub-project/datahub/pull/21162) **(GMS / Registry APIs)** All entity and lineage registry OpenAPI routes now allow any authenticated actor to read schema metadata (entity types, aspect names and versions, field and annotation specs), including ordinary ingestion and service tokens. No instance data is exposed, and authentication is still required. **Action:** to require **Manage System Operations** as before, set `REGISTRY_API_AUTHENTICATED_READ_ENABLED=false` on GMS and restart. The setting defaults to `true`.
 - [#21096](https://github.com/datahub-project/datahub/pull/21096) **(GMS / Lineage)** With `LINEAGE_COUNT_ONLY_ENABLED` on, lineage counts on search cards and sidebars stay fast for large sibling groups: the group's members are read in batches, and up to 1,000 of them are counted together (in a larger group, the members beyond that can appear in the group's own counts). When a group's lineage is too large to count exactly, the total is an estimate and can be noticeably higher than the true number. A `lineage` request that doesn't ask for `relationships` is answered from counts: it returns the requested `start`, `count` 0 and the totals. **Action:** none.

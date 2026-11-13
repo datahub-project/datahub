@@ -1,8 +1,8 @@
 import logging
 from dataclasses import dataclass, field
-from typing import Dict, Literal, Optional, Union
+from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -141,9 +142,19 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     script_tables_found: int = 0
     script_tables_with_lineage: int = 0
     apps_without_load_model: LossyList[str] = field(default_factory=LossyList)
+    qvds_found: int = 0
+    # QVD paths a load script names that resolve to no single file, such as a
+    # wildcard, a variable, a relative path or an unknown data connection.
+    unresolved_qvd_paths: LossyList[str] = field(default_factory=LossyList)
+    # QVDs loaded without a table label, which Qlik names itself.
+    unlabelled_qvd_loads: LossyList[str] = field(default_factory=LossyList)
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    file_sources_resolved: int = 0
+    # File data connections whose files an app reads but whose storage is not
+    # known: add them to file_connection_to_storage.
+    unresolved_file_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -168,6 +179,34 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None,
         description="Schema used for tables the load script does not qualify.",
     )
+
+
+class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    storage_uri: Optional[str] = Field(
+        default=None,
+        description="Where the connection's files are, as an `abfss://<container>@<account>"
+        ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
+        "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
+        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
+        "connection when not set, which needs the API key's user to see the "
+        "connection.",
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Lowercase the file dataset names, to match a storage source "
+        "run with `convert_urns_to_lowercase`.",
+    )
+
+    @field_validator("storage_uri")
+    @classmethod
+    def storage_uri_is_supported(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and file_storage_of_uri(value) is None:
+            raise ValueError(
+                f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
+                "URI that names the container, or an s3:// or gs:// URI"
+            )
+        return value
 
 
 class QlikOnPremConfig(ConfigModel):
@@ -243,6 +282,33 @@ class QlikOnPremConfig(ConfigModel):
         "lineage should resolve against.",
     )
 
+    read_data_model: bool = Field(
+        default=False,
+        description="Open each app with its data to read its data model, which "
+        "gives every table its fields and types, including tables loaded with "
+        "`LOAD *` and from QVDs, and lets charts link to exactly the tables and "
+        "fields they use. Off by default: apps are then opened without their "
+        "data, which is much faster, and table fields come only from the load "
+        "script. Opening an app with its data loads it into Engine memory until "
+        "the app cache time set in the QMC has passed since its last session, "
+        "reads one app at a time unless `max_workers` is set, and fails for apps "
+        "whose section access denies the service user their data.",
+    )
+    qvd_folder_aliases: Dict[str, str] = Field(
+        default={},
+        description="Folder paths to treat as the same folder when matching QVD "
+        "files across apps, as the path one app names -> the path to use. For "
+        "example `{'//qlik-sense/qvd': '//qlik-sense.corp.local/qvd'}`, when apps "
+        "reach one share by different host names or drive letters. A QVD is "
+        "identified by its file path, so files under these paths join into one "
+        "dataset.",
+    )
+    qvd_ignored_connections: List[str] = Field(
+        default=["ServerLogFolder", "ArchivedLogsFolder"],
+        description="Folder data connections whose QVDs are not ingested. By "
+        "default the connections the monitoring apps read their logs through.",
+    )
+
     @model_validator(mode="after")
     def warn_unused_server_cert_hostname(self) -> "QlikOnPremConfig":
         if self.server_cert_hostname and not self.verify_server_hostname:
@@ -293,9 +359,10 @@ class QlikSourceConfig(
         default=None,
         ge=1,
         description="Number of apps and datasets read at the same time, across "
-        "all spaces and streams. Each app read holds one Engine session open. Defaults to 4 on-prem, where apps "
-        "are opened without their data, and to 1 on Qlik Cloud, where every open "
-        "app's data is loaded.",
+        "all spaces and streams. Each app read holds one Engine session open. "
+        "Defaults to 1, as every app opened with its data is loaded into Engine "
+        "memory, and to 4 on-prem when `on_prem.read_data_model` is false and apps "
+        "are opened without their data.",
     )
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None,
@@ -318,6 +385,15 @@ class QlikSourceConfig(
         "Repository Service, to connect or reply before the request fails. An app "
         "whose read times out is ingested as partly read.",
     )
+    include_sheets_and_charts: bool = Field(
+        default=True,
+        description="Ingest each app's sheets as dashboards and their charts. When "
+        "false, apps are read without their sheets, which is faster, and each app "
+        "dashboard links only to its tables. With stale metadata removal, sheets "
+        "and charts ingested earlier are soft-deleted; raise "
+        "`stateful_ingestion.fail_safe_threshold` for that first run, as they are "
+        "usually most of the entities and their removal otherwise trips it.",
+    )
     include_column_lineage: bool = Field(
         default=True,
         description="Emit column-level lineage, from load scripts and app data "
@@ -333,6 +409,37 @@ class QlikSourceConfig(
         "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
         "cannot be inferred from the data connection.",
     )
+    script_variables: Dict[str, str] = Field(
+        default={},
+        description="Values for load script variables the connector can't read, "
+        "such as ones computed with LET, set in an included script, or deleted "
+        "after the reload, keyed by variable name without `$()`. Used in QVD and "
+        "file paths, connection names, SQL and chart expressions. An app's own "
+        "variables, as its last reload left them, take precedence, and a "
+        "variable the visible script sets overrides it from where it is set.",
+    )
+    file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
+        default={},
+        description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "
+        "and Google Cloud Storage data connections are in DataHub, for lineage from "
+        "the files apps load. Use the data connection name as key, as load scripts "
+        "write it (`<space>:<connection>` or `<connection>`). Set `storage_uri` "
+        "when the API key's user cannot see the connection, and `platform_instance` "
+        "and `env` to match the source that ingests the storage.",
+    )
+
+    @field_validator("script_variables")
+    @classmethod
+    def script_variable_names_are_bare(cls, value: Dict[str, str]) -> Dict[str, str]:
+        # A name such as `$(vSchema)` or ` vSchema` never matches a reference
+        # in the script, so it would be ignored without notice.
+        for name in value:
+            if not name or name != name.strip() or any(c in name for c in "$()="):
+                raise ValueError(
+                    f"Invalid script_variables name {name!r}: use the variable "
+                    "name alone, such as vSchema, without $() or spaces around it"
+                )
+        return value
 
     @model_validator(mode="after")
     def validate_connection(self) -> "QlikSourceConfig":
@@ -352,7 +459,7 @@ class QlikSourceConfig(
     def resolved_max_workers(self) -> int:
         if self.max_workers is not None:
             return self.max_workers
-        return 4 if self.on_prem is not None else 1
+        return 4 if self.on_prem is not None and not self.on_prem.read_data_model else 1
 
     def skips_unchanged_apps(self) -> bool:
         return self.on_prem is not None and self.on_prem.skip_unchanged_apps

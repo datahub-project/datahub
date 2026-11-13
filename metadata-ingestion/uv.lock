@@ -1392,8 +1392,10 @@ pulsar = [
     { name = "requests" },
 ]
 qlik-sense = [
+    { name = "parse" },
     { name = "requests" },
     { name = "sqlglot", extra = ["c"] },
+    { name = "wcmatch" },
     { name = "websocket-client" },
 ]
 quicksight = [
@@ -2378,6 +2380,7 @@ requires-dist = [
     { name = "parse", marker = "extra == 'gcs'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 'gcs-slim'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 'integration-tests'", specifier = ">=1.19.0,<2.0.0" },
+    { name = "parse", marker = "extra == 'qlik-sense'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 'redshift'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 'redshift-slim'", specifier = ">=1.19.0,<2.0.0" },
     { name = "parse", marker = "extra == 's3'", specifier = ">=1.19.0,<2.0.0" },
@@ -3026,6 +3029,7 @@ requires-dist = [
     { name = "wcmatch", marker = "extra == 'gcs'", specifier = ">=10.1,<11.0.0" },
     { name = "wcmatch", marker = "extra == 'gcs-slim'", specifier = ">=10.1,<11.0.0" },
     { name = "wcmatch", marker = "extra == 'integration-tests'", specifier = ">=10.1,<11.0.0" },
+    { name = "wcmatch", marker = "extra == 'qlik-sense'", specifier = ">=10.1,<11.0.0" },
     { name = "wcmatch", marker = "extra == 'redshift'", specifier = ">=10.1,<11.0.0" },
     { name = "wcmatch", marker = "extra == 'redshift-slim'", specifier = ">=10.1,<11.0.0" },
     { name = "wcmatch", marker = "extra == 's3'", specifier = ">=10.1,<11.0.0" },
