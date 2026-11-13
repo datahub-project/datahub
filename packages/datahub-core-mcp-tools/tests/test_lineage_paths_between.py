@@ -805,6 +805,9 @@ class FakeBackend:
     def exists(self, urn: str) -> bool:
         return urn not in self.missing
 
+    def list_queries(self, variables: JsonObject) -> JsonObject:
+        return {}
+
     def lineage_paths(self, variables: JsonObject) -> JsonObject:
         self.sent.append(dict(variables))
         return cast(JsonObject, self.responses.pop(0)["searchAcrossLineage"])

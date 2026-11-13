@@ -172,6 +172,9 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def document_contents(self, urns: list[str]) -> list:
             return []
 
+        def list_queries(self, variables: dict) -> dict:
+            return {}
+
         def lineage_paths(self, variables: dict) -> dict:
             return {}
 
