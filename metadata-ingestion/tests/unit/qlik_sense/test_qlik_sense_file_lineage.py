@@ -126,6 +126,22 @@ def test_mapping_and_added_loads_list_their_files() -> None:
     assert not parsed.has_includes
 
 
+@pytest.mark.parametrize(
+    "fields",
+    ["From AS Start, To AS End", "From & '-' & To AS Range, id"],
+)
+def test_field_named_from_is_not_the_file(fields: str) -> None:
+    parsed = parse_script(
+        f"Ranges: LOAD {fields} FROM [lib://Lake/ranges.csv] (txt) WHERE id > 1;\n"
+        f"Orders: LOAD {fields} FROM [lib://QVD Data/orders.qvd] (qvd);\n"
+    )
+    assert [load.expanded for load in parsed.file_loads] == [
+        "lib://Lake/ranges.csv",
+        "lib://QVD Data/orders.qvd",
+    ]
+    assert [load.label for load in parsed.qvd_loads] == ["Orders"]
+
+
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_path_resolves_with_the_variables_of_the_last_reload(
     mock_api_cls: MagicMock,

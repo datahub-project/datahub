@@ -111,6 +111,10 @@ STORE_RE = re.compile(
     re.IGNORECASE | re.DOTALL,
 )
 STORE_FROM_RE = re.compile(r"\bFROM\s+", re.IGNORECASE)
+# What may follow a LOAD's file source and its format spec.
+LOAD_SOURCE_END_RE = re.compile(
+    r"\s*(?:;|$|(?:WHERE|WHILE|GROUP\s+BY|ORDER\s+BY)\b)", re.IGNORECASE
+)
 # Scripts separate the connection from the path with / or, on Windows, a backslash.
 LIB_PATH_RE = re.compile(
     r"^lib://(?P<connection>[^/\\]+)[/\\](?P<path>.+)$", re.IGNORECASE
@@ -724,10 +728,21 @@ def _expand_nested_variables(text: str, variables: Dict[str, str]) -> str:
     return text
 
 
-def _load_path(statement: str) -> Optional[str]:
+def _load_source(statement: str) -> Optional["re.Match[str]"]:
+    """The FROM that names a LOAD's file. FROM is found with quoted text masked,
+    so a quoted field or path can't hold it. A field named From, as in
+    `LOAD From AS Start ... FROM [lib://...]`, is skipped, as its "path" isn't
+    followed by the end of the LOAD or one of its clauses."""
     masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
-    keyword = STORE_FROM_RE.search(masked)
-    source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+    for keyword in STORE_FROM_RE.finditer(masked):
+        source = FILE_SOURCE_RE.match(statement, keyword.start())
+        if source and LOAD_SOURCE_END_RE.match(masked, source.end()):
+            return source
+    return None
+
+
+def _load_path(statement: str) -> Optional[str]:
+    source = _load_source(statement)
     return _unquote(source.group("path").strip()).strip() if source else None
 
 
@@ -961,7 +976,13 @@ class _ScriptParser(BaseModel):
             self._forget()
             statement = statement.strip()
         self.raw_statement = statement
-        statement = _expand_variables(statement, self.flow.state.variables)
+        # Variables the visible script sets take precedence from where it sets
+        # them; others come from the app's last reload or the recipe.
+        # An app value can hold another variable, such as a table name built
+        # from a schema prefix.
+        statement = _expand_nested_variables(
+            statement, {**self._fallback_variables(), **self.flow.state.variables}
+        )
         if not statement:
             return
         if EXIT_SCRIPT_RE.match(statement) and not self.flow.blocks:
@@ -1145,11 +1166,7 @@ class _ScriptParser(BaseModel):
             self.file_loads.append(load)
 
     def _qvd_load(self, label: Optional[str], statement: str) -> None:
-        # FROM is found with quoted text masked, so a quoted field or path
-        # can't hold it; the path itself is then read from the statement.
-        masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
-        keyword = STORE_FROM_RE.search(masked)
-        source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+        source = _load_source(statement)
         if source is None:
             return
         file = self._qvd_file(source.group("path"), source.group("spec"), False)

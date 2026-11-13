@@ -1511,9 +1511,12 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         for field, upstreams in (fields or {}).items():
             lineage.column_upstreams.setdefault(field, []).extend(upstreams)
 
-    @staticmethod
-    def _parsed_script(app: App) -> ParsedScript:
-        return parse_script(app.script, app.variables) if app.script else ParsedScript()
+    def _parsed_script(self, app: App) -> ParsedScript:
+        return (
+            parse_script(app.script, self._app_variables(app))
+            if app.script
+            else ParsedScript()
+        )
 
     def _build_script_tables(
         self, app: App, parsed: Optional[ParsedScript] = None
@@ -1824,6 +1827,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             )
         )
 
+    def _app_variables(self, app: App) -> Dict[str, str]:
+        # The app's own values, as its last reload left them, beat the recipe's.
+        # An expression definition (`=...`) the connector can't evaluate, or
+        # an empty one such as a variable cleared at the end of the script,
+        # leaves the recipe's value in place.
+        recipe = self.config.script_variables
+        return {
+            **recipe,
+            **{
+                name: value
+                for name, value in app.variables.items()
+                if not value.lstrip().startswith("=")
+                and (value.strip() or name not in recipe)
+            },
+        }
+
     def _file_source_resolver(
         self, app: App, parsed: ParsedScript
     ) -> FileSourceResolver:
@@ -1839,7 +1858,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             candidates = [
                 load.expanded,
                 expand_variables(
-                    load.as_written, unquoted_values(app.variables)
+                    load.as_written, unquoted_values(self._app_variables(app))
                 ).strip(),
             ]
             named = [
@@ -2302,9 +2321,9 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             self.reporter.warning(
                 title="Unable to read Qlik app variables",
                 message="Load script paths and chart expressions that use these "
-                "apps' variables are not expanded. Lineage to the files they "
-                "load is only added to this run, and chart fields read through "
-                "them are left out.",
+                "apps' variables are only expanded from `script_variables`. "
+                "Lineage to the files they load is only added to this run, and "
+                "chart fields read through other variables are left out.",
                 context=app.id,
             )
         self._app_space_ids[app.id] = app.spaceId
@@ -2377,7 +2396,7 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             if app.tables_read_failed
             else self._chart_inputs(
                 (chart for sheet in app.sheets for chart in sheet.charts),
-                app.variables,
+                self._app_variables(app),
                 app_fields,
                 input_tables_urns,
                 has_unknown_schema,
