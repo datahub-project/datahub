@@ -249,6 +249,12 @@
       "Lower Casing"
     ]
   },
+  "langfuse": {
+    "platform_type": "AI+ML",
+    "connection_type": "Pull",
+    "title": "Langfuse",
+    "description": "Langfuse is an open-source LLM engineering platform for tracing, prompt management and evaluation of LLM applications."
+  },
   "ldap": {
     "platform_type": "Identity Provider",
     "connection_type": "Pull",
