@@ -477,7 +477,7 @@ project.ext.externalDependency = [
     'fabric8KubernetesClient': 'io.fabric8:kubernetes-client:7.4.0',
     'typesafeConfig':'com.typesafe:config:1.4.1',
     'wiremock':'com.github.tomakehurst:wiremock:2.10.0',
-    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.7',
+    'zookeeper': 'org.apache.zookeeper:zookeeper:3.8.8',
     'wire': "com.squareup.wire:wire-compiler:${wireVersion}",
     'charle':  'com.charleskorn.kaml:kaml:0.53.0',
     'jline':'jline:jline:1.4.1',
@@ -773,8 +773,8 @@ configure(subprojects.findAll {! it.name.startsWith('spark-lineage')}) {
     resolutionStrategy.force "io.confluent:kafka-schema-types:${rootProject.ext.confluentSerdeVersion}"
     resolutionStrategy.force "org.jline:jline:${rootProject.ext.jlineVersion}"
     resolutionStrategy.force "io.airlift:aircompressor:${rootProject.ext.aircompressorVersion}"
-    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739; overrides d2's 3.6.3
-    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.7'
+    resolutionStrategy.force externalDependency.zookeeper  // CVE-2023-44981, CVE-2026-59739, CVE-2026-100235, CVE-2026-100252, CVE-2026-100300, CVE-2026-100302, CVE-2026-115448; overrides d2's 3.6.3
+    resolutionStrategy.force 'org.apache.zookeeper:zookeeper-jute:3.8.8'
     resolutionStrategy.force 'org.apache.thrift:libthrift:0.24.0' // CVE-2026-48586 (TZlibTransport zip-bomb DoS); transitive via jena-arq
     // eachDependency: upgrade vulnerable versions only (do not downgrade newer safe versions)
     resolutionStrategy.eachDependency { details ->
