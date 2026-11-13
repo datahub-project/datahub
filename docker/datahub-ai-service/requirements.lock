@@ -111,6 +111,8 @@ frozenlist==1.8.0
     # via
     #   aiohttp
     #   aiosignal
+google-re2==1.1.20251105
+    # via datahub-core-mcp-tools
 graphql-core==3.3.2
     # via
     #   acryl-datahub

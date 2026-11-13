@@ -23,7 +23,7 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
-from .tools.documents import search_documents
+from .tools.documents import grep_documents, search_documents
 from .tools.entities import (
     SchemaFieldsTool,
     get_entities,
@@ -171,12 +171,18 @@ def register_tools(
         tool_type: ToolType,
         *,
         description: Optional[str] = None,
+        slow: bool = False,
     ) -> None:
         if groups is not None and name not in SYSTEM_TOOL_IDS:
             if not set(groups_for_tags({tool_type.value})) & set(groups):
                 return
         register_tool(
-            mcp_instance, name, fn, tool_type=tool_type, description=description
+            mcp_instance,
+            name,
+            fn,
+            tool_type=tool_type,
+            description=description,
+            slow=slow,
         )
         registered.append(name)
 
@@ -205,4 +211,6 @@ def register_tools(
             ToolType.SEARCH,
         )
     add("search_documents", search_documents, ToolType.SEARCH)
+    # Regex over whole document bodies: many large documents can take a while.
+    add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
     return registered

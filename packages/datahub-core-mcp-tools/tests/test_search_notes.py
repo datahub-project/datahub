@@ -56,6 +56,9 @@ class CountingBackend:
     def search_documents(self, variables: JsonObject, *, semantic: bool) -> JsonObject:
         return {}
 
+    def document_contents(self, urns: list[str]) -> list[JsonObject | None]:
+        return []
+
     def search_entities(self, variables: JsonObject) -> JsonObject:
         if self.fail_after is not None and len(self.sent) >= self.fail_after:
             raise RuntimeError("Failed to execute search")
