@@ -42,6 +42,7 @@ from .tools.glossary_versioning import (
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
 from .tools.search import search, search_description
+from .tools.tags import add_tags, remove_tags
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -168,11 +169,21 @@ def register_tools(
 
     Returns:
         The names of the tools registered.
+
+    TOOLS_IS_MUTATION_ENABLED=false registers no tool that changes metadata.
+    Writes are on by default: each one still runs with the caller's own
+    privileges, so it can do only what that caller could do in the UI.
     """
     # tool_groups builds on ToolType from this module.
     from .tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
 
-    logger.info(f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups})")
+    mutations_enabled = get_boolean_env_variable(
+        "TOOLS_IS_MUTATION_ENABLED", default=True
+    )
+    logger.info(
+        f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups}, "
+        f"mutations={'on' if mutations_enabled else 'off'})"
+    )
     registered: list[str] = []
 
     def add(
@@ -183,6 +194,8 @@ def register_tools(
         description: Optional[str] = None,
         slow: bool = False,
     ) -> None:
+        if tool_type is ToolType.MUTATION and not mutations_enabled:
+            return
         if groups is not None and name not in SYSTEM_TOOL_IDS:
             if not set(groups_for_tags({tool_type.value})) & set(groups):
                 return
@@ -238,6 +251,8 @@ def register_tools(
     add("grep_documents", grep_documents, ToolType.SEARCH, slow=True)
     if get_boolean_env_variable("GREP_ENTITIES_ENABLED", default=True):
         add("grep_entities", grep_entities, ToolType.SEARCH, slow=True)
+    add("add_tags", add_tags, ToolType.MUTATION)
+    add("remove_tags", remove_tags, ToolType.MUTATION)
     if is_entity_versioning_enabled():
         add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
         add(

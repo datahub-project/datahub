@@ -85,14 +85,15 @@ READ_TOOLS = {
     "grep_documents",
     "grep_entities",
 }
+WRITE_TOOLS = {"add_tags", "remove_tags"}
 
 
 @pytest.mark.parametrize(
     ("groups", "expected"),
     [
-        (None, {"get_me", *READ_TOOLS}),
+        (None, {"get_me", *READ_TOOLS, *WRITE_TOOLS}),
         ([], {"get_me"}),
-        (["write_metadata"], {"get_me"}),
+        (["write_metadata"], {"get_me", *WRITE_TOOLS}),
         (["read_metadata"], {"get_me", *READ_TOOLS}),
     ],
 )
