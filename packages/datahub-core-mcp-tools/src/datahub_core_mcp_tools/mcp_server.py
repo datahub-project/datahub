@@ -34,6 +34,11 @@ from .tools.entities import (
     list_schema_fields,
 )
 from .tools.get_me import get_me
+from .tools.glossary import (
+    add_related_terms,
+    add_related_terms_cloud,
+    create_glossary_term,
+)
 from .tools.glossary_versioning import (
     compare_glossary_term_versions,
     get_glossary_term_versions,
@@ -257,6 +262,13 @@ def register_tools(
     add("remove_tags", remove_tags, ToolType.MUTATION)
     add("add_terms", add_glossary_terms, ToolType.MUTATION)
     add("remove_terms", remove_glossary_terms, ToolType.MUTATION)
+    add("create_glossary_term", create_glossary_term, ToolType.MUTATION)
+    # DataHub Cloud relates terms in more ways than Core's isA / hasA.
+    add(
+        "add_related_terms",
+        add_related_terms if is_oss else add_related_terms_cloud,
+        ToolType.MUTATION,
+    )
     if is_entity_versioning_enabled():
         add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
         add(

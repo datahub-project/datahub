@@ -7,3 +7,11 @@ mutation batchAddTerms($input: BatchAddTermsInput!) {
 mutation batchRemoveTerms($input: BatchRemoveTermsInput!) {
   batchRemoveTerms(input: $input)
 }
+
+mutation createGlossaryTerm($input: CreateGlossaryEntityInput!) {
+  createGlossaryTerm(input: $input)
+}
+
+mutation addRelatedTerms($input: RelatedTermsInput!) {
+  addRelatedTerms(input: $input)
+}

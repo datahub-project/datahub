@@ -15,7 +15,7 @@ GLOSSARY_TERM = LabelKind(
     remove_operation="batchRemoveTerms",
     find_hint=(
         'Find glossary terms with search(query="<name>", '
-        'filter="entity_type = glossaryTerm").'
+        'filter="entity_type = glossaryTerm"), or make one with create_glossary_term.'
     ),
 )
 
@@ -32,7 +32,8 @@ def add_glossary_terms(
     This tool allows you to associate multiple entities or their columns with multiple glossary terms in a single operation.
     Useful for bulk term assignment operations like applying business definitions, standardizing terminology,
     or enriching metadata with domain knowledge. The terms must already exist: find
-    them with search(filter="entity_type = glossaryTerm").
+    them with search(filter="entity_type = glossaryTerm"), or create a missing one
+    with create_glossary_term and pass the term_urn it returns here.
 
     Args:
         term_urns: List of glossary term URNs to add (e.g., ["urn:li:glossaryTerm:CustomerData", "urn:li:glossaryTerm:SensitiveInfo"])
