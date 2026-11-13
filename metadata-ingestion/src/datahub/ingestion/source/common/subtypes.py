@@ -96,6 +96,7 @@ class DatasetContainerSubTypes(StrEnum):
     DATABRICKS_METASTORE = "Metastore"
     FOLDER = "Folder"
     S3_BUCKET = "S3 bucket"
+    AWS_ACCOUNT = "AWS Account"
     GCS_BUCKET = "GCS bucket"
     ABS_CONTAINER = "ABS container"
     KEYSPACE = "Keyspace"  # Cassandra
