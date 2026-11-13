@@ -73,6 +73,9 @@ class MetabaseQuery(MetabaseBaseModel):
     fields: Optional[List[object]] = None
     joins: Optional[List[MetabaseJoin]] = None
     expressions: Optional[Dict[str, object]] = None
+    # A multi-stage query-builder question (e.g. "summarize, then filter/summarize
+    # again") nests its earlier stage here instead of setting source-table.
+    source_query: Optional["MetabaseQuery"] = Field(None, alias="source-query")
 
     @property
     def source_table_refs(self) -> List[Union[int, str]]:
@@ -82,6 +85,11 @@ class MetabaseQuery(MetabaseBaseModel):
         for join in self.joins or []:
             if join.source_table is not None:
                 refs.append(join.source_table)
+        # Joins can sit on any stage, so collect from every nested stage.
+        if self.source_query is not None:
+            for ref in self.source_query.source_table_refs:
+                if ref not in refs:
+                    refs.append(ref)
         return refs
 
     def is_passthrough(self) -> bool:
@@ -110,6 +118,9 @@ class MetabaseQuery(MetabaseBaseModel):
                 if isinstance(expr_clause, list):
                     refs.extend(extract_mbql_field_refs(expr_clause))
         return refs
+
+
+MetabaseQuery.model_rebuild()
 
 
 class MetabaseDatasetQuery(MetabaseBaseModel):

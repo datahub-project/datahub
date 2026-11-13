@@ -1975,3 +1975,131 @@ def test_card_null_result_metadata_coerced_to_empty_list():
         }
     )
     assert card.result_metadata == []
+
+
+def test_source_table_refs_descend_into_source_query():
+    """A multi-stage query-builder question nests its earlier stage under
+    source-query and sets no top-level source-table; refs come from every stage,
+    including joins on inner and outer stages, without duplicates."""
+    query = MetabaseDatasetQuery(
+        type="query",
+        query={
+            "source-query": {
+                "source-query": {
+                    "source-table": 42,
+                    "joins": [{"source-table": 43, "alias": "inner_join"}],
+                },
+                "aggregation": [["count"]],
+                "breakout": [["field", 100, None]],
+            },
+            "joins": [
+                {"source-table": "card__7", "alias": "outer_join"},
+                {"source-table": 42, "alias": "self_join"},
+            ],
+            "filter": [">", ["field", "count", {"base-type": "type/Integer"}], 5],
+        },
+    ).query
+
+    assert query is not None
+    assert query.source_table is None
+    assert query.source_table_refs == ["card__7", 42, 43]
+    assert not query.is_passthrough()
+
+
+def test_get_table_urns_from_query_builder_with_source_query():
+    """A card whose only source-table sits inside source-query still yields table lineage."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+
+    card = MetabaseCard(
+        id=1,
+        name="Orders per day above 5",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-query": {
+                    "source-table": 42,
+                    "aggregation": [["count"]],
+                    "breakout": [["field", 100, {"temporal-unit": "day"}]],
+                },
+                "filter": [">", ["field", "count", {"base-type": "type/Integer"}], 5],
+            },
+        ),
+    )
+
+    table_urns = metabase._get_table_urns_from_query_builder(card)
+
+    assert table_urns == [
+        builder.make_dataset_urn("postgres", "mydb.public.orders", "PROD")
+    ]
+    metabase.get_source_table_from_id.assert_called_once_with(42)
+
+
+def test_query_builder_cll_source_query_does_not_invent_named_columns():
+    """Name-based refs on a source-query card point at the earlier stage's outputs
+    (here the aggregation "count"), so they must not be attributed by name to the
+    single physical source table: table lineage stays, no orders.count column."""
+    ctx = PipelineContext(run_id="metabase-test")
+    config = MetabaseConfig(username="un", password=SecretStr("pwd"))
+    metabase = FakeMetabaseSource(ctx, config)
+
+    metabase.get_datasource_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=DatasourceInfo(
+            platform="postgres",
+            database_name="mydb",
+            schema="public",
+            platform_instance=None,
+        )
+    )
+    metabase.get_source_table_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=("public", "orders")
+    )
+    metabase.get_field_from_id = MagicMock(  # type: ignore[method-assign]
+        return_value=None
+    )
+
+    card = MetabaseCard(
+        id=2,
+        name="Count above 5",
+        database_id=1,
+        dataset_query=MetabaseDatasetQuery(
+            type="query",
+            query={
+                "source-query": {
+                    "source-table": 42,
+                    "aggregation": [["count"]],
+                },
+                "filter": [">", ["field", "count", {"base-type": "type/Integer"}], 5],
+            },
+        ),
+        result_metadata=[
+            {
+                "name": "count",
+                "base_type": "type/Integer",
+                "field_ref": ["field", "count", {"base-type": "type/Integer"}],
+            },
+        ],
+    )
+
+    model_urn = metabase._model_urn(card.id)
+    lineage = metabase._get_cll_from_query_builder(card, model_urn)
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == [
+        builder.make_dataset_urn("postgres", "mydb.public.orders", "PROD")
+    ]
+    assert not lineage.fineGrainedLineages

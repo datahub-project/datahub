@@ -828,9 +828,12 @@ class MetabaseSource(StatefulIngestionSourceBase):
         # Gate on the count of *declared* source tables (source-table + joins), not
         # resolved URNs, so a card with a failed join lookup isn't mistaken for
         # single-source. Unset for pass-through cards, which recover via _get_passthrough_cll.
+        # Also unset for multi-stage (source-query) cards: their name-based refs point at
+        # the earlier stage's outputs (e.g. an aggregation "count"), not physical columns.
         single_source_urn = (
             datasource_urns[0]
             if not query.is_passthrough()
+            and query.source_query is None
             and datasource_urns is not None
             and len(query.source_table_refs) == 1
             and len(datasource_urns) == 1
