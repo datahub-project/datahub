@@ -394,6 +394,33 @@ def test_denied_load_script_only_adds_to_table_lineage(
 
 
 @patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_dataset_store_lineage_adds_tables_of_an_app_whose_tables_are_unknown(
+    mock_api_cls: MagicMock,
+) -> None:
+    other = _urn("other-app.curve")
+    graph = MagicMock()
+    graph.get_aspect.return_value = UpstreamLineageClass(
+        upstreams=[UpstreamClass(dataset=other, type="COPY")]
+    )
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph", graph=graph),
+    )
+    mock_api_cls.return_value.unread_items = []
+    mock_api_cls.return_value.list_datasets.return_value = DATASETS
+    # The load script read timed out, but the graph still names the table.
+    app = _app("etl-app", [LineageTable(qri=f"{ETL_APP}#Curve", label="Curve")])
+    app.tables_read_failed = True
+    source._register_app_tables(app)
+    source._dataset_store_sources = {_urn("space-1.stored.qvd"): [f"{ETL_APP}#Curve"]}
+
+    ops = _patch_ops(source._gen_dataset_store_lineage())[_urn("space-1.stored.qvd")]
+
+    assert ("add", f"/upstreams/{_urn('etl-app.curve').replace('/', '~1')}") in ops
+    assert not _removed_upstreams(ops)
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
 def test_dataset_store_lineage_removes_edges_of_dropped_app_tables(
     mock_api_cls: MagicMock,
 ) -> None:
