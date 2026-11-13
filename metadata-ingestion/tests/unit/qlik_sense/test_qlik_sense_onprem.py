@@ -167,6 +167,7 @@ def test_onprem_closes_engine_session_when_app_cannot_open(
     items = list(api.get_items(["stream-1"]))
 
     assert [item.id for item in items] == ["app-1"]
+    assert isinstance(items[0], App) and not items[0].sheets_complete
     websocket.close_websocket.assert_called_once()
 
 
@@ -969,11 +970,8 @@ def test_chart_inputs_when_fields_are_unknown(
         {app_tables[0]: [], app_tables[1]: [SchemaField(name="Region")]}
     )
 
-    workunits = list(
-        source._gen_charts_workunit(
-            [chart], app_tables, app_fields, unknown_schema, "app-1"
-        )
-    )
+    inputs = source._chart_inputs([chart], {}, app_fields, app_tables, unknown_schema)
+    workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
     (chart_info,) = filter(
         None, (wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
     )
@@ -1111,9 +1109,8 @@ def test_input_fields_are_kept_when_measures_were_unread(
         {table: [SchemaField(name="Region")]}
     )
 
-    workunits = list(
-        source._gen_charts_workunit([chart], [table], app_fields, False, "app-1")
-    )
+    inputs = source._chart_inputs([chart], {}, app_fields, [table], False)
+    workunits = list(source._gen_charts_workunit([chart], inputs, "app-1"))
 
     assert any(wu.get_aspect_of_type(ChartInfoClass) for wu in workunits)
     assert (
@@ -1902,7 +1899,14 @@ def test_partly_read_app_does_not_overwrite_relationships(
     def emitted(aspect: type) -> bool:
         return any(wu.get_aspect_of_type(aspect) for wu in workunits)
 
-    assert emitted(DashboardInfoClass) is charts_complete
+    sheet_urn = source._gen_dashboard_urn(sheet.id)
+    assert (
+        any(
+            wu.get_urn() == sheet_urn and wu.get_aspect_of_type(DashboardInfoClass)
+            for wu in workunits
+        )
+        is charts_complete
+    )
     assert emitted(ChartInfoClass) is not tables_read_failed
     assert emitted(InputFieldsClass) is not tables_read_failed
     chart_info_patches = [
@@ -1966,6 +1970,7 @@ def test_onprem_unreadable_sheet_marks_app_partly_read(
 
     assert app.sheets == []
     assert not app.read_complete
+    assert not app.sheets_complete
     assert engine.handles == [-1, 1]
 
 

@@ -426,6 +426,7 @@ class QlikAPI(QlikBaseAPI):
                     # so without it they may not match their graph tables.
                     app.tables_read_failed = True
             app.read_errors = errors.messages
+            app.sheets_complete = not errors.sheets_unread
             app.read_fallbacks = errors.fallbacks
             return app
         finally:
