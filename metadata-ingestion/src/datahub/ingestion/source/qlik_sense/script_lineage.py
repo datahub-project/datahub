@@ -711,6 +711,16 @@ def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
     return unquoted
 
 
+def _expand_nested_variables(text: str, variables: Dict[str, str]) -> str:
+    """Expands variables whose values hold other variables, up to a depth."""
+    for _ in range(_MAX_VARIABLE_DEPTH):
+        expanded = _expand_variables(text, variables)
+        if expanded == text:
+            break
+        text = expanded
+    return text
+
+
 def _load_path(statement: str) -> Optional[str]:
     masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
     keyword = STORE_FROM_RE.search(masked)
@@ -1070,12 +1080,7 @@ class _ScriptParser(BaseModel):
         include those set with LET or in an included script that the parser
         can't evaluate. A variable can hold another, such as a folder built
         from a connection prefix."""
-        for _ in range(_MAX_VARIABLE_DEPTH):
-            expanded = _expand_variables(path, self._fallback_variables())
-            if expanded == path:
-                break
-            path = expanded
-        return path
+        return _expand_nested_variables(path, self._fallback_variables())
 
     def _qvd_file(
         self, path: str, spec: Optional[str], default_qvd: bool
