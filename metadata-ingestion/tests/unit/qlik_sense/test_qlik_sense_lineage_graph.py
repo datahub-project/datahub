@@ -1314,6 +1314,89 @@ def test_source_field_never_named_only_adds_to_column_lineage(
     assert added[curve] == [_urn("space-1.src.qvd")]
 
 
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_partly_read_table_waits_for_source_field_names_read_later(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(CLOUD_CONFIG),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    qvd_table = f"{SOURCE_QVD}#Curve"
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[qvd_table],
+                fields=["Note"],
+                field_source_qris={"Note": [_field_qri(qvd_table, "comment")]},
+            )
+        ],
+    )
+    # A denied load script leaves the table's lineage only added to, but the
+    # column edge named by a QVD read later in the run is still added.
+    app.script_read_failed = True
+
+    curve = _urn("etl-app.curve")
+    assert curve not in _patch_ops(source._gen_app_workunit(app))
+
+    source._learn_field_names(["comment"])
+    ops = _patch_ops(source._gen_pending_table_lineage())[curve]
+    assert any(
+        op == "add"
+        and path.startswith("/fineGrainedLineages/")
+        and path.endswith(
+            make_schema_field_urn(_urn("space-1.src.qvd"), "comment").replace("/", "~1")
+        )
+        for op, path in ops
+    )
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI")
+def test_unnamed_source_field_does_not_block_replace_without_column_lineage(
+    mock_api_cls: MagicMock,
+) -> None:
+    api = mock_api_cls.return_value
+    api.unread_items = []
+    api.list_datasets.return_value = DATASETS
+    api.get_user_name.return_value = None
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(
+            {**CLOUD_CONFIG, "include_column_lineage": False}
+        ),
+        PipelineContext(run_id="test-lineage-graph"),
+    )
+    source._allowed_space_ids = {"space-1"}
+    qvd_table = f"{SOURCE_QVD}#Curve"
+    app = _app(
+        "etl-app",
+        [
+            LineageTable(
+                qri=f"{ETL_APP}#Curve",
+                label="Curve",
+                source_qris=[qvd_table],
+                fields=["Note"],
+                field_source_qris={"Note": [_field_qri(qvd_table, "comment")]},
+            )
+        ],
+    )
+
+    written, added = _lineage(
+        [*source._gen_app_workunit(app), *source._gen_pending_table_lineage()]
+    )
+
+    curve = _urn("etl-app.curve")
+    assert written[curve] == [_urn("space-1.src.qvd")]
+    assert curve not in added
+
+
 @pytest.mark.parametrize(
     "previous, checkpointing, tables_unknown",
     [

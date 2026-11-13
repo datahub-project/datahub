@@ -1955,6 +1955,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         """Column lineage from the field level of Qlik's lineage graph. A source
         field is named only when its id is the hash of a field name the run
         has seen, such as the field it is loaded into."""
+        if not self.config.include_column_lineage:
+            # An unnamed source field would otherwise keep the table's lineage
+            # from being written whole, for column lineage that isn't emitted.
+            return []
         lineages = []
         for field, source_qris in field_source_qris.items():
             upstreams: List[str] = []
@@ -2071,10 +2075,11 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             graph_fields = self._graph_column_lineage(
                 dataset_urn, table.field_source_qris, own_app_id=app.id
             )
-            if pending.complete and dataset_urn in self._unnamed_field_lineage:
+            if dataset_urn in self._unnamed_field_lineage:
                 # A source field is named by an item read later in the run, such
                 # as a renamed load from a QVD listed after the app, so the
-                # table's lineage is written once every name is known.
+                # table's lineage is written, whole or as a patch, once every
+                # name is known.
                 self._unnamed_field_lineage.discard(dataset_urn)
                 self._pending_table_lineage.append(pending)
                 continue
