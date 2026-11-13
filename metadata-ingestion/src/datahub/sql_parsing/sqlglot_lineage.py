@@ -69,7 +69,12 @@ from datahub.sql_parsing._legacy_pushdown_projections import (
     pushdown_projections as legacy_pushdown_projections,
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
-from datahub.sql_parsing.query_types import get_query_type_of_sql, is_create_table_ddl
+from datahub.sql_parsing.query_types import (
+    get_query_type_of_sql,
+    is_copy_load,
+    is_create_table_ddl,
+    is_stage_or_uri_table,
+)
 from datahub.sql_parsing.schema_resolver import (
     SchemaInfo,
     SchemaResolver,
@@ -1022,6 +1027,22 @@ def _table_level_lineage(
             ),
             dialect,
         )
+        | _extract_table_names(
+            (
+                (
+                    statement.this
+                    if isinstance(statement.this, sqlglot.exp.Table)
+                    else (
+                        statement.this.this
+                        if isinstance(statement.this.this, sqlglot.exp.Table)
+                        else sqlglot.exp.Table(this=statement.this.this)
+                    )
+                )
+                for _ in [None]
+                if is_copy_load(statement)
+            ),
+            dialect,
+        )
     )
 
     tables = (
@@ -1033,6 +1054,13 @@ def _table_level_lineage(
                     # A DROP reads nothing, including the table that `DROP INDEX ix
                     # ON t` names, which 30.22 nests under an OnProperty.
                     if not isinstance(statement, sqlglot.exp.Drop)
+                    and not isinstance(
+                        statement, (sqlglot.exp.Grant, sqlglot.exp.Revoke)
+                    )
+                    and not (
+                        isinstance(statement, sqlglot.exp.Copy)
+                        and is_stage_or_uri_table(table)
+                    )
                     and not _is_clickhouse_non_input(
                         table, dialect, bool(clickhouse_to_tables)
                     )
@@ -2698,10 +2726,13 @@ def _sqlglot_lineage_inner(
 
     column_lineage: Optional[List[_ColumnLineageInfo]] = None
     joins = None
-    # DELETE has no column lineage by construction. Attempting it raises
-    # UnsupportedStatementTypeError, which callers count as a column-lineage
-    # failure and inflates parse-failure stats for query-log sources.
-    if generate_column_lineage and not isinstance(statement, sqlglot.exp.Delete):
+    # DELETE, COPY, GRANT, and REVOKE have no column lineage by construction.
+    # Attempting it raises UnsupportedStatementTypeError, which callers count as
+    # a column-lineage failure and inflates parse-failure stats for query-log sources.
+    if generate_column_lineage and not isinstance(
+        statement,
+        (sqlglot.exp.Delete, sqlglot.exp.Copy, sqlglot.exp.Grant, sqlglot.exp.Revoke),
+    ):
         optimizer_stats = _OptimizerStats()
         try:
             with cooperative_timeout(

@@ -3053,6 +3053,106 @@ FROM My_Dict
     )
 
 
+def test_snowflake_copy_into_uri() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM 'gcs://b/p/'",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_uri.json",
+    )
+
+
+def test_snowflake_copy_into_stage() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_stage.json",
+    )
+
+
+def test_snowflake_copy_into_column_list() -> None:
+    assert_sql_result(
+        "COPY INTO t (a, b) FROM 's3://b/p/'",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_column_list.json",
+    )
+
+
+def test_snowflake_copy_into_from_table() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM other_table",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_from_table.json",
+    )
+
+
+def test_snowflake_copy_into_from_stage_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT $1, $2 FROM @stg/p)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_into_from_stage_select.json",
+    )
+
+
+def test_snowflake_copy_unload_to_stage() -> None:
+    assert_sql_result(
+        "COPY INTO @stg/out FROM src",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_copy_unload_to_stage.json",
+    )
+
+
+def test_snowflake_grant() -> None:
+    assert_sql_result(
+        "GRANT SELECT ON v TO ROLE r",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_grant.json",
+    )
+
+
+def test_snowflake_revoke() -> None:
+    assert_sql_result(
+        "REVOKE SELECT ON v FROM ROLE r",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_revoke.json",
+    )
+
+
+def test_postgres_copy_to_file() -> None:
+    assert_sql_result(
+        "COPY t TO '/f'",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_copy_to_file.json",
+    )
+
+
+def test_postgres_copy_from_file() -> None:
+    assert_sql_result(
+        "COPY t FROM '/f'",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_copy_from_file.json",
+    )
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 
