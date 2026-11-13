@@ -317,7 +317,7 @@ datahub-entity-embeddings = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 datahub-gc = []
