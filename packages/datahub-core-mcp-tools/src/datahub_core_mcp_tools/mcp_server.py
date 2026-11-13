@@ -23,6 +23,7 @@ from .progress_heartbeat import with_progress_heartbeat
 from .result_policy import trust_label_tags
 from .schema_matching import SchemaFieldMatcher
 from .tool_context import BackgroundExecution
+from .tools.aspect_history import get_aspect_history
 from .tools.dataset_queries import get_dataset_queries
 from .tools.dataset_usage import get_dataset_usage_history
 from .tools.documents import grep_documents, search_documents
@@ -201,6 +202,8 @@ def register_tools(
     add("get_lineage", get_lineage, ToolType.SEARCH, slow=True)
     add("get_dataset_queries", get_dataset_queries, ToolType.SEARCH)
     add("get_dataset_usage_history", get_dataset_usage_history, ToolType.SEARCH)
+    # Up to ~30 rounds of batchGet, one per version stepped through.
+    add("get_aspect_history", get_aspect_history, ToolType.SEARCH, slow=True)
     schema_tools = (
         SchemaFieldsTool(matcher=schema_field_matcher)
         if schema_field_matcher is not None
