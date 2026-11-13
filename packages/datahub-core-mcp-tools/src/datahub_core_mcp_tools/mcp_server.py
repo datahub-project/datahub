@@ -48,6 +48,7 @@ from .tools.glossary_versioning import (
 )
 from .tools.grep_entities import grep_entities
 from .tools.lineage import get_lineage, get_lineage_paths_between
+from .tools.owners import add_owners, remove_owners
 from .tools.search import search, search_description
 from .tools.tags import add_tags, create_tag, remove_tags
 from .tools.terms import add_glossary_terms, remove_glossary_terms
@@ -274,6 +275,8 @@ def register_tools(
     add("create_domain", create_domain, ToolType.MUTATION)
     add("set_domains", set_domains, ToolType.MUTATION)
     add("remove_domains", remove_domains, ToolType.MUTATION)
+    add("add_owners", add_owners, ToolType.MUTATION)
+    add("remove_owners", remove_owners, ToolType.MUTATION)
     if is_entity_versioning_enabled():
         add(
             "create_glossary_term_version",

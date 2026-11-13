@@ -193,6 +193,9 @@ def test_a_bound_backend_replaces_graphql_reads() -> None:
         def tags_named(self, name: str, count: int) -> list:
             return []
 
+        def ownership_types_named(self, name: str, count: int) -> list:
+            return []
+
         def domains_named(
             self, name: str, parent_domain: str | None, count: int
         ) -> list:

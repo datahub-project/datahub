@@ -94,6 +94,9 @@ class FakeBackend:
     def tags_named(self, name: str, count: int) -> list[JsonObject]:
         return []
 
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        return []
+
     def domains_named(
         self, name: str, parent_domain: str | None, count: int
     ) -> list[JsonObject]:

@@ -1,0 +1,21 @@
+# Ownership writes and the ownership type lookup. All exist on GMS 1.7.0.
+
+mutation batchAddOwners($input: BatchAddOwnersInput!) {
+  batchAddOwners(input: $input)
+}
+
+mutation batchRemoveOwners($input: BatchRemoveOwnersInput!) {
+  batchRemoveOwners(input: $input)
+}
+
+# Search is fuzzy: the caller compares the names it returns.
+query findOwnershipTypesByName($query: String!, $count: Int!) {
+  listOwnershipTypes(input: { query: $query, start: 0, count: $count }) {
+    ownershipTypes {
+      urn
+      info {
+        name
+      }
+    }
+  }
+}

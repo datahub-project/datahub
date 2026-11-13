@@ -1,7 +1,8 @@
 import asyncio
+import json
 import pathlib
 import threading
-from typing import Any
+from typing import Any, Iterator
 from unittest.mock import MagicMock
 
 import pytest
@@ -52,6 +53,8 @@ async def test_registration_is_per_instance() -> None:
         "create_domain",
         "set_domains",
         "remove_domains",
+        "add_owners",
+        "remove_owners",
     }
     assert await _tools(untouched) == {}
 
@@ -87,6 +90,8 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "create_domain",
             "set_domains",
             "remove_domains",
+            "add_owners",
+            "remove_owners",
         }
     )
 
@@ -136,6 +141,8 @@ async def test_write_tools_are_registered_by_default(
         "create_domain",
         "set_domains",
         "remove_domains",
+        "add_owners",
+        "remove_owners",
     } <= writes
     assert writes <= set(registered)
 
@@ -155,6 +162,45 @@ async def test_writes_switch_off_registers_no_write_tool(
     assert not [n for n, t in tools.items() if "mutation" in t.meta["fastmcp"]["tags"]]
     assert all(t.annotations.read_only_hint for t in tools.values())
     assert {"search", "get_entities", "get_glossary_term_versions"} <= set(tools)
+
+
+def _multi_type_unions(node: Any, path: str) -> Iterator[str]:
+    """The path of every anyOf/oneOf whose non-null branches differ in type."""
+    if isinstance(node, dict):
+        for key in ("anyOf", "oneOf"):
+            branches = node.get(key)
+            if isinstance(branches, list):
+                types = {
+                    json.dumps(branch.get("type"))
+                    for branch in branches
+                    if isinstance(branch, dict) and branch.get("type") != "null"
+                }
+                if len(types) > 1:
+                    yield f"{path}.{key}: {json.dumps(branches)}"
+        for key, value in node.items():
+            yield from _multi_type_unions(value, f"{path}.{key}")
+    elif isinstance(node, list):
+        for index, value in enumerate(node):
+            yield from _multi_type_unions(value, f"{path}[{index}]")
+
+
+async def test_no_tool_parameter_is_a_multi_type_union(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # Several OpenAI-compatible endpoints and Gemini reject the whole tool list
+    # when one parameter is e.g. anyOf [array, string]. A nullable anyOf [T, null]
+    # is accepted.
+    monkeypatch.setenv("ENTITY_VERSIONING_ENABLED", "true")
+    mcp = FastMCP("t")
+    register_tools(mcp, is_oss=True)
+
+    offenders = [
+        offender
+        for name, tool in (await _tools(mcp)).items()
+        for offender in _multi_type_unions(tool.input_schema, name)
+    ]
+
+    assert offenders == []
 
 
 async def test_no_proposal_tools_or_modules() -> None:
