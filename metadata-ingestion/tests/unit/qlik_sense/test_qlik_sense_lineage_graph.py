@@ -278,6 +278,7 @@ def test_qvd_lineage_links_apps_through_datasets(mock_api_cls: MagicMock) -> Non
     [
         # Qlik traces QVDs, so one without a QRI may be the source.
         pytest.param("other.qvd", False, id="QVD without a QRI"),
+        pytest.param("other", False, id="QVD by type without a QRI"),
         # A file Qlik doesn't trace is never in the graph.
         pytest.param("notes.txt", True, id="untraced file"),
     ],
@@ -289,7 +290,11 @@ def test_app_table_lineage_is_only_added_to_when_a_qvd_has_no_qri(
     # The source QVD isn't matched, and another dataset was listed without a
     # secure QRI.
     datasets = [
-        ListedDataset(space_id="space-1", name=unlisted),
+        ListedDataset(
+            space_id="space-1",
+            name=unlisted,
+            type="QVD" if unlisted == "other" else "",
+        ),
         *DATASETS[1:],
     ]
     _, written, _ = _run(mock_api_cls, datasets)
@@ -623,7 +628,11 @@ def test_datasets_are_listed(requests_mock: requests_mock_module.Mocker) -> None
                     "resourceAttributes": {"secureQri": SOURCE_QVD},
                 },
                 # Not a dataset Qlik traces, so it has no secure QRI.
-                {"name": "notes.txt", "spaceId": "space-1", "resourceAttributes": {}},
+                {
+                    "name": "notes.txt",
+                    "spaceId": "space-1",
+                    "resourceAttributes": {"type": "TEXT"},
+                },
             ],
             "links": {"next": {"href": second}},
         },
@@ -639,7 +648,7 @@ def test_datasets_are_listed(requests_mock: requests_mock_module.Mocker) -> None
 
     assert api.list_datasets() == [
         ListedDataset(space_id="space-1", name="src.qvd", secure_qri=SOURCE_QVD),
-        ListedDataset(space_id="space-1", name="notes.txt"),
+        ListedDataset(space_id="space-1", name="notes.txt", type="TEXT"),
         ListedDataset(
             space_id="personal-space-id", name="mine.qvd", secure_qri=STORED_QVD
         ),
