@@ -20,9 +20,11 @@ import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
 import { EntityType } from '@types';
 
 let separateSiblings = true;
+const maxSiblingGroupUrns = 30;
 vi.mock('@app/useAppConfig', async (importOriginal) => ({
     ...(await importOriginal<typeof import('@app/useAppConfig')>()),
     useIsShowSeparateSiblingsEnabled: () => separateSiblings,
+    useMaxSiblingGroupUrns: () => maxSiblingGroupUrns,
 }));
 
 type NamedEntity = { urn: string; name?: string };

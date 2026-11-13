@@ -1,14 +1,13 @@
 import { useCallback, useMemo } from 'react';
 
+import { useMaxSiblingGroupUrns } from '@app/useAppConfig';
+
 import { GetSiblingGroupsQuery, useGetSiblingGroupsQuery } from '@graphql/siblings.generated';
 
 /** Siblings listed under each search result before "+ N more". */
 export const SIBLINGS_SHOWN_INLINE = 5;
 
-/**
- * The siblingGroups query's default urn limit (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS), which matches
- * the largest search page size.
- */
+/** The largest search page size; the server's urn limit can lower this, never raise it. */
 export const MAX_URNS_PER_REQUEST = 30;
 
 type RawSiblingGroup = GetSiblingGroupsQuery['siblingGroups'][number];
@@ -30,7 +29,13 @@ export function withLoadedMembers(group: RawSiblingGroup): SiblingGroupData {
 export function useSiblingGroups(datasetUrns: string[], enabled: boolean) {
     // Sorted, so the same datasets in a different order (cached results replaced by fresh ones) are
     // the same request rather than a new one.
-    const urns = useMemo(() => Array.from(new Set(datasetUrns)).slice(0, MAX_URNS_PER_REQUEST).sort(), [datasetUrns]);
+    // Never more urns than the server accepts, so a lowered GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS
+    // shows siblings for the first results instead of failing the whole request.
+    const limit = Math.min(MAX_URNS_PER_REQUEST, useMaxSiblingGroupUrns());
+    const urns = useMemo(
+        () => Array.from(new Set(datasetUrns)).slice(0, Math.max(0, limit)).sort(),
+        [datasetUrns, limit],
+    );
     const { data, previousData, error, refetch } = useGetSiblingGroupsQuery({
         skip: !enabled || urns.length === 0,
         variables: { input: { urns, start: 0, count: SIBLINGS_SHOWN_INLINE } },

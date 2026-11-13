@@ -16,6 +16,15 @@ export function useIsShowAcrylInfoEnabled() {
     return appConfig.config.featureFlags.showAcrylInfo;
 }
 
+/**
+ * The most datasets one siblingGroups request may ask for (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS).
+ * 0, the default, means the query is off.
+ */
+export function useMaxSiblingGroupUrns() {
+    const appConfig = useAppConfig();
+    return appConfig.config.featureFlags.maxSiblingGroupUrns;
+}
+
 export function useIsNestedDomainsEnabled() {
     const appConfig = useAppConfig();
     return appConfig.config.featureFlags.nestedDomainsEnabled;

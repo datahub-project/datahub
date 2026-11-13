@@ -15,6 +15,7 @@ import SelectedSearchFilters from '@app/searchV2/filters/SelectedSearchFilters';
 import { RecommendedFilters } from '@app/searchV2/recommendation/RecommendedFilters';
 import { useGetRecommendedFilters } from '@app/searchV2/recommendation/useGetRecommendedFilters';
 import ShowSiblingsToggle from '@app/searchV2/siblings/ShowSiblingsToggle';
+import { useIsShowSiblingsAvailable } from '@app/searchV2/siblings/useShowSiblings';
 import SearchSortSelect from '@app/searchV2/sorting/SearchSortSelect';
 import {
     BROWSE_PATH_V2_FILTER_NAME,
@@ -35,7 +36,6 @@ import {
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import SearchMenuItems from '@app/sharedV2/search/SearchMenuItems';
-import { useIsShowSeparateSiblingsEnabled } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -145,9 +145,9 @@ export default function SearchFilters({
     const filteredFilters = (availableFilters || []).filter((f) => !FILTERS_TO_REMOVE.includes(f.field));
     const filters = basicFilters ? filteredFilters : availableFilters;
     const recommendedFilters = useGetRecommendedFilters(filters, activeFilters);
-    // "Show siblings" only applies where siblings are separate results.
-    const isShowSeparateSiblings = useIsShowSeparateSiblingsEnabled();
-    const showSiblingsSwitch = showSiblingsToggle && isShowSeparateSiblings;
+    // "Show siblings" only applies where siblings are separate results and the server has it on.
+    const isShowSiblingsAvailable = useIsShowSiblingsAvailable();
+    const showSiblingsSwitch = showSiblingsToggle && isShowSiblingsAvailable;
 
     const viewTabs: TabButtonItem[] = useMemo(
         () => [
