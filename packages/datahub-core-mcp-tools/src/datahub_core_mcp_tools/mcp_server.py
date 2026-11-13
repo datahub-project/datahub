@@ -41,6 +41,7 @@ from .tools.glossary import (
 )
 from .tools.glossary_versioning import (
     compare_glossary_term_versions,
+    create_glossary_term_version,
     get_glossary_term_versions,
     is_entity_versioning_enabled,
 )
@@ -270,6 +271,11 @@ def register_tools(
         ToolType.MUTATION,
     )
     if is_entity_versioning_enabled():
+        add(
+            "create_glossary_term_version",
+            create_glossary_term_version,
+            ToolType.MUTATION,
+        )
         add("get_glossary_term_versions", get_glossary_term_versions, ToolType.SEARCH)
         add(
             "compare_glossary_term_versions",

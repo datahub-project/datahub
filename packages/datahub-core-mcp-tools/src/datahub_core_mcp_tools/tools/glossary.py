@@ -81,7 +81,7 @@ def _require_urn(value: str, *, tool: str, param: str, example: str) -> str:
     return value.strip()
 
 
-def _require_term_urn(value: str, *, tool: str, param: str) -> str:
+def require_term_urn(value: str, *, tool: str, param: str) -> str:
     urn = _require_urn(value, tool=tool, param=param, example=f"{_TERM_PREFIX}Revenue")
     if not urn.startswith(_TERM_PREFIX):
         raise ToolError(
@@ -90,6 +90,41 @@ def _require_term_urn(value: str, *, tool: str, param: str) -> str:
             'filter="entity_type = glossaryTerm").'
         )
     return urn
+
+
+def new_term_id(value: Optional[str], *, tool: str) -> str:
+    """``value`` stripped, or a new UUID when it is blank.
+
+    The id is chosen here rather than by GMS, so a create that gets no reply
+    still names the term to look for.
+    """
+    term_id = (value or "").strip() or str(uuid.uuid4())
+    reserved = [c for c in _RESERVED_ID_CHARS if c in term_id]
+    if reserved:
+        raise ToolError(
+            f"{tool}: `id` may not contain {' '.join(repr(c) for c in reserved)}: "
+            f"it becomes part of the term's URN. Got {term_id!r}."
+        )
+    return term_id
+
+
+def require_parent_node(value: str, *, tool: str) -> str:
+    """``value`` as the URN of an existing glossary node, or a ToolError."""
+    parent = _require_urn(
+        value,
+        tool=tool,
+        param="parent_node_urn",
+        example=f"{_NODE_PREFIX}FinancialKPIs",
+    )
+    # GMS records any parent URN it is given, so a missing node would leave the
+    # term outside the visible hierarchy.
+    if not parent.startswith(_NODE_PREFIX) or not get_read_backend().exists(parent):
+        raise ToolError(
+            f"{tool}: `parent_node_urn` {parent!r} is not an existing glossary "
+            'node. Find nodes with search(query="<name>", filter="entity_type = '
+            'glossaryNode"), or leave it out to create the term at the top level.'
+        )
+    return parent
 
 
 @min_version(cloud="0.3.16", oss="1.4.0")
@@ -133,33 +168,11 @@ def create_glossary_term(
     term_name = name.strip()
     if not term_name:
         raise ToolError(f"{tool}: `name` is required.")
-    term_id = (id or "").strip() or str(uuid.uuid4())
-    reserved = [c for c in _RESERVED_ID_CHARS if c in term_id]
-    if reserved:
-        raise ToolError(
-            f"{tool}: `id` may not contain {' '.join(repr(c) for c in reserved)}: "
-            f"it becomes part of the term's URN. Got {term_id!r}."
-        )
+    term_id = new_term_id(id, tool=tool)
     term_input: dict = {"id": term_id, "name": term_name, "description": description}
     if parent_node_urn and parent_node_urn.strip():
-        parent = _require_urn(
-            parent_node_urn,
-            tool=tool,
-            param="parent_node_urn",
-            example=f"{_NODE_PREFIX}FinancialKPIs",
-        )
-        # GMS records any parent URN it is given, so a missing node would leave
-        # the term outside the visible hierarchy.
-        if not parent.startswith(_NODE_PREFIX) or not get_read_backend().exists(parent):
-            raise ToolError(
-                f"{tool}: `parent_node_urn` {parent!r} is not an existing glossary "
-                'node. Find nodes with search(query="<name>", filter="entity_type = '
-                'glossaryNode"), or leave it out to create the term at the top level.'
-            )
-        term_input["parentNode"] = parent
+        term_input["parentNode"] = require_parent_node(parent_node_urn, tool=tool)
 
-    # The id is chosen here, not by GMS, so a write that gets no reply still
-    # names the term to look for.
     term_urn = f"{_TERM_PREFIX}{term_id}"
     result = graphql_helpers.execute_write(
         graphql_helpers.get_datahub_client()._graph,
@@ -178,12 +191,12 @@ def _add_related_terms(
     term_urn: str, related_term_urns: list[str], relationship_type: str
 ) -> dict:
     tool = "add_related_terms"
-    source = _require_term_urn(term_urn, tool=tool, param="term_urn")
+    source = require_term_urn(term_urn, tool=tool, param="term_urn")
     if not related_term_urns:
         raise ToolError(f"{tool}: `related_term_urns` must name at least one term.")
     related = list(
         dict.fromkeys(
-            _require_term_urn(value, tool=tool, param=f"related_term_urns[{index}]")
+            require_term_urn(value, tool=tool, param=f"related_term_urns[{index}]")
             for index, value in enumerate(related_term_urns)
         )
     )
