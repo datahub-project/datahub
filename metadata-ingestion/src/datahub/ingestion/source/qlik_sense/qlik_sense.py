@@ -2286,6 +2286,10 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # Without the folder connections, the lib:// QVDs it writes are
             # unknown.
             self._apps_qvds_unknown[app.id] = "data connections could not be listed"
+        elif parsed.has_unresolved_store or lineage.has_unresolved_store:
+            # Such as a path built from a variable the app's variables, which
+            # may have failed to read, don't hold.
+            self._apps_qvds_unknown[app.id] = "a STORE path could not be resolved"
         else:
             self._app_qvds[app.id] = lineage.qvds
         return lineage
@@ -2375,9 +2379,14 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         # while other apps are unknown.
         current_lineage = self._current_upstreams_batch(qvd_urns)
         for urn in qvd_urns:
+            # The fields apps read are a subset, so a QVD whose writer is
+            # unknown or not read this run keeps its schema.
             fields = (
                 _qvd_fields(writes.get(urn, []), reads.get(urn, []))
-                if urn in writes or not unknown
+                if urn in writes
+                or not (
+                    unknown or self._has_unread_qvd_writer(current_lineage.get(urn))
+                )
                 else None
             )
             if fields is not None:
@@ -2412,24 +2421,41 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             f"{self._unlabelled_qvd_loads} unlabelled QVD loads",
         )
 
-    def _owned_qvd_writer(self, urn: str) -> bool:
-        """An on-prem app table of an app whose QVD writes are known this run,
-        so its edges into QVDs are this connector's to remove. QVDs are named
-        by their file path, and app tables by their app id."""
+    def _qvd_writer_app_id(self, urn: str) -> Optional[str]:
+        """The app id of an on-prem app table. QVDs are named by their file
+        path, and app tables by their app id."""
         try:
             dataset = DatasetUrn.from_string(urn)
         except Exception:
-            return False
+            return None
         if dataset.platform != builder.make_data_platform_urn(self.platform):
-            return False
+            return None
         name = dataset.name
         instance = self.config.platform_instance
         if instance and name.startswith(f"{instance}."):
             name = name[len(instance) + 1 :]
         if CANONICAL_ABSOLUTE_PATH_RE.match(name):
-            return False
-        app_id = name.split(".", 1)[0]
-        return app_id in self._app_qvds and app_id not in self._apps_qvds_unknown
+            return None
+        return name.split(".", 1)[0]
+
+    def _owned_qvd_writer(self, urn: str) -> bool:
+        """An app table of an app whose QVD writes are known this run, so its
+        edges into QVDs are this connector's to remove."""
+        app_id = self._qvd_writer_app_id(urn)
+        return (
+            app_id is not None
+            and app_id in self._app_qvds
+            and app_id not in self._apps_qvds_unknown
+        )
+
+    def _has_unread_qvd_writer(self, current: Optional[UpstreamLineage]) -> bool:
+        """Whether an app this run did not read, such as one outside the
+        recipe's streams, wrote the QVD, so its schema is that app's."""
+        return current is not None and any(
+            self._qvd_writer_app_id(upstream.dataset) is not None
+            and not self._owned_qvd_writer(upstream.dataset)
+            for upstream in current.upstreams
+        )
 
     def _gen_qvd_upstreams(
         self,
