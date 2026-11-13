@@ -1,14 +1,18 @@
 import datetime as dt
-from typing import Dict, List, Set
+from typing import Any, Dict, List, Set
+
+import pytest
 
 from datahub.emitter import mce_builder as builder
+from datahub.ingestion.source.sigma import sigma as sigma_module
 from datahub.ingestion.source.sigma.config import SigmaSourceReport
 from datahub.ingestion.source.sigma.data_classes import (
+    CustomSqlEntry,
     SigmaDataModel,
     SigmaDataModelColumn,
     SigmaDataModelElement,
 )
-from datahub.ingestion.source.sigma.sigma import SigmaSource
+from datahub.ingestion.source.sigma.sigma import SigmaSource, _WarehouseTableRef
 
 
 def _source() -> SigmaSource:
@@ -16,6 +20,9 @@ def _source() -> SigmaSource:
     source.reporter = SigmaSourceReport()
     source.dm_element_urn_by_name = {}
     source.dm_element_urn_to_cols = {}
+    source._upstream_schema_unavailable_warned = set()
+    source._dm_recovery_contexts = {}
+    source.sigma_dataset_name_by_url_id = {}
     return source
 
 
@@ -77,16 +84,24 @@ def _build(
     elementId_to_dataset_urn: Dict[str, str] | None = None,
     entity_level_upstream_urns: Set[str] | None = None,
     upstream_elements: List[SigmaDataModelElement] | None = None,
+    discovered_upstreams: Set[str] | None = None,
+    warehouse_url_id_map: Dict[str, _WarehouseTableRef] | None = None,
+    custom_sql_by_name: Dict[str, CustomSqlEntry] | None = None,
 ) -> list:
     all_elements = [element] + (upstream_elements or [])
+    data_model = _data_model(all_elements)
+    data_model.custom_sql_by_name = custom_sql_by_name or {}
     return source._build_dm_element_fine_grained_lineages(
         element=element,
         element_dataset_urn=element_dataset_urn or _urn(element.elementId),
         element_name_to_eids=element_name_to_eids or {},
         elementId_to_dataset_urn=elementId_to_dataset_urn or {},
         entity_level_upstream_urns=entity_level_upstream_urns or set(),
-        data_model=_data_model(all_elements),
-        warehouse_url_id_map={},
+        data_model=data_model,
+        warehouse_url_id_map=warehouse_url_id_map or {},
+        discovered_upstreams=set()
+        if discovered_upstreams is None
+        else discovered_upstreams,
     )
 
 
@@ -164,10 +179,10 @@ def test_cross_dm_ref_is_counted_unresolved() -> None:
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 1
 
 
-def test_orphan_upstream_genuinely_dropped_when_lineage_api_gap_exists() -> None:
+def test_orphan_ref_dropped_when_the_siblings_schema_is_unknown() -> None:
     # Element IS in this DM (found in element_name_to_eids) but /lineage does
-    # not report it as an upstream (entity_level_upstream_urns is empty).
-    # This is the rare case where /lineage genuinely omits an intra-DM edge.
+    # not report it as an upstream, and its columns are unknown, so nothing
+    # shows it owns the column and orphan recovery does not apply.
     source = _source()
     upstream_urn = _urn("a")
     element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
@@ -977,3 +992,775 @@ def test_inode_source_ids_excluded_from_cross_dm_guard() -> None:
     assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     assert source.reporter.data_model_element_fgl_cross_dm_resolved == 0
+
+
+# ---------------------------------------------------------------------------
+# Orphan recovery: a sibling Sigma's /lineage did not list
+# ---------------------------------------------------------------------------
+
+
+def test_orphan_ref_recovered_when_sibling_owns_the_column() -> None:
+    """/lineage omitting an intra-DM sibling is a reporting gap, not evidence.
+
+    Where the named sibling owns the referenced column, the ref is trustworthy:
+    the edge is emitted and the sibling is reported as a discovered upstream.
+    """
+    source = _source()
+    sibling_urn = _urn("sibling-eid")
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": sibling_urn},
+        # Sigma did not list the sibling as an upstream.
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["x"])],
+        discovered_upstreams=discovered,
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(sibling_urn, "x")]
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 0
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
+    assert discovered == {sibling_urn}
+
+
+def test_orphan_ref_still_dropped_when_sibling_lacks_the_column() -> None:
+    """Recovery is earned by the schema, not assumed from the name match."""
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["other"])],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert discovered == set()
+
+
+def test_no_recovery_for_a_warehouse_column_named_like_a_sibling() -> None:
+    """A warehouse column's formula names its table, not an element: a sibling
+    named like the table, here built on the same table, is a collision."""
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element(
+        "raw",
+        "Orders Raw",
+        [_column("inode-u1/AMOUNT", "Amount", "[ORDERS/Amount]")],
+        source_ids=["inode-u1"],
+    )
+    sibling = _element(
+        "curated",
+        "Orders",
+        [_column("inode-u1/AMOUNT", "Amount", "[ORDERS/Amount]")],
+        ["inode-u1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["curated"]},
+        elementId_to_dataset_urn={"curated": _urn("curated")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[sibling],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+    assert discovered == set()
+
+
+@pytest.mark.parametrize("via_middle", [False, True], ids=["direct", "transitive"])
+def test_no_recovery_for_a_sibling_that_reads_the_element(via_middle: bool) -> None:
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+    middle = _element("middle", "Middle", [_column("m-y", "y", None)], ["consumer"])
+    sibling = _element(
+        "sibling-eid",
+        "Shared",
+        [_column("s-x", "x", None)],
+        ["middle" if via_middle else "consumer"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[middle, sibling],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1
+    assert discovered == set()
+
+
+def test_no_recovery_for_a_ref_naming_the_element_itself() -> None:
+    """Two elements named after the same source, each with a calculated column
+    on it: the ref names the element's own name, so it is not a sibling (and
+    recovering both would be a cycle)."""
+    source = _source()
+    lineages = {}
+    for eid, other in [("a", "b"), ("b", "a")]:
+        element = _element(
+            eid, "ORDERS", [_column(f"{eid}-c", "Amount", "[ORDERS/Amount] * 2")]
+        )
+        lineages[eid] = _build(
+            source,
+            element,
+            element_name_to_eids={"orders": ["a", "b"]},
+            elementId_to_dataset_urn={"a": _urn("a"), "b": _urn("b")},
+            entity_level_upstream_urns=set(),
+            upstream_elements=[_upstream_element(other, "ORDERS", ["Amount"])],
+        )
+
+    assert lineages == {"a": [], "b": []}
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_for_a_calculated_column_on_a_table_this_element_reads() -> None:
+    """The passthrough column shows ORDERS is a warehouse table here, so a
+    sibling named ORDERS is a collision for the calculated column too."""
+    source = _source()
+    element = _element(
+        "raw",
+        "Orders Raw",
+        [
+            _column("inode-t1/AMOUNT", "Amount", "[ORDERS/Amount]"),
+            _column("c-double", "Double", "[ORDERS/Amount] * 2"),
+        ],
+        source_ids=["inode-t1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "ORDERS", ["Amount"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_when_the_passthrough_column_is_shadowed() -> None:
+    """A calculated field shadowing the passthrough wins the dedup, but the
+    passthrough still shows ORDERS is a table this element reads."""
+    source = _source()
+    element = _element(
+        "raw",
+        "Orders Raw",
+        [
+            _column("inode-t1/AMOUNT", "Amount", "[ORDERS/Amount]"),
+            _column("c-amt", "Amount", "[ORDERS/Amount] + 0"),
+            _column("c-double", "Double", "[ORDERS/Amount] * 2"),
+        ],
+        source_ids=["inode-t1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "ORDERS", ["Amount"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_from_a_sibling_whose_formula_names_this_element() -> None:
+    """Neither is listed, so /lineage misses the link; the read graph has it
+    through the formula names. Otherwise each would
+    recover the other into a cycle."""
+    source = _source()
+    alpha = _element("a", "Alpha", [_column("a-x", "x", "[Beta/y]")])
+    beta = _element(
+        "b", "Beta", [_column("b-y", "y", None), _column("b-z", "z", "[Alpha/x]")]
+    )
+
+    lineages = _build(
+        source,
+        alpha,
+        element_name_to_eids={"alpha": ["a"], "beta": ["b"]},
+        elementId_to_dataset_urn={"b": _urn("b")},
+        upstream_elements=[beta],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_for_a_table_the_element_reads_without_a_passthrough() -> None:
+    """The table name comes from the element's inode source too."""
+    source = _source()
+    element = _element(
+        "raw",
+        "Orders Raw",
+        [_column("c-double", "Double", "[ORDERS/Amount] * 2")],
+        source_ids=["inode-u1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "ORDERS", ["Amount"])],
+        warehouse_url_id_map={
+            "u1": _WarehouseTableRef(
+                connection_id="conn", db="DB", schema="S", table="ORDERS"
+            )
+        },
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_when_a_table_the_element_reads_has_no_known_name() -> None:
+    """With /files failed and no passthrough on the inode, ORDERS may be that
+    table, so the sibling named ORDERS is not taken."""
+    source = _source()
+    element = _element(
+        "raw",
+        "Orders Raw",
+        [_column("c-double", "Double", "[ORDERS/Amount] * 2")],
+        source_ids=["inode-u1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "ORDERS", ["Amount"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+_OTHER_TABLE = _WarehouseTableRef(
+    connection_id="conn", db="DB", schema="S", table="OTHER"
+)
+
+
+def _calc_on(
+    source_ids: List[str], extra: List[SigmaDataModelColumn]
+) -> SigmaDataModelElement:
+    return _element(
+        "raw",
+        "Orders Raw",
+        [*extra, _column("c-double", "Double", "[ORDERS/Amount] * 2")],
+        source_ids=source_ids,
+    )
+
+
+def _recover_from_orders(
+    element: SigmaDataModelElement, warehouse_url_id_map: Dict[str, _WarehouseTableRef]
+) -> list:
+    return _build(
+        _source(),
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "ORDERS", ["Amount"])],
+        warehouse_url_id_map=warehouse_url_id_map,
+    )
+
+
+def test_no_recovery_for_a_renamed_custom_sql_element() -> None:
+    """Its columns still read [Custom SQL/COL], so a sibling left with the
+    default name "Custom SQL" is a collision, not its source."""
+    source = _source()
+    element = _element(
+        "orders-sql",
+        "Orders SQL",
+        [_column("c1", "ORDER_ID", "[Custom SQL/ORDER_ID]")],
+        source_ids=["Custom SQL", "regions-eid"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"custom sql": ["other-sql"]},
+        elementId_to_dataset_urn={"other-sql": _urn("other-sql")},
+        upstream_elements=[_upstream_element("other-sql", "Custom SQL", ["ORDER_ID"])],
+        custom_sql_by_name={"Custom SQL": CustomSqlEntry(name="Custom SQL")},
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def _reads_dataset(
+    column_formula: str,
+    sibling_name: str,
+    warehouse_url_id_map: Dict[str, _WarehouseTableRef] | None = None,
+) -> list:
+    """An element on Sigma Dataset SD1 ("My Dataset"); its columnIds are
+    opaque, as in the integration fixture, so only the name names it."""
+    source = _source()
+    source.sigma_dataset_name_by_url_id = {"SD1": "My Dataset"}
+    element = _element(
+        "on-sd",
+        "On SD",
+        [_column("c1", "x", column_formula)],
+        source_ids=["inode-SD1"],
+    )
+    return _build(
+        source,
+        element,
+        element_name_to_eids={sibling_name.lower(): ["sib"]},
+        elementId_to_dataset_urn={"sib": _urn("sib")},
+        upstream_elements=[_upstream_element("sib", sibling_name, ["x"])],
+        warehouse_url_id_map=warehouse_url_id_map,
+    )
+
+
+def test_an_element_on_a_sigma_dataset_recovers_a_sibling() -> None:
+    assert len(_reads_dataset("[Shared/x]", "Shared")) == 1
+
+
+def test_no_recovery_for_a_sibling_named_like_the_sigma_dataset() -> None:
+    assert _reads_dataset("[My Dataset/x]", "My Dataset") == []
+
+
+def test_an_inode_also_catalogued_as_a_table_keeps_its_dataset_name() -> None:
+    table = _WarehouseTableRef(connection_id="c", db="D", schema="S", table="RAW")
+    assert _reads_dataset("[My Dataset/x] * 2", "My Dataset", {"SD1": table}) == []
+
+
+def test_a_listed_same_named_element_is_the_one_a_formula_reads() -> None:
+    """S lists E2 and reads [Orders/amt]; E, also named Orders, is not what
+    S reads, so E may recover its ref to S."""
+    source = _source()
+    e = _element("e", "Orders", [_column("e-x", "x", "[S/x]")])
+    s_el = _element("s", "S", [_column("s-x", "x", "[Orders/amt]")], source_ids=["e2"])
+    e2 = _upstream_element("e2", "Orders", ["amt"])
+
+    lineages = _build(
+        source,
+        e,
+        element_name_to_eids={"orders": ["e", "e2"], "s": ["s"]},
+        elementId_to_dataset_urn={"s": _urn("s"), "e2": _urn("e2")},
+        upstream_elements=[s_el, e2],
+    )
+
+    assert len(lineages) == 1
+
+
+def test_one_unnamed_inode_among_named_ones_still_declines() -> None:
+    element = _calc_on(["inode-u1", "inode-u2"], [])
+    assert _recover_from_orders(element, {"u1": _OTHER_TABLE}) == []
+
+
+def test_a_passthrough_column_with_no_ref_does_not_name_its_inode() -> None:
+    element = _calc_on(["inode-u1"], [_column("inode-u1/K", "K", "1")])
+    assert _recover_from_orders(element, {}) == []
+
+
+def test_an_inode_named_by_files_alone_lets_recovery_proceed() -> None:
+    """u1 is OTHER, so ORDERS is a sibling, not a table this element reads."""
+    element = _calc_on(["inode-u1"], [])
+    assert len(_recover_from_orders(element, {"u1": _OTHER_TABLE})) == 1
+
+
+def test_an_unnamed_inode_elsewhere_in_the_model_does_not_break_the_graph() -> None:
+    source = _source()
+    consumer = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+    owner = _element(
+        "sibling-eid",
+        "Shared",
+        [_column("s-x", "x", "[T/x]")],
+        source_ids=["inode-u9"],
+    )
+
+    lineages = _build(
+        source,
+        consumer,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        upstream_elements=[owner],
+    )
+
+    assert len(lineages) == 1
+
+
+def test_an_inode_column_id_the_element_does_not_read_names_no_table() -> None:
+    """A columnId can carry another element's inode; only the element's own
+    inode source_ids make its formula source a table."""
+    source = _source()
+    element = _element(
+        "child",
+        "Child",
+        [_column("inode-t1/AMOUNT", "Amount", "[Orders/Amount]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"orders": ["orders-eid"]},
+        elementId_to_dataset_urn={"orders-eid": _urn("orders-eid")},
+        upstream_elements=[_upstream_element("orders-eid", "Orders", ["Amount"])],
+    )
+
+    assert len(lineages) == 1
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
+
+
+def test_no_recovery_that_closes_a_longer_cycle_by_name() -> None:
+    """A names B, B names C, C names A, none listed: recovering A's ref to B
+    would close A -> B -> C -> A."""
+    source = _source()
+    a = _element("a", "Alpha", [_column("a-x", "x", "[Beta/y]")])
+    b = _element("b", "Beta", [_column("b-y", "y", "[Gamma/z]")])
+    c = _element("c", "Gamma", [_column("c-z", "z", "[Alpha/x]")])
+
+    lineages = _build(
+        source,
+        a,
+        element_name_to_eids={"alpha": ["a"], "beta": ["b"], "gamma": ["c"]},
+        elementId_to_dataset_urn={"b": _urn("b"), "c": _urn("c")},
+        upstream_elements=[b, c],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_a_sibling_reading_a_table_named_like_the_element_still_recovers() -> None:
+    """[CUSTOMERS/id] in the owner names its warehouse table, not the
+    consumer called Customers, so it is no cycle."""
+    source = _source()
+    consumer = _element("cust", "Customers", [_column("c1", "x", "[Shared/x]")])
+    owner = _element(
+        "shared",
+        "Shared",
+        [_column("inode-t9/X", "x", "[CUSTOMERS/x]")],
+        source_ids=["inode-t9"],
+    )
+
+    lineages = _build(
+        source,
+        consumer,
+        element_name_to_eids={"customers": ["cust"], "shared": ["shared"]},
+        elementId_to_dataset_urn={"shared": _urn("shared")},
+        upstream_elements=[owner],
+    )
+
+    assert len(lineages) == 1
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
+
+
+def test_the_recovery_context_is_built_once_per_data_model(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """It parses every formula in the model, so not once per recovered ref."""
+    builds: List[str] = []
+    real = sigma_module._dm_recovery_context
+
+    def counting(*args: Any) -> Any:
+        builds.append(args[0].dataModelId)
+        return real(*args)
+
+    monkeypatch.setattr(sigma_module, "_dm_recovery_context", counting)
+    source = _source()
+    sibling = _upstream_element("sibling-eid", "Shared", ["x", "y"])
+    consumers = [
+        _element(
+            eid,
+            eid,
+            [
+                _column(f"{eid}-x", "x", "[Shared/x]"),
+                _column(f"{eid}-y", "y", "[Shared/y]"),
+            ],
+        )
+        for eid in ["c1", "c2"]
+    ]
+    for consumer in consumers:
+        # The same Data Model each time: every element, the consumer first.
+        others = [c for c in consumers if c is not consumer]
+        _build(
+            source,
+            consumer,
+            element_name_to_eids={"shared": ["sibling-eid"]},
+            elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+            upstream_elements=[sibling, *others],
+        )
+
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 4
+    assert builds == ["dm-1"]
+
+
+def test_no_recovery_when_a_same_named_sibling_has_no_columns() -> None:
+    """Its columns are unknown, not absent, so it may own the column too."""
+    source = _source()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["s1", "s2"]},
+        elementId_to_dataset_urn={"s1": _urn("s1"), "s2": _urn("s2")},
+        upstream_elements=[
+            _upstream_element("s1", "Shared", ["x"]),
+            _upstream_element("s2", "Shared", []),
+        ],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_a_repeated_recovered_ref_counts_one_edge() -> None:
+    source = _source()
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c1", "x", "If([Shared/x] > 0, [Shared/x], 0)")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["x"])],
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].confidenceScore < 1.0
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 1
+
+
+def test_a_recovered_sibling_is_an_entity_level_upstream() -> None:
+    """A column edge to a Dataset missing from ``upstreams`` is not rendered."""
+    source = _source()
+    listed_urn = _urn("listed-eid")
+    sibling_urn = _urn("sibling-eid")
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c1", "x", "[Shared/x]")],
+        source_ids=["listed-eid"],
+    )
+    data_model = _data_model(
+        [
+            element,
+            _upstream_element("listed-eid", "Listed", ["y"]),
+            _upstream_element("sibling-eid", "Shared", ["x"]),
+        ]
+    )
+
+    lineage = source._gen_data_model_element_upstream_lineage(
+        element,
+        data_model,
+        _urn("consumer"),
+        elementId_to_dataset_urn={
+            "listed-eid": listed_urn,
+            "sibling-eid": sibling_urn,
+        },
+        element_name_to_eids={"listed": ["listed-eid"], "shared": ["sibling-eid"]},
+        warehouse_url_id_map={},
+    )
+
+    assert lineage is not None
+    assert [u.dataset for u in lineage.upstreams] == sorted([listed_urn, sibling_urn])
+    assert lineage.fineGrainedLineages is not None
+    assert lineage.fineGrainedLineages[0].upstreams == [
+        builder.make_schema_field_urn(sibling_urn, "x")
+    ]
+    assert source.reporter.data_model_element_intra_upstreams == 1
+    assert source.reporter.data_model_element_intra_upstreams_recovered == 1
+
+
+def test_no_recovery_when_no_upstream_of_the_element_resolves() -> None:
+    """Sigma lists no upstream, so no UpstreamLineage is built at all."""
+    source = _source()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineage = source._gen_data_model_element_upstream_lineage(
+        element,
+        _data_model([element, _upstream_element("sibling-eid", "Shared", ["x"])]),
+        _urn("consumer"),
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        warehouse_url_id_map={},
+    )
+
+    assert lineage is None
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+# ---------------------------------------------------------------------------
+# An upstream element whose column list came back empty
+# ---------------------------------------------------------------------------
+
+
+def test_empty_upstream_schema_is_counted_separately() -> None:
+    """An upstream element with no columns is a fetch problem, not a name
+    mismatch, so it is not folded into dropped_unknown_upstream_column."""
+    source = _source()
+    upstream_urn = _urn("a")
+    element = _element("b", "B", [_column("b-x", "x", "[A/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 1
+    assert source.reporter.data_model_element_fgl_dropped_unknown_upstream_column == 0
+
+
+def test_empty_upstream_schema_warns_once_per_upstream() -> None:
+    """A partial /columns abort leaves many refs pointing at the same empty
+    element; one warning per upstream, not per referencing column."""
+    source = _source()
+    upstream_urn = _urn("a")
+    element = _element(
+        "b",
+        "B",
+        [_column("b-x", "x", "[A/x]"), _column("b-y", "y", "[A/y]")],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"a": ["a"]},
+        elementId_to_dataset_urn={"a": upstream_urn},
+        entity_level_upstream_urns={upstream_urn},
+        upstream_elements=[_upstream_element("a", "A", [])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_upstream_schema_unavailable == 2
+    # The report groups warnings by title, so count the contexts too.
+    assert len(source.reporter.warnings) == 1
+    assert len(source.reporter.warnings[0].context) == 1
+    # Names the Data Model, so it can be matched to a pagination-abort warning.
+    assert "data_model=dm-1" in str(source.reporter.warnings[0].context)
+
+
+def _collision_build(
+    source: SigmaSource, producer_cols: Dict[str, str] | None
+) -> tuple:
+    """Two elements named "Custom SQL": the consumer reads another model's
+    "Custom SQL", and an unlisted sibling of the same name has the column."""
+    producer_urn = _urn("producer-custom-sql")
+    sibling_urn = _urn("sibling-custom-sql")
+    consumer_urn = _urn("consumer-custom-sql")
+    consumer = _element(
+        "consumer-eid",
+        "Custom SQL",
+        [_column("c1", "Visit Id", "[Custom SQL/Visit Id]")],
+        source_ids=["dm-b/s1"],
+    )
+    if producer_cols is not None:
+        source.dm_element_urn_by_name = {"dm-b": {"custom sql": [producer_urn]}}
+        source.dm_element_urn_to_cols = {producer_urn: producer_cols}
+    discovered: Set[str] = set()
+    lineages = _build(
+        source,
+        consumer,
+        element_dataset_urn=consumer_urn,
+        element_name_to_eids={"custom sql": ["sibling-eid", "consumer-eid"]},
+        elementId_to_dataset_urn={
+            "sibling-eid": sibling_urn,
+            "consumer-eid": consumer_urn,
+        },
+        entity_level_upstream_urns={producer_urn},
+        upstream_elements=[
+            _upstream_element("sibling-eid", "Custom SQL", ["Visit Id"])
+        ],
+        discovered_upstreams=discovered,
+    )
+    return lineages, discovered
+
+
+@pytest.mark.parametrize(
+    "producer_cols",
+    [{}, None],
+    ids=["producer-columns-empty", "producer-model-not-ingested"],
+)
+def test_no_recovery_when_the_element_reads_another_model(
+    producer_cols: Dict[str, str] | None,
+) -> None:
+    """A same-named sibling is a name collision when /lineage points at another
+    Data Model, even after the cross-DM rescue fails."""
+    source = _source()
+    lineages, discovered = _collision_build(source, producer_cols)
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_for_an_element_reading_another_model_by_another_name() -> None:
+    """The cross-DM guard holds even when the ref does not name the element."""
+    source = _source()
+    element = _element(
+        "consumer",
+        "Consumer",
+        [_column("c1", "x", "[Shared/x]")],
+        source_ids=["dm-b/s1"],
+    )
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sibling-eid"]},
+        elementId_to_dataset_urn={"sibling-eid": _urn("sibling-eid")},
+        upstream_elements=[_upstream_element("sibling-eid", "Shared", ["x"])],
+    )
+
+    assert lineages == []
+    assert source.reporter.data_model_element_fgl_orphan_recovered == 0
+
+
+def test_no_recovery_when_two_unlisted_siblings_own_the_column() -> None:
+    """With no /lineage signal, nothing breaks the tie."""
+    source = _source()
+    discovered: Set[str] = set()
+    element = _element("consumer", "Consumer", [_column("c1", "x", "[Shared/x]")])
+
+    lineages = _build(
+        source,
+        element,
+        element_name_to_eids={"shared": ["sib-1", "sib-2"]},
+        elementId_to_dataset_urn={"sib-1": _urn("sib-1"), "sib-2": _urn("sib-2")},
+        entity_level_upstream_urns=set(),
+        upstream_elements=[
+            _upstream_element("sib-1", "Shared", ["x"]),
+            _upstream_element("sib-2", "Shared", ["x"]),
+        ],
+        discovered_upstreams=discovered,
+    )
+
+    assert lineages == []
+    assert discovered == set()
+    assert source.reporter.data_model_element_fgl_dropped_orphan_upstream == 1

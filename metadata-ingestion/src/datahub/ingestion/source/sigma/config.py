@@ -271,6 +271,9 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element emission / upstream resolution.
     data_model_elements_emitted: int = 0
     data_model_element_intra_upstreams: int = 0
+    # Siblings added as upstreams by orphan recovery; not in intra_upstreams,
+    # which counts what /lineage reported.
+    data_model_element_intra_upstreams_recovered: int = 0
     data_model_element_external_upstreams: int = 0
     # Split intentionally so operators can triage "upstream dataset
     # exists but wasn't ingested in this run" (typically a pattern
@@ -334,6 +337,7 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # DM element column-level lineage (FGL) counters.
     # Throughout: "DM" / "dm" = data model.
     # Intra-DM FGL only; total FGL = fgl_emitted + fgl_cross_dm_resolved.
+    # Includes orphan-recovered edges (fgl_orphan_recovered).
     data_model_element_fgl_emitted: int = 0
     # Refs where multiple sibling candidates passed the /lineage filter;
     # sorted-first URN was chosen (matches collision precedent).
@@ -352,12 +356,27 @@ class SigmaSourceReport(StaleEntityRemovalSourceReport):
     # the warehouse table name rather than the element name.
     data_model_element_fgl_warehouse_resolved: int = 0
     # Refs whose source element is in this DM but not listed as an upstream by
-    # /lineage, and whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl)
-    # also found no match; dropped to avoid orphan FGL the UI silently rejects.
+    # /lineage, whose cross-DM rescue (_try_emit_self_named_cross_dm_fgl) found
+    # no match, and that orphan recovery declined (see
+    # _recover_orphan_intra_dm_ref for the reasons). Dropped to avoid orphan
+    # FGL the UI silently rejects.
     data_model_element_fgl_dropped_orphan_upstream: int = 0
     # Refs whose column name has no matching fieldPath in the upstream element's
     # schema; dropped to avoid a dangling schemaField URN.
     data_model_element_fgl_dropped_unknown_upstream_column: int = 0
+    # Refs to an intra-DM sibling Sigma's /lineage did not list, emitted because
+    # that sibling alone owns the referenced column. Inferred, not reported by
+    # Sigma, so counted apart from the edges /lineage backs, and emitted with a
+    # lower confidenceScore. Counts edges, not refs.
+    data_model_element_fgl_orphan_recovered: int = 0
+    # Refs whose listed upstream element came back with no columns, so the column
+    # could not be checked; usually a /columns fetch that failed partway.
+    # /columns is one list across all elements, so an abort leaves every
+    # element on the unread pages empty and only the one straddling the break
+    # partial; refs to a partial element land in
+    # dropped_unknown_upstream_column. An unlisted sibling with no columns
+    # blocks orphan recovery instead (dropped_orphan_upstream).
+    data_model_element_fgl_upstream_schema_unavailable: int = 0
     # Cross-DM FGL counters (DM = data model throughout).
     # Refs resolved via global bridge index and emitted as cross-DM FGL.
     # Resolution uses entity-level upstreams as a soft collision tiebreaker,
