@@ -3,6 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { isDomain } from '@app/entityV2/domain/utils';
+import { DeprecationIcon } from '@app/entityV2/shared/components/styled/DeprecationIcon';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -33,6 +34,14 @@ export function DomainSelectOption({ entity }: Props) {
             <Text color="text" weight="medium">
                 {displayName}
             </Text>
+            {domain.deprecation?.deprecated && (
+                <DeprecationIcon
+                    urn={domain.urn}
+                    deprecation={domain.deprecation}
+                    showUndeprecate={false}
+                    showText={false}
+                />
+            )}
         </Container>
     );
 }
