@@ -80,6 +80,9 @@ class FakeBackend:
         self.sent.append(dict(variables))
         return cast(JsonObject, copy.deepcopy(self.page))
 
+    def dataset_usage(self, urn: str, time_range: str) -> JsonObject | None:
+        return None
+
     def list_queries(self, variables: JsonObject) -> JsonObject:
         return {}
 
