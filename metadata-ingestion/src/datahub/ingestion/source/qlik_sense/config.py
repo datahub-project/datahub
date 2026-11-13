@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -150,6 +151,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    file_sources_resolved: int = 0
+    # File data connections whose files an app reads but whose storage is not
+    # known: add them to file_connection_to_storage.
+    unresolved_file_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -174,6 +179,34 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None,
         description="Schema used for tables the load script does not qualify.",
     )
+
+
+class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    storage_uri: Optional[str] = Field(
+        default=None,
+        description="Where the connection's files are, as an `abfss://<container>@<account>"
+        ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
+        "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
+        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
+        "connection when not set, which needs the API key's user to see the "
+        "connection.",
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Lowercase the file dataset names, to match a storage source "
+        "run with `convert_urns_to_lowercase`.",
+    )
+
+    @field_validator("storage_uri")
+    @classmethod
+    def storage_uri_is_supported(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and file_storage_of_uri(value) is None:
+            raise ValueError(
+                f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
+                "URI that names the container, or an s3:// or gs:// URI"
+            )
+        return value
 
 
 class QlikOnPremConfig(ConfigModel):
@@ -375,6 +408,15 @@ class QlikSourceConfig(
         description="A mapping of the Qlik app dataset upstream tables from data connection to platform instance."
         "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
         "cannot be inferred from the data connection.",
+    )
+    file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
+        default={},
+        description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "
+        "and Google Cloud Storage data connections are in DataHub, for lineage from "
+        "the files apps load. Use the data connection name as key, as load scripts "
+        "write it (`<space>:<connection>` or `<connection>`). Set `storage_uri` "
+        "when the API key's user cannot see the connection, and `platform_instance` "
+        "and `env` to match the source that ingests the storage.",
     )
 
     @model_validator(mode="after")

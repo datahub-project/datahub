@@ -8,7 +8,17 @@ import posixpath
 import re
 from datetime import datetime
 from functools import partial
-from typing import Collection, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import (
+    Collection,
+    Dict,
+    Iterable,
+    List,
+    Optional,
+    Set,
+    Tuple,
+    TypeVar,
+    Union,
+)
 
 from pydantic import BaseModel, ConfigDict
 
@@ -49,6 +59,7 @@ from datahub.ingestion.source.qlik_sense.app_state import (
 )
 from datahub.ingestion.source.qlik_sense.config import (
     Constant,
+    FileStorageDetail,
     PlatformDetail,
     QlikSourceConfig,
     QlikSourceReport,
@@ -74,6 +85,14 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     SpaceKey,
     UnchangedApp,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    FILE_QRI_RE,
+    FileReference,
+    FileSourceResolver,
+    FileStorage,
+    file_dataset_urn,
+    file_storage_of_uri,
+)
 from datahub.ingestion.source.qlik_sense.qlik_api import QlikAPI
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
     UNREAD_DATA_CONNECTIONS,
@@ -90,6 +109,7 @@ from datahub.ingestion.source.qlik_sense.qvd_lineage import (
 )
 from datahub.ingestion.source.qlik_sense.script_lineage import (
     BACKTICK_QUOTED_PLATFORMS,
+    LIB_PATH_RE,
     SPACE_SEPARATOR,
     DataConnectionInfo,
     ParsedScript,
@@ -112,6 +132,7 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     reads_unknown_fields,
     redact_connection,
     select_list_size,
+    unquoted_values,
 )
 from datahub.ingestion.source.state.entity_removal_state import (
     STATEFUL_INGESTION_IGNORED_ENTITY_TYPES,
@@ -175,6 +196,8 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 # Logger instance
 logger = logging.getLogger(__name__)
+
+MappingT = TypeVar("MappingT")
 
 
 class _PartialRead(StrEnum):
@@ -325,6 +348,17 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         self.reporter = QlikSourceReport()
         self.ui_host = config.ui_hostname()
         self._data_connections: Optional[Dict[str, DataConnectionInfo]] = None
+        # The files each app's load script reads, to resolve the files in its
+        # lineage graph with.
+        self._file_sources_by_app: Dict[str, FileSourceResolver] = {}
+        self._app_space_ids: Dict[str, str] = {}
+        self._apps_variables_unread: Set[str] = set()
+        # Apps that load files by a wildcard or a path the connector can't
+        # expand, so the files in their lineage graph can't all be named.
+        self._apps_file_paths_unknown: Set[str] = set()
+        self._apps_with_includes: Set[str] = set()
+        self._reported_include_apps: Set[str] = set()
+        self._resolved_file_qris: Set[str] = set()
         self._allowed_space_ids: Set[str] = set()
         self._reported_no_graph = False
         # Datasets with a column edge whose source field could not be named.
@@ -1325,19 +1359,30 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             return connections.get(f"{space_name}{SPACE_SEPARATOR}{connection}")
         return connections.get(connection)
 
+    def _mapped_connection(
+        self, connection: str, space_id: str, mapping: Dict[str, MappingT]
+    ) -> Optional[MappingT]:
+        """A recipe mapping's entry for a connection a load script names. On
+        Qlik Cloud a bare name is the app's own space's connection, so an
+        entry keyed `<space>:<connection>` matches it first; a bare key
+        matches the connection in any space."""
+        names = connection_lookup_names(connection)
+        space_name = self.qlik_api.spaces.get(space_id)
+        if (
+            self.config.on_prem is None
+            and space_name
+            and SPACE_SEPARATOR not in connection
+        ):
+            names.insert(0, f"{space_name}{SPACE_SEPARATOR}{connection}")
+        return next((mapping[name] for name in names if name in mapping), None)
+
     def _resolve_script_connection(
         self, connection: Optional[str], space_id: str
     ) -> Optional[ResolvedConnection]:
         if not connection:
             return None
-        names = connection_lookup_names(connection)
-        configured = next(
-            (
-                self.config.data_connection_to_platform_instance[name]
-                for name in names
-                if name in self.config.data_connection_to_platform_instance
-            ),
-            None,
+        configured = self._mapped_connection(
+            connection, space_id, self.config.data_connection_to_platform_instance
         )
         inferred = self._find_data_connection(connection, space_id)
         # Inline ODBC/OLEDB connection strings carry the driver and database
@@ -1728,9 +1773,22 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
             # as ADLS, are datasets. Other sources, such as database tables,
             # have opaque QRIs; the load script parser traces SQL loads instead.
             datasets = self._dataset_urns_by_secure_qri
-            if datasets is None:
+            urn = (
+                datasets.get(table_qri.rpartition("#")[0]) or datasets.get(table_qri)
+                if datasets
+                else None
+            )
+            if urn is None and own_app_id is not None and FILE_QRI_RE.match(table_qri):
+                # Files on a storage connection resolve from the load script,
+                # without the list of datasets.
+                urn = self._resolve_file_source(own_app_id, table_qri)
+                if urn is None and self._file_inputs_incomplete(own_app_id):
+                    # The file may be one the script reads through a path,
+                    # connection or included script this run could not read,
+                    # so the last run's edge to it must stay.
+                    return None, False
+            if urn is None and datasets is None:
                 return None, False
-            urn = datasets.get(table_qri.rpartition("#")[0]) or datasets.get(table_qri)
             if (
                 urn is None
                 and table_qri.startswith(QLIK_DATASET_QRI_PREFIX)
@@ -1739,6 +1797,160 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
                 # It may be an ingested dataset the listing gave no QRI for.
                 return None, False
         return (urn if urn != dataset_urn else None), True
+
+    def _file_inputs_incomplete(self, app_id: str) -> bool:
+        if app_id in self._apps_with_includes:
+            if app_id not in self._reported_include_apps:
+                self._reported_include_apps.add(app_id)
+                self.reporter.warning(
+                    title="Qlik app loads files from an included script",
+                    message="Files loaded in scripts brought in with $(Include) "
+                    "or $(Must_Include), or in a SUB the script calls but does "
+                    "not define, are not read, so a file in the app's "
+                    "lineage graph that its own script does not load only adds "
+                    "to the table's lineage.",
+                    context=app_id,
+                )
+            return True
+        return (
+            app_id in self._apps_variables_unread
+            or app_id in self._apps_file_paths_unknown
+            or any(
+                item.name == UNREAD_DATA_CONNECTIONS
+                for item in self.qlik_api.unread_items
+            )
+        )
+
+    def _file_source_resolver(
+        self, app: App, parsed: ParsedScript
+    ) -> FileSourceResolver:
+        references = []
+        unnamed = []
+        for load in parsed.file_loads:
+            if load.uses_unknown_variable:
+                unnamed.append(load.as_written)
+                continue
+            # Paths are often built from variables the script sets with LET or
+            # in an included script, which the app's variables hold. The graph
+            # follows the last reload, so either spelling may be the file's.
+            candidates = [
+                load.expanded,
+                expand_variables(
+                    load.as_written, unquoted_values(app.variables)
+                ).strip(),
+            ]
+            named = [
+                FileReference(
+                    connection=lib_path.group("connection"),
+                    path=lib_path.group("path"),
+                )
+                for path in dict.fromkeys(candidates)
+                if (lib_path := LIB_PATH_RE.match(path))
+                and not any(part in path for part in ("$(", "*", "?"))
+            ]
+            if named:
+                references.extend(named)
+            if not named or any("*" in path or "?" in path for path in candidates):
+                # A wildcard reads files the graph names one by one, which no
+                # path can be matched against, and either spelling may be the
+                # one the last reload read.
+                unnamed.append(load.expanded)
+        if unnamed and self.config.on_prem is None:
+            # On-prem apps have no lineage graph files to match.
+            self._apps_file_paths_unknown.add(app.id)
+            self.reporter.warning(
+                title="Qlik app loads files the connector can't name",
+                message="Files loaded through a wildcard, an unexpanded variable "
+                "or a path outside a data connection can't be matched to the "
+                "files in the app's lineage graph, so lineage to them is only "
+                "added to.",
+                context=f"{app.id}: {', '.join(unnamed[:5])}",
+            )
+        return FileSourceResolver(references)
+
+    def _file_storage(
+        self, connection: str, space_id: str
+    ) -> Tuple[Optional[FileStorage], Optional[FileStorageDetail]]:
+        detail = self._mapped_connection(
+            connection, space_id, self.config.file_connection_to_storage
+        )
+        info = self._find_data_connection(connection, space_id)
+        visible = info.file_storage if info else None
+        if detail is not None and detail.storage_uri:
+            storage = file_storage_of_uri(detail.storage_uri)
+            if storage is not None and visible is not None:
+                # The connection's own properties still check the QRI.
+                storage.qri_connection_id = visible.qri_connection_id
+            return storage, detail
+        return visible, detail
+
+    def _resolve_file_source(self, app_id: str, file_qri: str) -> Optional[str]:
+        """The dataset of a file in an app's lineage graph, such as a CSV on
+        Azure Storage, when the app's load script reads it through a data
+        connection whose storage is known."""
+        resolver = self._file_sources_by_app.get(app_id)
+        space_id = self._app_space_ids.get(app_id)
+        if resolver is None or space_id is None:
+            return None
+        candidates = resolver.candidates(file_qri)
+        # A connection whose properties match the QRI's names the file for
+        # certain; one whose storage is only mapped is trusted only when no
+        # other connection the script reads the same path through could hold it.
+        confirmed: Set[str] = set()
+        unconfirmed: Set[str] = set()
+        # Unconfirmed URNs whose storage location hashes to the QRI's part.
+        likely: Set[str] = set()
+        unknown = False
+        for reference in candidates.references:
+            storage, detail = self._file_storage(reference.connection, space_id)
+            if storage is None:
+                info = self._find_data_connection(reference.connection, space_id)
+                if info is not None and info.file_platform != candidates.platform:
+                    # A visible connection of another kind, such as DataFiles,
+                    # can't hold a file on this storage.
+                    continue
+                unknown = True
+                if (
+                    reference.connection
+                    not in self.reporter.unresolved_file_connections
+                ):
+                    self.reporter.unresolved_file_connections.append(
+                        reference.connection
+                    )
+                continue
+            if storage.platform != candidates.platform or (
+                storage.qri_connection_id is not None
+                and storage.qri_connection_id != candidates.connection_id
+            ):
+                continue
+            urn = file_dataset_urn(
+                storage,
+                reference.path,
+                platform_instance=detail.platform_instance if detail else None,
+                # An env the mapping leaves unset is the recipe's.
+                env=detail.env
+                if detail and "env" in detail.model_fields_set
+                else self.config.env,
+                lowercase=detail.convert_urns_to_lowercase if detail else False,
+            )
+            (confirmed if storage.qri_connection_id else unconfirmed).add(urn)
+            if storage.likely_qri_connection_id == candidates.connection_id:
+                likely.add(urn)
+        if confirmed:
+            urns = confirmed
+        elif unknown:
+            return None
+        elif len(unconfirmed) > 1 and len(likely & unconfirmed) == 1:
+            # Such as the prod and dev branches of an IF, of which only one ran.
+            urns = likely & unconfirmed
+        else:
+            urns = unconfirmed
+        if len(urns) != 1:
+            return None
+        if file_qri not in self._resolved_file_qris:
+            self._resolved_file_qris.add(file_qri)
+            self.reporter.file_sources_resolved += 1
+        return next(iter(urns))
 
     def _learn_field_names(self, names: Iterable[str]) -> None:
         for name in names:
@@ -2079,6 +2291,20 @@ class QlikSenseSource(StatefulIngestionSourceBase, TestableSource):
         if self.config.on_prem is None and not app.tables:
             self.reporter.apps_without_load_model.append(app.id)
         parsed = self._parsed_script(app)
+        self._file_sources_by_app[app.id] = self._file_source_resolver(app, parsed)
+        if parsed.has_includes:
+            self._apps_with_includes.add(app.id)
+        if app.variables_read_failed:
+            self._apps_variables_unread.add(app.id)
+            self.reporter.warning(
+                title="Unable to read Qlik app variables",
+                message="Load script paths and chart expressions that use these "
+                "apps' variables are not expanded. Lineage to the files they "
+                "load is only added to this run, and chart fields read through "
+                "them are left out.",
+                context=app.id,
+            )
+        self._app_space_ids[app.id] = app.spaceId
         script_tables = self._build_script_tables(app, parsed=parsed)
         self._name_unknown_tables(app, script_tables)
         qvd_lineage = (

@@ -4,6 +4,7 @@ from typing import AbstractSet, Dict, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
+from datahub.ingestion.source.qlik_sense.file_lineage import FileStorage
 from datahub.metadata.urns import DatasetUrn
 
 CONNECT_RE = re.compile(
@@ -353,6 +354,18 @@ class QvdStore(BaseModel):
     fields: Optional[PrecedingLoad] = None
 
 
+class FileLoad(BaseModel):
+    """A file a LOAD reads: its path as the script's own SET and LET
+    variables expand it, and as written, for the app's variables from its last
+    reload to expand instead."""
+
+    expanded: str
+    as_written: str
+    # The path uses a variable the script makes unknown, such as a FOR EACH
+    # variable over a FileList, so the app's last value names only one file.
+    uses_unknown_variable: bool = False
+
+
 class ParsedScript(BaseModel):
     tables: List[ScriptTable] = []
     qvd_loads: List[QvdLoad] = []
@@ -365,6 +378,11 @@ class ParsedScript(BaseModel):
     has_unresolved_store: bool = False
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
+    # Every file a LOAD reads, in any format.
+    file_loads: List[FileLoad] = []
+    # The script includes other scripts, or calls a SUB it doesn't define,
+    # whose loads are not read.
+    has_includes: bool = False
 
 
 class ScriptTableLineage(BaseModel):
@@ -384,6 +402,10 @@ class DataConnectionInfo(BaseModel):
     database: Optional[str] = None
     # The folder of a folder data connection, for QVD paths in it.
     folder_path: Optional[str] = None
+    # The storage of a Qlik Cloud file data connection, such as Azure Storage.
+    file_storage: Optional[FileStorage] = None
+    # The platform of its files, known even when its storage is not.
+    file_platform: Optional[str] = None
 
 
 class ResolvedConnection(BaseModel):
@@ -702,6 +724,13 @@ def _expand_nested_variables(text: str, variables: Dict[str, str]) -> str:
     return text
 
 
+def _load_path(statement: str) -> Optional[str]:
+    masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), statement)
+    keyword = STORE_FROM_RE.search(masked)
+    source = FILE_SOURCE_RE.match(statement, keyword.start()) if keyword else None
+    return _unquote(source.group("path").strip()).strip() if source else None
+
+
 def _unquote(name: str) -> str:
     if len(name) > 1 and QUOTE_PAIRS.get(name[0]) == name[-1]:
         return name[1:-1]
@@ -848,6 +877,10 @@ class _ScriptParser(BaseModel):
     unresolved_qvd_paths: List[str] = []
     has_unresolved_store: bool = False
     unlabelled_qvd_loads: List[str] = []
+    file_loads: List[FileLoad] = []
+    has_includes: bool = False
+    # The current statement before the script's variables are expanded.
+    raw_statement: str = ""
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
     pending_loads: List[PrecedingLoad] = []
@@ -891,7 +924,9 @@ class _ScriptParser(BaseModel):
     def _call(self, name: str, args: Optional[str]) -> None:
         sub = self.subs.get(name.lower())
         if sub is None or name.lower() in self.calling:
-            # The SUB may come from an include, so it could have set anything.
+            # The SUB may come from an include, so it could have set or loaded
+            # anything.
+            self.has_includes = self.has_includes or sub is None
             self._forget()
             return
         # The body runs with the connection and variables in effect here, and
@@ -922,8 +957,10 @@ class _ScriptParser(BaseModel):
         statement, includes = INCLUDE_RE.subn("", statement)
         if includes:
             # The included script is not read, so it could have set anything.
+            self.has_includes = True
             self._forget()
             statement = statement.strip()
+        self.raw_statement = statement
         statement = _expand_variables(statement, self.flow.state.variables)
         if not statement:
             return
@@ -1015,6 +1052,9 @@ class _ScriptParser(BaseModel):
             self.pending_loads.append(_parse_load_fields(statement))
         else:
             if LOAD_RE.match(statement):
+                # Every file a LOAD reads is in Qlik's lineage graph, mapping
+                # loads included.
+                self._record_file_load(statement)
                 if not (skip or mapping or self.pending_skip or self.pending_mapping):
                     self._qvd_load(label or self.pending_label, statement)
                 # A preceding LOAD's label names the table a later Concatenate
@@ -1088,6 +1128,22 @@ class _ScriptParser(BaseModel):
         self.unresolved_qvd_paths.append(path)
         return None
 
+    def _record_file_load(self, statement: str) -> None:
+        expanded = _load_path(statement)
+        if expanded is None:
+            return
+        as_written = _load_path(self.raw_statement) or expanded
+        load = FileLoad(
+            expanded=expanded,
+            as_written=as_written,
+            uses_unknown_variable=any(
+                reference.group("name").strip() in self.flow.state.unknown
+                for reference in VARIABLE_REFERENCE_RE.finditer(as_written)
+            ),
+        )
+        if load not in self.file_loads:
+            self.file_loads.append(load)
+
     def _qvd_load(self, label: Optional[str], statement: str) -> None:
         # FROM is found with quoted text masked, so a quoted field or path
         # can't hold it; the path itself is then read from the statement.
@@ -1156,6 +1212,8 @@ def parse_script(
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
         has_unresolved_store=parser.has_unresolved_store,
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
+        file_loads=parser.file_loads,
+        has_includes=parser.has_includes,
     )
 
 

@@ -17,7 +17,12 @@ from datahub.ingestion.source.qlik_sense.data_classes import (
     QlikTable,
     Space,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import (
+    file_connector_platform,
+    file_storage_of_connection,
+)
 from datahub.ingestion.source.qlik_sense.qlik_base_api import (
+    UNREAD_DATA_CONNECTIONS,
     IsUnchanged,
     QlikBaseAPI,
     ReadErrors,
@@ -345,6 +350,12 @@ class QlikAPI(QlikBaseAPI):
                         Constant.QTYPE,
                     ),
                 )
+                info.file_storage = file_storage_of_connection(
+                    connection.get(Constant.QCONNECTSTATEMENT) or ""
+                )
+                info.file_platform = file_connector_platform(
+                    connection.get(Constant.QCONNECTSTATEMENT) or ""
+                )
                 # A personal connection has no space, like a personal app.
                 space_name = self.spaces.get(
                     connection.get(Constant.SPACE) or Constant.PERSONAL_SPACE_ID
@@ -354,7 +365,7 @@ class QlikAPI(QlikBaseAPI):
                 by_name.setdefault(name, []).append(info)
         except Exception as e:
             self._record_unread(
-                "data connections",
+                UNREAD_DATA_CONNECTIONS,
                 f"Unable to fetch data connections. Exception: {e}",
                 e,
             )
