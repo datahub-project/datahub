@@ -26,13 +26,19 @@ INITIALIZE = {
 MCP_HEADERS = {"Accept": "application/json, text/event-stream"}
 
 
+def _no_ping(name: str, properties: dict[str, Any]) -> None:
+    pass
+
+
 def _app(gms: FakeGms, **config: Any) -> Any:
     observers = config.pop("observers", ())
+    telemetry_ping = config.pop("telemetry_ping", _no_ping)
     return create_app(
         AiServiceConfig(gms_url="http://gms.invalid:8080", **config),
         client_factory=FakeClientFactory(gms),
         server_info=lambda: gms.server_info(),
         observers=observers,
+        telemetry_ping=telemetry_ping,
     )
 
 

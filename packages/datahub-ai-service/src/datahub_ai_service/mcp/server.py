@@ -10,6 +10,7 @@ from datahub_core_mcp_tools.mcp_server import (
     disable_list_changed_capabilities,
     register_tools,
 )
+from datahub_core_mcp_tools.telemetry import ToolCall
 from datahub_core_mcp_tools.version_filter import VersionFilterMiddleware
 
 from .._version import __version__
@@ -25,6 +26,7 @@ def build_mcp_server(
     tool_time_limit_seconds: Optional[float] = None,
     on_token_rejected: Optional[Callable[[str], None]] = None,
     observers: Sequence[ToolCallObserver] = (),
+    telemetry_sinks: Sequence[Callable[[ToolCall], None]] = (),
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
     served = register_tools(mcp, is_oss=True)
@@ -43,5 +45,5 @@ def build_mcp_server(
         )
     )
     mcp.add_middleware(VersionFilterMiddleware(server_info))
-    mcp.add_middleware(ToolCallTelemetryMiddleware(observers))
+    mcp.add_middleware(ToolCallTelemetryMiddleware(observers, sinks=telemetry_sinks))
     return mcp

@@ -67,6 +67,14 @@ a write is never applied twice.
 Use `json` only behind proxies that can't stream responses, and give them idle timeouts longer
 than the slowest tool call.
 
+## Telemetry
+
+Like the DataHub CLI, the service sends anonymous usage telemetry: one event when it starts and
+one per tool call, with the tool's name, the MCP client's name and version, timings, result
+size, the error's class when a call fails, and the GMS version. Events never include tool
+arguments, results, error messages or who called. Turn them off with
+`DATAHUB_TELEMETRY_ENABLED=false`.
+
 ## Development
 
 ```bash

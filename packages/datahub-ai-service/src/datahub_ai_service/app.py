@@ -15,6 +15,7 @@ from starlette.responses import JSONResponse
 from starlette.routing import BaseRoute, Mount, Route
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo, GmsServerInfoCache
+from datahub_core_mcp_tools.telemetry import Ping, sdk_ping
 
 from ._version import __version__
 from .config import AiServiceConfig
@@ -24,7 +25,7 @@ from .mcp.client_factory import CallerClientFactory
 from .mcp.feature_gate import McpFeatureGate
 from .mcp.host_guard import HostGuard
 from .mcp.server import build_mcp_server
-from .mcp.telemetry import ToolCallObserver
+from .mcp.telemetry import ToolCallObserver, ping_service_start, product_ping
 
 MCP_PATH = "/mcp"
 
@@ -35,7 +36,13 @@ def create_app(
     client_factory: Optional[CallerClientFactory] = None,
     server_info: Optional[Callable[[], GmsServerInfo]] = None,
     observers: Sequence[ToolCallObserver] = (),
+    telemetry_ping: Ping = sdk_ping,
 ) -> Starlette:
+    """The service's ASGI app.
+
+    ``telemetry_ping`` sends DataHub's anonymous product telemetry (the SDK's,
+    off with DATAHUB_TELEMETRY_ENABLED=false).
+    """
     client_factory = client_factory or CallerClientFactory(
         config.gms_url, timeout_seconds=config.gms_timeout_seconds
     )
@@ -81,6 +88,7 @@ def create_app(
             tool_time_limit_seconds=config.tool_time_limit_seconds,
             on_token_rejected=verifier.invalidate,
             observers=observers,
+            telemetry_sinks=[product_ping(config, server_info, ping=telemetry_ping)],
         )
         mcp_app = mcp.http_app(
             path=MCP_PATH,
@@ -114,6 +122,7 @@ def create_app(
             f"datahub-ai-service {__version__} starting: GMS {config.gms_url}, MCP "
             + (f"at {MCP_PATH} ({config.mcp_response_mode})" if mcp_app else "disabled")
         )
+        ping_service_start(config, server_info, ping=telemetry_ping)
         if mcp_app is None:
             yield
             return
