@@ -3,6 +3,7 @@ import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
+import { type MentionEntities, MentionEntitiesContext } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 import { MentionView } from '@app/sharedV2/editor/mentions/MentionView';
 import themeV2 from '@conf/theme/themeV2';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
@@ -23,15 +24,25 @@ vi.mock('@src/app/recommendations/renderer/component/HoverEntityTooltip', () => 
     HoverEntityTooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-function renderNode(result: { data?: unknown; loading: boolean }) {
+function renderNode(result: { data?: unknown; loading: boolean }, batch: MentionEntities | null = null) {
     vi.mocked(useGetEntityMentionNodeQuery).mockReturnValue(
         result as unknown as ReturnType<typeof useGetEntityMentionNodeQuery>,
     );
     return render(
         <ThemeProvider theme={themeV2}>
-            <MentionView urn="urn:li:corpuser:alice" name="Alice" />
+            <MentionEntitiesContext.Provider value={batch}>
+                <MentionView urn="urn:li:corpuser:alice" name="Alice" />
+            </MentionEntitiesContext.Provider>
         </ThemeProvider>,
     );
+}
+
+function batchOf(entities: Record<string, unknown>, loading = false): MentionEntities {
+    return {
+        urns: new Set(['urn:li:corpuser:alice']),
+        loading,
+        entitiesByUrn: new Map(Object.entries(entities)) as MentionEntities['entitiesByUrn'],
+    };
 }
 
 describe('MentionView', () => {
@@ -57,5 +68,24 @@ describe('MentionView', () => {
 
         expect(screen.getByText('Alice Smith')).toBeInTheDocument();
         expect(screen.getByTestId('entity-icon')).toBeInTheDocument();
+    });
+
+    it('renders the entity from the batch without its own request', () => {
+        renderNode(
+            { loading: true },
+            batchOf({
+                'urn:li:corpuser:alice': { urn: 'urn:li:corpuser:alice', type: 'CORP_USER', name: 'Alice Smith' },
+            }),
+        );
+
+        expect(screen.getByText('Alice Smith')).toBeInTheDocument();
+        expect(vi.mocked(useGetEntityMentionNodeQuery).mock.lastCall?.[0]?.skip).toBe(true);
+    });
+
+    it('shows the stored name while the batch loads', () => {
+        renderNode({ loading: false }, batchOf({}, true));
+
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+        expect(screen.queryByTestId('entity-icon')).not.toBeInTheDocument();
     });
 });
