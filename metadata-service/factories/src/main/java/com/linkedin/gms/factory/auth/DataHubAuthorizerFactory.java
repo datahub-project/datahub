@@ -4,6 +4,8 @@ import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.EntityServiceImpl;
 import io.datahubproject.metadata.context.OperationContext;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -36,6 +38,9 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.sqlSource.enabled:false}")
   private Boolean sqlSourceEnabled;
 
+  @Value("${authorization.defaultAuthorizer.sqlSource.policyChangeWaitMillis:5000}")
+  private Long policyChangeWaitMillis;
+
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
@@ -43,7 +48,8 @@ public class DataHubAuthorizerFactory {
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
       final SystemEntityClient systemEntityClient,
       @Qualifier("groupService") final GroupService groupService,
-      @Qualifier("entityAspectDao") final ObjectProvider<AspectDao> aspectDao) {
+      @Qualifier("entityAspectDao") final ObjectProvider<AspectDao> aspectDao,
+      @Qualifier("entityService") final ObjectProvider<EntityService<?>> entityService) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
@@ -69,6 +75,17 @@ public class DataHubAuthorizerFactory {
             dao != null ? new SqlPolicyLoader(dao) : null);
 
     if (authorizer.isSqlSourceEnabled()) {
+      authorizer.setPolicyChangeWaitMillis(policyChangeWaitMillis);
+      // Reload this process's cache after each committed policy write or delete, before the write
+      // returns. Covers every synchronous write path in this process, not only GraphQL.
+      final EntityService<?> service = entityService.getIfAvailable();
+      if (service instanceof EntityServiceImpl impl) {
+        impl.setPolicyChangeObserver(authorizer::onPolicyChange);
+      } else {
+        log.warn(
+            "Policy cache: no EntityServiceImpl in this process, so policy writes here will not"
+                + " refresh the cache before they return.");
+      }
       authorizer.initialLoad(INITIAL_LOAD_ATTEMPTS, INITIAL_LOAD_BACKOFF_MILLIS);
     } else {
       log.info("policy cache source=search");

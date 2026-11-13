@@ -2,6 +2,7 @@ package com.linkedin.metadata.entity;
 
 import static com.linkedin.metadata.Constants.ASPECT_LATEST_VERSION;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
@@ -34,6 +35,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.DataTemplateUtil;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.identity.CorpUserEditableInfo;
 import com.linkedin.identity.CorpUserInfo;
@@ -61,12 +63,15 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.utils.PegasusUtils;
 import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.metadata.utils.TolerantHandling;
 import com.linkedin.metadata.utils.UnknownDataHandling;
 import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.policy.DataHubActorFilter;
+import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.retention.DataHubRetentionConfig;
 import com.linkedin.retention.Retention;
 import com.linkedin.retention.TimeBasedRetention;
@@ -90,6 +95,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -1072,5 +1078,84 @@ public class EbeanEntityServiceTest
             .build(opContext),
         true,
         true);
+  }
+
+  private void ingestPolicy(Urn policyUrn, String description) {
+    DataHubPolicyInfo info =
+        new DataHubPolicyInfo()
+            .setDisplayName("observer test policy")
+            .setDescription(description)
+            .setType("METADATA")
+            .setState("ACTIVE")
+            .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
+            .setActors(new DataHubActorFilter().setAllUsers(true));
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(policyUrn)
+                        .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
+                        .recordTemplate(info)
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+  }
+
+  @Test
+  public void testPolicyChangeObserverRunsAfterPolicyWritesAndDeletes() throws Exception {
+    AtomicInteger calls = new AtomicInteger();
+    _entityServiceImpl.setPolicyChangeObserver(calls::incrementAndGet);
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-test");
+
+    ingestPolicy(policyUrn, "first");
+    assertEquals(calls.get(), 1, "a policy write notifies the observer");
+
+    ingestPolicy(policyUrn, "first");
+    assertEquals(calls.get(), 1, "a write that changes nothing does not notify");
+
+    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:observer-test");
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(
+                    ChangeItemImpl.builder()
+                        .urn(userUrn)
+                        .aspectName("corpUserInfo")
+                        .recordTemplate(AspectGenerationUtils.createCorpUserInfo("a@b.com"))
+                        .auditStamp(TEST_AUDIT_STAMP)
+                        .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+                        .build(opContext.getAspectRetriever())))
+            .build(opContext),
+        true,
+        true);
+    assertEquals(calls.get(), 1, "a write to another entity type does not notify");
+
+    _entityServiceImpl.deleteUrn(opContext, policyUrn);
+    assertEquals(calls.get(), 2, "a policy delete notifies the observer");
+  }
+
+  @Test
+  public void testPolicyChangeObserverFailureDoesNotFailTheWrite() {
+    _entityServiceImpl.setPolicyChangeObserver(
+        () -> {
+          throw new IllegalStateException("observer failure");
+        });
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-failure");
+
+    ingestPolicy(policyUrn, "kept");
+
+    DataHubPolicyInfo stored =
+        (DataHubPolicyInfo)
+            _entityServiceImpl.getLatestAspect(
+                opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME);
+    assertEquals(stored.getDescription(), "kept");
   }
 }

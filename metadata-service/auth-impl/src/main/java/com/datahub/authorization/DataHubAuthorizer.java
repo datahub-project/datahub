@@ -27,10 +27,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -74,6 +76,7 @@ public class DataHubAuthorizer
   @Nullable private final PolicyLoader policyLoader;
   private final Object loadQueueLock = new Object();
   @Nullable private CompletableFuture<Void> queuedLoad;
+  private volatile long policyChangeWaitMillis = DEFAULT_POLICY_CHANGE_WAIT_MILLIS;
   private final PolicyEngine policyEngine;
   private final GroupService groupService;
   private EntitySpecResolver entitySpecResolver;
@@ -82,6 +85,7 @@ public class DataHubAuthorizer
 
   public static final String ALL = "ALL";
   private static final long INITIAL_LOAD_TIMEOUT_SECONDS = 60;
+  private static final long DEFAULT_POLICY_CHANGE_WAIT_MILLIS = 5000;
 
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -565,6 +569,45 @@ public class DataHubAuthorizer
         "Could not load policies at startup. Continuing with no policies until a later load"
             + " succeeds.");
     return false;
+  }
+
+  /**
+   * Called after a policy write or delete has been committed in this process. Requests a load and
+   * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
+   * after this process enforces the change. If the limit is reached, the load still completes
+   * later. Never throws: the write it follows is already committed.
+   */
+  public void onPolicyChange() {
+    if (policyLoader == null) {
+      return;
+    }
+    final long start = System.nanoTime();
+    try {
+      requestLoad().get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      increment("policyCache.observer.timeout");
+      log.warn(
+          "Policy load did not finish within {} ms after a policy change; it continues in the"
+              + " background.",
+          policyChangeWaitMillis);
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    } catch (ExecutionException e) {
+      increment("policyCache.change.failed");
+      log.warn("Policy load after a policy change failed.", e.getCause());
+    } finally {
+      systemOpContext
+          .getMetricUtils()
+          .ifPresent(
+              m ->
+                  m.time(
+                      DataHubAuthorizer.class.getName() + ".policyCache.observer.wait",
+                      System.nanoTime() - start));
+    }
+  }
+
+  public void setPolicyChangeWaitMillis(long waitMillis) {
+    this.policyChangeWaitMillis = Math.max(0, waitMillis);
   }
 
   @VisibleForTesting

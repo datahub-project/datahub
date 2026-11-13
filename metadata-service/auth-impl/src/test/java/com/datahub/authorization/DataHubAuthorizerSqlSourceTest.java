@@ -209,4 +209,37 @@ public class DataHubAuthorizerSqlSourceTest {
             1000);
     assertFalse(authorizer.isSqlSourceEnabled());
   }
+
+  @Test
+  public void testPolicyChangeWaitsForTheLoad() {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.policies.add(policy("p1", 1L));
+
+    authorizer.onPolicyChange();
+
+    // No extra wait: the call returns only after a load that started after it has finished.
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testPolicyChangeStopsWaitingAfterTheLimit() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    authorizer.setPolicyChangeWaitMillis(50);
+    loader.policies.add(policy("p1", 1L));
+    loader.release = new CountDownLatch(1);
+
+    long start = System.nanoTime();
+    authorizer.onPolicyChange();
+    long waitedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+    assertTrue(waitedMillis < 5_000, "the wait must stop at the limit, waited " + waitedMillis);
+    loader.release.countDown();
+    // The slow load still completes after the caller stops waiting.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
 }
