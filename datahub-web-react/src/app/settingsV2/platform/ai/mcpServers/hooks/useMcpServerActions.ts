@@ -78,5 +78,33 @@ export function useMcpServerActions({ onSuccess }: UseMcpServerActionsOptions = 
         [updateMcpServers, onSuccess],
     );
 
-    return { handleToggleEnabled, handleToggleGlobalEnabled };
+    /**
+     * The one on/off switch shown without scoped servers, where DataHub serves only the default
+     * server. Turning it on also clears a disable left on the default server's overrides (from the
+     * per-server switch shown with scoped servers): with only one switch on screen, nothing else
+     * could turn /mcp back on.
+     */
+    const handleToggleSingleServer = useCallback(
+        async (enabled: boolean, defaultOverrides: McpServerConfigFieldsFragment | null | undefined) => {
+            const input: UpdateMcpSettingsInput = { enabled };
+            if (enabled && defaultOverrides?.enabled === false) {
+                input.defaultMcpServerOverrides = configToInput(defaultOverrides, { enabled: true });
+            }
+            try {
+                await updateMcpServers({ variables: { input } });
+                toast.success(
+                    enabled
+                        ? i18next.t('settings.ai:platform.ai.mcpServers.enabled')
+                        : i18next.t('settings.ai:platform.ai.mcpServers.disabled'),
+                );
+                onSuccess?.();
+            } catch (e) {
+                toast.error(i18next.t('settings.ai:platform.ai.mcpServers.updateFailed'));
+                console.error('Error toggling the MCP server:', e);
+            }
+        },
+        [updateMcpServers, onSuccess],
+    );
+
+    return { handleToggleEnabled, handleToggleGlobalEnabled, handleToggleSingleServer };
 }

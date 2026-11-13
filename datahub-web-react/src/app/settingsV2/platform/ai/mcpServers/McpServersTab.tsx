@@ -11,7 +11,9 @@ import { useAvailableAgentTools, useAvailableAgents } from '@app/context/agents/
 import { McpConnectCard } from '@app/settingsV2/platform/ai/mcpServers/McpConnectCard';
 import { McpServerModal } from '@app/settingsV2/platform/ai/mcpServers/McpServerModal';
 import { McpServerScopePill } from '@app/settingsV2/platform/ai/mcpServers/McpServerScopePill';
+import { McpSingleServerCard } from '@app/settingsV2/platform/ai/mcpServers/McpServersTab.components';
 import { ToolItemPill } from '@app/settingsV2/platform/ai/mcpServers/ToolItemPill';
+import { ToolPillRow } from '@app/settingsV2/platform/ai/mcpServers/ToolPillRow';
 import { useMcpServerActions } from '@app/settingsV2/platform/ai/mcpServers/hooks/useMcpServerActions';
 import {
     type EnabledToolItem,
@@ -128,7 +130,9 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
     // keeps the rest of the list instead of discarding the whole result.
     const { data, loading, error, refetch } = useGetMcpServersQuery({ errorPolicy: 'all' });
     const client = useApolloClient();
-    const { handleToggleEnabled, handleToggleGlobalEnabled } = useMcpServerActions({ onSuccess: refetch });
+    const { handleToggleEnabled, handleToggleGlobalEnabled, handleToggleSingleServer } = useMcpServerActions({
+        onSuccess: refetch,
+    });
     const catalog = useAvailableAgentTools();
     const agents = useAvailableAgents();
     // Scoped servers (create, slug, View scope) are a separate opt-in from customizing the
@@ -137,12 +141,18 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
     const [editing, setEditing] = useState<McpServerRow | null>(null);
 
     // Turning the master switch OFF kills every MCP server, so it's gated behind a
-    // confirmation. Turning it back on is not.
+    // confirmation. Turning it back on is not. Without scoped servers there is one switch, for
+    // the one server, gated the same way.
     const [confirmingDisable, setConfirmingDisable] = useState(false);
 
     const mcpSettings = data?.mcpSettings;
     const globalEnabled = mcpSettings?.enabled ?? true;
     const rows = transformServersToRows(mcpSettings?.servers, mcpSettings?.defaultMcpServerOverrides);
+    const [defaultRow] = rows;
+    // Without scoped servers the page shows one switch, so /mcp is on only while both the master
+    // switch and the default server's own flag are; turning it on sets both.
+    const singleServerEnabled = globalEnabled && defaultRow.enabled;
+    const defaultToolItems = resolveEnabledToolItems(defaultRow.config, catalog, agents);
     const scopedSlugs = rows.flatMap((row) => (!row.isDefault && row.slug ? [row.slug] : []));
     // Search skips a View it can't find, so a server whose View was deleted searches all data.
     const serversWithoutView = scopedServersEnabled ? rows.filter((r) => r.viewUnavailable).map((r) => r.name) : [];
@@ -158,12 +168,12 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
         refetch();
     };
 
+    const allToolsPill = <Pill label={t('platform.ai.mcpServers.allTools')} color="gray" size="md" />;
+
     const renderToolPills = (record: McpServerRow) => {
         // undefined => null/empty selection => the server exposes everything.
         const items = resolveEnabledToolItems(record.config, catalog, agents);
-        if (items === undefined) {
-            return <Pill label={t('platform.ai.mcpServers.allTools')} color="gray" size="md" />;
-        }
+        if (items === undefined) return allToolsPill;
         const pill = (item: EnabledToolItem) => <ToolItemPill key={item.agentUrn ?? item.label} item={item} />;
         const hidden = items.slice(MAX_TOOL_PILLS);
         return (
@@ -275,7 +285,9 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
             <Container data-testid="mcp-servers-tab">
                 <Alert
                     variant="error"
-                    title={t('platform.ai.mcpServers.loadError')}
+                    title={t(
+                        scopedServersEnabled ? 'platform.ai.mcpServers.loadError' : 'platform.ai.mcpServer.loadError',
+                    )}
                     // Refetch every active copy of the query, the settings header's included.
                     action={{
                         label: tc('retry'),
@@ -289,7 +301,16 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
     return (
         <Container data-testid="mcp-servers-tab">
             {/* A failed field reads as empty (a View as "View unavailable"), so say that the data is partial. */}
-            {error && <Alert variant="warning" title={t('platform.ai.mcpServers.partialLoadError')} />}
+            {error && (
+                <Alert
+                    variant="warning"
+                    title={t(
+                        scopedServersEnabled
+                            ? 'platform.ai.mcpServers.partialLoadError'
+                            : 'platform.ai.mcpServer.partialLoadError',
+                    )}
+                />
+            )}
             {serversWithoutView.length > 0 && (
                 <Alert
                     variant="error"
@@ -301,42 +322,75 @@ export const McpServersTab = ({ showCreateModal, setShowCreateModal }: McpServer
                     data-testid="mcp-servers-view-deleted"
                 />
             )}
-            <MasterSwitchCard>
-                <MasterSwitchText>
-                    <Text weight="bold" size="lg">
-                        {t('platform.ai.mcpServers.masterSwitchLabel')}
-                    </Text>
-                    <Text color="gray">{t('platform.ai.mcpServers.masterSwitchHelp')}</Text>
-                </MasterSwitchText>
-                <Switch
-                    label=""
-                    isChecked={globalEnabled}
-                    onChange={(e) => {
+            {scopedServersEnabled ? (
+                <>
+                    <MasterSwitchCard>
+                        <MasterSwitchText>
+                            <Text weight="bold" size="lg">
+                                {t('platform.ai.mcpServers.masterSwitchLabel')}
+                            </Text>
+                            <Text color="gray">{t('platform.ai.mcpServers.masterSwitchHelp')}</Text>
+                        </MasterSwitchText>
+                        <Switch
+                            label=""
+                            isChecked={globalEnabled}
+                            onChange={(e) => {
+                                // Enabling applies immediately; disabling asks first.
+                                if (e.target.checked) handleToggleGlobalEnabled(true);
+                                else setConfirmingDisable(true);
+                            }}
+                            data-testid="mcp-master-switch"
+                        />
+                    </MasterSwitchCard>
+
+                    {globalEnabled && (
+                        <TableSection data-testid="mcp-servers-table">
+                            <Table<McpServerRow>
+                                columns={columns}
+                                data={rows}
+                                isLoading={loading}
+                                showHeader
+                                rowKey="id"
+                            />
+                        </TableSection>
+                    )}
+                </>
+            ) : (
+                <McpSingleServerCard
+                    server={defaultRow}
+                    enabled={singleServerEnabled}
+                    loading={loading && !mcpSettings}
+                    onToggle={(enabled) => {
                         // Enabling applies immediately; disabling asks first.
-                        if (e.target.checked) handleToggleGlobalEnabled(true);
+                        if (enabled) handleToggleSingleServer(true, mcpSettings?.defaultMcpServerOverrides);
                         else setConfirmingDisable(true);
                     }}
-                    data-testid="mcp-master-switch"
+                    onEdit={() => setEditing(defaultRow)}
+                    onCopyUrl={handleCopyUrl}
+                    tools={defaultToolItems ? <ToolPillRow items={defaultToolItems} /> : allToolsPill}
                 />
-            </MasterSwitchCard>
-
-            {globalEnabled && (
-                <TableSection data-testid="mcp-servers-table">
-                    <Table<McpServerRow> columns={columns} data={rows} isLoading={loading} showHeader rowKey="id" />
-                </TableSection>
             )}
 
-            {globalEnabled && <McpConnectCard />}
+            {(scopedServersEnabled ? globalEnabled : singleServerEnabled && !!mcpSettings) && <McpConnectCard />}
 
             <ConfirmationModal
                 isOpen={confirmingDisable}
                 handleClose={() => setConfirmingDisable(false)}
                 handleConfirm={() => {
                     setConfirmingDisable(false);
-                    handleToggleGlobalEnabled(false);
+                    if (scopedServersEnabled) handleToggleGlobalEnabled(false);
+                    else handleToggleSingleServer(false, mcpSettings?.defaultMcpServerOverrides);
                 }}
-                modalTitle={t('platform.ai.mcpServers.masterSwitchDisableTitle')}
-                modalText={t('platform.ai.mcpServers.masterSwitchDisableBody')}
+                modalTitle={t(
+                    scopedServersEnabled
+                        ? 'platform.ai.mcpServers.masterSwitchDisableTitle'
+                        : 'platform.ai.mcpServer.disableTitle',
+                )}
+                modalText={t(
+                    scopedServersEnabled
+                        ? 'platform.ai.mcpServers.masterSwitchDisableBody'
+                        : 'platform.ai.mcpServer.disableBody',
+                )}
                 confirmButtonText={t('platform.ai.mcpServers.masterSwitchDisableConfirm')}
                 isDeleteModal
             />

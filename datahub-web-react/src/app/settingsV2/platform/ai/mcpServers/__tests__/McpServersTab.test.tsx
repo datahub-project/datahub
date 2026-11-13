@@ -7,11 +7,13 @@ import { McpServersTab } from '@app/settingsV2/platform/ai/mcpServers/McpServers
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 const mockToggleGlobalEnabled = vi.fn();
+const mockToggleSingleServer = vi.fn();
 vi.mock('@app/settingsV2/platform/ai/mcpServers/hooks/useMcpServerActions', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useMcpServerActions: () => ({
         handleToggleEnabled: vi.fn(),
         handleToggleGlobalEnabled: mockToggleGlobalEnabled,
+        handleToggleSingleServer: mockToggleSingleServer,
     }),
 }));
 
@@ -58,9 +60,12 @@ const SCOPED_SERVER = {
     lastModified: auditStamp,
 };
 
-function settings(enabled: boolean, servers: unknown[] = []) {
-    return { data: { mcpSettings: { enabled, servers, defaultMcpServerOverrides: null } }, loading: false };
+function settings(enabled: boolean, servers: unknown[] = [], defaultMcpServerOverrides: unknown = null) {
+    return { data: { mcpSettings: { enabled, servers, defaultMcpServerOverrides } }, loading: false };
 }
+
+// The default server switched off on its own, through the per-server switch shown with scoped servers.
+const DISABLED_DEFAULT = { ...SCOPED_SERVER, slug: null, name: 'Default', enabled: false, viewUrn: null };
 
 function renderTab() {
     return render(
@@ -75,36 +80,54 @@ function renderTab() {
 describe('McpServersTab', () => {
     beforeEach(() => {
         mockToggleGlobalEnabled.mockClear();
+        mockToggleSingleServer.mockClear();
         mockFlags.createMcpServersEnabled = false;
         mockUseGetMcpServersQuery.mockReturnValue({ ...settings(true), refetch: vi.fn() });
     });
 
-    it('lists the default server with its connection URL', () => {
+    it('shows the one MCP server as a card with its connection URL and tools in OSS', () => {
         renderTab();
 
-        expect(screen.getByTestId('mcp-server-name-__default__')).toHaveTextContent('Default');
-        expect(screen.getByText(`${window.location.origin}/mcp`)).toBeInTheDocument();
+        expect(screen.getByTestId('mcp-server-card')).toBeInTheDocument();
+        expect(screen.queryByTestId('mcp-servers-table')).not.toBeInTheDocument();
+        expect(screen.getByTestId('mcp-server-connection-url')).toHaveTextContent(`${window.location.origin}/mcp`);
+        expect(screen.getByText('All')).toBeInTheDocument();
+        expect(screen.getByTestId('mcp-connect-card')).toBeInTheDocument();
+        // One switch: the default server has no switch of its own.
+        expect(screen.getAllByRole('checkbox')).toHaveLength(1);
     });
 
-    it('asks for confirmation before turning the master switch off', () => {
+    it('asks for confirmation before turning the MCP server off', () => {
         renderTab();
 
         fireEvent.click(screen.getByTestId('mcp-master-switch'));
-        expect(mockToggleGlobalEnabled).not.toHaveBeenCalled();
+        expect(mockToggleSingleServer).not.toHaveBeenCalled();
 
         fireEvent.click(screen.getByTestId('modal-confirm-button'));
-        expect(mockToggleGlobalEnabled).toHaveBeenCalledWith(false);
+        expect(mockToggleSingleServer).toHaveBeenCalledWith(false, null);
+        expect(mockToggleGlobalEnabled).not.toHaveBeenCalled();
     });
 
-    it('turns the master switch on without confirmation and hides the table while off', () => {
+    it('turns the MCP server on without confirmation and hides its details while off', () => {
         mockUseGetMcpServersQuery.mockReturnValue({ ...settings(false), refetch: vi.fn() });
         renderTab();
 
-        expect(screen.queryByTestId('mcp-servers-table')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('mcp-server-connection-url')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('mcp-connect-card')).not.toBeInTheDocument();
         fireEvent.click(screen.getByTestId('mcp-master-switch'));
 
-        expect(mockToggleGlobalEnabled).toHaveBeenCalledWith(true);
+        expect(mockToggleSingleServer).toHaveBeenCalledWith(true, null);
         expect(screen.queryByTestId('modal-confirm-button')).not.toBeInTheDocument();
+    });
+
+    it('shows the switch off while the default server is disabled, and turning it on re-enables that server', () => {
+        mockUseGetMcpServersQuery.mockReturnValue({ ...settings(true, [], DISABLED_DEFAULT), refetch: vi.fn() });
+        renderTab();
+
+        expect(screen.getByTestId('mcp-master-switch')).not.toBeChecked();
+        fireEvent.click(screen.getByTestId('mcp-master-switch'));
+
+        expect(mockToggleSingleServer).toHaveBeenCalledWith(true, DISABLED_DEFAULT);
     });
 
     it('shows an error with a retry instead of default state when the settings fail to load', () => {
@@ -116,27 +139,40 @@ describe('McpServersTab', () => {
         });
         renderTab();
 
-        expect(screen.getByText('Failed to load MCP servers.')).toBeInTheDocument();
+        expect(screen.getByText('Failed to load the MCP server settings.')).toBeInTheDocument();
         expect(screen.queryByTestId('mcp-master-switch')).not.toBeInTheDocument();
 
         fireEvent.click(screen.getByText('Retry'));
         expect(mockRefetchQueries).toHaveBeenCalledWith({ include: ['GetMcpServersDocument'] });
     });
 
-    it('hides scoped-server parts in OSS: no Scope column or View alert, and editing has no slug or scope', () => {
+    it('hides scoped-server parts in OSS: no scoped servers, Scope or View alert, and editing has no slug or scope', () => {
         mockUseGetMcpServersQuery.mockReturnValue({ ...settings(true, [SCOPED_SERVER]), refetch: vi.fn() });
         renderTab();
 
-        expect(screen.getByText('Tools')).toBeInTheDocument();
-        expect(screen.getByText('All')).toBeInTheDocument();
-        expect(screen.getByText('Search')).toBeInTheDocument();
+        expect(screen.queryByText('Finance')).not.toBeInTheDocument();
         expect(screen.queryByText('Scope')).not.toBeInTheDocument();
         expect(screen.queryByTestId('mcp-servers-view-deleted')).not.toBeInTheDocument();
 
-        fireEvent.click(screen.getByTestId('mcp-server-name-__default__'));
+        fireEvent.click(screen.getByTestId('mcp-server-edit-__default__'));
         expect(screen.getByText('Edit MCP Server')).toBeInTheDocument();
         expect(screen.queryByText('Slug')).not.toBeInTheDocument();
         expect(screen.queryByTestId('view-selector')).not.toBeInTheDocument();
+    });
+
+    it('keeps the master switch and the server table when scoped servers are on', () => {
+        mockFlags.createMcpServersEnabled = true;
+        mockUseGetMcpServersQuery.mockReturnValue({ ...settings(true, [SCOPED_SERVER]), refetch: vi.fn() });
+        renderTab();
+
+        expect(screen.getByTestId('mcp-server-name-__default__')).toHaveTextContent('Default');
+        expect(screen.getByText('Search')).toBeInTheDocument();
+        expect(screen.getByTestId('mcp-server-toggle-finance')).toBeInTheDocument();
+
+        fireEvent.click(screen.getByTestId('mcp-master-switch'));
+        fireEvent.click(screen.getByTestId('modal-confirm-button'));
+        expect(mockToggleGlobalEnabled).toHaveBeenCalledWith(false);
+        expect(mockToggleSingleServer).not.toHaveBeenCalled();
     });
 
     it('shows the Scope column and flags a deleted View when scoped servers are on', () => {
