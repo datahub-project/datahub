@@ -3,7 +3,6 @@ package com.linkedin.metadata.search.elasticsearch.update;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.Locale;
-import java.util.concurrent.atomic.LongAdder;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.action.bulk.BulkItemResponse;
@@ -15,6 +14,10 @@ import org.opensearch.action.bulk.BulkResponse;
  * fill that only creates absent documents), and an update or delete of a document that is absent (a
  * merge or run-id append that must not create one in an index a fill is building, or a delete of an
  * entity the index never held).
+ *
+ * <p>Stateless: the only side effect is the metric increments. Callers that need per-flush counts
+ * read them from the returned {@link BulkWriteOutcome} or from {@link
+ * BulkProcessorCompletionTracker}.
  */
 public final class V3BulkWriteAccounting {
   public static final String SUCCESSFUL_WRITES_METRIC = "v3_successful_writes";
@@ -26,14 +29,8 @@ public final class V3BulkWriteAccounting {
   private static final String DELETE_OPERATION = "delete";
   private static final int HTTP_NOT_FOUND = 404;
   private static final int HTTP_CONFLICT = 409;
-  private static final LongAdder SUCCESSFUL_V3_WRITES = new LongAdder();
-  private static final LongAdder STALE_VERSION_REJECTED = new LongAdder();
 
   private V3BulkWriteAccounting() {}
-
-  public static Snapshot snapshot() {
-    return new Snapshot(SUCCESSFUL_V3_WRITES.sum(), STALE_VERSION_REJECTED.sum());
-  }
 
   public static BulkWriteOutcome recordOpenSearchResponse(
       @Nonnull final BulkResponse response, @Nullable final MetricUtils metricUtils) {
@@ -118,22 +115,14 @@ public final class V3BulkWriteAccounting {
 
   public static void recordSuccessfulV3Writes(
       final long count, @Nullable final MetricUtils metricUtils) {
-    if (count <= 0) {
-      return;
-    }
-    SUCCESSFUL_V3_WRITES.add(count);
-    if (metricUtils != null) {
+    if (count > 0 && metricUtils != null) {
       metricUtils.increment(BulkListener.class, SUCCESSFUL_WRITES_METRIC, count);
     }
   }
 
   public static void recordStaleVersionRejected(
       final long count, @Nullable final MetricUtils metricUtils) {
-    if (count <= 0) {
-      return;
-    }
-    STALE_VERSION_REJECTED.add(count);
-    if (metricUtils != null) {
+    if (count > 0 && metricUtils != null) {
       metricUtils.increment(BulkListener.class, STALE_VERSION_REJECTED_METRIC, count);
     }
   }
@@ -169,11 +158,6 @@ public final class V3BulkWriteAccounting {
         && status < 300;
   }
 
-  public static void resetForTests() {
-    SUCCESSFUL_V3_WRITES.reset();
-    STALE_VERSION_REJECTED.reset();
-  }
-
   private static boolean isV3Index(@Nullable final String indexName) {
     return EntityIndexVersion.V3.matches(indexName);
   }
@@ -186,14 +170,6 @@ public final class V3BulkWriteAccounting {
   private static boolean isOperation(
       @Nullable final String operationType, @Nonnull final String expected) {
     return operationType != null && expected.equals(operationType.toLowerCase(Locale.ROOT));
-  }
-
-  public record Snapshot(long successfulV3Writes, long staleVersionRejected) {
-    public Snapshot deltaSince(@Nonnull final Snapshot before) {
-      return new Snapshot(
-          successfulV3Writes - before.successfulV3Writes,
-          staleVersionRejected - before.staleVersionRejected);
-    }
   }
 
   public record BulkWriteOutcome(

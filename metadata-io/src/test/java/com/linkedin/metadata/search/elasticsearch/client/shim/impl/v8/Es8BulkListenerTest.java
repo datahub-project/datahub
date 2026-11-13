@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8;
 
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -22,15 +25,9 @@ import java.time.Duration;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import org.opensearch.action.index.IndexRequest;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class Es8BulkListenerTest {
-
-  @BeforeMethod
-  public void setup() {
-    V3BulkWriteAccounting.resetForTests();
-  }
 
   @Test
   public void testAfterBulkRecordsExpectedV3StaleConflict() {
@@ -57,8 +54,6 @@ public class Es8BulkListenerTest {
     listener.afterBulk(1L, mock(BulkRequest.class), List.of(submission), response);
 
     BulkProcessorFlushResult drainResult = tracker.flushAndAwait(() -> {}, 1, TimeUnit.SECONDS);
-    V3BulkWriteAccounting.Snapshot snapshot = V3BulkWriteAccounting.snapshot();
-    assertEquals(snapshot.staleVersionRejected(), 1);
     assertEquals(drainResult.staleVersionRejected(), 1);
     assertFalse(drainResult.hasFailures());
     verify(metricUtils)
@@ -88,11 +83,13 @@ public class Es8BulkListenerTest {
     listener.afterBulk(1L, mock(BulkRequest.class), List.of(submission), response);
 
     BulkProcessorFlushResult drainResult = tracker.flushAndAwait(() -> {}, 1, TimeUnit.SECONDS);
-    assertEquals(V3BulkWriteAccounting.snapshot().staleVersionRejected(), 0);
     assertEquals(drainResult.staleVersionRejected(), 1);
     assertFalse(drainResult.hasFailures());
-    verify(metricUtils, org.mockito.Mockito.never())
-        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
+    verify(metricUtils, never())
+        .increment(
+            eq(BulkListener.class),
+            eq(V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC),
+            anyDouble());
   }
 
   @Test

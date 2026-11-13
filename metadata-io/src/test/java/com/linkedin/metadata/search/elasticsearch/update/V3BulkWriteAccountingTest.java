@@ -16,15 +16,9 @@ import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.bulk.BulkItemResponse;
 import org.opensearch.action.bulk.BulkResponse;
 import org.opensearch.core.rest.RestStatus;
-import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class V3BulkWriteAccountingTest {
-
-  @BeforeMethod
-  public void setup() {
-    V3BulkWriteAccounting.resetForTests();
-  }
 
   @Test
   public void testClassifiesV3StaleConflict() {
@@ -98,15 +92,18 @@ public class V3BulkWriteAccountingTest {
   }
 
   @Test
-  public void testSnapshotDeltaTracksCounters() {
-    V3BulkWriteAccounting.Snapshot before = V3BulkWriteAccounting.snapshot();
+  public void testPositiveCountsRecordMetrics() {
+    MetricUtils metricUtils = mock(MetricUtils.class);
 
-    V3BulkWriteAccounting.recordSuccessfulV3Writes(2, null);
-    V3BulkWriteAccounting.recordStaleVersionRejected(1, null);
+    V3BulkWriteAccounting.recordSuccessfulV3Writes(2, metricUtils);
+    V3BulkWriteAccounting.recordStaleVersionRejected(1, metricUtils);
+    // A null MetricUtils is a no-op, not an error.
+    V3BulkWriteAccounting.recordSuccessfulV3Writes(3, null);
 
-    V3BulkWriteAccounting.Snapshot delta = V3BulkWriteAccounting.snapshot().deltaSince(before);
-    assertEquals(delta.successfulV3Writes(), 2);
-    assertEquals(delta.staleVersionRejected(), 1);
+    verify(metricUtils)
+        .increment(BulkListener.class, V3BulkWriteAccounting.SUCCESSFUL_WRITES_METRIC, 2d);
+    verify(metricUtils)
+        .increment(BulkListener.class, V3BulkWriteAccounting.STALE_VERSION_REJECTED_METRIC, 1d);
   }
 
   @Test
@@ -116,9 +113,6 @@ public class V3BulkWriteAccountingTest {
     V3BulkWriteAccounting.recordSuccessfulV3Writes(0, metricUtils);
     V3BulkWriteAccounting.recordStaleVersionRejected(-1, metricUtils);
 
-    V3BulkWriteAccounting.Snapshot snapshot = V3BulkWriteAccounting.snapshot();
-    assertEquals(snapshot.successfulV3Writes(), 0);
-    assertEquals(snapshot.staleVersionRejected(), 0);
     verifyNoInteractions(metricUtils);
   }
 
