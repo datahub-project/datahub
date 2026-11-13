@@ -10,6 +10,7 @@ from datahub.emitter.mce_builder import (
     make_dataset_urn,
 )
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.qlik_sense.app_state import AppCheckpoint
 from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
@@ -171,6 +172,41 @@ def test_patched_app_dashboard_drops_sheets_no_longer_ingested(
     assert removed_paths == (
         [f"/dashboards/{removed.replace('/', '~1')}"] if sheets_complete else []
     )
+
+
+def test_app_without_ingested_sheets_links_its_last_known_tables() -> None:
+    graph = MagicMock()
+    graph.get_aspect.return_value = None
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(
+                {**CLOUD_CONFIG, "include_sheets_and_charts": False}
+            ),
+            PipelineContext(run_id="test-app-dashboard", graph=graph),
+        )
+    app = _app([])
+    app.sheets = []
+    with patch.object(
+        source,
+        "_usable_checkpoint",
+        return_value=AppCheckpoint(
+            urns=TABLES, table_urns_by_qri={"qri-1": TABLES[0], "qri-2": TABLES[1]}
+        ),
+    ):
+        # The tables are unknown this run, so the dashboard is patched.
+        workunits = list(source._gen_app_dashboard_workunit(app, None, None))
+
+    added = [
+        op["path"]
+        for wu in workunits
+        if isinstance(wu.metadata, MetadataChangeProposalClass)
+        and wu.metadata.aspectName == DashboardInfoClass.ASPECT_NAME
+        and wu.metadata.aspect is not None
+        for op in json.loads(wu.metadata.aspect.value)
+        if op["op"] == "add" and op["path"].startswith("/datasetEdges/")
+    ]
+    # Without sheets, the app reaches its tables only through these edges.
+    assert added == [f"/datasetEdges/{urn.replace('/', '~1')}" for urn in TABLES]
 
 
 TWO_TABLE_SCRIPT = (
