@@ -30,11 +30,16 @@ public class MetadataQueueStoreFactoryTest {
 
   @DataProvider
   public Object[][] postgresSettings() {
-    return new Object[][] {{new String[] {}}, {new String[] {"postgres.pgQueue.store=postgres"}}};
+    return new Object[][] {
+      {new String[] {}, "postgres"},
+      {new String[] {"postgres.pgQueue.store=postgres"}, "postgres"},
+      {new String[] {"DATAHUB_PGQUEUE_STORE="}, ""},
+      {new String[] {"postgres.pgQueue.store=   "}, ""}
+    };
   }
 
   @Test(dataProvider = "postgresSettings")
-  public void selectsPostgresByDefaultAndWhenExplicit(String[] settings) {
+  public void selectsPostgresByDefaultAndWhenExplicit(String[] settings, String rawStore) {
     runner()
         .withPropertyValues("datahub.messaging.transport=pgqueue")
         .withPropertyValues(settings)
@@ -43,6 +48,8 @@ public class MetadataQueueStoreFactoryTest {
         .withBean(ObjectMapper.class, ObjectMapper::new)
         .run(
             context -> {
+              assertThat(context.getEnvironment().getProperty("postgres.pgQueue.store"))
+                  .isEqualTo(rawStore);
               assertThat(context).hasSingleBean(MetadataQueueStore.class);
               assertThat(context.getBean(MetadataQueueStore.class))
                   .isInstanceOf(EbeanPostgresMetadataQueueStore.class);
@@ -50,11 +57,16 @@ public class MetadataQueueStoreFactoryTest {
             });
   }
 
-  @Test
-  public void selectsInMemoryWithoutCreatingPostgresPool() {
+  @DataProvider
+  public Object[][] inMemorySettings() {
+    return new Object[][] {{"inmemory"}, {"INMEMORY"}};
+  }
+
+  @Test(dataProvider = "inMemorySettings")
+  public void selectsInMemoryWithoutCreatingPostgresPool(String store) {
     runner()
         .withUserConfiguration(PgQueueEbeanConfigFactory.class)
-        .withPropertyValues("DATAHUB_MESSAGING_TRANSPORT=pgqueue", "DATAHUB_PGQUEUE_STORE=inmemory")
+        .withPropertyValues("DATAHUB_MESSAGING_TRANSPORT=pgqueue", "DATAHUB_PGQUEUE_STORE=" + store)
         .run(
             context -> {
               assertThat(context).hasSingleBean(MetadataQueueStore.class);
@@ -68,11 +80,38 @@ public class MetadataQueueStoreFactoryTest {
   }
 
   @DataProvider
+  public Object[][] storeFactories() {
+    return new Object[][] {
+      {MetadataQueueStoreFactory.class},
+      {InMemoryMetadataQueueStoreFactory.class},
+      {PgQueueEbeanConfigFactory.class}
+    };
+  }
+
+  @Test(dataProvider = "storeFactories")
+  public void rejectsUnknownStoreBeforeCreatingBeans(Class<?> factory) {
+    ProductionConfigContextRunner.create()
+        .withUserConfiguration(factory)
+        .withPropertyValues("datahub.messaging.transport=pgqueue", "postgres.pgQueue.store=memory")
+        .run(
+            context -> {
+              assertThat(context).hasFailed();
+              assertThat(context.getStartupFailure())
+                  .isInstanceOf(IllegalStateException.class)
+                  .hasMessageContaining("postgres.pgQueue.store")
+                  .hasMessageContaining("memory")
+                  .hasMessageContaining("postgres")
+                  .hasMessageContaining("inmemory");
+            });
+  }
+
+  @DataProvider
   public Object[][] kafkaSettings() {
     return new Object[][] {
       {new String[] {}},
       {new String[] {"postgres.pgQueue.store=postgres"}},
-      {new String[] {"postgres.pgQueue.store=inmemory"}}
+      {new String[] {"postgres.pgQueue.store=inmemory"}},
+      {new String[] {"postgres.pgQueue.store=memory"}}
     };
   }
 

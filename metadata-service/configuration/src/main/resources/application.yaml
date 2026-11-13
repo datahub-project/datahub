@@ -718,7 +718,8 @@ postgres:
   pgQueue:
     # Heap storage lets local development and tests run without a Postgres queue database.
     store: ${DATAHUB_PGQUEUE_STORE:postgres}
-    # Optional handoff of queued events between sequential processes, saved on clean shutdown.
+    # Optional spool path, exclusive to one live process: one writes on exit, then the next loads at startup.
+    # Overlapping processes sharing this path overwrite each other's snapshots.
     inmemorySpoolFile: ${DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE:}
     enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
     # When true (default), SqlSetup seeds postgres.pgQueue topic rows from kafka.topics.*; postgres.pgQueue.topics overlays or adds pg-only settings.

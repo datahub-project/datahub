@@ -229,12 +229,22 @@ public class InMemoryMetadataQueueStore implements MetadataQueueStore {
     java.nio.file.Files.createDirectories(file.toAbsolutePath().getParent());
     java.nio.file.Path tmp = file.resolveSibling(file.getFileName() + ".tmp");
     mapper.writerWithDefaultPrettyPrinter().writeValue(tmp.toFile(), root);
+    try {
+      moveSpoolAtomically(tmp, file);
+    } catch (java.nio.file.AtomicMoveNotSupportedException e) {
+      log.debug("Atomic move unsupported for queue spool {}; retrying non-atomically", file, e);
+      java.nio.file.Files.move(tmp, file, java.nio.file.StandardCopyOption.REPLACE_EXISTING);
+    }
+    log.info("Saved queue spool {}: {} topic(s), {} message(s)", file, topicsById.size(), saved);
+  }
+
+  void moveSpoolAtomically(java.nio.file.Path source, java.nio.file.Path target)
+      throws java.io.IOException {
     java.nio.file.Files.move(
-        tmp,
-        file,
+        source,
+        target,
         java.nio.file.StandardCopyOption.REPLACE_EXISTING,
         java.nio.file.StandardCopyOption.ATOMIC_MOVE);
-    log.info("Saved queue spool {}: {} topic(s), {} message(s)", file, topicsById.size(), saved);
   }
 
   // ---------------------------------------------------------------------------------------------
