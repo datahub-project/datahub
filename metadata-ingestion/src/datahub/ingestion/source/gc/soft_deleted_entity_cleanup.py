@@ -8,6 +8,7 @@ from typing import Dict, Iterable, List, Optional
 
 from pydantic import Field
 
+from datahub.cli.delete_cli import DELETE_WITH_REFERENCES_TYPES
 from datahub.configuration import ConfigModel
 from datahub.configuration.env_vars import get_report_info_sample_size
 from datahub.ingestion.api.common import PipelineContext
@@ -193,11 +194,14 @@ class SoftDeletedEntitiesCleanup:
         if self._deletion_limit_reached() or self._times_up():
             return
         self._increment_removal_started_count()
+        # Same policy as `datahub delete --hard`. References go first: they are found
+        # through graph edges that the hard delete removes asynchronously.
+        if urn.entity_type in DELETE_WITH_REFERENCES_TYPES:
+            self.ctx.graph.delete_references_to_urn(
+                urn=urn.urn(),
+                dry_run=False,
+            )
         self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
-        self.ctx.graph.delete_references_to_urn(
-            urn=urn.urn(),
-            dry_run=False,
-        )
         self._update_report(urn.urn(), urn.entity_type)
 
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
