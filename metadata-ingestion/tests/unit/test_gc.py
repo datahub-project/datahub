@@ -256,14 +256,11 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         # Call the method
         self.cleanup.delete_entity(self.sample_urn)
 
-        # Verify deletion happened
-        self.mock_graph.delete_entity.assert_called_once_with(
-            urn=self.sample_urn.urn(), hard=True
-        )
-        self.mock_graph.delete_references_to_urn.assert_called_once_with(
-            urn=self.sample_urn.urn(),
-            dry_run=False,
-        )
+        # References are removed before the hard delete drops the graph edges.
+        assert self.mock_graph.mock_calls == [
+            call.delete_references_to_urn(urn=self.sample_urn.urn(), dry_run=False),
+            call.delete_entity(urn=self.sample_urn.urn(), hard=True),
+        ]
 
         # Report update
         self.assertEqual(self.report.num_hard_deleted, 1)

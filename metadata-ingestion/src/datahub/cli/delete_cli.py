@@ -768,16 +768,8 @@ def _delete_one_urn(
         # Full entity hard delete.
         assert not soft and not aspect_name
 
-        if not dry_run:
-            rows_affected, ts_rows_affected = graph.hard_delete_entity(
-                urn=urn,
-            )
-        else:
-            logger.info(f"[Dry-run] Would hard-delete {urn}")
-            rows_affected = _UNKNOWN_NUM_RECORDS
-            ts_rows_affected = _UNKNOWN_NUM_RECORDS
-
-        # For full entity deletes, we also might clean up references to the entity.
+        # Clean up references before the hard delete: the server finds them through
+        # incoming graph edges, which the hard delete's MCL removes asynchronously.
         if guess_entity_type(urn) in _DELETE_WITH_REFERENCES_TYPES:
             referenced_entities_affected, _ = graph.delete_references_to_urn(
                 urn=urn,
@@ -787,6 +779,15 @@ def _delete_one_urn(
                 logger.info(
                     f"[Dry-run] Would remove {referenced_entities_affected} references to {urn}"
                 )
+
+        if not dry_run:
+            rows_affected, ts_rows_affected = graph.hard_delete_entity(
+                urn=urn,
+            )
+        else:
+            logger.info(f"[Dry-run] Would hard-delete {urn}")
+            rows_affected = _UNKNOWN_NUM_RECORDS
+            ts_rows_affected = _UNKNOWN_NUM_RECORDS
 
     return DeletionResult(
         num_entities=1,

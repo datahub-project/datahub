@@ -193,11 +193,13 @@ class SoftDeletedEntitiesCleanup:
         if self._deletion_limit_reached() or self._times_up():
             return
         self._increment_removal_started_count()
-        self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
+        # References first: they are found through graph edges that the hard
+        # delete removes asynchronously.
         self.ctx.graph.delete_references_to_urn(
             urn=urn.urn(),
             dry_run=False,
         )
+        self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
         self._update_report(urn.urn(), urn.entity_type)
 
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
