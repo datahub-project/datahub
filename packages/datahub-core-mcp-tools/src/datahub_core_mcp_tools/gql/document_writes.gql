@@ -18,3 +18,16 @@ query getDocumentAuthor {
     }
   }
 }
+
+# GMS checks here that the new parent exists and is neither the document nor
+# one of its descendants.
+mutation moveDocument($input: MoveDocumentInput!) {
+  moveDocument(input: $input)
+}
+
+# The body goes through GMS's own content write, as the UI's does: it stamps
+# documentInfo.lastModified and, from 1.9.0, rewrites the semanticText aspect
+# (the embedding pipeline's preferred source) to follow the new body.
+mutation updateDocumentContents($input: UpdateDocumentContentsInput!) {
+  updateDocumentContents(input: $input)
+}

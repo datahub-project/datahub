@@ -102,6 +102,7 @@ WRITE_TOOLS = {
     "add_structured_properties",
     "remove_structured_properties",
     "save_document",
+    "update_document",
 }
 
 

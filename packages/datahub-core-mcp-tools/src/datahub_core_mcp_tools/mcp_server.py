@@ -58,6 +58,7 @@ from .tools.structured_properties import (
 )
 from .tools.tags import add_tags, create_tag, remove_tags
 from .tools.terms import add_glossary_terms, remove_glossary_terms
+from .tools.update_document import update_document
 from .version_requirements import tool_annotations
 
 _P = ParamSpec("_P")
@@ -291,7 +292,10 @@ def register_tools(
         ToolType.MUTATION,
     )
     if is_save_document_enabled():
+        # They ship together: an agent that can create a document but not edit
+        # it is not a configuration anyone needs.
         add("save_document", save_document, ToolType.MUTATION)
+        add("update_document", update_document, ToolType.MUTATION)
     else:
         logger.info(
             "Document tools not registered (SAVE_DOCUMENT_TOOL_ENABLED is false)"
