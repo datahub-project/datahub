@@ -39,6 +39,7 @@ def _app(gms: FakeGms, **config: Any) -> Any:
         server_info=lambda: gms.server_info(),
         observers=observers,
         telemetry_ping=telemetry_ping,
+        usage_event_post=lambda event, token: None,
     )
 
 

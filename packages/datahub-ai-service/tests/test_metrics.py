@@ -16,6 +16,7 @@ def _app(gms: FakeGms, **config: Any) -> Any:
         client_factory=FakeClientFactory(gms),
         server_info=lambda: gms.server_info(),
         telemetry_ping=lambda name, properties: None,
+        usage_event_post=lambda event, token: None,
     )
 
 

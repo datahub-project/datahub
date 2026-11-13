@@ -4,6 +4,7 @@ Startup never contacts GMS, so the service can start before GMS is healthy;
 MCP requests fail closed until GMS answers.
 """
 
+import asyncio
 import contextlib
 from typing import AsyncIterator, Callable, Optional, Sequence
 
@@ -27,6 +28,7 @@ from .mcp.host_guard import HostGuard
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver, ping_service_start, product_ping
 from .metrics import METRICS_PATH, ServiceMetrics
+from .usage_events import UsageEventPost, UsageEventSender
 
 MCP_PATH = "/mcp"
 
@@ -38,11 +40,13 @@ def create_app(
     server_info: Optional[Callable[[], GmsServerInfo]] = None,
     observers: Sequence[ToolCallObserver] = (),
     telemetry_ping: Ping = sdk_ping,
+    usage_event_post: Optional[UsageEventPost] = None,
 ) -> Starlette:
     """The service's ASGI app.
 
     ``telemetry_ping`` sends DataHub's anonymous product telemetry (the SDK's,
-    off with DATAHUB_TELEMETRY_ENABLED=false).
+    off with DATAHUB_TELEMETRY_ENABLED=false). ``usage_event_post`` replaces
+    posting usage events to GMS.
     """
     metrics = ServiceMetrics() if config.metrics_enabled else None
     client_factory = client_factory or CallerClientFactory(
@@ -83,6 +87,11 @@ def create_app(
         # Unauthenticated, like /health; the frontend proxies only /mcp.
         routes.append(Route(METRICS_PATH, metrics.endpoint, methods=["GET"]))
     mcp_app = None
+    usage_events = (
+        UsageEventSender(config.gms_url, metrics=metrics, post=usage_event_post)
+        if config.mcp_enabled and config.usage_events_enabled
+        else None
+    )
     if config.mcp_enabled:
         verifier = DataHubTokenVerifier(
             client_factory, cache_ttl_seconds=config.token_cache_ttl_seconds
@@ -93,7 +102,10 @@ def create_app(
             tool_time_limit_seconds=config.tool_time_limit_seconds,
             on_token_rejected=verifier.invalidate,
             observers=observers,
-            telemetry_sinks=[product_ping(config, server_info, ping=telemetry_ping)],
+            telemetry_sinks=[
+                product_ping(config, server_info, ping=telemetry_ping),
+                *([usage_events] if usage_events is not None else []),
+            ],
             metrics=metrics,
         )
         mcp_app = mcp.http_app(
@@ -133,8 +145,12 @@ def create_app(
         if mcp_app is None:
             yield
             return
-        async with mcp_app.lifespan(mcp_app):
-            yield
+        try:
+            async with mcp_app.lifespan(mcp_app):
+                yield
+        finally:
+            if usage_events is not None:
+                await asyncio.to_thread(usage_events.close)
 
     # MCP_SERVER_ENABLED on GMS turns the MCP paths on and off; /health stays up.
     gate = Middleware(McpFeatureGate, server_info=server_info, paths=(MCP_PATH,))

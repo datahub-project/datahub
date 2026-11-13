@@ -24,6 +24,9 @@ class AiServiceConfig:
     mcp_enabled: bool = True
     """Serve MCP at /mcp."""
 
+    usage_events_enabled: bool = True
+    """Record each tool call as a DataHub usage event, attributed to its caller."""
+
     metrics_enabled: bool = True
     """Serve Prometheus metrics at /metrics, unauthenticated."""
 
@@ -104,6 +107,9 @@ class AiServiceConfig:
             host=environ.get("DATAHUB_AI_HOST", cls.host),
             port=_number(environ, "DATAHUB_AI_PORT", cls.port, int),
             mcp_enabled=_flag(environ, "DATAHUB_AI_MCP_ENABLED", default=True),
+            usage_events_enabled=_flag(
+                environ, "DATAHUB_AI_USAGE_EVENTS_ENABLED", default=True
+            ),
             metrics_enabled=_flag(environ, "DATAHUB_AI_METRICS_ENABLED", default=True),
             mcp_response_mode=response_mode,  # type: ignore[arg-type]
             token_cache_ttl_seconds=_number(

@@ -39,6 +39,7 @@ def _app(gms: FakeGms, pings: Pings, **config: Any) -> Any:
         client_factory=FakeClientFactory(gms),
         server_info=lambda: gms.server_info(),
         telemetry_ping=pings,
+        usage_event_post=lambda event, token: None,
     )
 
 

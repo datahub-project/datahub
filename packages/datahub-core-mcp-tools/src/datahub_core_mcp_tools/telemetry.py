@@ -65,6 +65,9 @@ class ToolCall:
     cancelled: bool
     """The client cancelled the call or went away before it finished."""
 
+    tags: Optional[frozenset[str]] = None
+    """The registered tool's tags; None when no tool has that name."""
+
 
 def _client_string(value: object) -> Optional[str]:
     if not isinstance(value, str) or not value:
@@ -120,6 +123,17 @@ def _text_length(result: Any) -> Optional[int]:
     )
 
 
+async def _tool_tags(context: MiddlewareContext[Any]) -> Optional[frozenset[str]]:
+    name = getattr(context.message, "name", None)
+    if not name or context.fastmcp_context is None:
+        return None
+    try:
+        tool = await context.fastmcp_context.fastmcp.get_tool(name)
+    except Exception:
+        return None
+    return frozenset(tool.tags or ()) if tool is not None else None
+
+
 class ToolCallRecorder(Middleware):
     """Measures each tool call and hands a ``ToolCall`` to every sink.
 
@@ -137,6 +151,7 @@ class ToolCallRecorder(Middleware):
         if not self._sinks:
             return await call_next(context)
 
+        tags = await _tool_tags(context)
         started = time.perf_counter()
         result: Any = None
         error_type: Optional[str] = None
@@ -157,6 +172,7 @@ class ToolCallRecorder(Middleware):
                 result=result,
                 error_type=error_type,
                 cancelled=cancelled,
+                tags=tags,
             )
 
     def _record(
@@ -167,6 +183,7 @@ class ToolCallRecorder(Middleware):
         result: Any,
         error_type: Optional[str],
         cancelled: bool,
+        tags: Optional[frozenset[str]],
     ) -> None:
         try:
             name, version = client_info(context)
@@ -184,6 +201,7 @@ class ToolCallRecorder(Middleware):
                 result_is_error=error_type is not None
                 or getattr(result, "is_error", False) is True,
                 cancelled=cancelled,
+                tags=tags,
             )
         except Exception:
             logger.exception("Could not describe a tool call for telemetry")
@@ -198,8 +216,18 @@ class ToolCallRecorder(Middleware):
 class BackgroundDispatcher:
     """Runs tasks one at a time on a daemon thread; drops them when behind."""
 
-    def __init__(self, max_pending: int = _MAX_PENDING_EVENTS) -> None:
-        self._queue: queue.Queue[Callable[[], None]] = queue.Queue(max_pending)
+    def __init__(
+        self,
+        max_pending: int = _MAX_PENDING_EVENTS,
+        *,
+        name: str = "datahub-mcp-telemetry",
+        on_drop: Optional[Callable[[], None]] = None,
+    ) -> None:
+        self._name = name
+        self._on_drop = on_drop
+        self._queue: queue.Queue[Optional[Callable[[], None]]] = queue.Queue(
+            max_pending
+        )
         self._thread: Optional[threading.Thread] = None
         self._lock = threading.Lock()
 
@@ -208,7 +236,12 @@ class BackgroundDispatcher:
             self._ensure_started()
             self._queue.put_nowait(task)
         except queue.Full:
-            logger.debug("Telemetry queue full; dropping an event")
+            logger.debug(f"{self._name} queue full; dropping an event")
+            if self._on_drop is not None:
+                try:
+                    self._on_drop()
+                except Exception:
+                    pass
         except Exception as e:
             logger.debug(f"Could not queue a telemetry event: {e}")
 
@@ -218,14 +251,30 @@ class BackgroundDispatcher:
         with self._lock:
             if self._thread is None:
                 thread = threading.Thread(
-                    target=self._run, name="datahub-mcp-telemetry", daemon=True
+                    target=self._run, name=self._name, daemon=True
                 )
                 thread.start()
                 self._thread = thread
 
+    def close(self, timeout_seconds: float = 1.0) -> None:
+        """Send what's queued, waiting at most ``timeout_seconds``; then stop."""
+        thread = self._thread
+        if thread is None:
+            return
+        try:
+            self._queue.put(None, timeout=timeout_seconds)
+        except queue.Full:
+            return
+        thread.join(timeout_seconds)
+        with self._lock:
+            if self._thread is thread and not thread.is_alive():
+                self._thread = None
+
     def _run(self) -> None:
         while True:
             task = self._queue.get()
+            if task is None:
+                return
             try:
                 task()
             except Exception as e:
