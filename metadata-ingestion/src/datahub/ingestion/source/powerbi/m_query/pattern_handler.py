@@ -2424,14 +2424,14 @@ class OdbcLineage(AbstractLineage):
         The match is case-insensitive: sqlglot's schema resolver lowercases the
         whole URN (instance included) for case-insensitive platforms like Athena
         on a resolution miss, so the embedded segment may not match the
-        config-cased platform_instance. The returned prefix preserves the casing
-        as it actually appears in ``name`` so reconstruction leaves the URN
-        untouched."""
+        config-cased platform_instance. The returned prefix is the configured
+        platform_instance, so a rebuilt URN matches navigation and the standalone
+        Athena source even when convert_lineage_urns_to_lowercase is off."""
         if platform_instance:
             prefix = f"{platform_instance}."
             if name[: len(prefix)].lower() == prefix.lower():
                 return _InstanceSplitName(
-                    instance_prefix=name[: len(platform_instance)],
+                    instance_prefix=platform_instance,
                     table_name=name[len(prefix) :],
                 )
         return _InstanceSplitName(instance_prefix=None, table_name=name)
@@ -2537,13 +2537,13 @@ class OdbcLineage(AbstractLineage):
             )
             instance_prefix = split_name.instance_prefix
             parts = split_name.table_name.split(".")
-            if len(parts) < 3:
-                return urn
-
-            # Strip first part, keep remaining parts (database.table)
-            stripped_name = ".".join(parts[1:])
+            # Strip the catalog from catalog.database.table. A name without a
+            # catalog is still rebuilt so the instance gets its configured casing.
+            stripped_name = ".".join(parts[1:] if len(parts) >= 3 else parts)
             if instance_prefix:
                 stripped_name = f"{instance_prefix}.{stripped_name}"
+            if stripped_name == parsed.name:
+                return urn
             stripped_urn = str(
                 DatasetUrn(platform=parsed.platform, name=stripped_name, env=parsed.env)
             )

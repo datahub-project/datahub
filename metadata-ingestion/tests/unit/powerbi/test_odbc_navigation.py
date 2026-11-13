@@ -206,11 +206,19 @@ _ODBC_ATHENA_NAV_DOTTED_TABLE = (
 )
 
 # Athena reached through Odbc.Query rather than navigation. sqlglot lowercases the
-# whole URN, platform_instance included, so a mixed-case configured instance only
-# survives the catalog strip because the prefix match ignores case.
+# whole URN, platform_instance included, so the configured instance casing must be
+# restored to match navigation and the standalone Athena source.
 _ODBC_ATHENA_QUERY_CATALOG_TABLE = (
     'let\n    Source = Odbc.Query("driver={Simba Amazon Athena ODBC Driver};'
     'dsn=athena_prod", "SELECT * FROM awsdatacatalog.mydb.orders")\n'
+    "in\n    Source"
+)
+
+# The same query without the catalog: nothing to strip, but the instance casing
+# must still be restored.
+_ODBC_ATHENA_QUERY_DATABASE_TABLE = (
+    'let\n    Source = Odbc.Query("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", "SELECT * FROM mydb.orders")\n'
     "in\n    Source"
 )
 
@@ -454,8 +462,20 @@ _ODBC_NAV_SUCCESS_CASES = [
                 "athena_prod": {"platform_instance": "My_Inst", "env": "PROD"}
             }
         },
-        "urn:li:dataset:(urn:li:dataPlatform:athena,my_inst.mydb.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:athena,My_Inst.mydb.orders,PROD)",
         id="athena-odbc-query-mixed-case-instance-strips-catalog",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_QUERY_DATABASE_TABLE,
+        "orders",
+        "mydb.orders",
+        {
+            "server_to_platform_instance": {
+                "athena_prod": {"platform_instance": "My_Inst", "env": "PROD"}
+            }
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:athena,My_Inst.mydb.orders,PROD)",
+        id="athena-odbc-query-mixed-case-instance-without-catalog",
     ),
     pytest.param(
         _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,

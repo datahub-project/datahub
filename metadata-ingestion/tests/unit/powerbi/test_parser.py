@@ -618,7 +618,8 @@ def test_odbc_strip_athena_catalog_from_upstreams(odbc_lineage):
 
 
 # sqlglot lowercases the whole URN (instance included) for Athena, so a
-# mixed-case configured instance must still match its lowercased prefix.
+# mixed-case configured instance must still match its lowercased prefix, and the
+# rebuilt URN carries the configured casing.
 @pytest.mark.parametrize("platform_instance", ["my_instance", "My_Instance"])
 def test_odbc_strip_athena_catalog_preserves_platform_instance(
     odbc_lineage: OdbcLineage, platform_instance: str
@@ -649,7 +650,7 @@ def test_odbc_strip_athena_catalog_preserves_platform_instance(
     # Catalog stripped, instance preserved -> instance.database.table
     assert (
         stripped_lineage.upstreams[0].urn
-        == "urn:li:dataset:(urn:li:dataPlatform:athena,my_instance.mydb.mytable,PROD)"
+        == f"urn:li:dataset:(urn:li:dataPlatform:athena,{platform_instance}.mydb.mytable,PROD)"
     )
 
 
