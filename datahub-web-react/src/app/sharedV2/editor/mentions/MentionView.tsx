@@ -7,6 +7,7 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
+import { useBatchedMentionEntity } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
@@ -61,11 +62,16 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
     const { t } = useTranslation('entity.profile.editor');
 
     const registry = useEntityRegistry();
-    const { data, loading } = useGetEntityMentionNodeQuery({
+    // Read-only content fetches all its mentions at once; the editor fetches each mention itself.
+    const batched = useBatchedMentionEntity(urn);
+    const { data, loading: queryLoading } = useGetEntityMentionNodeQuery({
         // A chip needs neither lineage nor siblings; the query fetches both unless skipped.
         variables: { urn, skipLineage: true, skipSiblingsSearch: true },
         fetchPolicy: 'cache-first',
+        skip: !!batched,
     });
+    const loading = batched ? batched.loading : queryLoading;
+    const fetchedEntity = batched ? batched.entity : data?.entity;
 
     const renderIcon = useCallback(
         (entity: Entity): React.ReactNode => (
@@ -80,7 +86,7 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
         return <span>{name}</span>;
     }
 
-    if (!data || !data.entity) {
+    if (!fetchedEntity) {
         return (
             <Tooltip title={t('mentions.notFound')}>
                 <InvalidEntityText>{name}</InvalidEntityText>
@@ -88,7 +94,7 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
         );
     }
 
-    const entity = data.entity as Entity;
+    const entity = fetchedEntity as Entity;
     const displayName = registry.getDisplayName(entity.type, entity);
 
     return (

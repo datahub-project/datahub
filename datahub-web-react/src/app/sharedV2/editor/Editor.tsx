@@ -8,6 +8,7 @@ import type {
 } from '@components/components/Editor/types';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { MentionEntitiesContextProvider } from '@app/sharedV2/editor/mentions/MentionEntitiesContextProvider';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 import { lazyNamed } from '@app/sharedV2/lazyPage';
 
@@ -46,7 +47,7 @@ function LazyMentionView(props: EditorMentionViewProps) {
     );
 }
 
-export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionView' | 'imageUploadEnabled'>;
+export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionView' | 'mentionsProvider' | 'imageUploadEnabled'>;
 
 /** The alchemy Editor with DataHub mentions and the documentation file upload flag. */
 export const Editor = forwardRef<unknown, Props>((props, ref) => {
@@ -58,6 +59,7 @@ export const Editor = forwardRef<unknown, Props>((props, ref) => {
             ref={ref}
             mentionsPicker={LazyMentionsPicker}
             mentionView={LazyMentionView}
+            mentionsProvider={MentionEntitiesContextProvider}
             imageUploadEnabled={imageUploadEnabled}
         />
     );
