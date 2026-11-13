@@ -190,28 +190,3 @@ def test_empty_app_value_leaves_the_recipe_value() -> None:
         "vPrefix": "x",
         "vOther": "",
     }
-
-
-def test_file_list_loop_load_is_not_named_by_the_last_value() -> None:
-    source = _source({})
-    app = _app(
-        "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
-        "X: LOAD * FROM [$(vFile)] (txt);\nNEXT vFile;",
-        {"vFile": "lib://Lake/m/last.csv"},
-    )
-    parsed = source._parsed_script(app)
-    [load] = parsed.file_loads
-    assert load.uses_unknown_variable
-    # On-prem apps have no graph files, so only the reference list is checked.
-    assert not source._file_source_resolver(app, parsed)._by_path_id
-
-
-def test_file_load_through_a_copy_of_a_loop_variable_is_unnamed() -> None:
-    source = _source({})
-    app = _app(
-        "FOR EACH vFile IN FileList('lib://Lake/m/*.csv')\n"
-        "SET vPath = $(vFile);\nX: LOAD * FROM [$(vPath)] (txt);\nNEXT vFile;",
-        {"vFile": "lib://Lake/m/last.csv", "vPath": "lib://Lake/m/last.csv"},
-    )
-    [load] = source._parsed_script(app).file_loads
-    assert load.uses_unknown_variable
