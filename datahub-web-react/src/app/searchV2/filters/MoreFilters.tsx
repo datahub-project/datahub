@@ -1,30 +1,23 @@
-import { Dropdown } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import React, { useState } from 'react';
+import { Menu } from '@components';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled from 'styled-components';
 
+import { ItemType } from '@components/components/Menu/types';
+
+import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import MoreFilterOption from '@app/searchV2/filters/MoreFilterOption';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
+import { mergeFilterChanges } from '@app/searchV2/filters/mergeFilterChanges';
 import { FilterScenarioType } from '@app/searchV2/filters/render/types';
 import { useFilterRendererRegistry } from '@app/searchV2/filters/render/useFilterRenderer';
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 import { FilterPredicate } from '@app/searchV2/filters/types';
+import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
-import { getNumActiveFiltersForGroupOfFilters } from '@app/searchV2/filters/utils';
+import { getNumActiveFiltersForGroupOfFilters, useGetFilterDisplayName } from '@app/searchV2/filters/utils';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
-
-const DropdownMenu = styled.div<{ padding?: string }>`
-    background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
-    box-shadow: ${(props) => props.theme.colors.shadowSm};
-    overflow: hidden;
-    min-width: 200px;
-    max-width: 400px;
-
-    ${(props) => props.padding !== undefined && `padding: ${props.padding};`}
-`;
 
 interface Props {
     filters: FacetMetadata[];
@@ -37,53 +30,141 @@ export default function MoreFilters({ filters, filterPredicates, activeFilters, 
     const { t } = useTranslation('search');
     const { trackShowMoreEvent } = useSearchFilterAnalytics();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const { triggerRef, overlayClassName, overlayStyle } = useFilterMenuOverlay<HTMLDivElement>(isMenuOpen);
     const numActiveFilters = getNumActiveFiltersForGroupOfFilters(activeFilters, filters);
     const filterRendererRegistry = useFilterRendererRegistry();
     const { config } = useAppConfig();
 
-    function updateFiltersAndClose(newFilters: FacetFilterInput[]) {
-        onChangeFilters(newFilters);
-        setIsMenuOpen(false);
-    }
+    const { registerCommit, commitAll } = useFilterMenuCommits();
+    // While the submenus commit together, their changes are merged here and applied once.
+    const pendingFiltersRef = useRef<FacetFilterInput[] | null>(null);
 
-    function onOpenChange(isOpen: boolean) {
-        if (isOpen) trackShowMoreEvent(activeFilters.length, filters.length);
-        setIsMenuOpen(isOpen);
-    }
+    const applyFilters = useCallback(
+        (newFilters: FacetFilterInput[]) => {
+            if (pendingFiltersRef.current) {
+                pendingFiltersRef.current = mergeFilterChanges(activeFilters, pendingFiltersRef.current, newFilters);
+            } else {
+                onChangeFilters(newFilters);
+            }
+        },
+        [activeFilters, onChangeFilters],
+    );
+
+    const commitAndClose = useCallback(
+        (applyNow?: () => void) => {
+            pendingFiltersRef.current = activeFilters;
+            applyNow?.();
+            commitAll();
+            const pendingFilters = pendingFiltersRef.current;
+            pendingFiltersRef.current = null;
+            if (pendingFilters !== activeFilters) onChangeFilters(pendingFilters);
+            setIsMenuOpen(false);
+        },
+        [activeFilters, commitAll, onChangeFilters],
+    );
+
+    const filterMenu = useMemo(() => ({ registerCommit, commitAndClose }), [registerCommit, commitAndClose]);
+
+    // Boolean renderers apply on click, so they close the menu with it.
+    const updateFiltersAndClose = useCallback(
+        (newFilters: FacetFilterInput[]) => commitAndClose(() => applyFilters(newFilters)),
+        [commitAndClose, applyFilters],
+    );
+
+    // Value submenus stage their selection until the menu closes, by any route: an outside click,
+    // Escape, or the trigger. antd reports all of them here.
+    const onOpenChange = (open: boolean) => {
+        if (open) {
+            if (!isMenuOpen) trackShowMoreEvent(activeFilters.length, filters.length);
+            setIsMenuOpen(true);
+        } else {
+            commitAndClose();
+        }
+    };
+
+    const getFilterDisplayName = useGetFilterDisplayName();
+
+    const filtersToRender = useMemo(
+        () =>
+            filters.filter((filter) => {
+                // All filters without specific renderers could be rendered
+                if (!filterRendererRegistry.hasRenderer(filter.field)) return true;
+
+                return filterRendererRegistry.canBeRendered(filter.field, config);
+            }),
+        [filters, config, filterRendererRegistry],
+    );
+
+    const menuItems: ItemType[] = useMemo(
+        () =>
+            filtersToRender.map((filter) => {
+                const title =
+                    (filterRendererRegistry.hasRenderer(filter.field) &&
+                        filterRendererRegistry.getName(filter.field)) ||
+                    getFilterDisplayName(filter);
+                return {
+                    key: filter.field,
+                    title,
+                    dataTestId: `more-filter-${title.replace(/\s/g, '-')}`,
+                    type: 'item',
+                    render: renderFilterMenuItem,
+                    children: [
+                        {
+                            key: `${filter.field}-children`,
+                            type: 'custom',
+                            render: () => {
+                                return filterRendererRegistry.hasRenderer(filter.field) ? (
+                                    filterRendererRegistry.render(filter.field, {
+                                        scenario: FilterScenarioType.SEARCH_V2_DROPDOWN_ONLY,
+                                        filter,
+                                        activeFilters,
+                                        onChangeFilters: updateFiltersAndClose,
+                                        config,
+                                    })
+                                ) : (
+                                    <MoreFilterOption
+                                        key={filter.field}
+                                        filter={filter}
+                                        activeFilters={activeFilters}
+                                        filterPredicates={filterPredicates}
+                                        onChangeFilters={applyFilters}
+                                    />
+                                );
+                            },
+                        },
+                    ],
+                };
+            }),
+        [
+            filtersToRender,
+            filterRendererRegistry,
+            getFilterDisplayName,
+            activeFilters,
+            filterPredicates,
+            applyFilters,
+            updateFiltersAndClose,
+            config,
+        ],
+    );
 
     return (
-        <Dropdown
-            trigger={['click']}
-            dropdownRender={() => (
-                <DropdownMenu padding="4px 0px">
-                    {filters.map((filter) => {
-                        return filterRendererRegistry.hasRenderer(filter.field) ? (
-                            filterRendererRegistry.render(filter.field, {
-                                scenario: FilterScenarioType.SEARCH_V2_SECONDARY,
-                                filter,
-                                activeFilters,
-                                onChangeFilters: updateFiltersAndClose,
-                                config,
-                            })
-                        ) : (
-                            <MoreFilterOption
-                                key={filter.field}
-                                filter={filter}
-                                activeFilters={activeFilters}
-                                filterPredicates={filterPredicates}
-                                onChangeFilters={updateFiltersAndClose}
-                            />
-                        );
-                    })}
-                </DropdownMenu>
-            )}
-            open={isMenuOpen}
-            onOpenChange={onOpenChange}
-        >
-            <SearchFilterLabel data-testid="more-filters-dropdown" $isActive={!!numActiveFilters}>
-                {t('filters.moreCount', { count: numActiveFilters })}
-                <CaretDown size={12} weight="fill" />
-            </SearchFilterLabel>
-        </Dropdown>
+        <FilterMenuProvider value={filterMenu}>
+            <Menu
+                items={menuItems}
+                open={isMenuOpen}
+                onOpenChange={onOpenChange}
+                overlayClassName={overlayClassName}
+                overlayStyle={overlayStyle}
+            >
+                <SearchFilterBase
+                    ref={triggerRef}
+                    data-testid="more-filters-dropdown"
+                    isActive={!!numActiveFilters}
+                    isOpen={isMenuOpen}
+                >
+                    {t('filters.moreCount', { count: numActiveFilters })}
+                </SearchFilterBase>
+            </Menu>
+        </FilterMenuProvider>
     );
 }

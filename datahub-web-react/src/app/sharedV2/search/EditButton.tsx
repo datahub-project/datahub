@@ -16,11 +16,10 @@ export default function EditButton({ setShowSelectMode, disabled }: Props) {
                 onClick={() => setShowSelectMode(true)}
                 disabled={disabled}
                 data-testid="search-results-edit-button"
-                isCircle
                 icon={{ icon: PencilSimple }}
                 variant="text"
                 color="gray"
-                size="sm"
+                size="md"
             />
         </Tooltip>
     );

@@ -1,56 +1,21 @@
 /* eslint-disable import/no-cycle */
-import { Button, Dropdown, Popover } from '@components';
+import { Button, Icon, Menu } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import styled, { useTheme } from 'styled-components';
+import styled from 'styled-components';
 
-import { IconStyleType } from '@app/entityV2/Entity';
+import { ItemType } from '@components/components/Menu/types';
+
+import { renderFilterMenuItem } from '@app/searchV2/filters/FilterMenuItem';
 import { DEFAULT_FILTER_FIELDS } from '@app/searchV2/filters/field/fields';
-import { FieldType, FilterField, FilterPredicate } from '@app/searchV2/filters/types';
+import { FilterField, FilterPredicate } from '@app/searchV2/filters/types';
+import { useFilterMenuOverlay } from '@app/searchV2/filters/useFilterMenuOverlay';
+import { FilterMenuProvider, useFilterMenuCommits } from '@app/searchV2/filters/value/FilterMenuContext';
 import ValueMenu from '@app/searchV2/filters/value/ValueMenu';
 import { getDefaultFieldOperatorType } from '@app/searchV2/filters/value/utils';
 import { PARENT_DOCUMENT_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useIsContextDocumentsEnabled } from '@app/useAppConfig';
-import { useEntityRegistry } from '@app/useEntityRegistry';
-
-const FieldMenu = styled.div`
-    max-height: 400px;
-    overflow: auto;
-    border-radius: 8px;
-
-    &&& {
-        .ant-dropdown-menu-item {
-            border-radius: 8px;
-            margin: 4px 8px;
-        }
-
-        .ant-dropdown-menu-submenu-expand-icon {
-            display: none;
-        }
-    }
-`;
-
-const ValueMenuWrapper = styled.div``;
-
-const Icon = styled.div`
-    margin-right: 8px;
-
-    && {
-        color: ${(props) => props.theme.colors.textTertiary};
-    }
-`;
-
-const Text = styled.div`
-    font-size: 14px;
-`;
-
-const Option = styled.div`
-    display: flex;
-    align-items: center;
-    justify-content: start;
-    padding: 2px 0px;
-`;
 
 const AddFilterButton = styled(Button)`
     margin: 0px;
@@ -58,105 +23,101 @@ const AddFilterButton = styled(Button)`
     width: fit-content;
 `;
 
-const overlayStyle = { borderRadius: 8, overflow: 'hidden', marginLeft: 12 };
+// Alchemy Button does not forward refs, so the menu is measured against this wrapper.
+const TriggerAnchor = styled.span`
+    display: inline-flex;
+`;
 
 interface Props {
     fields?: FilterField[];
-    onAddFilter: (predicate: FilterPredicate) => void;
+    onAddFilters: (predicates: FilterPredicate[]) => void;
     includeCount?: boolean;
 }
 
-export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilter, includeCount }: Props) {
+export default function AddFilterDropdown({ fields = DEFAULT_FILTER_FIELDS, onAddFilters, includeCount }: Props) {
     const { t } = useTranslation('search');
-    const [dropdownOpen, setDropdownOpen] = useState(false);
     const isContextDocumentsEnabled = useIsContextDocumentsEnabled();
+    const [isOpen, setIsOpen] = useState(false);
+    const { triggerRef, overlayClassName, overlayStyle } = useFilterMenuOverlay<HTMLSpanElement>(isOpen);
 
-    const items = fields
-        .filter((field) => field.field !== PARENT_DOCUMENT_FILTER_NAME || isContextDocumentsEnabled)
-        .map((field) => {
-            return {
-                key: field.field,
-                label: (
-                    <FilterPopover
-                        field={field}
-                        onAddFilter={onAddFilter}
-                        setDropdownOpen={setDropdownOpen}
-                        includeCount={includeCount}
-                    />
-                ),
-            };
+    const { registerCommit, commitAll } = useFilterMenuCommits();
+    // Submenus commit only while the menu closes; their new filters are collected and added at once.
+    const pendingPredicatesRef = useRef<FilterPredicate[]>([]);
+
+    const handleAddFilter = useCallback((field: FilterField, values: any[]) => {
+        pendingPredicatesRef.current.push({
+            field,
+            operator: getDefaultFieldOperatorType(field),
+            values,
+            defaultValueOptions: [],
         });
+    }, []);
 
-    return (
-        <Dropdown
-            open={dropdownOpen}
-            onOpenChange={setDropdownOpen}
-            trigger={['click']}
-            menu={{ items }}
-            dropdownRender={(menu) => <FieldMenu>{menu}</FieldMenu>}
-        >
-            <AddFilterButton variant="text">
-                <Plus size={12} />
-                {t('filters.addFilter')}
-            </AddFilterButton>
-        </Dropdown>
+    const commitAndClose = useCallback(
+        (applyNow?: () => void) => {
+            pendingPredicatesRef.current = [];
+            applyNow?.();
+            commitAll();
+            const predicates = pendingPredicatesRef.current;
+            pendingPredicatesRef.current = [];
+            if (predicates.length) onAddFilters(predicates);
+            setIsOpen(false);
+        },
+        [commitAll, onAddFilters],
     );
-}
 
-interface PopoverProps {
-    field: FilterField;
-    onAddFilter: (predicate: FilterPredicate) => void;
-    setDropdownOpen: (open: boolean) => void;
-    includeCount?: boolean;
-}
+    const filterMenu = useMemo(() => ({ registerCommit, commitAndClose }), [registerCommit, commitAndClose]);
 
-function FilterPopover({ field, onAddFilter, setDropdownOpen, includeCount }: PopoverProps) {
-    const [popoverOpen, setPopoverOpen] = useState(false);
-    const entityRegistry = useEntityRegistry();
-    const theme = useTheme();
+    const onOpenChange = (open: boolean) => {
+        if (open) setIsOpen(true);
+        else commitAndClose();
+    };
 
-    const icon =
-        field.icon ||
-        (field.type === FieldType.ENTITY &&
-            field.entityTypes?.length &&
-            entityRegistry.getIcon(field.entityTypes[0], 12, IconStyleType.ACCENT, theme.colors.icon));
+    const items: ItemType[] = useMemo(() => {
+        return fields
+            .filter((field) => field.field !== PARENT_DOCUMENT_FILTER_NAME || isContextDocumentsEnabled)
+            .map((field) => {
+                return {
+                    key: field.field,
+                    title: field.displayName,
+                    type: 'item',
+                    render: renderFilterMenuItem,
+                    children: [
+                        {
+                            key: `${field.field}-children`,
+                            type: 'custom',
+                            render: () => (
+                                <ValueMenu
+                                    field={field}
+                                    values={[]}
+                                    defaultOptions={[]}
+                                    includeCount={includeCount}
+                                    onChangeValues={(values: any[]) => handleAddFilter(field, values)}
+                                    isRenderedInSubMenu
+                                />
+                            ),
+                        },
+                    ],
+                };
+            });
+    }, [fields, includeCount, handleAddFilter, isContextDocumentsEnabled]);
 
     return (
-        <Popover
-            open={popoverOpen}
-            onOpenChange={setPopoverOpen}
-            showArrow={false}
-            placement="rightTop"
-            trigger="click"
-            overlayClassName="search-filter-popover"
-            overlayInnerStyle={overlayStyle}
-            content={
-                <ValueMenuWrapper onClick={(e) => e?.stopPropagation()}>
-                    <ValueMenu
-                        field={field}
-                        values={[]}
-                        defaultOptions={[]}
-                        includeCount={includeCount}
-                        onChangeValues={(values) => {
-                            onAddFilter({
-                                field,
-                                operator: getDefaultFieldOperatorType(field),
-                                values,
-                                defaultValueOptions: [],
-                            });
-                            setDropdownOpen(false);
-                            setPopoverOpen(false);
-                        }}
-                        type="default"
-                        visible
-                    />
-                </ValueMenuWrapper>
-            }
-        >
-            <Option onClick={(e) => e?.stopPropagation()}>
-                {icon && <Icon>{icon}</Icon>}
-                <Text>{field.displayName}</Text>
-            </Option>
-        </Popover>
+        <FilterMenuProvider value={filterMenu}>
+            <Menu
+                items={items}
+                open={isOpen}
+                onOpenChange={onOpenChange}
+                overlayClassName={overlayClassName}
+                overlayStyle={overlayStyle}
+            >
+                <TriggerAnchor ref={triggerRef}>
+                    <AddFilterButton variant="text">
+                        <Icon icon={Plus} size="md" />
+                        {t('filters.addFilter')}
+                    </AddFilterButton>
+                </TriggerAnchor>
+            </Menu>
+        </FilterMenuProvider>
     );
 }

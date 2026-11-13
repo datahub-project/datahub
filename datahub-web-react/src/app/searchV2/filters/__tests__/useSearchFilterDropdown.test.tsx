@@ -14,7 +14,10 @@ vi.mock('@app/searchV2/useGetSearchQueryInputs', () => ({
     default: () => ({ entityFilters: [], query: '*', orFilters: [], viewUrn: undefined }),
 }));
 
-vi.mock('@src/graphql/search.generated', () => ({
+// Partial mock: the filter utils transitively import other generated documents that embed
+// fragments from this module, so the real exports must stay available.
+vi.mock('@src/graphql/search.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@src/graphql/search.generated')>()),
     useAggregateAcrossEntitiesLazyQuery: () => [vi.fn(), { data: undefined, loading: false }],
 }));
 

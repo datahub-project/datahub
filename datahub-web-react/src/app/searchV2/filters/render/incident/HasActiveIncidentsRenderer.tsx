@@ -9,9 +9,13 @@ import { FilterRenderProps } from '@app/searchV2/filters/render/types';
 export class HasActiveIncidentsRenderer implements FilterRenderer {
     field = 'hasActiveIncidents';
 
-    render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} icon={this.icon()} />;
+    get name() {
+        return i18next.t('search:filters.incidents.title');
+    }
 
-    icon = () => <Warning />;
+    render = (props: FilterRenderProps) => <HasActiveIncidentsFilter {...props} />;
+
+    icon = () => <Warning size={14} />;
 
     valueLabel = (value: string) => {
         if (value === 'true') {

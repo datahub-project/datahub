@@ -1,25 +1,20 @@
-import { Dropdown } from '@components';
-import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
-import React, { useEffect, useState } from 'react';
-import styled from 'styled-components';
+import { Pill, Popover } from '@components';
+import React, { CSSProperties, useState } from 'react';
 
 import FilterOption from '@app/searchV2/filters/FilterOption';
+import { SearchFilterBase } from '@app/searchV2/filters/SearchFilterBase';
 import BooleanSearchFilterMenu from '@app/searchV2/filters/render/shared/BooleanMoreFilterMenu';
-import { SearchFilterLabel } from '@app/searchV2/filters/styledComponents';
 
-const IconNameWrapper = styled.div`
-    display: flex;
-    align-items: center;
-`;
-
-const IconWrapper = styled.span`
-    margin-right: 8px;
-    display: flex;
-    flex-direction: column;
-`;
+// The menu draws its own card, so the popover's default chrome is removed.
+const OVERLAY_INNER_STYLE: CSSProperties = {
+    padding: 0,
+    background: 'transparent',
+    boxShadow: 'none',
+    borderRadius: 0,
+    overflow: 'visible',
+};
 
 interface Props {
-    icon?: React.ReactNode;
     title: string;
     option: string;
     count: number;
@@ -27,54 +22,43 @@ interface Props {
     onUpdate: (newValue: boolean) => void;
 }
 
-export default function BooleanSearchFilter({ icon, title, option, count, initialSelected, onUpdate }: Props) {
+export default function BooleanSearchFilter({ title, option, count, initialSelected, onUpdate }: Props) {
     const [isMenuOpen, setIsMenuOpen] = useState(false);
-    const [isSelected, setIsSelected] = useState<boolean>(initialSelected);
 
-    useEffect(() => setIsSelected(initialSelected), [initialSelected]);
-
-    function updateSelected() {
-        onUpdate(isSelected);
+    // A single option, so a toggle applies straight away rather than waiting for the menu to close.
+    const toggle = () => {
+        onUpdate(!initialSelected);
         setIsMenuOpen(false);
-    }
-
-    const filterOptions = [
-        {
-            key: option,
-            // Re-use the Normal Filter object
-            label: (
-                <FilterOption
-                    filterOption={{ field: title, value: option, count }}
-                    selectedFilterOptions={isSelected ? [{ field: title, value: option }] : []}
-                    setSelectedFilterOptions={() => setIsSelected(!isSelected)}
-                />
-            ),
-            style: { padding: 0 },
-            displayName: title,
-        },
-    ];
+    };
 
     return (
-        <Dropdown
-            trigger={['click']}
-            menu={{ items: filterOptions }}
+        <Popover
             open={isMenuOpen}
-            onOpenChange={(open) => setIsMenuOpen(open)}
-            dropdownRender={(menuOption) => (
-                <BooleanSearchFilterMenu menuOption={menuOption} onUpdate={updateSelected} />
-            )}
+            onOpenChange={setIsMenuOpen}
+            trigger="click"
+            placement="bottomLeft"
+            overlayInnerStyle={OVERLAY_INNER_STYLE}
+            content={
+                <BooleanSearchFilterMenu
+                    filterOption={
+                        <FilterOption
+                            filterOption={{ field: title, value: option, count }}
+                            selectedFilterOptions={initialSelected ? [{ field: title, value: option }] : []}
+                            setSelectedFilterOptions={toggle}
+                        />
+                    }
+                />
+            }
         >
-            <SearchFilterLabel
-                onClick={() => setIsMenuOpen(!isMenuOpen)}
-                $isActive={isSelected}
+            <SearchFilterBase
+                isOpen={isMenuOpen}
+                isActive={initialSelected}
                 data-testid={`filter-dropdown-${title.replace(/\s/g, '-')}`}
+                onClear={() => onUpdate(false)}
+                showClear={initialSelected}
             >
-                <IconNameWrapper>
-                    {icon && <IconWrapper>{icon}</IconWrapper>}
-                    {title} {isSelected ? `(1) ` : ''}
-                </IconNameWrapper>
-                <CaretDown size={12} weight="fill" />
-            </SearchFilterLabel>
-        </Dropdown>
+                {title} {initialSelected ? <Pill label="1" size="sm" variant="filled" /> : null}
+            </SearchFilterBase>
+        </Popover>
     );
 }

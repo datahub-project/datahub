@@ -1,31 +1,46 @@
-import { Button, Typography } from 'antd';
+import { Text } from '@components';
 import styled from 'styled-components';
 
-export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
+export const SearchFilterLabel = styled.div<{ $isOpen?: boolean; $isActive: boolean }>`
     font-size: 14px;
-    font-weight: 700;
-    border: none;
+    font-weight: 400;
+    line-height: none;
+    border: 1px solid
+        ${(props) => (props.$isOpen || props.$isActive ? props.theme.colors.borderBrand : props.theme.colors.border)};
     border-radius: 8px;
     display: flex;
     align-items: center;
-    box-shadow: none;
+    gap: 4px;
+    padding: 4px 8px;
+    min-height: 36px;
+    cursor: pointer;
+    user-select: none;
+    white-space: nowrap;
     color: ${(props) => props.theme.colors.text};
-    &&:hover,
-    &&:focus {
-        background-color: ${(props) => props.theme.colors.bgHover};
+    background-color: ${(props) => props.theme.colors.bg};
+    box-shadow: ${(props) => props.theme.colors.shadowXs};
+    transition: box-shadow 0.15s ease;
+
+    ${(props) => props.$isOpen && `outline: 1px solid ${props.theme.colors?.borderBrandFocused};`}
+
+    svg {
+        color: ${(props) => props.theme.colors.icon};
     }
+
+    &:hover {
+        box-shadow: ${(props) => props.theme.colors.shadowSm};
+    }
+
+    &:focus-visible {
+        outline: 2px solid ${(props) => props.theme.colors.borderBrandFocused};
+        outline-offset: 1px;
+    }
+
     ${(props) =>
         props.$isActive &&
         `
-        && {
-            background-color: ${props.theme.colors.bgSelectedSubtle};
-            border: 1px solid ${props.theme.colors.borderSelected};
-            color: ${props.theme.colors.textSelected};
-        }
-        &&:hover,
-        &&:focus {
-            background-color: ${props.theme.colors.bgSelected};
-        }
+        background-color: ${props.theme.colors.bgSelected};
+        color: ${props.theme.colors.textSelected};
     `}
 `;
 
@@ -35,28 +50,45 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 8px;
     cursor: pointer;
-
+    border-radius: 8px;
     max-width: 100%;
+    color: ${(props) => (props.$isActive ? props.theme.colors.textBrand : props.theme.colors.text)};
+    background-color: ${(props) => (props.isOpen ? props.theme.colors.bgHover : 'transparent')};
+
+    svg {
+        color: ${(props) => props.theme.colors.icon};
+        flex-shrink: 0;
+    }
+
     &:hover {
         background-color: ${(props) => props.theme.colors.bgHover};
     }
-
-    ${(props) => props.$isActive && `color: ${props.theme.colors.textSelected};`}
-    ${(props) => props.isOpen && `background-color: ${props.theme.colors.bgHover};`}
 `;
 
-export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(p) => p.theme.colors.textBrand};
+export const TextButton = styled.button<{ marginTop?: number; height?: number }>`
+    color: ${(props) => props.theme.colors.textBrand};
+    background: none;
+    border: none;
     padding: 0px 6px;
+    cursor: pointer;
+    font-size: 14px;
     margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
     ${(props) => props.height !== undefined && `height: ${props.height}px;`}
 
     &:hover {
-        background-color: ${(props) => props.theme.colors.bg};
+        background-color: ${(props) => props.theme.colors.bgHover};
+        border-radius: 4px;
     }
 `;
 
-export const Label = styled(Typography.Text)`
+// Alchemy Text carries its own font, so the label looks the same inside antd submenus (More) as it
+// does in the filter popovers.
+export const Label = styled(Text).attrs({ type: 'span', size: 'md', weight: 'medium', color: 'text' })`
     max-width: 125px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    display: inline-block;
 `;

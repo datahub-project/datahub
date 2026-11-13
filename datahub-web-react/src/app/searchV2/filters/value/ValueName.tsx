@@ -1,6 +1,6 @@
-import { Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
+import styled from 'styled-components';
 
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { FieldType, FilterField, FilterValue } from '@app/searchV2/filters/types';
@@ -9,6 +9,10 @@ import { getEntityTypeFilterValueDisplayName } from '@app/searchV2/filters/value
 import { UNIT_SEPARATOR } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import dayjs from '@utils/dayjs';
+
+const PathSeparator = styled.span`
+    color: ${(props) => props.theme.colors.textSecondary};
+`;
 
 const PATH_SEPARATOR = ' / ';
 const DATE_FORMAT = 'YYYY-MM-DD';
@@ -47,20 +51,14 @@ export default function ValueName({ field, value }: Props) {
         case FieldType.NESTED_ENTITY_TYPE:
             return <> {getEntityTypeFilterValueDisplayName(value.value, entityRegistry)}</>;
         case FieldType.BROWSE_PATH: {
-            // TODO: Break this into a separate component.
             const pathParts = value.value.split(UNIT_SEPARATOR).filter((part) => part);
             return (
                 <>
                     {pathParts.map((part, index) => (
-                        <>
+                        <React.Fragment key={part}>
                             {part}
-                            {(index < pathParts.length - 1 && (
-                                <Text type="span" color="textSecondary">
-                                    {PATH_SEPARATOR}
-                                </Text>
-                            )) ||
-                                undefined}
-                        </>
+                            {index < pathParts.length - 1 && <PathSeparator>{PATH_SEPARATOR}</PathSeparator>}
+                        </React.Fragment>
                     ))}
                 </>
             );

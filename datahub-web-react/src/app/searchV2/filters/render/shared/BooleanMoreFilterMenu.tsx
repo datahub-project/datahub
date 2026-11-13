@@ -1,31 +1,13 @@
-import { Button } from 'antd';
 import React, { CSSProperties } from 'react';
-import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
-
-const StyledButton = styled(Button)`
-    width: 100%;
-    text-align: center;
-    background-color: ${(props) => props.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    border-radius: 0;
-`;
-
-const DropdownMenu = styled.div`
+const DropdownCard = styled.div`
     background-color: ${(props) => props.theme.colors.bg};
-    border-radius: 5px;
+    border-radius: 12px;
     box-shadow: ${(props) => props.theme.colors.shadowMd};
     overflow: hidden;
     min-width: 200px;
-
-    .ant-dropdown-menu-title-content {
-        background-color: ${(props) => props.theme.colors.bg};
-        &:hover {
-            background-color: ${(props) => props.theme.colors.bg};
-        }
-    }
+    padding: 4px;
 `;
 
 const ScrollableContent = styled.div`
@@ -34,21 +16,14 @@ const ScrollableContent = styled.div`
 `;
 
 interface Props {
-    menuOption: React.ReactNode;
-    onUpdate: () => void;
+    filterOption: React.ReactNode;
     style?: CSSProperties;
 }
 
-export default function BooleanMoreFilterMenu({ menuOption, onUpdate, style }: Props) {
-    const { t: tc } = useTranslation('common.actions');
+export default function BooleanMoreFilterMenu({ filterOption, style }: Props) {
     return (
-        <DropdownMenu data-testid="filter-dropdown" style={style}>
-            <ScrollableContent>
-                {React.cloneElement(menuOption as React.ReactElement, { style: STYLE_NO_SHADOW })}
-            </ScrollableContent>
-            <StyledButton type="text" onClick={onUpdate} data-testid="update-filters">
-                {tc('update')}
-            </StyledButton>
-        </DropdownMenu>
+        <DropdownCard data-testid="filter-dropdown" style={style}>
+            <ScrollableContent>{filterOption}</ScrollableContent>
+        </DropdownCard>
     );
 }

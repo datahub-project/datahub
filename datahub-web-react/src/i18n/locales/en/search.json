@@ -169,7 +169,7 @@
     "sort.nameAtoZ": "Name A to Z",
     "sort.nameZtoA": "Name Z to A",
     "sort.placeholder": "Sort by",
-    "sort.relevance": "Relevance (Default)",
+    "sort.relevance": "Relevance",
     "sort.tooltipTitle": "Sort search results",
     "suggestions.didYouMean": "Did you mean <suggestion>{{suggestText}}</suggestion>?",
     "viewAllResultsFor": "View all results for <strong>{{searchText}}</strong>"
