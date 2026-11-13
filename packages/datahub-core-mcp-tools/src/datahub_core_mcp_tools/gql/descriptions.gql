@@ -1,0 +1,186 @@
+# Description writes and the read update_description's append makes. All exist
+# on GMS 1.7.0.
+
+mutation updateDescription($input: DescriptionUpdateInput!) {
+  updateDescription(input: $input)
+}
+
+# updateDescription refuses these four types; the UI edits them this way.
+mutation updateChartDescription($urn: String!, $description: String!) {
+  updateChart(urn: $urn, input: { editableProperties: { description: $description } }) {
+    urn
+  }
+}
+
+mutation updateDashboardDescription($urn: String!, $description: String!) {
+  updateDashboard(
+    urn: $urn
+    input: { editableProperties: { description: $description } }
+  ) {
+    urn
+  }
+}
+
+mutation updateDataFlowDescription($urn: String!, $description: String!) {
+  updateDataFlow(
+    urn: $urn
+    input: { editableProperties: { description: $description } }
+  ) {
+    urn
+  }
+}
+
+mutation updateDataJobDescription($urn: String!, $description: String!) {
+  updateDataJob(urn: $urn, input: { editableProperties: { description: $description } }) {
+    urn
+  }
+}
+
+# The description DataHub shows is the one edited in DataHub
+# (editableProperties, editableSchemaMetadata) when set, else the one from the
+# source system (properties, schemaMetadata). Glossary terms and nodes, tags,
+# domains and data products have only one. A dataset's siblings (e.g. its dbt
+# model) are merged into what DataHub shows: `siblings` is non-null only when it
+# has any, and GetEntitySiblings then reads their descriptions.
+query getDescriptionSources($urn: String!) {
+  entity(urn: $urn) {
+    urn
+    type
+    ... on Dataset {
+      siblings {
+        isPrimary
+      }
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+      editableSchemaMetadata {
+        editableSchemaFieldInfo {
+          fieldPath
+          description
+        }
+      }
+      schemaMetadata {
+        fields {
+          fieldPath
+          description
+        }
+      }
+    }
+    ... on Container {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on Chart {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on Dashboard {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on DataFlow {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on DataJob {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on MLModel {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on MLModelGroup {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on MLFeatureTable {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on MLFeature {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on MLPrimaryKey {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on CorpGroup {
+      editableProperties {
+        description
+      }
+      properties {
+        description
+      }
+    }
+    ... on Tag {
+      properties {
+        description
+      }
+    }
+    ... on GlossaryTerm {
+      properties {
+        description
+      }
+    }
+    ... on GlossaryNode {
+      properties {
+        description
+      }
+    }
+    ... on Domain {
+      properties {
+        description
+      }
+    }
+    ... on DataProduct {
+      properties {
+        description
+      }
+    }
+  }
+}

@@ -55,6 +55,7 @@ async def test_registration_is_per_instance() -> None:
         "remove_domains",
         "add_owners",
         "remove_owners",
+        "update_description",
     }
     assert await _tools(untouched) == {}
 
@@ -92,6 +93,7 @@ async def test_registering_twice_on_separate_instances_is_independent() -> None:
             "remove_domains",
             "add_owners",
             "remove_owners",
+            "update_description",
         }
     )
 
@@ -143,6 +145,7 @@ async def test_write_tools_are_registered_by_default(
         "remove_domains",
         "add_owners",
         "remove_owners",
+        "update_description",
     } <= writes
     assert writes <= set(registered)
 

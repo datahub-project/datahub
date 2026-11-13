@@ -26,6 +26,7 @@ from .tool_context import BackgroundExecution
 from .tools.aspect_history import get_aspect_history
 from .tools.dataset_queries import get_dataset_queries
 from .tools.dataset_usage import get_dataset_usage_history
+from .tools.descriptions import update_description
 from .tools.documents import grep_documents, search_documents
 from .tools.domains import create_domain, remove_domains, set_domains
 from .tools.entities import (
@@ -277,6 +278,7 @@ def register_tools(
     add("remove_domains", remove_domains, ToolType.MUTATION)
     add("add_owners", add_owners, ToolType.MUTATION)
     add("remove_owners", remove_owners, ToolType.MUTATION)
+    add("update_description", update_description, ToolType.MUTATION)
     if is_entity_versioning_enabled():
         add(
             "create_glossary_term_version",
