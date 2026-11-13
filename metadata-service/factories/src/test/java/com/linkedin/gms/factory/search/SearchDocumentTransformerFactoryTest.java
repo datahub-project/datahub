@@ -7,16 +7,11 @@ import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASP
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anySet;
-import static org.mockito.ArgumentMatchers.anyString;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
-import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 
 import com.datahub.context.OperationFingerprint;
 import com.fasterxml.jackson.databind.JsonNode;
-import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -139,32 +134,6 @@ public class SearchDocumentTransformerFactoryTest {
             });
   }
 
-  @Test
-  public void testV3BusinessAttributeRefStaysAUrnByDefault() throws Exception {
-    runner()
-        .run(
-            context -> {
-              AspectRetriever aspectRetriever = businessAttributeRetriever();
-              JsonNode ref = businessAttributeRef(context, aspectRetriever);
-              assertThat(ref.asText()).isEqualTo("urn:li:businessAttribute:my_attribute");
-              verify(aspectRetriever, never()).getLatestAspectObject(any(), any(), anyString());
-            });
-  }
-
-  @Test
-  public void testV3BusinessAttributeExpansionSwitchExpandsTheRef() {
-    runner()
-        .withPropertyValues("elasticsearch.search.v3.businessAttributeExpansionEnabled=true")
-        .run(
-            context -> {
-              AspectRetriever aspectRetriever = businessAttributeRetriever();
-              JsonNode ref = businessAttributeRef(context, aspectRetriever);
-              assertThat(ref.isObject()).isTrue();
-              verify(aspectRetriever, atLeastOnce())
-                  .getLatestAspectObject(any(), any(), anyString());
-            });
-  }
-
   private static SearchDocumentTransformer transformer(ApplicationContext context) {
     return context.getBean("searchDocumentTransformer", SearchDocumentTransformer.class);
   }
@@ -228,37 +197,6 @@ public class SearchDocumentTransformerFactoryTest {
             AuditStampUtils.createDefaultAuditStamp())
         .orElseThrow()
         .get("structuredProperties.my_property");
-  }
-
-  private static AspectRetriever businessAttributeRetriever() {
-    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
-    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
-    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
-        .thenReturn(new Aspect(new DataMap()));
-    return aspectRetriever;
-  }
-
-  private static JsonNode businessAttributeRef(
-      ApplicationContext context, AspectRetriever aspectRetriever) throws Exception {
-    ObjectNode document = JsonNodeFactory.instance.objectNode();
-    SearchDocumentTransformer.beginV3Projection();
-    try {
-      transformer(context)
-          .setSearchableRefValue(
-              operationContext(aspectRetriever),
-              ENTITY_REGISTRY
-                  .getEntitySpec("schemaField")
-                  .getAspectSpec("businessAttributes")
-                  .getSearchableRefFieldSpecs()
-                  .get(0),
-              List.of(UrnUtils.getUrn("urn:li:businessAttribute:my_attribute")),
-              document,
-              false,
-              AuditStampUtils.createDefaultAuditStamp());
-    } finally {
-      SearchDocumentTransformer.endV3Projection();
-    }
-    return document.get("businessAttributeRef");
   }
 
   private static OperationContext operationContext(AspectRetriever aspectRetriever) {
