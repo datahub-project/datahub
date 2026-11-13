@@ -67,6 +67,7 @@
     "dataProduct.createError": "Failed to create Data Product. An unexpected error occurred",
     "dataProduct.createSuccess": "Created Data Product!",
     "dataProduct.createTitle": "Create Data Product",
+    "dataProduct.createUnauthorized": "You do not have permission to create Data Products in this Domain",
     "dataProduct.loadMore": "Load more",
     "dataProduct.name": "Data Product",
     "dataProduct.namePlural": "Data Products",
