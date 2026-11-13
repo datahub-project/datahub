@@ -546,6 +546,18 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
     def get_config(self) -> Dict[str, Any]:
         return self.server_config.raw_config
 
+    def get_entity_specifications(self) -> List[Dict[str, Any]]:
+        """The server's entity registry specs, as raw JSON.
+
+        Unlike :meth:`get_entity_aspect_specs`, each aspect spec keeps its searchable
+        fields, and errors are raised instead of returning ``None``. Requires the
+        Manage System Operations privilege.
+
+        :raises OperationalError: if the request fails, e.g. with a 403
+        """
+        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
+        return list(self._paginate_offset(url))
+
     def get_entity_aspect_specs(self) -> Optional["EntityAspectSpecs"]:
         """The server's entity/aspect specs for capability detection.
 
@@ -583,9 +595,8 @@ class DataHubGraph(DatahubRestEmitter, OpenApiAPI, EntityVersioningAPI):
                     self._entity_aspect_specs = (commit_hash, specs)
                     return specs
 
-        url = f"{self._gms_server}/openapi/v1/registry/models/entity/specifications"
         try:
-            elements = list(self._paginate_offset(url))
+            elements = self.get_entity_specifications()
         except Exception:
             logger.warning(
                 "Could not fetch entity aspect specs for capability detection.",

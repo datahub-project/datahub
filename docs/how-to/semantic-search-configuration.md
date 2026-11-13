@@ -179,6 +179,34 @@ datahub ingest -c recipe.yml
 
 For external document sources (Notion, Confluence, etc.), see the [Notion Source](../generated/ingestion/sources/notion.md) and [DataHub Documents Source](../generated/ingestion/sources/datahub-documents.md) documentation.
 
+### Catalog Entities
+
+To make datasets, glossary terms, dashboards and other catalog entities findable through semantic search, the server needs two changes, and then a second ingestion source embeds them.
+
+1. **List the types.** Add them to `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES`, keeping `document`, on GMS, the MAE consumer (if it runs standalone) and the `system-update` job:
+
+   ```bash
+   ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES=document,dataset,glossaryTerm
+   ```
+
+2. **Add the `semanticContent` aspect.** Embeddings are stored in this aspect, which the base entity registry only declares for `document` and a few AI-related types. Add it to the other types with a YAML-only entity registry plugin; the [DataHub Entity Embeddings Source](../generated/ingestion/sources/datahub-entity-embeddings.md) prerequisites show the file and how to mount it.
+
+3. **Run `datahub-entity-embeddings`** after `datahub-documents`, on the same schedule:
+
+   ```yaml
+   source:
+     type: datahub-entity-embeddings
+     config: {}
+
+   sink:
+     type: datahub-rest
+     config: {}
+   ```
+
+   Its token needs the **Manage System Operations** privilege to read the entity registry.
+
+At the start of each run, the source reads the enabled types from the GMS semantic search configuration (set by `ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES` on GMS, not on the ingestion host) and their searchable fields from the entity registry, so adding a type later only needs steps 1 and 2. Document entities stay with `datahub-documents`.
+
 ## Search V3
 
 The Search V3 enable and disable switches are listed in [Environment Variables](../deploy/environment-vars.md#search-v3-feature-switches).

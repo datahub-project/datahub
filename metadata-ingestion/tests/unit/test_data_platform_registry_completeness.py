@@ -59,6 +59,7 @@ _NON_DATA_PLATFORM_SOURCES: Set[str] = {
     # (1) not a data platform
     "datahub",  # DataHub-to-DataHub meta source
     "datahub-documents",
+    "datahub-entity-embeddings",
     "datahubapply",
     "datahubdebug",
     "datahubgc",
