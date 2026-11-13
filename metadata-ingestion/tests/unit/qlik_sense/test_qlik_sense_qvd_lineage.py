@@ -719,6 +719,27 @@ def test_unset_variable_in_a_connection_name_expands_to_nothing() -> None:
     assert resolver.unresolved == ["lib://$(vPrefix)Unknown/raw/x.qvd"]
 
 
+def test_prefix_is_not_taken_as_unset_when_the_variables_were_not_read() -> None:
+    parsed = parse_script(
+        "Orders: LOAD 1 AS id AUTOGENERATE 1;\n"
+        "STORE Orders INTO [lib://$(vPrefix)QVD Data/orders.qvd] (qvd);"
+    )
+    resolver = QvdPathResolver(
+        folders={"QVD Data": "//nas/qvd"},
+        ignored_connections=[],
+        folder_aliases={},
+        variables_known=False,
+    )
+    lineage = app_qvd_lineage(
+        "app-1", parsed, resolver, lambda path: path, table_fields={}
+    )
+
+    # The prefix may name another connection, so the STORE stays unresolved
+    # and the app's QVD writes are not taken as all known.
+    assert not lineage.qvds.writes
+    assert lineage.has_unresolved_store
+
+
 @pytest.mark.parametrize(
     "folder, expected",
     [
