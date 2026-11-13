@@ -49,8 +49,6 @@ export const Checkbox = ({
         setChecked(isChecked || false);
     }, [isChecked]);
 
-    const id = props.id || `checkbox-${label}`;
-
     const onClick = useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation();
@@ -92,7 +90,9 @@ export const Checkbox = ({
                     checked={isActive}
                     disabled={isDisabled || false}
                     onChange={() => null}
-                    aria-labelledby={id}
+                    // The visible label isn't linked by id, so name the input directly. Callers without a
+                    // visible label pass their own `aria-label`.
+                    aria-label={label || undefined}
                     aria-checked={checked}
                     {...props}
                 />

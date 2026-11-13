@@ -29,11 +29,6 @@ const IconAndNameContainer = styled.div`
 const IconWrapper = styled.div`
     display: flex;
     align-items: center;
-
-    & .ant-image {
-        display: flex;
-        align-items: center;
-    }
 `;
 
 const Name = styled.div`

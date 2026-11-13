@@ -2,7 +2,8 @@
     & .ant-dropdown-menu {
         border-radius: 12px;
         padding: 8px;
-        margin: 16px; // compensation of padding as it computes incorrect position of a submenu
+        max-height: 80vh;
+        overflow-y: auto;
     }
 
     & .ant-dropdown-menu-submenu,
@@ -13,6 +14,10 @@
         padding: 0px;
         margin: 0px;
     }
+
+    & .ant-dropdown-menu-root {
+        margin-top: 4px;
+    }
 }
 
 // Submenu popups render in a portal — strip the outer wrapper bg/shadow
@@ -22,7 +27,6 @@
     box-shadow: none !important;
 
     ul {
-        max-height: 80vh;
         overflow-y: auto;
     }
 
@@ -32,10 +36,10 @@
     }
 }
 
-// When the submenu popup also has the reset class, remove the margin
-// that's only needed for the root dropdown overlay
+// Additional margins for submenu popup as it's computed wrong because of padding changes
 .datahub-reset-dropdown-menu-styles.ant-dropdown-menu-submenu-popup {
     & .ant-dropdown-menu {
-        margin: 0;
+        margin-left: 16px;
+        margin-right: 16px;
     }
 }

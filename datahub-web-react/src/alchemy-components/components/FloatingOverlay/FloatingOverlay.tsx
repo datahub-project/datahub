@@ -58,6 +58,8 @@ export type FloatingOverlayProps = {
     destroyTooltipOnHide?: boolean | { keepParent?: boolean };
     /** Clamps the overlay content to this many lines. Values below 1 disable clamping. */
     maxLines?: number;
+    /** Accessible name for the overlay. Dialogs (popovers) need one for screen readers. */
+    ariaLabel?: string;
     // antd Trigger clones its child and passes these. They have to reach the DOM node or a
     // dropdown whose trigger is a Tooltip/Popover never opens and never gets positioned.
     onClick?: React.MouseEventHandler<HTMLElement>;
@@ -189,6 +191,7 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
             getPopupContainer,
             destroyTooltipOnHide = true,
             maxLines,
+            ariaLabel,
             onClick: parentOnClick,
             onMouseDown: parentOnMouseDown,
             onTouchStart: parentOnTouchStart,
@@ -226,6 +229,10 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         const [overlayId] = useState(() => `alchemy-overlay-${Math.random().toString(36).slice(2)}`);
         const isControlled = controlledOpen !== undefined || visible !== undefined;
         const isOpen = controlledOpen ?? visible ?? uncontrolledOpen;
+        // Content kept on hide is still only mounted after the first open, as in antd: mounting
+        // every closed overlay up front would run their queries and duplicate their DOM on load.
+        const [hasOpened, setHasOpened] = useState(isOpen);
+        if (isOpen && !hasOpened) setHasOpened(true);
         const content = resolveContent(contentProp);
         const contentPresent = hasContent(content);
         const triggers = useMemo(() => (Array.isArray(trigger) ? trigger : [trigger]), [trigger]);
@@ -503,7 +510,11 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
 
         const shouldDestroyWhenHidden =
             typeof destroyTooltipOnHide === 'boolean' ? destroyTooltipOnHide : !destroyTooltipOnHide.keepParent;
-        if (!hasContent(content) || (!isOpen && shouldDestroyWhenHidden) || typeof document === 'undefined') {
+        if (
+            !hasContent(content) ||
+            (!isOpen && (shouldDestroyWhenHidden || !hasOpened)) ||
+            typeof document === 'undefined'
+        ) {
             return reference;
         }
 
@@ -541,6 +552,7 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
                 ref={refs.setFloating}
                 id={overlayId}
                 role={role}
+                aria-label={ariaLabel}
                 className={[overlayClassName, className].filter(Boolean).join(' ') || undefined}
                 style={{
                     ...floatingStyles,
