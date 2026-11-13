@@ -7,6 +7,7 @@ import Module from '@app/homeV3/module/Module';
 import AddModuleButton from '@app/homeV3/template/components/AddModuleButton';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import ModuleDropZone from '@app/homeV3/templateRow/components/ModuleDropZone';
+import { useIsModuleHidden } from '@app/homeV3/templateRow/hooks/useIsModuleHidden';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
 
 import { PageTemplateSurfaceType } from '@types';
@@ -49,6 +50,7 @@ const ModuleWrapper = memo(({ module, position, moduleKey, onModuleHiddenChange 
 function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallRow }: Props) {
     const { templateType } = usePageTemplateContext();
     const showAddButtons = templateType === PageTemplateSurfaceType.HomePage;
+    const isModuleHidden = useIsModuleHidden();
 
     const [hiddenModuleKeys, setHiddenModuleKeys] = useState<Set<string>>(new Set());
 
@@ -62,11 +64,14 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallR
         });
     }, []);
 
-    // Collapse the row (including its tall drop zones) when every module in it renders nothing.
-    // Modules stay mounted so they can un-hide once their data changes.
+    // Collapse the row (including its tall drop zones) when every module in it renders nothing,
+    // whether it is skipped up front (isModuleHidden) or reports itself hidden once mounted.
+    // Reporting modules stay mounted so they can un-hide once their data changes.
     const isRowHidden = useMemo(
-        () => modulePositions.length > 0 && modulePositions.every(({ key }) => hiddenModuleKeys.has(key)),
-        [modulePositions, hiddenModuleKeys],
+        () =>
+            modulePositions.length > 0 &&
+            modulePositions.every(({ module, key }) => isModuleHidden(module) || hiddenModuleKeys.has(key)),
+        [modulePositions, hiddenModuleKeys, isModuleHidden],
     );
 
     return (
@@ -81,23 +86,26 @@ function RowLayout({ rowIndex, modulePositions, shouldDisableDropZones, isSmallR
                 isSmall={isSmallRow}
             />
 
-            {modulePositions.map(({ module, position, key }, moduleIndex) => (
-                <React.Fragment key={key}>
-                    <ModuleWrapper
-                        module={module}
-                        position={position}
-                        moduleKey={key}
-                        onModuleHiddenChange={onModuleHiddenChange}
-                    />
-                    {/* Drop zone after each module */}
-                    <ModuleDropZone
-                        rowIndex={rowIndex}
-                        moduleIndex={moduleIndex + 1}
-                        disabled={shouldDisableDropZones}
-                        isSmall={isSmallRow}
-                    />
-                </React.Fragment>
-            ))}
+            {modulePositions.map(({ module, position, key }, moduleIndex) =>
+                // A hidden module and the drop zone after it take no space; positions still count it.
+                isModuleHidden(module) ? null : (
+                    <React.Fragment key={key}>
+                        <ModuleWrapper
+                            module={module}
+                            position={position}
+                            moduleKey={key}
+                            onModuleHiddenChange={onModuleHiddenChange}
+                        />
+                        {/* Drop zone after each module */}
+                        <ModuleDropZone
+                            rowIndex={rowIndex}
+                            moduleIndex={moduleIndex + 1}
+                            disabled={shouldDisableDropZones}
+                            isSmall={isSmallRow}
+                        />
+                    </React.Fragment>
+                ),
+            )}
 
             {showAddButtons && <AddModuleButton orientation="vertical" rowIndex={rowIndex} rowSide="right" />}
         </RowWrapper>

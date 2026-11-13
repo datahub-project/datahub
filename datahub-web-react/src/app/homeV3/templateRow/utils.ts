@@ -23,3 +23,11 @@ export function wrapRows(rows: PageTemplateRowFragment[], chunkSize = DEFAULT_RO
 
     return result;
 }
+
+/**
+ * Rows to draw: a row whose modules are all hidden takes no space. Rows keep their own rowIndex,
+ * so positions still match the template. A row with no modules at all is kept.
+ */
+export function getVisibleRows(rows: WrappedRow[], isModuleHidden: (module: WrappedRow['modules'][0]) => boolean) {
+    return rows.filter((row) => row.modules.length === 0 || !row.modules.every(isModuleHidden));
+}

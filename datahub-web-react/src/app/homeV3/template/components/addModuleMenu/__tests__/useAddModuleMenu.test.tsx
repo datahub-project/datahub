@@ -84,6 +84,11 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: mockUsePageTemplateContext,
 }));
 
+const { mockUseIsMcpEnabled } = vi.hoisted(() => ({ mockUseIsMcpEnabled: vi.fn() }));
+vi.mock('@app/homeV3/modules/mcp/useIsMcpEnabled', () => ({
+    useIsMcpEnabled: mockUseIsMcpEnabled,
+}));
+
 vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: mockUseEntityData,
 }));
@@ -110,6 +115,8 @@ describe('useAddModuleMenu', () => {
 
     beforeEach(() => {
         vi.clearAllMocks();
+        // Off by default so the home page default counts below stay focused on the other modules.
+        mockUseIsMcpEnabled.mockReturnValue({ isMcpEnabled: false, loading: false });
         // Set up default mock implementation
         mockUseEntityData.mockReturnValue({
             entityType: EntityType.Domain,
@@ -605,6 +612,26 @@ describe('useAddModuleMenu', () => {
             const defaultChildren = getChildren(result.current.items?.[1]);
             expect(defaultChildren).toHaveLength(1);
             expect(defaultChildren[0]).toHaveProperty('key', 'hierarchy');
+        });
+    });
+
+    describe('MCP module', () => {
+        it('offers the MCP module on the home page while MCP is on', () => {
+            mockUseIsMcpEnabled.mockReturnValue({ isMcpEnabled: true, loading: false });
+
+            const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
+
+            // @ts-expect-error SubMenuItem should have children
+            const keys = result.current.items?.[1]?.children?.map((child) => child.key);
+            expect(keys).toContain('mcp');
+        });
+
+        it('does not offer the MCP module while MCP is off', () => {
+            const { result } = renderHook(() => useAddModuleMenu(mockPosition, mockCloseMenu));
+
+            // @ts-expect-error SubMenuItem should have children
+            const keys = result.current.items?.[1]?.children?.map((child) => child.key);
+            expect(keys).not.toContain('mcp');
         });
     });
 });

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 
 import { WrappedRow } from '@app/homeV3/templateRow/types';
-import { wrapRows } from '@app/homeV3/templateRow/utils';
+import { getVisibleRows, wrapRows } from '@app/homeV3/templateRow/utils';
 
 import { DataHubPageModuleType, DataHubPageTemplateRow, EntityType, PageModuleScope } from '@types';
 
@@ -104,5 +104,37 @@ describe('wrapRows', () => {
         expect(result).toHaveLength(2);
         expect(result[0].modules).toHaveLength(3);
         expect(result[1].modules).toHaveLength(3);
+    });
+});
+
+describe('getVisibleRows', () => {
+    const makeModule = (urn: string) =>
+        ({
+            urn,
+            type: EntityType.DatahubPageModule,
+            properties: {
+                name: urn,
+                type: DataHubPageModuleType.OwnedAssets,
+                visibility: { scope: PageModuleScope.Global },
+                params: {},
+            },
+        }) as WrappedRow['modules'][0];
+    const makeRow = (rowIndex: number, urns: string[]): WrappedRow => ({
+        originRowIndex: rowIndex,
+        rowIndex,
+        modules: urns.map(makeModule),
+    });
+    const isHidden = (module: WrappedRow['modules'][0]) => module.urn === 'hidden';
+
+    it('drops rows whose modules are all hidden and keeps their neighbours with original indices', () => {
+        const rows = [makeRow(0, ['a', 'b']), makeRow(1, ['hidden']), makeRow(2, ['c'])];
+
+        expect(getVisibleRows(rows, isHidden).map((row) => row.rowIndex)).toEqual([0, 2]);
+    });
+
+    it('keeps rows that still have a visible module, and empty rows', () => {
+        const rows = [makeRow(0, ['hidden', 'a']), makeRow(1, [])];
+
+        expect(getVisibleRows(rows, isHidden).map((row) => row.rowIndex)).toEqual([0, 1]);
     });
 });
