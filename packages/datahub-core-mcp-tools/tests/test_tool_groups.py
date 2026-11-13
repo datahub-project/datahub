@@ -96,6 +96,8 @@ WRITE_TOOLS = {
     "create_domain",
     "set_domains",
     "remove_domains",
+    "add_owners",
+    "remove_owners",
 }
 
 

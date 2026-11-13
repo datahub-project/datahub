@@ -133,6 +133,12 @@ class ReadBackend(Protocol):
         matches loosely: the caller compares names."""
         ...
 
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        """Up to ``count`` ownership types a search for ``name`` finds, each with
+        its urn and ``info.name`` (``findOwnershipTypesByName`` in
+        ``owners.gql``). Search matches loosely: the caller compares names."""
+        ...
+
 
 @dataclass(frozen=True)
 class ReadBackendBinding:
@@ -383,6 +389,16 @@ class GraphQLReadBackend:
         )
         domains = (result.get("listDomains") or {}).get("domains") or []
         return [cast(JsonObject, d) for d in domains if isinstance(d, dict)]
+
+    def ownership_types_named(self, name: str, count: int) -> list[JsonObject]:
+        result = graphql_helpers.execute_graphql(
+            self.graph,
+            query=graphql_helpers.load_gql_document("owners.gql"),
+            variables={"query": name, "count": count},
+            operation_name="findOwnershipTypesByName",
+        )
+        found = (result.get("listOwnershipTypes") or {}).get("ownershipTypes") or []
+        return [cast(JsonObject, t) for t in found if isinstance(t, dict)]
 
 
 def get_read_backend() -> ReadBackend:
