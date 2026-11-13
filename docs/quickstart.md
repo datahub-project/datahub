@@ -332,6 +332,24 @@ design choice to make development easier and is not best practice for a producti
 DataHub's services, and it's backend data stores use the docker default behavior of binding to all interface addresses.
 This makes it useful for development but is not recommended in a production environment.
 
+### MCP Server
+
+Quickstart serves DataHub's [MCP server](./features/feature-guides/mcp.md#self-hosted-mcp-server-usage) at
+`http://localhost:9002/mcp`, with its write tools on by default. Because quickstart runs with
+[Metadata Service Authentication](./authentication/introducing-metadata-service-authentication.md) off, `/mcp`
+needs no token and every call runs as DataHub's system user. Anyone who can reach port 9002 can read and change all
+of your metadata through it.
+
+- Use an auth-off quickstart on your own machine only.
+- Turn on Metadata Service Authentication (`METADATA_SERVICE_AUTH_ENABLED=true`) before you expose port 9002 to
+  anyone else, including through a tunnel or port forward. Each MCP client then needs its own
+  [personal access token](./authentication/personal-access-tokens.md) and acts with that user's privileges.
+- To refuse token-free MCP entirely, set `DATAHUB_AI_AUTH_MODE=required` on `datahub-ai-service`.
+- An agent with write tools can be steered by text it reads. Descriptions, documents and query text in your catalog
+  can carry instructions (prompt injection), so give agents the least privilege they need, and turn the write tools
+  off (on the [MCP settings page](./features/feature-guides/mcp.md#mcp-settings-page), or with
+  `TOOLS_IS_MUTATION_ENABLED=false`) where they don't need them.
+
 ### Performance & Management
 
 `quickstart` is limited by the resources available on a single host, there is no ability to scale horizontally.

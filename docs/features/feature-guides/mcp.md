@@ -12,7 +12,7 @@ Want to learn more about the motivation, architecture, and advanced use cases? C
 
 - [Plugins for Claude, ChatGPT, and Codex](../../dev-guides/agent-context/plugins.md) - One-click setup, available on DataHub Cloud v1.0.2+
 - [Managed MCP Server](#managed-mcp-server-usage) - Available on DataHub Cloud v0.3.12+
-- [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Available for DataHub Core
+- [Self-Hosted MCP Server](#self-hosted-mcp-server-usage) - Built into DataHub Core v1.9.0+ at `/mcp`
 
 ## Capabilities
 
@@ -107,7 +107,7 @@ Document tools (`search_documents`, `grep_documents`) are automatically hidden i
 ### Mutation Tools
 
 :::info
-Mutation tools are available in [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.5.0+ and on DataHub Cloud v0.3.17+. They are enabled via the `TOOLS_IS_MUTATION_ENABLED=true` environment variable. Each tool is annotated with `readOnlyHint: false` so MCP clients can require confirmation before invoking them.
+Mutation tools are available on DataHub Cloud v0.3.17+ and on DataHub Core v1.9.0+, where they are [on by default](#self-hosted-write-tools). `TOOLS_IS_MUTATION_ENABLED=false` turns them off. Each tool is annotated with `readOnlyHint: false` so MCP clients can require confirmation before invoking them.
 :::
 
 **Metadata Editing** — Apply tags, glossary terms, ownership, domains, descriptions, and structured properties to entities or individual columns. Also handles entity/term lifecycle stage transitions and document authoring.
@@ -115,11 +115,15 @@ Mutation tools are available in [mcp-server-datahub](https://github.com/acryldat
 <details>
   <summary>Tools</summary>
 
+`create_tag` — Create a tag, or return the existing tag with that name (`created: false`).
+
 `add_tags` / `remove_tags` — Add or remove tags from entities or schema fields (columns). Supports bulk operations on multiple entities.
 
 `add_terms` / `remove_terms` — Add or remove glossary terms from entities or schema fields. Useful for applying business definitions and data classification.
 
 `add_owners` / `remove_owners` — Add or remove ownership assignments from entities. Supports different ownership types (technical owner, data owner, etc.).
+
+`create_domain` — Create a domain, or return the existing domain with that name (`created: false`).
 
 `set_domains` / `remove_domains` — Assign or remove domain membership for entities. Each entity can belong to one domain.
 
@@ -350,7 +354,7 @@ OAuth + DCR is the recommended path for **interactive** clients where a human si
 For DataHub Cloud v0.3.12+, you can connect directly to the hosted MCP server endpoint — no local installation required.
 
 :::info
-The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. For DataHub Core and older versions of DataHub Cloud, [self-host the MCP server](#self-hosted-mcp-server-usage) instead.
+The managed MCP server endpoint is only available with DataHub Cloud v0.3.12+. DataHub Core serves its own [MCP endpoint](#self-hosted-mcp-server-usage).
 :::
 
 :::note Streamable HTTP Only
@@ -512,71 +516,176 @@ Service accounts support a **Default View** that restricts which data assets the
 Combine a service account with a default view to create a tightly-scoped MCP connection — for example, a "Snowflake Production" view for an agent that only needs access to production Snowflake datasets.
 :::
 
-## Self-Hosted MCP Server Usage
+## Self-Hosted MCP Server Usage {#self-hosted-mcp-server-usage}
 
-Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub) yourself. This works with any DataHub instance — both DataHub Core and DataHub Cloud. Run it locally for a single user, or as a [shared HTTP service](#shared-http-deployment) for a team.
+_Built into DataHub Core v1.9.0+_
 
-### Prerequisites
+DataHub Core serves MCP itself. The `datahub-ai-service` container runs the MCP tools, and the DataHub frontend serves them at `/mcp`, on the same host and port as the UI. There is nothing to install for each user: point an MCP client at
 
-1. Install [`uv`](https://github.com/astral-sh/uv):
-
-   ```bash
-   # macOS and Linux
-   curl -LsSf https://astral.sh/uv/install.sh | sh
-   ```
-
-2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
-3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
-
-:::note
-On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — a locally run MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
-:::
-
-### Connecting & Authenticating
-
-The self-hosted server authenticates via environment variables:
-
-- `DATAHUB_GMS_URL` — your DataHub GMS endpoint
-- `DATAHUB_GMS_TOKEN` — your personal access token; omit it if Metadata Service Authentication is disabled on your instance
-
-These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
-
-The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse. This applies to local setups only: a [shared HTTP deployment](#shared-http-deployment) always requires Metadata Service Authentication and a per-user token.
-
-### Verify from the Terminal
-
-Before adding the server to an MCP client, call a read-only tool directly to check the DataHub connection. Replace the example URN and environment variables with values from your instance.
-
-```bash
-uvx --from 'fastmcp-slim[server]' fastmcp call \
-  --command "env DATAHUB_GMS_URL=<your-datahub-url> DATAHUB_GMS_TOKEN=<your-datahub-token> uvx mcp-server-datahub@latest" \
-  --target get_lineage \
-  --input-json '{"urn":"urn:li:dataset:(urn:li:dataPlatform:snowflake,my_database.my_schema.my_table,PROD)","upstream":false,"max_hops":1,"max_results":10}' \
-  --json
+```
+<your-datahub-url>/mcp
 ```
 
-The response should contain a `structured_content` object with a `downstreams` result. Any `downstreams` result, even `"total": 0`, means the server connected successfully. Authentication and connection failures surface as an error or timeout instead.
+where `<your-datahub-url>` is the address you open DataHub at, for example `http://localhost:9002/mcp` on a quickstart or `https://datahub.example.com/mcp` behind your ingress.
 
-### Configure
+`datahub-ai-service` works with GMS v1.7.0 and later. It reads the version of the GMS it is connected to and hides the tools that version is too old for, so an older GMS serves fewer tools instead of failing calls.
+
+Still running the standalone `mcp-server-datahub`? See [Migrating from `mcp-server-datahub`](#migrating-from-mcp-server-datahub).
+
+### Turn It On {#turn-it-on}
+
+The MCP server is off until you turn it on with `MCP_SERVER_ENABLED=true` on GMS (`datahub-gms`). While it is off, `/mcp` returns 404 and the UI hides the MCP settings page and the Connect AI Tools home page module. The `datahub-ai-service` container still runs, serving only `/health`. After changing the flag, restart GMS; the service notices within a minute.
+
+- **Quickstart:** `MCP_SERVER_ENABLED=true datahub docker quickstart`
+- **Helm:** add `MCP_SERVER_ENABLED: "true"` to the GMS environment (`datahub-gms.extraEnvs`).
+- **Other deployments:** set the environment variable on the GMS container.
+
+A GMS older than v1.9.0 doesn't have the flag, so `datahub-ai-service` serves MCP whenever it is connected to one.
+
+### Quickstart
+
+`datahub docker quickstart` starts `datahub-ai-service` with the rest of DataHub. The service's own port (9005) is bound to the host's loopback interface only. Clients use the frontend's route:
+
+```
+http://localhost:9002/mcp
+```
+
+Quickstart runs with [Metadata Service Authentication](../../authentication/introducing-metadata-service-authentication.md) off, so no token is needed. For example, with Claude Code:
+
+```bash
+claude mcp add --transport http datahub http://localhost:9002/mcp
+```
+
+See [Connect a Client](#connect-a-client) for other clients.
+
+:::caution
+While GMS authentication is off, every MCP call runs as DataHub's system user, and the write tools are on. Anyone who can reach port 9002 can read and change your metadata through `/mcp`. Keep an auth-off quickstart on your own machine, and turn on authentication before you expose it. See [Move To Production](../../quickstart.md#mcp-server).
+:::
+
+### Kubernetes (Helm)
+
+The [DataHub Helm chart](https://github.com/acryldata/datahub-helm) deploys `datahub-ai-service` as a subchart. It is on by default (`global.datahub.ai.enabled`), and the chart points the frontend at it. Clients connect to your DataHub URL:
+
+```
+https://<your-datahub-host>/mcp
+```
+
+The chart turns on Metadata Service Authentication by default, so each client sends its own [personal access token](../../authentication/personal-access-tokens.md) on every request:
+
+```
+Authorization: Bearer <your-access-token>
+```
+
+A tool call can stream its response for several minutes. Load balancers and ingress controllers often close a response that stays open, or quiet, for 60 seconds, so raise their timeouts for `/mcp`. The [chart's documentation](https://github.com/acryldata/datahub-helm) describes the settings for ingress controllers, AWS ALB, GKE and Gateway API `HTTPRoute`. To turn MCP off, set `global.datahub.ai.enabled: false`.
 
 <details>
-  <summary>Claude Desktop</summary>
+  <summary>Other deployments</summary>
 
-1. Run `which uvx` to find the full path to the `uvx` command.
+Run the `acryldata/datahub-ai-service` image next to GMS, using the same version tag as your other DataHub images:
 
-1. Open your `claude_desktop_config.json` file. You can find it by navigating to Claude Desktop -> Settings -> Developer -> Edit Config.
+1. On the service, set `DATAHUB_GMS_URL` to GMS (for example `http://datahub-gms:8080`) and `DATAHUB_AI_TRUSTED_PROXIES` to the frontend's host name or address, so the service believes the host the frontend forwards.
+2. On the frontend, set `DATAHUB_AI_SERVICE_URL` to the service (for example `http://datahub-ai-service:9005`). While it is unset, `/mcp` returns 404.
 
-1. Update the file to include the following content. Be sure to replace the placeholder values.
+The service answers `GET /health` without authentication, for load balancer and Kubernetes probes.
 
-```js
+</details>
+
+### Connect a Client {#connect-a-client}
+
+Users with the **Manage Platform Settings** privilege find ready-to-copy setup for each client under **Settings > Platform > AI > MCP Server**, in **Connect a client**, filled in with your URL and authentication. The same setups are below.
+
+Replace `<your-datahub-url>` with the address you open DataHub at. When GMS authentication is on, replace `<your-access-token>` with a [personal access token](../../authentication/personal-access-tokens.md). When it is off, leave the `Authorization` header out.
+
+<details>
+  <summary>Claude Code</summary>
+
+```bash
+claude mcp add --transport http datahub <your-datahub-url>/mcp \
+  --header "Authorization: Bearer <your-access-token>"
+```
+
+Run `claude mcp list` to check the connection. See also the [Claude integration guide](../../dev-guides/agent-context/claude.md).
+
+</details>
+
+<details>
+  <summary>Claude and Claude Desktop (custom connector)</summary>
+
+The simplest option for claude.ai and Claude Desktop, with nothing to install, when DataHub has a public HTTPS URL (see the note below). In Claude, open **Customize > Connectors**, select **Add**, then **Add custom connector**:
+
+1. Enter a name, such as `DataHub`, and the remote MCP server URL, `<your-datahub-url>/mcp`. Click **Continue**.
+2. For **Authentication**, choose **No sign-in**.
+3. When GMS authentication is on, open **Request headers**, choose `authorization`, and enter `Bearer <your-access-token>`. Claude sends the value exactly as entered, so keep the `Bearer ` prefix.
+4. Click **Add**.
+
+On Team and Enterprise plans, an Owner adds the connector for everyone under **Organization settings > Connectors**, and its request header is shared: every member calls DataHub as the token's user. Use a token whose permissions suit everyone, such as a [service account's](#service-accounts-for-agentic-workflows), or have each person connect with their own token through Claude Code or Claude Desktop with `mcp-remote`. Request headers are in beta and not every Claude organization has them yet; if the dialog doesn't show **Request headers**, use the `mcp-remote` setup below. See Anthropic's [Add a connector that isn't in the directory](https://claude.com/docs/connectors/custom/add-unlisted).
+
+</details>
+
+<details>
+  <summary>Cursor</summary>
+
+Add to `~/.cursor/mcp.json` (or `.cursor/mcp.json` in a project):
+
+```json
 {
   "mcpServers": {
     "datahub": {
-      "command": "<full-path-to-uvx>",  // e.g. /Users/hsheth/.local/bin/uvx
-      "args": ["mcp-server-datahub@latest"],
+      "url": "<your-datahub-url>/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-access-token>"
+      }
+    }
+  }
+}
+```
+
+The MCP settings page should show a green dot and list the DataHub tools. See also the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+
+</details>
+
+<details>
+  <summary>Claude Desktop (local, with mcp-remote)</summary>
+
+Use this when Anthropic's cloud can't reach DataHub (a private URL, or plain `http://`), or when your Claude organization doesn't offer connector request headers yet. The [`mcp-remote`](https://github.com/geelen/mcp-remote) bridge runs on your machine and needs Node.js. Open **Settings > Developer > Edit Config** and add to `claude_desktop_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "command": "npx",
+      "args": [
+        "-y",
+        "mcp-remote",
+        "<your-datahub-url>/mcp",
+        "--header",
+        "Authorization:${AUTH_HEADER}"
+      ],
       "env": {
-        "DATAHUB_GMS_URL": "<your-datahub-url>",
-        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+        "AUTH_HEADER": "Bearer <your-access-token>"
+      }
+    }
+  }
+}
+```
+
+`mcp-remote` expands `${AUTH_HEADER}` itself; passing the header through an environment variable avoids Claude Desktop splitting it on the space. Without a token, keep only `"args": ["-y", "mcp-remote", "<your-datahub-url>/mcp"]`. `mcp-remote` refuses a plain `http://` URL for any host but `localhost` unless you add `--allow-http`; use that only on a network you trust.
+
+</details>
+
+<details>
+  <summary>VS Code</summary>
+
+Add to `.vscode/mcp.json`:
+
+```json
+{
+  "servers": {
+    "datahub": {
+      "type": "http",
+      "url": "<your-datahub-url>/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-access-token>"
       }
     }
   }
@@ -586,26 +695,238 @@ The response should contain a `structured_content` object with a `downstreams` r
 </details>
 
 <details>
+  <summary>Gemini CLI</summary>
+
+```bash
+gemini mcp add --transport http \
+  --header "Authorization: Bearer <your-access-token>" \
+  datahub \
+  "<your-datahub-url>/mcp"
+```
+
+See also the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
+
+</details>
+
+<details>
+  <summary>Other</summary>
+
+Any client that supports the [Streamable HTTP transport](https://modelcontextprotocol.io/docs/concepts/transports):
+
+- URL: `<your-datahub-url>/mcp`
+- Transport: Streamable HTTP
+- Header: `Authorization: Bearer <your-access-token>` (when GMS authentication is on)
+
+Set the client's authentication mode to a header or bearer token, not OAuth. For a client that only starts local (stdio) servers, use `mcp-remote` as in the Claude Desktop example, or the [stdio server](#run-locally-over-stdio).
+
+</details>
+
+:::note claude.ai and the Claude API need a public HTTPS URL
+Custom connectors in claude.ai and Claude Desktop, and the Claude API's MCP connector, call your server from Anthropic's cloud, not from your computer. They can reach only a public HTTPS URL: never `localhost`, a VPN, or a private network. For a private DataHub, use a client that connects from your machine (Claude Code, Cursor, VS Code, or Claude Desktop with `mcp-remote`). If you do publish `/mcp`, turn on GMS authentication first, so every request needs an access token.
+:::
+
+### Authentication {#self-hosted-authentication}
+
+`datahub-ai-service` follows GMS's authentication mode (`DATAHUB_AI_AUTH_MODE=auto`, the default):
+
+| GMS authentication (`METADATA_SERVICE_AUTH_ENABLED`) | What `/mcp` needs                                                                  | Calls run as                               |
+| ---------------------------------------------------- | ---------------------------------------------------------------------------------- | ------------------------------------------ |
+| On                                                   | `Authorization: Bearer <token>` on every request; without a valid token, a 401     | The token's user, with that user's rights  |
+| Off                                                  | Nothing                                                                            | DataHub's system user, with all privileges |
+| Unknown, because GMS can't be reached                | `/mcp` answers 503 until GMS answers; an unchecked token is never treated as valid | -                                          |
+
+- **Each client uses its own token.** Unlike the standalone `mcp-server-datahub`, the service never holds a credential of its own: it refuses to start when `DATAHUB_GMS_TOKEN` is set, and each HTTP client sends its own personal access token. For an unattended agent, use a [service account's](#service-accounts-for-agentic-workflows) token. The [stdio server](#run-locally-over-stdio) still accepts `DATAHUB_GMS_TOKEN`, because it serves one user.
+- **Tokens go in the header.** A request with a `token` query parameter gets a 400: a token in a URL ends up in proxy and access logs.
+- **Revocation takes up to 5 minutes.** A verified token is trusted for `DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS` (300 by default) before GMS checks it again.
+- **Require authentication.** Set `DATAHUB_AI_AUTH_MODE=required` on the service to make `/mcp` unavailable (503) whenever GMS authentication is off or can't be determined, instead of serving it token-free.
+- **Host checks while authentication is off.** `/mcp` then answers only requests addressed to an allowed host (`DATAHUB_AI_ALLOWED_HOSTS`, `localhost`, `127.0.0.1` and `[::1]` by default) and, when they carry an `Origin`, from an allowed origin (`DATAHUB_AI_ALLOWED_ORIGINS`); anything else gets a 403. This stops a web page from reaching `/mcp` through DNS rebinding. It is not authentication: any program that can reach the port can send those headers.
+
+### Manage MCP from the Settings Page {#mcp-settings-page}
+
+Users with the **Manage Platform Settings** privilege manage MCP under **Settings > Platform > AI > MCP Server**:
+
+- **Enable MCP Server** turns the server at `/mcp` on or off for all users. While it is off, `/mcp` returns 404.
+- **Edit** the server to choose its tools, by tool or by group (**Read metadata**, **Write metadata**; with none selected, every tool is served), and its instructions: base instructions (**None**, **Small** or **Large**) followed by your own custom instructions.
+- **Connect a client** shows the setup for each MCP client, with your URL and authentication.
+
+How the service applies these settings:
+
+- Changes apply to new MCP requests within 60 seconds. Clients cache the tool list and instructions, so a client may need a refresh or reconnect to show them.
+- The tool selection filters both the tool list and direct calls: a tool that isn't selected can't be called by name either.
+- If the service can't read the settings, `/mcp` fails closed with a 503 rather than serving tools the settings might have turned off.
+- `TOOLS_IS_MUTATION_ENABLED=false` on the service always wins: the settings page can't turn write tools back on.
+- Against a GMS that has no MCP settings API (one older than the service), the defaults apply: MCP on, every tool, default instructions.
+
+### Write Tools {#self-hosted-write-tools}
+
+Write tools (the [mutation tools](#mutation-tools) above) are **on by default**. Each one runs with the caller's own privileges, so it can change only what that user could change in the UI; while GMS authentication is off, that is the system user, who can change anything. To turn them off:
+
+- On the settings page, edit the server and deselect its **Write metadata** tools, or
+- Set `TOOLS_IS_MUTATION_ENABLED=false` on `datahub-ai-service`. This removes every write tool, whatever the settings page says.
+
+Writes behave predictably when retried:
+
+- `create_tag` and `create_domain` are idempotent by name. Calling them for a name that already exists returns the existing entity with `created: false` instead of making a second one, so an agent can create-then-apply without checking first.
+- `create_tag` sets a color with a second write. If the tag is created but its color can't be set, the call still succeeds and reports the problem in `color_error`.
+- A write is never retried automatically after an ambiguous response (for example a timeout after GMS received the request). The tool returns an error that says how to check whether the write was applied. The service retries a GMS request only when GMS never ran it: a refused connection or a 429.
+
+### Tool Switches
+
+These environment variables on `datahub-ai-service` (or the stdio server) choose which tools are registered, before any settings-page selection:
+
+| Variable                         | Default  | Effect                                                                                          |
+| -------------------------------- | -------- | ----------------------------------------------------------------------------------------------- |
+| `TOOLS_IS_MUTATION_ENABLED`      | `true`   | `false` removes every write tool                                                                |
+| `SAVE_DOCUMENT_TOOL_ENABLED`     | `true`   | `save_document` and `update_document`                                                           |
+| `SAVE_DOCUMENT_RESTRICT_UPDATES` | `false`  | `true` lets `update_document` edit only documents in the shared folder                          |
+| `SAVE_DOCUMENT_PARENT_TITLE`     | `Shared` | Title of the folder `save_document` creates documents in                                        |
+| `SAVE_DOCUMENT_ORGANIZE_BY_USER` | `false`  | `true` puts each user's saved documents in their own sub-folder                                 |
+| `LIST_SCHEMA_FIELDS_ENABLED`     | `true`   | `list_schema_fields`                                                                            |
+| `GREP_ENTITIES_ENABLED`          | `true`   | `grep_entities`                                                                                 |
+| `ENTITY_VERSIONING_ENABLED`      | `false`  | Glossary term version tools (`create_glossary_term_version`, `get_glossary_term_versions`, ...) |
+| `SEMANTIC_SEARCH_ENABLED`        | `false`  | `true` adds semantic search to `search_documents`; GMS must have semantic search set up         |
+
+### Streaming and JSON Responses
+
+By default (`DATAHUB_AI_MCP_RESPONSE_MODE=sse`) each response streams as server-sent events, so progress reaches the client during a slow call and a keep-alive is sent every 15 seconds. Set `json` to return one plain JSON body instead, only behind a proxy that can't stream responses; give that proxy an idle timeout longer than the slowest tool call (a tool call may keep calling GMS for `DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS`, 300 by default).
+
+The frontend waits up to `DATAHUB_AI_PROXY_TIMEOUT_SECONDS` (600) for the service's response headers, closes a stream that sends nothing for `DATAHUB_AI_PROXY_STREAM_IDLE_TIMEOUT_SECONDS` (600), and serves at most `DATAHUB_AI_PROXY_MAX_IN_FLIGHT` (128) MCP calls at once, separately from the UI's requests. Over that limit, `/mcp` answers 503.
+
+### Telemetry, Usage Events and Metrics
+
+- **Anonymous telemetry.** Like the DataHub CLI, the service sends anonymous usage telemetry to DataHub's product analytics (Mixpanel): one event when it starts and one per tool call, with the tool's name, the MCP client's name and version, timings, the result's size, the error's class when a call fails, and the GMS version. Events never include tool arguments, results, error messages, or who called. Turn them off with `DATAHUB_TELEMETRY_ENABLED=false`. See [DataHub Telemetry](../../deploy/telemetry.md).
+- **Usage events in DataHub.** Each tool call is recorded in DataHub's own usage analytics, attributed to the caller: the tool, its group (`read` or `write`), the MCP client, the duration, the result size and the error's class, never its arguments or results. Turn this off with `DATAHUB_AI_USAGE_EVENTS_ENABLED=false`.
+- **Prometheus metrics.** The service serves metrics at `/metrics` on its own port (9005), without authentication, like `/health`. The frontend proxies only `/mcp`, so `/metrics` is reachable only where port 9005 is. Turn it off with `DATAHUB_AI_METRICS_ENABLED=false`.
+
+<details>
+  <summary>datahub-ai-service configuration reference</summary>
+
+| Variable                              | Default                     | Meaning                                                                          |
+| ------------------------------------- | --------------------------- | -------------------------------------------------------------------------------- |
+| `DATAHUB_GMS_URL`                     | required                    | GMS base URL; may include a path prefix                                          |
+| `DATAHUB_AI_PORT`                     | `9005`                      | Port to listen on                                                                |
+| `DATAHUB_AI_MCP_ENABLED`              | `true`                      | Serve MCP at `/mcp`                                                              |
+| `DATAHUB_AI_MCP_RESPONSE_MODE`        | `sse`                       | `sse` streams responses; `json` returns one body                                 |
+| `DATAHUB_AI_AUTH_MODE`                | `auto`                      | `auto` follows GMS; `required` serves `/mcp` only while GMS authentication is on |
+| `DATAHUB_AI_ALLOWED_HOSTS`            | `localhost,127.0.0.1,[::1]` | Hosts `/mcp` answers while GMS authentication is off (`host` or `host:port`)     |
+| `DATAHUB_AI_ALLOWED_ORIGINS`          | `http(s)://` those hosts    | Origins `/mcp` accepts while GMS authentication is off                           |
+| `DATAHUB_AI_TRUSTED_PROXIES`          | none                        | IPs, networks or host names whose `X-Forwarded-Host` is believed                 |
+| `DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS` | `300`                       | How long a verified token is trusted before GMS checks it again                  |
+| `DATAHUB_AI_GMS_TIMEOUT_SECONDS`      | `30`                        | Connect and read timeout for each GMS request                                    |
+| `DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS`  | `300`                       | How long one tool call may keep sending requests to GMS                          |
+| `DATAHUB_AI_USAGE_EVENTS_ENABLED`     | `true`                      | Record each tool call as a DataHub usage event                                   |
+| `DATAHUB_AI_METRICS_ENABLED`          | `true`                      | Serve Prometheus metrics at `/metrics`                                           |
+| `DATAHUB_TELEMETRY_ENABLED`           | `true`                      | Send anonymous usage telemetry                                                   |
+
+</details>
+
+### Run Locally over stdio {#run-locally-over-stdio}
+
+`datahub-mcp-stdio` serves the same tools to one local user over stdin/stdout, with no service to install. The MCP client starts it as a subprocess. It needs [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`):
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "command": "uvx",
+      "args": ["--from", "datahub-core-mcp-tools", "datahub-mcp-stdio"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-gms-url>",
+        "DATAHUB_GMS_TOKEN": "<your-access-token>"
+      }
+    }
+  }
+}
+```
+
+Without `DATAHUB_GMS_URL` it uses the `~/.datahubenv` that `datahub init` writes. Leave out `DATAHUB_GMS_TOKEN` when GMS authentication is off. The [tool switches](#tool-switches) apply, tools the connected DataHub is too old for are hidden, and it sends the same anonymous telemetry (`DATAHUB_TELEMETRY_ENABLED=false` turns it off). It has no settings page and records no usage events.
+
+### Migrating from `mcp-server-datahub` {#migrating-from-mcp-server-datahub}
+
+The standalone [`mcp-server-datahub`](https://github.com/acryldata/mcp-server-datahub) is deprecated. Its tools now ship with DataHub. Pick one:
+
+- **Keep a local (stdio) server.** Change one command: `uvx mcp-server-datahub@latest` becomes `uvx --from datahub-core-mcp-tools datahub-mcp-stdio`. The environment (`DATAHUB_GMS_URL`, `DATAHUB_GMS_TOKEN`) or `~/.datahubenv` authenticates it as before.
+- **Move to the HTTP endpoint.** Remove the local server and point the client at `<your-datahub-url>/mcp`, as in [Connect a Client](#connect-a-client). Nothing runs on your machine, and admins control the tools from the settings page.
+
+Write tools are on by default in both, where `mcp-server-datahub` had them off: set `TOOLS_IS_MUTATION_ENABLED=false` to keep the old behavior. Some tools also changed their inputs or outputs; see [Breaking Changes](../../how/breaking-changes.md).
+
+<details>
+  <summary>Claude Desktop</summary>
+
+Before:
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "command": "<full-path-to-uvx>",
+      "args": ["mcp-server-datahub@latest"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-gms-url>",
+        "DATAHUB_GMS_TOKEN": "<your-access-token>"
+      }
+    }
+  }
+}
+```
+
+After, over stdio:
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "command": "<full-path-to-uvx>",
+      "args": ["--from", "datahub-core-mcp-tools", "datahub-mcp-stdio"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-gms-url>",
+        "DATAHUB_GMS_TOKEN": "<your-access-token>"
+      }
+    }
+  }
+}
+```
+
+Or over HTTP, with the [Claude Desktop setup](#connect-a-client) under Connect a Client.
+
+</details>
+
+<details>
   <summary>Claude Code</summary>
 
-Run the following command, replacing the placeholder values:
+Before:
 
 ```bash
 claude mcp add datahub \
-  -e DATAHUB_GMS_URL="<your-datahub-url>" \
-  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
+  -e DATAHUB_GMS_URL="<your-gms-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-access-token>" \
   -- uvx mcp-server-datahub@latest
 ```
 
-For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/agent-context/claude.md).
+After, over stdio:
+
+```bash
+claude mcp remove datahub
+claude mcp add datahub \
+  -e DATAHUB_GMS_URL="<your-gms-url>" \
+  -e DATAHUB_GMS_TOKEN="<your-access-token>" \
+  -- uvx --from datahub-core-mcp-tools datahub-mcp-stdio
+```
+
+Or over HTTP:
+
+```bash
+claude mcp remove datahub
+claude mcp add --transport http datahub <your-datahub-url>/mcp \
+  --header "Authorization: Bearer <your-access-token>"
+```
 
 </details>
 
 <details>
   <summary>Cursor</summary>
 
-1. Navigate to Cursor -> Settings -> Cursor Settings -> MCP -> add a new MCP server.
-2. Enter the following into the file, replacing the placeholder values:
+Before, in `~/.cursor/mcp.json`:
 
 ```json
 {
@@ -614,97 +935,61 @@ For a detailed walkthrough, see the [Claude integration guide](../../dev-guides/
       "command": "uvx",
       "args": ["mcp-server-datahub@latest"],
       "env": {
-        "DATAHUB_GMS_URL": "<your-datahub-url>",
-        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+        "DATAHUB_GMS_URL": "<your-gms-url>",
+        "DATAHUB_GMS_TOKEN": "<your-access-token>"
       }
     }
   }
 }
 ```
 
-3. Once you've saved the file, confirm that the MCP settings page shows a green dot and the DataHub tools listed.
+After, over stdio:
 
-For a detailed walkthrough, see the [Cursor integration guide](../../dev-guides/agent-context/cursor.md).
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "command": "uvx",
+      "args": ["--from", "datahub-core-mcp-tools", "datahub-mcp-stdio"],
+      "env": {
+        "DATAHUB_GMS_URL": "<your-gms-url>",
+        "DATAHUB_GMS_TOKEN": "<your-access-token>"
+      }
+    }
+  }
+}
+```
+
+Or over HTTP:
+
+```json
+{
+  "mcpServers": {
+    "datahub": {
+      "url": "<your-datahub-url>/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-access-token>"
+      }
+    }
+  }
+}
+```
 
 </details>
 
-<details>
-  <summary>Gemini CLI</summary>
+#### From a Shared HTTP Deployment {#shared-http-deployment}
 
-```bash
-gemini mcp add \
-  -e DATAHUB_GMS_URL="<your-datahub-url>" \
-  -e DATAHUB_GMS_TOKEN="<your-datahub-token>" \
-  datahub \
-  uvx mcp-server-datahub@latest
-```
-
-For a detailed walkthrough, see the [Gemini CLI integration guide](../../dev-guides/agent-context/gemini-cli.md).
-
-</details>
-
-<details>
-  <summary>Other</summary>
-
-For other AI tools, provide the following configuration:
-
-- Command: `uvx`
-- Args: `mcp-server-datahub@latest`
-- Env:
-  - `DATAHUB_GMS_URL`: `<your-datahub-url>`
-  - `DATAHUB_GMS_TOKEN`: `<your-datahub-token>`
-
-</details>
-
-### Shared HTTP Deployment
-
-:::info
-Requires [mcp-server-datahub](https://github.com/acryldata/mcp-server-datahub) v0.7.0+. Earlier versions expose an HTTP transport with no per-request authentication, which is not safe to share between users.
-:::
-
-The setups above run one server per person. To serve a whole team from a single deployment, run the HTTP entry point instead. Each user authenticates with their **own** DataHub token, so permissions, search results, and audit attribution stay per-user.
-
-```bash
-docker run -p 8000:8000 \
-  -e DATAHUB_GMS_URL="<your-datahub-url>" \
-  acryldata/mcp-server-datahub:latest
-```
-
-Or without Docker:
-
-```bash
-DATAHUB_GMS_URL="<your-datahub-url>" FASTMCP_HOST=0.0.0.0 \
-  uvx --from mcp-server-datahub mcp-server-datahub-http
-```
-
-:::caution
-Do **not** set `DATAHUB_GMS_TOKEN` on a shared deployment — the server refuses to start when it is present, because a server-wide token would make every user act as a single identity. Your DataHub instance must also run with `METADATA_SERVICE_AUTH_ENABLED=true` so it can establish each caller's identity.
-:::
-
-Clients connect to `http://<host>:8000/mcp` and send their own [personal access token](../../authentication/personal-access-tokens.md) on every request:
-
-```
-Authorization: Bearer <your-datahub-token>
-```
-
-For example, with Claude Code:
-
-```bash
-claude mcp add --transport http datahub \
-  "http://<host>:8000/mcp" \
-  --header "Authorization: Bearer <your-datahub-token>"
-```
-
-The server also exposes an unauthenticated `GET /health` endpoint for load balancer and Kubernetes probes.
+A shared `mcp-server-datahub-http` deployment (`http://<host>:8000/mcp`) is replaced by DataHub's own `/mcp` route. It authenticates the same way, with each user's own token, so clients change only their URL from `http://<host>:8000/mcp` to `<your-datahub-url>/mcp`. Remove the old deployment once clients have moved.
 
 ### Troubleshooting
 
-#### `spawn uvx ENOENT`
-
-The full stack trace might look like this:
-
-```
-2025-04-08T19:58:16.593Z [datahub] [error] spawn uvx ENOENT {"stack":"Error: spawn uvx ENOENT\n    at ChildProcess._handle.onexit (node:internal/child_process:285:19)\n    at onErrorNT (node:internal/child_process:483:16)\n    at process.processTicksAndRejections (node:internal/process/task_queues:82:21)"}
-```
-
-Solution: Replace the `uvx` bit of the command with the output of `which uvx`.
+| Symptom                                  | Cause and fix                                                                                                                                                                                                                                              |
+| ---------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `/mcp` returns 404                       | MCP is off on the settings page (the master switch or the Default row), `DATAHUB_AI_MCP_ENABLED` is `false`, or the frontend has no `DATAHUB_AI_SERVICE_URL`.                                                                                              |
+| `/mcp` returns 503                       | `datahub-ai-service` is down or still starting, it can't reach GMS, it can't read the MCP settings, or `DATAHUB_AI_AUTH_MODE=required` while GMS authentication is off. Check the service's logs and `GET /health` on port 9005.                           |
+| 401                                      | GMS authentication is on and the request has no token, or GMS rejected it. Send a valid personal access token in the `Authorization` header.                                                                                                               |
+| 403 `forbidden_host`                     | GMS authentication is off and DataHub was reached at a host name other than `localhost`. Use `localhost`, or add the host to `DATAHUB_AI_ALLOWED_HOSTS` (and its origin to `DATAHUB_AI_ALLOWED_ORIGINS` for browser-based clients) on a network you trust. |
+| 400 on every request                     | The token is in the URL (`?token=`). Send it in the `Authorization` header.                                                                                                                                                                                |
+| A tool is missing                        | It was deselected on the settings page, turned off by a [tool switch](#tool-switches), or needs a newer GMS. After a settings change, refresh or reconnect the client.                                                                                     |
+| Responses cut off after 60 seconds or so | A load balancer or ingress timeout. Raise it for `/mcp` (see [Kubernetes](#kubernetes-helm)).                                                                                                                                                              |
+| `spawn uvx ENOENT` (stdio server)        | The client can't find `uvx`. Replace `uvx` in the command with the full path from `which uvx`.                                                                                                                                                             |

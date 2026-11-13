@@ -73,9 +73,8 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 The fastest way to connect any agent to DataHub is through the [MCP server](../../features/feature-guides/mcp.md):
 
 - **DataHub Cloud** — point your agent at the hosted endpoint: `https://<tenant>.acryl.io/mcp`
-- **Self-hosted (DataHub Core)** — run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub), configured with `DATAHUB_GMS_URL` (e.g. `http://<gms-host>:8080`):
-  - **Local (stdio)** — `uvx mcp-server-datahub@latest`, launched by your agent
-  - **Shared (HTTP)** — `mcp-server-datahub-http`, then point agents at `http://<host>:8000/mcp`, each with their own DataHub token ([setup](../../features/feature-guides/mcp.md#shared-http-deployment))
+- **Self-hosted (DataHub Core)** — DataHub serves MCP itself at `<your-datahub-url>/mcp` (e.g. `http://localhost:9002/mcp` on a quickstart), each agent with its own DataHub token when authentication is on ([setup](../../features/feature-guides/mcp.md#self-hosted-mcp-server-usage))
+  - **Local (stdio)** — `uvx --from datahub-core-mcp-tools datahub-mcp-stdio`, launched by your agent and configured with `DATAHUB_GMS_URL` ([setup](../../features/feature-guides/mcp.md#run-locally-over-stdio))
 
 See the [MCP Server Guide](../../features/feature-guides/mcp.md) for authentication and setup.
 

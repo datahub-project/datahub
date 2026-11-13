@@ -57,28 +57,28 @@ If your MCP config is checked into version control, reference an environment var
 
 ## DataHub Core
 
-Install [`uv`](https://github.com/astral-sh/uv) (`curl -LsSf https://astral.sh/uv/install.sh | sh`), then add a new MCP server in Cursor settings with:
+DataHub Core v1.9.0+ serves MCP at `/mcp` on the same address as the UI. Add a new MCP server in Cursor settings (or `~/.cursor/mcp.json`), replacing `<your-datahub-url>` with that address (for example `http://localhost:9002` on a quickstart):
 
 ```json
 {
   "mcpServers": {
     "datahub": {
-      "command": "uvx",
-      "args": ["mcp-server-datahub@latest"],
-      "env": {
-        "DATAHUB_GMS_URL": "<your-datahub-url>",
-        "DATAHUB_GMS_TOKEN": "<your-datahub-token>"
+      "url": "<your-datahub-url>/mcp",
+      "headers": {
+        "Authorization": "Bearer <your-datahub-token>"
       }
     }
   }
 }
 ```
 
+Leave out `headers` when Metadata Service Authentication is off, as on a quickstart. To run the tools locally over stdio instead, see [Run Locally over stdio](../../features/feature-guides/mcp.md#run-locally-over-stdio).
+
 ## Verify
 
 After saving, the MCP settings page should show a **green dot** and list the DataHub tools. If the dot doesn't appear, check that:
 
 - The JSON is valid (no trailing commas).
-- For self-hosted: `uvx` is on Cursor's PATH — run `which uvx` and use the full path in `command` if needed.
+- For self-hosted: Cursor can reach `<your-datahub-url>/mcp`, and the token is valid when Metadata Service Authentication is on.
 
 For general troubleshooting, see the [MCP server guide](../../features/feature-guides/mcp.md#troubleshooting).

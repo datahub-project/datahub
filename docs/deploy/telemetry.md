@@ -23,10 +23,14 @@ On first invocation, the CLI will generate a randomized UUID, which will be sent
 
 The source code is available [here](../../metadata-ingestion/src/datahub/telemetry/telemetry.py).
 
+## MCP Server Telemetry
+
+The [MCP server](../features/feature-guides/mcp.md#self-hosted-mcp-server-usage) (`datahub-ai-service`, and the `datahub-mcp-stdio` local server) sends one event when it starts and one per tool call, with the tool's name, the MCP client's name and version, timings, the result's size, the error's class when a call fails, and the GMS version. Events never include tool arguments, results, error messages, or who called.
+
 ## Disabling Telemetry
 
 Telemetry is enabled by default. While we are careful to anonymize all telemetry data and encourage users to keep it enabled so that we can improve DataHub, we understand that some users may wish to disable it.
 
-You can disable backend telemetry by setting the `DATAHUB_TELEMETRY_ENABLED` environment variable to `false`. You'll need to set this on both the datahub-gms and datahub-actions containers.
+You can disable backend telemetry by setting the `DATAHUB_TELEMETRY_ENABLED` environment variable to `false`. You'll need to set this on the datahub-gms, datahub-actions and datahub-ai-service containers.
 
 If you're using the DataHub CLI, ingestion framework telemetry will be disabled when the `DATAHUB_TELEMETRY_ENABLED` environment variable is set to `false`. To persist this change, set `DATAHUB_TELEMETRY_ENABLED=false` in your shell profile.
