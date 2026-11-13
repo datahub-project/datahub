@@ -87,25 +87,6 @@ public class DataHubAuthorizer
   private static final long INITIAL_LOAD_TIMEOUT_SECONDS = 60;
   private static final long DEFAULT_POLICY_CHANGE_WAIT_MILLIS = 5000;
 
-  public DataHubAuthorizer(
-      @Nonnull final OperationContext systemOpContext,
-      final EntityClient entityClient,
-      @Nonnull final GroupService groupService,
-      final int delayIntervalSeconds,
-      final int refreshIntervalSeconds,
-      final AuthorizationMode mode,
-      final int policyFetchSize) {
-    this(
-        systemOpContext,
-        entityClient,
-        groupService,
-        delayIntervalSeconds,
-        refreshIntervalSeconds,
-        mode,
-        policyFetchSize,
-        null);
-  }
-
   /**
    * @param policyLoader when not null, policies load from the primary store with this loader
    *     instead of the search index. The caller should then call {@link #initialLoad} before the
