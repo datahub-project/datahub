@@ -1142,6 +1142,18 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
                 "nextPage": None,
             },
         },
+        **_files_not_found("dmWarehouseTableX"),
+    }
+
+
+def _files_not_found(url_id: str) -> Dict[str, Dict]:
+    """A /files/{urlId} lookup answered 404 (table deleted or not visible)."""
+    return {
+        f"https://aws-api.sigmacomputing.com/v2/files/{url_id}": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        }
     }
 
 
@@ -2210,6 +2222,7 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
             "nextPage": None,
         },
     }
+    override_data.update(_files_not_found("unregDs000000001"))
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -2280,6 +2293,9 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
         f"fixture has no cross-DM or unknown-shape source_ids; got "
         f"_unknown_shape={report.data_model_element_upstreams_unknown_shape}"
     )
+    # The urlId lookup's 404 is counted quietly, not as an inodeId failure.
+    assert report.dm_element_warehouse_url_id_unresolvable == 1
+    assert report.dm_element_warehouse_url_id_lookup_failed == 0
 
 
 @pytest.mark.integration
@@ -2330,6 +2346,7 @@ def test_sigma_ingest_data_models_unresolved_counters_dedup_duplicate_source_id(
             "nextPage": None,
         },
     }
+    override_data.update(_files_not_found("unregDs000000001"))
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -6863,6 +6880,64 @@ def test_sigma_ingest_data_models_warehouse_upstream(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_table_missing_from_lineage(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A table the Data Model's /lineage omits is found via /files/{urlId}.
+
+    Same fixture as the warehouse-upstream test, minus the type=table lineage
+    entry, so the only record of the table is the element's sourceId and the
+    column's columnId. /connections/paths/{inodeId} supplies its connection.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_overrides()
+    lineage = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/lineage"
+    ]["json"]
+    lineage["entries"] = [e for e in lineage["entries"] if e["type"] != "table"]
+    files = override_data.pop(
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}"
+    )
+    override_data[f"https://aws-api.sigmacomputing.com/v2/files/{_WH_URL_ID}"] = files
+    columns = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ]["json"]
+    columns["entries"][0]["columnId"] = f"inode-{_WH_URL_ID}/CUSTOMER_ID"
+    columns["entries"][0]["formula"] = "[CUSTOMERS/Customer Id]"
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/connections/paths/{_WH_INODE_ID}"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "connectionId": _WH_CONN_ID,
+            "path": ["WAREHOUSE_COFFEE_COMPANY", "PUBLIC", "CUSTOMERS"],
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_table_missing_from_lineage_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_resolved_by_url_id == 1
+    assert report.dm_element_warehouse_upstream_emitted == 1
+    assert report.data_model_element_upstreams_unresolved == 0
+    assert report.data_model_element_fgl_warehouse_resolved == 1
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_table_missing_from_lineage.json",
     )
 
 
