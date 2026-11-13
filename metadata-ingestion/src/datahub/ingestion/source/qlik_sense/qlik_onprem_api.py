@@ -369,9 +369,18 @@ class QlikOnPremAPI(QlikBaseAPI):
             )
             app.tables_read_failed = app.script is None
             if with_data:
+                data_model_errors = ReadErrors()
                 app.data_model_tables = self._read_data_model(
-                    websocket_connection, app.id, errors
+                    websocket_connection, app.id, data_model_errors
                 )
+                if data_model_errors.messages:
+                    # Read as an app opened without its data: the script,
+                    # sheets and QVDs are complete, and the next run tries the
+                    # data model again.
+                    app.data_load_failed = True
+                    self.opened_without_data.extend(
+                        f"{app.id}: {message}" for message in data_model_errors.messages
+                    )
         except Exception as e:
             errors.record(f"Unable to open app {app.id} in the Engine. Exception: {e}")
         finally:

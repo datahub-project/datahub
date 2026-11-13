@@ -2270,6 +2270,40 @@ def test_onprem_opens_app_with_data_to_read_its_data_model(
     assert app.read_complete
 
 
+@patch(
+    "datahub.ingestion.source.qlik_sense.qlik_onprem_api.WebsocketConnection.for_on_prem"
+)
+@patch("datahub.ingestion.source.qlik_sense.qlik_onprem_api.requests.Session")
+def test_onprem_app_whose_data_model_cant_be_read_is_still_complete(
+    mock_session_cls: MagicMock, mock_engine: MagicMock
+) -> None:
+    session = mock_session_cls.return_value
+    session.headers = {}
+    session.get.side_effect = fake_qrs_get
+    websocket = MagicMock()
+    websocket.websocket_send_request.side_effect = fake_engine_calls()
+    websocket.get_script.return_value = LOAD_SCRIPT
+    websocket.get_variables.return_value = {}
+    websocket.get_data_model_tables.side_effect = TimeoutError("timed out")
+    mock_engine.return_value = websocket
+    config = QlikSourceConfig.model_validate(
+        {"on_prem": {**ON_PREM, "read_data_model": True}}
+    )
+
+    api = QlikOnPremAPI(config)
+    api.get_spaces()
+    [app] = list(api.get_items(["stream-1"]))
+
+    # As when opening with data fails: the script, sheets and QVDs stand, and
+    # the next run reads the data model again.
+    assert isinstance(app, App)
+    assert app.read_complete
+    assert app.data_load_failed
+    assert app.script == LOAD_SCRIPT
+    assert not app.data_model_tables
+    assert len(api.opened_without_data) == 1
+
+
 @pytest.mark.parametrize(
     "error",
     [
