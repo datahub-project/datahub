@@ -358,6 +358,9 @@ class ParsedScript(BaseModel):
     # QVD paths that name no single file the connector can resolve, such as a
     # wildcard, a variable it could not expand or a relative path.
     unresolved_qvd_paths: List[str] = []
+    # A STORE wrote a QVD whose path can't be resolved, so the QVDs the app
+    # writes are not all known.
+    has_unresolved_store: bool = False
     # QVDs loaded without a label, which Qlik names itself.
     unlabelled_qvd_loads: List[str] = []
 
@@ -593,10 +596,19 @@ def _expand_variables(statement: str, variables: Dict[str, str]) -> str:
     )
 
 
-def strip_set_quotes(path: str) -> str:
-    """A variable set with SET keeps its quotes, so a path built from one, such
-    as $(vFolder)orders.qvd, holds them."""
-    return path.replace(path[0], "") if path[:1] in ("'", '"') else path
+def unquoted_values(variables: Dict[str, str]) -> Dict[str, str]:
+    """A variable set with SET keeps the quotes around its value, which a path
+    built from it, such as $(vFolder)orders.qvd, must not hold. A value that
+    starts with `=` is an expression Qlik evaluates, so it is left out."""
+    unquoted = {}
+    for name, value in variables.items():
+        value = value.strip()
+        if value.startswith("="):
+            continue
+        if len(value) > 1 and value[0] in ("'", '"') and value[-1] == value[0]:
+            value = value[1:-1]
+        unquoted[name] = value
+    return unquoted
 
 
 def _unquote(name: str) -> str:
@@ -743,6 +755,7 @@ class _ScriptParser(BaseModel):
     qvd_loads: List[QvdLoad] = []
     qvd_stores: List[QvdStore] = []
     unresolved_qvd_paths: List[str] = []
+    has_unresolved_store: bool = False
     unlabelled_qvd_loads: List[str] = []
     flow: _ControlFlowTracker = Field(default_factory=_ControlFlowTracker)
     pending_label: Optional[str] = None
@@ -921,7 +934,7 @@ class _ScriptParser(BaseModel):
         can't evaluate. A variable can hold another, such as a folder built
         from a connection prefix."""
         for _ in range(_MAX_VARIABLE_DEPTH):
-            expanded = _expand_variables(path, self.app_variables)
+            expanded = _expand_variables(path, unquoted_values(self.app_variables))
             if expanded == path:
                 break
             path = expanded
@@ -936,7 +949,6 @@ class _ScriptParser(BaseModel):
         if "$(" in path:
             # Expanded first, as the variable may hold the `.qvd` name.
             path = self._expand_app_variables(path)
-        path = strip_set_quotes(path)
         format_name = (spec or "").split(",")[0].strip().lower()
         if format_name:
             is_qvd = format_name == "qvd"
@@ -993,8 +1005,10 @@ class _ScriptParser(BaseModel):
         self.qvd_loads.append(QvdLoad(label=label, file=file, fields=fields))
 
     def _store(self, store: "re.Match[str]") -> None:
+        unresolved = len(self.unresolved_qvd_paths)
         file = self._qvd_file(store.group("path"), store.group("spec"), True)
         if file is None:
+            self.has_unresolved_store |= len(self.unresolved_qvd_paths) > unresolved
             return
         what = store.group("what")
         masked = QUOTED_RE.sub(lambda quoted: " " * len(quoted.group(0)), what)
@@ -1026,6 +1040,7 @@ def parse_script(
         qvd_loads=parser.qvd_loads,
         qvd_stores=parser.qvd_stores,
         unresolved_qvd_paths=parser.unresolved_qvd_paths,
+        has_unresolved_store=parser.has_unresolved_store,
         unlabelled_qvd_loads=parser.unlabelled_qvd_loads,
     )
 

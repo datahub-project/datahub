@@ -130,6 +130,8 @@ class BIContainerSubTypes(StrEnum):
     TABLEAU_SITE = "Site"
     TABLEAU_PROJECT = "Project"
     TABLEAU_WORKBOOK = "Workbook"
+    # A BI platform's container of dashboards, such as a Qlik app's sheets.
+    WORKBOOK = "Workbook"
     POWERBI_WORKSPACE = "Workspace"
     POWERBI_DATASET = "Semantic Model"
     POWERBI_DATASET_TABLE = "Table"
