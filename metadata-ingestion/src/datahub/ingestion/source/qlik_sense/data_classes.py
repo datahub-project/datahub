@@ -195,7 +195,9 @@ class LineageTable(BaseModel):
 class ListedDataset(BaseModel):
     space_id: str
     name: str
-    secure_qri: str
+    # None when the listing gives none, so the dataset can't be matched to
+    # the lineage graph.
+    secure_qri: Optional[str] = None
 
 
 class QlikDataset(Item):
