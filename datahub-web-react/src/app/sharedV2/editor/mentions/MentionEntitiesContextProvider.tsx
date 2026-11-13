@@ -71,7 +71,9 @@ export function MentionEntitiesContextProvider({ urns, children }: EditorMention
             const urn = batchUrns[index];
             if (entity && urn) entitiesByUrn.set(urn, entity as Entity);
         });
-        return { urns: new Set(batchUrns), loading: loading || !ready, entitiesByUrn };
+        // Loading until data arrives, not only while Apollo says so: a batch that ends without data
+        // keeps the stored names instead of marking every mention as not found.
+        return { urns: new Set(batchUrns), loading: !ready || loading || !data, entitiesByUrn };
     }, [batchUrns, data, loading, error, ready]);
 
     const value = useMemo(() => ({ ready, observe, batch }), [ready, observe, batch]);

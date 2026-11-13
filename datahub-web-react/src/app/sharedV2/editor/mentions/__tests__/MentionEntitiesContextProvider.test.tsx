@@ -110,6 +110,15 @@ describe('MentionEntitiesContextProvider', () => {
         expect(seen.found).toEqual({ loading: false, entity: undefined });
     });
 
+    it('keeps mentions loading, not missing, while the batch has no data', () => {
+        const browser = stubBrowser();
+        const seen = renderProvider([ALICE], { loading: false }, ALICE);
+        browser.showMentions();
+        browser.becomeIdle();
+
+        expect(seen.found).toEqual({ loading: true, entity: undefined });
+    });
+
     it('leaves mentions to their own requests when the batch fails', () => {
         const browser = stubBrowser();
         const seen = renderProvider([ALICE], { loading: false, error: new Error('bad urn') }, ALICE);
