@@ -2537,6 +2537,9 @@ metadataChangeProposal:
     domainReferenceDetach:
       enabled: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_ENABLED:true}
       maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_DOMAIN_REFERENCE_DETACH_MAX_FANOUT:500}
+    roleReferenceDetach:
+      enabled: ${MCP_SIDE_EFFECTS_ROLE_REFERENCE_DETACH_ENABLED:true}
+      maxFanoutPerCommit: ${MCP_SIDE_EFFECTS_ROLE_REFERENCE_DETACH_MAX_FANOUT:500}
   throttle:
     updateIntervalMs: ${MCP_THROTTLE_UPDATE_INTERVAL_MS:60000}
 

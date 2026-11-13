@@ -73,6 +73,7 @@ import com.linkedin.metadata.ingestion.IngestionMetricsEmitter;
 import com.linkedin.metadata.ingestion.validation.ExecuteIngestionAuthValidator;
 import com.linkedin.metadata.ingestion.validation.ModifyIngestionSourceAuthValidator;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.roles.sideeffects.RoleReferenceDetachSideEffect;
 import com.linkedin.metadata.schemafields.sideeffects.SchemaFieldSideEffect;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -350,6 +351,36 @@ public class SpringStandardPluginConfiguration {
         DomainReferenceDetachSideEffect.class.getName(),
         maxFanoutPerCommit);
     return new DomainReferenceDetachSideEffect()
+        .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
+        .setConfig(config);
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.sideEffects.roleReferenceDetach.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public MCPSideEffect roleReferenceDetachSideEffect(
+      @Value("${metadataChangeProposal.sideEffects.roleReferenceDetach.maxFanoutPerCommit:500}")
+          final int maxFanoutPerCommit) {
+    AspectPluginConfig config =
+        AspectPluginConfig.builder()
+            .enabled(true)
+            .className(RoleReferenceDetachSideEffect.class.getName())
+            .supportedOperations(List.of("DELETE"))
+            .supportedEntityAspectNames(
+                List.of(
+                    AspectPluginConfig.EntityAspectName.builder()
+                        .entityName(Constants.ROLE_ENTITY_NAME)
+                        .aspectName(Constants.ROLE_KEY)
+                        .build()))
+            .build();
+
+    log.info(
+        "Initialized {} with maxFanoutPerCommit={}",
+        RoleReferenceDetachSideEffect.class.getName(),
+        maxFanoutPerCommit);
+    return new RoleReferenceDetachSideEffect()
         .setMaxFanoutPerCommit(Math.max(1, maxFanoutPerCommit))
         .setConfig(config);
   }
