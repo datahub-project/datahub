@@ -96,7 +96,8 @@ public class PolicyChangeListenerFactory {
     props.put(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG, ByteArrayDeserializer.class);
     props.put(ConsumerConfig.CLIENT_ID_CONFIG, "datahub-policy-change-listener");
     // partitionsFor() reads cached metadata; refresh it as often as the listener checks the topic,
-    // so added partitions are found within about 30 s, not the 5 min default.
+    // so added partitions are found within about 60 s (metadata age plus check interval), not
+    // after the 5 min default.
     props.put(ConsumerConfig.METADATA_MAX_AGE_CONFIG, 30_000);
     return props;
   }

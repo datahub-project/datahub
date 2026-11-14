@@ -21,6 +21,7 @@ import org.apache.kafka.clients.consumer.InvalidOffsetException;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
 import org.apache.kafka.common.errors.InterruptException;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.errors.WakeupException;
 
 /**
@@ -217,8 +218,16 @@ public class PolicyChangeListener implements AutoCloseable {
   private boolean partitionsUnchanged() {
     nextTopicCheckMillis = clock.millis() + settings.topicCheckInterval().toMillis();
     // This runs on the poll thread, so use a short timeout: a slow broker must not stop polling
-    // for long. A timeout throws, and the run loop starts again.
-    final List<PartitionInfo> partitions = consumer.partitionsFor(topic, TOPIC_CHECK_TIMEOUT);
+    // for long. A timeout is not a change: keep the current assignment and check again later.
+    final List<PartitionInfo> partitions;
+    try {
+      partitions = consumer.partitionsFor(topic, TOPIC_CHECK_TIMEOUT);
+    } catch (TimeoutException e) {
+      log.warn(
+          "policy change topic check timed out after {} s; checking again later",
+          TOPIC_CHECK_TIMEOUT.toSeconds());
+      return true;
+    }
     if (partitions == null || partitions.isEmpty()) {
       return false;
     }

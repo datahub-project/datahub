@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.auth;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import java.time.Clock;
 import java.time.Duration;
@@ -11,6 +12,7 @@ import java.time.ZoneOffset;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
@@ -20,6 +22,7 @@ import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
 import org.apache.kafka.common.TopicPartition;
+import org.apache.kafka.common.errors.TimeoutException;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -127,7 +130,7 @@ public class PolicyChangeListenerTest {
 
     listener.step();
 
-    assertEquals(consumer.assignment(), java.util.Set.of(P0, P1));
+    assertEquals(consumer.assignment(), Set.of(P0, P1));
     assertEquals(consumer.position(P0), 3L);
     assertEquals(consumer.position(P1), 5L);
   }
@@ -186,7 +189,7 @@ public class PolicyChangeListenerTest {
     clock.millis += Duration.ofMinutes(5).toMillis();
     assertTrue(listener.step());
 
-    assertEquals(consumer.assignment(), java.util.Set.of(P0, P1));
+    assertEquals(consumer.assignment(), Set.of(P0, P1));
     assertEquals(
         loads.get(), 2, "positioning again loads, so nothing on the new partition is lost");
     record(P1, 0);
@@ -208,7 +211,44 @@ public class PolicyChangeListenerTest {
             clock);
 
     // The run loop logs this and starts again after the retry interval.
-    org.testng.Assert.expectThrows(Exception.class, failing::step);
+    expectThrows(Exception.class, failing::step);
+  }
+
+  @Test
+  public void testTopicCheckTimeoutKeepsThePosition() throws Exception {
+    final boolean[] slowBroker = {false};
+    MockConsumer<byte[], byte[]> slow =
+        new MockConsumer<>("none") {
+          @Override
+          public synchronized List<PartitionInfo> partitionsFor(String topic, Duration timeout) {
+            if (slowBroker[0]) {
+              throw new TimeoutException("simulated metadata timeout");
+            }
+            return super.partitionsFor(topic, timeout);
+          }
+        };
+    slow.updatePartitions(TOPIC, List.of(new PartitionInfo(TOPIC, 0, Node.noNode(), null, null)));
+    slow.updateEndOffsets(Map.of(P0, 3L));
+    PolicyChangeListener timed =
+        new PolicyChangeListener(
+            slow,
+            TOPIC,
+            () -> {
+              loads.incrementAndGet();
+              return CompletableFuture.completedFuture(null);
+            },
+            null,
+            SETTINGS,
+            clock);
+    timed.step();
+    assertEquals(loads.get(), 1);
+
+    slowBroker[0] = true;
+    clock.millis += Duration.ofMinutes(5).toMillis();
+    // A timeout is not a change: no exception, no new load, same assignment.
+    assertTrue(timed.step());
+    assertEquals(loads.get(), 1);
+    assertEquals(slow.assignment(), Set.of(P0));
   }
 
   @Test
