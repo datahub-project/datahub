@@ -117,6 +117,10 @@ class CatalogScope:
 
 def _matches_an_entry(entries: FrozenSet[str], parts: List[str]) -> bool:
     """Whether a dotted entry of two or more parts matches the path's suffix."""
+    if not all(part.isascii() for part in parts):
+        # Every catalog name is ASCII, and Python's case mapping is wider than
+        # SQL's: the Kelvin sign lower-cases to an ASCII "k".
+        return False
     lowered = [part.lower() for part in parts]
     for entry in entries:
         entry_parts = entry.lower().split(".")

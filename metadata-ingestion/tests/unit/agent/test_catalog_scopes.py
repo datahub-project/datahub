@@ -861,3 +861,11 @@ def test_no_dialect_admits_a_table_function_it_does_not_list() -> None:
     assert not CatalogScope(
         table_functions=frozenset({"tag_references"})
     ).permits_table_function(["my_schema", "tag_references"])
+
+
+def test_a_non_ascii_name_never_matches_a_listed_function() -> None:
+    # Python's case mapping is wider than SQL's: the Kelvin sign lower-cases to
+    # an ASCII "k", so it would match an entry spelled with one.
+    scope = CatalogScope(table_functions=frozenset({"information_schema.key_fn"}))
+    assert scope.permits_table_function([INFORMATION_SCHEMA, "key_fn"])
+    assert not scope.permits_table_function([INFORMATION_SCHEMA, "\u212aey_fn"])
