@@ -1040,20 +1040,25 @@ def optimized_get_foreign_keys(self, connection, table_name, schema=None, **kw):
     res = self.get_schema_foreign_keys(connection, schema).get(table_name, [])
 
     def grouper(fk_row):
-        return {
-            "name": fk_row.IndexName or fk_row.IndexID,  # ID if IndexName is None
-            "schema": fk_row.ParentDB,
-            "table": fk_row.ParentTable,
-        }
+        # Return a hashable tuple so groupby_unsorted can use it as a dict key.
+        # A dict is not hashable and would raise TypeError: unhashable type: 'dict'.
+        return (
+            fk_row.IndexName
+            or fk_row.IndexID,  # name (ID fallback if IndexName is None)
+            fk_row.ParentDB,  # referred schema
+            fk_row.ParentTable,  # referred table
+        )
 
     # TODO: Check if there's a better way
     fk_dicts = list()
-    for constraint_info, constraint_cols in groupby_unsorted(res, grouper):
+    for (fk_name, fk_schema, fk_table), constraint_cols in groupby_unsorted(
+        res, grouper
+    ):
         fk_dict = {
-            "name": str(constraint_info["name"]),
+            "name": str(fk_name),
             "constrained_columns": list(),
-            "referred_table": constraint_info["table"],
-            "referred_schema": constraint_info["schema"],
+            "referred_table": fk_table,
+            "referred_schema": fk_schema,
             "referred_columns": list(),
         }
 
