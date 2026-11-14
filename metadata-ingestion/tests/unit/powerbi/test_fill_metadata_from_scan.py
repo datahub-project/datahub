@@ -737,6 +737,84 @@ def test_fill_metadata_handles_workspaces_none_in_scan_response():
     )
 
 
+def test_get_workunits_internal_phase1_failure_is_a_failure_in_workspace_mode():
+    """In workspace_apis mode the per-workspace endpoints are the only source
+    of datasets, so a Phase 1 batch failure must be a report failure: a green
+    run would let stale-entity removal soft-delete the workspace's tables."""
+    workspaces = [_make_workspace("WS-0"), _make_workspace("WS-1")]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        excluded_ids=set(),
+        scan_batch_size=1,
+        metadata_api_mode="workspace_apis",
+    )
+    source.powerbi_client.fill_metadata_from_definitions = mock.MagicMock(  # type: ignore[method-assign]
+        side_effect=[set(), ValueError("connection reset")]
+    )
+
+    list(source.get_workunits_internal())
+
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-0", "WS-1"]
+    failed_contexts = [
+        ctx
+        for f in source.reporter.failures
+        if f.title == "Incomplete Scan Metadata"
+        for ctx in f.context
+    ]
+    assert any("WS-1" in c for c in failed_contexts), failed_contexts
+    assert not any("WS-0" in c for c in failed_contexts), failed_contexts
+    assert not any(
+        w.title == "Incomplete Scan Metadata" for w in source.reporter.warnings
+    )
+
+
+@pytest.mark.parametrize(
+    "metadata_api_mode,expect_failure",
+    [
+        pytest.param("workspace_apis", True, id="workspace_apis_fails"),
+        pytest.param("admin_scan", False, id="admin_scan_warns"),
+    ],
+)
+def test_get_workunits_internal_phase2_failure_severity_follows_mode(
+    metadata_api_mode: str, expect_failure: bool
+) -> None:
+    """A workspace skipped in Phase 2 is a failure in workspace_apis mode,
+    where a green run would let stale-entity removal soft-delete its
+    entities, and keeps the long-standing warning in admin_scan mode. The
+    other workspace is still processed in both modes."""
+    workspaces = [_make_workspace("WS-0"), _make_workspace("WS-1")]
+    source = _make_source(
+        workspaces_to_return=workspaces,
+        excluded_ids=set(),
+        metadata_api_mode=metadata_api_mode,
+    )
+    if metadata_api_mode == "workspace_apis":
+        source.powerbi_client.fill_metadata_from_definitions = mock.MagicMock(  # type: ignore[method-assign]
+            return_value=set()
+        )
+        source.powerbi_client.report_if_no_definitions_fetched = mock.MagicMock()  # type: ignore[method-assign]
+    fill_detail = cast(
+        mock.MagicMock, source.powerbi_client.fill_regular_metadata_detail
+    )
+    fill_detail.side_effect = [ValueError("connection reset"), None]
+
+    list(source.get_workunits_internal())
+
+    processed = [call.kwargs["workspace"].id for call in fill_detail.call_args_list]
+    assert processed == ["WS-0", "WS-1"]
+    title = "Failed to Fetch Workspace Metadata"
+    failed = [f for f in source.reporter.failures if f.title == title]
+    warned = [w for w in source.reporter.warnings if w.title == title]
+    reported = failed if expect_failure else warned
+    other = warned if expect_failure else failed
+    assert len(reported) == 1 and any("WS-0" in c for c in reported[0].context)
+    assert other == []
+
+
 def test_get_workunits_internal_phase1_batch_failure_isolates_other_batches(caplog):
     """A scan-timeout (or any exception) in one Phase 1 batch must NOT abort
     the whole ingestion. Other batches must still be scanned, all workspaces
@@ -1474,6 +1552,47 @@ def test_get_reports_pages_fetch_failure_on_fallback_warns_and_keeps_report():
 
     assert reports["R-1"].pages == []
     assert any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
+
+
+def test_get_reports_pages_fetch_failure_is_a_failure_in_workspace_mode():
+    """In workspace_apis mode pages are the only source of a report's charts,
+    so a failed pages fetch must fail the run: a green run would let
+    stale-entity removal soft-delete them. Paginated reports, which have no
+    pages, are not requested."""
+    api = _make_api(metadata_api_mode="workspace_apis")
+    workspace = _make_workspace("WS-NO-SCAN")
+    resolver_report = new_powerbi_reports(
+        workspace,
+        [
+            {
+                Constant.ID: "R-1",
+                Constant.NAME: "rpt",
+                Constant.REPORT_TYPE: "PowerBIReport",
+            },
+            {
+                Constant.ID: "R-2",
+                Constant.NAME: "paginated",
+                Constant.REPORT_TYPE: "PaginatedReport",
+            },
+        ],
+    )
+    resolver = api._get_resolver()
+    with (
+        mock.patch.object(resolver, "get_reports", return_value=resolver_report),
+        mock.patch.object(api, "get_report_users", return_value=[]),
+        mock.patch.object(
+            resolver, "get_pages_by_report", side_effect=RuntimeError("boom")
+        ) as pages_mock,
+        mock.patch.object(api, "_resolve_paginated_report_lineage"),
+    ):
+        reports = api.get_reports(workspace)
+
+    assert reports["R-1"].pages == []
+    assert [c.kwargs for c in pages_mock.call_args_list] == [
+        {"workspace": workspace, "report_id": "R-1", "strict": True}
+    ]
+    assert any(f.title == "Report Pages Not Fetched" for f in api.reporter.failures)
+    assert not any(w.title == "Report Pages Not Fetched" for w in api.reporter.warnings)
 
 
 def test_get_reports_logs_http_error_when_resolver_get_reports_raises():
