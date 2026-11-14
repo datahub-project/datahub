@@ -1,0 +1,104 @@
+{
+    "query_type": "MERGE",
+    "query_type_props": {},
+    "query_fingerprint": "5ac3acfc59c812e1d1e901411e210ce336d8597858fe10afdc4dfc8c46385310",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)",
+                "column": "x",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)",
+                    "column": "c"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "MAX(\"O\".\"C\") AS \"_COL_0\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)",
+                "column": "id",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.NumberType": {}
+                    }
+                },
+                "native_column_type": "DECIMAL(38, 0)"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"S\".\"ID\" AS \"ID\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "FULL OUTER JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)"
+            ],
+            "on_clause": "\"T\".\"ID\" = \"S\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.tgt,PROD)",
+                    "column": "ID"
+                }
+            ]
+        },
+        {
+            "join_type": "LEFT JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)"
+            ],
+            "on_clause": "\"_u_0\".\"_u_1\" = \"S\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.other,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.sch.src,PROD)",
+                    "column": "ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "MERGE INTO db.sch.tgt AS t USING db.sch.src AS s ON t.id = s.id WHEN MATCHED THEN UPDATE SET t.x = (SELECT MAX(c) FROM db.sch.other AS o WHERE o.id = s.id) WHEN NOT MATCHED THEN INSERT (id, x) VALUES (id, (SELECT MAX(c) FROM db.sch.other AS o WHERE o.id = s.id))"
+    }
+}
