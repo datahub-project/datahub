@@ -1,7 +1,8 @@
 """The scope gate for `probe run sql`: one SELECT that reads only catalog relations.
 
 Fail-closed at every step. Refused: an unresolvable dialect or unparseable query;
-a write anywhere in the tree; a vendor function; a model call, decryption, a file
+a write anywhere in the tree; a vendor function, unless the connector lists it as
+a catalog table function and it is called in that shape; a model call, decryption, a file
 or secret read, or a sequence increment; server or session state; a withheld
 column name, an alias column list or a NATURAL JOIN; a reference outside
 the connector's CatalogScope; and a query that reads no relation at all.
@@ -73,6 +74,13 @@ class CatalogScope:
     # a reference is refused rather than misread.
     split_dotted_identifiers: bool = False
 
+    # Vendor table functions whose rows are catalog metadata, as
+    # "schema.function". Admitted only when called as TABLE(...) in FROM,
+    # qualified with unquoted identifiers that match an entry, and given string
+    # literals alone (_admitted_table_function). Name each one: a schema's other
+    # table functions can read query text (Snowflake's QUERY_HISTORY()).
+    table_functions: FrozenSet[str] = field(default_factory=frozenset)
+
     def permits_path(self, parts: List[str]) -> bool:
         """Whether a reference, given as its dotted path parts, is in scope.
 
@@ -85,15 +93,13 @@ class CatalogScope:
         schema, relation = parts[-2], parts[-1]
         if schema.lower() in {s.lower() for s in self.schemas}:
             return relation.lower() not in {r.lower() for r in self.excluded_relations}
-        lowered = [part.lower() for part in parts]
-        for entry in self.relations:
-            entry_parts = entry.lower().split(".")
-            if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
-                # Bare, or longer than the reference: cannot be shown to match.
-                continue
-            if lowered[-len(entry_parts) :] == entry_parts:
-                return True
-        return False
+        return _matches_an_entry(self.relations, parts)
+
+    def permits_table_function(self, parts: List[str]) -> bool:
+        """Whether a function call, given as its qualifier parts and name, is a
+        listed table function. Matched like `relations`, so a bare entry or an
+        unqualified call never matches."""
+        return _matches_an_entry(self.table_functions, parts)
 
     def permits(self, schema: str, relation: str) -> bool:
         return self.permits_path([schema, relation])
@@ -107,6 +113,23 @@ class CatalogScope:
         if self.relations:
             parts.append(f"{len(self.relations)} individually listed relations")
         return " and ".join(parts) or "nothing"
+
+
+def _matches_an_entry(entries: FrozenSet[str], parts: List[str]) -> bool:
+    """Whether a dotted entry of two or more parts matches the path's suffix."""
+    if not all(part.isascii() for part in parts):
+        # Every catalog name is ASCII, and Python's case mapping is wider than
+        # SQL's: the Kelvin sign lower-cases to an ASCII "k".
+        return False
+    lowered = [part.lower() for part in parts]
+    for entry in entries:
+        entry_parts = entry.lower().split(".")
+        if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
+            # Bare, or longer than the reference: cannot be shown to match.
+            continue
+        if lowered[-len(entry_parts) :] == entry_parts:
+            return True
+    return False
 
 
 _DEFAULT_SCOPE = CatalogScope()
@@ -211,7 +234,7 @@ def check_query_scope(
         )
 
     # Before the table walk: `SELECT pg_read_file('/etc/passwd')` names no table.
-    _check_functions(statement, dialect)
+    _check_functions(statement, dialect, permitted)
     _check_server_state(statement, dialect)
     # The first of two layers over redact.WITHHELD_COLUMN_NAMES, deliberately
     # one constant: the gate refuses a query naming a withheld column (the
@@ -224,6 +247,13 @@ def check_query_scope(
         # `or` would short-circuit and stop checking the rest.
         if _check_table(table, scope=permitted):
             saw_relation = True
+    # A listed table function is a catalog read too; _check_functions has
+    # already refused every other vendor function.
+    if any(
+        _admitted_table_function(func, permitted)
+        for func in statement.find_all(exp.Anonymous)
+    ):
+        saw_relation = True
 
     # A query reading no physical relation computes from server state
     # (`SELECT VERSION()`), including builtins sqlglot models as their own
@@ -348,7 +378,54 @@ def _function_label(func: exp.Func, dialect: sqlglot.Dialect) -> str:
     return node.sql(dialect=dialect).split("(", 1)[0].strip()
 
 
-def _check_functions(statement: exp.Expr, dialect: sqlglot.Dialect) -> None:
+def _qualifier_identifiers(node: exp.Expr) -> Optional[List[exp.Identifier]]:
+    """The identifiers of a dotted qualifier (`my_db.information_schema`), or
+    None when any part is something other than an identifier."""
+    if isinstance(node, exp.Identifier):
+        return [node]
+    if isinstance(node, exp.Dot) and isinstance(node.expression, exp.Identifier):
+        head = _qualifier_identifiers(node.this)
+        return None if head is None else head + [node.expression]
+    return None
+
+
+def _admitted_table_function(func: exp.Anonymous, scope: CatalogScope) -> bool:
+    """Whether `func` is a table function the scope lists, called in the one
+    shape that runs it: TABLE(<schema>.<function>(<string literals>)) in FROM.
+
+    Each condition closes a way the same name could run something else.
+    Unqualified, the name resolves through the session's search path, where a
+    user function can come first; a quoted qualifier is case-sensitive on
+    Snowflake and can name a schema other than the system one; a column or
+    subquery argument feeds it another relation's values.
+    """
+    if not scope.table_functions:
+        return False
+    qualified = func.parent
+    if not (isinstance(qualified, exp.Dot) and qualified.expression is func):
+        return False
+    table_call = qualified.parent
+    if not (
+        isinstance(table_call, exp.TableFromRows)
+        and isinstance(table_call.parent, (exp.From, exp.Join))
+    ):
+        return False
+    qualifier = _qualifier_identifiers(qualified.this)
+    if qualifier is None or any(identifier.quoted for identifier in qualifier):
+        return False
+    if not all(
+        isinstance(argument, exp.Literal) and argument.is_string
+        for argument in func.expressions
+    ):
+        return False
+    return scope.permits_table_function(
+        [identifier.name for identifier in qualifier] + [func.name]
+    )
+
+
+def _check_functions(
+    statement: exp.Expr, dialect: sqlglot.Dialect, scope: CatalogScope
+) -> None:
     for func in statement.find_all(exp.Func):
         if _is_refused_function(func):
             raise SqlScopeError(
@@ -366,6 +443,20 @@ def _check_functions(statement: exp.Expr, dialect: sqlglot.Dialect) -> None:
     for func in statement.find_all(exp.Anonymous):
         if func.name.lower() in _ALLOWED_VENDOR_FUNCTIONS:
             continue
+        if _admitted_table_function(func, scope):
+            continue
+        listed = sorted(
+            entry
+            for entry in scope.table_functions
+            if entry.lower().rsplit(".", 1)[-1] == func.name.lower()
+        )
+        if listed:
+            raise SqlScopeError(
+                f"'{func.name}' is read only as TABLE({listed[0]}(...)) in FROM, "
+                f"qualified with that schema unquoted and given string literals "
+                f"alone, e.g. SELECT * FROM TABLE({listed[0]}('<object>', "
+                f"'<domain>'))"
+            )
         raise SqlScopeError(
             f"'{func.name}' is a vendor-specific function whose output the probe "
             f"cannot verify as catalog metadata; only standard SQL over catalog "

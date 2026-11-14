@@ -642,6 +642,15 @@ database sees it. A query the database rejects as the caller's mistake (SQLSTATE
 as a misspelled column) also exits 2. The check narrows what a query can reach; the credential
 decides what each relation shows, so point the recipe at a read-only role.
 
+Snowflake also admits its two tag table functions, which read one object's tags without the up to
+two-hour lag of `ACCOUNT_USAGE.TAG_REFERENCES`. Call them as a table function, qualified with
+`information_schema` and given string literals only:
+
+```shell
+datahub recipe probe run sql --recipe my_recipe.yml \
+  --query "SELECT tag_name, tag_value, column_name FROM TABLE(my_db.information_schema.tag_references_all_columns('my_db.my_schema.my_table', 'table'))"
+```
+
 **Checking what your filters would do.** `probe filter` judges names you already have, with no
 connection:
 
