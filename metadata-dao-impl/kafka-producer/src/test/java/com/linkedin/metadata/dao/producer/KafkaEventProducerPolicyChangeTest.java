@@ -2,6 +2,7 @@ package com.linkedin.metadata.dao.producer;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.mockStatic;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -10,6 +11,7 @@ import static org.testng.Assert.assertEquals;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.dao.producer.context.outbound.OutboundContextResolver;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -23,6 +25,7 @@ import org.apache.kafka.clients.producer.Callback;
 import org.apache.kafka.clients.producer.Producer;
 import org.apache.kafka.clients.producer.ProducerRecord;
 import org.mockito.ArgumentCaptor;
+import org.mockito.MockedStatic;
 import org.testng.annotations.Test;
 
 public class KafkaEventProducerPolicyChangeTest {
@@ -145,10 +148,9 @@ public class KafkaEventProducerPolicyChangeTest {
             metrics,
             mock(OutboundContextResolver.class));
 
-    try (org.mockito.MockedStatic<com.linkedin.metadata.EventUtils> utils =
-        org.mockito.Mockito.mockStatic(com.linkedin.metadata.EventUtils.class)) {
+    try (MockedStatic<EventUtils> utils = mockStatic(EventUtils.class)) {
       utils
-          .when(() -> com.linkedin.metadata.EventUtils.pegasusToAvroMCL(any()))
+          .when(() -> EventUtils.pegasusToAvroMCL(any()))
           .thenThrow(new java.io.IOException("cannot convert"));
 
       eventProducer.producePolicyChange(

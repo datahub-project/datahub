@@ -22,6 +22,9 @@ from utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 
 logger = logging.getLogger(__name__)
 
+# Only the pytest smoke job turns on the SQL source (DATAHUB_LOCAL_COMMON_ENV). Other jobs run the
+# default search-based cache, where this test does not apply, so it is skipped with a reason that
+# `pytest -rs` lists.
 pytestmark = [
     pytest.mark.domain(Domain.PLATFORM),
     pytest.mark.skipif(

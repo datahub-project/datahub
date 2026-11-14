@@ -1277,34 +1277,54 @@ public class EbeanEntityServiceTest
     _entityServiceImpl.setSyncPolicyWrites(true);
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:sync-only-policy-test");
 
-    _entityServiceImpl.ingestProposal(
-        opContext,
-        proposalBatch(
-            upsertProposal(
-                policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, testPolicy("sync only policy"))),
-        true);
+    List<IngestResult> results =
+        _entityServiceImpl.ingestProposal(
+            opContext,
+            proposalBatch(
+                upsertProposal(
+                    policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, testPolicy("sync only policy"))),
+            true);
 
     assertNotNull(
         _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
+    // The results are those of a synchronous write: committed, not queued.
+    assertFalse(results.isEmpty());
+    for (IngestResult result : results) {
+      assertEquals(result.getUrn(), policyUrn);
+      assertTrue(result.isSqlCommitted());
+      assertFalse(result.isPublishedMCP());
+    }
     // Nothing is left for the async path.
     verify(_mockProducer, never())
-        .produceMetadataChangeProposal(
-            any(OperationContext.class), eq(policyUrn), any(MCPItem.class));
+        .produceMetadataChangeProposal(any(OperationContext.class), any(), any(MCPItem.class));
   }
 
   @Test
   public void testFailedPolicyWriteStillQueuesTheOtherItems() {
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:failed-policy-test");
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:failed-policy-test");
-    EntityServiceImpl service = spy(_entityServiceImpl);
+    // The database rejects every transaction. Only the policy part opens one: the other item is
+    // async, so it is only queued.
+    EbeanAspectDao failingDao = spy(_aspectDao);
+    doThrow(new IllegalStateException("simulated database failure"))
+        .when(failingDao)
+        .runInTransactionWithRetry(
+            any(OperationContext.class), any(), any(AspectsBatch.class), anyInt());
+    EntityServiceImpl service =
+        new EntityServiceImpl(
+            failingDao,
+            _mockProducer,
+            new PreProcessHooks(),
+            new EntityServiceConfiguration()
+                .setAlwaysEmitChangeLog(false)
+                .setCdcModeChangeLog(cdcModeChangeLog)
+                .setEnableBrowseV2(true),
+            metricUtils);
+    service.setUpdateIndicesService(_mockUpdateIndicesService);
     service.setSyncPolicyWrites(true);
-    // Only the synchronous write of the policy part fails.
-    doThrow(new IllegalStateException("simulated policy write failure"))
-        .when(service)
-        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), eq(false));
 
     assertThrows(
-        IllegalStateException.class,
+        RuntimeException.class,
         () ->
             service.ingestProposal(
                 opContext,
@@ -1321,6 +1341,9 @@ public class EbeanEntityServiceTest
     verify(_mockProducer, times(1))
         .produceMetadataChangeProposal(
             any(OperationContext.class), eq(userUrn), any(MCPItem.class));
+    verify(failingDao)
+        .runInTransactionWithRetry(
+            any(OperationContext.class), any(), any(AspectsBatch.class), anyInt());
     assertNull(
         _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
   }

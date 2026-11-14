@@ -100,6 +100,11 @@ public class DataHubAuthorizer
   private int consecutiveLoadFailures;
 
   /**
+   * @param delayIntervalSeconds delay before the first search-based refresh; not used with a {@code
+   *     policyLoader}, which loads first in {@link #initialLoad}
+   * @param refreshIntervalSeconds interval of the refresh timer; 0 or less turns the timer off
+   * @param policyFetchSize page size of the search-based refresh; not used with a {@code
+   *     policyLoader}, which reads all policies in one query
    * @param policyLoader when not null, policies load from the primary store with this loader
    *     instead of the search index. The caller should then call {@link #initialLoad} before the
    *     authorizer serves requests.
@@ -451,8 +456,8 @@ public class DataHubAuthorizer
    */
   public void invalidateCache() {
     if (policyLoader != null) {
-      // With the observer, the write already waited for a load before it returned. Another load
-      // here would only read the same policies again.
+      // With the observer, the write already requested a load after its commit (and waited for
+      // it, unless the wait is 0). Another load here would only read the same policies again.
       if (!policyWritesObserved) {
         requestLoad();
       }
@@ -626,16 +631,19 @@ public class DataHubAuthorizer
    * Called after a policy write or delete has been committed in this process. Requests a load and
    * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
    * after this process enforces the change. If the limit is reached, the load still completes
-   * later. A limit of 0 requests the load without waiting. Never throws: the write it follows is
-   * already committed.
+   * later. A limit of 0 requests the load without waiting; if that load fails, it is not retried
+   * here, and the next requested load or the refresh timer applies the change. Never throws: the
+   * write it follows is already committed.
    */
   public void onPolicyChange() {
     if (policyLoader == null) {
       return;
     }
     if (policyChangeWaitMillis == 0) {
-      // Waiting is turned off: the load runs in the background, and that is not a timeout.
+      // Waiting is turned off: the load runs in the background, and that is not a timeout. A zero
+      // wait sample keeps the observer.wait count equal to the number of policy changes.
       requestLoad();
+      recordObserverWait(0);
       return;
     }
     final long start = System.nanoTime();
@@ -659,14 +667,15 @@ public class DataHubAuthorizer
       // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
       requestLoad();
     } finally {
-      systemOpContext
-          .getMetricUtils()
-          .ifPresent(
-              m ->
-                  m.time(
-                      DataHubAuthorizer.class.getName() + ".policyCache.observer.wait",
-                      System.nanoTime() - start));
+      recordObserverWait(System.nanoTime() - start);
     }
+  }
+
+  private void recordObserverWait(long nanos) {
+    systemOpContext
+        .getMetricUtils()
+        .ifPresent(
+            m -> m.time(DataHubAuthorizer.class.getName() + ".policyCache.observer.wait", nanos));
   }
 
   public void setPolicyChangeWaitMillis(long waitMillis) {
