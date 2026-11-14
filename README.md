@@ -10,7 +10,6 @@
   <a href="https://pypi.org/project/acryl-datahub/"><img src="https://img.shields.io/pypi/dm/acryl-datahub.svg" alt="PyPI Downloads" /></a>
   <a href="https://hub.docker.com/r/acryldata/datahub-gms"><img src="https://img.shields.io/docker/pulls/acryldata/datahub-gms.svg" alt="Docker Pulls" /></a>
   <a href="https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=header-slack-badge"><img src="https://img.shields.io/badge/slack-join_chat-white.svg?logo=slack&style=social" alt="Join Slack" /></a>
-  <a href="https://github.com/datahub-project/datahub/stargazers"><img src="https://img.shields.io/github/stars/datahub-project/datahub.svg?style=social&label=Star" alt="GitHub Stars" /></a>
   <a href="https://github.com/datahub-project/datahub/blob/master/LICENSE"><img src="https://img.shields.io/badge/License-Apache_2.0-blue.svg" alt="License" /></a>
 </p>
 
