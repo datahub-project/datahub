@@ -1,0 +1,18 @@
+source:
+  type: salesforce-data360
+  config:
+    instance_url: "https://mydomain.my.salesforce.com/"
+    username: user@company
+    password: password_for_user
+    security_token: security_token_for_user
+    platform_instance: mydomain-dev-ed
+    dataspace: default
+
+    dmo_pattern:
+      deny:
+        - "^ssot__AbnExperiment.*"
+
+sink:
+  type: "datahub-rest"
+  config:
+    server: "http://localhost:8080"

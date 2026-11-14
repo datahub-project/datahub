@@ -1,0 +1,132 @@
+{
+  "dataModelObject": [
+    {
+      "name": "ssot__AbnExperiment__dlm",
+      "label": "Experiment",
+      "category": "UNASSIGNED",
+      "creationType": "Standard",
+      "dataSpaceName": "default",
+      "isEnabled": false,
+      "fields": [
+        {
+          "name": "ssot__Id__c",
+          "label": "Experiment Id",
+          "type": "Text",
+          "isPrimaryKey": true
+        }
+      ]
+    },
+    {
+      "name": "ssot__ContactPointEmail__dlm",
+      "label": "Contact Point Email",
+      "category": "PROFILE",
+      "creationType": "Standard",
+      "dataSpaceName": "default",
+      "isEnabled": true,
+      "fields": [
+        {
+          "name": "ssot__Id__c",
+          "label": "Contact Point Email Id",
+          "type": "Text",
+          "isPrimaryKey": true,
+          "creationType": "Standard"
+        },
+        {
+          "name": "ssot__PartyId__c",
+          "label": "Party",
+          "type": "Text",
+          "creationType": "Standard"
+        },
+        {
+          "name": "ssot__EmailAddress__c",
+          "label": "Email Address",
+          "type": "Email",
+          "creationType": "Standard"
+        },
+        {
+          "name": "ssot__LastModifiedDate__c",
+          "label": "Last Modified Date",
+          "type": "DateTime",
+          "creationType": "System"
+        }
+      ]
+    },
+    {
+      "name": "ssot__Individual__dlm",
+      "label": "Individual",
+      "description": "A person known to the business.",
+      "category": "PROFILE",
+      "creationType": "Standard",
+      "dataSpaceName": "default",
+      "isEnabled": true,
+      "fields": [
+        {
+          "name": "ssot__Id__c",
+          "label": "Individual Id",
+          "type": "Text",
+          "isPrimaryKey": true,
+          "creationType": "Standard"
+        },
+        {
+          "name": "ssot__FirstName__c",
+          "label": "First Name",
+          "type": "Text",
+          "creationType": "Standard"
+        },
+        {
+          "name": "ssot__BirthDate__c",
+          "label": "Birth Date",
+          "type": "Date",
+          "creationType": "Standard"
+        }
+      ]
+    },
+    {
+      "name": "Loyalty_Member__dlm",
+      "label": "Loyalty Member",
+      "category": "OTHER",
+      "creationType": "Custom",
+      "dataSpaceName": "default",
+      "isEnabled": false,
+      "fields": [
+        {
+          "name": "Id__c",
+          "label": "Id",
+          "type": "Text",
+          "isPrimaryKey": true,
+          "creationType": "Custom"
+        },
+        {
+          "name": "Individual_Id__c",
+          "label": "Individual Id",
+          "type": "Text",
+          "creationType": "Custom"
+        },
+        {
+          "name": "Preferred_Email_Id__c",
+          "label": "Preferred Email Id",
+          "type": "Text",
+          "creationType": "Custom"
+        },
+        {
+          "name": "Points__c",
+          "label": "Points",
+          "type": "Number",
+          "creationType": "Custom"
+        },
+        {
+          "name": "Opted_In__c",
+          "label": "Opted In",
+          "type": "Boolean",
+          "creationType": "Custom"
+        },
+        {
+          "name": "Card_Image__c",
+          "label": "Card Image",
+          "type": "Blob",
+          "creationType": "Custom"
+        }
+      ]
+    }
+  ]
+}
