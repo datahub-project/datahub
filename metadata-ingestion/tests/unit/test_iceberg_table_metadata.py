@@ -8,6 +8,7 @@ import pytest
 from pyiceberg.catalog.rest import RestCatalog
 from pyiceberg.conversions import to_bytes
 from pyiceberg.io.pyarrow import PyArrowFileIO
+from pyiceberg.manifest import DataFileContent
 from pyiceberg.partitioning import PartitionSpec
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
@@ -286,6 +287,7 @@ def _data_file(
 ) -> MagicMock:
     """A manifest entry (pyiceberg object) carrying per-field statistics."""
     entry = MagicMock()
+    entry.data_file.content = DataFileContent.DATA
     entry.data_file.record_count = record_count
     entry.data_file.null_value_counts = null_counts
     entry.data_file.lower_bounds = lower
