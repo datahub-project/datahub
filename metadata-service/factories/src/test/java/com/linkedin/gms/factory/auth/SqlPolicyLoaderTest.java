@@ -55,7 +55,9 @@ public class SqlPolicyLoaderTest {
     assertEquals(loaded.get(0).getUrn(), UrnUtils.getUrn("urn:li:dataHubPolicy:good"));
     assertEquals(loaded.get(0).getPolicyInfo(), info);
     assertTrue(closed.get(), "the SQL stream must be closed");
-    verify(metrics).increment(SqlPolicyLoader.class, "policyCache.load.skipped", 1);
+    verify(metrics)
+        .increment(
+            com.datahub.authorization.DataHubAuthorizer.class, "policyCache.load.skipped", 1);
   }
 
   @Test
