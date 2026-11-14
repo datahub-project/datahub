@@ -31,6 +31,7 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -88,8 +89,7 @@ public class DataHubAuthorizer
   private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
   private volatile boolean loadedOnce;
   // At most one retry is scheduled at a time, so failed loads do not start parallel retry chains.
-  private final java.util.concurrent.atomic.AtomicBoolean firstLoadRetryScheduled =
-      new java.util.concurrent.atomic.AtomicBoolean();
+  private final AtomicBoolean firstLoadRetryScheduled = new AtomicBoolean();
   // Consecutive failed loads: only the first one logs a stack trace.
   private int consecutiveLoadFailures;
 
@@ -496,11 +496,15 @@ public class DataHubAuthorizer
     }
     final long start = System.nanoTime();
     try {
-      final PolicySnapshot next = PolicySnapshot.of(policyLoader.loadAll());
+      final PolicyLoader.Result result = policyLoader.loadAll();
+      final PolicySnapshot next = PolicySnapshot.of(result.policies());
       publish(next);
       loadedOnce = true;
       consecutiveLoadFailures = 0;
       increment("policyCache.load.run");
+      if (result.skipped() > 0) {
+        increment("policyCache.load.skipped", result.skipped());
+      }
       systemOpContext
           .getMetricUtils()
           .ifPresent(
@@ -582,7 +586,12 @@ public class DataHubAuthorizer
         Thread.currentThread().interrupt();
         break;
       } catch (Exception e) {
-        log.warn("Initial policy load attempt {} of {} failed.", attempt, attempts, e);
+        // The load thread already logged the stack trace.
+        log.warn(
+            "Initial policy load attempt {} of {} failed: {}",
+            attempt,
+            attempts,
+            String.valueOf(e.getCause() != null ? e.getCause() : e));
         if (attempt < attempts && backoffMillis > 0) {
           try {
             // Never sleep past the shared deadline.
@@ -614,9 +623,13 @@ public class DataHubAuthorizer
   }
 
   private void increment(@Nonnull String metricName) {
+    increment(metricName, 1);
+  }
+
+  private void increment(@Nonnull String metricName, double count) {
     systemOpContext
         .getMetricUtils()
-        .ifPresent(m -> m.increment(DataHubAuthorizer.class, metricName, 1));
+        .ifPresent(m -> m.increment(DataHubAuthorizer.class, metricName, count));
   }
 
   public AuthorizationMode mode() {

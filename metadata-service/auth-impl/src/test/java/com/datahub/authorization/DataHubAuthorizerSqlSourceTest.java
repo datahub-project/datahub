@@ -1,16 +1,26 @@
 package com.datahub.authorization;
 
+import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyLong;
+import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.CountDownLatch;
@@ -27,11 +37,12 @@ public class DataHubAuthorizerSqlSourceTest {
     final List<PolicyFetcher.Policy> policies = new CopyOnWriteArrayList<>();
     final AtomicInteger calls = new AtomicInteger();
     volatile int failuresLeft = 0;
+    volatile int skipped = 0;
     volatile CountDownLatch entered;
     volatile CountDownLatch release;
 
     @Override
-    public List<PolicyFetcher.Policy> loadAll() {
+    public Result loadAll() {
       calls.incrementAndGet();
       if (entered != null) {
         entered.countDown();
@@ -47,7 +58,7 @@ public class DataHubAuthorizerSqlSourceTest {
         failuresLeft--;
         throw new IllegalStateException("simulated database error");
       }
-      return new ArrayList<>(policies);
+      return new Result(new ArrayList<>(policies), skipped);
     }
   }
 
@@ -240,6 +251,60 @@ public class DataHubAuthorizerSqlSourceTest {
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
 
     assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testTimerLoadsWithoutARequest() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 1);
+    authorizer.initialLoad(1, 0);
+    loader.policies.add(policy("p1", 1L));
+
+    // No request and no invalidateCache: only the 1 s timer can load p1.
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
+      Thread.sleep(50);
+    }
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testLoadMetrics() throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext context = mock(OperationContext.class);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
+    FakeLoader loader = new FakeLoader();
+    loader.policies.add(policy("p1", 1L));
+    loader.skipped = 2;
+    DataHubAuthorizer authorizer =
+        new DataHubAuthorizer(
+            context,
+            mock(EntityClient.class),
+            mock(GroupService.class),
+            10,
+            0,
+            DataHubAuthorizer.AuthorizationMode.DEFAULT,
+            1000,
+            loader);
+
+    assertTrue(authorizer.initialLoad(1, 0));
+    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
+    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.run", 1);
+    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.skipped", 2);
+    verify(metrics).setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", 1);
+    verify(metrics)
+        .time(eq(DataHubAuthorizer.class.getName() + ".policyCache.load.duration"), anyLong());
+    verify(metrics, never())
+        .increment(eq(DataHubAuthorizer.class), eq("policyCache.load.failed"), anyDouble());
+
+    loader.failuresLeft = 1;
+    try {
+      authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+      fail("the load must fail");
+    } catch (ExecutionException expected) {
+      // The simulated database error.
+    }
+    verify(metrics, atLeastOnce()).increment(DataHubAuthorizer.class, "policyCache.load.failed", 1);
   }
 
   @Test
