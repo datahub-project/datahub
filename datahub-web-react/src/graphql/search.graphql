@@ -80,6 +80,9 @@ fragment searchResultCardFields on Entity {
                 actor
             }
         }
+        viewProperties {
+            materialized
+        }
         siblings {
             isPrimary
         }
@@ -493,6 +496,9 @@ fragment nonSiblingsDatasetSearchFields on Dataset {
     subTypes {
         typeNames
     }
+    viewProperties {
+        materialized
+    }
     parentContainers {
         ...parentContainersFields
     }
@@ -548,6 +554,9 @@ fragment siblingSearchDatasetFields on Dataset {
     }
     subTypes {
         typeNames
+    }
+    viewProperties {
+        materialized
     }
     parentContainers {
         ...parentContainersFields

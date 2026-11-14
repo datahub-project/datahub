@@ -1,3 +1,5 @@
+import { DocumentNode, InMemoryCache } from '@apollo/client';
+
 import {
     decodeComma,
     dictToQueryStringParams,
@@ -6,6 +8,7 @@ import {
     extractPlatformNameFromAssetUrn,
     extractPlatformNameFromPlatformUrn,
     getDataProduct,
+    getDatasetLastUpdatedMs,
     getFineGrainedLineageWithSiblings,
     getNumberWithOrdinal,
     getPlatformNameFromEntityData,
@@ -20,8 +23,13 @@ import {
     urlEncodeUrn,
 } from '@app/entityV2/shared/utils';
 import { mockEntityRelationShipResult, mockFineGrainedLineages1, mockRecord, mockSearchResult } from '@src/Mocks';
+import possibleTypesResult from '@src/possibleTypes.generated';
 
-import { DataProduct, DatasetStatsSummary, EntityType } from '@types';
+import {
+    GetSearchResultsForMultipleCardsDocument,
+    GetSearchResultsForMultipleDocument,
+} from '@graphql/search.generated';
+import { DataProduct, Dataset, DatasetStatsSummary, EntityType } from '@types';
 
 describe('entity V2 utils test ->', () => {
     describe('dictToQueryStringParams ->', () => {
@@ -347,5 +355,90 @@ describe('extractDatasetNameFromUrn', () => {
         const urn = ',,,,';
         const result = extractDatasetNameFromUrn(urn);
         expect(result).toBe(urn);
+    });
+});
+
+describe('getDatasetLastUpdatedMs definition time ->', () => {
+    const properties = { lastModified: { time: 1_000 } };
+    const dataset = (typeNames: string[], materialized?: boolean) => ({
+        subTypes: { typeNames },
+        viewProperties: materialized === undefined ? null : { materialized },
+    });
+
+    it('marks the time of a view or a semantic view as a definition time', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['view'], false)).definitionTime).toBe(true);
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Semantic View'], false)).definitionTime).toBe(true);
+    });
+
+    it('keeps the time and its label for a view', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View']))).toMatchObject({
+            property: 'lastModified',
+            lastUpdatedMs: 1_000,
+        });
+    });
+
+    it('does not mark tables, materialized views or datasets without subtypes', () => {
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Dynamic Table'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['Metric View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'], true)).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, []).definitionTime).toBeFalsy();
+    });
+
+    it('does not mark a view whose viewProperties are missing or were not fetched', () => {
+        const notFetched = { subTypes: { typeNames: ['View'] } };
+        expect(getDatasetLastUpdatedMs(properties, [], dataset(['View'])).definitionTime).toBeFalsy();
+        expect(getDatasetLastUpdatedMs(properties, [], notFetched).definitionTime).toBeFalsy();
+    });
+});
+
+describe('getDatasetLastUpdatedMs inputs from the search queries ->', () => {
+    // If a fragment stops selecting viewProperties, views silently go back to the age color.
+    const view = (name: string) => ({
+        __typename: 'Dataset',
+        urn: `urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.${name},PROD)`,
+        type: EntityType.Dataset,
+        properties: { __typename: 'DatasetProperties', name, lastModified: { __typename: 'AuditStamp', time: 1_000 } },
+        subTypes: { __typename: 'SubTypes', typeNames: ['View'] },
+        viewProperties: { __typename: 'ViewProperties', materialized: false },
+    });
+    const roundTrip = (query: DocumentNode, entity: object): Dataset => {
+        const cache = new InMemoryCache({ possibleTypes: possibleTypesResult.possibleTypes });
+        const variables = { input: { query: '*', start: 0, count: 10 }, skipSiblingsSearch: false };
+        const searchAcrossEntities = { __typename: 'SearchResults', start: 0, count: 1, total: 1 };
+        cache.writeQuery({
+            query,
+            variables,
+            data: {
+                searchAcrossEntities: {
+                    ...searchAcrossEntities,
+                    searchResults: [{ __typename: 'SearchResult', entity }],
+                },
+            },
+        });
+        const { result } = cache.diff<{ searchAcrossEntities: { searchResults: { entity: Dataset }[] } }>({
+            query,
+            variables,
+            returnPartialData: true,
+            optimistic: false,
+        });
+        return result?.searchAcrossEntities.searchResults[0].entity as Dataset;
+    };
+    const isDefinitionTime = (dataset?: Dataset | null) =>
+        !!dataset && getDatasetLastUpdatedMs(dataset.properties, [], dataset).definitionTime;
+
+    it('keeps viewProperties in main search, for its sibling, and in the card query', () => {
+        const siblingsSearch = {
+            __typename: 'ScrollResults',
+            count: 1,
+            total: 1,
+            searchResults: [{ __typename: 'SearchResult', entity: view('my_view_sibling') }],
+        };
+        const mainSearch = roundTrip(GetSearchResultsForMultipleDocument, { ...view('my_view'), siblingsSearch });
+        const card = roundTrip(GetSearchResultsForMultipleCardsDocument, view('my_view'));
+        expect(
+            [mainSearch, mainSearch.siblingsSearch?.searchResults[0]?.entity as Dataset, card].map(isDefinitionTime),
+        ).toEqual([true, true, true]);
     });
 });

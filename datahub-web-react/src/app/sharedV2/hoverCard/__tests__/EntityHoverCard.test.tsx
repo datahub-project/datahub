@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { NEUTRAL, SIXTY_DAYS_AGO, clockColor } from '@utils/test-utils/freshnessClock';
 
 import {
     CorpGroup,
@@ -197,5 +198,17 @@ describe('EntityHoverCard', () => {
         expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
         expect(screen.queryByText('Terms')).not.toBeInTheDocument();
         expect(screen.queryByText('Retired')).not.toBeInTheDocument();
+    });
+});
+
+describe('EntityHoverCard freshness clock', () => {
+    it('shows the time of a view in the neutral icon color', () => {
+        renderCard({
+            ...dataset,
+            subTypes: { typeNames: ['View'] },
+            viewProperties: { materialized: false },
+            properties: { ...(dataset as any).properties, lastModified: { time: SIXTY_DAYS_AGO } },
+        } as unknown as Dataset);
+        expect(clockColor()).toBe(NEUTRAL);
     });
 });
