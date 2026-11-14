@@ -100,6 +100,9 @@ class GenieSpaceExtractor:
         metastore: Optional[str],
         preserve_urn: Callable[[str], None],
         preserve_all_urns: Callable[[], None],
+        metric_view_urns_builder: Optional[
+            Callable[[TableReference], Optional[List[str]]]
+        ] = None,
     ) -> None:
         self.config = config
         self.client = client
@@ -109,6 +112,9 @@ class GenieSpaceExtractor:
         self.metastore = metastore
         self.preserve_urn = preserve_urn
         self.preserve_all_urns = preserve_all_urns
+        # Set when metric views are emitted as semantic models: their dataset URN
+        # is not emitted, so lineage goes to their logical datasets instead.
+        self.metric_view_urns_builder = metric_view_urns_builder
         self.workspace_url = config.workspace_url.rstrip("/").lower()
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
@@ -202,6 +208,9 @@ class GenieSpaceExtractor:
             raise _GenieSpaceWarning("Genie agent export requires CAN EDIT")
         definition = GenieSpaceDefinition.from_serialized(space.serialized_space)
         upstream_urns: Set[str] = set()
+        metric_view_ids = {
+            source.identifier for source in definition.data_sources.metric_views
+        }
         for source in (
             definition.data_sources.tables + definition.data_sources.metric_views
         ):
@@ -211,16 +220,22 @@ class GenieSpaceExtractor:
                     "Invalid Genie agent export",
                     identifier=source.identifier,
                 )
-            upstream_urns.add(
-                self.table_urn_builder(
-                    TableReference(
-                        metastore=self.metastore,
-                        catalog=parts[0],
-                        schema=parts[1],
-                        table=parts[2],
-                    )
-                )
+            ref = TableReference(
+                metastore=self.metastore,
+                catalog=parts[0],
+                schema=parts[1],
+                table=parts[2],
             )
+            logical_urns = (
+                self.metric_view_urns_builder(ref)
+                if self.metric_view_urns_builder is not None
+                and source.identifier in metric_view_ids
+                else None
+            )
+            if logical_urns:
+                upstream_urns.update(logical_urns)
+            else:
+                upstream_urns.add(self.table_urn_builder(ref))
 
         agent_urn = self._agent_urn(space.space_id)
         created_ms = _millis_or_zero(space.create_time)

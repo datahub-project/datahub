@@ -71,6 +71,9 @@ from datahub.ingestion.source.aws.s3_util import (
     make_s3_urn_for_lineage,
     strip_s3_prefix,
 )
+from datahub.ingestion.source.common.semantic_model_gate import (
+    resolve_emit_semantic_model_entities,
+)
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     DatasetSubTypes,
@@ -104,6 +107,11 @@ from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HiveMetastoreProxy,
 )
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
+from datahub.ingestion.source.unity.metric_view_semantic_model import (
+    MEASURE_REF_RE as _MEASURE_REF_RE,
+    MetricViewEntityContext,
+    UnityMetricViewSemanticModelMapper,
+)
 from datahub.ingestion.source.unity.platform_resource_repository import (
     UnityCatalogPlatformResourceRepository,
 )
@@ -149,6 +157,7 @@ from datahub.metadata.com.linkedin.pegasus2avro.dataset import (
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
+    BrowsePathEntryClass,
     BrowsePathsClass,
     DataPlatformInstanceClass,
     DatasetLineageTypeClass,
@@ -187,11 +196,6 @@ from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
-
-# MEASURE(name) is a Databricks-specific token: https://docs.databricks.com/aws/en/business-semantics/metric-views/advanced-techniques
-_MEASURE_REF_RE = re.compile(
-    r"\bMEASURE\s*\(\s*([A-Za-z_][A-Za-z0-9_]*)\s*\)", re.IGNORECASE
-)
 
 _DISPLAY_NAME_MAX_LEN = 255
 _SYNONYMS_MAX_COUNT = 10
@@ -518,6 +522,12 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
+        # Set by _resolve_semantic_model_emission when metric views are emitted as
+        # semanticModel/metric entities.
+        self._metric_view_semantic_model_mapper: Optional[
+            UnityMetricViewSemanticModelMapper
+        ] = None
+
         # Include platform resource repository in report for automatic cache statistics
         if self.config.include_tags and self.platform_resource_repository:
             self.report.tag_urn_resolver_cache = self.platform_resource_repository
@@ -636,6 +646,8 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         # wait until warehouse is started
                         wait_on_warehouse.result()
+
+        self._resolve_semantic_model_emission()
 
         if self.config.include_ownership:
             with self.report.new_stage("Ingest service principals"):
@@ -851,6 +863,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     client=self.unity_catalog_api_proxy.genie,
                     report=self.report,
                     table_urn_builder=self.gen_dataset_urn,
+                    metric_view_urns_builder=(
+                        self._metric_view_semantic_model_mapper.logical_dataset_urns
+                        if self._metric_view_semantic_model_mapper is not None
+                        else None
+                    ),
                     platform_instance=self.platform_instance_name,
                     metastore=metastore.id if metastore else None,
                     preserve_urn=self._preserve_genie_agent_urn,
@@ -929,6 +946,36 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     self.report.metric_views.dropped(table.id)
                 continue
 
+            metric_view_spec: Optional[Dict[str, Any]] = None
+            if table.is_metric_view and self.config.include_metric_views:
+                metric_view_spec = self._load_metric_view_spec(table)
+                if (
+                    metric_view_spec is not None
+                    and self._metric_view_semantic_model_mapper is not None
+                ):
+                    # Not added to table_refs or the profiler's tables: usage and
+                    # profiling would write aspects to the metric view's dataset
+                    # URN, which this mode does not emit.
+                    yield from self._process_metric_view_as_semantic_model(
+                        table, schema, metric_view_spec
+                    )
+                    self.report.tables.processed(
+                        table.id, f"table ({table.table_type})"
+                    )
+                    self.report.metric_views.processed(table.id)
+                    continue
+                if self._metric_view_semantic_model_mapper is not None:
+                    self.report.num_metric_views_semantic_model_fallback += 1
+                    self.report.warning(
+                        title="Metric view emitted as a dataset",
+                        message="The metric view's YAML could not be read, so it was "
+                        "emitted as a `Metric View` dataset instead of a semantic model.",
+                        context=table.ref.qualified_table_name,
+                        log=False,
+                    )
+
+            # After the semantic-model branch: the profiler writes to the dataset
+            # URN, which that mode does not emit for a metric view.
             if (
                 self.config.is_profiling_enabled()
                 and self.config.uses_table_level_profiler()
@@ -944,47 +991,39 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 # Keep metric views in table_refs so stateful soft-delete still tracks them.
                 self.table_refs.add(table.ref)
-            yield from self.process_table(table, schema)
+            yield from self.process_table(
+                table,
+                schema,
+                metric_view_spec=metric_view_spec,
+                metric_view_spec_loaded=True,
+            )
             self.report.tables.processed(table.id, f"table ({table.table_type})")
             if table.is_metric_view and self.config.include_metric_views:
                 self.report.metric_views.processed(table.id)
 
-    def process_table(self, table: Table, schema: Schema) -> Iterable[MetadataWorkUnit]:
+    def process_table(
+        self,
+        table: Table,
+        schema: Schema,
+        *,
+        metric_view_spec: Optional[Dict[str, Any]] = None,
+        metric_view_spec_loaded: bool = False,
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = self.gen_dataset_urn(table.ref)
         yield from self.add_table_to_dataset_container(dataset_urn, schema)
 
-        metric_view_spec: Optional[Dict[str, Any]] = None
-        if table.is_metric_view and self.config.include_metric_views:
+        # process_tables loads the spec first to decide on semantic-model mode;
+        # reusing it keeps a YAML problem from being reported twice.
+        if (
+            not metric_view_spec_loaded
+            and table.is_metric_view
+            and self.config.include_metric_views
+        ):
             metric_view_spec = self._load_metric_view_spec(table)
 
         table_props = self._create_table_property_aspect(table, metric_view_spec)
-        tags = None
-        if not isinstance(table.table_type, HiveTableType) and self.config.include_tags:
-            try:
-                table_tags = self._get_table_tags(
-                    table.ref.catalog, table.ref.schema, table.ref.table
-                )
-                if table_tags:
-                    logger.debug(f"Table tags for {table.ref}: {table_tags}")
-                    attribution = MetadataAttribution(
-                        # source="unity-catalog",
-                        actor="urn:li:corpuser:datahub",
-                        time=int(time.time() * 1000),
-                    )
-                    tags = GlobalTags(
-                        tags=[
-                            TagAssociation(
-                                tag=tag.to_datahub_tag_urn().urn(),
-                                attribution=attribution,
-                            )
-                            for tag in table_tags
-                        ]
-                    )
-
-                    yield from self.gen_platform_resources(table_tags)
-
-            except Exception as e:
-                logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
+        tags, table_tags = self._create_table_tags_aspect(table)
+        yield from self.gen_platform_resources(table_tags)
 
         view_props = None
         if table.view_definition:
@@ -2123,6 +2162,138 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             viewLanguage=view_language,
             viewLogic=table.view_definition,
         )
+
+    def _create_table_tags_aspect(
+        self, table: Table
+    ) -> Tuple[Optional[GlobalTags], List[UnityCatalogTag]]:
+        if isinstance(table.table_type, HiveTableType) or not self.config.include_tags:
+            return None, []
+        try:
+            table_tags = self._get_table_tags(
+                table.ref.catalog, table.ref.schema, table.ref.table
+            )
+        except Exception as e:
+            logger.exception(f"Error fetching table {table.ref} tags", exc_info=e)
+            return None, []
+        if not table_tags:
+            return None, []
+        logger.debug(f"Table tags for {table.ref}: {table_tags}")
+        attribution = MetadataAttribution(
+            actor="urn:li:corpuser:datahub",
+            time=int(time.time() * 1000),
+        )
+        tags = GlobalTags(
+            tags=[
+                TagAssociation(
+                    tag=tag.to_datahub_tag_urn().urn(),
+                    attribution=attribution,
+                )
+                for tag in table_tags
+            ]
+        )
+        return tags, table_tags
+
+    def _resolve_semantic_model_emission(self) -> None:
+        # Nothing to resolve when metric views are not enriched; skip the server
+        # probe so it adds no GraphQL traffic or warnings.
+        if not (
+            self.config.include_metric_views
+            and unity_proxy_types.metric_view_supported()
+        ):
+            return
+
+        recipe_value = self.config.emit_semantic_model_entities
+        decision = resolve_emit_semantic_model_entities(self.ctx.graph, recipe_value)
+        self.report.semantic_model_emission_effective = decision.enabled
+        self.report.semantic_model_emission_reason = decision.reason
+        logger.info(
+            "Resolved emit_semantic_model_entities: effective=%s (recipe=%s, "
+            "managed_server=%s, version=%s, metricsEnabled=%s, reason=%s)",
+            decision.enabled,
+            recipe_value,
+            decision.is_saas,
+            decision.version,
+            decision.metrics_enabled,
+            decision.reason,
+        )
+
+        if decision.version_unparseable:
+            self.report.warning(
+                title="Could not parse DataHub server version",
+                message="The DataHub server version string could not be parsed, so "
+                "metric views were emitted as datasets rather than semantic models.",
+                context=decision.reason,
+                log=False,
+            )
+        if decision.metrics_probe_failed:
+            self.report.warning(
+                title="Could not verify Metrics kill-switch",
+                message="The metricsEnabled feature-flag probe failed, so metric "
+                "views were emitted as datasets rather than semantic models.",
+                context=decision.reason,
+                log=False,
+            )
+        if recipe_value is True and not decision.enabled:
+            self.report.warning(
+                title="emit_semantic_model_entities forced off",
+                message="emit_semantic_model_entities was requested but could not be "
+                "enabled; metric views were emitted as datasets.",
+                context=decision.reason,
+                log=False,
+            )
+
+        if decision.enabled:
+            self._metric_view_semantic_model_mapper = (
+                UnityMetricViewSemanticModelMapper(
+                    config=self.config,
+                    report=self.report,
+                    platform_instance=self.platform_instance_name,
+                    dataset_urn_builder=self.gen_dataset_urn,
+                    resolve_source=lambda raw, table: _parse_metric_view_source(
+                        raw,
+                        default_catalog=table.ref.catalog,
+                        default_metastore=table.ref.metastore,
+                    ),
+                    parse_expression_columns=lambda expr, alias_map, context: (
+                        self._parse_metric_view_expr(expr, alias_map, context=context)
+                    ),
+                )
+            )
+
+    def _process_metric_view_as_semantic_model(
+        self, table: Table, schema: Schema, spec: Dict[str, Any]
+    ) -> Iterable[MetadataWorkUnit]:
+        assert self._metric_view_semantic_model_mapper is not None
+        tags, table_tags = self._create_table_tags_aspect(table)
+        yield from self.gen_platform_resources(table_tags)
+        ownership = self._create_table_ownership_aspect(table)
+        context = MetricViewEntityContext(
+            schema_container_urn=self.gen_schema_key(schema).as_urn(),
+            parent_browse_path=self._schema_browse_path(schema),
+            owners=ownership.owners if ownership else None,
+            tags=tags.tags if tags else None,
+            domain_urn=self._gen_domain_urn(table.ref.qualified_table_name),
+        )
+        yield from self._metric_view_semantic_model_mapper.gen_workunits(
+            table, spec, context
+        )
+
+    def _schema_browse_path(self, schema: Schema) -> List[BrowsePathEntryClass]:
+        entries: List[BrowsePathEntryClass] = []
+        if self.platform_instance_name:
+            instance_urn = make_dataplatform_instance_urn(
+                self.platform, self.platform_instance_name
+            )
+            entries.append(BrowsePathEntryClass(id=instance_urn, urn=instance_urn))
+        container_urns: List[str] = []
+        if self.config.include_metastore and schema.catalog.metastore:
+            container_urns.append(
+                self.gen_metastore_key(schema.catalog.metastore).as_urn()
+            )
+        container_urns.append(self.gen_catalog_key(schema.catalog).as_urn())
+        container_urns.append(self.gen_schema_key(schema).as_urn())
+        entries.extend(BrowsePathEntryClass(id=urn, urn=urn) for urn in container_urns)
+        return entries
 
     def _load_metric_view_spec(self, table: Table) -> Optional[Dict[str, Any]]:
         if not table.view_definition:

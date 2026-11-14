@@ -115,5 +115,15 @@ class UnityCatalogReport(SQLSourceReport):
     num_metric_view_synonyms_dropped_invalid: int = 0
     num_metric_view_format_unknown_subkeys: int = 0
 
+    # Server-aware resolution of emit_semantic_model_entities.
+    semantic_model_emission_effective: Optional[bool] = None
+    semantic_model_emission_reason: Optional[str] = None
+    semantic_models_emitted: int = 0
+    semantic_model_datasets_emitted: int = 0
+    metrics_emitted: int = 0
+    num_metric_views_semantic_model_fallback: int = 0
+    num_metric_view_dimensions_on_source_multi_alias: int = 0
+    num_metric_view_relationships_skipped: int = 0
+
     # Platform resource repository for automatic cache statistics via SupportsAsObj
     tag_urn_resolver_cache: Optional["UnityCatalogPlatformResourceRepository"] = None
