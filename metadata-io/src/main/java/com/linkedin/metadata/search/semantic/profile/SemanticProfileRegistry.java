@@ -9,6 +9,9 @@ public interface SemanticProfileRegistry {
 
   boolean isServiceProfile(@Nonnull String entityType, @Nonnull String profileKey);
 
+  /** Whether the profile key is defined, so a profile may be written under it. */
+  boolean isConfigured(@Nonnull String entityType, @Nonnull String profileKey);
+
   /**
    * Binding for a stored or configured profile key. Never null; external when nothing dirties it.
    */

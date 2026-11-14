@@ -736,6 +736,83 @@ public class V3SearchDocumentProjectorTest {
     assertFalse(document.has(MappingConstants.ASPECTS_FIELD_NAME));
   }
 
+  @Test
+  public void testSemanticContentUpdateSendsOnlyChangedProfileFields() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("model_a", 1, "model_b", 1), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    ObjectNode previous = embeddingDocument();
+    putProfile(previous, "model_a", "hash-1", true, 0.1);
+    putProfile(previous, "model_b", "hash-2", true, 0.2);
+    ObjectNode current = embeddingDocument();
+    putProfile(current, "model_a", "hash-9", true, 0.1);
+    putProfile(current, "model_b", "hash-2", true, 0.2);
+    stubSemanticDocuments(current, previous);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event, previousAspect, true).orElseThrow();
+    ObjectNode embeddings = (ObjectNode) projected.rootFields().path("embeddings");
+
+    assertFalse(embeddings.has("model_b"));
+    ObjectNode modelA = (ObjectNode) embeddings.get("model_a");
+    assertEquals(modelA.get("contentHash").asText(), "hash-9");
+    assertFalse(modelA.has("chunks"));
+    assertFalse(modelA.has("current"));
+    assertFalse(modelA.has("sourceTextSha256"));
+  }
+
+  @Test
+  public void testSemanticContentUpdateNullsARemovedProfileAndOmitsTheRest() throws Exception {
+    projector =
+        new V3SearchDocumentProjector(
+            searchDocumentTransformer, true, Map.of("model_a", 1, "model_b", 1), Set.of());
+    when(aspectSpec.getName()).thenReturn("semanticContent");
+    when(event.getPreviousRecordTemplate()).thenReturn(previousAspect);
+    ObjectNode previous = embeddingDocument();
+    putProfile(previous, "model_a", "hash-1", true, 0.1);
+    putProfile(previous, "model_b", "hash-2", true, 0.2);
+    ObjectNode current = embeddingDocument();
+    putProfile(current, "model_a", "hash-1", true, 0.1);
+    stubSemanticDocuments(current, previous);
+
+    V3SearchDocumentProjector.ProjectedAspect projected =
+        projector.projectAspect(opContext, event, previousAspect, true).orElseThrow();
+    ObjectNode embeddings = (ObjectNode) projected.rootFields().path("embeddings");
+
+    assertTrue(embeddings.get("model_b").isNull());
+    assertFalse(embeddings.has("model_a"));
+  }
+
+  private void stubSemanticDocuments(ObjectNode current, ObjectNode previous) throws Exception {
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(aspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(current));
+    when(searchDocumentTransformer.transformAspect(
+            eq(opContext), eq(urn), eq(previousAspect), eq(aspectSpec), eq(false), eq(auditStamp)))
+        .thenReturn(Optional.of(previous));
+  }
+
+  private ObjectNode embeddingDocument() {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("urn", urn.toString());
+    document.set("embeddings", JsonNodeFactory.instance.objectNode());
+    return document;
+  }
+
+  private static void putProfile(
+      ObjectNode document, String modelKey, String contentHash, boolean current, double vector) {
+    ObjectNode profile = JsonNodeFactory.instance.objectNode();
+    profile.put("contentHash", contentHash);
+    profile.put("current", current);
+    profile.put("sourceTextSha256", "digest-" + modelKey);
+    ObjectNode chunk = JsonNodeFactory.instance.objectNode();
+    chunk.set("vector", JsonNodeFactory.instance.arrayNode().add(vector));
+    profile.set("chunks", JsonNodeFactory.instance.arrayNode().add(chunk));
+    ((ObjectNode) document.get("embeddings")).set(modelKey, profile);
+  }
+
   private ObjectNode semanticContentSearchDocument() {
     ObjectNode document = JsonNodeFactory.instance.objectNode();
     document.put("urn", urn.toString());

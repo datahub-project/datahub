@@ -154,6 +154,34 @@ public class SemanticContentApplyServiceTest {
   }
 
   @Test
+  public void testAResultForAnUnconfiguredProfileIsDropped() {
+    FakeStore store = new FakeStore();
+    store.stored = content("retired", "hash");
+
+    assertEquals(
+        service(store).applyResult(null, URN, "retired", profile(), marker(1), "hash"),
+        ApplyOutcome.DROPPED_UNCONFIGURED);
+    assertEquals(store.attempts, 0);
+  }
+
+  @Test
+  public void testAnUnconfiguredProfileCanStillBeRemoved() {
+    FakeStore store = new FakeStore();
+    store.stored = content("retired", "hash");
+
+    assertEquals(
+        service(store)
+            .applyRemoval(
+                null,
+                URN,
+                "retired",
+                "model",
+                SemanticContentApplyService.Removal.REMOVE_KEY,
+                null),
+        ApplyOutcome.ACCEPTED);
+  }
+
+  @Test
   public void testASiblingWriteDoesNotConflict() {
     FakeStore store = new FakeStore();
     SemanticContent both = content("a", "hash-a");
@@ -657,6 +685,11 @@ public class SemanticContentApplyServiceTest {
       @Override
       public boolean isServiceProfile(@Nonnull String entityType, @Nonnull String profileKey) {
         return true;
+      }
+
+      @Override
+      public boolean isConfigured(@Nonnull String entityType, @Nonnull String profileKey) {
+        return !"retired".equals(profileKey);
       }
 
       @Nonnull

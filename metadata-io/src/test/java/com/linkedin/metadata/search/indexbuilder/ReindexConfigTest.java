@@ -216,6 +216,149 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testNewEmbeddingProfileKeyIsAppliedInPlace() {
+    Map<String, Object> modelA = embeddingModelMapping("knn_vector");
+    Map<String, Object> current = embeddingMappings(Map.of("model_a", modelA));
+    Map<String, Object> target =
+        embeddingMappings(
+            Map.of("model_a", modelA, "model_b", embeddingModelMapping("knn_vector")));
+
+    ReindexConfig config = embeddingReindexConfig(current, target);
+
+    Assert.assertTrue(config.requiresApplyMappings());
+    Assert.assertTrue(config.isPureMappingsAddition());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
+  void testNewEmbeddingProfileKeyOnV3RequiresReindexAndBackfill() {
+    Map<String, Object> modelA = embeddingModelMapping("knn_vector");
+    Map<String, Object> current = embeddingMappings(Map.of("model_a", modelA));
+    Map<String, Object> target =
+        embeddingMappings(
+            Map.of("model_a", modelA, "model_b", embeddingModelMapping("knn_vector")));
+
+    ReindexConfig rebuilt = embeddingReindexConfig("datasetindex_v3", current, target, true);
+    Assert.assertTrue(rebuilt.requiresApplyMappings());
+    Assert.assertFalse(rebuilt.isPureMappingsAddition());
+    Assert.assertTrue(rebuilt.requiresReindex());
+    Assert.assertTrue(rebuilt.requiresDataBackfill());
+
+    ReindexConfig held = embeddingReindexConfig("datasetindex_v3", current, target, false);
+    Assert.assertFalse(held.isPureMappingsAddition());
+    Assert.assertFalse(held.requiresReindex());
+    Assert.assertTrue(held.requiresDataBackfill());
+  }
+
+  @Test
+  void testNewProfileKeyWithAGeneratedAtTypeChangeReindexes() {
+    // An index built when generatedAt was dynamically mapped as long reindexes to the declared
+    // date. The new profile key rides on that reindex, but is never what forces it.
+    Map<String, Object> modelA =
+        Map.of(
+            "dynamic",
+            false,
+            PROPERTIES_KEY,
+            Map.of(
+                "vector",
+                Map.of(TYPE_KEY, "knn_vector", "dimension", 8),
+                "generatedAt",
+                Map.of(TYPE_KEY, "long")));
+    Map<String, Object> targetModelA =
+        Map.of(
+            "dynamic",
+            false,
+            PROPERTIES_KEY,
+            Map.of(
+                "vector",
+                Map.of(TYPE_KEY, "knn_vector", "dimension", 8),
+                "generatedAt",
+                Map.of(TYPE_KEY, "date")));
+
+    ReindexConfig keyOnly =
+        embeddingReindexConfig(
+            embeddingMappings(Map.of("model_a", modelA)),
+            embeddingMappings(
+                Map.of("model_a", modelA, "model_b", embeddingModelMapping("knn_vector"))));
+    ReindexConfig withTypeChange =
+        embeddingReindexConfig(
+            embeddingMappings(Map.of("model_a", modelA)),
+            embeddingMappings(
+                Map.of("model_a", targetModelA, "model_b", embeddingModelMapping("knn_vector"))));
+
+    Assert.assertFalse(keyOnly.requiresReindex());
+    Assert.assertTrue(withTypeChange.requiresReindex());
+  }
+
+  @Test
+  void testChangedEmbeddingVectorTypeReindexes() {
+    Map<String, Object> current =
+        embeddingMappings(Map.of("model_a", embeddingModelMapping("knn_vector")));
+    Map<String, Object> target =
+        embeddingMappings(Map.of("model_a", embeddingModelMapping("keyword")));
+
+    ReindexConfig config = embeddingReindexConfig(current, target);
+
+    Assert.assertFalse(config.isPureMappingsAddition());
+    Assert.assertTrue(config.requiresReindex());
+  }
+
+  // Mirrors V3EmbeddingMappings.explicit: dynamic false on the embeddings object, each model, and
+  // chunks. Production indices always carry this shape, so the in-place cases must use it too.
+  private static Map<String, Object> embeddingModelMapping(String vectorType) {
+    return Map.of(
+        "dynamic",
+        false,
+        PROPERTIES_KEY,
+        Map.of(
+            "vector",
+            Map.of(TYPE_KEY, vectorType, "dimension", 8),
+            "sourceTextSha256",
+            Map.of(TYPE_KEY, "keyword"),
+            "chunks",
+            Map.of(
+                TYPE_KEY,
+                "nested",
+                "dynamic",
+                false,
+                PROPERTIES_KEY,
+                Map.of("vector", Map.of(TYPE_KEY, vectorType, "dimension", 8)))));
+  }
+
+  private static Map<String, Object> embeddingMappings(Map<String, Object> models) {
+    Map<String, Object> mappings = new HashMap<>();
+    mappings.put(
+        PROPERTIES_KEY,
+        Map.of(
+            "resolvedTextSha256",
+            Map.of(TYPE_KEY, "keyword"),
+            "embeddings",
+            Map.of("dynamic", false, PROPERTIES_KEY, models)));
+    return mappings;
+  }
+
+  private static ReindexConfig embeddingReindexConfig(
+      Map<String, Object> currentMappings, Map<String, Object> targetMappings) {
+    return embeddingReindexConfig(TEST_INDEX_NAME, currentMappings, targetMappings, true);
+  }
+
+  private static ReindexConfig embeddingReindexConfig(
+      String indexName,
+      Map<String, Object> currentMappings,
+      Map<String, Object> targetMappings,
+      boolean enableIndexMappingsReindex) {
+    return ReindexConfig.builder()
+        .name(indexName)
+        .exists(true)
+        .currentMappings(currentMappings)
+        .targetMappings(targetMappings)
+        .currentSettings(Settings.EMPTY)
+        .targetSettings(new HashMap<>())
+        .enableIndexMappingsReindex(enableIndexMappingsReindex)
+        .build();
+  }
+
+  @Test
   void testPureMappingsAddition() {
     // Arrange
     Map<String, Object> currentMappings = createBasicMappings();

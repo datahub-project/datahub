@@ -83,6 +83,28 @@ public class DocumentV3EmbeddingMappingContributorTest {
     assertTrue(contributor.extraRootProperties("primary").containsKey("embeddings"));
   }
 
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testEmbeddingsAreMappedExplicitly() {
+    Map<String, Object> embeddings =
+        (Map<String, Object>)
+            new DocumentV3EmbeddingMappingContributor(semanticConfig("document"), osShim())
+                .extraRootProperties("document")
+                .get("embeddings");
+    Map<String, Object> model =
+        (Map<String, Object>)
+            ((Map<String, Object>) embeddings.get("properties")).get("cohere_embed_v3");
+    Map<String, Object> modelFields = (Map<String, Object>) model.get("properties");
+    Map<String, Object> chunks = (Map<String, Object>) modelFields.get("chunks");
+
+    assertEquals(embeddings.get("dynamic"), false);
+    assertEquals(model.get("dynamic"), false);
+    assertEquals(chunks.get("dynamic"), false);
+    assertEquals(((Map<String, Object>) modelFields.get("modelVersion")).get("type"), "keyword");
+    assertEquals(((Map<String, Object>) modelFields.get("totalChunks")).get("type"), "integer");
+    assertEquals(((Map<String, Object>) modelFields.get("generatedAt")).get("type"), "date");
+  }
+
   private static SemanticSearchConfiguration semanticConfig(String entity) {
     SemanticSearchConfiguration config = new SemanticSearchConfiguration();
     config.setEnabled(true);

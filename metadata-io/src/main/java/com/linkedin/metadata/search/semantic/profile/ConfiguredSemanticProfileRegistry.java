@@ -67,6 +67,11 @@ public class ConfiguredSemanticProfileRegistry implements SemanticProfileRegistr
     return model != null && model.isServiceOwned();
   }
 
+  @Override
+  public boolean isConfigured(@Nonnull String entityType, @Nonnull String profileKey) {
+    return models.containsKey(profileKey);
+  }
+
   @Nonnull
   @Override
   public ContentBinding bindingFor(@Nonnull String entityType, @Nonnull String profileKey) {

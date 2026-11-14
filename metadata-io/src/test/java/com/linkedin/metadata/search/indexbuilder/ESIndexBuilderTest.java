@@ -23,6 +23,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.RefreshIntervals;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -1088,6 +1089,172 @@ public class ESIndexBuilderTest {
             any(CreateIndexRequest.class),
             any(RequestOptions.class));
     verify(searchClient).submitReindexTask(any(OperationContext.class), any(), any());
+  }
+
+  @Test
+  void testReindexInPlaceAsync_DropsProfilesMissingFromEverySource() throws Exception {
+    stubInPlaceReindex();
+    String kept = "model_a";
+    String firstOnly = "model_b";
+    String secondOnly = "model_c";
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetMappingsRequest) invocation.getArgument(1)).indices()[0];
+              if (name.endsWith("_111")) {
+                return mappingResponse(name, embeddingMappings(kept, firstOnly));
+              }
+              if (name.endsWith("_222")) {
+                return mappingResponse(name, embeddingMappings(kept, secondOnly));
+              }
+              return mappingResponse(name, embeddingMappings(kept));
+            });
+
+    indexBuilder.reindexInPlaceAsync(
+        opContext,
+        "datasetindex_v3",
+        null,
+        new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(1000, 300),
+        inPlaceReindexConfig());
+
+    ArgumentCaptor<ReindexRequest> captor = ArgumentCaptor.forClass(ReindexRequest.class);
+    verify(searchClient).submitReindexTask(any(), captor.capture(), any());
+    assertEquals(
+        captor.getValue().getScript().getParams().get("retired"), List.of(firstOnly, secondOnly));
+  }
+
+  @Test
+  void testReindexInPlaceAsync_SkipsRemovalWhenDestinationMappingsAreMissing() throws Exception {
+    stubInPlaceReindex();
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetMappingsRequest) invocation.getArgument(1)).indices()[0];
+              if (name.endsWith("_111") || name.endsWith("_222")) {
+                return mappingResponse(name, embeddingMappings("model_a"));
+              }
+              return mappingResponse(name, Map.of());
+            });
+
+    indexBuilder.reindexInPlaceAsync(
+        opContext,
+        "datasetindex_v3",
+        null,
+        new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(1000, 300),
+        inPlaceReindexConfig());
+
+    ArgumentCaptor<ReindexRequest> captor = ArgumentCaptor.forClass(ReindexRequest.class);
+    verify(searchClient).submitReindexTask(any(), captor.capture(), any());
+    assertNull(captor.getValue().getScript());
+  }
+
+  @Test
+  void testReindexInPlaceAsync_KeepsProfilesWhenSemanticSearchIsDisabled() throws Exception {
+    stubInPlaceReindex();
+    stubSemanticSearch(false);
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetMappingsRequest) invocation.getArgument(1)).indices()[0];
+              if (name.endsWith("_111") || name.endsWith("_222")) {
+                return mappingResponse(name, embeddingMappings("model_a"));
+              }
+              return mappingResponse(name, propertiesWithoutEmbeddings());
+            });
+
+    indexBuilder.reindexInPlaceAsync(
+        opContext,
+        "datasetindex_v3",
+        null,
+        new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(1000, 300),
+        inPlaceReindexConfig());
+
+    ArgumentCaptor<ReindexRequest> captor = ArgumentCaptor.forClass(ReindexRequest.class);
+    verify(searchClient).submitReindexTask(any(), captor.capture(), any());
+    assertNull(captor.getValue().getScript());
+  }
+
+  @Test
+  void testReindexInPlaceAsync_DropsEveryProfileWhenSemanticSearchStaysOnWithoutEmbeddings()
+      throws Exception {
+    stubInPlaceReindex();
+    stubSemanticSearch(true);
+    when(searchClient.getIndexMapping(any(), any(GetMappingsRequest.class), any()))
+        .thenAnswer(
+            invocation -> {
+              String name = ((GetMappingsRequest) invocation.getArgument(1)).indices()[0];
+              if (name.endsWith("_111") || name.endsWith("_222")) {
+                return mappingResponse(name, embeddingMappings("model_a", "model_b"));
+              }
+              return mappingResponse(name, propertiesWithoutEmbeddings());
+            });
+
+    indexBuilder.reindexInPlaceAsync(
+        opContext,
+        "datasetindex_v3",
+        null,
+        new com.linkedin.metadata.timeseries.BatchWriteOperationsOptions(1000, 300),
+        inPlaceReindexConfig());
+
+    ArgumentCaptor<ReindexRequest> captor = ArgumentCaptor.forClass(ReindexRequest.class);
+    verify(searchClient).submitReindexTask(any(), captor.capture(), any());
+    assertEquals(
+        captor.getValue().getScript().getParams().get("retired"), List.of("model_a", "model_b"));
+  }
+
+  private void stubSemanticSearch(boolean enabled) {
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(enabled);
+    when(elasticSearchConfiguration.getEntityIndex())
+        .thenReturn(EntityIndexConfiguration.builder().semanticSearch(semanticSearch).build());
+  }
+
+  private void stubInPlaceReindex() throws IOException {
+    GetAliasesResponse aliasesResponse = mock(GetAliasesResponse.class);
+    when(aliasesResponse.getAliases())
+        .thenReturn(
+            Map.of("datasetindex_v3_111", new HashSet<>(), "datasetindex_v3_222", new HashSet<>()));
+    when(searchClient.getIndexAliases(any(), any(GetAliasesRequest.class), any()))
+        .thenReturn(aliasesResponse);
+    CreateIndexResponse createResponse = mock(CreateIndexResponse.class);
+    when(createResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.createIndex(any(), any(CreateIndexRequest.class), any()))
+        .thenReturn(createResponse);
+    AcknowledgedResponse aliasResponse = mock(AcknowledgedResponse.class);
+    when(aliasResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexAliases(any(), any(IndicesAliasesRequest.class), any()))
+        .thenReturn(aliasResponse);
+    when(searchClient.refreshIndex(any(), any(RefreshRequest.class), any()))
+        .thenReturn(mock(org.opensearch.action.admin.indices.refresh.RefreshResponse.class));
+    GetSettingsResponse getSettingsResponse = mock(GetSettingsResponse.class);
+    when(getSettingsResponse.getSetting(anyString(), eq("index.translog.flush_threshold_size")))
+        .thenReturn("512mb");
+    when(searchClient.getIndexSettings(any(), any(GetSettingsRequest.class), any()))
+        .thenReturn(getSettingsResponse);
+    AcknowledgedResponse settingsUpdateResponse = mock(AcknowledgedResponse.class);
+    when(settingsUpdateResponse.isAcknowledged()).thenReturn(true);
+    when(searchClient.updateIndexSettings(any(), any(UpdateSettingsRequest.class), any()))
+        .thenReturn(settingsUpdateResponse);
+    when(searchClient.submitReindexTask(any(), any(), any())).thenReturn("task123");
+  }
+
+  private ReindexConfig inPlaceReindexConfig() {
+    ReindexConfig config = mock(ReindexConfig.class);
+    when(config.targetSettings()).thenReturn(new HashMap<>(Map.of("number_of_shards", 6)));
+    when(config.targetMappings()).thenReturn(createTestMappings());
+    return config;
+  }
+
+  private static Map<String, Object> propertiesWithoutEmbeddings() {
+    return Map.of("properties", Map.of("urn", Map.of("type", "keyword")));
+  }
+
+  private static Map<String, Object> embeddingMappings(String... profileKeys) {
+    Map<String, Object> profiles = new java.util.TreeMap<>();
+    for (String key : profileKeys) {
+      profiles.put(key, Map.of("properties", Map.of()));
+    }
+    return Map.of("properties", Map.of("embeddings", Map.of("properties", profiles)));
   }
 
   @Test

@@ -390,6 +390,11 @@ public class SemanticRefreshMarkerHookTest {
           }
 
           @Override
+          public boolean isConfigured(String entityType, String profileKey) {
+            return true;
+          }
+
+          @Override
           public ContentBinding bindingFor(String entityType, String profileKey) {
             return switch (profileKey) {
               case "meta" -> METADATA;

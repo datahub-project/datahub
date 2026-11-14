@@ -76,10 +76,71 @@ public class SemanticContentProfileWriteValidatorTest {
     assertFalse(messages(null, content("other", empty), false, false).isEmpty());
   }
 
+  @Test
+  public void testAnUnconfiguredProfileCannotBeAdded() {
+    assertFalse(
+        configuredMessages(null, content("retired", profile(true)), false, true, false).isEmpty());
+    assertFalse(
+        configuredMessages(null, content("retired", profile(true)), false, true, true).isEmpty());
+  }
+
+  @Test
+  public void testAStoredUnconfiguredProfileCannotChangeItsVectors() {
+    assertFalse(
+        configuredMessages(
+                content("retired", profile(false)),
+                content("retired", profile(true)),
+                false,
+                true,
+                false)
+            .isEmpty());
+  }
+
+  @Test
+  public void testAStoredUnconfiguredProfileAcceptsMarkerChanges() {
+    assertTrue(
+        configuredMessages(
+                content("retired", profile(false)),
+                content("retired", profile(false).setCurrent(false)),
+                false,
+                true,
+                false)
+            .isEmpty());
+  }
+
+  @Test
+  public void testAStoredUnconfiguredProfileCanBeRemoved() {
+    assertTrue(
+        configuredMessages(
+                content("retired", profile(true)), new SemanticContent(), false, true, false)
+            .isEmpty());
+  }
+
+  @Test
+  public void testAnUnconfiguredProfileIsAcceptedWhenNotRequired() {
+    assertTrue(
+        configuredMessages(null, content("retired", profile(true)), false, false, false).isEmpty());
+  }
+
+  @Test
+  public void testAConfiguredProfileIsUnaffected() {
+    assertTrue(
+        configuredMessages(null, content("svc", profile(true)), false, true, true).isEmpty());
+  }
+
   private static Set<String> messages(
       SemanticContent previous, SemanticContent proposed, boolean generation, boolean apply) {
+    return configuredMessages(previous, proposed, generation, false, apply);
+  }
+
+  private static Set<String> configuredMessages(
+      SemanticContent previous,
+      SemanticContent proposed,
+      boolean generation,
+      boolean requireConfigured,
+      boolean apply) {
     return SemanticContentProfileWriteValidator.violationMessages(
-        "document", previous, proposed, false, apply, registry(generation));
+        "document", previous, proposed, false, apply, requireConfigured, registry(generation));
   }
 
   private static SemanticContent content(String key, EmbeddingModelData profile) {
@@ -112,6 +173,11 @@ public class SemanticContentProfileWriteValidatorTest {
 
       @Override
       public boolean isServiceProfile(String entityType, String profileKey) {
+        return "svc".equals(profileKey);
+      }
+
+      @Override
+      public boolean isConfigured(String entityType, String profileKey) {
         return "svc".equals(profileKey);
       }
 

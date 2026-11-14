@@ -317,6 +317,11 @@ public class SemanticRefreshSideEffectTest {
               }
 
               @Override
+              public boolean isConfigured(String entityType, String profileKey) {
+                return true;
+              }
+
+              @Override
               public ContentBinding bindingFor(String entityType, String profileKey) {
                 return bindings.getOrDefault(profileKey, ContentBinding.EXTERNAL);
               }
