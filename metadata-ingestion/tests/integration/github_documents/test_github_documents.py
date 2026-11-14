@@ -8,10 +8,10 @@ import pytest
 import time_machine
 
 from datahub.ingestion.run.pipeline import Pipeline
-from datahub.ingestion.source.github_documents.github_api import GitHubFileInfo
 from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
 )
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 from datahub.testing import mce_helpers
 
 
@@ -20,12 +20,12 @@ from datahub.testing import mce_helpers
 def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) -> None:
     resources = Path(__file__).parent
     fixtures = resources / "fixtures"
-    files: List[GitHubFileInfo] = []
+    files: List[RepositoryFileInfo] = []
     for path in sorted(fixtures.rglob("*.md")):
         contents = path.read_bytes()
         blob = f"blob {len(contents)}\0".encode() + contents
         files.append(
-            GitHubFileInfo(
+            RepositoryFileInfo(
                 path=path.relative_to(fixtures).as_posix(),
                 size=len(contents),
                 sha=hashlib.sha1(blob).hexdigest(),

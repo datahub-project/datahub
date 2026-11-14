@@ -150,8 +150,9 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - Maximum file size is 1 MB per file (larger files are skipped).
 - Requires network access from the ingestion executor to `api.github.com`.
 - Binary formats are not parsed; use text/markdown files.
-- GitHub may truncate recursive tree listings for very large repositories; narrow `path_prefix` or split across sources.
-- Imports are capped by `max_files` (default 500) per run.
+- GitHub may truncate recursive tree listings for very large repositories. The run then reports a `github-tree-truncated` warning and keeps every document imported by earlier runs, so files missing from the partial listing are not removed. Narrow `path_prefix` or split across sources.
+- Imports are capped by `max_files` (default 500) per run. When more files match, the run reports a `github-files-truncated` warning and keeps every document imported by earlier runs.
+- Documents for files deleted from the repository are only removed by a run that lists the whole repository, without either warning above.
 
 ### Troubleshooting
 
@@ -159,4 +160,4 @@ Enable `stateful_ingestion.enabled: true` (recommended for scheduled syncs) to s
 - **Branch not found**: Confirm the branch exists and is spelled correctly.
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **Documents not removed after GitHub delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.
-- **Partial import on large repos**: Check ingestion report warnings for `github-tree-truncated` or `github-files-truncated`.
+- **Partial import on large repos**: Check the ingestion report for a `github-tree-truncated` or `github-files-truncated` warning.
