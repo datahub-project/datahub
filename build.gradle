@@ -989,7 +989,9 @@ subprojects {
       return
     }
     // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
-    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+    // Embedded OpenSearch must keep its classpath independent of DataHub and Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend'
+        && project.path != ':metadata-service:opensearch-embedded') {
       project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
@@ -1004,8 +1006,11 @@ subprojects {
     // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'tools.jackson.core'
-      exclude group: 'tools.jackson'
+      // OpenSearch 3.7's x-content needs Jackson 3 in its standalone process.
+      if (project.path != ':metadata-service:opensearch-embedded') {
+        exclude group: 'tools.jackson.core'
+        exclude group: 'tools.jackson'
+      }
     }
 
     dependencies {
