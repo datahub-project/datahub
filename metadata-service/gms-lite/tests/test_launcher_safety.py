@@ -246,7 +246,7 @@ class LauncherSafetyTest(unittest.TestCase):
             directory = Path(temporary)
             script = f"""
 import argparse
-import importlib.util, pathlib, signal, sys, time
+import importlib.util, os, pathlib, signal, sys, time
 sys.path.insert(0, {str(BIN_DIR)!r})
 spec = importlib.util.spec_from_file_location('stack', {str(BIN_DIR / "gms-lite-stack.py")!r})
 stack = importlib.util.module_from_spec(spec)
@@ -260,7 +260,9 @@ try:
     child = processes.start([sys.executable, '-c',
         'import subprocess, sys, time; subprocess.Popen([sys.executable, \"-c\", \"import time; time.sleep(60)\"]); time.sleep(60)'],
         dict(stack.os.environ), pathlib.Path({str(directory / "child.log")!r}))
-    pathlib.Path({str(directory / "group")!r}).write_text(str(child.pid))
+    # Write then rename so the test never reads a created-but-empty file.
+    pathlib.Path({str(directory / "group.tmp")!r}).write_text(str(child.pid))
+    os.replace({str(directory / "group.tmp")!r}, {str(directory / "group")!r})
     time.sleep(60)
 finally:
     processes.stop()
