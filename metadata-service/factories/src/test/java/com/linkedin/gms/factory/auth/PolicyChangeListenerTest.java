@@ -175,6 +175,26 @@ public class PolicyChangeListenerTest {
   }
 
   @Test
+  public void testAddedPartitionIsAssignedOnTheNextCheck() throws Exception {
+    topicWithPartitions(P0);
+    consumer.updateEndOffsets(Map.of(P0, 3L));
+    listener.step();
+
+    // An operator adds a partition. Messages keyed to it are read only after the next check.
+    topicWithPartitions(P0, P1);
+    consumer.updateEndOffsets(Map.of(P0, 3L, P1, 0L));
+    clock.millis += Duration.ofMinutes(5).toMillis();
+    assertTrue(listener.step());
+
+    assertEquals(consumer.assignment(), java.util.Set.of(P0, P1));
+    assertEquals(
+        loads.get(), 2, "positioning again loads, so nothing on the new partition is lost");
+    record(P1, 0);
+    listener.step();
+    assertEquals(loads.get(), 3);
+  }
+
+  @Test
   public void testFailedStartLoadDoesNotSeek() {
     topicWithPartitions(P0);
     consumer.updateEndOffsets(Map.of(P0, 4L));

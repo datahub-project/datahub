@@ -483,7 +483,7 @@ If search or entity pages feel slow after enabling VBAC:
 
 Policy definitions are cached in each GMS and refreshed periodically. By default, after creating or editing policies, allow up to **`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`** seconds (default **120**) before changes fully propagate.
 
-With `POLICY_CACHE_SQL_SOURCE_ENABLED=true`, policies load from the primary store instead of the search index, and the GMS that handled a policy change reloads its cache at once. Other GMS replicas still pick up the change on the refresh interval.
+With `POLICY_CACHE_SQL_SOURCE_ENABLED=true`, policies load from the primary store instead of the search index, and the GMS that handled a policy change reloads its cache at once. Other GMS replicas still pick up the change on the refresh interval, unless `POLICY_CACHE_BROADCAST_ENABLED=true`: then every GMS and MCE consumer reloads its cache when any of them changes a policy, usually within a second.
 
 See [environment variables](../deploy/environment-vars.md) for configuration.
 

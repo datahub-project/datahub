@@ -5,6 +5,7 @@ import java.time.Clock;
 import java.time.Duration;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.TimeUnit;
@@ -39,8 +40,8 @@ import org.apache.kafka.common.errors.WakeupException;
  * </ol>
  *
  * <p>Repairs: when the position is lost (for example the topic was recreated), when the topic is
- * missing, or on any other error, the listener starts again from step 1. While it cannot read the
- * topic, the cache still refreshes on its timer.
+ * missing or its partitions change (checked every 30 s), or on any other error, the listener starts
+ * again from step 1. While it cannot read the topic, the cache still refreshes on its timer.
  */
 @Slf4j
 public class PolicyChangeListener implements AutoCloseable {
@@ -55,7 +56,7 @@ public class PolicyChangeListener implements AutoCloseable {
       return new Settings(
           Duration.ofSeconds(1),
           Duration.ofSeconds(30),
-          Duration.ofMinutes(5),
+          Duration.ofSeconds(30),
           Duration.ofSeconds(90));
     }
   }
@@ -131,10 +132,23 @@ public class PolicyChangeListener implements AutoCloseable {
           if (!step()) {
             pause();
           }
-        } catch (WakeupException | InterruptException e) {
+        } catch (WakeupException e) {
           if (!running) {
             break;
           }
+        } catch (InterruptException e) {
+          if (!running) {
+            break;
+          }
+          // The Kafka client sets the interrupt flag again, so every later poll would throw at
+          // once.
+          // close() stops the listener with wakeup(), not an interrupt: clear it and start again.
+          Thread.interrupted();
+          log.warn(
+              "policy change listener was interrupted; starts again in {}",
+              settings.retryInterval());
+          positioned = false;
+          pause();
         } catch (Exception e) {
           log.warn(
               "policy change listener failed; starts again in {}", settings.retryInterval(), e);
@@ -162,7 +176,7 @@ public class PolicyChangeListener implements AutoCloseable {
    * listener cannot read now and should wait before the next step.
    */
   boolean step() throws Exception {
-    if (positioned && clock.millis() >= nextTopicCheckMillis && !topicExists()) {
+    if (positioned && clock.millis() >= nextTopicCheckMillis && !partitionsUnchanged()) {
       positioned = false;
     }
     if (!positioned && !position()) {
@@ -182,10 +196,29 @@ public class PolicyChangeListener implements AutoCloseable {
     return true;
   }
 
-  private boolean topicExists() {
+  /**
+   * False when the topic is gone or its partitions differ from the assigned ones. Then the listener
+   * positions again: it assigns all partitions and loads, so changes on added partitions are read.
+   */
+  private boolean partitionsUnchanged() {
     nextTopicCheckMillis = clock.millis() + settings.topicCheckInterval().toMillis();
     final List<PartitionInfo> partitions = consumer.partitionsFor(topic, settings.loadTimeout());
-    return partitions != null && !partitions.isEmpty();
+    if (partitions == null || partitions.isEmpty()) {
+      return false;
+    }
+    final Set<TopicPartition> current =
+        partitions.stream()
+            .map(p -> new TopicPartition(p.topic(), p.partition()))
+            .collect(Collectors.toSet());
+    if (!current.equals(consumer.assignment())) {
+      log.info(
+          "policy change topic {} partitions changed from {} to {}; loading again",
+          topic,
+          consumer.assignment().size(),
+          current.size());
+      return false;
+    }
+    return true;
   }
 
   private boolean position() throws Exception {

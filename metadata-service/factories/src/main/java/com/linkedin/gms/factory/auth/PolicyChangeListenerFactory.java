@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.PolicyChangeTopic;
+import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import java.time.Clock;
 import java.util.HashMap;
 import java.util.Map;
@@ -16,9 +17,9 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
@@ -31,10 +32,9 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 @ConditionalOnProperty(
     name = "authorization.defaultAuthorizer.changeBroadcast.enabled",
     havingValue = "true")
+// DataHubAuthorizerFactory warns at startup when the transport is not Kafka.
+@Conditional(KafkaMessagingEnabledCondition.class)
 public class PolicyChangeListenerFactory {
-
-  @Value("${datahub.messaging.transport:kafka}")
-  private String messagingTransport;
 
   @Bean(name = "policyChangeListener", destroyMethod = "close")
   @Nullable
@@ -47,10 +47,6 @@ public class PolicyChangeListenerFactory {
     // Processes without a policy cache (system-update) scan this package but have no authorizer.
     final DataHubAuthorizer authorizer = authorizerProvider.getIfAvailable();
     if (authorizer == null) {
-      return null;
-    }
-    if (!"kafka".equalsIgnoreCase(messagingTransport)) {
-      // DataHubAuthorizerFactory already warns about this at startup.
       return null;
     }
     if (!authorizer.isSqlSourceEnabled()) {
