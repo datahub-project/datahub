@@ -32,6 +32,8 @@ import com.linkedin.metadata.aspect.patch.template.dataset.EditableDatasetProper
 import com.linkedin.metadata.aspect.patch.template.dataset.EditableSchemaMetadataTemplate;
 import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTemplate;
 import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
+import com.linkedin.metadata.aspect.patch.template.ingestion.DiscoveredDataSourceDecisionTemplate;
+import com.linkedin.metadata.aspect.patch.template.ingestion.DiscoveredDataSourceEvidenceTemplate;
 import com.linkedin.metadata.aspect.patch.template.ml.EditableMLModelGroupPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.ml.MLModelPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
@@ -139,6 +141,10 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(
         STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new StructuredPropertyDefinitionTemplate());
     aspectSpecTemplateMap.put(FORM_INFO_ASPECT_NAME, new FormInfoTemplate());
+    aspectSpecTemplateMap.put(
+        DISCOVERED_DATA_SOURCE_EVIDENCE_ASPECT_NAME, new DiscoveredDataSourceEvidenceTemplate());
+    aspectSpecTemplateMap.put(
+        DISCOVERED_DATA_SOURCE_DECISION_ASPECT_NAME, new DiscoveredDataSourceDecisionTemplate());
     aspectSpecTemplateMap.put(VERSION_PROPERTIES_ASPECT_NAME, new VersionPropertiesTemplate());
     aspectSpecTemplateMap.put(SIBLINGS_ASPECT_NAME, new SiblingsTemplate());
     aspectSpecTemplateMap.put(STATUS_ASPECT_NAME, new StatusTemplate());

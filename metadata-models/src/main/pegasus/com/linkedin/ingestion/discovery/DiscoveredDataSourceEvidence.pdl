@@ -1,0 +1,15 @@
+namespace com.linkedin.ingestion.discovery
+
+/**
+ * All evidence collected for a discovered data source.
+ */
+@Aspect = {
+  "name": "discoveredDataSourceEvidence"
+}
+record DiscoveredDataSourceEvidence {
+  /**
+   * Evidence entries keyed by "{detector}:{ingestion source urn}". Each ingestion run patches only its own
+   * entries, so concurrent runs from different sources do not overwrite each other.
+   */
+  evidence: map[string, DiscoveredDataSourceEvidenceEntry] = { }
+}

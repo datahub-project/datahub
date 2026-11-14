@@ -29,6 +29,8 @@ import com.linkedin.metadata.aspect.validation.CorpUserPrivilegedFlagsValidator;
 import com.linkedin.metadata.aspect.validation.CreateIfNotExistsValidator;
 import com.linkedin.metadata.aspect.validation.DataPlatformInstanceWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.DataProductMembershipAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DiscoveredDataSourceAuthorizationValidator;
+import com.linkedin.metadata.aspect.validation.DiscoveredDataSourceValidator;
 import com.linkedin.metadata.aspect.validation.DomainPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.DomainWriteAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ExecutionRequestResultValidator;
@@ -965,6 +967,44 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(ALL)
                             .aspectName(ASSET_SETTINGS_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator discoveredDataSourceAuthorizationValidator() {
+    return new DiscoveredDataSourceAuthorizationValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DiscoveredDataSourceAuthorizationValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(AUTH_CHANGE_TYPE_OPERATIONS)
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DISCOVERED_DATA_SOURCE_ENTITY_NAME)
+                            .aspectName(ALL)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  public AspectPayloadValidator discoveredDataSourceValidator() {
+    return new DiscoveredDataSourceValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(DiscoveredDataSourceValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(List.of(CREATE, CREATE_ENTITY, UPSERT, UPDATE, PATCH, RESTATE))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DISCOVERED_DATA_SOURCE_ENTITY_NAME)
+                            .aspectName(DISCOVERED_DATA_SOURCE_DECISION_ASPECT_NAME)
+                            .build(),
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(DISCOVERED_DATA_SOURCE_ENTITY_NAME)
+                            .aspectName(DISCOVERED_DATA_SOURCE_EVIDENCE_ASPECT_NAME)
                             .build()))
                 .build());
   }

@@ -871,6 +871,17 @@ entities:
     aspects:
       - dataHubConnectionDetails
       - dataPlatformInstance
+  - name: discoveredDataSource
+    doc: >-
+      A data platform that DataHub has seen evidence of but that may not be connected yet. Used to
+      recommend new ingestion sources and to record what the customer decided.
+    category: internal
+    keyAspect: discoveredDataSourceKey
+    aspects:
+      - discoveredDataSourceInfo
+      - discoveredDataSourceEvidence
+      - discoveredDataSourceDecision
+      - status
   - name: platformResource
     doc: >-
       Platform Resources are assets that are unmodeled and stored outside of

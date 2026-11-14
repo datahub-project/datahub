@@ -1,0 +1,36 @@
+namespace com.linkedin.ingestion.discovery
+
+/**
+ * Where a discovered data source is in the recommendation lifecycle.
+ */
+enum DiscoveredDataSourceStatus {
+  /**
+   * Not yet shown to anyone, or eligible to be shown again.
+   */
+  NEW
+
+  /**
+   * Shown to the customer, waiting for an answer.
+   */
+  PRESENTED
+
+  /**
+   * The customer agreed to connect the source.
+   */
+  ACCEPTED
+
+  /**
+   * The customer declined. Shown again only if the evidence tier rises above the tier at decision.
+   */
+  DECLINED
+
+  /**
+   * The customer asked to be reminded later.
+   */
+  SNOOZED
+
+  /**
+   * An ingestion source exists for this platform.
+   */
+  CONNECTED
+}

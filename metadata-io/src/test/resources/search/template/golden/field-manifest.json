@@ -542,6 +542,9 @@
         "field" : "glossaryTerms"
       } ]
     },
+    "discoveredDataSource" : {
+      "queryFields" : [ ]
+    },
     "document" : {
       "queryFields" : [ {
         "boost" : 1.0,
