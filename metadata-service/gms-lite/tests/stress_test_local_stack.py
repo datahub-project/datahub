@@ -458,6 +458,19 @@ def degraded(directory: Path, port: int, shared: Path) -> None:
     pid = int(str(before["pid"]))
     os.kill(pid, signal.SIGSTOP)
     try:
+        started = time.monotonic()
+        status = subprocess.run(
+            [sys.executable, str(MANAGER), "status", "--dir", str(shared)],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        elapsed = time.monotonic() - started
+        assert status.returncode == 0, status.stderr
+        snapshot = json.loads(status.stdout)
+        assert snapshot["running"] and not snapshot["healthy"], snapshot
+        assert snapshot["reason"], snapshot
+        print(f"  paused status returned JSON in {elapsed:.2f}s", flush=True)
         result = subprocess.run(
             [sys.executable, str(MANAGER), "start", "--dir", str(shared)],
             env={**os.environ, "GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS": "2"},

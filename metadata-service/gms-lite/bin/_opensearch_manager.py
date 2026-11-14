@@ -26,6 +26,10 @@ REPO_ROOT = Path(__file__).resolve().parents[3]
 MAIN_CLASS = "com.linkedin.metadata.opensearch.embedded.EmbeddedOpenSearchMain"
 
 
+class OpenSearchHealthTimeout(RuntimeError):
+    """A slow shared node must remain available for its current users and recovery."""
+
+
 def default_shared_dir() -> Path:
     return Path(
         os.environ.get("GMS_LITE_OPENSEARCH_DIR", "~/.datahub/local/opensearch-3")
@@ -116,7 +120,7 @@ def delete_prefixes(port: int, prefixes: list[str]) -> None:
 
 
 class SharedOpenSearchManager:
-    READY_TIMEOUT_SECONDS = 900
+    READY_TIMEOUT_SECONDS: float = 900
 
     def __init__(self, shared_dir: Path, repo_root: Path = REPO_ROOT) -> None:
         self.shared_dir = shared_dir.expanduser().resolve()
@@ -215,26 +219,54 @@ class SharedOpenSearchManager:
                 if isinstance(reason, OSError) and reason.errno == errno.ECONNREFUSED:
                     return False
             time.sleep(min(1, max(0, deadline - time.monotonic())))
-        raise RuntimeError(
+        raise OpenSearchHealthTimeout(
             f"shared OpenSearch on port {port} did not reach yellow within {self.health_timeout_seconds:g}s; "
-            f"node left running, not replaced; see {self.log_file}"
+            f"node left running, not replaced; retry start to reuse/wait on it; see {self.log_file}"
         )
 
     def status(self) -> dict[str, object]:
         with self._lock():
             pid = self._read_number(self.pid_file)
             port = self._read_number(self.port_file)
-            running = pid is not None and self._alive(pid)
-            if running:
-                assert pid is not None
+        # Diagnostic HTTP calls must never delay start/stop while holding the lock.
+        running = pid is not None and self._alive(pid)
+        healthy = False
+        reason = "not running" if not running else "no recorded port"
+        if running:
+            assert pid is not None
+            try:
                 self._verify_identity(pid)
-            return {
-                "pid": pid,
-                "port": port,
-                "running": running,
-                "healthy": running and port is not None and self._healthy(port),
-                "stateDir": str(self.shared_dir),
-            }
+                if port is not None:
+                    root = request_json(port, "/", timeout=1)
+                    version_info = (
+                        root.get("version") if isinstance(root, dict) else None
+                    )
+                    version = (
+                        version_info.get("number", "unknown")
+                        if isinstance(version_info, dict)
+                        else "unknown"
+                    )
+                    if not str(version).startswith("3."):
+                        reason = f"expected OpenSearch 3, got {version}"
+                    else:
+                        health = request_json(port, "/_cluster/health", timeout=1)
+                        state = (
+                            health.get("status") if isinstance(health, dict) else None
+                        )
+                        healthy = state in ("yellow", "green")
+                        reason = (
+                            "" if healthy else f"cluster health: {state or 'unknown'}"
+                        )
+            except (RuntimeError, urllib.error.URLError, OSError, ValueError):
+                reason = "identity check or HTTP probe failed"
+        return {
+            "pid": pid,
+            "port": port,
+            "running": running,
+            "healthy": healthy,
+            "reason": reason,
+            "stateDir": str(self.shared_dir),
+        }
 
     def get_or_start(self) -> int:
         with self._lock():
@@ -272,23 +304,27 @@ class SharedOpenSearchManager:
                 text=True,
                 start_new_session=True,
             )
-        self.pid_file.write_text(str(process.pid))
         try:
+            self.pid_file.write_text(str(process.pid))
             deadline = time.monotonic() + self.READY_TIMEOUT_SECONDS
             with self.log_file.open() as output:
                 while time.monotonic() < deadline and process.poll() is None:
                     line = output.readline()
                     if match := re.search(r"READY (\d+)\s*$", line):
                         port = int(match.group(1))
+                        self.port_file.write_text(str(port))
                         if self._healthy(port):
-                            self.port_file.write_text(str(port))
                             return port
+                        break
                     if not line:
                         time.sleep(0.1)
             raise RuntimeError(
                 f"shared OpenSearch failed to become ready; see {self.log_file}. Data retained; repair it or choose a different --dir"
             )
-        except BaseException:
+        except BaseException as error:
+            if isinstance(error, OpenSearchHealthTimeout) and process.poll() is None:
+                # READY recorded the port; a later start can wait for recovery to finish.
+                raise
             # This handle still refers to the child we just created, including before shell exec.
             if process.poll() is None:
                 process.terminate()
@@ -299,6 +335,10 @@ class SharedOpenSearchManager:
                     process.wait(timeout=5)
             self.pid_file.unlink(missing_ok=True)
             self.port_file.unlink(missing_ok=True)
+            if isinstance(error, OpenSearchHealthTimeout):
+                raise RuntimeError(
+                    f"shared OpenSearch exited during readiness; see {self.log_file}; data retained"
+                ) from error
             raise
 
     def _stop_locked(self) -> bool:
@@ -333,6 +373,14 @@ def main() -> None:
     parser.add_argument("command", choices=["status", "start", "stop"])
     parser.add_argument("--dir", type=Path, default=default_shared_dir())
     args = parser.parse_args()
+
+    def interrupted(signum: int, frame: object) -> None:
+        signal.signal(signal.SIGTERM, signal.SIG_IGN)
+        signal.signal(signal.SIGINT, signal.SIG_IGN)
+        raise SystemExit(128 + signum)
+
+    signal.signal(signal.SIGTERM, interrupted)
+    signal.signal(signal.SIGINT, interrupted)
     manager = SharedOpenSearchManager(args.dir)
     try:
         if args.command == "status":

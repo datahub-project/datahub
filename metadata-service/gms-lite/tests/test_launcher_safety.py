@@ -5,10 +5,13 @@ from __future__ import annotations
 import argparse
 import base64
 import errno
+import fcntl
 import importlib.util
+import io
 import json
 import multiprocessing
 import os
+import re
 import signal
 import socket
 import subprocess
@@ -21,14 +24,18 @@ from itertools import count
 from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import TextIO
-from unittest.mock import patch
+from unittest.mock import Mock, patch
 
 BIN_DIR = Path(__file__).resolve().parents[1] / "bin"
 sys.path.insert(0, str(BIN_DIR))
 from _opensearch_manager import (  # noqa: E402
+    OpenSearchHealthTimeout,
     SharedOpenSearchManager,
     delete_prefixes,
     wait_for_ready,
+)
+from _opensearch_manager import (  # noqa: E402
+    main as manager_main,
 )
 from _system_update_checker import SystemUpdateChecker  # noqa: E402
 
@@ -98,7 +105,12 @@ class LauncherSafetyTest(unittest.TestCase):
                 + "ELASTICSEARCH_HOST=other\nELASTICSEARCH_PORT=1\n"
             )
             with patch.dict(
-                os.environ, {key: "inherited" for key in stack.SEARCH_CONNECTION_ENV}
+                os.environ,
+                {
+                    **{key: "inherited" for key in stack.SEARCH_CONNECTION_ENV},
+                    "ELASTICSEARCH_HOST": "other",
+                    "ELASTICSEARCH_PORT": "1",
+                },
             ):
                 inherited = stack.instance_env(
                     {},
@@ -134,6 +146,10 @@ class LauncherSafetyTest(unittest.TestCase):
                     self.assertEqual(effective[key], expected, key)
                 self.assertEqual(effective["ELASTICSEARCH_URI"], "")
                 self.assertEqual(effective["ELASTICSEARCH_USERNAME"], "")
+                self.assertEqual(effective["ELASTICSEARCH_CLUSTERS_PRIMARY_URI"], "")
+                self.assertEqual(
+                    effective["ELASTICSEARCH_CLUSTERS_PRIMARY_USERNAME"], ""
+                )
                 self.assertEqual(effective["ELASTICSEARCH_HOST"], "localhost")
                 self.assertEqual(effective["ELASTICSEARCH_PORT"], "9200")
             self.assertNotEqual(env["INDEX_PREFIX"], other["INDEX_PREFIX"])
@@ -175,6 +191,43 @@ class LauncherSafetyTest(unittest.TestCase):
                     self.assertEqual(upgrade_env["EBEAN_AUTOCREATE"], "false")
                     for key, expected_value in stack.SEARCH_CONNECTION_ENV.items():
                         self.assertEqual(upgrade_env[key], expected_value, key)
+
+    def test_search_override_paths_match_shipped_yaml(self) -> None:
+        yaml = (
+            BIN_DIR.parents[2]
+            / "metadata-service/configuration/src/main/resources/application.yaml"
+        )
+        placeholders = {
+            name
+            for names, _ in stack.SEARCH_CONNECTION_PROPERTIES.values()
+            for name in names
+        }
+        found: dict[str, tuple[str, ...]] = {}
+        parents: list[tuple[int, str]] = []
+        # Only mapping entries are needed for these properties; avoid a runtime YAML dependency.
+        for line in yaml.read_text().splitlines():
+            match = re.match(r"^(\s*)([\w-]+):(?:\s|$)(.*)", line)
+            if not match:
+                continue
+            indent, key, value = match.groups()
+            while parents and parents[-1][0] >= len(indent):
+                parents.pop()
+            parents.append((len(indent), key))
+            names = tuple(re.findall(r"\$\{([A-Z_0-9]+):", value))
+            if placeholders.intersection(names):
+                found[".".join(key for _, key in parents)] = names
+        expected = {
+            path: names
+            for path, (names, _) in stack.SEARCH_CONNECTION_PROPERTIES.items()
+        }
+        self.assertEqual(found, expected)
+        self.assertEqual(
+            stack.spring_env_name("spring.main.log-startup-info"),
+            "SPRING_MAIN_LOGSTARTUPINFO",
+        )
+        self.assertEqual(
+            stack.spring_env_name("my.service[0].other"), "MY_SERVICE_0_OTHER"
+        )
 
     def test_live_directory_refuses_fresh_and_stale_discovery_is_removed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -418,6 +471,128 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                         action()
                 kill.assert_not_called()
             self.assertEqual(manager.pid_file.read_text(), str(os.getpid()))
+
+    def test_new_node_timeout_preserves_state_and_startup_failures_clean_up(
+        self,
+    ) -> None:
+        for outcome in (
+            "timeout",
+            "early_exit",
+            "no_ready",
+            "wrong_version",
+            "interrupt",
+        ):
+            with (
+                self.subTest(outcome=outcome),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                root = Path(temporary)
+                script = (
+                    root
+                    / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded"
+                )
+                script.parent.mkdir(parents=True)
+                script.write_text("#!/bin/sh\n")
+                script.chmod(0o700)
+                state = root / "state"
+                state.mkdir()
+                manager = SharedOpenSearchManager(state, root)
+                manager.health_timeout_seconds = 0.1
+                manager.READY_TIMEOUT_SECONDS = 0.1
+                version = "2.19.1" if outcome == "wrong_version" else "3.6.0"
+
+                def launch(*args: object, **kwargs: object) -> object:
+                    # Simulate the child writing READY through the actual log descriptor.
+                    if outcome not in ("early_exit", "no_ready"):
+                        manager.log_file.write_text("[INFO ][stdout] READY 12345\n")
+                    return child
+
+                with (
+                    patch(
+                        "_opensearch_manager.subprocess.Popen", side_effect=launch
+                    ) as start,
+                    patch(
+                        "_opensearch_manager.request_json",
+                        side_effect=[
+                            {"version": {"number": version}},
+                            {"status": "red"},
+                        ],
+                    ),
+                ):
+                    child = Mock(pid=123)
+                    child.poll.return_value = 1 if outcome == "early_exit" else None
+                    if outcome == "interrupt":
+                        health_patch = patch.object(
+                            manager, "_healthy", side_effect=KeyboardInterrupt
+                        )
+                    else:
+                        health_patch = patch.object(manager, "_verify_identity")
+                    with health_patch:
+                        with self.assertRaises(
+                            (RuntimeError, KeyboardInterrupt)
+                        ) as raised:
+                            manager.get_or_start()
+                    start.assert_called_once()
+                    if outcome == "timeout":
+                        self.assertIsInstance(raised.exception, OpenSearchHealthTimeout)
+                        self.assertIn("node left running", str(raised.exception))
+                        child.terminate.assert_not_called()
+                        self.assertEqual(manager.pid_file.read_text(), "123")
+                        self.assertEqual(manager.port_file.read_text(), "12345")
+                        with (
+                            patch.object(manager, "_alive", return_value=True),
+                            patch.object(manager, "_verify_identity"),
+                            patch.object(manager, "_healthy", return_value=True),
+                        ):
+                            self.assertEqual(manager.get_or_start(), 12345)
+                        start.assert_called_once()
+                    else:
+                        self.assertEqual(
+                            child.terminate.call_count, int(outcome != "early_exit")
+                        )
+                        self.assertFalse(manager.pid_file.exists())
+                        self.assertFalse(manager.port_file.exists())
+
+    def test_status_is_quick_json_and_probes_outside_lock(self) -> None:
+        for response in ({"status": "red"}, TimeoutError("paused")):
+            with (
+                self.subTest(response=response),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                manager = SharedOpenSearchManager(Path(temporary))
+                manager.pid_file.write_text("123")
+                manager.port_file.write_text("12345")
+
+                def probe(port: int, path: str, *, timeout: float) -> object:
+                    self.assertLessEqual(timeout, 1)
+                    with (manager.shared_dir / "startup.lock").open("a") as lock:
+                        fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+                    self.assertNotIn("wait_for_status", path)
+                    if isinstance(response, Exception):
+                        raise response
+                    return {"version": {"number": "3.6.0"}} if path == "/" else response
+
+                with (
+                    patch.object(manager, "_alive", return_value=True),
+                    patch.object(manager, "_verify_identity"),
+                    patch("_opensearch_manager.request_json", side_effect=probe),
+                    patch(
+                        "_opensearch_manager.SharedOpenSearchManager",
+                        return_value=manager,
+                    ),
+                    patch("_opensearch_manager.signal.signal"),
+                    patch.object(
+                        sys, "argv", ["manager", "status", "--dir", temporary]
+                    ),
+                    patch("sys.stdout", new_callable=io.StringIO) as output,
+                ):
+                    started = time.monotonic()
+                    manager_main()
+                    self.assertLess(time.monotonic() - started, 1)
+                    status = json.loads(output.getvalue())
+                    self.assertTrue(status["running"])
+                    self.assertFalse(status["healthy"])
+                    self.assertTrue(status["reason"])
 
     def test_other_major_is_refused_before_replacement(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

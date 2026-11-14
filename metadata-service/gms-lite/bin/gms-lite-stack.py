@@ -16,6 +16,7 @@ import fcntl
 import hashlib
 import json
 import os
+import re
 import secrets
 import shlex
 import shutil
@@ -289,79 +290,138 @@ def start_opensearch(
     return bound
 
 
+def spring_env_name(path: str) -> str:
+    """Map a YAML property path to Spring Boot's environment variable spelling."""
+    indexed = re.sub(r"\[(\d+)\]", r"_\1_", path)
+    return indexed.replace(".", "_").replace("-", "").upper().replace("__", "_")
+
+
+# Paths mirror application.yaml; camel-case segments become one word in env names.
+SEARCH_CONNECTION_PROPERTIES: dict[str, tuple[tuple[str, ...], str]] = {
+    "elasticsearch.pathPrefix": (("ELASTICSEARCH_PATH_PREFIX",), ""),
+    "elasticsearch.useSSL": (("ELASTICSEARCH_USE_SSL",), "false"),
+    "postgres.pgCron.iam.awsRegion": (("AWS_REGION",), ""),
+    **{
+        f"elasticsearch.clusters.{cluster}.{field}": (
+            (
+                placeholder
+                if cluster == "primary"
+                else "ELASTICSEARCH_CLUSTERS_SECONDARY_" + suffix,
+            ),
+            value,
+        )
+        for cluster in ("primary", "secondary")
+        for field, placeholder, suffix, value in (
+            ("uri", "ELASTICSEARCH_URI", "URI", ""),
+            ("username", "ELASTICSEARCH_USERNAME", "USERNAME", ""),
+            ("password", "ELASTICSEARCH_PASSWORD", "PASSWORD", ""),
+            ("region", "AWS_REGION", "REGION", ""),
+            (
+                "opensearchUseAwsIamAuth",
+                "OPENSEARCH_USE_AWS_IAM_AUTH",
+                "OPENSEARCH_USE_AWS_IAM_AUTH",
+                "false",
+            ),
+        )
+    },
+    **{
+        f"elasticsearch.clusters.{cluster}.sslContext.{field}": (
+            (
+                (
+                    "ELASTICSEARCH_"
+                    if cluster == "primary"
+                    else "ELASTICSEARCH_CLUSTERS_SECONDARY_"
+                )
+                + "SSL_"
+                + suffix,
+            ),
+            "",
+        )
+        for cluster in ("primary", "secondary")
+        for field, suffix in (
+            ("protocol", "PROTOCOL"),
+            ("secureRandomImplementation", "SECURE_RANDOM_IMPL"),
+            ("trustStoreFile", "TRUSTSTORE_FILE"),
+            ("trustStoreType", "TRUSTSTORE_TYPE"),
+            ("trustStorePassword", "TRUSTSTORE_PASSWORD"),
+            ("keyStoreFile", "KEYSTORE_FILE"),
+            ("keyStoreType", "KEYSTORE_TYPE"),
+            ("keyStorePassword", "KEYSTORE_PASSWORD"),
+            ("keyPassword", "KEY_PASSWORD"),
+        )
+    },
+    **{
+        f"elasticsearch.clusters.{cluster}.proxy.{field}": (
+            (f"ELASTICSEARCH_CLUSTERS_{cluster.upper()}_PROXY_{field.upper()}",)
+            + (
+                (f"ELASTICSEARCH_PROXY_{field.upper()}",)
+                if cluster == "primary"
+                else ()
+            ),
+            value,
+        )
+        for cluster in ("primary", "secondary")
+        for field, value in (
+            ("host", ""),
+            ("port", ""),
+            ("scheme", "http"),
+            ("username", ""),
+            ("password", ""),
+        )
+    },
+    **{
+        f"elasticsearch.clusters.{cluster}.{field}": (
+            (f"ELASTICSEARCH_CLUSTERS_{cluster.upper()}_{suffix}",),
+            value,
+        )
+        for cluster in ("primary", "secondary")
+        for field, suffix, value in (
+            (
+                "proxy.useSystemProxyProperties",
+                "PROXY_USE_SYSTEM_PROXY_PROPERTIES",
+                "false",
+            ),
+            ("index.prefix", "INDEX_PREFIX", ""),
+        )
+    },
+    **{
+        f"elasticsearch.componentCluster.{field}": (
+            ("ELASTICSEARCH_COMPONENT_CLUSTER_" + suffix,),
+            "primary",
+        )
+        for field, suffix in (
+            ("searchV2", "SEARCH_V2"),
+            ("searchV3", "SEARCH_V3"),
+            ("semantic", "SEMANTIC"),
+            ("graph", "GRAPH"),
+            ("timeseries", "TIMESERIES"),
+            ("systemMetadata", "SYSTEM_METADATA"),
+            ("usage", "USAGE"),
+        )
+    },
+    **{
+        f"elasticsearch.clusterMigration.{family}.{field}": (
+            (f"ELASTICSEARCH_CLUSTER_MIGRATION_{suffix}_{key}",),
+            "",
+        )
+        for family, suffix in (
+            ("graph", "GRAPH"),
+            ("timeseries", "TIMESERIES"),
+            ("systemMetadata", "SYSTEM_METADATA"),
+            ("usage", "USAGE"),
+        )
+        for field, key in (
+            ("targetCluster", "TARGET_CLUSTER"),
+            ("copy.remote.host", "COPY_REMOTE_HOST"),
+            ("copy.remote.username", "COPY_REMOTE_USERNAME"),
+            ("copy.remote.password", "COPY_REMOTE_PASSWORD"),
+        )
+    },
+}
 SEARCH_CONNECTION_ENV: dict[str, str] = {
-    "ELASTICSEARCH_URI": "",
-    "ELASTICSEARCH_CLUSTERS_SECONDARY_URI": "",
-    "ELASTICSEARCH_USERNAME": "",
-    "ELASTICSEARCH_PASSWORD": "",
-    "ELASTICSEARCH_PATH_PREFIX": "",
-    "ELASTICSEARCH_USE_SSL": "false",
-    "OPENSEARCH_USE_AWS_IAM_AUTH": "false",
-    "AWS_REGION": "",
-    "ELASTICSEARCH_CLUSTERS_SECONDARY_USERNAME": "",
-    "ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD": "",
-    "ELASTICSEARCH_CLUSTERS_SECONDARY_OPENSEARCH_USE_AWS_IAM_AUTH": "false",
-    "ELASTICSEARCH_CLUSTERS_SECONDARY_REGION": "",
-    **{
-        prefix + suffix: ""
-        for prefix in ("ELASTICSEARCH_", "ELASTICSEARCH_CLUSTERS_SECONDARY_")
-        for suffix in (
-            "SSL_PROTOCOL",
-            "SSL_SECURE_RANDOM_IMPL",
-            "SSL_TRUSTSTORE_FILE",
-            "SSL_TRUSTSTORE_TYPE",
-            "SSL_TRUSTSTORE_PASSWORD",
-            "SSL_KEYSTORE_FILE",
-            "SSL_KEYSTORE_TYPE",
-            "SSL_KEYSTORE_PASSWORD",
-            "SSL_KEY_PASSWORD",
-        )
-    },
-    **{
-        prefix + "PROXY_" + suffix: value
-        for prefix in (
-            "ELASTICSEARCH_",
-            "ELASTICSEARCH_CLUSTERS_PRIMARY_",
-            "ELASTICSEARCH_CLUSTERS_SECONDARY_",
-        )
-        for suffix, value in (
-            ("HOST", ""),
-            ("PORT", ""),
-            ("SCHEME", "http"),
-            ("USERNAME", ""),
-            ("PASSWORD", ""),
-        )
-    },
-    **{
-        f"ELASTICSEARCH_CLUSTERS_{cluster}_PROXY_USE_SYSTEM_PROXY_PROPERTIES": "false"
-        for cluster in ("PRIMARY", "SECONDARY")
-    },
-    **{
-        f"ELASTICSEARCH_CLUSTERS_{cluster}_INDEX_PREFIX": ""
-        for cluster in ("PRIMARY", "SECONDARY")
-    },
-    **{
-        "ELASTICSEARCH_COMPONENT_CLUSTER_" + component: "primary"
-        for component in (
-            "SEARCH_V2",
-            "SEARCH_V3",
-            "SEMANTIC",
-            "GRAPH",
-            "TIMESERIES",
-            "SYSTEM_METADATA",
-            "USAGE",
-        )
-    },
-    **{
-        f"ELASTICSEARCH_CLUSTER_MIGRATION_{family}_{suffix}": ""
-        for family in ("GRAPH", "TIMESERIES", "SYSTEM_METADATA", "USAGE")
-        for suffix in (
-            "TARGET_CLUSTER",
-            "COPY_REMOTE_HOST",
-            "COPY_REMOTE_USERNAME",
-            "COPY_REMOTE_PASSWORD",
-        )
-    },
+    name: value
+    for path, (placeholders, value) in SEARCH_CONNECTION_PROPERTIES.items()
+    for name in (*placeholders, spring_env_name(path))
 }
 
 
