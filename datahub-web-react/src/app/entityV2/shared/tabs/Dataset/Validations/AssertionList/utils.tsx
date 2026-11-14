@@ -236,6 +236,9 @@ const buildFilterOptions = (
     Object.entries(value).forEach(([name, count]) => {
         let displayName =
             displayNames[name] || (key === 'type' ? getAssertionGroupName(name) : getStatusGroupDisplayName(name));
+        if (key === 'category') {
+            displayName = name;
+        }
         if (key === 'source') {
             displayName = RECOMMENDED_FILTER_NAME_MAP[name];
         }
@@ -632,7 +635,7 @@ export const buildAssertionUrlSearch = ({
     if (type) {
         params.set('assertion_type', type);
     }
-    if (customType !== undefined) {
+    if (customType) {
         params.set('assertion_custom_type', customType);
     } else if (type) {
         params.delete('assertion_custom_type');

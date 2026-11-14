@@ -201,6 +201,25 @@ describe('custom category navigation', () => {
         expect(params.get('assertion_status')).toBe(AssertionResultType.Failure);
     });
 
+    it('omits an empty custom category from the destination URL', () => {
+        const params = new URLSearchParams(buildAssertionUrlSearch({ type: AssertionType.Custom, customType: '' }));
+        expect(params.has('assertion_custom_type')).toBe(false);
+        expect(params.get('assertion_type')).toBe(AssertionType.Custom);
+    });
+
+    it('keeps a category named SUCCESS distinct from the Passing status label', () => {
+        const options = extractFilterOptionsFromFacets([], [
+            { field: ASSERTION_CUSTOM_TYPE_FILTER_NAME, aggregations: [{ value: 'SUCCESS', count: 2 }] },
+            { field: ASSERTION_STATUS_FILTER_NAME, aggregations: [{ value: 'PASSING', count: 3 }] },
+        ] as FacetMetadata[]);
+        expect(options.filterGroupOptions.category).toEqual([
+            { name: 'SUCCESS', category: 'category', count: 2, displayName: 'SUCCESS' },
+        ]);
+        expect(options.filterGroupOptions.status).toContainEqual(
+            expect.objectContaining({ name: 'SUCCESS', displayName: 'Passing', count: 3 }),
+        );
+    });
+
     it('combines the category with the type, column, and status server filters', () => {
         const filters = buildAssertionListFilters(
             {
