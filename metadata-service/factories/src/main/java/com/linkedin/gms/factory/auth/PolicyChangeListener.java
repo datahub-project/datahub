@@ -40,8 +40,9 @@ import org.apache.kafka.common.errors.WakeupException;
  * </ol>
  *
  * <p>Repairs: when the position is lost (for example the topic was recreated), when the topic is
- * missing or its partitions change (checked every 30 s), or on any other error, the listener starts
- * again from step 1. While it cannot read the topic, the cache still refreshes on its timer.
+ * missing or its partitions change (checked every 30 s, from client metadata that is at most 30 s
+ * old), or on any other error, the listener starts again from step 1. While it cannot read the
+ * topic, the cache still refreshes on its timer.
  */
 @Slf4j
 public class PolicyChangeListener implements AutoCloseable {
@@ -60,6 +61,8 @@ public class PolicyChangeListener implements AutoCloseable {
           Duration.ofSeconds(90));
     }
   }
+
+  private static final Duration TOPIC_CHECK_TIMEOUT = Duration.ofSeconds(10);
 
   private final Consumer<byte[], byte[]> consumer;
   private final String topic;
@@ -157,7 +160,18 @@ public class PolicyChangeListener implements AutoCloseable {
         }
       }
     } finally {
-      consumer.close();
+      // An interrupt that ended the loop would make close() throw; clear it, close, then restore
+      // it.
+      final boolean interrupted = Thread.interrupted();
+      try {
+        consumer.close();
+      } catch (RuntimeException e) {
+        log.warn("policy change listener could not close its consumer", e);
+      } finally {
+        if (interrupted) {
+          Thread.currentThread().interrupt();
+        }
+      }
       log.info("policy change listener stopped");
     }
   }
@@ -202,7 +216,9 @@ public class PolicyChangeListener implements AutoCloseable {
    */
   private boolean partitionsUnchanged() {
     nextTopicCheckMillis = clock.millis() + settings.topicCheckInterval().toMillis();
-    final List<PartitionInfo> partitions = consumer.partitionsFor(topic, settings.loadTimeout());
+    // This runs on the poll thread, so use a short timeout: a slow broker must not stop polling
+    // for long. A timeout throws, and the run loop starts again.
+    final List<PartitionInfo> partitions = consumer.partitionsFor(topic, TOPIC_CHECK_TIMEOUT);
     if (partitions == null || partitions.isEmpty()) {
       return false;
     }

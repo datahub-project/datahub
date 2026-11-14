@@ -227,5 +227,6 @@ public class PolicyChangeListenerTest {
     assertEquals(
         props.get(ConsumerConfig.VALUE_DESERIALIZER_CLASS_CONFIG), ByteArrayDeserializer.class);
     assertEquals(props.get(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG), "broker:9092");
+    assertEquals(props.get(ConsumerConfig.METADATA_MAX_AGE_CONFIG), 30_000);
   }
 }
