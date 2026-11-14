@@ -1,5 +1,6 @@
 package com.linkedin.metadata.timeline.eventgenerator;
 
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.Map;
@@ -28,5 +29,10 @@ public class EntityChangeEventGeneratorRegistry {
       @Nonnull final String aspectName) {
     final String key = Objects.requireNonNull(aspectName);
     return this.entityChangeEventGenerators.getOrDefault(key, new HashSet<>());
+  }
+
+  /** Returns the names of all aspects that have at least one registered generator. */
+  public Set<String> getRegisteredAspectNames() {
+    return Collections.unmodifiableSet(entityChangeEventGenerators.keySet());
   }
 }
