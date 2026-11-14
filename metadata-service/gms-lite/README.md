@@ -10,16 +10,41 @@ python3 metadata-service/gms-lite/bin/gms-lite-stack.py
 ```
 
 The launcher builds the GMS and upgrade jars plus the embedded OpenSearch
-`installDist`, starts OpenSearch, then runs `datahub-upgrade.jar -u SystemUpdate`
+`installDist`, gets or starts the shared OpenSearch node, then runs `datahub-upgrade.jar -u SystemUpdate`
 and `-u RestoreIndices` for each new instance. Upgrade processes run serially to
 limit memory use. GMS processes start after bootstrap finishes. Readiness requires
 HTTP health and, when authentication is enabled, the bootstrap user's policies.
 
 Use `--skip-build` after building those artifacts. `--heap 1g` sets each
-GMS/upgrade heap cap. OpenSearch defaults to 4 GB; set `EMBEDDED_OPENSEARCH_HEAP`
-when **building** its distribution to change that cap. Its transport port is
-ephemeral. Its HTTP port is also ephemeral unless `--opensearch-port` is supplied.
-That option starts an owned node on the requested port; occupied ports are refused.
+GMS/upgrade heap cap. One OpenSearch JVM, with a 4 GB default heap, serves all
+local stacks. Set `EMBEDDED_OPENSEARCH_HEAP` when **building** its distribution
+to change that cap, then stop and start the shared node to apply it:
+
+```bash
+EMBEDDED_OPENSEARCH_HEAP=6g ./gradlew :metadata-service:opensearch-embedded:installDist
+python3 metadata-service/gms-lite/bin/_opensearch_manager.py stop
+python3 metadata-service/gms-lite/bin/_opensearch_manager.py start
+```
+
+The shared node keeps its data, logs, `port`, `pid`, and `startup.lock` under
+`~/.datahub/local/opensearch-3/`. This versioned directory separates major
+versions because OpenSearch data directories are not portable across major
+versions. Override it with `--shared-opensearch-dir /path/to/state` on the
+launcher or `GMS_LITE_OPENSEARCH_DIR` for both entry points. Manager commands
+accept `--dir /path/to/state`. Always use the same directory to manage a node.
+
+The manager serializes start/stop with an exclusive file lock, verifies process
+identity before signalling, and reuses only a healthy OpenSearch 3.x node.
+A dead or unhealthy node is replaced while retaining its data; a different major
+version is refused. If retained data cannot recover, startup fails with the log
+location; choose a different state directory or repair the data explicitly.
+There is no automatic deletion of other stacks' indices.
+
+Both HTTP and transport ports are ephemeral. Use `--private-opensearch` for a
+node owned by this stack, with data under `<data-dir>/opensearch/`, that stops
+with the launcher. Supplying `--opensearch-port N` also selects private mode
+(`0` means ephemeral); occupied ports are refused. Private mode is useful for
+CI and self-contained runs.
 
 ```bash
 python3 metadata-service/gms-lite/bin/gms-lite-stack.py \
@@ -30,8 +55,18 @@ python3 metadata-service/gms-lite/bin/gms-lite-stack.py \
 own H2 file, queue spool, object-storage directory, HTTP port, and index prefix.
 Prefixes include a hash of the absolute data-directory path and the instance
 name, avoiding collisions between identically named directories. Instances share
-one OpenSearch node but never an index. All service processes belong to this
-launcher run; stopping the launcher stops its node too.
+one OpenSearch node but never an index. By default the shared node runs in its
+own session and outlives every launcher that uses it; stopping one stack leaves
+other stacks running. The launcher prints the command to stop the shared node:
+
+```bash
+python3 metadata-service/gms-lite/bin/_opensearch_manager.py status
+python3 metadata-service/gms-lite/bin/_opensearch_manager.py stop
+```
+
+Stopping the shared node interrupts search for every stack using it. Stop stacks
+first. The manager sends SIGTERM, waits for shutdown, and uses SIGKILL only if
+necessary. `start` can also prewarm the node without starting GMS.
 
 An optional `--env-file /path/to/overrides.env` accepts literal `KEY=VALUE` lines,
 optional `export ` prefixes, quoted values, and whole-line comments. There is no
@@ -50,6 +85,7 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
 {
   "bootId": "unique-random-id-for-this-start",
   "opensearchPort": 54321,
+  "opensearchShared": true,
   "default": "gms-0",
   "instances": {
     "gms-0": "http://localhost:18090",
@@ -67,6 +103,7 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
 }
 ```
 
+`opensearchShared` says whether stopping this launcher leaves the node running.
 `default` is a key in `instances`. `indexPrefixes` contains the configured
 `INDEX_PREFIX` values; GMS appends an underscore before index names. `bootId`
 changes on every start. `adminTokens` contains a one-day personal token for the
@@ -90,22 +127,28 @@ reused on restart. Neither credentials nor tokens are printed to stdout.
 
 ## Persistence and recovery
 
-Stop with Ctrl-C or SIGTERM to the launcher PID. It stops GMS before OpenSearch,
-waits for JVM shutdown, and kills remaining children in their owned process
-groups if they do not exit. The spool is saved during orderly JVM shutdown;
+Stop with Ctrl-C or SIGTERM to the launcher PID. It stops GMS and active upgrade
+processes, waits for JVM shutdown, and kills remaining children in their owned
+process groups if they do not exit. Shared OpenSearch stays up. In private mode,
+GMS stops before the owned OpenSearch node. The spool is saved during orderly JVM shutdown;
 SIGKILL or power loss can lose queued events. This is a local development stack.
 
-Restart with the same absolute data-directory path. H2, OpenSearch, credentials,
+Restart with the same absolute data-directory path. H2, search indices, credentials,
 and queue snapshots persist. A `gms-N/system-update-done` marker is written only
 after both upgrade commands succeed. Existing H2 tables are never recreated on a
 retry. Remove this marker to rerun upgrades after changing bootstrap code. If
-OpenSearch data is missing, upgrades run again to restore search from H2.
+this instance's search indices are missing, upgrades run again to restore search
+from H2, including when the shared node's indices were removed separately.
 
 An exclusive lock prevents concurrent launchers from using the same data
 directory, including with `--fresh`. Old `stack.json` files are removed under that
 lock before startup; the discovery file is removed again on exit. `--fresh`
 clears only a directory previously marked as belonging to this launcher (or an
-empty directory). Do not move an active data directory or remove its sibling
+empty directory). With shared OpenSearch it also deletes the exact index prefixes
+of this stack's current and previously persisted instances, followed by `_`,
+including matching aliases, data streams, and templates. Names are enumerated
+before deletion; no wildcard DELETE is sent. Other prefixes are preserved.
+Without `--fresh`, the same prefixes and data are reused. Do not move an active data directory or remove its sibling
 `.gms-lite.lock` file. The launcher never removes H2/OpenSearch lock files or
 reclaims other processes' ports. Startup errors retain data and logs for diagnosis.
 
@@ -121,20 +164,26 @@ Semantic search remains disabled by default; the launcher does not request k-NN.
 ./gradlew :metadata-service:gms-lite:check
 ./gradlew :metadata-ingestion:lintFix
 ./gradlew :metadata-service:gms-lite:stressTest
+# New results directory (previous results are otherwise resumed):
+./gradlew :metadata-service:gms-lite:stressTest -PstressDataDir=/tmp/gms-lite-check
 # Select cases:
 ./gradlew :metadata-service:gms-lite:stressTest -PstressTests="persistence parallel stale"
 # Or build and verify with a fresh temporary results directory:
 metadata-service/gms-lite/bin/verify-stack.sh
 ```
 
-`launcherSafetyTest` runs six fast, offline tests and is part of `check`. The
+`launcherSafetyTest` runs fast, offline safety tests and is part of `check`. The
 module's `lint` and `lintFix` Gradle tasks use the repository's pinned Python tool
 and `ruff.toml`; `check` includes `lint`. A repository pre-commit hook runs the
 module's `lintFix` task for Python/config changes.
 
 The opt-in stress suite checks authenticated ingest/read/search, H2 and spool
-restart persistence, parallel instance isolation, SIGTERM of the launcher or its
-process group, closed ports, and stale discovery recovery. Each case's verdict
+restart persistence, same-PID warm starts, parallel instance isolation, concurrent
+cold launches of two separate stacks, replacement of dead and unresponsive nodes,
+private-node shutdown, prefix-scoped `--fresh`, restoration of missing search
+indices, SIGTERM during upgrades, closed owned ports, stale discovery recovery,
+and explicit manager shutdown. It always uses a temporary shared state directory
+and stops that node in teardown, including after failures. Each case's verdict
 is appended and flushed immediately to `build/stress/results.jsonl`. Re-running
 skips already recorded cases, including failures; use a new `--data-dir` or remove
 that results file to rerun them. Results and service logs are retained on failure.
