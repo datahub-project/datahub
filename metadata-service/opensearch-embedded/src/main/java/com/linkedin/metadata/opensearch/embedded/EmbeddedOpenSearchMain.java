@@ -5,6 +5,8 @@ import java.net.ServerSocket;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.atomic.AtomicBoolean;
 import org.codelibs.opensearch.runner.OpenSearchRunner;
@@ -79,9 +81,13 @@ public final class EmbeddedOpenSearchMain {
             .basePath(base.toString())
             .numOfNode(1)
             .clusterName(clusterName);
+    List<String> plugins = new ArrayList<>();
+    // Production GMS uses zstd_no_dict for ordinary indices.
+    plugins.add("org.opensearch.index.codec.customcodecs.CustomCodecPlugin");
     if (Boolean.parseBoolean(System.getenv().getOrDefault("OPENSEARCH_KNN_ENABLED", "false"))) {
-      configs.pluginTypes("org.opensearch.knn.plugin.KNNPlugin");
+      plugins.add("org.opensearch.knn.plugin.KNNPlugin");
     }
+    configs.pluginTypes(String.join(",", plugins));
     start(runner, configs, httpPort, () -> awaitYellow(runner));
   }
 
