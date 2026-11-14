@@ -1195,6 +1195,22 @@ public class EbeanEntityServiceTest
             .setState("ACTIVE")
             .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
             .setActors(new DataHubActorFilter().setAllUsers(true));
+    // Records whether the policy was already written when the other item was queued.
+    java.util.concurrent.atomic.AtomicReference<Boolean> policyWrittenWhenQueued =
+        new java.util.concurrent.atomic.AtomicReference<>();
+    doAnswer(
+            inv -> {
+              policyWrittenWhenQueued.set(
+                  _entityServiceImpl.getLatestAspect(
+                          opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME)
+                      != null);
+              return java.util.concurrent.CompletableFuture.completedFuture(null);
+            })
+        .when(_mockProducer)
+        .produceMetadataChangeProposal(
+            any(OperationContext.class),
+            eq(userUrn),
+            any(com.linkedin.metadata.aspect.batch.MCPItem.class));
 
     List<IngestResult> results =
         _entityServiceImpl.ingestProposal(
@@ -1217,6 +1233,8 @@ public class EbeanEntityServiceTest
             any(OperationContext.class),
             eq(userUrn),
             any(com.linkedin.metadata.aspect.batch.MCPItem.class));
+    // The other item is queued before the policy write, so a failed policy write cannot drop it.
+    assertEquals(policyWrittenWhenQueued.get(), Boolean.FALSE);
     // Results keep the input order. A new policy can add a result for its key aspect, so compare
     // the order of the entities, not the exact list.
     assertEquals(

@@ -1562,8 +1562,9 @@ kafka:
     policyChange:
       name: ${POLICY_CHANGE_TOPIC_NAME:PolicyChange_v1}
       displayName: PolicyChange_v1
-      # Created and used only with POLICY_CACHE_BROADCAST_ENABLED=true.
-      enabled: ${POLICY_CACHE_BROADCAST_ENABLED:false}
+      # Created and used only with POLICY_CACHE_BROADCAST_ENABLED=true. Follows the authorizer
+      # property, so setting either the env var or that property gives the same result.
+      enabled: ${authorization.defaultAuthorizer.changeBroadcast.enabled:false}
       # One partition keeps all policy changes in one order; the volume is tiny.
       partitions: 1
       replicationFactor: ${POLICY_CHANGE_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}

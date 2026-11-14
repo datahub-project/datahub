@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.config.messaging.MessagingTransport;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -44,7 +45,7 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
   private Boolean changeBroadcastEnabled;
 
-  @Value("${datahub.messaging.transport:kafka}")
+  @Value("${" + MessagingTransport.PROPERTY + ":" + MessagingTransport.KAFKA + "}")
   private String messagingTransport;
 
   @Bean(name = "dataHubAuthorizer")
@@ -70,7 +71,7 @@ public class DataHubAuthorizerFactory {
           "POLICY_CACHE_BROADCAST_ENABLED=true turns on the SQL policy source"
               + " (POLICY_CACHE_SQL_SOURCE_ENABLED).");
     }
-    if (broadcast && !"kafka".equalsIgnoreCase(messagingTransport)) {
+    if (broadcast && !MessagingTransport.KAFKA.equalsIgnoreCase(messagingTransport)) {
       log.warn(
           "POLICY_CACHE_BROADCAST_ENABLED=true is not supported with messaging transport {} yet;"
               + " other processes refresh policies on their timer.",

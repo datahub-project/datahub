@@ -20,7 +20,6 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
-import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -33,8 +32,6 @@ public abstract class EventProducer {
   // When set, each change log for a dataHubPolicy is also sent to this topic, so every process with
   // a policy cache can reload it (POLICY_CACHE_BROADCAST_ENABLED). Null: not sent.
   @Nullable private volatile String policyChangeTopicName;
-
-  private final AtomicBoolean policyChangeUnsupportedWarned = new AtomicBoolean();
 
   /** Flush the producer * */
   @OperationContextExempt(reason = "Flush is a transport-level no-op with no per-event context.")
@@ -79,24 +76,15 @@ public abstract class EventProducer {
   }
 
   /**
-   * Sends a policy change log to the policy change topic. Transports that do not support it keep
-   * this default, and other processes then refresh their policy caches only on their timer.
+   * Sends a policy change log to the policy change topic. Only called after {@link
+   * #setPolicyChangeTopicName} set a topic, which only the Kafka producer factory does, so the
+   * default does nothing.
    */
   protected void producePolicyChange(
       @Nonnull OperationContext opContext,
       @Nonnull Urn urn,
       @Nonnull MetadataChangeLog metadataChangeLog,
-      @Nonnull String topicName) {
-    // The factory already warns at startup, so warn once here and use debug after that.
-    if (policyChangeUnsupportedWarned.compareAndSet(false, true)) {
-      log.warn(
-          "{} cannot send policy changes to {}; other processes refresh policies on their timer.",
-          getClass().getSimpleName(),
-          topicName);
-    } else {
-      log.debug("{} skipped the policy change for {}.", getClass().getSimpleName(), urn);
-    }
-  }
+      @Nonnull String topicName) {}
 
   /**
    * Implementation hook for {@link #produceMetadataChangeLog}. Carries the per-event {@link
