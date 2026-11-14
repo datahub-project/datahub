@@ -666,21 +666,7 @@ public class ESAccessControlUtilTest {
       when(ctx.getEntitySpecResolver()).thenReturn(specResolver);
       init(Map.of(), ctx);
 
-      readWriteLock.writeLock().lock();
-      try {
-        policyCache.clear();
-        Map<String, List<DataHubPolicyInfo>> byPrivilegeName =
-            policies.stream()
-                .flatMap(
-                    policy -> policy.getPrivileges().stream().map(priv -> Pair.of(priv, policy)))
-                .collect(
-                    Collectors.groupingBy(
-                        Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toList())));
-        policyCache.putAll(byPrivilegeName);
-        policyCache.put(ALL, policies);
-      } finally {
-        readWriteLock.writeLock().unlock();
-      }
+      replacePolicies(policies);
     }
 
     private static SystemEntityClient mockUserGroupEntityClient(
