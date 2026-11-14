@@ -1214,6 +1214,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.showFullTitleInLineage",
           "visualConfig.theme.themeId",
           // Gradle and test-specific properties
+          "datahub.wiring.coverage.dir",
           "org.gradle.internal.worker.tmpdir",
           "org.springframework.boot.test.context.SpringBootTestContextBootstrapper",
           "datahub.policies.systemPolicyUrnList",
@@ -1396,6 +1397,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.buildIndices.rethrottleExecutorPoolSize",
           "elasticsearch.buildIndices.minimumReplicasForPromotion",
           // Postgres PgQueue configuration
+          "postgres.pgQueue.store",
+          "postgres.pgQueue.inmemorySpoolFile",
           "postgres.pgQueue.inheritKafkaTopics",
           "postgres.pgQueue.schema",
           "postgres.pgQueue.tablePrefix",

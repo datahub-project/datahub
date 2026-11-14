@@ -716,6 +716,11 @@ postgres:
       instanceConnectionName: ${INSTANCE_CONNECTION_NAME:#{null}}
   # PostgreSQL queue DDL + maintenance (SqlSetup when entity store is Postgres). At-least-once; requires pg_partman for the message table; optional pg_cron when enabled.
   pgQueue:
+    # Heap storage lets local development and tests run without a Postgres queue database.
+    store: ${DATAHUB_PGQUEUE_STORE:postgres}
+    # Optional spool path, exclusive to one live process: one writes on exit, then the next loads at startup.
+    # Overlapping processes sharing this path overwrite each other's snapshots.
+    inmemorySpoolFile: ${DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE:}
     enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
     # When true (default), SqlSetup seeds postgres.pgQueue topic rows from kafka.topics.*; postgres.pgQueue.topics overlays or adds pg-only settings.
     inheritKafkaTopics: ${DATAHUB_PGQUEUE_INHERIT_KAFKA_TOPICS:true}

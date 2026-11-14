@@ -1,5 +1,8 @@
 package com.linkedin.metadata.queue.inmemory;
 
+import static org.mockito.Mockito.doThrow;
+import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.*;
 
 import com.linkedin.metadata.queue.PgQueuePayloadCompression;
@@ -7,6 +10,7 @@ import com.linkedin.metadata.queue.QueueMessageHandle;
 import com.linkedin.metadata.queue.QueueMessageHeader;
 import com.linkedin.metadata.queue.QueueReceivedMessage;
 import com.linkedin.metadata.queue.QueueTopicDefaults;
+import java.nio.file.AtomicMoveNotSupportedException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.time.Clock;
@@ -136,6 +140,39 @@ public class InMemoryMetadataQueueStoreTest {
     assertEquals(new String(batch.get(0).payload()), "persisted");
 
     Files.deleteIfExists(spoolFile);
+  }
+
+  @Test
+  public void spoolSaveFallsBackWhenAtomicMoveIsUnsupported() throws Exception {
+    Path directory = Files.createTempDirectory("queue-spool-test");
+    Path spool = directory.resolve("queue.json");
+    Path temporary = directory.resolve("queue.json.tmp");
+    try {
+      Files.writeString(spool, "previous snapshot");
+      InMemoryMetadataQueueStore store = spy(new InMemoryMetadataQueueStore());
+      long topicId = store.ensureTopic(TOPIC, DEFAULTS);
+      store.registerConsumer(GROUP, topicId);
+      enqueueOne(store, "k1", 0, "persisted".getBytes());
+      doThrow(new AtomicMoveNotSupportedException(temporary.toString(), spool.toString(), "test"))
+          .when(store)
+          .moveSpoolAtomically(temporary, spool);
+
+      store.saveTo(spool);
+      verify(store).moveSpoolAtomically(temporary, spool);
+
+      InMemoryMetadataQueueStore restored = InMemoryMetadataQueueStore.withSpool(spool);
+      long restoredTopicId = restored.fetchTopic(TOPIC).orElseThrow().id();
+      List<QueueReceivedMessage> batch =
+          restored.receiveBatchForGroup(
+              GROUP, restoredTopicId, List.of(0), "w", Duration.ofMinutes(1), 10);
+      assertEquals(batch.size(), 1);
+      assertEquals(new String(batch.get(0).payload()), "persisted");
+      assertFalse(Files.exists(temporary));
+    } finally {
+      Files.deleteIfExists(temporary);
+      Files.deleteIfExists(spool);
+      Files.deleteIfExists(directory);
+    }
   }
 
   @Test
