@@ -2581,13 +2581,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         items.stream().filter(item -> !isPolicy(item.getUrn())).collect(Collectors.toList());
 
     if (otherItems.isEmpty()) {
-      return ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false);
+      return ingestProposal(opContext, subBatch(aspectsBatch, policyItems), false);
     }
     final List<IngestResult> results =
-        new ArrayList<>(
-            ingestProposal(opContext, subBatch(opContext, aspectsBatch, otherItems), true));
-    results.addAll(
-        ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false));
+        new ArrayList<>(ingestProposal(opContext, subBatch(aspectsBatch, otherItems), true));
+    results.addAll(ingestProposal(opContext, subBatch(aspectsBatch, policyItems), false));
 
     final Map<String, Integer> inputOrder = new HashMap<>();
     for (int i = 0; i < items.size(); i++) {
@@ -2603,14 +2601,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return results;
   }
 
-  private static AspectsBatch subBatch(
-      @Nonnull OperationContext opContext,
-      @Nonnull AspectsBatch source,
-      @Nonnull List<MCPItem> items) {
+  /** The items come from a batch that was already built and validated, so skip a second pass. */
+  private static AspectsBatch subBatch(@Nonnull AspectsBatch source, @Nonnull List<MCPItem> items) {
     return AspectsBatchImpl.builder()
         .retrieverContext(source.getRetrieverContext())
         .items(items)
-        .build(opContext);
+        .buildWithoutValidation();
   }
 
   private static String orderKey(@Nullable Urn urn, @Nullable String aspectName) {

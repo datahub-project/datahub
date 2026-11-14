@@ -66,6 +66,7 @@ By default, DataHub relies on the a set of Kafka topics to operate. By default, 
 9. **MetadataGraphEvent_v4**:
 10. **MetadataGraphEvent_v4**:
 11. **PlatformEvent_v1**:
+12. **PolicyChange_v1**: Policy changes, sent to every process with a policy cache. Created only with `POLICY_CACHE_BROADCAST_ENABLED=true`.
 
 How Metadata Events relate to these topics is discussed at more length in [Metadata Events](../what/mxe.md).
 
