@@ -33,6 +33,7 @@ import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
+import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -94,8 +95,7 @@ public class DataHubAuthorizer
   private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
   private volatile boolean loadedOnce;
   // At most one retry is scheduled at a time, so failed loads do not start parallel retry chains.
-  private final java.util.concurrent.atomic.AtomicBoolean firstLoadRetryScheduled =
-      new java.util.concurrent.atomic.AtomicBoolean();
+  private final AtomicBoolean firstLoadRetryScheduled = new AtomicBoolean();
   // Consecutive failed loads: only the first one logs a stack trace.
   private int consecutiveLoadFailures;
 
@@ -506,11 +506,15 @@ public class DataHubAuthorizer
     }
     final long start = System.nanoTime();
     try {
-      final PolicySnapshot next = PolicySnapshot.of(policyLoader.loadAll());
+      final PolicyLoader.Result result = policyLoader.loadAll();
+      final PolicySnapshot next = PolicySnapshot.of(result.policies());
       publish(next);
       loadedOnce = true;
       consecutiveLoadFailures = 0;
       increment("policyCache.load.run");
+      if (result.skipped() > 0) {
+        increment("policyCache.load.skipped", result.skipped());
+      }
       systemOpContext
           .getMetricUtils()
           .ifPresent(
@@ -592,7 +596,12 @@ public class DataHubAuthorizer
         Thread.currentThread().interrupt();
         break;
       } catch (Exception e) {
-        log.warn("Initial policy load attempt {} of {} failed.", attempt, attempts, e);
+        // The load thread already logged the stack trace.
+        log.warn(
+            "Initial policy load attempt {} of {} failed: {}",
+            attempt,
+            attempts,
+            String.valueOf(e.getCause() != null ? e.getCause() : e));
         if (attempt < attempts && backoffMillis > 0) {
           try {
             // Never sleep past the shared deadline.
@@ -617,10 +626,16 @@ public class DataHubAuthorizer
    * Called after a policy write or delete has been committed in this process. Requests a load and
    * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
    * after this process enforces the change. If the limit is reached, the load still completes
-   * later. Never throws: the write it follows is already committed.
+   * later. A limit of 0 requests the load without waiting. Never throws: the write it follows is
+   * already committed.
    */
   public void onPolicyChange() {
     if (policyLoader == null) {
+      return;
+    }
+    if (policyChangeWaitMillis == 0) {
+      // Waiting is turned off: the load runs in the background, and that is not a timeout.
+      requestLoad();
       return;
     }
     final long start = System.nanoTime();
@@ -639,7 +654,7 @@ public class DataHubAuthorizer
       increment("policyCache.observer.interrupted");
       log.warn("Interrupted while waiting for the policy load after a policy change.");
     } catch (ExecutionException e) {
-      increment("policyCache.change.failed");
+      increment("policyCache.observer.failed");
       log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
       // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
       requestLoad();
@@ -677,9 +692,13 @@ public class DataHubAuthorizer
   }
 
   private void increment(@Nonnull String metricName) {
+    increment(metricName, 1);
+  }
+
+  private void increment(@Nonnull String metricName, double count) {
     systemOpContext
         .getMetricUtils()
-        .ifPresent(m -> m.increment(DataHubAuthorizer.class, metricName, 1));
+        .ifPresent(m -> m.increment(DataHubAuthorizer.class, metricName, count));
   }
 
   public AuthorizationMode mode() {

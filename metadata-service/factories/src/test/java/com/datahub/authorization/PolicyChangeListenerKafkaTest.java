@@ -57,7 +57,7 @@ public class PolicyChangeListenerKafkaTest {
   /** The shared database: both authorizers load the same rows. */
   private final List<PolicyFetcher.Policy> database = new CopyOnWriteArrayList<>();
 
-  private final PolicyLoader loader = () -> new ArrayList<>(database);
+  private final PolicyLoader loader = () -> PolicyLoader.Result.of(new ArrayList<>(database));
   private final List<PolicyChangeListener> listeners = new ArrayList<>();
 
   @BeforeClass

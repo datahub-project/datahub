@@ -1,6 +1,7 @@
 package com.datahub.authorization;
 
 import java.util.List;
+import java.util.Objects;
 import javax.annotation.Nonnull;
 
 /**
@@ -12,5 +13,20 @@ import javax.annotation.Nonnull;
 public interface PolicyLoader {
 
   @Nonnull
-  List<PolicyFetcher.Policy> loadAll();
+  Result loadAll();
+
+  /**
+   * @param policies the policies that were read
+   * @param skipped the number of stored policies that could not be read and are not in {@code
+   *     policies}
+   */
+  record Result(@Nonnull List<PolicyFetcher.Policy> policies, int skipped) {
+    public Result {
+      Objects.requireNonNull(policies);
+    }
+
+    public static Result of(@Nonnull List<PolicyFetcher.Policy> policies) {
+      return new Result(policies, 0);
+    }
+  }
 }
