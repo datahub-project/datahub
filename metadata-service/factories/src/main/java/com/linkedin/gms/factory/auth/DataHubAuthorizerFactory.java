@@ -83,6 +83,7 @@ public class DataHubAuthorizerFactory {
       final EntityService<?> service = entityService.getIfAvailable();
       if (service instanceof EntityServiceImpl impl) {
         impl.setPolicyChangeObserver(authorizer::onPolicyChange);
+        authorizer.setPolicyWritesObserved(true);
       } else {
         log.warn(
             "Policy cache: no EntityServiceImpl in this process, so policy writes here will not"

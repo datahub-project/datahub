@@ -264,4 +264,40 @@ public class DataHubAuthorizerSqlSourceTest {
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
     assertEquals(allNames(authorizer), List.of("p1"));
   }
+
+  @Test
+  public void testInterruptStopsTheWaitWithoutKeepingTheInterrupt() {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.release = new CountDownLatch(1);
+
+    Thread.currentThread().interrupt();
+    try {
+      authorizer.onPolicyChange();
+      // The committed write's change log is sent next on this thread; it must not see an interrupt.
+      assertFalse(Thread.interrupted());
+    } finally {
+      Thread.interrupted();
+      loader.release.countDown();
+    }
+  }
+
+  @Test
+  public void testInvalidateCacheLoadsOnlyWithoutTheObserver() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    authorizer.setPolicyWritesObserved(true);
+    authorizer.invalidateCache();
+    // Any load that invalidateCache queued would run before this one on the single load thread.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(loader.calls.get(), 2, "initial load and the request above only");
+
+    authorizer.setPolicyWritesObserved(false);
+    authorizer.invalidateCache();
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertTrue(loader.calls.get() >= 3);
+  }
 }

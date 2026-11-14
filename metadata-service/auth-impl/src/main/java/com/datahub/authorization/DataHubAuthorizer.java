@@ -77,6 +77,8 @@ public class DataHubAuthorizer
   private final Object loadQueueLock = new Object();
   @Nullable private CompletableFuture<Void> queuedLoad;
   private volatile long policyChangeWaitMillis = DEFAULT_POLICY_CHANGE_WAIT_MILLIS;
+  // True when this process's entity service calls onPolicyChange after each committed policy write.
+  private volatile boolean policyWritesObserved;
   private final PolicyEngine policyEngine;
   private final GroupService groupService;
   private EntitySpecResolver entitySpecResolver;
@@ -463,7 +465,11 @@ public class DataHubAuthorizer
    */
   public void invalidateCache() {
     if (policyLoader != null) {
-      requestLoad();
+      // With the observer, the write already waited for a load before it returned. Another load
+      // here would only read the same policies again.
+      if (!policyWritesObserved) {
+        requestLoad();
+      }
     } else if (policyRefreshRunnable != null) {
       refreshExecutorService.execute(policyRefreshRunnable);
     }
@@ -622,7 +628,10 @@ public class DataHubAuthorizer
               + " background.",
           policyChangeWaitMillis);
     } catch (InterruptedException e) {
-      Thread.currentThread().interrupt();
+      // Stop waiting, but do not keep the interrupt: the write is already committed, and the
+      // interrupt would make the change log send that follows on this thread fail. The load
+      // continues in the background.
+      log.warn("Interrupted while waiting for the policy load after a policy change.");
     } catch (ExecutionException e) {
       increment("policyCache.change.failed");
       log.warn("Policy load after a policy change failed.", e.getCause());
@@ -639,6 +648,14 @@ public class DataHubAuthorizer
 
   public void setPolicyChangeWaitMillis(long waitMillis) {
     this.policyChangeWaitMillis = Math.max(0, waitMillis);
+  }
+
+  /**
+   * Call after this process's entity service is set to call {@link #onPolicyChange} for each
+   * committed policy write. {@link #invalidateCache} then has nothing left to do.
+   */
+  public void setPolicyWritesObserved(boolean observed) {
+    this.policyWritesObserved = observed;
   }
 
   @VisibleForTesting
