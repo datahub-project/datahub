@@ -63,6 +63,7 @@ class Constant:
     REPORT_LIST = "REPORT_LIST"
     PAGE_BY_REPORT = "PAGE_BY_REPORT"
     REPORT_DATASOURCES = "REPORT_DATASOURCES"
+    DATASET_DATASOURCES = "DATASET_DATASOURCES"
     DATASET_PARAMS_GET = "DATASET_PARAMS_GET"
     DATASET_LIST = "DATASET_LIST"
     WORKSPACE_MODIFIED_LIST = "WORKSPACE_MODIFIED_LIST"
@@ -259,6 +260,13 @@ class SupportedDataPlatform(Enum):
     FABRIC_ONELAKE = DataPlatformPair(
         powerbi_data_platform_name="FabricOneLake",
         datahub_data_platform_name="fabric-onelake",
+    )
+
+    # External Azure Analysis Services. The upstream dataset name is the
+    # catalog (connection database), matching the AAS connector's model dataset.
+    AZURE_ANALYSIS_SERVICES = DataPlatformPair(
+        powerbi_data_platform_name="AnalysisServices",
+        datahub_data_platform_name="azure-analysis-services",
     )
 
 
