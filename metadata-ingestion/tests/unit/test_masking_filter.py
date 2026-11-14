@@ -641,6 +641,57 @@ class TestInstallation:
             safe_logger.removeHandler(safe_handler)
             covered_logger.removeHandler(covered_handler)
 
+    def test_handler_on_a_replaced_stderr_keeps_its_destination(self):
+        """A handler writing to the real stderr while sys.stderr has been
+        replaced by something that feeds back into logging (celery's worker
+        stdout redirect) must keep writing to the real stderr, masked. Pointing
+        it at the wrapped replacement loops every record back into the same
+        handler, and the replacement's recursion guard then drops all logging
+        for the rest of the process."""
+
+        class FakeStderr(StringIO):
+            name = "<stderr>"
+
+        real_stderr = FakeStderr()
+        handler = logging.StreamHandler(real_stderr)
+        probe_logger = logging.getLogger("app.redirect_probe")
+        probe_logger.addHandler(handler)
+        probe_logger.propagate = False
+
+        class LoggingRedirect:
+            name = None
+
+            def write(self, text: str) -> int:
+                probe_logger.warning(text)
+                return len(text)
+
+            def flush(self) -> None:
+                pass
+
+        class Config:
+            def __repr__(self) -> str:
+                return "Config(password=hunter2-secret-value)"
+
+        registry = SecretRegistry()
+        registry.register_secret("TOKEN", "hunter2-secret-value")
+        try:
+            with patch.object(sys, "stderr", LoggingRedirect()):
+                install_masking_filter(registry)
+
+                assert isinstance(handler.stream, StreamMaskingWrapper)
+                assert handler.stream._original is real_stderr
+
+                probe_logger.warning("token is hunter2-secret-value")
+                probe_logger.warning(ValueError("bad hunter2-secret-value"))
+                probe_logger.warning("config %r", Config())
+
+            output = real_stderr.getvalue()
+            assert output.count("***REDACTED:TOKEN***") == 3
+            assert "hunter2-secret-value" not in output
+        finally:
+            probe_logger.removeHandler(handler)
+            probe_logger.propagate = True
+
     def test_double_install(self):
         """Repeated installation stacks no duplicate filters or wrappers."""
         registry = SecretRegistry()

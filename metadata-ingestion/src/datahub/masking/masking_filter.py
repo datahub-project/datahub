@@ -311,11 +311,15 @@ def _covered_loggers() -> "list[logging.Logger]":
     return loggers
 
 
-def _update_existing_handlers() -> None:
-    """Point existing stream handlers at the wrapped stdout/stderr.
+def _update_existing_handlers(masking_filter: SecretMaskingFilter) -> None:
+    """Wrap the streams of existing stdout/stderr handlers in place.
 
     Handlers created before masking was initialized hold references to the
-    original unwrapped streams.
+    original unwrapped streams. Each one gets its own wrapper around the
+    stream it already writes to, so it keeps its destination. Pointing it at
+    sys.stderr instead would loop wherever sys.stderr feeds back into logging:
+    a celery worker's handler writes to sys.__stderr__ while sys.stderr is a
+    LoggingProxy, and its recursion guard drops every record from then on.
     """
     updated_count = 0
     for covered in _covered_loggers():
@@ -326,12 +330,11 @@ def _update_existing_handlers() -> None:
             if stream is None or isinstance(stream, StreamMaskingWrapper):
                 continue
             try:
-                if getattr(stream, "name", None) == "<stderr>":
-                    handler.setStream(sys.stderr)
-                    updated_count += 1
-                elif getattr(stream, "name", None) == "<stdout>":
-                    handler.setStream(sys.stdout)
-                    updated_count += 1
+                # A detached or closed stream can raise ValueError on .name.
+                if getattr(stream, "name", None) not in ("<stderr>", "<stdout>"):
+                    continue
+                handler.setStream(StreamMaskingWrapper(stream, masking_filter))
+                updated_count += 1
             except Exception:
                 pass
 
@@ -373,7 +376,7 @@ def install_masking_filter(
             sys.stdout = StreamMaskingWrapper(sys.stdout, masking_filter)
         if not isinstance(sys.stderr, StreamMaskingWrapper):
             sys.stderr = StreamMaskingWrapper(sys.stderr, masking_filter)
-        _update_existing_handlers()
+        _update_existing_handlers(masking_filter)
 
     return masking_filter
 
@@ -389,6 +392,16 @@ def uninstall_masking_filter() -> None:
         for existing in list(handler.filters):
             if isinstance(existing, SecretMaskingFilter):
                 handler.removeFilter(existing)
+        if not isinstance(handler, logging.StreamHandler):
+            continue
+        stream = getattr(handler, "stream", None)
+        if isinstance(stream, StreamMaskingWrapper):
+            try:
+                handler.setStream(stream._original)
+            except Exception:
+                # logging's _StderrHandler exposes a read-only stream that
+                # follows sys.stderr, which is restored below.
+                pass
 
     if isinstance(sys.stdout, StreamMaskingWrapper):
         sys.stdout = sys.stdout._original
