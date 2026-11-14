@@ -950,6 +950,11 @@ type FeatureFlagsConfig {
   Requires browserTracingEnabled. Controlled by BROWSER_WEB_VITALS_ENABLED.
   """
   browserWebVitalsEnabled: Boolean!
+
+  """
+  If enabled, shows the "Star us on GitHub" asks.
+  """
+  showGithubStarPrompt: Boolean!
 }
 
 """

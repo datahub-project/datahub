@@ -2206,6 +2206,7 @@ featureFlags:
   #productUpdatesJsonUrl: ${PRODUCT_UPDATES_JSON_URL:https://product.datahub.com/updates/datahub-cloud/} # URL to fetch product updates JSON from remote source.
   #productUpdatesJsonFallbackResource: ${PRODUCT_UPDATES_JSON_FALLBACK_RESOURCE:product-update-saas.json} # Classpath resource to use as fallback when remote fetch fails.
   logicalModelsEnabled: ${LOGICAL_MODELS_ENABLED:true} # Enables logical models feature
+  showGithubStarPrompt: ${SHOW_GITHUB_STAR_PROMPT:true} # Shows the "Star us on GitHub" asks
   showHomepageUserRole: ${SHOW_HOMEPAGE_USER_ROLE:false} # Enables displaying the homepage user role underneath the name. Only relevant for custom home page
   fineGrainedLineageNotAllowedForPlatforms: ${FINE_GRAINED_LINEAGE_NOT_ALLOWED_FOR_PLATFORMS:} # Comma separated list of platforms for which schemaFields entity edges will not be allowed to be created. for example: "hdfs, s3"
   assetSummaryPageV1: ${ASSET_SUMMARY_PAGE_V1:true} # Enables displaying the asset summary page

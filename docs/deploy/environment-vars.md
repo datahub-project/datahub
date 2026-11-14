@@ -1074,6 +1074,7 @@ Reference Links:
 | `LOGICAL_MODELS_ENABLED`                | `false` | Enable logical models feature                                                                                   | GMS        |
 | `MULTIPLE_DATA_PRODUCTS_PER_ASSET`      | `true`  | Allow assets to belong to multiple Data Products simultaneously                                                 | GMS        |
 | `SHOW_HOMEPAGE_USER_ROLE`               | `false` | Display homepage user role underneath name                                                                      | GMS        |
+| `SHOW_GITHUB_STAR_PROMPT`               | `true`  | Show "Star us on GitHub" asks                                                                                   | GMS        |
 | `VIEWS_ENABLED`                         | `true`  | Enable views feature                                                                                            | GMS        |
 
 ## System Updates

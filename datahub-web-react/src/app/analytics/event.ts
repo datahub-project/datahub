@@ -187,6 +187,7 @@ export enum EventType {
     // Micro frontend (MFE) host events
     MfePageViewEvent,
     MfeLoadEvent,
+    GithubStarClickEvent,
 }
 
 /**
@@ -1112,6 +1113,11 @@ export interface WelcomeToDataHubModalClickViewDocumentationEvent extends BaseEv
     url: string;
 }
 
+export interface GithubStarClickEvent extends BaseEvent {
+    type: EventType.GithubStarClickEvent;
+    source: 'pageHeader' | 'welcomeModal';
+}
+
 export interface ProductTourButtonClickEvent extends BaseEvent {
     type: EventType.ProductTourButtonClickEvent;
     originPage: string; // Page where the button was clicked
@@ -1578,6 +1584,7 @@ export type Event =
     | WelcomeToDataHubModalExitEvent
     | WelcomeToDataHubModalClickViewDocumentationEvent
     | ProductTourButtonClickEvent
+    | GithubStarClickEvent
     | IngestionTestConnectionEvent
     | IngestionExecutionResultViewedEvent
     | IngestionViewAllClickEvent
