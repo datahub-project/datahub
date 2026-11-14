@@ -93,19 +93,19 @@ public class SearchTemplateRolloutTest {
   }
 
   @Test
-  public void testShippedDefaultStaysOnTheJavaBuilder() throws Exception {
+  public void testShippedDefaultServesTemplates() throws Exception {
     SearchTemplateConfiguration configuration = new SearchTemplateConfiguration();
     assertFalse(configuration.isEnabled());
     assertEquals(configuration.getRollout().getMode(), "active");
     assertEquals(configuration.getRollout().getPercent(), 100);
-    assertFalse(SearchTemplateRetirement.TEMPLATES_CONFIGURED_DEFAULT);
+    assertTrue(SearchTemplateRetirement.TEMPLATES_CONFIGURED_DEFAULT);
     assertFalse(SearchTemplateRetirement.JAVA_LEXICAL_BUILDER_RETIRED);
     assertTrue(V3SearchQueryBuilder.FROZEN_AGAINST_NEW_RELEVANCE_POLICY);
     assertTrue(SearchTemplateRetirement.DELETION_DEFERRED.contains("SEARCH_V3_TEMPLATES_ENABLED"));
     String yaml = Files.readString(applicationYaml());
     assertTrue(
-        yaml.contains("enabled: ${SEARCH_V3_TEMPLATES_ENABLED:false}"),
-        "templates stay off unless an operator opts in");
+        yaml.contains("enabled: ${SEARCH_V3_TEMPLATES_ENABLED:true}"),
+        "templates are the shipped default");
     assertEquals(
         effect(false, configuration.getRollout(), SearchTemplateSurfaces.SEARCH_ENTITIES, "actor"),
         off());

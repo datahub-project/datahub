@@ -39,6 +39,114 @@ Each release lists the CLI and Helm chart versions it expects, and a **Potential
 section describing reindexing or migrations that run on startup. Plan the window around the
 largest one you are passing through, not the last.
 
+Cassandra is not a supported upgrade path, and ZDU is not supported on it. An install that already
+has Search V2 indices keeps serving and writing V2 after the upgrade. To copy existing metadata into
+Search V3, re-ingest after the upgrade. Do not enable ZDU on Cassandra. See
+[#21030](https://github.com/datahub-project/datahub/pull/21030) and
+[Moving search to V3](#moving-search-to-v3).
+
+## Moving search to V3
+
+Search V3 is the default entity index. A fresh install reads and writes only V3, and this section
+does not apply to it. An install that already has Search V2 entity indices keeps serving V2 after
+the upgrade, and keeps writing V2, until each of its V3 indices is complete.
+
+At startup, GMS and the MAE and MCE consumers check every V2 entity index. For each one that exists,
+they check its paired V3 index for the `complete` mark that catch-up writes after the fill. While any
+paired V3 index is missing or not marked complete, that process reads V2, writes V2, and keeps V3
+keyword reads and hybrid reads off. V3 writes continue, so the V3 indices keep filling. Setting the
+V3 read flags by hand does not change this while a paired index is incomplete.
+
+To move reads to V3:
+
+1. On Ebean, run the upgrade with incremental reindex on (`ZDU_STAGE_20=true`, or
+   `ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED=true`). System update creates the V3
+   indices, and the non-blocking job fills them from primary storage. Catch-up marks each one
+   complete when it finishes, which can be after system update has already exited. Cassandra cannot
+   run this fill, so leave ZDU off there.
+2. Restart GMS, the MAE consumer, and the MCE consumer together, as soon as every V3 index is marked
+   complete. The hold is decided once, when a process starts. A process that starts in between — a
+   crash, an eviction, a scale-out, a node drain — sees every index complete, drops the hold, and
+   stops writing V2, while processes that are still running keep reading V2. Their search, and the
+   policies they load, then miss whatever the new process indexed. Do not roll one of the three
+   early. An index is complete when system update logs `migration marked complete` for it, or when
+   `GET <index>/_mapping` shows `_meta.migration` of `complete`.
+
+That restart moves reads to V3 and stops V2 writes. It also marks each existing V2 entity index
+retired (`_meta.v3Cutover` of `retired`). A later start sees that mark and keeps reading the V3
+alias, including after a V3 reindex drops `_meta.migration`. GMS, the consumers, and system update
+read and write the alias name. Elasticsearch resolves that name to the backing index the alias
+currently points at.
+
+While a rebuild's next index is empty, the alias stays on the previous backing index, so a running
+GMS and a newly started GMS both keep reading that copy. The non-blocking fill swaps the alias only
+after it has written every entity type. Catch-up then replays writes since the fill started and
+marks the index `complete`.
+
+A missing V3 alias, or one whose listing or mapping cannot be read, stops GMS and the consumers
+rather than serving the V2 copy. An index marked `incomplete` does not. Readers serve whatever the
+alias points at, and catch-up marks it `complete` when that window is replayed. System update and
+LoadIndices serve no reads, so they continue and BuildIndices can recreate a missing index. The
+incremental fill stamps `incomplete` in the create request when it creates an index that did not
+exist, and the alias is part of that same request. A legacy create stamps `incomplete` in the create
+request when the paired V2 index is already retired or cannot be listed. A failed stamp fails that
+create and leaves no alias. Recreating an index needs incremental reindex on (`ZDU_STAGE_20=true`,
+or `ELASTICSEARCH_BUILD_INDICES_INCREMENTAL_REINDEX_ENABLED=true`).
+
+### Installs that already read Search V3
+
+An install that turned V2 off and V3 keyword read on before this upgrade, including a Helm install
+set to search mode `v3`, still has its old V2 indices. Those indices stopped receiving writes when
+V2 was turned off, and the V3 indices were never stamped `complete`. Startup cannot tell that apart
+from a first migration, so it would serve the stale V2 copy: entities created since the switch are
+missing, updates and deletes are served as they were at the switch, and a policy created since is
+not loaded.
+
+Before upgrading, do one of the following:
+
+- Set `ELASTICSEARCH_ENTITY_INDEX_V3_CUTOVER_ACKNOWLEDGED=true` on GMS, both consumers, and system
+  update for the upgrade start. This is a one-start statement from the operator. A chart must not
+  derive it from the search mode. Startup stamps each V2 index `_meta.v3Cutover` of `retired` and
+  keeps reading V3. Later starts trust the stamp even if the flag stays set, and do not compare
+  document counts again. It does not skip a first migration. It stamps V2 retired when every paired
+  V3 index exists, is not marked `incomplete`, and at least one holds a document of its entity type.
+  A type whose V2 index has no documents is unused, so an empty V3 count for it does not block the
+  cutover. A count below the paired V2 index still qualifies when that type has at least one V3
+  document. A V3 index that is missing, incomplete, or empty while its V2 index has documents stays
+  on V2 while every pair is in that state. When some V3 index has documents of its entity type and
+  another is missing, incomplete, empty of a type its V2 index still holds, or cannot be counted,
+  GMS and the consumers stop instead of serving V2. A V3 index whose listing or mapping cannot be
+  read also stops GMS and the consumers instead of serving V2, even when every other V3 index has
+  documents. System update, restore, and LoadIndices keep going so a missing index can be recreated.
+  Cleanup keeps going so it can still tear indices down. A type whose entities were all hard-deleted
+  after V2 writes stopped has a V3 count of 0 while its frozen V2 index still has documents.
+  `datahub-gc` hard-deletes entities that are already soft-deleted. It does not use stateful
+  ingestion. The count cannot tell that type apart from one V3 never received. A soft-delete marker
+  would not keep them apart: garbage collection hard-deletes those entities after its retention, and
+  the V3 count is 0 again. Empty is the steady state.
+- Or stamp `_meta.v3Cutover` to `retired` on each V2 entity index, or delete those indices, before
+  upgrading. Stamping only the V2 index of an emptied type does not clear the refusal. Stamp every
+  V2 entity index, or delete the frozen V2 index for that type so its count is 0.
+
+Without one of those, search and newly created policies follow the stale V2 copy until a fill
+rebuilds V3. On Cassandra that fill never runs, so the copy stays stale until the V2 indices are
+removed or stamped.
+
+Without incremental reindex the mark never arrives, so search stays on V2. Search is not down during
+the wait, and the restart in step 2 is the only search cutover.
+
+An install whose first upgrade ran with incremental reindex off has V3 indices created on the legacy
+path, with documents and no migration mark. Turning incremental reindex on later rebuilds each of
+those indices from primary storage while its paired V2 index still exists, and catch-up then marks
+it complete. A V3 index with no paired V2 index is a fresh install and is left as it is.
+
+Cassandra cannot run the fill. An install that has V2 indices stays on V2 there. A fresh Cassandra
+install has no V2 index, so this hold does not apply. See the Cassandra note in
+[Potential Downtime](#3-check-the-version-requirements-and-expected-downtime) above.
+
+If DataHub cannot list the V2 entity indices at startup, the process stops rather than treating the
+install as new.
+
 ## Run the upgrade
 
 ### Kubernetes

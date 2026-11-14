@@ -80,7 +80,7 @@ If you are curious, the `docker-compose.yml` file is downloaded to your home dir
 If things go well, you should see messages like the ones below:
 
 ```shell-session
-Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/master/docker/quickstart/docker-compose.quickstart-profile.yml from GitHub
+Fetching docker-compose file https://raw.githubusercontent.com/datahub-project/datahub/v1.8.0/docker/quickstart/docker-compose.quickstart-profile.yml from GitHub
 Pulling docker images...
 Finished pulling docker images!
 
@@ -103,6 +103,14 @@ Load sample data: run `datahub init` then `datahub datapack load showcase-ecomme
 or head to http://localhost:9002 (username: datahub, password: datahub) to play around with the frontend.
 Need support? Get in touch on Slack: https://datahub.com/slack/
 ```
+
+A quickstart with no `--version` uses the v1.8.0 compose, which runs OpenSearch 2.19.3 on the `osdata` volume, so an existing 2.x install keeps its data. The OpenSearch 3 pin and the empty-index note below do not apply to it. OpenSearch 3 becomes the no-version default in a later release.
+
+`--version head` and `--version quickstart` use the master compose, which runs OpenSearch 3.7 on the `os3data` volume. The CLI keeps that install on OpenSearch 2.x only when a DataHub search container is still on an OpenSearch 2 image and `datahub_os3data` is not confirmed to contain a `nodes` directory, or when `datahub_osdata` contains a `nodes` directory and `datahub_os3data` is confirmed missing or has no `nodes` directory. A failed volume listing does not count as empty and does not pin, unless a DataHub search container is already on an OpenSearch 2 image, in which case the pin stays. `--version head` and `--version quickstart` are the runs that create `datahub_os3data`. The pin also requires `DATAHUB_SEARCH_TAG`, `DATAHUB_SEARCH_VOLUME`, and `ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED` to be unset. It then prints the steps to move to 3.x: back up, `datahub docker nuke`, start quickstart again with the same `--version`, and restore. Setting any one of those three variables disables the override.
+
+When the pin does not apply, the OpenSearch 3.7 index starts empty, and the 2.x `osdata` volume is not migrated. The same happens when you start an unversioned Docker Compose profile directly and `datahub_os3data` is absent or empty. To stay on OpenSearch 2.x on purpose, use `./gradlew quickstartOS2` or the `quickstart-opensearch2` profile.
+
+Pinned versions such as `--version v1.7.0` keep their own compose file and do not get this pin.
 
 ### Sign In
 

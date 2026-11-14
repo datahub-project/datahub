@@ -79,7 +79,8 @@ public class ElasticSearchIndexBuilderFactory {
         withEffectiveIndex(esConfig, ElasticSearchConfiguration.PRIMARY_CLUSTER),
         configurationProvider.getStructuredProperties(),
         overrides,
-        gitVersion);
+        gitVersion,
+        searchClient);
   }
 
   /** Returns {@code esConfig} with {@code index} resolved for the named cluster. */

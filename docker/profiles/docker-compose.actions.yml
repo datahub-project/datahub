@@ -72,9 +72,15 @@ services:
     profiles:
       - quickstart
       - quickstart-backend
-      - quickstart-opensearch2
     depends_on:
       datahub-gms-quickstart:
+        condition: service_healthy
+  datahub-actions-quickstart-opensearch2:
+    <<: *datahub-actions-quickstart-service
+    profiles:
+      - quickstart-opensearch2
+    depends_on:
+      datahub-gms-quickstart-opensearch2:
         condition: service_healthy
   datahub-actions-quickstart-opensearch3:
     <<: *datahub-actions-quickstart-service
@@ -138,9 +144,15 @@ services:
     profiles:
       - debug
       - debug-backend
-      - debug-opensearch2
     depends_on:
       datahub-gms-debug:
+        condition: service_healthy
+  datahub-actions-debug-opensearch2:
+    <<: *datahub-actions-service-dev
+    profiles:
+      - debug-opensearch2
+    depends_on:
+      datahub-gms-debug-opensearch2:
         condition: service_healthy
   datahub-actions-debug-aws:
     <<: *datahub-actions-service-dev

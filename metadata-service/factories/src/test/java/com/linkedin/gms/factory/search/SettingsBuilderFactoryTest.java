@@ -63,13 +63,14 @@ public class SettingsBuilderFactoryTest {
   }
 
   @Test
-  public void testProductionDefaultsBuildOnlyV2Settings() {
+  public void testProductionDefaultsBuildOnlyV3Settings() {
     runner(SearchEngineType.ELASTICSEARCH_8)
         .run(
             context -> {
               assertThat(context).hasNotFailed();
-              assertThat(settingsFor(context, v2Index(context))).containsKey("analysis");
-              assertThat(settingsFor(context, v3Index(context))).isEmpty();
+              assertThat(settingsFor(context, v2Index(context))).isEmpty();
+              assertThat(settingsFor(context, v3Index(context)))
+                  .containsEntry("mapping.total_fields.limit", 5000);
               assertThat(settingsFor(context, semanticIndex(context))).isEmpty();
             });
   }
@@ -90,7 +91,7 @@ public class SettingsBuilderFactoryTest {
   @Test
   public void testBothGenerationsBuildTheirOwnSettings() {
     runner(SearchEngineType.ELASTICSEARCH_8)
-        .withPropertyValues(V3_ENABLED + "=true")
+        .withPropertyValues(V2_ENABLED + "=true", V3_ENABLED + "=true")
         .run(
             context -> {
               assertThat(context).hasNotFailed();
@@ -103,7 +104,7 @@ public class SettingsBuilderFactoryTest {
   @Test
   public void testNeitherGenerationLeavesEmptySettings() {
     runner(SearchEngineType.ELASTICSEARCH_8)
-        .withPropertyValues(V2_ENABLED + "=false")
+        .withPropertyValues(V2_ENABLED + "=false", V3_ENABLED + "=false")
         .run(
             context -> {
               assertThat(context).hasNotFailed();
@@ -115,7 +116,7 @@ public class SettingsBuilderFactoryTest {
   @Test
   public void testSemanticSearchAddsKnnSettingsForSemanticIndices() {
     runner(SearchEngineType.OPENSEARCH_2)
-        .withPropertyValues(SEMANTIC_ENABLED + "=true")
+        .withPropertyValues(V2_ENABLED + "=true", SEMANTIC_ENABLED + "=true")
         .run(
             context -> {
               assertThat(context).hasNotFailed();
@@ -127,17 +128,17 @@ public class SettingsBuilderFactoryTest {
   }
 
   @Test
-  public void testSemanticSearchWithoutV2FailsStartup() {
+  public void testSemanticSearchOnV3StartsWithV2Off() {
     runner(SearchEngineType.OPENSEARCH_2)
         .withPropertyValues(V2_ENABLED + "=false", SEMANTIC_ENABLED + "=true")
         .run(
-            context ->
-                assertThat(context)
-                    .hasFailed()
-                    .getFailure()
-                    .rootCause()
-                    .isInstanceOf(IllegalStateException.class)
-                    .hasMessageContaining("elasticsearch.entityIndex.v2.enabled"));
+            context -> {
+              assertThat(context).hasNotFailed();
+              assertThat(settingsFor(context, v2Index(context))).isEmpty();
+              assertThat(settingsFor(context, semanticIndex(context))).isEmpty();
+              assertThat(settingsFor(context, v3Index(context)))
+                  .containsEntry("mapping.total_fields.limit", 5000);
+            });
   }
 
   private static Map<String, Object> settingsFor(ApplicationContext context, String indexName) {
