@@ -778,6 +778,9 @@ REFUSED_QUOTED_OTHER_CASE: List[Tuple[str, str, str]] = [
     ("postgres", "postgres", 'SELECT relname FROM "PG_CATALOG".pg_class'),
     ("redshift", "redshift", 'SELECT * FROM "INFORMATION_SCHEMA".tables'),
     ("oracle", "oracle", 'SELECT * FROM "all_tables"'),
+    # Python's case mapping is not ASCII-only: the Kelvin sign is its own upper
+    # case, but lower-cases to an ASCII "k", so it must not pass as folded.
+    ("snowflake", "snowflake", 'SELECT * FROM "SNOWFLA\u212aE".account_usage.tables'),
 ]
 
 # The same names quoted in the folded case are the catalog's own, and a quoted
@@ -805,6 +808,24 @@ def test_a_quoted_name_in_the_folded_case_is_the_catalog(
     source_type: str, platform: str, query: str
 ) -> None:
     check_query_scope(query, platform=platform, scope=_scope(source_type))
+
+
+@pytest.mark.parametrize(
+    "source_type,platform,query",
+    [
+        # A lookalike of an excluded relation: Python lower-cases the dotted
+        # capital I to "i" plus a combining dot, so the exclusion list misses it.
+        ("mysql", "mysql", "SELECT * FROM information_schema.`PROCESSL\u0130ST`"),
+        ("mssql", "mssql", "SELECT name FROM sys.[\u212aEY_CONSTRAINTS]"),
+    ],
+)
+def test_a_non_ascii_name_never_matches_the_catalog(
+    source_type: str, platform: str, query: str
+) -> None:
+    # Every catalog name these dialects expose is ASCII; Python's case mapping
+    # is wider than SQL's, so a non-ASCII name is kept from matching at all.
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform=platform, scope=_scope(source_type))
 
 
 def test_a_dialect_that_does_not_fold_matches_quoted_names_as_before() -> None:
