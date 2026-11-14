@@ -5,6 +5,7 @@ import json
 import logging
 import pathlib
 import re
+import shutil
 import tempfile
 from dataclasses import dataclass
 from datetime import datetime, timezone
@@ -200,6 +201,13 @@ class SnowflakeQueriesSourceConfig(
     SnowflakeQueriesExtractorConfig, SnowflakeIdentifierConfig, SnowflakeFilterConfig
 ):
     connection: SnowflakeConnectionConfig
+
+
+def _remove_temp_dir(path: pathlib.Path) -> None:
+    # Not ignore_errors=True: a failed removal must still raise so the caller can
+    # report the leftover directory.
+    if path.exists():
+        shutil.rmtree(path)
 
 
 @dataclass
@@ -427,7 +435,7 @@ class SnowflakeQueriesExtractor(SnowflakeStructuredReportMixin, Closeable):
         use_cached_audit_log = audit_log_file.exists()
 
         if self.config.local_temp_path is None:
-            self._exit_stack.callback(lambda: audit_log_file.unlink(missing_ok=True))
+            self._exit_stack.callback(_remove_temp_dir, self.local_temp_path)
 
         shared_connection = self._exit_stack.enter_context(
             ConnectionWrapper(audit_log_file)
