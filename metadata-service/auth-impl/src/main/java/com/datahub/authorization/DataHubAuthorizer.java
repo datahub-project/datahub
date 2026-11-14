@@ -626,10 +626,16 @@ public class DataHubAuthorizer
    * Called after a policy write or delete has been committed in this process. Requests a load and
    * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
    * after this process enforces the change. If the limit is reached, the load still completes
-   * later. Never throws: the write it follows is already committed.
+   * later. A limit of 0 requests the load without waiting. Never throws: the write it follows is
+   * already committed.
    */
   public void onPolicyChange() {
     if (policyLoader == null) {
+      return;
+    }
+    if (policyChangeWaitMillis == 0) {
+      // Waiting is turned off: the load runs in the background, and that is not a timeout.
+      requestLoad();
       return;
     }
     final long start = System.nanoTime();
@@ -648,7 +654,7 @@ public class DataHubAuthorizer
       increment("policyCache.observer.interrupted");
       log.warn("Interrupted while waiting for the policy load after a policy change.");
     } catch (ExecutionException e) {
-      increment("policyCache.change.failed");
+      increment("policyCache.observer.failed");
       log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
       // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
       requestLoad();

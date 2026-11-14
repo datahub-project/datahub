@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /** Tests for the SQL policy source: synchronous first load, ordered and joined loads. */
@@ -407,20 +408,48 @@ public class DataHubAuthorizerSqlSourceTest {
       Thread.sleep(20);
     }
     assertEquals(allNames(authorizer), List.of("p1"));
+    Thread.sleep(300);
+    // The first load, the failed load, and exactly one more: no retry loop.
+    assertEquals(loader.calls.get(), 3);
   }
 
-  @Test
-  public void testNegativeWaitIsTreatedAsNoWait() {
+  @DataProvider
+  public Object[][] noWaitValues() {
+    return new Object[][] {{0L}, {-1L}};
+  }
+
+  @Test(dataProvider = "noWaitValues")
+  public void testNoWaitRequestsALoadWithoutATimeout(long waitMillis) throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext context = mock(OperationContext.class);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
     FakeLoader loader = new FakeLoader();
-    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    DataHubAuthorizer authorizer =
+        new DataHubAuthorizer(
+            context,
+            mock(EntityClient.class),
+            mock(GroupService.class),
+            10,
+            0,
+            DataHubAuthorizer.AuthorizationMode.DEFAULT,
+            1000,
+            loader);
     authorizer.initialLoad(1, 0);
-    authorizer.setPolicyChangeWaitMillis(-1);
+    authorizer.setPolicyChangeWaitMillis(waitMillis);
+    loader.policies.add(policy("p1", 1L));
     loader.release = new CountDownLatch(1);
 
     long start = System.nanoTime();
     authorizer.onPolicyChange();
+    long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
     loader.release.countDown();
 
-    assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) < 5_000);
+    assertTrue(waited < 5_000, "waited " + waited + " ms");
+    // A negative wait is set to 0. Not waiting is not a timeout, so there is no timeout metric.
+    verify(metrics, never())
+        .increment(eq(DataHubAuthorizer.class), eq("policyCache.observer.timeout"), anyDouble());
+    // The load still runs in the background.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(allNames(authorizer), List.of("p1"));
   }
 }
