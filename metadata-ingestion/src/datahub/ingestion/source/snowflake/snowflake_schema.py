@@ -284,6 +284,7 @@ class SnowflakeView(BaseView):
     tags: Optional[List[SnowflakeTag]] = None
     column_tags: Dict[str, List[SnowflakeTag]] = field(default_factory=dict)
     is_secure: bool = False
+    last_refreshed: Optional[datetime] = None
 
     def get_subtype(self) -> DatasetSubTypes:
         return DatasetSubTypes.VIEW
@@ -1128,6 +1129,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
         )
         if views is None:
             return None
+        self.populate_materialized_view_refresh_times(views, db_name)
 
         # Because this is in a cached function, this will only log once per database.
         view_counts = {schema_name: len(views[schema_name]) for schema_name in views}
@@ -1236,7 +1238,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
     def get_views_for_schema_using_show(
         self, *, db_name: str, schema_name: str
     ) -> List[SnowflakeView]:
-        return [
+        views = [
             self._map_show_view(row)
             for row in self._iter_show_rows_for_schema(
                 object_kind=SnowflakeShowKind.VIEWS,
@@ -1245,6 +1247,8 @@ class SnowflakeDataDictionary(SupportsAsObj):
                 page_limit=SHOW_COMMAND_MAX_PAGE_SIZE,
             )
         ]
+        self.populate_materialized_view_refresh_times({schema_name: views}, db_name)
+        return views
 
     def _map_show_view(self, row: Dict[str, Any]) -> SnowflakeView:
         return SnowflakeView(
@@ -1256,6 +1260,76 @@ class SnowflakeDataDictionary(SupportsAsObj):
             materialized=(row.get("is_materialized", "false").lower() == "true"),
             is_secure=(row.get("is_secure", "false").lower() == "true"),
         )
+
+    @serialized_lru_cache(maxsize=1)
+    def get_materialized_view_refresh_times(
+        self, db_name: str
+    ) -> Dict[Tuple[str, str], datetime]:
+        """Newest base-table change held by each materialized view, keyed by (schema, name),
+        for views whose data changed after they were created."""
+        refresh_times: Dict[Tuple[str, str], datetime] = {}
+        try:
+            rows = list(
+                self.connection.query(
+                    SnowflakeQuery.show_materialized_views_for_database(db_name)
+                )
+            )
+            if len(rows) >= SHOW_COMMAND_MAX_PAGE_SIZE:
+                self.report.warning(
+                    message="SHOW MATERIALIZED VIEWS returned its row limit; "
+                    "materialized views past it keep their creation time",
+                    context=db_name,
+                )
+            for row in rows:
+                # The base-table DML that a refresh or compaction processed, not when it ran.
+                changes = [
+                    t
+                    for t in (row.get("refreshed_on"), row.get("compacted_on"))
+                    if t is not None
+                ]
+                newest = max(changes) if changes else None
+                if newest is not None and newest > row["created_on"]:
+                    refresh_times[(row["schema_name"], row["name"])] = newest
+        except Exception as e:
+            self.report.warning(
+                message="Failed to get materialized view refresh times; "
+                "materialized views keep their creation time",
+                context=db_name,
+                exc=e,
+            )
+            return {}
+        return refresh_times
+
+    def populate_materialized_view_refresh_times(
+        self, views: Dict[str, List[SnowflakeView]], db_name: str
+    ) -> None:
+        # Guarded whole: an error escaping here would cost the schema its view list, which
+        # stale-entity removal reads as deletions.
+        try:
+            # Only output emitted with technical schema reads these times.
+            if not self._include_technical_schema:
+                return
+            if not any(view.materialized for vs in views.values() for view in vs):
+                return
+            refresh_times = self.get_materialized_view_refresh_times(db_name)
+            for schema_name, view_list in views.items():
+                for view in view_list:
+                    refreshed = refresh_times.get((schema_name, view.name))
+                    # The lookup may predate this listing; skip views replaced since.
+                    if (
+                        refreshed is not None
+                        and view.materialized
+                        and view.created is not None
+                        and refreshed > view.created
+                    ):
+                        view.last_altered = refreshed
+                        view.last_refreshed = refreshed
+        except Exception as e:
+            self.report.warning(
+                message="Failed to apply materialized view refresh times",
+                context=db_name,
+                exc=e,
+            )
 
     def _map_view(self, db_name: str, row: Dict[str, Any]) -> Tuple[str, SnowflakeView]:
         schema_name = row["VIEW_SCHEMA"]
@@ -1274,7 +1348,7 @@ class SnowflakeDataDictionary(SupportsAsObj):
             view_definition=view_definition,
             last_altered=row["LAST_ALTERED"],
             is_secure=(row.get("IS_SECURE", "false").lower() == "true"),
-            # TODO: This doesn't work for materialized views.
+            # information_schema.views does not list materialized views.
             materialized=False,
         )
 
