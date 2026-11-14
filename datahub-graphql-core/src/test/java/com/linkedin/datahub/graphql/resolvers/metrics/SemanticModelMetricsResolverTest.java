@@ -104,8 +104,9 @@ public class SemanticModelMetricsResolverTest {
 
     _resolver.get(_dataFetchingEnvironment).get();
 
-    // Verify the filter contains both semanticModel=<urn> and hasParentMetric=false in the same
-    // conjunction, so the resolver returns only root metrics of the given semantic model.
+    // Verify the filter contains both semanticModel=<urn> and NOT hasParentMetric=true in the same
+    // conjunction, so the resolver returns only root metrics of the given semantic model, including
+    // metrics without a metricRelationships aspect (which index no hasParentMetric value).
     Mockito.verify(_entityClient)
         .scrollAcrossEntities(
             any(),
@@ -129,11 +130,11 @@ public class SemanticModelMetricsResolverTest {
                                 cc.getAnd().stream()
                                     .anyMatch(
                                         c ->
-                                            SemanticModelMetricsResolver
-                                                    .HAS_PARENT_METRIC_FIELD_NAME
+                                            GetRootMetricsResolver.HAS_PARENT_METRIC_FIELD_NAME
                                                     .equals(c.getField())
+                                                && c.isNegated()
                                                 && c.getValues() != null
-                                                && c.getValues().contains("false"));
+                                                && c.getValues().contains("true"));
                             return hasSemanticModel && hasNoParent;
                           });
                 }),
