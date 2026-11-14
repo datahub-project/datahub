@@ -20,7 +20,6 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
-import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -30,9 +29,7 @@ import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
-import java.util.concurrent.locks.Lock;
-import java.util.concurrent.locks.ReadWriteLock;
-import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -62,12 +59,9 @@ public class DataHubAuthorizer
     ALLOW_ALL
   }
 
-  // Maps privilege name to the associated set of policies for fast access.
-  // Not concurrent data structure because writes are always against the entire thing.
-  protected final Map<String, List<DataHubPolicyInfo>> policyCache =
-      new HashMap<>(); // Shared Policy Cache.
-  protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
-  protected final Lock readLock = readWriteLock.readLock();
+  // Policies indexed by privilege name. Each refresh replaces the whole snapshot, so readers need
+  // no lock and never see a partly built index.
+  private volatile PolicySnapshot snapshot = PolicySnapshot.EMPTY;
 
   private final ScheduledExecutorService refreshExecutorService =
       Executors.newScheduledThreadPool(1);
@@ -95,11 +89,7 @@ public class DataHubAuthorizer
     if (refreshIntervalSeconds > 0) {
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
-              systemOpContext,
-              new PolicyFetcher(entityClient),
-              policyCache,
-              readWriteLock.writeLock(),
-              policyFetchSize);
+              systemOpContext, new PolicyFetcher(entityClient), this::publish, policyFetchSize);
       refreshExecutorService.scheduleAtFixedRate(
           policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     } else {
@@ -538,13 +528,17 @@ public class DataHubAuthorizer
   }
 
   private List<DataHubPolicyInfo> getOrDefault(String key, List<DataHubPolicyInfo> defaultValue) {
-    readLock.lock();
-    try {
-      return policyCache.getOrDefault(key, defaultValue);
-    } finally {
-      // To unlock the acquired read thread
-      readLock.unlock();
-    }
+    return snapshot.getOrDefault(key, defaultValue);
+  }
+
+  private void publish(@Nonnull PolicySnapshot next) {
+    snapshot = next;
+  }
+
+  /** Replaces all cached policies at once. For tests that need a fixed set of policies. */
+  @VisibleForTesting
+  protected void replacePolicies(@Nonnull Collection<DataHubPolicyInfo> policies) {
+    publish(PolicySnapshot.ofPolicyInfos(policies));
   }
 
   /**
@@ -559,15 +553,14 @@ public class DataHubAuthorizer
 
     private final OperationContext systemOpContext;
     private final PolicyFetcher policyFetcher;
-    private final Map<String, List<DataHubPolicyInfo>> policyCache;
-    private final Lock writeLock;
+    private final Consumer<PolicySnapshot> publisher;
     private final int count;
 
     @Override
     public void run() {
       try {
-        // Populate new cache and swap.
-        Map<String, List<DataHubPolicyInfo>> newCache = new HashMap<>();
+        // Fetch every page first, then publish one complete snapshot.
+        final List<PolicyFetcher.Policy> policies = new ArrayList<>();
         Integer total = null;
         String scrollId = null;
 
@@ -576,7 +569,7 @@ public class DataHubAuthorizer
             final PolicyFetcher.PolicyFetchResult policyFetchResult =
                 policyFetcher.fetchPolicies(systemOpContext, count, scrollId, null);
 
-            addPoliciesToCache(newCache, policyFetchResult.getPolicies());
+            policies.addAll(policyFetchResult.getPolicies());
 
             total = policyFetchResult.getTotal();
             scrollId = policyFetchResult.getScrollId();
@@ -590,14 +583,7 @@ public class DataHubAuthorizer
           }
         }
 
-        writeLock.lock();
-        try {
-          policyCache.clear();
-          policyCache.putAll(newCache);
-        } finally {
-          // To unlock the acquired write thread
-          writeLock.unlock();
-        }
+        publisher.accept(PolicySnapshot.of(policies));
 
         log.debug("Successfully fetched {} policies.", total);
       } catch (Exception e) {
@@ -605,29 +591,6 @@ public class DataHubAuthorizer
             "Caught exception while loading Policy cache. Will retry on next scheduled attempt.",
             e);
       }
-    }
-
-    private void addPoliciesToCache(
-        final Map<String, List<DataHubPolicyInfo>> cache,
-        final List<PolicyFetcher.Policy> policies) {
-      policies.forEach(policy -> addPolicyToCache(cache, policy.getPolicyInfo()));
-    }
-
-    private void addPolicyToCache(
-        final Map<String, List<DataHubPolicyInfo>> cache, final DataHubPolicyInfo policy) {
-      final List<String> privileges = policy.getPrivileges();
-      for (String privilege : privileges) {
-        List<DataHubPolicyInfo> existingPolicies =
-            cache.containsKey(privilege)
-                ? new ArrayList<>(cache.get(privilege))
-                : new ArrayList<>();
-        existingPolicies.add(policy);
-        cache.put(privilege, existingPolicies);
-      }
-      List<DataHubPolicyInfo> existingPolicies =
-          cache.containsKey(ALL) ? new ArrayList<>(cache.get(ALL)) : new ArrayList<>();
-      existingPolicies.add(policy);
-      cache.put(ALL, existingPolicies);
     }
   }
 }
