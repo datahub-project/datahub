@@ -238,6 +238,11 @@ public class PostgresSqlSetupProperties {
    * {@code retention.ms} when set), then merges {@code postgres.pgQueue.topics.*} so pgQueue can
    * override any field or add pg-only topics.
    */
+  // kafka.topics entries that only the Kafka transport uses, so pgQueue creates no table for them.
+  // policyChange: only the Kafka event producer sends policy changes.
+  private static final java.util.Set<String> KAFKA_ONLY_TOPIC_KEYS =
+      java.util.Set.of("policyChange");
+
   private Map<String, PgQueueTopicOverride> mergeKafkaAndPgQueueTopicMaps(
       @Nullable KafkaConfiguration kafkaConfiguration) {
     LinkedHashMap<String, PgQueueTopicOverride> merged = new LinkedHashMap<>();
@@ -252,6 +257,9 @@ public class PostgresSqlSetupProperties {
             continue;
           }
           if (Boolean.FALSE.equals(kc.getEnabled())) {
+            continue;
+          }
+          if (KAFKA_ONLY_TOPIC_KEYS.contains(e.getKey())) {
             continue;
           }
           if (kc.getName() == null || kc.getName().isBlank()) {

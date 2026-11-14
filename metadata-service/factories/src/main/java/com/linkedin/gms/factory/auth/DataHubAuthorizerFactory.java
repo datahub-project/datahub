@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.auth;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.config.messaging.MessagingTransport;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -20,9 +21,9 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class DataHubAuthorizerFactory {
 
-  // Startup load: try a few times, then continue and let the timer retry, so a short database
-  // problem does not stop the process from starting. Worst case with the database down: 3 attempts
-  // x 60 s load timeout + 2 x 2 s backoff, about 3 minutes of blocked bean creation.
+  // Startup load: try a few times, then continue and retry in the background, so a short database
+  // problem does not stop the process from starting. All attempts share one 60 s limit, so bean
+  // creation is blocked for at most about 60 s.
   private static final int INITIAL_LOAD_ATTEMPTS = 3;
   private static final long INITIAL_LOAD_BACKOFF_MILLIS = 2000;
 
@@ -44,7 +45,7 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
   private Boolean changeBroadcastEnabled;
 
-  @Value("${datahub.messaging.transport:kafka}")
+  @Value("${" + MessagingTransport.PROPERTY + ":" + MessagingTransport.KAFKA + "}")
   private String messagingTransport;
 
   @Bean(name = "dataHubAuthorizer")
@@ -70,7 +71,7 @@ public class DataHubAuthorizerFactory {
           "POLICY_CACHE_BROADCAST_ENABLED=true turns on the SQL policy source"
               + " (POLICY_CACHE_SQL_SOURCE_ENABLED).");
     }
-    if (broadcast && !"kafka".equalsIgnoreCase(messagingTransport)) {
+    if (broadcast && !MessagingTransport.KAFKA.equalsIgnoreCase(messagingTransport)) {
       log.warn(
           "POLICY_CACHE_BROADCAST_ENABLED=true is not supported with messaging transport {} yet;"
               + " other processes refresh policies on their timer.",
@@ -92,7 +93,9 @@ public class DataHubAuthorizerFactory {
             policyCacheRefreshIntervalSeconds,
             mode,
             policyCacheFetchSize,
-            dao != null ? new SqlPolicyLoader(dao) : null);
+            dao != null
+                ? new SqlPolicyLoader(dao, systemOpContext.getMetricUtils().orElse(null))
+                : null);
 
     if (authorizer.isSqlSourceEnabled()) {
       authorizer.setPolicyChangeWaitMillis(policyChangeWaitMillis);
@@ -101,6 +104,7 @@ public class DataHubAuthorizerFactory {
       final EntityService<?> service = entityService.getIfAvailable();
       if (service instanceof EntityServiceImpl impl) {
         impl.setPolicyChangeObserver(authorizer::onPolicyChange);
+        authorizer.setPolicyWritesObserved(true);
         impl.setSyncPolicyWrites(broadcast);
       } else {
         log.warn(

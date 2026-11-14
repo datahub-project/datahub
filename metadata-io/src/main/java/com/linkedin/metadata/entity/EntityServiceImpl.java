@@ -2567,6 +2567,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   /**
    * Splits an async batch: dataHubPolicy items are written now, the rest stays async. Results are
    * returned in the input order, because API callers can match results to requests by position.
+   *
+   * <p>The other items are queued first, as they would be without this split. If the policy write
+   * then fails, the caller gets its error, and the other items are still queued.
    */
   private List<IngestResult> ingestPolicyItemsSynchronously(
       @Nonnull OperationContext opContext,
@@ -2577,13 +2580,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     final List<MCPItem> otherItems =
         items.stream().filter(item -> !isPolicy(item.getUrn())).collect(Collectors.toList());
 
+    if (otherItems.isEmpty()) {
+      return ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false);
+    }
     final List<IngestResult> results =
         new ArrayList<>(
-            ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false));
-    if (otherItems.isEmpty()) {
-      return results;
-    }
-    results.addAll(ingestProposal(opContext, subBatch(opContext, aspectsBatch, otherItems), true));
+            ingestProposal(opContext, subBatch(opContext, aspectsBatch, otherItems), true));
+    results.addAll(
+        ingestProposal(opContext, subBatch(opContext, aspectsBatch, policyItems), false));
 
     final Map<String, Integer> inputOrder = new HashMap<>();
     for (int i = 0; i < items.size(); i++) {

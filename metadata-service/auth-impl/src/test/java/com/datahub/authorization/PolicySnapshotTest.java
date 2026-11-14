@@ -109,7 +109,7 @@ public class PolicySnapshotTest {
   }
 
   @Test
-  public void testPoliciesWithoutPrivilegesAppearOnlyUnderAll() {
+  public void testPoliciesWithEmptyPrivilegesAppearOnlyUnderAll() {
     DataHubPolicyInfo none = policy("none", 1L);
     PolicySnapshot snapshot = PolicySnapshot.of(List.of(entry("none", none)));
     assertEquals(snapshot.getOrDefault(DataHubAuthorizer.ALL, List.of()), List.of(none));
