@@ -19,7 +19,8 @@ const FilterCard = ({
   requestNativeUrl,
 }) => {
   function handleCardClick() {
-    window.gtag?.("event", "integration_card_click", {
+    window.dataLayer?.push({
+      event: "integration_card_click",
       integration_name: title,
       integration_path: to,
       connection_type: isApiConnector ? "api" : "native",
@@ -30,7 +31,8 @@ const FilterCard = ({
   function handleRequestNativeClick(e) {
     e.preventDefault();
     e.stopPropagation();
-    window.gtag?.("event", "native_connector_request", {
+    window.dataLayer?.push({
+      event: "native_connector_request",
       integration_name: title,
     });
     window.open(requestNativeUrl, "_blank", "noopener,noreferrer");
