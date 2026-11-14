@@ -42,10 +42,15 @@ public class OpenLineageDatasetIdentityTest {
         "urn:li:dataset:(urn:li:dataPlatform:iceberg,analytics.events,PROD)");
   }
 
-  @Test
-  public void testIcebergCatalogPreservesConnectionInstanceAndEnvironment() {
+  @DataProvider
+  public Object[][] icebergCatalogTypes() {
+    return new Object[][] {{"rest"}, {"hive"}, {"hadoop"}};
+  }
+
+  @Test(dataProvider = "icebergCatalogTypes")
+  public void testIcebergCatalogPreservesConnectionInstanceAndEnvironment(String catalogType) {
     OpenLineage.InputDataset dataset =
-        tableDataset("iceberg", "rest", CATALOG_NAMESPACE, "my_db.events");
+        tableDataset("iceberg", catalogType, CATALOG_NAMESPACE, "my_db.events");
     DatahubOpenlineageConfig config =
         DatahubOpenlineageConfig.builder()
             .fabricType(FabricType.QA)
@@ -64,7 +69,34 @@ public class OpenLineageDatasetIdentityTest {
   }
 
   @Test
-  public void testHiveRestAndGlueSymlinkPlatformsRemainUnchanged() {
+  public void testLegacyIcebergPlatformPreservesLogicalNameAndAlias() {
+    DatahubOpenlineageConfig config =
+        DatahubOpenlineageConfig.builder()
+            .useLegacyIcebergSymlinkPlatform(true)
+            .hivePlatformAlias("custom_hive")
+            .build();
+    OpenLineage.InputDataset dataset =
+        tableDataset("iceberg", "hive", "hive://metastore.example:9083", "table/my_db/events");
+    OpenLineage.InputDataset physical =
+        openLineage
+            .newInputDatasetBuilder()
+            .namespace(dataset.getNamespace())
+            .name(dataset.getName())
+            .build();
+
+    String logicalUrn = convert(dataset, config);
+
+    assertEquals(logicalUrn, "urn:li:dataset:(urn:li:dataPlatform:custom_hive,my_db.events,PROD)");
+    assertEquals(convert(physical, config), logicalUrn);
+  }
+
+  @DataProvider
+  public Object[][] legacyIcebergPlatformSettings() {
+    return new Object[][] {{false}, {true}};
+  }
+
+  @Test(dataProvider = "legacyIcebergPlatformSettings")
+  public void testHiveRestAndGlueSymlinkPlatformsRemainUnchanged(boolean useLegacyPlatform) {
     OpenLineage.InputDataset hive =
         tableDataset(null, null, "hive://metastore.example:9083", "my_db.events");
     OpenLineage.InputDataset restCatalog =
@@ -72,7 +104,10 @@ public class OpenLineageDatasetIdentityTest {
     OpenLineage.InputDataset glueCatalog =
         tableDataset("iceberg", "glue", "arn:aws:glue:us-east-1:111122223333", "my_db.events");
     DatahubOpenlineageConfig config =
-        DatahubOpenlineageConfig.builder().fabricType(FabricType.PROD).build();
+        DatahubOpenlineageConfig.builder()
+            .fabricType(FabricType.PROD)
+            .useLegacyIcebergSymlinkPlatform(useLegacyPlatform)
+            .build();
 
     assertEquals(
         convert(hive, config), "urn:li:dataset:(urn:li:dataPlatform:hive,my_db.events,PROD)");

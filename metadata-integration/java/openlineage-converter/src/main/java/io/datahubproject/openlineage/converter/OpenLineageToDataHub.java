@@ -142,6 +142,7 @@ public class OpenLineageToDataHub {
       String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
+      OpenLineage.CatalogDatasetFacet catalog = dataset.getFacets().getCatalog();
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
           Optional.ofNullable(dataset.getFacets().getSymlinks().getIdentifiers())
               .orElse(Collections.emptyList())) {
@@ -156,13 +157,14 @@ public class OpenLineageToDataHub {
           continue;
         }
         String symlinkNamespace = symlink.getNamespace();
-        OpenLineage.CatalogDatasetFacet catalog = dataset.getFacets().getCatalog();
         // Before OpenLineage 0.17.1 the Glue namespace omitted the "arn:" prefix.
         if (symlinkNamespace != null
             && (symlinkNamespace.startsWith("aws:glue:")
                 || symlinkNamespace.startsWith("arn:aws:glue:"))) {
           namespace = "glue";
-        } else if (catalog != null && "iceberg".equalsIgnoreCase(catalog.getFramework())) {
+        } else if (!mappingConfig.isUseLegacyIcebergSymlinkPlatform()
+            && catalog != null
+            && "iceberg".equalsIgnoreCase(catalog.getFramework())) {
           namespace = "iceberg";
         } else {
           namespace = mappingConfig.getHivePlatformAlias();

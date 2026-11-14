@@ -215,12 +215,23 @@ public class OpenLineageEventToDatahubTest {
 
   @Test
   public void testSparkConfigConnectionResolvesIcebergTableIdentity() {
+    assertSparkConfigIcebergTableIdentity("", "iceberg");
+  }
+
+  @Test
+  public void testSparkConfigLegacyIcebergPlatformPreservesConnectionMapping() {
+    assertSparkConfigIcebergTableIdentity("useLegacyIcebergSymlinkPlatform=true", "hive");
+  }
+
+  private void assertSparkConfigIcebergTableIdentity(
+      String platformConfig, String expectedPlatform) {
     String catalogNamespace = "https://catalog.example/api/catalog";
     Config datahubConfig =
         ConfigFactory.parseString(
             "metadata.dataset.connections {\n"
                 + "  \"https://catalog.example/api/catalog\" { platformInstance = \"iceberg_prod\", env = \"PROD\" }\n"
-                + "}");
+                + "}\n"
+                + platformConfig);
     DatahubOpenlineageConfig conf =
         SparkConfigParser.sparkConfigToDatahubOpenlineageConf(datahubConfig, new SparkAppContext());
     OpenLineage openLineage = new OpenLineage(URI.create("https://test"));
@@ -252,7 +263,9 @@ public class OpenLineageEventToDatahubTest {
 
     assertTrue(urn.isPresent());
     assertEquals(
-        "urn:li:dataset:(urn:li:dataPlatform:iceberg,iceberg_prod.my_db.events,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:"
+            + expectedPlatform
+            + ",iceberg_prod.my_db.events,PROD)",
         urn.get().toString());
   }
 

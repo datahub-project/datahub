@@ -55,6 +55,8 @@ public class SparkConfigParser {
   public static final String PATCH_ENABLED = "patch.enabled";
   public static final String LEGACY_LINEAGE_CLEANUP = "legacyLineageCleanup.enabled";
   public static final String DISABLE_SYMLINK_RESOLUTION = "disableSymlinkResolution";
+  public static final String USE_LEGACY_ICEBERG_SYMLINK_PLATFORM =
+      "useLegacyIcebergSymlinkPlatform";
 
   public static final String STAGE_METADATA_COALESCING = "stage_metadata_coalescing";
   public static final String STREAMING_JOB = "streaming_job";
@@ -185,6 +187,8 @@ public class SparkConfigParser {
     builder.usePatch(SparkConfigParser.isPatchEnabled(sparkConfig));
     builder.removeLegacyLineage(SparkConfigParser.isLegacyLineageCleanupEnabled(sparkConfig));
     builder.disableSymlinkResolution(SparkConfigParser.isDisableSymlinkResolution(sparkConfig));
+    builder.useLegacyIcebergSymlinkPlatform(
+        SparkConfigParser.isUseLegacyIcebergSymlinkPlatform(sparkConfig));
     builder.lowerCaseDatasetUrns(SparkConfigParser.isLowerCaseDatasetUrns(sparkConfig));
     builder.captureColumnLevelLineage(SparkConfigParser.isCaptureColumnLevelLineage(sparkConfig));
     builder.includeIndirectColumnLineage(
@@ -454,6 +458,11 @@ public class SparkConfigParser {
     }
     return datahubConfig.hasPath(DISABLE_SYMLINK_RESOLUTION)
         && datahubConfig.getBoolean(DISABLE_SYMLINK_RESOLUTION);
+  }
+
+  public static boolean isUseLegacyIcebergSymlinkPlatform(Config datahubConfig) {
+    return datahubConfig.hasPath(USE_LEGACY_ICEBERG_SYMLINK_PLATFORM)
+        && datahubConfig.getBoolean(USE_LEGACY_ICEBERG_SYMLINK_PLATFORM);
   }
 
   public static boolean isEmitCoalescePeriodically(Config datahubConfig) {
