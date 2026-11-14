@@ -1,7 +1,10 @@
 package com.linkedin.gms.factory.kafka.schemaregistry;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.kafka.PolicyChangeTopic;
 import com.linkedin.gms.factory.kafka.common.TopicConventionFactory;
 import com.linkedin.metadata.EventSchemaData;
+import com.linkedin.metadata.EventUtils;
 import com.linkedin.metadata.registry.SchemaRegistryService;
 import com.linkedin.metadata.registry.SchemaRegistryServiceImpl;
 import com.linkedin.mxe.TopicConvention;
@@ -24,7 +27,16 @@ public class SchemaRegistryServiceFactory {
   @Nonnull
   @DependsOn({TopicConventionFactory.TOPIC_CONVENTION_BEAN, "eventSchemaData"})
   protected SchemaRegistryService schemaRegistryService(
-      TopicConvention convention, EventSchemaData eventSchemaData) {
-    return new SchemaRegistryServiceImpl(convention, eventSchemaData);
+      TopicConvention convention,
+      EventSchemaData eventSchemaData,
+      ConfigurationProvider configurationProvider) {
+    final SchemaRegistryServiceImpl service =
+        new SchemaRegistryServiceImpl(convention, eventSchemaData);
+    // The optional policy change topic carries change logs (POLICY_CACHE_BROADCAST_ENABLED).
+    PolicyChangeTopic.enabledTopicName(configurationProvider)
+        .ifPresent(
+            topic ->
+                service.registerTopicSchema(topic, EventUtils.METADATA_CHANGE_LOG_SCHEMA_NAME));
+    return service;
   }
 }

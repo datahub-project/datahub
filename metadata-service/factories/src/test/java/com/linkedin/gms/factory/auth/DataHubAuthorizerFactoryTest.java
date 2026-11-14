@@ -85,4 +85,20 @@ public class DataHubAuthorizerFactoryTest {
     assertFalse(authorizer.isSqlSourceEnabled());
     verify(service, never()).setPolicyChangeObserver(any());
   }
+
+  @Test
+  public void testBroadcastTurnsOnTheSqlSourceAndSyncPolicyWrites() {
+    AspectDao dao = mock(AspectDao.class);
+    when(dao.streamAspects(POLICY_ENTITY_NAME, DATAHUB_POLICY_INFO_ASPECT_NAME))
+        .thenReturn(Stream.empty());
+    EntityServiceImpl service = mock(EntityServiceImpl.class);
+    DataHubAuthorizerFactory factory = factory(false);
+    ReflectionTestUtils.setField(factory, "changeBroadcastEnabled", true);
+    ReflectionTestUtils.setField(factory, "messagingTransport", "kafka");
+
+    DataHubAuthorizer authorizer = build(factory, dao, service);
+
+    assertTrue(authorizer.isSqlSourceEnabled());
+    verify(service).setSyncPolicyWrites(true);
+  }
 }

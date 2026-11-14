@@ -109,6 +109,12 @@ authorization:
       enabled: ${POLICY_CACHE_SQL_SOURCE_ENABLED:false}
       # After a policy write or delete, wait up to this long for the reload before the write returns.
       policyChangeWaitMillis: ${POLICY_CACHE_POLICY_CHANGE_WAIT_MILLIS:5000}
+    # Send each policy change to every process with a policy cache over kafka.topics.policyChange,
+    # and write dataHubPolicy proposals synchronously. Opt-in; also turns on sqlSource.
+    # With CDC mode (cdcModeChangeLog), the CDC consumer sends the change logs, so the broadcast
+    # arrives after the CDC lag. The writing GMS still refreshes its own cache before it returns.
+    changeBroadcast:
+      enabled: ${POLICY_CACHE_BROADCAST_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   registryApi:
@@ -1557,6 +1563,19 @@ kafka:
       pollEnabled: true
       configProperties:
         retention.ms: 7776000000
+
+    policyChange:
+      name: ${POLICY_CHANGE_TOPIC_NAME:PolicyChange_v1}
+      displayName: PolicyChange_v1
+      # Created and used only with POLICY_CACHE_BROADCAST_ENABLED=true. Follows the authorizer
+      # property, so setting either the env var or that property gives the same result.
+      enabled: ${authorization.defaultAuthorizer.changeBroadcast.enabled:false}
+      # One partition keeps all policy changes in one order; the volume is tiny.
+      partitions: 1
+      replicationFactor: ${POLICY_CHANGE_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
+      configProperties:
+        # 1 day. The policy change listener only reads from the end, so a short retention is safe.
+        retention.ms: 86400000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
