@@ -50,6 +50,20 @@ PERMITTED: List[Tuple[str, str, str]] = [
     ("mysql", "mysql", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT table_name FROM information_schema.tables"),
     ("snowflake", "snowflake", "SELECT * FROM snowflake.account_usage.tables"),
+    # The tags on one object, read in real time: ACCOUNT_USAGE.TAG_REFERENCES lags
+    # by up to two hours, which is too late to confirm a tag that was just applied.
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT tag_name, tag_value FROM TABLE("
+        "my_db.information_schema.tag_references('my_db.my_schema.events', 'table'))",
+    ),
+    (
+        "snowflake",
+        "snowflake",
+        "SELECT tag_name, column_name FROM TABLE("
+        "information_schema.tag_references_all_columns('my_db.my_schema.events', 'table'))",
+    ),
     # Emptiness here is how an agent tells Standard edition from Enterprise:
     # the view is never populated on Standard, so lineage and usage come back
     # silently empty while every privilege is present. Verified against both
@@ -763,3 +777,87 @@ def test_without_the_flag_redshift_matches_the_bare_schema_name():
     ).results[0]
     assert result.target == "analytics"
     assert result.included
+
+
+# A listed table function is admitted in one shape only. Each case below is a way
+# the same name could run something other than Snowflake's own catalog function,
+# or read something other than the object it was given.
+REFUSED_TABLE_FUNCTION_SHAPE: List[Tuple[str, str]] = [
+    # Unqualified, the name resolves through the session's search path, where a
+    # user function of the same name in the current schema comes first.
+    ("unqualified", "SELECT * FROM TABLE(tag_references('t', 'table'))"),
+    # Qualified with a user schema: a user function, whatever its name.
+    (
+        "user schema",
+        "SELECT * FROM TABLE(my_db.my_schema.tag_references('t', 'table'))",
+    ),
+    # A quoted qualifier keeps its case on Snowflake, so "information_schema"
+    # names a schema other than the system one.
+    (
+        "quoted qualifier",
+        "SELECT * FROM TABLE(my_db.\"information_schema\".tag_references('t', 'table'))",
+    ),
+    # Arguments must be literals: a column or a subquery feeds it what another
+    # relation holds.
+    (
+        "column argument",
+        "SELECT r.tag_name FROM information_schema.tables AS t, "
+        "TABLE(information_schema.tag_references(t.table_name, 'table')) AS r",
+    ),
+    (
+        "subquery argument",
+        "SELECT * FROM TABLE(information_schema.tag_references("
+        "(SELECT MAX(table_name) FROM information_schema.tables), 'table'))",
+    ),
+    (
+        "named arguments",
+        "SELECT * FROM TABLE(information_schema.tag_references("
+        "object_name => 't', object_domain => 'table'))",
+    ),
+    # Outside TABLE(...) in FROM it is not a table-function read.
+    (
+        "select list",
+        "SELECT information_schema.tag_references('t', 'table') "
+        "FROM information_schema.tables",
+    ),
+    (
+        "without TABLE()",
+        "SELECT * FROM information_schema.tag_references('t', 'table')",
+    ),
+    # Listed by name: the schema's other table functions stay refused.
+    ("unlisted function", "SELECT * FROM TABLE(information_schema.query_history())"),
+]
+
+
+@pytest.mark.parametrize(
+    "query",
+    [query for _, query in REFUSED_TABLE_FUNCTION_SHAPE],
+    ids=[case for case, _ in REFUSED_TABLE_FUNCTION_SHAPE],
+)
+def test_a_table_function_is_admitted_in_one_shape_only(query: str) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform="snowflake", scope=_scope("snowflake"))
+
+
+def test_a_refused_listed_function_says_how_to_call_it() -> None:
+    with pytest.raises(SqlScopeError, match=r"(?i)TABLE\(information_schema\."):
+        check_query_scope(
+            "SELECT * FROM TABLE(tag_references('t', 'table'))",
+            platform="snowflake",
+            scope=_scope("snowflake"),
+        )
+
+
+def test_no_dialect_admits_a_table_function_it_does_not_list() -> None:
+    scope = CatalogScope()
+    assert not scope.permits_table_function([INFORMATION_SCHEMA, "tag_references"])
+    listed = CatalogScope(
+        table_functions=frozenset({"information_schema.tag_references"})
+    )
+    assert listed.permits_table_function(
+        ["my_db", "INFORMATION_SCHEMA", "TAG_REFERENCES"]
+    )
+    # A bare entry could never be shown to be the system function.
+    assert not CatalogScope(
+        table_functions=frozenset({"tag_references"})
+    ).permits_table_function(["my_schema", "tag_references"])
