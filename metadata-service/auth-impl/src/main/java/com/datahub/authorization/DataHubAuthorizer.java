@@ -84,8 +84,32 @@ public class DataHubAuthorizer
   @Getter private final OperationContext systemOpContext;
 
   public static final String ALL = "ALL";
+  // Total time initialLoad waits, for all attempts together.
   private static final long INITIAL_LOAD_TIMEOUT_SECONDS = 60;
   private static final long DEFAULT_POLICY_CHANGE_WAIT_MILLIS = 5000;
+  // Until the first load succeeds, a failed load is retried after this delay, not after the
+  // refresh interval: the cache is empty until then.
+  private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
+  private volatile boolean loadedOnce;
+
+  public DataHubAuthorizer(
+      @Nonnull final OperationContext systemOpContext,
+      final EntityClient entityClient,
+      @Nonnull final GroupService groupService,
+      final int delayIntervalSeconds,
+      final int refreshIntervalSeconds,
+      final AuthorizationMode mode,
+      final int policyFetchSize) {
+    this(
+        systemOpContext,
+        entityClient,
+        groupService,
+        delayIntervalSeconds,
+        refreshIntervalSeconds,
+        mode,
+        policyFetchSize,
+        null);
+  }
 
   /**
    * @param policyLoader when not null, policies load from the primary store with this loader
@@ -492,6 +516,7 @@ public class DataHubAuthorizer
     try {
       final PolicySnapshot next = PolicySnapshot.of(policyLoader.loadAll());
       publish(next);
+      loadedOnce = true;
       increment("policyCache.load.run");
       systemOpContext
           .getMetricUtils()
@@ -507,15 +532,33 @@ public class DataHubAuthorizer
       increment("policyCache.load.failed");
       log.error("Failed to load policies. Keeping the current policies.", t);
       load.completeExceptionally(t);
+      if (!loadedOnce) {
+        scheduleFirstLoadRetry();
+      }
+    }
+  }
+
+  private void scheduleFirstLoadRetry() {
+    try {
+      refreshExecutorService.schedule(
+          () -> {
+            if (!loadedOnce) {
+              requestLoad();
+            }
+          },
+          firstLoadRetryMillis,
+          TimeUnit.MILLISECONDS);
+    } catch (RejectedExecutionException e) {
+      // Shutting down.
     }
   }
 
   /**
-   * Loads the policies synchronously, trying up to {@code attempts} times. Call this once at
-   * startup so the authorizer never serves requests with an empty cache.
+   * Loads the policies synchronously, trying up to {@code attempts} times within 60 s in total.
+   * Call this once at startup so the authorizer never serves requests with an empty cache.
    *
-   * @return true if a load succeeded; false if every attempt failed, in which case the timer and
-   *     later requests keep trying.
+   * @return true if a load succeeded; false if every attempt failed, in which case a load is
+   *     retried every 10 s until one succeeds.
    */
   public boolean initialLoad(int attempts, long backoffMillis) {
     if (policyLoader == null) {
@@ -523,9 +566,16 @@ public class DataHubAuthorizer
     }
     log.info("policy cache source=sql, loading policies");
     final long start = System.nanoTime();
+    final long deadline = start + TimeUnit.SECONDS.toNanos(INITIAL_LOAD_TIMEOUT_SECONDS);
     for (int attempt = 1; attempt <= attempts; attempt++) {
+      final long remaining = deadline - System.nanoTime();
+      if (remaining <= 0) {
+        break;
+      }
       try {
-        requestLoad().get(INITIAL_LOAD_TIMEOUT_SECONDS, TimeUnit.SECONDS);
+        // A timed-out load keeps the single load thread busy, so later attempts would queue
+        // behind it: all attempts share one deadline.
+        requestLoad().get(remaining, TimeUnit.NANOSECONDS);
         log.info(
             "policy cache loaded, policies={}, load={} ms",
             snapshot.size(),
@@ -589,6 +639,11 @@ public class DataHubAuthorizer
 
   public void setPolicyChangeWaitMillis(long waitMillis) {
     this.policyChangeWaitMillis = Math.max(0, waitMillis);
+  }
+
+  @VisibleForTesting
+  void setFirstLoadRetryMillis(long millis) {
+    this.firstLoadRetryMillis = millis;
   }
 
   @VisibleForTesting

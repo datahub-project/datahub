@@ -20,9 +20,9 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class DataHubAuthorizerFactory {
 
-  // Startup load: try a few times, then continue and let the timer retry, so a short database
-  // problem does not stop the process from starting. Worst case with the database down: 3 attempts
-  // x 60 s load timeout + 2 x 2 s backoff, about 3 minutes of blocked bean creation.
+  // Startup load: try a few times, then continue and retry in the background, so a short database
+  // problem does not stop the process from starting. All attempts share one 60 s limit, so bean
+  // creation is blocked for at most about 60 s.
   private static final int INITIAL_LOAD_ATTEMPTS = 3;
   private static final long INITIAL_LOAD_BACKOFF_MILLIS = 2000;
 
@@ -72,7 +72,9 @@ public class DataHubAuthorizerFactory {
             policyCacheRefreshIntervalSeconds,
             mode,
             policyCacheFetchSize,
-            dao != null ? new SqlPolicyLoader(dao) : null);
+            dao != null
+                ? new SqlPolicyLoader(dao, systemOpContext.getMetricUtils().orElse(null))
+                : null);
 
     if (authorizer.isSqlSourceEnabled()) {
       authorizer.setPolicyChangeWaitMillis(policyChangeWaitMillis);

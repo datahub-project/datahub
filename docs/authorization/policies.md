@@ -388,14 +388,14 @@ Policy evaluation is **grant-only** and **first-match-wins**: DataHub checks pol
 
 Keep these factors in mind when designing policies:
 
-| Factor                         | Impact                                                                                                                                 | Recommendation                                                                                                                                        |
-| ------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
-| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access | Consolidate policies; avoid duplicating the same privilege across many policies                                                                       |
-| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only                         |
-| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                       | Avoid container-based view policies on deep hierarchies                                                                                               |
-| **Group membership**           | Users in many groups increase matching and role-resolution cost and can impact performance                                             | Limit each user to no more than **200 groups** for best performance; one group per team policy boundary; avoid listing many groups on a single policy |
-| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                                                      |
-| **Policy cache**               | Policy changes may take up to ~120 seconds to propagate (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`)                                      | Plan for brief delay after policy updates                                                                                                             |
+| Factor                         | Impact                                                                                                                                                 | Recommendation                                                                                                                                        |
+| ------------------------------ | ------------------------------------------------------------------------------------------------------------------------------------------------------ | ----------------------------------------------------------------------------------------------------------------------------------------------------- |
+| **Number of active policies**  | Every user session evaluates actor match against all policies; each authorization request may iterate policies until one grants access                 | Consolidate policies; avoid duplicating the same privilege across many policies                                                                       |
+| **Domain resource filters**    | Each check may walk the full domain parent hierarchy                                                                                                   | Prefer ownership for entity access; keep domain trees shallow; use domain filters for domain entities or Cloud discovery only                         |
+| **Container resource filters** | Each check walks the container chain (database → schema → table)                                                                                       | Avoid container-based view policies on deep hierarchies                                                                                               |
+| **Group membership**           | Users in many groups increase matching and role-resolution cost and can impact performance                                                             | Limit each user to no more than **200 groups** for best performance; one group per team policy boundary; avoid listing many groups on a single policy |
+| **Search under VBAC**          | Each search hit may be authorized individually with full policy evaluation                                                                             | Fewer domain-scoped view policies; prefer ownership-based grants                                                                                      |
+| **Policy cache**               | Policy changes may take up to ~120 seconds to reach every GMS (`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`); see [Policy propagation](#policy-propagation) | Plan for brief delay after policy updates                                                                                                             |
 
 ### Groups
 
@@ -477,11 +477,15 @@ If search or entity pages feel slow after enabling VBAC:
 3. **Check domain depth** — flatten nested domains used in policy filters.
 4. **Review group membership** — reduce users in many overlapping groups; aim for no more than **200 groups** per user.
 5. **Check role assignments** — Editor/Reader on restricted users won't cause slowness but indicates misconfiguration if isolation is expected.
-6. **Wait for cache refresh** — policy changes may take up to `POLICY_CACHE_REFRESH_INTERVAL_SECONDS` (default 120) to apply.
+6. **Wait for cache refresh** — policy changes may take up to `POLICY_CACHE_REFRESH_INTERVAL_SECONDS` (default 120) to apply on every GMS. See [Policy propagation](#policy-propagation).
 
 ### Policy propagation
 
-Policy definitions are cached in GMS and refreshed periodically. After creating or editing policies, allow up to **`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`** seconds (default **120**) before changes fully propagate. See [environment variables](../deploy/environment-vars.md) for configuration.
+Policy definitions are cached in each GMS and refreshed periodically. By default, after creating or editing policies, allow up to **`POLICY_CACHE_REFRESH_INTERVAL_SECONDS`** seconds (default **120**) before changes fully propagate.
+
+With `POLICY_CACHE_SQL_SOURCE_ENABLED=true`, policies load from the primary store instead of the search index, and the GMS that handled a policy change reloads its cache at once. Other GMS replicas still pick up the change on the refresh interval.
+
+See [environment variables](../deploy/environment-vars.md) for configuration.
 
 ## Reference
 
