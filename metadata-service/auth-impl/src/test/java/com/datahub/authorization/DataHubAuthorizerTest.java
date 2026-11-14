@@ -576,8 +576,8 @@ public class DataHubAuthorizerTest {
             10,
             10,
             DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1 // force pagination logic
-            );
+            1, // force pagination logic
+            null);
     _dataHubAuthorizer.init(
         Collections.emptyMap(), createAuthorizerContext(systemOpContext, _entityClient));
     _dataHubAuthorizer.invalidateCache();
@@ -1749,7 +1749,8 @@ public class DataHubAuthorizerTest {
             0,
             0,
             DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1);
+            1,
+            null);
     authorizer.init(
         Collections.emptyMap(),
         new AuthorizerContext(

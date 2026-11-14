@@ -103,6 +103,10 @@ authorization:
     enabled: ${AUTH_POLICIES_ENABLED:true}
     cacheRefreshIntervalSecs: ${POLICY_CACHE_REFRESH_INTERVAL_SECONDS:120}
     cachePolicyFetchSize: ${POLICY_CACHE_FETCH_SIZE:1000}
+    # Load policies from the primary store (one SQL query) instead of the search index, apply each
+    # change with a full reload, and load synchronously at startup. Opt-in.
+    sqlSource:
+      enabled: ${POLICY_CACHE_SQL_SOURCE_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   registryApi:

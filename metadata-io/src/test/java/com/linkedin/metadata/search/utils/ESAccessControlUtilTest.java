@@ -648,7 +648,8 @@ public class ESAccessControlUtilTest {
           0,
           0,
           AuthorizationMode.DEFAULT,
-          0);
+          0,
+          null);
 
       SystemEntityClient specEntityClient =
           mockUserGroupEntityClient(userGroups, resourceOwnerTypes);
