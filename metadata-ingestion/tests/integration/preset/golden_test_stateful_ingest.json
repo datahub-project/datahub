@@ -20,6 +20,23 @@
     "entityType": "chart",
     "entityUrn": "urn:li:chart:(preset,10)",
     "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-2024_07_10-07_00_00-g0s587",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,10)",
+    "changeType": "UPSERT",
     "aspectName": "chartInfo",
     "aspect": {
         "json": {
@@ -115,6 +132,23 @@
 },
 {
     "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,12)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-2024_07_10-07_00_00-g0s587",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
     "entityUrn": "urn:li:chart:(preset,13)",
     "changeType": "UPSERT",
     "aspectName": "status",
@@ -166,6 +200,23 @@
     "systemMetadata": {
         "lastObserved": 1720594800000,
         "runId": "preset-2024_07_10-07_00_00-fmjefg",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,13)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-2024_07_10-07_00_00-g0s587",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }
@@ -228,6 +279,23 @@
     }
 },
 {
+    "entityType": "chart",
+    "entityUrn": "urn:li:chart:(preset,11)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-2024_07_10-07_00_00-g0s587",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
     "entityType": "dashboard",
     "entityUrn": "urn:li:dashboard:(preset,1)",
     "changeType": "UPSERT",
@@ -240,6 +308,23 @@
     "systemMetadata": {
         "lastObserved": 1720594800000,
         "runId": "preset-2024_07_10-07_00_00-fmjefg",
+        "lastRunId": "no-run-id-provided",
+        "pipelineName": "test_pipeline"
+    }
+},
+{
+    "entityType": "dashboard",
+    "entityUrn": "urn:li:dashboard:(preset,1)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:preset"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1720594800000,
+        "runId": "preset-2024_07_10-07_00_00-g0s587",
         "lastRunId": "no-run-id-provided",
         "pipelineName": "test_pipeline"
     }

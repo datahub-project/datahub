@@ -244,7 +244,7 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
             "method": "GET",
             "status_code": 200,
             "json": {
-                "count": 215,
+                "count": 3,
                 "description_columns": {},
                 "ids": [1, 2, 3],
                 "result": [
@@ -795,8 +795,24 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
 @time_machine.travel(FROZEN_TIME, tick=False)
 @pytest.mark.integration
+@pytest.mark.parametrize(
+    "extra_config, golden_file",
+    [
+        pytest.param({}, "golden_test_ingest.json", id="default"),
+        pytest.param(
+            {"platform_instance": "test_platform_instance", "ingest_datasets": True},
+            "golden_test_platform_instance_ingest.json",
+            id="platform_instance",
+        ),
+    ],
+)
 def test_superset_ingest(
-    pytestconfig: pytest.Config, tmp_path: Path, mock_time: None, requests_mock: Any
+    pytestconfig: pytest.Config,
+    tmp_path: Path,
+    mock_time: None,
+    requests_mock: Any,
+    extra_config: Dict[str, Any],
+    golden_file: str,
 ) -> None:
     test_resources_dir = pytestconfig.rootpath / "tests/integration/superset"
 
@@ -812,6 +828,7 @@ def test_superset_ingest(
                     "username": "test_username",
                     "password": "test_password",
                     "provider": "db",
+                    **extra_config,
                 },
             },
             "sink": {
@@ -825,7 +842,6 @@ def test_superset_ingest(
 
     pipeline.run()
     pipeline.raise_from_status()
-    golden_file = "golden_test_ingest.json"
 
     mce_helpers.check_golden_file(
         pytestconfig,

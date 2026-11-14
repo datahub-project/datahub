@@ -3865,6 +3865,12 @@
           "supported": true
         },
         {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
           "capability": "LINEAGE_COARSE",
           "description": "Supported by default",
           "subtype_modifier": null,
@@ -5234,6 +5240,12 @@
         {
           "capability": "TAGS",
           "description": "Supported by default",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "PLATFORM_INSTANCE",
+          "description": "Enabled by default",
           "subtype_modifier": null,
           "supported": true
         },
