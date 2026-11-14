@@ -68,9 +68,13 @@
             "customProperties": {
                 "table.arn": "arn:aws:dynamodb:us-east-1:000000000000:table/Orders",
                 "table.totalItems": "1",
+                "table.creationDateTime": "2023-08-30T12:00:00+00:00",
                 "Partition Key": "partitionKey"
             },
             "name": "Orders",
+            "created": {
+                "time": 1693396800000
+            },
             "tags": []
         }
     },
@@ -178,9 +182,13 @@
             "customProperties": {
                 "table.arn": "arn:aws:dynamodb:us-east-1:000000000000:table/Products",
                 "table.totalItems": "1",
+                "table.creationDateTime": "2023-08-30T12:00:00+00:00",
                 "Partition Key": "partitionKey"
             },
             "name": "Products",
+            "created": {
+                "time": 1693396800000
+            },
             "tags": []
         }
     },

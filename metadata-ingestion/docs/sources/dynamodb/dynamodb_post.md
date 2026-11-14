@@ -2,6 +2,12 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+#### Table creation time
+
+When DynamoDB returns `CreationDateTime`, you can find the table's creation time in Dataset Properties and in the `table.creationDateTime` custom property. Dataset Properties uses an epoch timestamp in milliseconds; the custom property preserves the ISO 8601 date, time, and offset. You can also query these values through the existing dataset properties in the GraphQL API.
+
+If DynamoDB omits the creation time, the connector leaves both fields unset.
+
 #### Using `schema_sampling_size` config
 
 By default, the connector samples 100 items from each table to infer the schema. You can adjust this using the `schema_sampling_size` configuration option if you need more comprehensive schema coverage:
