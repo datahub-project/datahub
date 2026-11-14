@@ -136,20 +136,28 @@ export function resolveDocumentationSurface(entity: CoreEntity, flags: Documenta
 }
 
 /**
- * Write the UI-editable description directly, so a test starts from known text regardless of
+ * The tag the matrix specs assign, seeded in fixtures/data.json. Its key (`pw_matrix_tag_key`)
+ * differs from its display name on purpose: a surface that falls back to the URN tail then shows
+ * the key, which no assertion on the name accepts, instead of a string that happens to equal it.
+ */
+export const MATRIX_TAG = { name: 'PW Matrix Tag' } as const;
+
+/**
+ * Write one aspect of a core entity directly, so a test starts from known state regardless of
  * what an earlier (possibly failed) run left behind. Uses the same ingest path as the seeder.
  */
-export async function writeEditableDescription(
+export async function writeAspect(
   gmsRequest: APIRequestContext,
   entity: CoreEntity,
-  description: string,
+  aspectName: string,
+  aspect: Record<string, unknown>,
 ): Promise<void> {
   const mcp: Mcp = {
     entityType: entity.entityType,
     entityUrn: entity.urn,
     changeType: 'UPSERT',
-    aspectName: entity.editableAspect,
-    aspect: { json: { description } },
+    aspectName,
+    aspect: { json: aspect },
   };
   // Ask for a synchronous write. Without `async`, GMS falls back to its ASYNC_INGEST_DEFAULT
   // setting, and on an instance that defaults to async the response returns before the aspect is
@@ -159,7 +167,21 @@ export async function writeEditableDescription(
   });
   if (!response.ok()) {
     throw new Error(
-      `ingestProposal for ${entity.editableAspect} on ${entity.urn} failed: ${response.status()} ${await response.text()}`,
+      `ingestProposal for ${aspectName} on ${entity.urn} failed: ${response.status()} ${await response.text()}`,
     );
   }
+}
+
+/** Reset the UI-editable description to known text. */
+export async function writeEditableDescription(
+  gmsRequest: APIRequestContext,
+  entity: CoreEntity,
+  description: string,
+): Promise<void> {
+  await writeAspect(gmsRequest, entity, entity.editableAspect, { description });
+}
+
+/** Clear every tag on the entity. */
+export async function clearTags(gmsRequest: APIRequestContext, entity: CoreEntity): Promise<void> {
+  await writeAspect(gmsRequest, entity, 'globalTags', { tags: [] });
 }
