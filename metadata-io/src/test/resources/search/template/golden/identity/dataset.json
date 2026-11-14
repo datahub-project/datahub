@@ -82,6 +82,15 @@
                 }
               }
             }, {
+              "term" : {
+                "email" : {
+                  "_name" : "matchedField:email",
+                  "boost" : 10.0,
+                  "case_insensitive" : true,
+                  "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+                }
+              }
+            }, {
               "simple_query_string" : {
                 "analyze_wildcard" : false,
                 "auto_generate_synonyms_phrase_query" : true,

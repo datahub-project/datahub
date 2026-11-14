@@ -45,6 +45,20 @@ public final class IndexMigrationStamp {
   }
 
   /**
+   * Target mappings for a reindex destination. The destination is created from the target mappings,
+   * which carry the document-id scheme and not the live index's migration mark, so a swap would
+   * otherwise drop {@code complete}. Copies the live mark onto {@code target} when the live index
+   * has one. A destination that is then filled from primary storage is stamped {@code incomplete}
+   * by the caller after it is created; this is only for a destination that receives the live
+   * index's documents.
+   */
+  @Nonnull
+  public static Map<String, Object> copyOnto(
+      @Nonnull Map<String, Object> target, @Nullable Map<String, Object> current) {
+    return read(current).map(state -> stamped(target, state)).orElse(target);
+  }
+
+  /**
    * A copy of {@code mappings} whose {@code _meta} records {@code state}, keeping other entries.
    */
   @Nonnull

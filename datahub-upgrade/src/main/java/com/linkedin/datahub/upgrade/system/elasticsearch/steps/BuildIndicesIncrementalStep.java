@@ -171,9 +171,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
 
-          // Skip indices that already completed or were swapped in a previous run, and indices
-          // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
-          if (ownedByThisDeploy(upgradeState, config.name())) {
+          // Skip a row this deploy already owns only while its index is still present: a finished
+          // row, or a fill the non-blocking phase resumes from its own checkpoint. A replaced
+          // cluster (new OpenSearch volume, upgrade history kept in primary storage) has the row
+          // and not the index, so the missing index is created again.
+          if (config.exists() && ownedByThisDeploy(upgradeState, config.name())) {
             log.info(
                 "Index {} already {} in previous run, skipping",
                 config.name(),
@@ -766,6 +768,18 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     String oldBackingIndexName = null;
     boolean oldIdSchemeStale = false;
     boolean abandonedMigration = false;
+
+    // The index is created or changed below, before BACKFILL_PENDING is checkpointed. Checkpoint
+    // FAILED first: if the process dies in between, a leftover COMPLETED row would make the next
+    // run skip the index as owned, and it would never be filled. FAILED is replanned from the
+    // index's live state.
+    Map<String, String> failedState = new HashMap<>(upgradeState);
+    failedState.put(
+        IncrementalReindexState.key(config.name(), IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    checkpoint(context, failedState, DataHubUpgradeState.IN_PROGRESS);
+    upgradeState = failedState;
+
     switch (fill) {
       case CREATE_ALIASED -> {
         physicalIndex =
@@ -840,8 +854,36 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           IncrementalReindexState.setOldBackingIndexIncompleteMigration(
               upgradeState, config.name());
     }
+    // Catch-up runs only after this fill's row is COMPLETED, so it never observes the in-progress
+    // row that would drop a verdict. A terminal verdict from the previous fill would skip the new
+    // window, and the incomplete mark would stay until a later version.
+    clearCatchUpVerdict(context, config.name());
     checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;
+  }
+
+  /**
+   * Drops this index's catch-up verdict and resume cursor when a new fill replaces one that already
+   * finished. No catch-up result is written when this index has neither.
+   */
+  private void clearCatchUpVerdict(UpgradeContext context, String indexName) {
+    Urn catchUpUrn =
+        BootstrapStep.getUpgradeUrn(
+            IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    Optional<DataHubUpgradeResult> previous =
+        context.upgrade().getUpgradeResult(opContext, catchUpUrn, entityService);
+    if (previous.isEmpty() || previous.get().getResult() == null) {
+      return;
+    }
+    Map<String, String> existing = previous.get().getResult();
+    Map<String, String> cleared = IncrementalReindexState.clearCatchUpStatus(existing, indexName);
+    if (cleared.equals(existing)) {
+      return;
+    }
+    context
+        .upgrade()
+        .setUpgradeResult(
+            opContext, catchUpUrn, entityService, DataHubUpgradeState.IN_PROGRESS, cleared);
   }
 
   private EntityIndexVersion indexVersionOf(String indexName) {

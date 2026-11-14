@@ -36,6 +36,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
@@ -688,19 +689,19 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable SearchFieldResolver v3FieldResolver) {
-    if (v3FieldResolver != null
-        && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-      Optional<String> unlabeledSource =
-          v3FieldResolver.unlabeledHasValuesSource(criterion.getField());
-      if (unlabeledSource.isPresent()) {
-        return unlabeledHasValuesQuery(v3FieldResolver, criterion, unlabeledSource.get());
-      }
-    }
     final boolean resolvedForV3 =
         v3FieldResolver != null
             && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
             && v3FieldResolver.contains(criterion.getField());
     final Criterion effectiveCriterion;
+    if (resolvedForV3
+        && criterion.getCondition() == Condition.CONTAIN
+        && !v3FieldResolver.supports(criterion.getField(), Intent.CONTAIN)) {
+      log.debug(
+          "Omitting Search V3 contains filter on {}: the field has no text to match",
+          criterion.getField());
+      return null;
+    }
     if (resolvedForV3 && criterion.getCondition() == Condition.CONTAIN) {
       SearchFieldResolver.Field containField =
           v3FieldResolver.resolve(criterion.getField(), Intent.CONTAIN);
@@ -827,59 +828,6 @@ public class ESUtils {
         criterion.getCondition(),
         criterion.getField());
     return null;
-  }
-
-  /**
-   * A {@code has*} name with no {@code searchLabel} is not mapped. True and {@code EXISTS} match
-   * documents where the source field exists. False and {@code IS_NULL} match documents where it is
-   * missing. A contains, range, or any other condition is not a boolean check and is left out.
-   */
-  @Nullable
-  private static QueryBuilder unlabeledHasValuesQuery(
-      @Nonnull SearchFieldResolver resolver,
-      @Nonnull Criterion criterion,
-      @Nonnull String sourceField) {
-    Optional<Boolean> missing = unlabeledHasValuesMissing(criterion);
-    if (missing.isEmpty()) {
-      log.debug(
-          "Omitting Search V3 {} filter on {}: a removed has-field only answers presence",
-          criterion.getCondition(),
-          criterion.getField());
-      return null;
-    }
-    String path = resolver.exactPath(sourceField, Intent.FILTER);
-    boolean isMissing = missing.get();
-    if (criterion.isNegated()) {
-      isMissing = !isMissing;
-    }
-    QueryBuilder exists = QueryBuilders.existsQuery(path);
-    if (isMissing) {
-      return QueryBuilders.boolQuery().mustNot(exists).queryName(criterion.getField());
-    }
-    return QueryBuilders.boolQuery().must(exists).queryName(criterion.getField());
-  }
-
-  /** Empty when the condition is not a true/false presence check. */
-  private static Optional<Boolean> unlabeledHasValuesMissing(@Nonnull Criterion criterion) {
-    Condition condition = criterion.getCondition();
-    if (condition == Condition.IS_NULL) {
-      return Optional.of(true);
-    }
-    if (condition == Condition.EXISTS) {
-      return Optional.of(false);
-    }
-    if ((condition == Condition.EQUAL || condition == Condition.IEQUAL)
-        && criterion.hasValues()
-        && criterion.getValues().size() == 1) {
-      String value = criterion.getValues().get(0);
-      if ("true".equalsIgnoreCase(value)) {
-        return Optional.of(false);
-      }
-      if ("false".equalsIgnoreCase(value)) {
-        return Optional.of(true);
-      }
-    }
-    return Optional.empty();
   }
 
   /** Opted-in keyword. Contains, prefix, and suffix read the folded subfield. */
@@ -1034,17 +982,11 @@ public class ESUtils {
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
-        final String requestedField =
-            v3FieldResolver == null
-                ? sortCriterion.getField()
-                : v3FieldResolver
-                    .unlabeledHasValuesSource(sortCriterion.getField())
-                    .orElse(sortCriterion.getField());
-        // urn is a synthetic keyword root on every entity index, not an annotated entity field.
+        final String requestedField = sortCriterion.getField();
+        // urn and the root _system object are written on every entity index, not annotated on an
+        // entity spec.
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault =
-            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(requestedField)
-                ? Optional.of(SearchableAnnotation.FieldType.KEYWORD)
-                : Optional.empty();
+            indexRootFieldType(requestedField);
         for (EntitySpec entitySpec : entitySpecs) {
           if (fieldTypeForDefault.isPresent()) {
             break;
@@ -1106,6 +1048,25 @@ public class ESUtils {
       searchSourceBuilder.sort(
           new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Type of a field the index mapping writes on every entity, rather than a searchable annotation.
+   * Empty when the name is an entity field the spec loop has to resolve. An unknown name under
+   * {@code _system} stays empty so the caller still warns.
+   */
+  private static Optional<SearchableAnnotation.FieldType> indexRootFieldType(
+      @Nonnull String field) {
+    if (DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(field)
+        || MappingConstants.SYSTEM_CREATED_ACTOR_FIELD.equals(field)
+        || MappingConstants.SYSTEM_MODIFIED_ACTOR_FIELD.equals(field)) {
+      return Optional.of(SearchableAnnotation.FieldType.KEYWORD);
+    }
+    if (MappingConstants.SYSTEM_CREATED_TIME_FIELD.equals(field)
+        || MappingConstants.SYSTEM_MODIFIED_TIME_FIELD.equals(field)) {
+      return Optional.of(SearchableAnnotation.FieldType.DATETIME);
+    }
+    return Optional.empty();
   }
 
   /**

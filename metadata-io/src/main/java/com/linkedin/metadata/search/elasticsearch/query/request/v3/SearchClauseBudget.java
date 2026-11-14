@@ -18,8 +18,12 @@ public final class SearchClauseBudget {
   // enough room below OpenSearch's default 1024 limit for those expansions.
   public static final int CLAUSE_BUDGET = 850;
 
-  /** Clauses per term outside the per-field queries (all-terms, description, fully qualified). */
-  public static final int PER_TERM_EXTRA_CLAUSES = 6;
+  /**
+   * Clauses per term outside the per-field queries. The multi-word AND query repeats the name,
+   * qualifiedName, and id text and stemmed fields (6), and the description match adds 2. Email is
+   * not queried by default and is not in that AND, so the field counts do not include it.
+   */
+  public static final int PER_TERM_EXTRA_CLAUSES = 8;
 
   public static final int MAX_FUZZY_EXPANSIONS = 10;
 

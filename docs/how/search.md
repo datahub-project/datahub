@@ -113,6 +113,11 @@ If you want to:
   - `logging + (-snowflake | os_audit_log)` [Sample results](https://demo.datahub.com/search?page=1&query=logging%20%2B%20%28-snowflake%20%7C%20os_audit_log%29)
   - `(` `)` can be used to set precedence of boolean term expressions
 
+- Field syntax needs the `/q` prefix
+
+  - `/q requestTimeMs: >1700000000000` and `/q name: orders` are structured queries.
+  - Without the prefix, `field:value` is searched as plain text. A field that is not one of the default search fields can then match nothing, with no error.
+
 - Find a dataset with the word **mask** in the name:
 
   - `/q name: *mask*` [Sample results](https://demo.datahub.com/search?page=1&query=%2Fq%20name%253A%2520%2Amask%2A)

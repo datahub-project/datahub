@@ -14,11 +14,12 @@ import tempfile
 import time
 from enum import Enum
 from pathlib import Path
-from typing import Dict, List, Optional
+from typing import Dict, List, Mapping, Optional, Set
 
 import click
 import click_spinner
 import requests
+from docker import DockerClient
 from expandvars import expandvars
 from requests_file import FileAdapter
 
@@ -28,12 +29,15 @@ from datahub.cli.docker_check import (
     DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS,
     DATAHUB_COMPOSE_PROJECT_FILTER,
     DOCKER_COMPOSE_PROJECT_NAME,
+    OPENSEARCH2_VOLUME,
+    OPENSEARCH3_VOLUME,
     DockerComposeVersionError,
     QuickstartStatus,
     check_docker_quickstart,
     check_upgrade_supported,
     get_docker_client,
     run_quickstart_preflight_checks,
+    volume_has_named_entry,
 )
 from datahub.cli.quickstart_versioning import (
     QuickstartVersionMappingConfig,
@@ -254,6 +258,149 @@ def _set_environment_variables(
         )
 
     os.environ["UI_INGESTION_DEFAULT_CLI_VERSION"] = cliVersion
+
+
+# OpenSearch 2.x indices are not readable on 3.x, so an install that already has 2.x data stays on 2.x.
+_OPENSEARCH2_ENV = {
+    "DATAHUB_SEARCH_TAG": "2.19.3",
+    "DATAHUB_SEARCH_VOLUME": "osdata",
+    "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": "false",
+}
+
+
+def _opensearch2_kept_message(version: str) -> str:
+    # The steps repeat the requested version: an unversioned quickstart uses the v1.8.0 compose,
+    # which stays on OpenSearch 2.x, so step 3 must name the master compose the pin came from.
+    return f"""
+Found OpenSearch 2.x data in the {OPENSEARCH2_VOLUME} volume, so this install stays on OpenSearch 2.x.
+New installs use OpenSearch 3.x. To move this install to OpenSearch 3.x:
+1. datahub docker quickstart --backup
+2. datahub docker nuke
+3. datahub docker quickstart --version {version.lower()}
+4. datahub docker quickstart --restore
+"""
+
+
+_SEARCH_CONTAINER_SERVICES = frozenset(
+    {"opensearch", "opensearch2", "opensearch3", "elasticsearch"}
+)
+_OS2_PIN_ENV_HINT = (
+    "DATAHUB_SEARCH_TAG=2.19.3, DATAHUB_SEARCH_VOLUME=osdata, and "
+    "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED=false"
+)
+
+
+def _opensearch_major(image_ref: str) -> Optional[int]:
+    """Major version of an OpenSearch image reference, or None when it is not one."""
+    image_name, separator, tag = image_ref.rsplit("/", 1)[-1].partition(":")
+    if image_name != "opensearch" or not separator or not tag:
+        return None
+    major = tag.split(".", 1)[0]
+    if major in {"2", "3"}:
+        return int(major)
+    return None
+
+
+def _search_container_major(client: DockerClient) -> Optional[int]:
+    """OpenSearch major of the DataHub search containers, running or stopped.
+
+    Every recognized container is read, because Docker does not order this list. A 3.x container
+    wins over any 2.x one, so a stopped 2.x container left behind by an older compose cannot pin an
+    install that is already running 3.x. ``docker compose down`` removes the container and keeps the
+    volumes, so None means the volume check still has to decide.
+    """
+    try:
+        containers = client.containers.list(
+            all=True, filters=DATAHUB_COMPOSE_PROJECT_FILTER
+        )
+    except Exception as error:
+        logger.warning("Could not list DataHub search containers (%s).", error)
+        return None
+    majors: Set[int] = set()
+    for container in containers:
+        labels = container.labels or {}
+        if labels.get("com.docker.compose.service") not in _SEARCH_CONTAINER_SERVICES:
+            continue
+        tags = getattr(getattr(container, "image", None), "tags", None) or []
+        image_ref = tags[0] if tags else ""
+        if not image_ref:
+            image_ref = (container.attrs or {}).get("Config", {}).get("Image", "")
+        major = _opensearch_major(image_ref)
+        if major is not None:
+            majors.add(major)
+    if 3 in majors:
+        return 3
+    if 2 in majors:
+        return 2
+    return None
+
+
+def _opensearch2_overrides(
+    has_opensearch2_data: bool,
+    opensearch3_initialized: bool,
+    environ: Mapping[str, str],
+) -> Dict[str, str]:
+    # Compose declares osdata even when the service mounts os3data. Only a volume that
+    # contains OpenSearch data (a nodes directory) counts, and a 3.x nodes directory wins.
+    if not has_opensearch2_data or opensearch3_initialized:
+        return {}
+    # A partial override could point a 2.x image at the 3.x volume, so any user setting wins outright.
+    if any(key in environ for key in _OPENSEARCH2_ENV):
+        return {}
+    return dict(_OPENSEARCH2_ENV)
+
+
+_SEARCH_ENV_QUICKSTART_VERSIONS = frozenset({"head", "quickstart"})
+
+
+def _quickstart_honors_search_env(version: Optional[str]) -> bool:
+    """True when this quickstart uses master compose, which interpolates DATAHUB_SEARCH_*.
+
+    The no-version default downloads the v1.8.0 compose, which already runs OpenSearch 2.19.3 on
+    osdata and does not read DATAHUB_SEARCH_*, so the pin does not apply to it.
+    """
+    if version is None:
+        return False
+    return version.lower() in _SEARCH_ENV_QUICKSTART_VERSIONS
+
+
+def _maybe_keep_existing_opensearch2_install(version: Optional[str]) -> None:
+    if version is None or not _quickstart_honors_search_env(version):
+        return
+    with get_docker_client() as client:
+        _keep_existing_opensearch2_install(client, version)
+
+
+def _keep_existing_opensearch2_install(client: DockerClient, version: str) -> None:
+    major = _search_container_major(client)
+    if major == 3:
+        return
+    if major == 2:
+        has_os2_data: Optional[bool] = True
+    else:
+        has_os2_data = volume_has_named_entry(client, OPENSEARCH2_VOLUME, "nodes")
+    # Checked on the 2.x branch too: a 3.x volume that already holds data must not be shadowed by a
+    # pin to the 2.x volume.
+    os3_initialized = volume_has_named_entry(client, OPENSEARCH3_VOLUME, "nodes")
+    if major == 2 and os3_initialized is None:
+        # The container is already OpenSearch 2. A failed os3data listing must not drop that
+        # install onto an empty 3.x index. Pin unless the 3.x volume is confirmed to hold data.
+        os3_initialized = False
+    elif has_os2_data is None or os3_initialized is None:
+        logger.warning(
+            "Could not confirm whether this install has OpenSearch 2.x data, so it stays on"
+            " OpenSearch 3.x. To stay on 2.x, set %s.",
+            _OS2_PIN_ENV_HINT,
+        )
+        return
+    overrides = _opensearch2_overrides(
+        has_opensearch2_data=bool(has_os2_data),
+        opensearch3_initialized=bool(os3_initialized),
+        environ=os.environ,
+    )
+    if overrides:
+        os.environ.update(overrides)
+        click.secho(_opensearch2_kept_message(version), fg="yellow")
 
 
 def _get_default_quickstart_compose_file() -> Optional[str]:
@@ -731,6 +878,7 @@ def quickstart(
         kafka_broker_port=kafka_broker_port,
         elastic_port=elastic_port,
     )
+    _maybe_keep_existing_opensearch2_install(version)
 
     compose = _docker_compose_v2()
     base_command: List[str] = [

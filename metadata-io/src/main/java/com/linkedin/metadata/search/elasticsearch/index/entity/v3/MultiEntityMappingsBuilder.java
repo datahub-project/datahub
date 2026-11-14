@@ -1147,8 +1147,13 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
             continue;
           }
           SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-          // A has* boolean is a shared-label presence flag. A field with no searchLabel is present
-          // when its own value is present.
+          // A labeled has* boolean is shared: aspect copies copy_to it and only true is stored. A
+          // field with no searchLabel owns its boolean, which the projector writes at the root.
+          V3SearchFields.directHasValuesName(fieldSpec.getSearchableAnnotation())
+              .ifPresent(
+                  fieldName ->
+                      rootFields.putIfAbsent(
+                          fieldName, ImmutableMap.of(TYPE, ESUtils.BOOLEAN_FIELD_TYPE)));
           if (resolved.indexedFieldName().isPresent()) {
             resolved
                 .indexedHasValuesFieldName()
