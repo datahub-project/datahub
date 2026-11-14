@@ -79,7 +79,6 @@ spring.deserializer.value.delegate.class=io.confluent.kafka.serializers.KafkaAvr
 value.deserializer=org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
 
 [consumer.kafkaConsumerPoolConsumerFactory]
-auto.commit.interval.ms=10000 (Integer)
 bootstrap.servers=[b-1.msk.example.amazonaws.com:9098] (List)
 enable.auto.commit=false (Boolean)
 isolation.level=read_uncommitted
