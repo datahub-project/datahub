@@ -369,12 +369,7 @@ public class ESWriteDAO {
     // upsertDocumentBySearchGroup above.
     final DocWriteRequest<?> request =
         switch (write.kind()) {
-          case MERGE, MERGE_EXISTING ->
-              new UpdateRequest(write.indexName(), write.docId())
-                  .doc(write.source(), XContentType.JSON)
-                  .docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE)
-                  .detectNoop(false)
-                  .retryOnConflict(config.getBulkProcessor().getNumRetries());
+          case MERGE, MERGE_EXISTING -> mergeRequest(write);
           case CREATE ->
               new IndexRequest(write.indexName())
                   .id(write.docId())
@@ -387,6 +382,20 @@ public class ESWriteDAO {
           case DELETE -> new DeleteRequest(write.indexName()).id(write.docId());
         };
     bulkProcessorFor(opContext, SearchComponent.SEARCH_V3).add(opContext, write.docId(), request);
+  }
+
+  private UpdateRequest mergeRequest(@Nonnull final V3SearchDocumentWrite write) {
+    final UpdateRequest request =
+        new UpdateRequest(write.indexName(), write.docId())
+            .doc(write.source(), XContentType.JSON)
+            .detectNoop(false)
+            .retryOnConflict(config.getBulkProcessor().getNumRetries());
+    if (write.upsertSource() != null) {
+      // The engine applies doc to an existing document and upsert to a missing one, so a miss
+      // creates the document in the same atomic update instead of dropping it.
+      return request.upsert(write.upsertSource(), XContentType.JSON).docAsUpsert(false);
+    }
+    return request.docAsUpsert(write.kind() == V3SearchDocumentWrite.Kind.MERGE);
   }
 
   /**

@@ -79,6 +79,9 @@ public class SemanticContentApplyService {
       @Nonnull EmbeddingModelData profile,
       @Nonnull SemanticRefreshMarker representedMarker,
       @Nonnull String expectedPayloadHash) {
+    if (!registry.isConfigured(urn.getEntityType(), profileKey)) {
+      return ApplyOutcome.DROPPED_UNCONFIGURED;
+    }
     if (!store.exists(context, urn)) {
       return ApplyOutcome.DROPPED_ENTITY_MISSING;
     }
@@ -144,6 +147,9 @@ public class SemanticContentApplyService {
     if (removal != Removal.REMOVE_KEY && (reason == null || reason.isBlank())) {
       throw new IllegalArgumentException("A profile removal requires a reason");
     }
+    if (removal != Removal.REMOVE_KEY && !registry.isConfigured(urn.getEntityType(), profileKey)) {
+      return ApplyOutcome.DROPPED_UNCONFIGURED;
+    }
     if (!store.exists(context, urn)) {
       return ApplyOutcome.DROPPED_ENTITY_MISSING;
     }
@@ -198,6 +204,9 @@ public class SemanticContentApplyService {
       @Nullable String expectedPayloadHash,
       @Nullable String expectedPolicyVersion,
       @Nullable SemanticRefreshMarker representedMarker) {
+    if (!registry.isConfigured(urn.getEntityType(), profileKey)) {
+      return ApplyOutcome.DROPPED_UNCONFIGURED;
+    }
     if (!store.exists(context, urn)) {
       return ApplyOutcome.DROPPED_ENTITY_MISSING;
     }

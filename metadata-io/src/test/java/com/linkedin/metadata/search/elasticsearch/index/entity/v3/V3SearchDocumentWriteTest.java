@@ -1,6 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -47,6 +48,21 @@ public class V3SearchDocumentWriteTest {
     assertEquals(
         write(V3SearchDocumentWrite.Kind.DELETE).redirectedTo("test_groupindex_v3_old").kind(),
         V3SearchDocumentWrite.Kind.DELETE);
+  }
+
+  @Test
+  public void testFillCopyDropsTheUpsertSourceButARollbackCopyKeepsIt() {
+    V3SearchDocumentWrite seeded =
+        new V3SearchDocumentWrite(
+            "test_groupindex_v3",
+            "docId",
+            URN,
+            "{\"urn\":\"" + URN + "\"}",
+            V3SearchDocumentWrite.Kind.MERGE_EXISTING,
+            "{\"name\":\"x\"}");
+
+    assertNull(seeded.redirectedToFill("test_groupindex_v3_next").upsertSource());
+    assertEquals(seeded.redirectedTo("test_groupindex_v3_old").upsertSource(), "{\"name\":\"x\"}");
   }
 
   private static V3SearchDocumentWrite write(V3SearchDocumentWrite.Kind kind) {

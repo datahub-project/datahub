@@ -1488,9 +1488,10 @@ public class SpringStandardPluginConfiguration {
 
   @Bean
   public AspectPayloadValidator semanticContentProfileWriteValidator(
-      SemanticProfileRegistry registry) {
+      SemanticProfileRegistry registry, ConfigurationProvider configProvider) {
     return new SemanticContentProfileWriteValidator()
         .setRegistry(registry)
+        .setRequireConfiguredProfiles(searchV3Enabled(configProvider))
         .setConfig(
             AspectPluginConfig.builder()
                 .className(SemanticContentProfileWriteValidator.class.getName())
@@ -1503,6 +1504,13 @@ public class SpringStandardPluginConfiguration {
                             .aspectName(SEMANTIC_CONTENT_ASPECT_NAME)
                             .build()))
                 .build());
+  }
+
+  private static boolean searchV3Enabled(ConfigurationProvider configProvider) {
+    return configProvider.getElasticSearch() != null
+        && configProvider.getElasticSearch().getEntityIndex() != null
+        && configProvider.getElasticSearch().getEntityIndex().getV3() != null
+        && configProvider.getElasticSearch().getEntityIndex().getV3().isEnabled();
   }
 
   @Nullable

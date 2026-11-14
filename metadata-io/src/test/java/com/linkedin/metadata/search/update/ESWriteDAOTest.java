@@ -1606,6 +1606,28 @@ public class ESWriteDAOTest {
   }
 
   @Test
+  public void testWriteV3SearchDocumentMergeExistingWithUpsertSourceCreatesAMissingDocument() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"description\":\"updated\",\"embeddings\":{}}",
+            V3SearchDocumentWrite.Kind.MERGE_EXISTING,
+            "{\"description\":\"updated\"}"));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+
+    UpdateRequest request = requestCaptor.getValue();
+    assertFalse(request.docAsUpsert());
+    assertTrue(request.doc().source().utf8ToString().contains("embeddings"));
+    assertFalse(request.upsertRequest().source().utf8ToString().contains("embeddings"));
+  }
+
+  @Test
   public void testWriteV3SearchDocumentMergeUpsertsThePartialDocument() {
     Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
     esWriteDAO.writeV3SearchDocument(

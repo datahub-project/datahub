@@ -42,7 +42,8 @@ public class DocumentV3EmbeddingMappingContributor implements V3MappingContribut
     Map<String, Object> extras = new HashMap<>();
     extras.put(
         SemanticEmbeddingMappings.EMBEDDINGS_FIELD,
-        SemanticEmbeddingMappings.buildEmbeddingFieldConfig(semanticConfig, searchClientShim));
+        V3EmbeddingMappings.explicit(
+            SemanticEmbeddingMappings.buildEmbeddingFieldConfig(semanticConfig, searchClientShim)));
     extras.putAll(SemanticEmbeddingMappings.provenanceRootMappings());
     return extras;
   }

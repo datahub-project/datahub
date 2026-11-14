@@ -39,6 +39,12 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
   @Nonnull private AspectPluginConfig config;
   @Nonnull private SemanticProfileRegistry registry;
 
+  /**
+   * The Search V3 projector drops a profile whose model is not configured, so storing one leaves
+   * vectors the index never receives. V2-only deployments keep accepting any key.
+   */
+  private boolean requireConfiguredProfiles;
+
   @Override
   protected Stream<AspectValidationException> validateProposedAspects(
       @Nonnull OperationFingerprint operationContext,
@@ -62,12 +68,16 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
       @Nullable SemanticContent proposed,
       boolean delete,
       boolean apply,
+      boolean requireConfigured,
       @Nonnull SemanticProfileRegistry registry) {
     Set<String> messages = new HashSet<>();
     if (proposed != null && proposed.hasEmbeddings()) {
       proposed
           .getEmbeddings()
           .forEach((key, profile) -> messages.addAll(stateMessages(key, profile)));
+    }
+    if (requireConfigured && !delete) {
+      messages.addAll(unconfiguredMessages(entityType, previous, proposed, registry));
     }
     if (!registry.generationEnabled() || apply) {
       return messages;
@@ -89,6 +99,31 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
     for (String key : after) {
       if (registry.isServiceProfile(entityType, key) && !before.contains(key)) {
         messages.add("service profile " + key + " cannot be added without apply");
+      }
+    }
+    return messages;
+  }
+
+  /**
+   * A retired model's profile stays stored, and a source edit or refresh marker still touches it,
+   * so only adding the key or changing its vectors is rejected. Removing it is allowed.
+   */
+  @Nonnull
+  private static Set<String> unconfiguredMessages(
+      @Nonnull String entityType,
+      @Nullable SemanticContent previous,
+      @Nullable SemanticContent proposed,
+      @Nonnull SemanticProfileRegistry registry) {
+    Set<String> messages = new HashSet<>();
+    for (String key : keys(proposed)) {
+      if (registry.isConfigured(entityType, key)) {
+        continue;
+      }
+      if (!keys(previous).contains(key)) {
+        messages.add("profile " + key + " is not configured in semanticSearch.models");
+      } else if (vectorsChanged(
+          previous.getEmbeddings().get(key), proposed.getEmbeddings().get(key))) {
+        messages.add("profile " + key + " is not configured; its vectors cannot change");
       }
     }
     return messages;
@@ -159,6 +194,7 @@ public class SemanticContentProfileWriteValidator extends AspectPayloadValidator
                 : item.getAspect(SemanticContent.class),
             item.getChangeType() == ChangeType.DELETE,
             isApply(item),
+            requireConfiguredProfiles,
             registry)
         .stream()
         .map(message -> AspectValidationException.forItem(item, message));
