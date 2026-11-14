@@ -61,6 +61,31 @@ public class PostgresSqlSetupPropertiesPgQueueTopicsTest {
   }
 
   @Test
+  public void buildPgQueueResolvedTopicCatalog_skipsKafkaOnlyTopics() {
+    PostgresSqlSetupProperties props = basePgQueueProps();
+    props.getPgQueue().setInheritKafkaTopics(true);
+
+    KafkaConfiguration kafka = new KafkaConfiguration();
+    TopicsConfiguration.TopicConfiguration td = new TopicsConfiguration.TopicConfiguration();
+    td.setPartitions(1);
+    kafka.setTopicDefaults(td);
+    TopicsConfiguration.TopicConfiguration policyChange =
+        new TopicsConfiguration.TopicConfiguration();
+    policyChange.setName("PolicyChange_v1");
+    policyChange.setEnabled(true);
+    Map<String, TopicsConfiguration.TopicConfiguration> kt = new HashMap<>();
+    kt.put("policyChange", policyChange);
+    kafka.setTopics(kt);
+    kafka.initializeTopicDefaults();
+
+    props.validateForUse(DatabaseType.POSTGRES);
+    PgQueueSetupOptions q = props.buildPgQueueOptions(kafka);
+    assertFalse(
+        q.getResolvedTopicCatalog().stream()
+            .anyMatch(e -> "PolicyChange_v1".equals(e.getTopicName())));
+  }
+
+  @Test
   public void buildPgQueueResolvedTopicCatalog_mergesOverridesWithDefaults() {
     PostgresSqlSetupProperties props = basePgQueueProps();
     props.getPgQueue().setInheritKafkaTopics(false);
