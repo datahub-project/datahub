@@ -27,6 +27,7 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
+import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
 /** Tests for the SQL policy source: synchronous first load, ordered and joined loads. */
@@ -320,5 +321,135 @@ public class DataHubAuthorizerSqlSourceTest {
             1000,
             null);
     assertFalse(authorizer.isSqlSourceEnabled());
+  }
+
+  @Test
+  public void testPolicyChangeWaitsForTheLoad() {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.policies.add(policy("p1", 1L));
+
+    authorizer.onPolicyChange();
+
+    // No extra wait: the call returns only after a load that started after it has finished.
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testPolicyChangeStopsWaitingAfterTheLimit() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    authorizer.setPolicyChangeWaitMillis(50);
+    loader.policies.add(policy("p1", 1L));
+    loader.release = new CountDownLatch(1);
+
+    long start = System.nanoTime();
+    authorizer.onPolicyChange();
+    long waitedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+    assertTrue(waitedMillis < 5_000, "the wait must stop at the limit, waited " + waitedMillis);
+    loader.release.countDown();
+    // The slow load still completes after the caller stops waiting.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testInterruptStopsTheWaitWithoutKeepingTheInterrupt() {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.release = new CountDownLatch(1);
+
+    Thread.currentThread().interrupt();
+    try {
+      authorizer.onPolicyChange();
+      // The committed write's change log is sent next on this thread; it must not see an interrupt.
+      assertFalse(Thread.interrupted());
+    } finally {
+      Thread.interrupted();
+      loader.release.countDown();
+    }
+  }
+
+  @Test
+  public void testInvalidateCacheLoadsOnlyWithoutTheObserver() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    authorizer.setPolicyWritesObserved(true);
+    authorizer.invalidateCache();
+    // Any load that invalidateCache queued would run before this one on the single load thread.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(loader.calls.get(), 2, "initial load and the request above only");
+
+    authorizer.setPolicyWritesObserved(false);
+    authorizer.invalidateCache();
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertTrue(loader.calls.get() >= 3);
+  }
+
+  @Test
+  public void testFailedObservedLoadRequestsOneMore() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.policies.add(policy("p1", 1L));
+    loader.failuresLeft = 1;
+
+    authorizer.onPolicyChange();
+
+    // The failed load is followed by one more, so the change applies without the timer.
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+    assertEquals(allNames(authorizer), List.of("p1"));
+    Thread.sleep(300);
+    // The first load, the failed load, and exactly one more: no retry loop.
+    assertEquals(loader.calls.get(), 3);
+  }
+
+  @DataProvider
+  public Object[][] noWaitValues() {
+    return new Object[][] {{0L}, {-1L}};
+  }
+
+  @Test(dataProvider = "noWaitValues")
+  public void testNoWaitRequestsALoadWithoutATimeout(long waitMillis) throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext context = mock(OperationContext.class);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer =
+        new DataHubAuthorizer(
+            context,
+            mock(EntityClient.class),
+            mock(GroupService.class),
+            10,
+            0,
+            DataHubAuthorizer.AuthorizationMode.DEFAULT,
+            1000,
+            loader);
+    authorizer.initialLoad(1, 0);
+    authorizer.setPolicyChangeWaitMillis(waitMillis);
+    loader.policies.add(policy("p1", 1L));
+    loader.release = new CountDownLatch(1);
+
+    long start = System.nanoTime();
+    authorizer.onPolicyChange();
+    long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+    loader.release.countDown();
+
+    assertTrue(waited < 5_000, "waited " + waited + " ms");
+    // A negative wait is set to 0. Not waiting is not a timeout, so there is no timeout metric.
+    verify(metrics, never())
+        .increment(eq(DataHubAuthorizer.class), eq("policyCache.observer.timeout"), anyDouble());
+    // The load still runs in the background.
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    assertEquals(allNames(authorizer), List.of("p1"));
   }
 }

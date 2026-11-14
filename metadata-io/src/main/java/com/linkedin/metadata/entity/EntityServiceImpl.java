@@ -142,6 +142,7 @@ import java.util.stream.StreamSupport;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
+import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 
@@ -196,6 +197,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Boolean alwaysEmitChangeLog;
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
+
+  // Set by the authorizer when its policy cache loads from SQL. Volatile: set once at startup and
+  // read on every write thread.
+  @Nullable @Setter private volatile PolicyChangeObserver policyChangeObserver;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
   protected static final int MCP_SIDE_EFFECT_KAFKA_BATCH_SIZE = 500;
@@ -1248,6 +1253,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     APIThrottle.evaluate(opContext, new HashSet<>(throttleEvents.values()), false);
 
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
+    // ingestAspectsToLocalDB runs in its own transaction (requiresNew), so it is committed here.
+    if (ingestResults.getUpdateAspectResults().stream()
+        .anyMatch(r -> !r.isNoOp() && isPolicy(r.getUrn()))) {
+      notifyPolicyChange();
+    }
 
     // Produce MCLs & run side effects
     List<MetadataChangeLog> mcls =
@@ -4107,6 +4117,23 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         opContext, urn, aspectName, conditions, hardDelete, deletePurpose, null);
   }
 
+  private static boolean isPolicy(@Nullable Urn urn) {
+    return urn != null && POLICY_ENTITY_NAME.equals(urn.getEntityType());
+  }
+
+  private void notifyPolicyChange() {
+    final PolicyChangeObserver observer = policyChangeObserver;
+    if (observer == null) {
+      return;
+    }
+    try {
+      observer.onPolicyChange();
+    } catch (RuntimeException e) {
+      // The write is already committed; a cache refresh failure must not fail it.
+      log.warn("Policy change observer failed after a committed policy write.", e);
+    }
+  }
+
   /**
    * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
    *     read under lock in the delete transaction, is at or below its captured version and none is
@@ -4622,6 +4649,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           opContext.getEntityGraphCache().invalidateOnSyncBatch(invalidationBatch);
         }
       }
+    }
+
+    // The delete ran in its own transaction (requiresNew), so it is committed here.
+    if (result != null && isPolicy(entityUrn)) {
+      notifyPolicyChange();
     }
 
     return result;

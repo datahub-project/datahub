@@ -27,10 +27,12 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
@@ -75,6 +77,9 @@ public class DataHubAuthorizer
   @Nullable private final PolicyLoader policyLoader;
   private final Object loadQueueLock = new Object();
   @Nullable private CompletableFuture<Void> queuedLoad;
+  private volatile long policyChangeWaitMillis = DEFAULT_POLICY_CHANGE_WAIT_MILLIS;
+  // True when this process's entity service calls onPolicyChange after each committed policy write.
+  private volatile boolean policyWritesObserved;
   private final PolicyEngine policyEngine;
   private final GroupService groupService;
   private EntitySpecResolver entitySpecResolver;
@@ -84,6 +89,7 @@ public class DataHubAuthorizer
   public static final String ALL = "ALL";
   // Total time initialLoad waits, for all attempts together.
   private static final long INITIAL_LOAD_TIMEOUT_SECONDS = 60;
+  private static final long DEFAULT_POLICY_CHANGE_WAIT_MILLIS = 5000;
   // Until the first load succeeds, a failed load is retried after this delay, not after the
   // refresh interval: the cache is empty until then.
   private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
@@ -94,8 +100,8 @@ public class DataHubAuthorizer
   private int consecutiveLoadFailures;
 
   /**
-   * @param delayIntervalSeconds delay before the first search-based refresh; not used with a
-   *     {@code policyLoader}, which loads first in {@link #initialLoad}
+   * @param delayIntervalSeconds delay before the first search-based refresh; not used with a {@code
+   *     policyLoader}, which loads first in {@link #initialLoad}
    * @param refreshIntervalSeconds interval of the refresh timer; 0 or less turns the timer off
    * @param policyFetchSize page size of the search-based refresh; not used with a {@code
    *     policyLoader}, which reads all policies in one query
@@ -450,7 +456,11 @@ public class DataHubAuthorizer
    */
   public void invalidateCache() {
     if (policyLoader != null) {
-      requestLoad();
+      // With the observer, the write already requested a load after its commit (and waited for
+      // it, unless the wait is 0). Another load here would only read the same policies again.
+      if (!policyWritesObserved) {
+        requestLoad();
+      }
     } else if (policyRefreshRunnable != null) {
       refreshExecutorService.execute(policyRefreshRunnable);
     }
@@ -615,6 +625,69 @@ public class DataHubAuthorizer
         "Could not load policies at startup. Continuing with no policies until a later load"
             + " succeeds.");
     return false;
+  }
+
+  /**
+   * Called after a policy write or delete has been committed in this process. Requests a load and
+   * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
+   * after this process enforces the change. If the limit is reached, the load still completes
+   * later. A limit of 0 requests the load without waiting; if that load fails, it is not retried
+   * here, and the next requested load or the refresh timer applies the change. Never throws: the
+   * write it follows is already committed.
+   */
+  public void onPolicyChange() {
+    if (policyLoader == null) {
+      return;
+    }
+    if (policyChangeWaitMillis == 0) {
+      // Waiting is turned off: the load runs in the background, and that is not a timeout. A zero
+      // wait sample keeps the observer.wait count equal to the number of policy changes.
+      requestLoad();
+      recordObserverWait(0);
+      return;
+    }
+    final long start = System.nanoTime();
+    try {
+      requestLoad().get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
+    } catch (TimeoutException e) {
+      increment("policyCache.observer.timeout");
+      log.warn(
+          "Policy load did not finish within {} ms after a policy change; it continues in the"
+              + " background.",
+          policyChangeWaitMillis);
+    } catch (InterruptedException e) {
+      // Stop waiting, but do not keep the interrupt: the write is already committed, and the
+      // interrupt would make the change log send that follows on this thread fail. The load
+      // continues in the background.
+      increment("policyCache.observer.interrupted");
+      log.warn("Interrupted while waiting for the policy load after a policy change.");
+    } catch (ExecutionException e) {
+      increment("policyCache.observer.failed");
+      log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
+      // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
+      requestLoad();
+    } finally {
+      recordObserverWait(System.nanoTime() - start);
+    }
+  }
+
+  private void recordObserverWait(long nanos) {
+    systemOpContext
+        .getMetricUtils()
+        .ifPresent(
+            m -> m.time(DataHubAuthorizer.class.getName() + ".policyCache.observer.wait", nanos));
+  }
+
+  public void setPolicyChangeWaitMillis(long waitMillis) {
+    this.policyChangeWaitMillis = Math.max(0, waitMillis);
+  }
+
+  /**
+   * Call after this process's entity service is set to call {@link #onPolicyChange} for each
+   * committed policy write. {@link #invalidateCache} then has nothing left to do.
+   */
+  public void setPolicyWritesObserved(boolean observed) {
+    this.policyWritesObserved = observed;
   }
 
   @VisibleForTesting
