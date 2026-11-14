@@ -31,6 +31,10 @@ INFORMATION_SCHEMA = "information_schema"
 # withholding them changes nothing.
 SESSION_TEXT_RELATIONS: FrozenSet[str] = frozenset({"processlist", "innodb_trx"})
 
+# Prefixed to a name that must match no scope entry (a quoted name outside the
+# dialect's folded case, or a non-ASCII one): entries never hold a quote.
+_OTHER_CASE_MARK = '"'
+
 
 @dataclass(frozen=True)
 class CatalogScope:
@@ -91,9 +95,18 @@ class CatalogScope:
         table named like a dictionary view under any schema.
         """
         schema, relation = parts[-2], parts[-1]
+        if not (schema.isascii() and relation.isascii()):
+            # Every catalog name is ASCII, and Python's case mapping is wider
+            # than SQL's: a lookalike could lower-case onto an entry, or past an
+            # exclusion.
+            return False
         if schema.lower() in {s.lower() for s in self.schemas}:
             return relation.lower() not in {r.lower() for r in self.excluded_relations}
-        lowered = [part.lower() for part in parts]
+        # A non-ASCII part (a catalog part, under a three-part entry) matches nothing.
+        lowered = [
+            part.lower() if part.isascii() else _OTHER_CASE_MARK + part
+            for part in parts
+        ]
         for entry in self.relations:
             entry_parts = entry.lower().split(".")
             if len(entry_parts) < 2 or len(entry_parts) > len(lowered):
@@ -107,7 +120,9 @@ class CatalogScope:
         return self.permits_path([schema, relation])
 
     def permits_unqualified(self, relation: str) -> bool:
-        return relation.lower() in {r.lower() for r in self.relations if "." not in r}
+        return relation.isascii() and relation.lower() in {
+            r.lower() for r in self.relations if "." not in r
+        }
 
     def describe(self) -> str:
         """What to tell a caller whose reference was refused."""
@@ -557,11 +572,6 @@ def _visible_cte_names(table: exp.Table) -> Set[str]:
     return names
 
 
-# Prefixed to a quoted name that is not in the dialect's folded case, so it can
-# match no scope entry: entries are bare dotted names and never hold a quote.
-_OTHER_CASE_MARK = '"'
-
-
 def _as_matched(slot: object, piece: str, scope: CatalogScope) -> str:
     """The piece as scope matching sees it (CatalogScope.unquoted_case)."""
     if (
@@ -571,7 +581,12 @@ def _as_matched(slot: object, piece: str, scope: CatalogScope) -> str:
     ):
         return piece
     folded = piece.upper() if scope.unquoted_case == "upper" else piece.lower()
-    return piece if piece == folded else _OTHER_CASE_MARK + piece
+    # ASCII only: Python's case mapping is wider than SQL's. The Kelvin sign is
+    # its own upper case yet lower-cases to an ASCII "k", so a quoted name using
+    # it would pass as folded and then match an entry spelled with "k".
+    if piece.isascii() and piece == folded:
+        return piece
+    return _OTHER_CASE_MARK + piece
 
 
 def _check_table(table: exp.Table, scope: CatalogScope) -> bool:
