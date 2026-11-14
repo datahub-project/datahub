@@ -3,6 +3,7 @@ package com.linkedin.gms.factory.auth;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
+import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.PolicyFetcher;
 import com.datahub.authorization.PolicyLoader;
 import com.datahub.util.RecordUtils;
@@ -71,7 +72,8 @@ public class SqlPolicyLoader implements PolicyLoader {
     }
     if (!skipped.isEmpty()) {
       if (metricUtils != null) {
-        metricUtils.increment(SqlPolicyLoader.class, "policyCache.load.skipped", skipped.size());
+        // Same prefix as the other policyCache metrics.
+        metricUtils.increment(DataHubAuthorizer.class, "policyCache.load.skipped", skipped.size());
       }
       // One line for each load, without a stack trace: the same rows fail on every reload.
       log.warn(

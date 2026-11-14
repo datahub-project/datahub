@@ -93,25 +93,11 @@ public class DataHubAuthorizer
   // refresh interval: the cache is empty until then.
   private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
   private volatile boolean loadedOnce;
-
-  public DataHubAuthorizer(
-      @Nonnull final OperationContext systemOpContext,
-      final EntityClient entityClient,
-      @Nonnull final GroupService groupService,
-      final int delayIntervalSeconds,
-      final int refreshIntervalSeconds,
-      final AuthorizationMode mode,
-      final int policyFetchSize) {
-    this(
-        systemOpContext,
-        entityClient,
-        groupService,
-        delayIntervalSeconds,
-        refreshIntervalSeconds,
-        mode,
-        policyFetchSize,
-        null);
-  }
+  // At most one retry is scheduled at a time, so failed loads do not start parallel retry chains.
+  private final java.util.concurrent.atomic.AtomicBoolean firstLoadRetryScheduled =
+      new java.util.concurrent.atomic.AtomicBoolean();
+  // Consecutive failed loads: only the first one logs a stack trace.
+  private int consecutiveLoadFailures;
 
   /**
    * @param policyLoader when not null, policies load from the primary store with this loader
@@ -523,6 +509,7 @@ public class DataHubAuthorizer
       final PolicySnapshot next = PolicySnapshot.of(policyLoader.loadAll());
       publish(next);
       loadedOnce = true;
+      consecutiveLoadFailures = 0;
       increment("policyCache.load.run");
       systemOpContext
           .getMetricUtils()
@@ -536,7 +523,16 @@ public class DataHubAuthorizer
       load.complete(null);
     } catch (Throwable t) {
       increment("policyCache.load.failed");
-      log.error("Failed to load policies. Keeping the current policies.", t);
+      // Loads run on one thread, so this counter needs no lock. A failure that repeats every few
+      // seconds logs its stack trace only once.
+      if (consecutiveLoadFailures++ == 0) {
+        log.error("Failed to load policies. Keeping the current policies.", t);
+      } else {
+        log.error(
+            "Failed to load policies ({} failures in a row). Keeping the current policies: {}",
+            consecutiveLoadFailures,
+            t.toString());
+      }
       load.completeExceptionally(t);
       if (!loadedOnce) {
         scheduleFirstLoadRetry();
@@ -545,9 +541,13 @@ public class DataHubAuthorizer
   }
 
   private void scheduleFirstLoadRetry() {
+    if (!firstLoadRetryScheduled.compareAndSet(false, true)) {
+      return;
+    }
     try {
       refreshExecutorService.schedule(
           () -> {
+            firstLoadRetryScheduled.set(false);
             if (!loadedOnce) {
               requestLoad();
             }
@@ -556,6 +556,7 @@ public class DataHubAuthorizer
           TimeUnit.MILLISECONDS);
     } catch (RejectedExecutionException e) {
       // Shutting down.
+      firstLoadRetryScheduled.set(false);
     }
   }
 
@@ -594,7 +595,11 @@ public class DataHubAuthorizer
         log.warn("Initial policy load attempt {} of {} failed.", attempt, attempts, e);
         if (attempt < attempts && backoffMillis > 0) {
           try {
-            Thread.sleep(backoffMillis);
+            // Never sleep past the shared deadline.
+            Thread.sleep(
+                Math.min(
+                    backoffMillis,
+                    Math.max(0, TimeUnit.NANOSECONDS.toMillis(deadline - System.nanoTime()))));
           } catch (InterruptedException ie) {
             Thread.currentThread().interrupt();
             break;
@@ -631,10 +636,13 @@ public class DataHubAuthorizer
       // Stop waiting, but do not keep the interrupt: the write is already committed, and the
       // interrupt would make the change log send that follows on this thread fail. The load
       // continues in the background.
+      increment("policyCache.observer.interrupted");
       log.warn("Interrupted while waiting for the policy load after a policy change.");
     } catch (ExecutionException e) {
       increment("policyCache.change.failed");
-      log.warn("Policy load after a policy change failed.", e.getCause());
+      log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
+      // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
+      requestLoad();
     } finally {
       systemOpContext
           .getMetricUtils()

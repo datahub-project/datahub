@@ -192,6 +192,31 @@ public class DataHubAuthorizerSqlSourceTest {
   }
 
   @Test
+  public void testFailedLoadsKeepOneRetryChain() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.failuresLeft = Integer.MAX_VALUE;
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.setFirstLoadRetryMillis(100);
+
+    assertFalse(authorizer.initialLoad(1, 0));
+    // More failed loads from other paths while the database is down.
+    for (int i = 0; i < 4; i++) {
+      try {
+        authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+      } catch (ExecutionException expected) {
+        // The database is down.
+      }
+    }
+    int before = loader.calls.get();
+    Thread.sleep(1_000);
+
+    // One chain retries about 10 times per second; five chains would retry about 50 times.
+    int retries = loader.calls.get() - before;
+    assertTrue(retries <= 15, "retries in 1 s: " + retries);
+    loader.failuresLeft = 0;
+  }
+
+  @Test
   public void testUrnBreaksTimestampTies() {
     FakeLoader loader = new FakeLoader();
     loader.policies.add(policy("b", 5L));
@@ -299,5 +324,38 @@ public class DataHubAuthorizerSqlSourceTest {
     authorizer.invalidateCache();
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
     assertTrue(loader.calls.get() >= 3);
+  }
+
+  @Test
+  public void testFailedObservedLoadRequestsOneMore() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    loader.policies.add(policy("p1", 1L));
+    loader.failuresLeft = 1;
+
+    authorizer.onPolicyChange();
+
+    // The failed load is followed by one more, so the change applies without the timer.
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testNegativeWaitIsTreatedAsNoWait() {
+    FakeLoader loader = new FakeLoader();
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+    authorizer.setPolicyChangeWaitMillis(-1);
+    loader.release = new CountDownLatch(1);
+
+    long start = System.nanoTime();
+    authorizer.onPolicyChange();
+    loader.release.countDown();
+
+    assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start) < 5_000);
   }
 }

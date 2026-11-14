@@ -107,4 +107,55 @@ public class KafkaEventProducerPolicyChangeTest {
         List.of(
             new TopicConventionImpl().getMetadataChangeLogVersionedTopicName(), "PolicyChange_v1"));
   }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSendResultIsCounted() {
+    Producer<String, GenericRecord> producer = mock(Producer.class);
+    MetricUtils metrics = mock(MetricUtils.class);
+    KafkaEventProducer eventProducer =
+        new KafkaEventProducer(
+            producer,
+            new TopicConventionImpl(),
+            mock(KafkaHealthChecker.class),
+            metrics,
+            mock(OutboundContextResolver.class));
+
+    eventProducer.producePolicyChange(
+        mock(OperationContext.class), POLICY, policyChangeLog(), "PolicyChange_v1");
+    ArgumentCaptor<Callback> callback = ArgumentCaptor.forClass(Callback.class);
+    verify(producer).send(any(ProducerRecord.class), callback.capture());
+
+    callback.getValue().onCompletion(null, null);
+    verify(metrics).increment(KafkaEventProducer.class, "policyChange.produced", 1);
+    callback.getValue().onCompletion(null, new RuntimeException("broker unavailable"));
+    verify(metrics).increment(KafkaEventProducer.class, "policyChange.produce_failed", 1);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testConversionFailureIsCountedAndNotSent() {
+    Producer<String, GenericRecord> producer = mock(Producer.class);
+    MetricUtils metrics = mock(MetricUtils.class);
+    KafkaEventProducer eventProducer =
+        new KafkaEventProducer(
+            producer,
+            new TopicConventionImpl(),
+            mock(KafkaHealthChecker.class),
+            metrics,
+            mock(OutboundContextResolver.class));
+
+    try (org.mockito.MockedStatic<com.linkedin.metadata.EventUtils> utils =
+        org.mockito.Mockito.mockStatic(com.linkedin.metadata.EventUtils.class)) {
+      utils
+          .when(() -> com.linkedin.metadata.EventUtils.pegasusToAvroMCL(any()))
+          .thenThrow(new java.io.IOException("cannot convert"));
+
+      eventProducer.producePolicyChange(
+          mock(OperationContext.class), POLICY, policyChangeLog(), "PolicyChange_v1");
+    }
+
+    verify(producer, never()).send(any(), any());
+    verify(metrics).increment(KafkaEventProducer.class, "policyChange.produce_failed", 1);
+  }
 }
