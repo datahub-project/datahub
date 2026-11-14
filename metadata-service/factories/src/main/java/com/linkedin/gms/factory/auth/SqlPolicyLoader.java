@@ -3,21 +3,18 @@ package com.linkedin.gms.factory.auth;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
 
-import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.PolicyFetcher;
 import com.datahub.authorization.PolicyLoader;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
-import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
-import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -37,20 +34,19 @@ public class SqlPolicyLoader implements PolicyLoader {
   private static final int MAX_LOGGED_SKIPPED = 10;
 
   private final AspectDao aspectDao;
-  @Nullable private final MetricUtils metricUtils;
 
-  public SqlPolicyLoader(@Nonnull AspectDao aspectDao, @Nullable MetricUtils metricUtils) {
+  public SqlPolicyLoader(@Nonnull AspectDao aspectDao) {
     this.aspectDao = Objects.requireNonNull(aspectDao);
-    this.metricUtils = metricUtils;
   }
 
   /**
    * Skips policies whose stored value cannot be read. If no policy can be read but some exist, the
-   * load fails, so the authorizer keeps its current policies instead of an empty cache.
+   * load fails, so the authorizer keeps its current policies instead of an empty cache. The result
+   * gives the number of skipped policies, which the authorizer reports as a metric.
    */
   @Nonnull
   @Override
-  public List<PolicyFetcher.Policy> loadAll() {
+  public Result loadAll() {
     final List<PolicyFetcher.Policy> policies = new ArrayList<>();
     final List<String> skipped = new ArrayList<>();
     RuntimeException firstError = null;
@@ -71,10 +67,6 @@ public class SqlPolicyLoader implements PolicyLoader {
       }
     }
     if (!skipped.isEmpty()) {
-      if (metricUtils != null) {
-        // Same prefix as the other policyCache metrics.
-        metricUtils.increment(DataHubAuthorizer.class, "policyCache.load.skipped", skipped.size());
-      }
       // One line for each load, without a stack trace: the same rows fail on every reload.
       log.warn(
           "Skipped {} policies whose stored value cannot be read: {}. First error: {}",
@@ -86,6 +78,6 @@ public class SqlPolicyLoader implements PolicyLoader {
             "No stored policy could be read (" + skipped.size() + " skipped)", firstError);
       }
     }
-    return policies;
+    return new Result(policies, skipped.size());
   }
 }

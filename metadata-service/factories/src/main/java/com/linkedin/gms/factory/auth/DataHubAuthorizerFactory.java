@@ -72,9 +72,7 @@ public class DataHubAuthorizerFactory {
             policyCacheRefreshIntervalSeconds,
             mode,
             policyCacheFetchSize,
-            dao != null
-                ? new SqlPolicyLoader(dao, systemOpContext.getMetricUtils().orElse(null))
-                : null);
+            dao != null ? new SqlPolicyLoader(dao) : null);
 
     if (authorizer.isSqlSourceEnabled()) {
       authorizer.setPolicyChangeWaitMillis(policyChangeWaitMillis);
