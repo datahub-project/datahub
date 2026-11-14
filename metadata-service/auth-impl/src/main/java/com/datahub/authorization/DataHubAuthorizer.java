@@ -636,10 +636,13 @@ public class DataHubAuthorizer
       // Stop waiting, but do not keep the interrupt: the write is already committed, and the
       // interrupt would make the change log send that follows on this thread fail. The load
       // continues in the background.
+      increment("policyCache.observer.interrupted");
       log.warn("Interrupted while waiting for the policy load after a policy change.");
     } catch (ExecutionException e) {
       increment("policyCache.change.failed");
-      log.warn("Policy load after a policy change failed.", e.getCause());
+      log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
+      // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
+      requestLoad();
     } finally {
       systemOpContext
           .getMetricUtils()
