@@ -50,11 +50,15 @@ from datahub.ingestion.source.bigquery_v2.queries_extractor import (
 )
 from datahub.ingestion.source.bigquery_v2.usage import BigQueryUsageExtractor
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
+from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
 from datahub.ingestion.source.state.profiling_state_handler import ProfilingHandler
 from datahub.ingestion.source.state.redundant_run_skip_handler import (
     RedundantLineageRunSkipHandler,
     RedundantQueriesRunSkipHandler,
     RedundantUsageRunSkipHandler,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -219,6 +223,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             self.shard_matcher,
             self.ctx.graph,
             self.sharing_handler,
+            project_in_last_state=self._project_in_last_state,
         )
 
         self.add_config_to_report()
@@ -364,6 +369,33 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
             region_qualifiers_auto_discovery=self.config.region_qualifiers_auto_discovery,
         )
 
+    def _project_in_last_state(self, project_id: str) -> bool:
+        stateful = self.config.stateful_ingestion
+        if not (stateful and stateful.remove_stale_metadata):
+            return False
+        try:
+            last = self.state_provider.get_last_checkpoint(
+                StaleEntityRemovalHandler.compute_job_id(self.platform),
+                GenericCheckpointState,
+            )
+        except Exception as e:
+            # Don't abort the run on a state read error; a failure blocks soft-deletes.
+            logger.warning(
+                "Could not read the last stale-entity checkpoint; "
+                f"treating {project_id} as previously ingested: {e}"
+            )
+            return True
+        if last is None:
+            return False
+        container_urn = self.bq_schema_extractor.gen_project_id_key(project_id).as_urn()
+        dataset_prefix = (
+            f"urn:li:dataset:(urn:li:dataplatform:{self.platform},{project_id}.".lower()
+        )
+        return any(
+            urn == container_urn or urn.lower().startswith(dataset_prefix)
+            for urn in last.state.urns
+        )
+
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()
         projects = get_projects(
@@ -426,6 +458,7 @@ class BigqueryV2Source(StatefulIngestionSourceBase, TestableSource):
                     schema_resolver=self.sql_parser_schema_resolver,
                     discovered_tables=self.bq_schema_extractor.table_refs,
                     discovered_locations=self.bq_schema_extractor.discovered_locations,
+                    skip_project_ids=self.bq_schema_extractor.projects_without_bigquery,
                 ) as queries_extractor,
             ):
                 self.report.queries_extractor = queries_extractor.report
