@@ -46,6 +46,10 @@ from datahub.configuration.source_common import EnvConfigMixin
 
 logger = logging.getLogger(__name__)
 
+# Assumed-role credentials are re-assumed once less than this remains before expiry.
+# This buffer avoids credentials expiring between the cache check and the AWS call.
+ASSUMED_ROLE_REFRESH_BUFFER = timedelta(minutes=5)
+
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
@@ -474,11 +478,8 @@ class AwsConnectionConfig(ConfigModel):
     def _should_refresh_credentials(self) -> bool:
         if self._credentials_expiration is None:
             return True
-        # Refresh credentials when less than 5 minutes remain before expiration.
-        # This buffer helps avoid race conditions where credentials expire between
-        # the cache check and actual AWS API usage.
         remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
-        return remaining_time < timedelta(minutes=5)
+        return remaining_time < ASSUMED_ROLE_REFRESH_BUFFER
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
