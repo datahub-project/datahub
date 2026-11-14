@@ -102,8 +102,13 @@ export default function SchemaTable({
     const { urn: entityUrn, entityData } = useEntityData();
     const location = useLocation();
 
-    // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change
+    // Reset expandedDrawerFieldPath when URL pathname changes (ignoring query params) to close drawer on a tab change.
+    // Skip the initial mount: the drawer may have been opened from a `?highlightedPath=` deep link, and an
+    // unconditional first run would close it before it ever shows.
+    const lastPathname = useRef(location.pathname);
     useEffect(() => {
+        if (lastPathname.current === location.pathname) return;
+        lastPathname.current = location.pathname;
         setExpandedDrawerFieldPath(null);
     }, [location.pathname, setExpandedDrawerFieldPath]);
 
