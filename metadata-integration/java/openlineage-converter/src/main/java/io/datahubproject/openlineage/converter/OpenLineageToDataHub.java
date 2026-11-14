@@ -142,31 +142,42 @@ public class OpenLineageToDataHub {
       String connectionKey = null;
       Optional<DatasetUrn> originalUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, null, mappingConfig);
+      OpenLineage.CatalogDatasetFacet catalog = dataset.getFacets().getCatalog();
       for (OpenLineage.SymlinksDatasetFacetIdentifiers symlink :
-          dataset.getFacets().getSymlinks().getIdentifiers()) {
-        if ("TABLE".equals(symlink.getType())) {
-          // Before OpenLineage 0.17.1 the namespace started with "aws:glue:" and after that it was
-          // changed to :arn:aws:glue:"
-          if (symlink.getNamespace().startsWith("aws:glue:")
-              || symlink.getNamespace().startsWith("arn:aws:glue:")) {
-            namespace = "glue";
-          } else {
-            namespace = mappingConfig.getHivePlatformAlias();
-          }
-          if (symlink.getName().startsWith(TABLE_PREFIX)) {
-            datasetName = symlink.getName().replaceFirst(TABLE_PREFIX, "").replace("/", ".");
-          } else {
-            datasetName = symlink.getName();
-          }
-          // Derive the connection-instance map key from the symlink's own namespace before it is
-          // flattened above (e.g. the Glue ARN, which "glue" alone can't recover). toConnectionKey
-          // dispatches on the namespace protocol — it is not Glue-specific.
-          connectionKey = toConnectionKey(symlink.getNamespace());
+          Optional.ofNullable(dataset.getFacets().getSymlinks().getIdentifiers())
+              .orElse(Collections.emptyList())) {
+        if (symlink == null || !"TABLE".equals(symlink.getType()) || symlink.getName() == null) {
+          continue;
         }
+        String logicalName = symlink.getName();
+        if (logicalName.startsWith(TABLE_PREFIX)) {
+          logicalName = logicalName.substring(TABLE_PREFIX.length()).replace("/", ".");
+        }
+        if (logicalName.isBlank()) {
+          continue;
+        }
+        String symlinkNamespace = symlink.getNamespace();
+        // Before OpenLineage 0.17.1 the Glue namespace omitted the "arn:" prefix.
+        if (symlinkNamespace != null
+            && (symlinkNamespace.startsWith("aws:glue:")
+                || symlinkNamespace.startsWith("arn:aws:glue:"))) {
+          namespace = "glue";
+        } else if (!mappingConfig.isUseLegacyIcebergSymlinkPlatform()
+            && catalog != null
+            && "iceberg".equalsIgnoreCase(catalog.getFramework())) {
+          namespace = "iceberg";
+        } else {
+          namespace = mappingConfig.getHivePlatformAlias();
+        }
+        datasetName = logicalName;
+        // Keep the catalog namespace for per-connection instance and environment mapping.
+        connectionKey = toConnectionKey(symlinkNamespace);
       }
       Optional<DatasetUrn> symlinkedUrn =
           getDatasetUrnFromOlDataset(namespace, datasetName, connectionKey, mappingConfig);
-      if (symlinkedUrn.isPresent() && originalUrn.isPresent()) {
+      if (symlinkedUrn.isPresent()
+          && originalUrn.isPresent()
+          && !symlinkedUrn.equals(originalUrn)) {
         mappingConfig
             .getUrnAliases()
             .put(originalUrn.get().toString(), symlinkedUrn.get().toString());
