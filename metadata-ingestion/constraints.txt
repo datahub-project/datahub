@@ -877,17 +877,17 @@ opensearch-protobufs==1.2.0 ; python_full_version >= '3.11' and python_full_vers
     # via opensearch-py
 opensearch-py==3.2.0 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
-opentelemetry-api==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-api==1.45.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   google-cloud-logging
     #   mlflow-skinny
     #   opentelemetry-sdk
     #   opentelemetry-semantic-conventions
-opentelemetry-sdk==1.45.1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-sdk==1.45.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via
     #   mlflow-skinny
     #   unstructured-ingest
-opentelemetry-semantic-conventions==0.66b1 ; python_full_version >= '3.11' and python_full_version < '3.14'
+opentelemetry-semantic-conventions==0.66b2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via opentelemetry-sdk
 oracledb==3.4.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via acryl-datahub
@@ -1426,7 +1426,9 @@ sortedcontainers==2.4.0 ; python_full_version >= '3.11' and python_full_version 
     #   acryl-datahub
     #   hypothesis
     #   snowflake-connector-python
-soupsieve==2.9.2 ; python_full_version >= '3.11' and python_full_version < '3.14'
+soupsieve==2.10 ; python_full_version >= '3.11' and python_full_version < '3.11.5'
+    # via beautifulsoup4
+soupsieve==4.1 ; python_full_version >= '3.11.5' and python_full_version < '3.14'
     # via beautifulsoup4
 spacy==3.8.16 ; python_full_version >= '3.11' and python_full_version < '3.14'
     # via unstructured

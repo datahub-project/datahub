@@ -2090,9 +2090,9 @@ constraint-dependencies = [
     # CVE-2026-102946: fixed in joserfc 1.7.4. Transitive via authlib, whose own floor
     # (joserfc>=1.6.8) still admits vulnerable versions.
     "joserfc>=1.7.4,<2.0.0",
-    # CVE-2026-114603: fixed in opentelemetry-api 1.45.1. Transitive via
-    # google-cloud-logging / mlflow-skinny.
-    "opentelemetry-api>=1.45.1",
+    # opentelemetry-api: CVE-2026-114603 (fixed in 1.45.1), CVE-2026-126360 (fixed in
+    # 1.45.2). Transitive via google-cloud-logging / mlflow-skinny.
+    "opentelemetry-api>=1.45.2",
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
@@ -2126,9 +2126,12 @@ constraint-dependencies = [
     # enforced here at lock time only.
     "click>=8.3.3,<9.0.0",
     # soupsieve: CVE-2026-85999, CVE-2026-86000 (ReDoS); also CVE-2026-49476/49477
-    # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
-    # snippet: docker/snippets/ingestion/constraints.txt.
+    # (fixed 2.8.4). CVE-2026-126190, CVE-2026-126191, CVE-2026-126193 are fixed only
+    # in 4.0.0, which requires Python >=3.11.5, so older interpreters stay on 2.x.
+    # Transitive via beautifulsoup4; not in setup.py. Docker snippet:
+    # docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
+    "soupsieve>=4.0.0 ; python_full_version >= '3.11.5'",
     # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
     # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
     # docker/snippets/ingestion/constraints.txt.
