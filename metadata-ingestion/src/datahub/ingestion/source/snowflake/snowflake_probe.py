@@ -119,6 +119,7 @@ class SnowflakeMetadataProbe(SqlCatalogPassthrough):
     catalog_scope = CatalogScope(
         schemas=frozenset({INFORMATION_SCHEMA}),
         relations=_ACCOUNT_USAGE_RELATIONS,
+        unquoted_case="upper",
     )
 
     def __init__(self, connection: Any) -> None:

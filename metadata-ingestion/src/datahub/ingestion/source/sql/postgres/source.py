@@ -353,6 +353,7 @@ class BasePostgresConfig(RDSIAMConnectionMixin, BasicSQLAlchemyConfig):
         #     which withholds pg_user/svv_user_info, and Snowflake, which
         #     withholds account_usage.users.
         return CatalogScope(
+            unquoted_case="lower",
             schemas=frozenset({INFORMATION_SCHEMA}),
             relations=frozenset(
                 {
