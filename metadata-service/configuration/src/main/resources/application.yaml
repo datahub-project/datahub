@@ -107,6 +107,8 @@ authorization:
     # change with a full reload, and load synchronously at startup. Opt-in.
     sqlSource:
       enabled: ${POLICY_CACHE_SQL_SOURCE_ENABLED:false}
+      # After a policy write or delete, wait up to this long for the reload before the write returns.
+      policyChangeWaitMillis: ${POLICY_CACHE_POLICY_CHANGE_WAIT_MILLIS:5000}
   # Enables authorization of reads, writes, and deletes on REST APIs.
   restApiAuthorization: ${REST_API_AUTHORIZATION_ENABLED:true}
   registryApi:
