@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.TestUtils.getMockAllowContext;
 import static com.linkedin.datahub.graphql.TestUtils.getMockDenyContext;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -14,8 +15,11 @@ import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.datahub.graphql.generated.LineageEdge;
 import com.linkedin.datahub.graphql.generated.UpdateLineageInput;
 import com.linkedin.datahub.graphql.resolvers.lineage.UpdateLineageResolver;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.LineageService;
+import com.linkedin.mxe.MetadataChangeProposal;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Arrays;
@@ -25,6 +29,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletionException;
 import org.joda.time.DateTimeUtils;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -48,6 +53,11 @@ public class UpdateLineageResolverTest {
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test1)";
   private static final String DATAJOB_URN_2 =
       "urn:li:dataJob:(urn:li:dataFlow:(airflow,test,prod),test2)";
+  private static final String ML_MODEL_URN =
+      "urn:li:mlModel:(urn:li:dataPlatform:sagemaker,model1,PROD)";
+  private static final String ML_MODEL_GROUP_URN =
+      "urn:li:mlModelGroup:(urn:li:dataPlatform:sagemaker,modelGroup1,PROD)";
+  private static final String DATA_PROCESS_INSTANCE_URN = "urn:li:dataProcessInstance:abc123";
   private static final String METRIC_URN =
       "urn:li:metric:(urn:li:dataPlatform:looker,kpi.revenue,PROD)";
   private static final String DATA_PRODUCT_URN = "urn:li:dataProduct:test";
@@ -223,6 +233,101 @@ public class UpdateLineageResolverTest {
                 Collections.singletonList(
                     com.linkedin.common.urn.UrnUtils.getUrn(REPOSITORY_URN_1))),
             any());
+  }
+
+  @Test
+  public void testUpdateMlModelLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(ML_MODEL_URN, DATAJOB_URN_1),
+            createLineageEdge(DATAJOB_URN_2, ML_MODEL_URN));
+    List<LineageEdge> edgesToRemove =
+        Arrays.asList(createLineageEdge(ML_MODEL_URN, DATA_PROCESS_INSTANCE_URN));
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  @Test
+  public void testUpdateMlModelGroupLineage() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(ML_MODEL_GROUP_URN, DATAJOB_URN_1),
+            createLineageEdge(DATA_PROCESS_INSTANCE_URN, ML_MODEL_GROUP_URN));
+    List<LineageEdge> edgesToRemove = Collections.emptyList();
+    mockInputAndContext(edgesToAdd, edgesToRemove);
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+  }
+
+  // DataJob -> ML model edges in both directions, through a real LineageService: each edge is
+  // written on the model only, and the dataJob's dataJobInputOutput is left alone.
+  @Test
+  public void testDataJobAndMlModelEdgesWriteOnlyTheModel() throws Exception {
+    SystemEntityClient entityClient = Mockito.mock(SystemEntityClient.class);
+    Mockito.when(entityClient.exists(any(), any(Urn.class))).thenReturn(true);
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(ML_MODEL_URN, DATAJOB_URN_1),
+            createLineageEdge(DATAJOB_URN_2, ML_MODEL_URN));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver =
+        new UpdateLineageResolver(_mockService, new LineageService(entityClient));
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(args -> args.getArgument(1));
+
+    assertTrue(resolver.get(_mockEnv).get());
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    Mockito.verify(entityClient, Mockito.times(2))
+        .ingestProposal(any(), proposals.capture(), eq(false));
+    for (MetadataChangeProposal proposal : proposals.getAllValues()) {
+      assertEquals(proposal.getEntityUrn(), urn(ML_MODEL_URN));
+      assertEquals(proposal.getAspectName(), Constants.ML_MODEL_PROPERTIES_ASPECT_NAME);
+    }
+  }
+
+  @Test
+  public void testUnsupportedMlModelEdgeFailsBeforeAnyWrite() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(DATASET_URN_1, DATASET_URN_2),
+            createLineageEdge(ML_MODEL_URN, DATASET_URN_3));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    assertThrows(IllegalArgumentException.class, () -> resolver.get(_mockEnv));
+    Mockito.verifyNoInteractions(_lineageService);
+  }
+
+  @Test
+  public void testMissingUpstreamFailsBeforeAnyWrite() throws Exception {
+    List<LineageEdge> edgesToAdd =
+        Arrays.asList(
+            createLineageEdge(DATASET_URN_1, DATASET_URN_2),
+            createLineageEdge(ML_MODEL_URN, DATAJOB_URN_1));
+    mockInputAndContext(edgesToAdd, new ArrayList<>());
+    UpdateLineageResolver resolver = new UpdateLineageResolver(_mockService, _lineageService);
+
+    Mockito.when(_mockService.exists(any(), any(Collection.class), eq(true)))
+        .thenAnswer(
+            args ->
+                ((Collection<Urn>) args.getArgument(1))
+                    .stream()
+                        .filter(urn -> !urn.toString().equals(DATAJOB_URN_1))
+                        .collect(java.util.stream.Collectors.toSet()));
+
+    assertThrows(CompletionException.class, () -> resolver.get(_mockEnv).join());
+    Mockito.verifyNoInteractions(_lineageService);
   }
 
   @Test

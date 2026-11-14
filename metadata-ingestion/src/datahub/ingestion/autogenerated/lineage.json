@@ -525,8 +525,34 @@
             }
           },
           {
+            "name": "trainingJobEdges",
+            "path": "trainingJobEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "TrainedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
             "name": "downstreamJobs",
             "path": "downstreamJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "UsedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "downstreamJobEdges",
+            "path": "downstreamJobEdges",
             "isLineage": true,
             "relationship": {
               "name": "UsedBy",
@@ -596,8 +622,34 @@
             }
           },
           {
+            "name": "trainingJobEdges",
+            "path": "trainingJobEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "TrainedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
             "name": "downstreamJobs",
             "path": "downstreamJobs",
+            "isLineage": true,
+            "relationship": {
+              "name": "UsedBy",
+              "entityTypes": [
+                "dataJob",
+                "dataProcessInstance"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "downstreamJobEdges",
+            "path": "downstreamJobEdges",
             "isLineage": true,
             "relationship": {
               "name": "UsedBy",
@@ -785,5 +837,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-10-21T01:19:00.259252+00:00"
+  "generated_at": "2026-11-11T15:57:04.101147+00:00"
 }
