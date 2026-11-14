@@ -81,9 +81,13 @@ tasks.register('productUpdateReleaseSyncCheck', Test) {
     }
 }
 
-// Usage registry CI gates skip when git detects no relevant changes. Force a full scan:
+// Usage registry CI gates skip locally when git detects no relevant changes; in CI (CI=true) they
+// diff against GITHUB_BASE_SHA when set and otherwise scan everything. Force a full scan:
 //   -PgraphqlUsageCheckForce=true -PopenApiUsageCheckForce=true -PrestliUsageCheckForce=true
 // Optional fork profile: -PusageRegistryCiGateProfile=com.example.CustomUsageRegistryCiGateProfile
+// The gates' scope comes from these env vars (GitChangeDetector), so a result recorded under one
+// scope must not be reused under another.
+def usageGateScope = "CI=${System.getenv('CI') ?: ''};GITHUB_BASE_SHA=${System.getenv('GITHUB_BASE_SHA') ?: ''}"
 def graphqlUsageInputs = files(
     fileTree("${rootProject.projectDir}/datahub-graphql-core/src/main/resources") { include '**/*.graphql' },
     fileTree("${rootProject.projectDir}/datahub-web-react/src") { include '**/*.graphql' },
@@ -101,6 +105,7 @@ tasks.register('graphqlUsageRegistryCheck', Test) {
     classpath = sourceSets.test.runtimeClasspath
     include '**/cigate/GraphqlUsageRegistryCiGateTest.class'
     inputs.files graphqlUsageInputs
+    inputs.property 'usageGateScope', usageGateScope
     outputs.file("${layout.buildDirectory.get()}/graphql-usage-registry-check.stamp")
     systemProperty 'graphql.usage.check.force', project.findProperty('graphqlUsageCheckForce') ?: 'false'
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
@@ -126,6 +131,7 @@ tasks.register('openApiUsageRegistryCheck', Test) {
     classpath = sourceSets.test.runtimeClasspath
     include '**/cigate/OpenApiUsageRegistryCiGateTest.class'
     inputs.files openApiUsageInputs
+    inputs.property 'usageGateScope', usageGateScope
     outputs.file("${layout.buildDirectory.get()}/openapi-usage-registry-check.stamp")
     systemProperty 'openapi.usage.check.force', project.findProperty('openApiUsageCheckForce') ?: 'false'
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath
@@ -146,6 +152,7 @@ tasks.register('restLiUsageRegistryCheck', Test) {
     classpath = sourceSets.test.runtimeClasspath
     include '**/cigate/RestliUsageRegistryCiGateTest.class'
     inputs.files restLiUsageInputs
+    inputs.property 'usageGateScope', usageGateScope
     outputs.file("${layout.buildDirectory.get()}/restli-usage-registry-check.stamp")
     systemProperty 'restli.usage.check.force', project.findProperty('restliUsageCheckForce') ?: 'false'
     systemProperty 'datahub.repoRoot', rootProject.projectDir.absolutePath

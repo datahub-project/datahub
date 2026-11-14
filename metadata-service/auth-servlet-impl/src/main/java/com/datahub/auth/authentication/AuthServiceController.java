@@ -20,7 +20,6 @@ import com.datahub.authentication.token.StatelessTokenService;
 import com.datahub.authentication.token.TokenClaims;
 import com.datahub.authentication.token.TokenType;
 import com.datahub.authentication.user.NativeUserService;
-import com.datahub.authorization.AuthorizerChain;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.JsonNode;
@@ -140,8 +139,6 @@ public class AuthServiceController {
   @Qualifier("systemOperationContext")
   private OperationContext systemOperationContext;
 
-  @Autowired private AuthorizerChain authorizerChain;
-
   /**
    * Generates a JWT access token for as user UI session, provided a unique "user id" to generate
    * the token for inside a JSON POST body.
@@ -186,14 +183,13 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication authentication = maybeAuth.get();
-    recordUsageSession(
-        httpEntity.getHeaders(), "generateSessionTokenForUser", UsageOperation.OTHER_WRITE);
     final String actorUrn = authentication.getActor().toUrnStr();
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(actorUrn, request, "generateSessionTokenForUser", List.of()),
+                .buildOpenapi(actorUrn, request, "generateSessionTokenForUser", List.of())
+                .withUsageOperation(UsageOperation.OTHER_WRITE),
             // Authorizer.SYSTEM: these /auth endpoints are called with system Basic credentials;
             // matches
             // pre-refactor systemOperationContext authorizer (not Authorizer.EMPTY which
@@ -331,14 +327,14 @@ public class AuthServiceController {
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of()),
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "signUp", List.of())
+                .withUsageOperation(UsageOperation.OTHER_WRITE),
             Authorizer.SYSTEM,
             auth,
             true);
     if (!isTrustedAuthHelperCaller(opContext)) {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
-    recordUsageSession(httpEntity.getHeaders(), "signUp", UsageOperation.OTHER_WRITE);
 
     String userUrnString = userUrn.asText();
     String systemClientUser =
@@ -421,15 +417,14 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    recordUsageSession(
-        httpEntity.getHeaders(), "resetNativeUserCredentials", UsageOperation.OTHER_WRITE);
     log.info("Attempting to reset credentials for native user {}", userUrnString);
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "resetNativeUserCredentials", List.of()),
+                    auth.getActor().toUrnStr(), request, "resetNativeUserCredentials", List.of())
+                .withUsageOperation(UsageOperation.OTHER_WRITE),
             Authorizer.SYSTEM,
             auth,
             true);
@@ -495,8 +490,6 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    recordUsageSession(
-        httpEntity.getHeaders(), "verifyNativeUserCredentials", UsageOperation.OTHER_READ);
     log.info(
         "Attempting to verify credentials for native userRef={}",
         LoginIdentityMask.mask(userUrnString));
@@ -505,7 +498,8 @@ public class AuthServiceController {
             systemOperationContext,
             RequestContext.builder()
                 .buildOpenapi(
-                    auth.getActor().toUrnStr(), request, "verifyNativeUserCredentials", List.of()),
+                    auth.getActor().toUrnStr(), request, "verifyNativeUserCredentials", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             Authorizer.SYSTEM,
             auth,
             true);
@@ -649,15 +643,12 @@ public class AuthServiceController {
       return CompletableFuture.completedFuture(new ResponseEntity<>(HttpStatus.UNAUTHORIZED));
     }
     final Authentication auth = maybeAuth.get();
-    recordUsageSession(
-        httpEntity != null ? httpEntity.getHeaders() : null,
-        "getSsoSettings",
-        UsageOperation.OTHER_READ);
     final OperationContext opContext =
         OperationContext.asSession(
             systemOperationContext,
             RequestContext.builder()
-                .buildOpenapi(auth.getActor().toUrnStr(), request, "getSsoSettings", List.of()),
+                .buildOpenapi(auth.getActor().toUrnStr(), request, "getSsoSettings", List.of())
+                .withUsageOperation(UsageOperation.OTHER_READ),
             Authorizer.SYSTEM,
             auth,
             true);
@@ -683,22 +674,6 @@ public class AuthServiceController {
             return new ResponseEntity<>(HttpStatus.INTERNAL_SERVER_ERROR);
           }
         });
-  }
-
-  private void recordUsageSession(
-      HttpHeaders headers, String operation, UsageOperation usageOperation) {
-    final Optional<Authentication> maybeAuth = AuthenticationContext.maybeAuthentication();
-    if (maybeAuth.isEmpty()) {
-      return;
-    }
-    Authentication authentication = maybeAuth.get();
-    OperationContext.asSession(
-        systemOperationContext,
-        AuthUsageRequestContext.openapiUsage(
-            authentication.getActor().toUrnStr(), headers, operation, usageOperation),
-        authorizerChain,
-        authentication,
-        true);
   }
 
   /**
