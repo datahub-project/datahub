@@ -50,10 +50,8 @@ final class PolicySnapshot {
     final Map<String, List<DataHubPolicyInfo>> index = new LinkedHashMap<>();
     for (PolicyFetcher.Policy policy : sorted) {
       final DataHubPolicyInfo info = policy.getPolicyInfo();
-      if (info.getPrivileges() != null) {
-        for (String privilege : info.getPrivileges()) {
-          index.computeIfAbsent(privilege, k -> new ArrayList<>()).add(info);
-        }
+      for (String privilege : info.getPrivileges()) {
+        index.computeIfAbsent(privilege, k -> new ArrayList<>()).add(info);
       }
       index.computeIfAbsent(DataHubAuthorizer.ALL, k -> new ArrayList<>()).add(info);
     }
