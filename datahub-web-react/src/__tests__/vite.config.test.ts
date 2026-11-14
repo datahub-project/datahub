@@ -1,5 +1,8 @@
-import { stripDotSlashFromAssets } from 'vite.config';
 import { beforeEach, describe, expect, it } from 'vitest';
+
+// vite.config.ts sits outside src/, so no path alias covers it
+// eslint-disable-next-line import-alias/import-alias
+import { stripDotSlashFromAssets } from '../../vite.config';
 
 describe('stripDotSlashFromAssets', () => {
     describe('plugin structure', () => {

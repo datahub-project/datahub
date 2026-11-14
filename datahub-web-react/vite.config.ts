@@ -4,7 +4,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, defineConfig, loadEnv } from 'vite';
+import { PluginOption, UserConfig, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 import { configDefaults } from 'vitest/config';
@@ -143,7 +143,7 @@ function substituteBasePathForDev(): PluginOption {
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
@@ -154,7 +154,7 @@ export default defineConfig(async ({ mode }) => {
     let antThemeConfig: any;
     if (process.env.ANT_THEME_CONFIG) {
         const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
-        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-require-imports
         antThemeConfig = require(themeConfigFile);
     }
 
@@ -289,8 +289,6 @@ export default defineConfig(async ({ mode }) => {
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
-            // Limit number of worker threads to reduce CPU pressure
-            workers: 3, // default is number of CPU cores
             rollupOptions: {
                 output: {
                     // Emit source maps without inlined sourcesContent. The original source text is
@@ -320,7 +318,6 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
-            https: isHttps,
         },
         css: {
             preprocessorOptions: {
