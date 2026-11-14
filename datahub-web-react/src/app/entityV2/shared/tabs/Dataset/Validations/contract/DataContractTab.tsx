@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
@@ -31,7 +32,10 @@ const RightColumn = styled.div`
  * Component used for rendering the Data Contract Tab on the Assertions parent tab.
  */
 export const DataContractTab = () => {
-    const { urn } = useEntityData();
+    const { urn, entityData } = useEntityData();
+    const { t } = useTranslation('entity.profile.validations');
+    const canEditContract = !!entityData?.privileges?.canEditDataContract;
+    const noPermissionMessage = canEditContract ? undefined : t('contractBuilder.noEditPermission');
 
     const { data, refetch } = useGetDatasetContractQuery({
         variables: {
@@ -79,6 +83,8 @@ export const DataContractTab = () => {
                         state={contractState}
                         summary={assertionsSummary}
                         showContractBuilder={() => setShowContractBuilder(true)}
+                        editDisabled={!canEditContract}
+                        editDisabledMessage={noPermissionMessage}
                     />
                     <Container>
                         {showLeftColumn && (
@@ -113,7 +119,10 @@ export const DataContractTab = () => {
                     </Container>
                 </>
             ) : (
-                <DataContractEmptyState showContractBuilder={() => setShowContractBuilder(true)} />
+                <DataContractEmptyState
+                    showContractBuilder={() => setShowContractBuilder(true)}
+                    disabledMessage={noPermissionMessage}
+                />
             )}
             {showContractBuilder && (
                 <DataContractBuilderModal

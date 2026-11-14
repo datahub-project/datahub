@@ -86,6 +86,7 @@
     "contractBuilder.exitEditor": "Exit Editor",
     "contractBuilder.failedCreate": "Failed to create Data Contract! An unexpected error occurred",
     "contractBuilder.newContractTitle": "New Data Contract",
+    "contractBuilder.noEditPermission": "You do not have permission to edit this asset's contract",
     "contractBuilder.selectAssertionsHeader": "Select the assertions that will make up your contract.",
     "contractBuilder.titleEdit": "Edit Data Contract",
     "contractCategory.dataQuality": "Data Quality",

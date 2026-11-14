@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityPrivileges;
 import com.linkedin.datahub.graphql.resolvers.assertion.AssertionUtils;
 import com.linkedin.datahub.graphql.resolvers.businessattribute.BusinessAttributeAuthorizationUtils;
+import com.linkedin.datahub.graphql.resolvers.datacontract.DataContractUtils;
 import com.linkedin.datahub.graphql.resolvers.dataproduct.DataProductAuthorizationUtils;
 import com.linkedin.datahub.graphql.resolvers.incident.IncidentUtils;
 import com.linkedin.datahub.graphql.resolvers.lifecycle.LifecycleStageAssignmentUtils;
@@ -174,6 +175,7 @@ public class EntityPrivilegesResolver implements DataFetcher<CompletableFuture<E
         AuthorizationUtils.isViewDatasetProfileAuthorized(context, urn));
     result.setCanViewDatasetOperations(
         AuthorizationUtils.isViewDatasetOperationsAuthorized(context, urn));
+    result.setCanEditDataContract(DataContractUtils.canEditDataContract(context, urn));
     addCommonPrivileges(result, urn, context);
     return result;
   }
