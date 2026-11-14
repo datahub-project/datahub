@@ -15,6 +15,8 @@ application {
 // jars and add them to the classpath only with OPENSEARCH_KNN_ENABLED=true or -Pknn at build
 // time, so a k-NN-off build carries no unversioned plugin jars. Guava and the gRPC SPI stay
 // on every build to keep dependency locking independent of the flag.
+configurations { customCodecsZip }
+
 def knnEnabled = System.getenv('OPENSEARCH_KNN_ENABLED') == 'true' || project.hasProperty('knn')
 
 if (knnEnabled) {
@@ -22,6 +24,7 @@ if (knnEnabled) {
 }
 
 dependencies {
+    customCodecsZip 'org.opensearch.plugin:opensearch-custom-codecs:3.7.0.0'
     implementation 'org.codelibs.opensearch:opensearch-runner:3.7.0.0'
     // The repo pins io.netty to 4.2.x (CVE alignment in the root build), which split netty-codec;
     // OpenSearch 3.7's transport needs the full set (MessageToMessageDecoder is in codec-base).
@@ -37,6 +40,18 @@ dependencies {
 
     testImplementation 'junit:junit:4.13.2'
 }
+
+// GMS writes ordinary indices with zstd_no_dict; the minimal server does not bundle its codec.
+def extractCustomCodecs = tasks.register('extractCustomCodecs', Sync) {
+    from(zipTree(configurations.customCodecsZip.singleFile)) { include '*.jar' }
+    into layout.buildDirectory.dir('custom-codecs-libs')
+}
+dependencies {
+    implementation files(extractCustomCodecs.map {
+        layout.buildDirectory.dir('custom-codecs-libs').get().asFileTree.matching { include '*.jar' }
+    })
+}
+tasks.named('compileJava') { dependsOn extractCustomCodecs }
 
 if (knnEnabled) {
     def extractKnnJar = tasks.register('extractKnnJar', Sync) {

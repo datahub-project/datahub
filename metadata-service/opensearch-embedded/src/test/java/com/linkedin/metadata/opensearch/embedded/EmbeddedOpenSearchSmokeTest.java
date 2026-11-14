@@ -84,6 +84,12 @@ public class EmbeddedOpenSearchSmokeTest {
   }
 
   @Test
+  public void productionIndexCodec() throws IOException {
+    assertEquals(
+        200, request("PUT", "/test-codec", "{\"settings\":{\"index.codec\":\"zstd_no_dict\"}}"));
+  }
+
+  @Test
   public void knnMappingWhenEnabled() throws IOException {
     assumeTrue(Boolean.getBoolean("opensearch.knn.enabled"));
     String mapping =

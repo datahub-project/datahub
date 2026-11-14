@@ -62,6 +62,15 @@ repos:
         stages:
           - pre-push
 
+      - id: gms-lite-python
+        name: GMS-lite Python lint and format
+        entry: ./gradlew :metadata-service:gms-lite:lintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-service/gms-lite/.*\.(py|toml)$
+        pass_filenames: false
+        stages:
+          - pre-commit
+
       - id: guard-push-file-count
         name: Guard against massive pushes (>500 files)
         entry: bash .github/scripts/pre-commit/guard_push_file_count.sh
