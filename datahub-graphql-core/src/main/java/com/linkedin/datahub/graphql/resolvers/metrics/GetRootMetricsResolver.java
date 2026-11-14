@@ -17,6 +17,7 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -92,13 +93,20 @@ public class GetRootMetricsResolver
 
   private Filter buildRootMetricsFilter() {
     final CriterionArray array =
-        new CriterionArray(
-            ImmutableList.of(
-                buildCriterion(HAS_PARENT_METRIC_FIELD_NAME, Condition.EQUAL, "false")));
+        new CriterionArray(ImmutableList.of(buildNoParentMetricCriterion()));
     final Filter filter = new Filter();
     filter.setOr(
         new ConjunctiveCriterionArray(ImmutableList.of(new ConjunctiveCriterion().setAnd(array))));
     return filter;
+  }
+
+  /**
+   * Matches root metrics as {@code NOT hasParentMetric=true} rather than {@code
+   * hasParentMetric=false}: a metric written without a {@code metricRelationships} aspect indexes
+   * no {@code hasParentMetric} value at all, and an equality match on {@code false} would drop it.
+   */
+  static Criterion buildNoParentMetricCriterion() {
+    return buildCriterion(HAS_PARENT_METRIC_FIELD_NAME, Condition.EQUAL, true, "true");
   }
 
   private List<Metric> mapUnresolvedMetrics(final List<Urn> entityUrns) {

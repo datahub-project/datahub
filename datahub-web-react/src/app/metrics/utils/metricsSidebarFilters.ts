@@ -8,6 +8,12 @@ import {
 
 import { FacetFilterInput, FilterOperator } from '@types';
 
+/**
+ * Root metrics (no parent metric). Matches NOT hasParentMetric=true rather than hasParentMetric=false:
+ * a metric written without a metricRelationships aspect indexes no hasParentMetric value at all.
+ */
+export const ROOT_METRICS_FILTER: FacetFilterInput = { field: 'hasParentMetric', values: ['true'], negated: true };
+
 export type MetricsSidebarFilterInput = {
     platformUrns?: string[];
     domainUrns?: string[];
