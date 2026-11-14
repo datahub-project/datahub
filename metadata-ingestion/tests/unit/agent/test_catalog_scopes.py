@@ -763,3 +763,54 @@ def test_without_the_flag_redshift_matches_the_bare_schema_name():
     ).results[0]
     assert result.target == "analytics"
     assert result.included
+
+
+# Where a dialect folds unquoted identifiers to one case, a quoted identifier is
+# case-sensitive: quoted in any other case it names a different object from the
+# catalog one, which a user can create. Matching ignores case, so such a name has
+# to be kept from matching a scope entry at all.
+REFUSED_QUOTED_OTHER_CASE: List[Tuple[str, str, str]] = [
+    ("snowflake", "snowflake", 'SELECT * FROM my_db."information_schema".t'),
+    ("snowflake", "snowflake", 'SELECT * FROM "information_schema".t'),
+    ("snowflake", "snowflake", 'SELECT * FROM snowflake."account_usage".tables'),
+    ("snowflake", "snowflake", 'SELECT * FROM "snowflake".account_usage.tables'),
+    ("postgres", "postgres", 'SELECT * FROM "INFORMATION_SCHEMA".t'),
+    ("postgres", "postgres", 'SELECT relname FROM "PG_CATALOG".pg_class'),
+    ("redshift", "redshift", 'SELECT * FROM "INFORMATION_SCHEMA".tables'),
+    ("oracle", "oracle", 'SELECT * FROM "all_tables"'),
+]
+
+# The same names quoted in the folded case are the catalog's own, and a quoted
+# user database in front of a catalog schema is still that database's catalog.
+PERMITTED_QUOTED_FOLDED_CASE: List[Tuple[str, str, str]] = [
+    ("snowflake", "snowflake", 'SELECT * FROM my_db."INFORMATION_SCHEMA"."TABLES"'),
+    ("snowflake", "snowflake", 'SELECT * FROM "SNOWFLAKE"."ACCOUNT_USAGE"."TABLES"'),
+    ("snowflake", "snowflake", 'SELECT * FROM "my_db".information_schema.tables'),
+    ("postgres", "postgres", 'SELECT relname FROM "pg_catalog"."pg_class"'),
+    ("redshift", "redshift", 'SELECT * FROM "information_schema"."tables"'),
+    ("oracle", "oracle", 'SELECT * FROM "ALL_TABLES"'),
+]
+
+
+@pytest.mark.parametrize("source_type,platform,query", REFUSED_QUOTED_OTHER_CASE)
+def test_a_quoted_name_in_another_case_is_not_the_catalog(
+    source_type: str, platform: str, query: str
+) -> None:
+    with pytest.raises(SqlScopeError):
+        check_query_scope(query, platform=platform, scope=_scope(source_type))
+
+
+@pytest.mark.parametrize("source_type,platform,query", PERMITTED_QUOTED_FOLDED_CASE)
+def test_a_quoted_name_in_the_folded_case_is_the_catalog(
+    source_type: str, platform: str, query: str
+) -> None:
+    check_query_scope(query, platform=platform, scope=_scope(source_type))
+
+
+def test_a_dialect_that_does_not_fold_matches_quoted_names_as_before() -> None:
+    # MySQL and MSSQL resolve these names case-insensitively, quoted or not.
+    check_query_scope(
+        "SELECT table_name FROM `INFORMATION_SCHEMA`.`TABLES`",
+        platform="mysql",
+        scope=_scope("mysql"),
+    )

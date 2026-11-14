@@ -84,6 +84,7 @@ class RedshiftMetadataProbe(SqlCatalogPassthrough):
     #     svl_query_metrics_summary -- operational history feeding lineage
     #     and usage, not shape a probe needs to report.
     catalog_scope = CatalogScope(
+        unquoted_case="lower",
         schemas=frozenset({INFORMATION_SCHEMA}),
         relations=frozenset(
             {
