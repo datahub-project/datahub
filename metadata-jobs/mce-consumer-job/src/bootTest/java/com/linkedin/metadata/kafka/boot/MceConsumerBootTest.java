@@ -1,5 +1,8 @@
 package com.linkedin.metadata.kafka.boot;
 
+import static org.testng.Assert.assertTrue;
+
+import com.linkedin.gms.factory.auth.PolicyChangeListener;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -46,6 +49,22 @@ public class MceConsumerBootTest {
   @Test
   public void bootsWithPgQueue() {
     boot(Messaging.PGQUEUE);
+  }
+
+  /** POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in this process. */
+  @Test
+  public void bootsWithPolicyChangeBroadcast() {
+    try (ConfigurableApplicationContext ctx =
+        ProcessBoot.of(MceConsumerApplication.class)
+            .profiles("mce")
+            .web(WebApplicationType.SERVLET)
+            .messaging(Messaging.KAFKA)
+            .property("MCE_CONSUMER_ENABLED", "true")
+            .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
+            .start()) {
+      contract(Messaging.KAFKA).verify(ctx);
+      assertTrue(ctx.getBean("policyChangeListener") instanceof PolicyChangeListener);
+    }
   }
 
   private static void boot(Messaging messaging) {

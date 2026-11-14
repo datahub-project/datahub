@@ -1,9 +1,12 @@
 package com.linkedin.gms.boot;
 
+import static org.testng.Assert.assertTrue;
+
 import com.datahub.auth.authentication.AuthServiceController;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.graphql.GraphQLController;
 import com.linkedin.gms.GMSApplication;
+import com.linkedin.gms.factory.auth.PolicyChangeListener;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.servlet.AuthServletConfig;
 import com.linkedin.gms.servlet.GraphQLServletConfig;
@@ -57,6 +60,23 @@ public class GmsBootTest {
   @Test
   public void bootsWithPgQueue() {
     boot(Messaging.PGQUEUE);
+  }
+
+  /** POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in this process. */
+  @Test
+  public void bootsWithPolicyChangeBroadcast() {
+    try (ConfigurableApplicationContext ctx =
+        ProcessBoot.of(GMSApplication.class)
+            .web(WebApplicationType.SERVLET)
+            .messaging(Messaging.KAFKA)
+            .property("MAE_CONSUMER_ENABLED", "true")
+            .property("MCE_CONSUMER_ENABLED", "true")
+            .property("PE_CONSUMER_ENABLED", "true")
+            .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
+            .start()) {
+      contract(Messaging.KAFKA).verify(ctx);
+      assertTrue(ctx.getBean("policyChangeListener") instanceof PolicyChangeListener);
+    }
   }
 
   private static void boot(Messaging messaging) {

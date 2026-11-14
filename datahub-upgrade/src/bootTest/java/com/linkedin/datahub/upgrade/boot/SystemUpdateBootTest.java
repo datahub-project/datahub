@@ -1,5 +1,7 @@
 package com.linkedin.datahub.upgrade.boot;
 
+import static org.testng.Assert.assertNull;
+
 import com.linkedin.datahub.upgrade.UpgradeConfigurationSelector;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
@@ -8,6 +10,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
+import com.linkedin.gms.factory.auth.PolicyChangeListener;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
@@ -47,6 +50,19 @@ public class SystemUpdateBootTest {
   @Test
   public void bootsWithPgQueue() {
     boot(Messaging.PGQUEUE);
+  }
+
+  /**
+   * POLICY_CACHE_BROADCAST_ENABLED is set on system-update too, so it creates the policy change
+   * topic. It has no policy cache, so it must boot without a policy change listener.
+   */
+  @Test
+  public void bootsWithPolicyChangeBroadcast() {
+    try (ConfigurableApplicationContext ctx =
+        process(Messaging.KAFKA).property("POLICY_CACHE_BROADCAST_ENABLED", "true").start()) {
+      contract(Messaging.KAFKA).verify(ctx);
+      assertNull(ctx.getBeanProvider(PolicyChangeListener.class).getIfAvailable());
+    }
   }
 
   /**
