@@ -18,6 +18,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
+import org.apache.kafka.clients.consumer.NoOffsetForPartitionException;
 import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
@@ -212,6 +213,9 @@ public class PolicyChangeListenerTest {
 
     // The run loop logs this and starts again after the retry interval.
     expectThrows(Exception.class, failing::step);
+    // No seek to the end offset: the next start loads again before it reads, so no change is lost.
+    assertEquals(consumer.assignment(), Set.of(P0));
+    expectThrows(NoOffsetForPartitionException.class, () -> consumer.position(P0));
   }
 
   @Test
