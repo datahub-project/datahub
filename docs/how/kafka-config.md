@@ -82,6 +82,8 @@ the System Update container for topic setup:
 - `METADATA_CHANGE_LOG_TIMESERIES_TOPIC_NAME`: The name of the topic for Metadata Change Logs that are produced for Timeseries Aspects.
 - `PLATFORM_EVENT_TOPIC_NAME`: The name of the topic for Platform Events (high-level semantic events).
 - `DATAHUB_USAGE_EVENT_NAME`: The name of the topic for product analytics events.
+- `POLICY_CHANGE_TOPIC_NAME`: The name of the policy change topic (default `PolicyChange_v1`). Used only with `POLICY_CACHE_BROADCAST_ENABLED=true`. Set the flag on System Update too, so it creates this topic (1 partition, 1-day retention) before the Metadata Service starts.
+- `POLICY_CHANGE_TOPIC_REPLICATION_FACTOR`: The replication factor of the policy change topic. Defaults to `REPLICATION_FACTOR`.
 - (Deprecated) `METADATA_CHANGE_EVENT_NAME`: The name of the metadata change event topic.
 - (Deprecated) `METADATA_AUDIT_EVENT_NAME`: The name of the metadata audit event topic.
 - (Deprecated) `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the failed metadata change event topic.
@@ -96,6 +98,7 @@ the System Update container for topic setup:
 
 - `METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted by the ingestion framework.
 - `FAILED_METADATA_CHANGE_PROPOSAL_TOPIC_NAME`: The name of the topic for Metadata Change Proposals emitted when MCPs fail processing.
+- `POLICY_CHANGE_TOPIC_NAME`: The name of the policy change topic. Used only with `POLICY_CACHE_BROADCAST_ENABLED=true`.
 - (Deprecated) `METADATA_CHANGE_EVENT_NAME`: The name of the deprecated topic that an embedded MCE consumer will consume from.
 - (Deprecated) `FAILED_METADATA_CHANGE_EVENT_NAME`: The name of the deprecated topic that failed MCEs will be written to.
 
