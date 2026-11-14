@@ -556,6 +556,10 @@ gcs-slim = [
 
 github-documents = []
 
+gitlab-documents = [
+    "tenacity>=8.0.1,<9.0.0",
+]
+
 glue = [
     "boto3>=1.35.0,<2.0.0",
     "botocore!=1.23.0,<2.0.0",
@@ -1968,6 +1972,7 @@ demo-data = "datahub.ingestion.source.demo_data:DemoDataSource"
 unity-catalog = "datahub.ingestion.source.unity.source:UnityCatalogSource"
 notion = "datahub.ingestion.source.notion.notion_source:NotionSource"
 github-documents = "datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource"
+gitlab-documents = "datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource"
 gcs = "datahub.ingestion.source.gcs.gcs_source:GCSSource"
 sql-queries = "datahub.ingestion.source.sql_queries:SqlQueriesSource"
 dlt = "datahub.ingestion.source.dlt.dlt:DltSource"

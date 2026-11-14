@@ -9,6 +9,10 @@ import {
     buildGitHubDocumentsIngestionState,
 } from '@app/context/import/buildGitHubDocumentsIngestionState';
 import {
+    GITLAB_DOCUMENTS_INGESTION_SOURCE_TYPE,
+    buildGitLabDocumentsIngestionState,
+} from '@app/context/import/buildGitLabDocumentsIngestionState';
+import {
     NOTION_INGESTION_SOURCE_TYPE,
     buildNotionDocumentsIngestionState,
 } from '@app/context/import/buildNotionDocumentsIngestionState';
@@ -29,6 +33,12 @@ export function useLaunchDocumentIngestionSource() {
                     launchIngestionSourceCreate({
                         sourceType: GITHUB_DOCUMENTS_INGESTION_SOURCE_TYPE,
                         initialBuilderState: buildGitHubDocumentsIngestionState(),
+                    });
+                    break;
+                case ImportSourceType.GITLAB:
+                    launchIngestionSourceCreate({
+                        sourceType: GITLAB_DOCUMENTS_INGESTION_SOURCE_TYPE,
+                        initialBuilderState: buildGitLabDocumentsIngestionState(),
                     });
                     break;
                 case ImportSourceType.NOTION:

@@ -922,6 +922,7 @@ plugins: Dict[str, Set[str]] = {
     "confluence": confluence_common,
     "google-drive": google_drive_common,
     "github-documents": set(),
+    "gitlab-documents": {"tenacity>=8.0.1,<9.0.0"},
     "unstructured": unstructured_lib,
     "fivetran": snowflake_common
     | bigquery_common
@@ -1172,6 +1173,7 @@ base_dev_requirements = {
             "nifi",
             "notion",
             "github-documents",
+            "gitlab-documents",
             "vertica",
             "mode",
             "fivetran",
@@ -1366,6 +1368,7 @@ entry_points = {
         "unity-catalog = datahub.ingestion.source.unity.source:UnityCatalogSource",
         "notion = datahub.ingestion.source.notion.notion_source:NotionSource",
         "github-documents = datahub.ingestion.source.github_documents.github_documents_source:GitHubDocumentsSource",
+        "gitlab-documents = datahub.ingestion.source.gitlab_documents.gitlab_documents_source:GitLabDocumentsSource",
         "gcs = datahub.ingestion.source.gcs.gcs_source:GCSSource",
         "sql-queries = datahub.ingestion.source.sql_queries:SqlQueriesSource",
         "dlt = datahub.ingestion.source.dlt.dlt:DltSource",

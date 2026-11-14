@@ -1742,6 +1742,26 @@
       "platform_name": "GitHub",
       "support_status": "ALPHA"
     },
+    "gitlab-documents": {
+      "capabilities": [
+        {
+          "capability": "DELETION_DETECTION",
+          "description": "Enabled by default via stateful ingestion",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "TEST_CONNECTION",
+          "description": "Enabled by default",
+          "subtype_modifier": null,
+          "supported": true
+        }
+      ],
+      "classname": "datahub.ingestion.source.gitlab_documents.gitlab_documents_source.GitLabDocumentsSource",
+      "platform_id": "gitlab",
+      "platform_name": "GitLab",
+      "support_status": "ALPHA"
+    },
     "glue": {
       "capabilities": [
         {

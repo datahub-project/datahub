@@ -70,6 +70,7 @@ By default, all sources create **Native** (editable) documents in DataHub. Switc
 | **Notion**     | One-way (Notion → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from Notion](./import-notion.md)         |
 | **Confluence** | One-way (Confluence → DataHub)          | Native by default; optionally External (read-only). No sync-back.                        | [Import from Confluence](./import-confluence.md) |
 | **GitHub**     | Import; sync-back on DataHub Cloud only | Native by default; optionally External (read-only). Sync-back is **DataHub Cloud only**. | [Import from GitHub](./import-github.md)         |
+| **GitLab**     | One-way (GitLab → DataHub)              | Native by default; optionally External (read-only). No sync-back.                        | [Import from GitLab](./import-gitlab.md)         |
 
 <p align="center">
   <img width="70%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/context/context-document-import.png"/>
