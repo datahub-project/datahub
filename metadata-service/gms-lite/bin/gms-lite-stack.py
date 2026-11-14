@@ -27,6 +27,7 @@ import urllib.error
 import urllib.request
 from collections.abc import Iterator
 from contextlib import contextmanager
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TextIO, TypedDict, cast
 
@@ -78,6 +79,7 @@ class StackInfo(TypedDict):
     indexPrefixes: dict[str, str]
     auth: bool
     adminTokens: dict[str, str]
+    adminTokenExpiresAt: dict[str, str]
 
 
 def log(message: str) -> None:
@@ -169,7 +171,10 @@ def read_env_file(path: Path | None) -> dict[str, str]:
         key, separator, value = line.partition("=")
         if not separator or not key.strip().isidentifier():
             raise SystemExit(f"invalid KEY=VALUE at {path}:{number}")
-        values[key.strip()] = value.strip().strip('"').strip("'")
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        values[key.strip()] = value
     return values
 
 
@@ -284,6 +289,82 @@ def start_opensearch(
     return bound
 
 
+SEARCH_CONNECTION_ENV: dict[str, str] = {
+    "ELASTICSEARCH_URI": "",
+    "ELASTICSEARCH_CLUSTERS_SECONDARY_URI": "",
+    "ELASTICSEARCH_USERNAME": "",
+    "ELASTICSEARCH_PASSWORD": "",
+    "ELASTICSEARCH_PATH_PREFIX": "",
+    "ELASTICSEARCH_USE_SSL": "false",
+    "OPENSEARCH_USE_AWS_IAM_AUTH": "false",
+    "AWS_REGION": "",
+    "ELASTICSEARCH_CLUSTERS_SECONDARY_USERNAME": "",
+    "ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD": "",
+    "ELASTICSEARCH_CLUSTERS_SECONDARY_OPENSEARCH_USE_AWS_IAM_AUTH": "false",
+    "ELASTICSEARCH_CLUSTERS_SECONDARY_REGION": "",
+    **{
+        prefix + suffix: ""
+        for prefix in ("ELASTICSEARCH_", "ELASTICSEARCH_CLUSTERS_SECONDARY_")
+        for suffix in (
+            "SSL_PROTOCOL",
+            "SSL_SECURE_RANDOM_IMPL",
+            "SSL_TRUSTSTORE_FILE",
+            "SSL_TRUSTSTORE_TYPE",
+            "SSL_TRUSTSTORE_PASSWORD",
+            "SSL_KEYSTORE_FILE",
+            "SSL_KEYSTORE_TYPE",
+            "SSL_KEYSTORE_PASSWORD",
+            "SSL_KEY_PASSWORD",
+        )
+    },
+    **{
+        prefix + "PROXY_" + suffix: value
+        for prefix in (
+            "ELASTICSEARCH_",
+            "ELASTICSEARCH_CLUSTERS_PRIMARY_",
+            "ELASTICSEARCH_CLUSTERS_SECONDARY_",
+        )
+        for suffix, value in (
+            ("HOST", ""),
+            ("PORT", ""),
+            ("SCHEME", "http"),
+            ("USERNAME", ""),
+            ("PASSWORD", ""),
+        )
+    },
+    **{
+        f"ELASTICSEARCH_CLUSTERS_{cluster}_PROXY_USE_SYSTEM_PROXY_PROPERTIES": "false"
+        for cluster in ("PRIMARY", "SECONDARY")
+    },
+    **{
+        f"ELASTICSEARCH_CLUSTERS_{cluster}_INDEX_PREFIX": ""
+        for cluster in ("PRIMARY", "SECONDARY")
+    },
+    **{
+        "ELASTICSEARCH_COMPONENT_CLUSTER_" + component: "primary"
+        for component in (
+            "SEARCH_V2",
+            "SEARCH_V3",
+            "SEMANTIC",
+            "GRAPH",
+            "TIMESERIES",
+            "SYSTEM_METADATA",
+            "USAGE",
+        )
+    },
+    **{
+        f"ELASTICSEARCH_CLUSTER_MIGRATION_{family}_{suffix}": ""
+        for family in ("GRAPH", "TIMESERIES", "SYSTEM_METADATA", "USAGE")
+        for suffix in (
+            "TARGET_CLUSTER",
+            "COPY_REMOTE_HOST",
+            "COPY_REMOTE_USERNAME",
+            "COPY_REMOTE_PASSWORD",
+        )
+    },
+}
+
+
 def instance_env(
     base: dict[str, str],
     instance: str,
@@ -300,6 +381,8 @@ def instance_env(
     return {
         **os.environ,
         **base,
+        # URI, credentials, TLS and proxy overrides must not redirect local search.
+        **SEARCH_CONNECTION_ENV,
         "EBEAN_DATASOURCE_URL": f"jdbc:h2:file:{directory / 'gms'};MODE=MySQL",
         "EBEAN_DATASOURCE_DRIVER": "org.h2.Driver",
         "EBEAN_DATASOURCE_USERNAME": "sa",
@@ -455,6 +538,17 @@ def mint_admin_token(url: str, env: dict[str, str]) -> str:
     raise SystemExit(f"could not mint a local datahub access token on {url}: {last}")
 
 
+def token_expires_at(token: str) -> str:
+    # Read the server-issued expiry so discovery does not overstate the token's lifetime.
+    payload = token.split(".")[1]
+    claims = json.loads(base64.urlsafe_b64decode(payload + "=" * (-len(payload) % 4)))
+    return (
+        datetime.fromtimestamp(claims["exp"], tz=timezone.utc)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+
+
 def wait_admin_access(url: str, token: str, processes: Processes) -> None:
     # Bootstrap policies reach search through the spool, then the authorizer refreshes its cache.
     request = urllib.request.Request(
@@ -532,13 +626,8 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
             )
             + "\n",
         )
-        search_data_exists = any(
-            index.startswith(env["INDEX_PREFIX"] + "_")
-            and index != env["INDEX_PREFIX"] + "_datahub_usage_event"
-            for index in existing_indices
-        )
         ensure_usage_event_index(bound, env["INDEX_PREFIX"])
-        if checker.is_complete(data_dir, name) and search_data_exists:
+        if checker.is_complete(data_dir, name, env["INDEX_PREFIX"], existing_indices):
             log(f"{name}: warm start, bootstrap already completed")
         else:
             run_upgrade(
@@ -551,7 +640,9 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
                 create=not (data_dir / name / "gms.mv.db").exists(),
             )
             run_upgrade(processes, env, log_dir, name, args.heap, "RestoreIndices")
-            checker.mark_complete(data_dir, name)
+            checker.mark_complete(
+                data_dir, name, env["INDEX_PREFIX"], index_names(bound)
+            )
     for name, env in environments.items():
         processes.start(
             [JAVA, f"-Xmx{args.heap}", *JVM_OPENS, "-jar", str(WAR)],
@@ -589,6 +680,9 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
         },
         "auth": args.auth,
         "adminTokens": tokens,
+        "adminTokenExpiresAt": {
+            name: token_expires_at(token) for name, token in tokens.items()
+        },
     }
     write_private(data_dir / "stack.json", json.dumps(stack, indent=2) + "\n")
     log(f"stack ready: {data_dir / 'stack.json'}")

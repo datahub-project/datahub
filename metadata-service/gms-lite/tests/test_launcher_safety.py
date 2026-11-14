@@ -3,7 +3,10 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import errno
 import importlib.util
+import json
 import multiprocessing
 import os
 import signal
@@ -13,6 +16,8 @@ import sys
 import tempfile
 import time
 import unittest
+import urllib.error
+from itertools import count
 from multiprocessing.connection import Connection
 from pathlib import Path
 from typing import TextIO
@@ -89,7 +94,21 @@ class LauncherSafetyTest(unittest.TestCase):
             env_file = directory / "overrides.env"
             env_file.write_text(
                 "export POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10\nSERVER_PORT=1\nINDEX_PREFIX=other\n"
+                + "".join(f"{key}=override\n" for key in stack.SEARCH_CONNECTION_ENV)
+                + "ELASTICSEARCH_HOST=other\nELASTICSEARCH_PORT=1\n"
             )
+            with patch.dict(
+                os.environ, {key: "inherited" for key in stack.SEARCH_CONNECTION_ENV}
+            ):
+                inherited = stack.instance_env(
+                    {},
+                    "gms-0",
+                    8090,
+                    9200,
+                    directory,
+                    stack.load_credentials(directory),
+                    True,
+                )
             env = stack.instance_env(
                 stack.read_env_file(env_file),
                 "gms-0",
@@ -110,6 +129,13 @@ class LauncherSafetyTest(unittest.TestCase):
             )
             self.assertEqual(env["POLICY_CACHE_REFRESH_INTERVAL_SECONDS"], "10")
             self.assertEqual(env["SERVER_PORT"], "8090")
+            for effective in (env, inherited):
+                for key, expected in stack.SEARCH_CONNECTION_ENV.items():
+                    self.assertEqual(effective[key], expected, key)
+                self.assertEqual(effective["ELASTICSEARCH_URI"], "")
+                self.assertEqual(effective["ELASTICSEARCH_USERNAME"], "")
+                self.assertEqual(effective["ELASTICSEARCH_HOST"], "localhost")
+                self.assertEqual(effective["ELASTICSEARCH_PORT"], "9200")
             self.assertNotEqual(env["INDEX_PREFIX"], other["INDEX_PREFIX"])
             self.assertNotEqual(
                 env["DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE"],
@@ -119,10 +145,11 @@ class LauncherSafetyTest(unittest.TestCase):
             self.assertEqual(
                 env["ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED"], "true"
             )
-            for profiles, expected in [
-                ("", "upgrade"),
-                ("debug", "debug,upgrade"),
-                ("upgrade,debug", "upgrade,debug"),
+            for profiles, expected, upgrade in [
+                ("", "upgrade", "SystemUpdate"),
+                ("debug", "debug,upgrade", "SystemUpdate"),
+                ("upgrade,debug", "upgrade,debug", "SystemUpdate"),
+                ("debug", "debug,upgrade", "RestoreIndices"),
             ]:
                 with (
                     self.subTest(profiles=profiles),
@@ -138,7 +165,7 @@ class LauncherSafetyTest(unittest.TestCase):
                         directory,
                         "gms-0",
                         "1g",
-                        "SystemUpdate",
+                        upgrade,
                     )
                     upgrade_env = start.call_args.args[1]
                     self.assertEqual(upgrade_env["SPRING_PROFILES_ACTIVE"], expected)
@@ -146,6 +173,8 @@ class LauncherSafetyTest(unittest.TestCase):
                         upgrade_env["POLICY_CACHE_REFRESH_INTERVAL_SECONDS"], "10"
                     )
                     self.assertEqual(upgrade_env["EBEAN_AUTOCREATE"], "false")
+                    for key, expected_value in stack.SEARCH_CONNECTION_ENV.items():
+                        self.assertEqual(upgrade_env[key], expected_value, key)
 
     def test_live_directory_refuses_fresh_and_stale_discovery_is_removed(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -167,12 +196,50 @@ class LauncherSafetyTest(unittest.TestCase):
             instance = directory / "gms-0"
             instance.mkdir()
             checker = SystemUpdateChecker()
-            checker.mark_complete(directory, "gms-0")
-            self.assertFalse(checker.is_complete(directory, "gms-0"))
+            prefix = "abc"
+            indices = [
+                "abc_datasetindex_v2",
+                "abc_corpuserindex_v2",
+                "abcd_datasetindex_v2",
+            ]
+            checker.mark_complete(directory, "gms-0", prefix, indices)
+            self.assertFalse(checker.is_complete(directory, "gms-0", prefix, indices))
             (instance / "gms.mv.db").touch()
-            self.assertTrue(checker.is_complete(directory, "gms-0"))
+            self.assertTrue(checker.is_complete(directory, "gms-0", prefix, indices))
+            self.assertFalse(
+                checker.is_complete(directory, "gms-0", prefix, indices[1:])
+            )
+            self.assertFalse(
+                checker.is_complete(
+                    directory, "gms-0", prefix, ["abc_datahub_usage_event"]
+                )
+            )
+            (instance / "system-update-done").write_text(
+                "SystemUpdate and RestoreIndices completed\n"
+            )
+            self.assertFalse(checker.is_complete(directory, "gms-0", prefix, indices))
             (instance / "system-update-done").unlink()
-            self.assertFalse(checker.is_complete(directory, "gms-0"))
+            self.assertFalse(checker.is_complete(directory, "gms-0", prefix, indices))
+
+    def test_env_file_preserves_inner_quotes(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "values.env"
+            path.write_text("DOUBLE=\"value'\"\nSINGLE='a'\nPLAIN=plain\n")
+            self.assertEqual(
+                stack.read_env_file(path),
+                {"DOUBLE": "value'", "SINGLE": "a", "PLAIN": "plain"},
+            )
+
+    def test_token_expiry_uses_server_claim(self) -> None:
+        payload = (
+            base64.urlsafe_b64encode(json.dumps({"exp": 1794614400}).encode())
+            .decode()
+            .rstrip("=")
+        )
+        self.assertEqual(
+            stack.token_expires_at(f"header.{payload}.signature"),
+            "2026-11-14T00:00:00Z",
+        )
 
     def test_group_signals_stop_child_groups_and_grandchildren(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:
@@ -370,7 +437,7 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 stop.assert_not_called()
                 start.assert_not_called()
 
-    def test_dead_or_degraded_node_is_replaced_with_data_retained(self) -> None:
+    def test_dead_or_refused_node_is_replaced_with_data_retained(self) -> None:
         for alive in (False, True):
             with self.subTest(alive=alive), tempfile.TemporaryDirectory() as temporary:
                 manager = SharedOpenSearchManager(Path(temporary))
@@ -382,13 +449,58 @@ class SharedOpenSearchSafetyTest(unittest.TestCase):
                 with (
                     patch.object(manager, "_alive", return_value=alive),
                     patch.object(manager, "_verify_identity"),
-                    patch.object(manager, "_healthy", return_value=False),
+                    patch(
+                        "_opensearch_manager.request_json",
+                        side_effect=urllib.error.URLError(
+                            ConnectionRefusedError(errno.ECONNREFUSED, "refused")
+                        ),
+                    ),
                     patch.object(manager, "_stop_locked") as stop,
                     patch.object(manager, "_start", return_value=23456),
                 ):
                     self.assertEqual(manager.get_or_start(), 23456)
                     self.assertEqual(stop.call_count, int(alive))
                     self.assertEqual((data / "index").read_text(), "preserved")
+
+    def test_live_slow_node_waits_then_reuses_or_fails_without_replacement(
+        self,
+    ) -> None:
+        for recovers in (False, True):
+            with (
+                self.subTest(recovers=recovers),
+                tempfile.TemporaryDirectory() as temporary,
+            ):
+                manager = SharedOpenSearchManager(Path(temporary))
+                manager.health_timeout_seconds = 10
+                manager.pid_file.write_text("123")
+                manager.port_file.write_text("12345")
+                responses = [
+                    {"version": {"number": "3.6.0"}},
+                    {"status": "red"},
+                    {"status": "yellow"} if recovers else {"status": "red"},
+                ]
+                with (
+                    patch.object(manager, "_alive", return_value=True),
+                    patch.object(manager, "_verify_identity"),
+                    patch(
+                        "_opensearch_manager.request_json",
+                        side_effect=lambda *args, **kwargs: (
+                            responses.pop(0) if len(responses) > 1 else responses[0]
+                        ),
+                    ),
+                    patch("_opensearch_manager.time.sleep"),
+                    patch("_opensearch_manager.time.monotonic", side_effect=count()),
+                    patch.object(manager, "_stop_locked") as stop,
+                    patch.object(manager, "_start") as start,
+                ):
+                    if recovers:
+                        self.assertEqual(manager.get_or_start(), 12345)
+                    else:
+                        with self.assertRaisesRegex(RuntimeError, "node left running"):
+                            manager.get_or_start()
+                    stop.assert_not_called()
+                    start.assert_not_called()
+                self.assertEqual(manager.pid_file.read_text(), "123")
 
     def test_launcher_shutdown_leaves_shared_node_outside_owned_children(self) -> None:
         with tempfile.TemporaryDirectory() as temporary:

@@ -16,6 +16,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from collections.abc import Callable
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import TypedDict, cast
 
@@ -32,6 +33,7 @@ class StackInfo(TypedDict):
     opensearchPort: int
     opensearchShared: bool
     adminTokens: dict[str, str]
+    adminTokenExpiresAt: dict[str, str]
 
 
 def request(url: str, token: str = "", body: object = None) -> object:
@@ -215,6 +217,16 @@ class LocalStack:
                 for instance, url in self.info["instances"].items():
                     request(f"{url}/health")
                     request(f"{url}/config", self.info["adminTokens"][instance])
+                    expiry = datetime.fromisoformat(
+                        self.info["adminTokenExpiresAt"][instance].replace(
+                            "Z", "+00:00"
+                        )
+                    )
+                    assert (
+                        0
+                        < (expiry - datetime.now(timezone.utc)).total_seconds()
+                        <= 86400
+                    )
                 print(
                     f"  ready: {self.info['instances']}; children={sorted(self.child_pids)}",
                     flush=True,
@@ -414,10 +426,8 @@ def concurrent(directory: Path, port: int, shared: Path) -> None:
             second.stop()
 
 
-def replace_node(directory: Path, port: int, shared: Path, sig: signal.Signals) -> None:
-    stack = LocalStack(
-        directory / ("dead" if sig == signal.SIGKILL else "degraded"), 1, port, shared
-    )
+def dead(directory: Path, port: int, shared: Path) -> None:
+    stack = LocalStack(directory / "dead", 1, port, shared)
     try:
         info = stack.start()
         ingest(info, "gms-0")
@@ -426,31 +436,98 @@ def replace_node(directory: Path, port: int, shared: Path, sig: signal.Signals) 
         )
         stack.stop()
         before = shared_status(shared)
-        os.kill(int(str(before["pid"])), sig)
-        if sig == signal.SIGKILL:
-            wait_for(
-                "dead node port closes", lambda: port_closed(int(str(before["port"])))
-            )
+        os.kill(int(str(before["pid"])), signal.SIGKILL)
+        wait_for("dead node port closes", lambda: port_closed(int(str(before["port"]))))
         restored = stack.start()
         after = shared_status(shared)
         assert before["pid"] != after["pid"], "node was not replaced"
         assert after["healthy"]
         assert dataset(restored, "gms-0") is not None, "replacement lost data"
         print(
-            f"  replaced {sig.name} node {before['pid']} -> {after['pid']}; data retained",
+            f"  replaced dead node {before['pid']} -> {after['pid']}; data retained",
             flush=True,
         )
     finally:
         stack.stop()
 
 
-def dead(directory: Path, port: int, shared: Path) -> None:
-    replace_node(directory, port, shared, signal.SIGKILL)
-
-
 def degraded(directory: Path, port: int, shared: Path) -> None:
-    # A stopped JVM still owns its ports but cannot answer health checks or process SIGTERM.
-    replace_node(directory, port, shared, signal.SIGSTOP)
+    """An unresponsive live JVM times out without being signalled or replaced."""
+    manager_command(shared, "start")
+    before = shared_status(shared)
+    pid = int(str(before["pid"]))
+    os.kill(pid, signal.SIGSTOP)
+    try:
+        result = subprocess.run(
+            [sys.executable, str(MANAGER), "start", "--dir", str(shared)],
+            env={**os.environ, "GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS": "2"},
+            capture_output=True,
+            text=True,
+            timeout=15,
+        )
+        assert result.returncode != 0, "unresponsive node accepted"
+        assert "node left running, not replaced" in result.stderr, result.stderr
+        assert int((shared / "pid").read_text()) == pid
+        state = subprocess.check_output(
+            ["ps", "-p", str(pid), "-o", "stat="], text=True
+        )
+        assert "T" in state, "manager signalled the paused node"
+        print(
+            f"  paused PID {pid}: clear timeout, no replacement or signal", flush=True
+        )
+    finally:
+        os.kill(pid, signal.SIGCONT)
+    assert shared_status(shared)["healthy"]
+    assert shared_status(shared)["pid"] == before["pid"]
+
+
+def partial_indices(directory: Path, port: int, shared: Path) -> None:
+    """One lost entity index is rebuilt from H2 despite other surviving indices."""
+    stack = LocalStack(directory / "partial-indices", 1, port, shared)
+    query = '{ search(input: { type: DATASET, query: "gms_lite_verification", start: 0, count: 5 }) { total } }'
+    try:
+        info = stack.start()
+        ingest(info, "gms-0")
+        wait_for(
+            "entity indexed before loss",
+            lambda: (
+                cast(dict[str, int], graphql(info, "gms-0", query)["search"])["total"]
+                >= 1
+            ),
+        )
+        stack.stop()
+        prefix = info["indexPrefixes"]["gms-0"]
+        names = request(
+            f"http://localhost:{info['opensearchPort']}/_cat/indices?format=json"
+        )
+        assert isinstance(names, list)
+        owned = [row["index"] for row in names if row["index"].startswith(prefix + "_")]
+        datasets = [
+            name for name in owned if name.startswith(prefix + "_datasetindex_v2")
+        ]
+        assert len(datasets) == 1 and len(owned) > 1, owned
+        req = urllib.request.Request(
+            f"http://localhost:{info['opensearchPort']}/{datasets[0]}", method="DELETE"
+        )
+        with urllib.request.urlopen(req, timeout=30):
+            pass
+        restored = stack.start()
+        wait_for(
+            "partial index loss restored from H2",
+            lambda: (
+                cast(dict[str, int], graphql(restored, "gms-0", query)["search"])[
+                    "total"
+                ]
+                >= 1
+            ),
+        )
+        assert dataset(restored, "gms-0") is not None
+        print(
+            f"  deleted only {datasets[0]}; surviving indices did not suppress restore",
+            flush=True,
+        )
+    finally:
+        stack.stop()
 
 
 def private(directory: Path, port: int, shared: Path) -> None:
@@ -562,6 +639,7 @@ def main() -> None:
         "concurrent": concurrent,
         "dead": dead,
         "degraded": degraded,
+        "partial_indices": partial_indices,
         "private": private,
         "fresh": fresh,
         "startup_shutdown": startup_shutdown,

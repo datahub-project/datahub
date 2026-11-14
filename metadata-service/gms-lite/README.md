@@ -35,8 +35,12 @@ accept `--dir /path/to/state`. Always use the same directory to manage a node.
 
 The manager serializes start/stop with an exclusive file lock, verifies process
 identity before signalling, and reuses only a healthy OpenSearch 3.x node.
-A dead or unhealthy node is replaced while retaining its data; a different major
-version is refused. If retained data cannot recover, startup fails with the log
+A dead node or a verified node whose connection is refused is replaced while
+retaining its data; a different major version or an unrelated PID is refused.
+For a live node, readiness waits up to 600 seconds for yellow health. Override
+this with `GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS`. An unresponsive or slow
+node that reaches the deadline causes a clear error and is left running, with
+its recorded PID and port unchanged. If retained data cannot recover, startup fails with the log
 location; choose a different state directory or repair the data explicitly.
 There is no automatic deletion of other stacks' indices.
 
@@ -71,9 +75,10 @@ necessary. `start` can also prewarm the node without starting GMS.
 An optional `--env-file /path/to/overrides.env` accepts literal `KEY=VALUE` lines,
 optional `export ` prefixes, quoted values, and whole-line comments. There is no
 default env file. The launcher inherits the shell environment, applies this file,
-and then pins its local connection settings. Keep external connection overrides
-out of the inherited environment (for example `ELASTICSEARCH_URI` supersedes
-legacy host/port settings in GMS). The generated `gms-N/env.sh` records settings
+and then pins its local connection settings. Search URI, credentials, TLS,
+proxy, routing, and per-cluster prefix overrides are neutralised for both GMS
+and upgrades so the embedded node and instance prefix always win. The full
+variable-to-YAML mapping appears in the environment contract below. The generated `gms-N/env.sh` records settings
 that differ from the inherited environment, using shell-safe quoting. It is an
 output file and is never read back automatically.
 
@@ -99,6 +104,10 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
   "adminTokens": {
     "gms-0": "<personal-access-token>",
     "gms-1": "<personal-access-token>"
+  },
+  "adminTokenExpiresAt": {
+    "gms-0": "2026-01-02T12:00:00Z",
+    "gms-1": "2026-01-02T12:00:01Z"
   }
 }
 ```
@@ -107,7 +116,11 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
 `default` is a key in `instances`. `indexPrefixes` contains the configured
 `INDEX_PREFIX` values; GMS appends an underscore before index names. `bootId`
 changes on every start. `adminTokens` contains a one-day personal token for the
-existing bootstrap user `datahub` in each instance. The launcher uses OSS's
+existing bootstrap user `datahub` in each instance. `adminTokenExpiresAt` maps
+the same instance names to the server-issued token expiry in ISO-8601 UTC.
+After expiry, authenticated requests return 401 even if `/health` still succeeds.
+Restart the stack with the same data directory to mint new tokens, then reread
+`stack.json`; tokens are not refreshed while the launcher runs. The launcher uses OSS's
 shipped bootstrap policies without adding or replacing any policy. No frontend
 or password login is started.
 
@@ -120,8 +133,8 @@ curl -fsS http://localhost:18090/health
 curl -fsS http://localhost:18090/config
 ```
 
-`--no-auth` disables token authentication and publishes `auth: false` and an empty
-`adminTokens` object. GMS binds to loopback. The system credentials and token keys
+`--no-auth` disables token authentication and publishes `auth: false` with empty
+`adminTokens` and `adminTokenExpiresAt` objects. GMS binds to loopback. The system credentials and token keys
 are randomly generated, saved in `<data-dir>/.secrets.json` with mode `0600`, and
 reused on restart. Neither credentials nor tokens are printed to stdout.
 
@@ -135,10 +148,14 @@ SIGKILL or power loss can lose queued events. This is a local development stack.
 
 Restart with the same absolute data-directory path. H2, search indices, credentials,
 and queue snapshots persist. A `gms-N/system-update-done` marker is written only
-after both upgrade commands succeed. Existing H2 tables are never recreated on a
-retry. Remove this marker to rerun upgrades after changing bootstrap code. If
-this instance's search indices are missing, upgrades run again to restore search
-from H2, including when the shared node's indices were removed separately.
+after both upgrade commands succeed; it records the instance's non-usage-event
+index names observed at that point. Existing H2 tables are never recreated on a
+retry. Upgrades are skipped only when H2 exists, this marker contains a nonempty
+recorded index set, and every recorded index still exists. If any recorded index
+is missing, both upgrades run again to restore search from H2. The usage-event
+index is ensured separately on every start. Older text markers trigger one
+upgrade run to record the set. Remove the marker to rerun upgrades after changing
+bootstrap code.
 
 An exclusive lock prevents concurrent launchers from using the same data
 directory, including with `--fresh`. Old `stack.json` files are removed under that
@@ -179,9 +196,9 @@ module's `lintFix` task for Python/config changes.
 
 The opt-in stress suite checks authenticated ingest/read/search, H2 and spool
 restart persistence, same-PID warm starts, parallel instance isolation, concurrent
-cold launches of two separate stacks, replacement of dead and unresponsive nodes,
-private-node shutdown, prefix-scoped `--fresh`, restoration of missing search
-indices, SIGTERM during upgrades, closed owned ports, stale discovery recovery,
+cold launches of two separate stacks, replacement of dead nodes, timeout without
+replacement of a paused live node, private-node shutdown, prefix-scoped `--fresh`,
+restoration after total or single-core-index loss, SIGTERM during upgrades, closed owned ports, stale discovery recovery,
 and explicit manager shutdown. It always uses a temporary shared state directory
 and stops that node in teardown, including after failures. Each case's verdict
 is appended and flushed immediately to `build/stress/results.jsonl`. Re-running
@@ -245,3 +262,86 @@ meaning.
 | `SERVER_PORT`                                              | instance HTTP port                                                   | Spring Boot `server.port`                                              |
 | `SERVER_ADDRESS`                                           | `127.0.0.1`                                                          | Spring Boot `server.address`                                           |
 | `SPRING_PROFILES_ACTIVE`                                   | existing profiles plus `upgrade`, upgrade JVMs only                  | Spring Boot profile binding                                            |
+
+### Neutralised search overrides
+
+These values override both the shell and `--env-file`. Empty URI values let
+`ElasticSearchConfiguration.normalizeClusters()` synthesize the primary URI
+from the pinned host/port and leave the secondary cluster unconfigured. Boolean
+switches use explicit `false`; proxy schemes use `http`. No secondary host/port
+variables are read by `application.yaml`.
+
+| Variable                                                               | Launcher value | YAML key                                                                 |
+| ---------------------------------------------------------------------- | -------------- | ------------------------------------------------------------------------ |
+| `ELASTICSEARCH_URI`                                                    | empty          | `elasticsearch.clusters.primary.uri`                                     |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_URI`                                 | empty          | `elasticsearch.clusters.secondary.uri`                                   |
+| `ELASTICSEARCH_USERNAME`                                               | empty          | `elasticsearch.clusters.primary.username`                                |
+| `ELASTICSEARCH_PASSWORD`                                               | empty          | `elasticsearch.clusters.primary.password`                                |
+| `ELASTICSEARCH_PATH_PREFIX`                                            | empty          | `elasticsearch.pathPrefix`                                               |
+| `ELASTICSEARCH_USE_SSL`                                                | `false`        | `elasticsearch.useSSL`                                                   |
+| `OPENSEARCH_USE_AWS_IAM_AUTH`                                          | `false`        | `elasticsearch.clusters.primary.opensearchUseAwsIamAuth`                 |
+| `AWS_REGION`                                                           | empty          | `postgres.pgCron.iam.awsRegion`, `elasticsearch.clusters.primary.region` |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_USERNAME`                            | empty          | `elasticsearch.clusters.secondary.username`                              |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PASSWORD`                            | empty          | `elasticsearch.clusters.secondary.password`                              |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_OPENSEARCH_USE_AWS_IAM_AUTH`         | `false`        | `elasticsearch.clusters.secondary.opensearchUseAwsIamAuth`               |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_REGION`                              | empty          | `elasticsearch.clusters.secondary.region`                                |
+| `ELASTICSEARCH_SSL_PROTOCOL`                                           | empty          | `elasticsearch.clusters.primary.sslContext.protocol`                     |
+| `ELASTICSEARCH_SSL_SECURE_RANDOM_IMPL`                                 | empty          | `elasticsearch.clusters.primary.sslContext.secureRandomImplementation`   |
+| `ELASTICSEARCH_SSL_TRUSTSTORE_FILE`                                    | empty          | `elasticsearch.clusters.primary.sslContext.trustStoreFile`               |
+| `ELASTICSEARCH_SSL_TRUSTSTORE_TYPE`                                    | empty          | `elasticsearch.clusters.primary.sslContext.trustStoreType`               |
+| `ELASTICSEARCH_SSL_TRUSTSTORE_PASSWORD`                                | empty          | `elasticsearch.clusters.primary.sslContext.trustStorePassword`           |
+| `ELASTICSEARCH_SSL_KEYSTORE_FILE`                                      | empty          | `elasticsearch.clusters.primary.sslContext.keyStoreFile`                 |
+| `ELASTICSEARCH_SSL_KEYSTORE_TYPE`                                      | empty          | `elasticsearch.clusters.primary.sslContext.keyStoreType`                 |
+| `ELASTICSEARCH_SSL_KEYSTORE_PASSWORD`                                  | empty          | `elasticsearch.clusters.primary.sslContext.keyStorePassword`             |
+| `ELASTICSEARCH_SSL_KEY_PASSWORD`                                       | empty          | `elasticsearch.clusters.primary.sslContext.keyPassword`                  |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_PROTOCOL`                        | empty          | `elasticsearch.clusters.secondary.sslContext.protocol`                   |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_SECURE_RANDOM_IMPL`              | empty          | `elasticsearch.clusters.secondary.sslContext.secureRandomImplementation` |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_FILE`                 | empty          | `elasticsearch.clusters.secondary.sslContext.trustStoreFile`             |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_TYPE`                 | empty          | `elasticsearch.clusters.secondary.sslContext.trustStoreType`             |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_TRUSTSTORE_PASSWORD`             | empty          | `elasticsearch.clusters.secondary.sslContext.trustStorePassword`         |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_FILE`                   | empty          | `elasticsearch.clusters.secondary.sslContext.keyStoreFile`               |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_TYPE`                   | empty          | `elasticsearch.clusters.secondary.sslContext.keyStoreType`               |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEYSTORE_PASSWORD`               | empty          | `elasticsearch.clusters.secondary.sslContext.keyStorePassword`           |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_SSL_KEY_PASSWORD`                    | empty          | `elasticsearch.clusters.secondary.sslContext.keyPassword`                |
+| `ELASTICSEARCH_PROXY_HOST`                                             | empty          | `elasticsearch.clusters.primary.proxy.host`                              |
+| `ELASTICSEARCH_PROXY_PORT`                                             | empty          | `elasticsearch.clusters.primary.proxy.port`                              |
+| `ELASTICSEARCH_PROXY_SCHEME`                                           | `http`         | `elasticsearch.clusters.primary.proxy.scheme`                            |
+| `ELASTICSEARCH_PROXY_USERNAME`                                         | empty          | `elasticsearch.clusters.primary.proxy.username`                          |
+| `ELASTICSEARCH_PROXY_PASSWORD`                                         | empty          | `elasticsearch.clusters.primary.proxy.password`                          |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_HOST`                            | empty          | `elasticsearch.clusters.primary.proxy.host`                              |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PORT`                            | empty          | `elasticsearch.clusters.primary.proxy.port`                              |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_SCHEME`                          | `http`         | `elasticsearch.clusters.primary.proxy.scheme`                            |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USERNAME`                        | empty          | `elasticsearch.clusters.primary.proxy.username`                          |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_PASSWORD`                        | empty          | `elasticsearch.clusters.primary.proxy.password`                          |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_HOST`                          | empty          | `elasticsearch.clusters.secondary.proxy.host`                            |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PORT`                          | empty          | `elasticsearch.clusters.secondary.proxy.port`                            |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_SCHEME`                        | `http`         | `elasticsearch.clusters.secondary.proxy.scheme`                          |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USERNAME`                      | empty          | `elasticsearch.clusters.secondary.proxy.username`                        |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_PASSWORD`                      | empty          | `elasticsearch.clusters.secondary.proxy.password`                        |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`     | `false`        | `elasticsearch.clusters.primary.proxy.useSystemProxyProperties`          |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_PROXY_USE_SYSTEM_PROXY_PROPERTIES`   | `false`        | `elasticsearch.clusters.secondary.proxy.useSystemProxyProperties`        |
+| `ELASTICSEARCH_CLUSTERS_PRIMARY_INDEX_PREFIX`                          | empty          | `elasticsearch.clusters.primary.index.prefix`                            |
+| `ELASTICSEARCH_CLUSTERS_SECONDARY_INDEX_PREFIX`                        | empty          | `elasticsearch.clusters.secondary.index.prefix`                          |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V2`                            | `primary`      | `elasticsearch.componentCluster.searchV2`                                |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3`                            | `primary`      | `elasticsearch.componentCluster.searchV3`                                |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SEMANTIC`                             | `primary`      | `elasticsearch.componentCluster.semantic`                                |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_GRAPH`                                | `primary`      | `elasticsearch.componentCluster.graph`                                   |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_TIMESERIES`                           | `primary`      | `elasticsearch.componentCluster.timeseries`                              |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_SYSTEM_METADATA`                      | `primary`      | `elasticsearch.componentCluster.systemMetadata`                          |
+| `ELASTICSEARCH_COMPONENT_CLUSTER_USAGE`                                | `primary`      | `elasticsearch.componentCluster.usage`                                   |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_TARGET_CLUSTER`                 | empty          | `elasticsearch.clusterMigration.graph.targetCluster`                     |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_HOST`               | empty          | `elasticsearch.clusterMigration.graph.copy.remote.host`                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_USERNAME`           | empty          | `elasticsearch.clusterMigration.graph.copy.remote.username`              |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_GRAPH_COPY_REMOTE_PASSWORD`           | empty          | `elasticsearch.clusterMigration.graph.copy.remote.password`              |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_TARGET_CLUSTER`            | empty          | `elasticsearch.clusterMigration.timeseries.targetCluster`                |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_HOST`          | empty          | `elasticsearch.clusterMigration.timeseries.copy.remote.host`             |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_USERNAME`      | empty          | `elasticsearch.clusterMigration.timeseries.copy.remote.username`         |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_TIMESERIES_COPY_REMOTE_PASSWORD`      | empty          | `elasticsearch.clusterMigration.timeseries.copy.remote.password`         |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_TARGET_CLUSTER`       | empty          | `elasticsearch.clusterMigration.systemMetadata.targetCluster`            |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_HOST`     | empty          | `elasticsearch.clusterMigration.systemMetadata.copy.remote.host`         |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_USERNAME` | empty          | `elasticsearch.clusterMigration.systemMetadata.copy.remote.username`     |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_SYSTEM_METADATA_COPY_REMOTE_PASSWORD` | empty          | `elasticsearch.clusterMigration.systemMetadata.copy.remote.password`     |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_TARGET_CLUSTER`                 | empty          | `elasticsearch.clusterMigration.usage.targetCluster`                     |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_HOST`               | empty          | `elasticsearch.clusterMigration.usage.copy.remote.host`                  |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_USERNAME`           | empty          | `elasticsearch.clusterMigration.usage.copy.remote.username`              |
+| `ELASTICSEARCH_CLUSTER_MIGRATION_USAGE_COPY_REMOTE_PASSWORD`           | empty          | `elasticsearch.clusterMigration.usage.copy.remote.password`              |

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import errno
 import fcntl
 import json
 import os
@@ -31,9 +32,11 @@ def default_shared_dir() -> Path:
     )
 
 
-def request_json(port: int, path: str, method: str = "GET") -> object:
+def request_json(
+    port: int, path: str, method: str = "GET", *, timeout: float = 30
+) -> object:
     request = urllib.request.Request(f"http://localhost:{port}{path}", method=method)
-    with urllib.request.urlopen(request, timeout=30) as response:
+    with urllib.request.urlopen(request, timeout=timeout) as response:
         return json.load(response)
 
 
@@ -118,6 +121,13 @@ class SharedOpenSearchManager:
     def __init__(self, shared_dir: Path, repo_root: Path = REPO_ROOT) -> None:
         self.shared_dir = shared_dir.expanduser().resolve()
         self.repo_root = repo_root
+        self.health_timeout_seconds = float(
+            os.environ.get("GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS", "600")
+        )
+        if self.health_timeout_seconds <= 0:
+            raise ValueError(
+                "GMS_LITE_OPENSEARCH_HEALTH_TIMEOUT_SECONDS must be positive"
+            )
         self.pid_file = self.shared_dir / "pid"
         self.port_file = self.shared_dir / "port"
         self.log_file = self.shared_dir / "log"
@@ -167,26 +177,48 @@ class SharedOpenSearchManager:
                 f"refusing to signal or reuse unrelated PID {pid}; recorded in {self.pid_file}"
             )
 
-    @staticmethod
-    def _healthy(port: int) -> bool:
-        try:
-            root = request_json(port, "/")
-            assert isinstance(root, dict)
-            version = root.get("version", {}).get("number", "unknown")
-            if not str(version).startswith("3."):
-                raise RuntimeError(
-                    f"OpenSearch {version} on port {port}: expected major version 3; refusing to reuse or replace it"
+    def _healthy(self, port: int) -> bool:
+        deadline = time.monotonic() + self.health_timeout_seconds
+        version_checked = False
+        while (remaining := deadline - time.monotonic()) > 0:
+            try:
+                if not version_checked:
+                    root = request_json(port, "/", timeout=min(10, remaining))
+                    if not isinstance(root, dict):
+                        raise RuntimeError(
+                            f"invalid OpenSearch response on port {port}; refusing to replace it"
+                        )
+                    version = root.get("version", {}).get("number", "unknown")
+                    if not str(version).startswith("3."):
+                        raise RuntimeError(
+                            f"OpenSearch {version} on port {port}: expected major version 3; refusing to reuse or replace it"
+                        )
+                    version_checked = True
+                remaining = deadline - time.monotonic()
+                if remaining <= 0:
+                    break
+                # Another stack's shard recovery must not cause a shared node replacement.
+                health = request_json(
+                    port,
+                    "/_cluster/health?wait_for_status=yellow&timeout=5s",
+                    timeout=min(10, remaining),
                 )
-            # New primary shards can briefly be red while another stack bootstraps.
-            health = request_json(
-                port, "/_cluster/health?wait_for_status=yellow&timeout=5s"
-            )
-            return isinstance(health, dict) and health.get("status") in (
-                "yellow",
-                "green",
-            )
-        except (urllib.error.URLError, OSError, ValueError):
-            return False
+                if isinstance(health, dict) and health.get("status") in (
+                    "yellow",
+                    "green",
+                ):
+                    return True
+            except (urllib.error.URLError, OSError, ValueError) as error:
+                reason = (
+                    error.reason if isinstance(error, urllib.error.URLError) else error
+                )
+                if isinstance(reason, OSError) and reason.errno == errno.ECONNREFUSED:
+                    return False
+            time.sleep(min(1, max(0, deadline - time.monotonic())))
+        raise RuntimeError(
+            f"shared OpenSearch on port {port} did not reach yellow within {self.health_timeout_seconds:g}s; "
+            f"node left running, not replaced; see {self.log_file}"
+        )
 
     def status(self) -> dict[str, object]:
         with self._lock():
@@ -210,7 +242,11 @@ class SharedOpenSearchManager:
             port = self._read_number(self.port_file)
             if pid is not None and self._alive(pid):
                 self._verify_identity(pid)
-                if port is not None and self._healthy(port):
+                if port is None:
+                    raise RuntimeError(
+                        f"live shared OpenSearch PID {pid} has no recorded port; node left running; see {self.log_file}"
+                    )
+                if self._healthy(port):
                     return port
                 self._stop_locked()
             self.port_file.unlink(missing_ok=True)
