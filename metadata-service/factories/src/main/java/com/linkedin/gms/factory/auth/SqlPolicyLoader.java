@@ -9,12 +9,14 @@ import com.datahub.util.RecordUtils;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.entity.AspectDao;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -30,29 +32,57 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class SqlPolicyLoader implements PolicyLoader {
 
-  private final AspectDao aspectDao;
+  // Only the first few unreadable URNs go in the log line.
+  private static final int MAX_LOGGED_SKIPPED = 10;
 
-  public SqlPolicyLoader(@Nonnull AspectDao aspectDao) {
+  private final AspectDao aspectDao;
+  @Nullable private final MetricUtils metricUtils;
+
+  public SqlPolicyLoader(@Nonnull AspectDao aspectDao, @Nullable MetricUtils metricUtils) {
     this.aspectDao = Objects.requireNonNull(aspectDao);
+    this.metricUtils = metricUtils;
   }
 
+  /**
+   * Skips policies whose stored value cannot be read. If no policy can be read but some exist, the
+   * load fails, so the authorizer keeps its current policies instead of an empty cache.
+   */
   @Nonnull
   @Override
   public List<PolicyFetcher.Policy> loadAll() {
     final List<PolicyFetcher.Policy> policies = new ArrayList<>();
+    final List<String> skipped = new ArrayList<>();
+    RuntimeException firstError = null;
     try (Stream<EntityAspect> rows =
         aspectDao.streamAspects(POLICY_ENTITY_NAME, DATAHUB_POLICY_INFO_ASPECT_NAME)) {
-      rows.forEach(
-          row -> {
-            try {
-              policies.add(
-                  new PolicyFetcher.Policy(
-                      UrnUtils.getUrn(row.getUrn()),
-                      RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, row.getMetadata())));
-            } catch (RuntimeException e) {
-              log.warn("Skipping policy {}: its stored value cannot be read.", row.getUrn(), e);
-            }
-          });
+      for (EntityAspect row : (Iterable<EntityAspect>) rows::iterator) {
+        try {
+          policies.add(
+              new PolicyFetcher.Policy(
+                  UrnUtils.getUrn(row.getUrn()),
+                  RecordUtils.toRecordTemplate(DataHubPolicyInfo.class, row.getMetadata())));
+        } catch (RuntimeException e) {
+          skipped.add(row.getUrn());
+          if (firstError == null) {
+            firstError = e;
+          }
+        }
+      }
+    }
+    if (!skipped.isEmpty()) {
+      if (metricUtils != null) {
+        metricUtils.increment(SqlPolicyLoader.class, "policyCache.load.skipped", skipped.size());
+      }
+      // One line for each load, without a stack trace: the same rows fail on every reload.
+      log.warn(
+          "Skipped {} policies whose stored value cannot be read: {}. First error: {}",
+          skipped.size(),
+          skipped.subList(0, Math.min(skipped.size(), MAX_LOGGED_SKIPPED)),
+          firstError.toString());
+      if (policies.isEmpty()) {
+        throw new IllegalStateException(
+            "No stored policy could be read (" + skipped.size() + " skipped)", firstError);
+      }
     }
     return policies;
   }
