@@ -1,0 +1,38 @@
+source:
+  type: ydb
+  config:
+    # Coordinates
+    host_port: localhost:2136
+    database: /local
+
+    # Authentication — anonymous by default (e.g. the local-ydb dev image).
+    # For secured clusters choose ONE of the following:
+    #
+    # Static credentials:
+    # username: my-user
+    # password: my-password
+    #
+    # Access token (IAM/OAuth):
+    # access_token: "${YDB_TOKEN}"
+    #
+    # Service account key (a file path, or the key content as a secret):
+    # service_account_key_file: /path/to/sa-key.json
+    # service_account_key: "${YDB_SA_KEY_JSON}"
+
+    # Transport — independent of the authentication method above, set if needed:
+    # protocol: grpcs
+    # root_certificates_path: /path/to/ca.pem
+
+    # View lineage is opt-in. Set DATAHUB_SQLGLOT_DISABLE_C=1 before
+    # starting this ingestion process to enable the required pure-Python runtime.
+    # include_view_lineage: true
+    # include_view_column_lineage: true
+
+    # Optional: filter database-qualified table/view names, such as
+    # /local.jaffle_shop/customers.
+    # table_pattern:
+    #   allow:
+    #     - ".*jaffle_shop/.*"
+
+sink:
+  # sink configs

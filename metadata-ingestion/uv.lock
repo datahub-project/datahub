@@ -234,6 +234,8 @@ all = [
     { name = "ujson" },
     { name = "wcmatch" },
     { name = "websocket-client" },
+    { name = "ydb-sqlalchemy" },
+    { name = "ydb-sqlglot-plugin" },
     { name = "zstd" },
 ]
 athena = [
@@ -664,6 +666,8 @@ dev = [
     { name = "uvicorn" },
     { name = "wcmatch" },
     { name = "websocket-client" },
+    { name = "ydb-sqlalchemy" },
+    { name = "ydb-sqlglot-plugin" },
     { name = "zstd" },
 ]
 dlt = [
@@ -866,6 +870,8 @@ docs = [
     { name = "uvicorn" },
     { name = "wcmatch" },
     { name = "websocket-client" },
+    { name = "ydb-sqlalchemy" },
+    { name = "ydb-sqlglot-plugin" },
     { name = "zstd" },
 ]
 doris = [
@@ -1690,6 +1696,15 @@ vertica = [
     { name = "sqlglot", extra = ["c"] },
     { name = "sqlparse" },
 ]
+ydb = [
+    { name = "cachetools" },
+    { name = "greenlet" },
+    { name = "sqlalchemy" },
+    { name = "sqlglot", extra = ["c"] },
+    { name = "sqlparse" },
+    { name = "ydb-sqlalchemy" },
+    { name = "ydb-sqlglot-plugin" },
+]
 
 [package.metadata]
 requires-dist = [
@@ -1894,6 +1909,7 @@ requires-dist = [
     { name = "cachetools", marker = "extra == 'trino'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'unity-catalog'", specifier = "<6.0.0" },
     { name = "cachetools", marker = "extra == 'vertica'", specifier = "<6.0.0" },
+    { name = "cachetools", marker = "extra == 'ydb'", specifier = "<6.0.0" },
     { name = "cassandra-driver", marker = "extra == 'all'", specifier = ">=3.30.1,<4.0.0" },
     { name = "cassandra-driver", marker = "extra == 'cassandra'", specifier = ">=3.30.1,<4.0.0" },
     { name = "cassandra-driver", marker = "extra == 'dev'", specifier = ">=3.30.1,<4.0.0" },
@@ -2171,6 +2187,7 @@ requires-dist = [
     { name = "greenlet", marker = "extra == 'trino'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'unity-catalog'", specifier = "<4.0.0" },
     { name = "greenlet", marker = "extra == 'vertica'", specifier = "<4.0.0" },
+    { name = "greenlet", marker = "extra == 'ydb'", specifier = "<4.0.0" },
     { name = "grpcio", marker = "extra == 'all'", specifier = ">=1.84.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'dev'", specifier = ">=1.84.0,<2.0.0" },
     { name = "grpcio", marker = "extra == 'docs'", specifier = ">=1.84.0,<2.0.0" },
@@ -2705,6 +2722,7 @@ requires-dist = [
     { name = "sqlalchemy", marker = "extra == 'trino'", specifier = ">=2.0.0,<2.1" },
     { name = "sqlalchemy", marker = "extra == 'unity-catalog'", specifier = ">=2.0.0,<2.1" },
     { name = "sqlalchemy", marker = "extra == 'vertica'", specifier = ">=2.0.0,<2.1" },
+    { name = "sqlalchemy", marker = "extra == 'ydb'", specifier = ">=2.0.0,<2.1" },
     { name = "sqlalchemy-bigquery", marker = "extra == 'all'", specifier = ">=1.5.0,<2.0.0" },
     { name = "sqlalchemy-bigquery", marker = "extra == 'athena'", specifier = ">=1.5.0,<2.0.0" },
     { name = "sqlalchemy-bigquery", marker = "extra == 'bigquery'", specifier = ">=1.5.0,<2.0.0" },
@@ -2808,6 +2826,7 @@ requires-dist = [
     { name = "sqlglot", extras = ["c"], marker = "extra == 'trino'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'unity-catalog'", specifier = "==30.22.0" },
     { name = "sqlglot", extras = ["c"], marker = "extra == 'vertica'", specifier = "==30.22.0" },
+    { name = "sqlglot", extras = ["c"], marker = "extra == 'ydb'", specifier = "==30.22.0" },
     { name = "sqlparse", marker = "extra == 'all'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'athena'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'bigquery'", specifier = ">=0.6.0,<1.0.0" },
@@ -2858,6 +2877,7 @@ requires-dist = [
     { name = "sqlparse", marker = "extra == 'trino'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'unity-catalog'", specifier = ">=0.6.0,<1.0.0" },
     { name = "sqlparse", marker = "extra == 'vertica'", specifier = ">=0.6.0,<1.0.0" },
+    { name = "sqlparse", marker = "extra == 'ydb'", specifier = ">=0.6.0,<1.0.0" },
     { name = "starlette", marker = "extra == 'datahub-lite'", specifier = ">=1.3.1,<2.0.0" },
     { name = "starlette", marker = "extra == 'dev'", specifier = ">=1.3.1,<2.0.0" },
     { name = "starlette", marker = "extra == 'docs'", specifier = ">=1.3.1,<2.0.0" },
@@ -3042,6 +3062,14 @@ requires-dist = [
     { name = "websocket-client", marker = "extra == 'dev'", specifier = "<2.0.0" },
     { name = "websocket-client", marker = "extra == 'docs'", specifier = "<2.0.0" },
     { name = "websocket-client", marker = "extra == 'qlik-sense'", specifier = "<2.0.0" },
+    { name = "ydb-sqlalchemy", marker = "extra == 'all'", specifier = ">=0.1.22,<0.2.0" },
+    { name = "ydb-sqlalchemy", marker = "extra == 'dev'", specifier = ">=0.1.22,<0.2.0" },
+    { name = "ydb-sqlalchemy", marker = "extra == 'docs'", specifier = ">=0.1.22,<0.2.0" },
+    { name = "ydb-sqlalchemy", marker = "extra == 'ydb'", specifier = ">=0.1.22,<0.2.0" },
+    { name = "ydb-sqlglot-plugin", marker = "extra == 'all'", specifier = ">=0.2.8,<0.3.0" },
+    { name = "ydb-sqlglot-plugin", marker = "extra == 'dev'", specifier = ">=0.2.8,<0.3.0" },
+    { name = "ydb-sqlglot-plugin", marker = "extra == 'docs'", specifier = ">=0.2.8,<0.3.0" },
+    { name = "ydb-sqlglot-plugin", marker = "extra == 'ydb'", specifier = ">=0.2.8,<0.3.0" },
     { name = "zstd", marker = "extra == 'all'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'clickhouse'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'clickhouse-usage'", specifier = "<1.5.6.8" },
@@ -3049,7 +3077,7 @@ requires-dist = [
     { name = "zstd", marker = "extra == 'docs'", specifier = "<1.5.6.8" },
     { name = "zstd", marker = "extra == 'integration-tests'", specifier = "<1.5.6.8" },
 ]
-provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "csv-enricher", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "google-drive", "grafana", "hana", "hex", "hightouch", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "langfuse", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sns", "sql-parser", "sql-queries", "sqlalchemy", "sqs", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "all", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
+provides-extras = ["base", "abs", "abs-slim", "aerospike", "airbyte", "athena", "aws-secret-manager", "azure-ad", "azure-auth", "azure-data-factory", "bigid", "bigquery", "bigquery-queries", "bigquery-slim", "cassandra", "circuit-breaker", "clickhouse", "clickhouse-usage", "cockroachdb", "confluence", "csv-enricher", "cube", "databricks", "datahub", "datahub-business-glossary", "datahub-debug", "datahub-documents", "datahub-gc", "datahub-kafka", "datahub-lineage-file", "datahub-lite", "datahub-pg-queue", "datahub-rest", "dataplex", "db2", "dbt", "dbt-cloud", "debug-recording", "delta-lake", "dlt", "doris", "dremio", "druid", "duckdb", "dynamodb", "elasticsearch", "excel", "fabric-data-factory", "fabric-onelake", "feast", "fivetran", "flink", "gcp-secret-manager", "gcs", "gcs-slim", "github-documents", "glue", "google-drive", "grafana", "hana", "hex", "hightouch", "hive", "hive-metastore", "iceberg", "iceberg-catalog", "informatica", "informix", "json-schema", "kafka", "kafka-connect", "kinesis", "langfuse", "ldap", "looker", "lookml", "mariadb", "matillion-dpc", "metabase", "microstrategy", "mlflow", "mode", "mongodb", "montecarlo", "mssql", "mssql-odbc", "mysql", "neo4j", "nifi", "notion", "odcs", "okta", "omni", "onnx-embeddings", "openapi", "oracle", "pinecone", "postgres", "powerbi", "powerbi-report-server", "preset", "presto", "presto-on-hive", "pulsar", "qlik-sense", "quicksight", "rdf", "redash", "redshift", "redshift-slim", "s3", "s3-slim", "sac", "sagemaker", "salesforce", "sap-datasphere", "sigma", "slack", "snaplogic", "snowflake", "snowflake-queries", "snowflake-slim", "snowflake-summary", "snowplow", "sns", "sql-parser", "sql-queries", "sqlalchemy", "sqs", "starburst-trino-usage", "starrocks", "superset", "sync-file-emitter", "tableau", "teradata", "thoughtspot", "tidb", "timescaledb", "trino", "unity-catalog", "unstructured", "vertexai", "vertica", "ydb", "all", "dev", "docs", "lint", "testing-utils", "integration-tests", "debug"]
 
 [[package]]
 name = "adlfs"
@@ -13594,6 +13622,59 @@ wheels = [
     { url = "https://files.pythonhosted.org/packages/38/02/eef443559563ef8f2e10469387b8b1e97cb5efee95b288a56da60801f7ee/yarl-1.25.1-cp315-cp315t-win_amd64.whl", hash = "sha256:b13b88747769537f3d32e89e3a735da10c0a9e35d7322928c701b5f93d3afffd", size = 106811, upload-time = "2026-09-15T19:34:54.935Z" },
     { url = "https://files.pythonhosted.org/packages/88/91/41e284ca2cf5211e05dae031d126a3668aea88fa759df56e7e35c6ad25ba/yarl-1.25.1-cp315-cp315t-win_arm64.whl", hash = "sha256:783dd1467083f4d3f7722ad6a313f24c173e7571372738fcb7a6e6d1ba48df25", size = 101804, upload-time = "2026-09-15T19:34:57.231Z" },
     { url = "https://files.pythonhosted.org/packages/54/22/318c7980066769c6bcd9221ed2248294f5698811da099013098c670565ed/yarl-1.25.1-py3-none-any.whl", hash = "sha256:681c758b0490f9e96b78e5fa8e8dc6e648e9185bb6eaebe73183c33ea0c445f3", size = 63617, upload-time = "2026-09-15T19:34:59.616Z" },
+]
+
+[[package]]
+name = "ydb"
+version = "3.35.0"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "aiohttp" },
+    { name = "grpcio" },
+    { name = "packaging" },
+    { name = "protobuf" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/6b/c4/875c437f0309afb8e538630dcd6cb2ce75652f5ce78282e246fc485a2ac8/ydb-3.35.0.tar.gz", hash = "sha256:fc8713175311e04186f4e86f45b28d4f683afc5abdb3713e5943f774e33d6549", size = 1127477, upload-time = "2026-11-09T20:01:26.005Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/0a/6b/d1ccd485f59c3de522f15cea49555de52e66bc38aabd49a5ec4d7b5d9cce/ydb-3.35.0-py3-none-any.whl", hash = "sha256:3facd336ccb8a3e443ed745226f5283b6e19da77383b15ae49150c64c2cca925", size = 1528642, upload-time = "2026-11-09T20:01:24.439Z" },
+]
+
+[[package]]
+name = "ydb-dbapi"
+version = "0.1.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "ydb" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f2/c7/03dddc4b71ee572a41147d29e70166bc843a08e68cb34d2876e9838b15bd/ydb_dbapi-0.1.24.tar.gz", hash = "sha256:2fdc6a736f023445ebdc466107666c68c52374d7d125e8ba787ff96255ef7991", size = 21033, upload-time = "2026-10-26T12:19:42.732Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/74/5b/30161a715310f4c9ab351ae3fdf769836e083ba6dd9ec6b513537189bc16/ydb_dbapi-0.1.24-py3-none-any.whl", hash = "sha256:65651ea7e060597c64dfc79ff2199383d70e9332e08a3d2149f8e301c0dd2238", size = 21306, upload-time = "2026-10-26T12:19:41.628Z" },
+]
+
+[[package]]
+name = "ydb-sqlalchemy"
+version = "0.1.24"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sqlalchemy" },
+    { name = "ydb" },
+    { name = "ydb-dbapi" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/f9/52/435593e15a1905022ed844e181877c59d2eafd41c4861ddaa9568ad44653/ydb_sqlalchemy-0.1.24.tar.gz", hash = "sha256:8b458b864e8138facb1dfb9ae41aaf9c831e6dba29912515749e5880f1417954", size = 51970, upload-time = "2026-09-14T09:28:02.785Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/28/8d/b6e50a34d17c98092f2bd5df7646e288de46def078ef2c13b41c1e6331d7/ydb_sqlalchemy-0.1.24-py2.py3-none-any.whl", hash = "sha256:c9e6721b299844271b9a896752952cc4febfd5c8bac59ce1d70bc1fb47e0f5b2", size = 58466, upload-time = "2026-09-14T09:28:01.575Z" },
+]
+
+[[package]]
+name = "ydb-sqlglot-plugin"
+version = "0.2.8"
+source = { registry = "https://pypi.org/simple" }
+dependencies = [
+    { name = "sqlglot" },
+]
+sdist = { url = "https://files.pythonhosted.org/packages/d3/69/98d22804e3c346f9c6bdf4e73bd72073f142520f01f1c64a4c6933831ef6/ydb_sqlglot_plugin-0.2.8.tar.gz", hash = "sha256:0aa7c7392a3bedde00dc58972e73f50309df05004ef71de5d0cbfc287cfe196a", size = 58245, upload-time = "2026-06-02T16:36:13.244Z" }
+wheels = [
+    { url = "https://files.pythonhosted.org/packages/ee/e8/a2fe3bbd5fd5becbcea0013c6fd5f104fdc38f0b2e52709ebaeecb6393dc/ydb_sqlglot_plugin-0.2.8-py3-none-any.whl", hash = "sha256:b998abaed6b17e0267b77c89f4431d47c1675fe037b399fd1b6f3f535eb92a3f", size = 52788, upload-time = "2026-06-02T16:36:11.839Z" },
 ]
 
 [[package]]

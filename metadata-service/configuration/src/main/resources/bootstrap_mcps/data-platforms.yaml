@@ -90,6 +90,16 @@
     displayName: CockroachDb
     type: RELATIONAL_DB
     logoUrl: "assets/platforms/cockroachdblogo.png"
+- entityUrn: urn:li:dataPlatform:ydb
+  entityType: dataPlatform
+  aspectName: dataPlatformInfo
+  changeType: UPSERT
+  aspect:
+    datasetNameDelimiter: "."
+    name: ydb
+    displayName: YDB
+    type: RELATIONAL_DB
+    logoUrl: "assets/platforms/ydblogo.png"
 - entityUrn: urn:li:dataPlatform:doris
   entityType: dataPlatform
   aspectName: dataPlatformInfo
