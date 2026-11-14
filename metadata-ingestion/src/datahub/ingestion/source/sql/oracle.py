@@ -829,6 +829,7 @@ class OracleConfig(BasicSQLAlchemyConfig, BaseUsageConfig):
         # whole V$ family (V$SQL, V$SQLTEXT hold executed SQL). Qualifying with
         # `sys.` is refused too, since permitting the SYS schema would reach both.
         return CatalogScope(
+            unquoted_case="upper",
             schemas=frozenset(),
             relations=frozenset(
                 {
