@@ -94,6 +94,11 @@ public class DataHubAuthorizer
   private int consecutiveLoadFailures;
 
   /**
+   * @param delayIntervalSeconds delay before the first search-based refresh; not used with a
+   *     {@code policyLoader}, which loads first in {@link #initialLoad}
+   * @param refreshIntervalSeconds interval of the refresh timer; 0 or less turns the timer off
+   * @param policyFetchSize page size of the search-based refresh; not used with a {@code
+   *     policyLoader}, which reads all policies in one query
    * @param policyLoader when not null, policies load from the primary store with this loader
    *     instead of the search index. The caller should then call {@link #initialLoad} before the
    *     authorizer serves requests.
