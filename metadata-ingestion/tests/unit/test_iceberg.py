@@ -671,43 +671,54 @@ def test_iceberg_profiler_zero_bounds(
         assert bounds == {1: expected}
 
 
-@pytest.mark.parametrize("total_records, expected_count", [("100", 100), (None, 0)])
+@pytest.mark.parametrize(
+    "summary, expected_count",
+    [
+        ({"total-records": "100"}, 100),
+        ({"total-records": "0"}, 0),
+        ({"total-position-deletes": "40"}, 80),
+        (None, 80),
+    ],
+)
 def test_iceberg_profiler_data_file_statistics(
-    total_records: Optional[str], expected_count: int
+    summary: Optional[Dict[str, str]], expected_count: int
 ) -> None:
     table = MagicMock()
     table.schema.return_value = Schema(NestedField(1, "col", LongType()))
     snapshot = table.current_snapshot.return_value
-    summary = {"deleted-records": "40", "total-position-deletes": "40"}
-    if total_records is not None:
-        summary["total-records"] = total_records
-    snapshot.summary.additional_properties = summary
-    entries = []
-    for content, count, lower, upper in [
-        (DataFileContent.DATA, 2, 10, 20),
-        (DataFileContent.POSITION_DELETES, 50, -100, 100),
-        (DataFileContent.EQUALITY_DELETES, 50, -100, 100),
+    if summary is None:
+        snapshot.summary = None
+    else:
+        snapshot.summary.additional_properties = summary
+    manifests = []
+    for content, records, nulls, lower, upper in [
+        (DataFileContent.DATA, 30, 2, 10, 20),
+        (DataFileContent.DATA, 50, 3, 5, 30),
+        (DataFileContent.POSITION_DELETES, 50, 50, -100, 100),
+        (DataFileContent.EQUALITY_DELETES, 50, 50, -100, 100),
     ]:
         entry = MagicMock()
         entry.data_file.content = content
-        entry.data_file.null_value_counts = {1: count}
+        entry.data_file.record_count = records
+        entry.data_file.null_value_counts = {1: nulls}
         entry.data_file.lower_bounds = {1: to_bytes(LongType(), lower)}
         entry.data_file.upper_bounds = {1: to_bytes(LongType(), upper)}
-        entries.append(entry)
-    manifest = MagicMock()
-    manifest.fetch_manifest_entry.return_value = entries
-    snapshot.manifests.return_value = [manifest]
+        manifest = MagicMock()
+        manifest.fetch_manifest_entry.return_value = [entry]
+        manifests.append(manifest)
+    snapshot.manifests.return_value = manifests
     profile = next(iter(with_iceberg_profiler().profile_table("test.table", table)))
     assert isinstance(profile, DatasetProfileClass)
     assert profile.rowCount == expected_count
     assert profile.fieldProfiles is not None
-    if total_records is None:
+    if expected_count == 0:
         assert profile.fieldProfiles == []
         return
     assert len(profile.fieldProfiles) == 1
-    assert profile.fieldProfiles[0].nullCount == 2
-    assert profile.fieldProfiles[0].min == "10"
-    assert profile.fieldProfiles[0].max == "20"
+    assert profile.fieldProfiles[0].nullCount == 5
+    assert profile.fieldProfiles[0].nullProportion == pytest.approx(5 / expected_count)
+    assert profile.fieldProfiles[0].min == "5"
+    assert profile.fieldProfiles[0].max == "30"
 
 
 @pytest.mark.parametrize(
@@ -733,7 +744,7 @@ def test_iceberg_profiler_data_file_statistics(
         ),
         (
             NestedField(1, "col", LongType(), initial_default=0),
-            "Field default value: 0",
+            "Initial default value: 0",
         ),
         (
             NestedField(1, "col", LongType(), initial_default=1, write_default=0),
@@ -745,7 +756,19 @@ def test_iceberg_profiler_data_file_statistics(
         ),
         (
             NestedField(1, "col", BooleanType(), write_default=False),
-            "Field default value: False",
+            "Field default value: false",
+        ),
+        (
+            NestedField(1, "col", BooleanType(), write_default=True),
+            "Field default value: true",
+        ),
+        (
+            NestedField(1, "col", BinaryType(), write_default=b"\x0a\x0b"),
+            "Field default value: 0a0b",
+        ),
+        (
+            NestedField(1, "col", FixedType(2), write_default=b"\x0a\x0b"),
+            "Field default value: 0a0b",
         ),
         (
             NestedField(1, "col", StringType(), write_default=""),

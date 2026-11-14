@@ -677,6 +677,10 @@ class IcebergSource(StatefulIngestionSourceBase):
 def _render_default(value: object) -> str:
     if isinstance(value, (datetime, date, time)):
         return value.isoformat()
+    if isinstance(value, bytes):
+        return value.hex()
+    if isinstance(value, bool):
+        return str(value).lower()
     return str(value)
 
 
@@ -709,19 +713,15 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
         # the Avro representation used only to convert the field's type.
         if (
             field.initial_default is not None
-            and field.write_default is not None
             and field.initial_default != field.write_default
         ):
             descriptions.append(
                 f"Initial default value: {_render_default(field.initial_default)}"
             )
-        default = (
-            field.write_default
-            if field.write_default is not None
-            else field.initial_default
-        )
-        if default is not None:
-            descriptions.append(f"Field default value: {_render_default(default)}")
+        if field.write_default is not None:
+            descriptions.append(
+                f"Field default value: {_render_default(field.write_default)}"
+            )
         return {
             "name": field.name,
             "type": field_result,

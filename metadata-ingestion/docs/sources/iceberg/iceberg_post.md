@@ -8,13 +8,13 @@ Tables using Iceberg format versions 1, 2, and 3 are ingested, including tables 
 
 For V3-specific schema features:
 
-- Column defaults (`initial-default` and `write-default`) appear in the field description as `Field default value: <value>`. When both defaults are present and differ, the initial default is additionally noted as `Initial default value: <value>`.
+- Write defaults appear in the field description as `Field default value: <value>`. Initial defaults, which apply to rows written before the column existed, appear as `Initial default value: <value>` when the write default is absent or differs. Binary and fixed defaults use hexadecimal notation; booleans use `true` and `false`.
 - Nanosecond-precision timestamps (`timestamp_ns`, `timestamptz_ns`) are mapped to timestamp fields, with the original Iceberg type preserved in the field's native data type. Profiled minimum and maximum values are rendered with microsecond precision.
 - `unknown` columns are mapped to strings, with the original type preserved in the field's native data type.
 - Collection defaults (lists, maps, and structs) cannot be deserialized by PyIceberg 0.11.x.
 - Geospatial columns (`geometry` and `geography`) require a newer PyIceberg release and are not supported by the current 0.11.x dependency.
 
-Profiling notes for tables with row deletions: per-file statistics come from data files only (position/equality delete files are excluded), but those statistics reflect the state at write time — rows later removed by delete files or deletion vectors are still counted in per-file null counts and min/max bounds. The profile's row count comes from the snapshot summary's `total-records`; it counts records in data files and may include rows removed by delete files or deletion vectors.
+Profiling notes for tables with row deletions: per-file statistics come from data files only (position/equality delete files are excluded), but those statistics reflect the state at write time — rows later removed by delete files or deletion vectors are still counted in per-file null counts and min/max bounds. The profile's row count comes from the snapshot summary's `total-records`, falling back to the sum of DATA-file record counts when the summary or key is absent. Both counts may include rows removed by delete files or deletion vectors.
 
 #### Setting up connection to an Iceberg catalog
 

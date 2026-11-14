@@ -126,15 +126,12 @@ class IcebergProfiler:
                 return
 
             # Snapshot totals count records in data files, which may include deleted rows.
-            row_count = (
-                int(
-                    current_snapshot.summary.additional_properties.get(
-                        "total-records", "0"
-                    )
-                )
+            total_records = (
+                current_snapshot.summary.additional_properties.get("total-records")
                 if current_snapshot.summary
-                else 0
+                else None
             )
+            row_count = int(total_records) if total_records is not None else None
             size_in_bytes: Optional[int] = None
             if current_snapshot.summary:
                 size_in_bytes_str = current_snapshot.summary.additional_properties.get(
@@ -160,6 +157,7 @@ class IcebergProfiler:
             )
             dataset_profile.fieldProfiles = []
 
+            total_count = 0
             null_counts: Dict[int, int] = {}
             min_bounds: Dict[int, Any] = {}
             max_bounds: Dict[int, Any] = {}
@@ -170,6 +168,7 @@ class IcebergProfiler:
                         # Delete-file statistics describe deleted rows, not table columns.
                         if data_file.content != DataFileContent.DATA:
                             continue
+                        total_count += data_file.record_count
                         if self.config.include_field_null_count:
                             null_counts = self._aggregate_counts(
                                 null_counts, data_file.null_value_counts
@@ -188,6 +187,8 @@ class IcebergProfiler:
                                 max_bounds,
                                 data_file.upper_bounds,
                             )
+                if row_count is None:
+                    row_count = total_count
             except Exception as e:
                 self.report.warning(
                     title="Error when profiling a table",
@@ -195,6 +196,7 @@ class IcebergProfiler:
                     context=dataset_name,
                     exc=e,
                 )
+            dataset_profile.rowCount = row_count
             if row_count:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
                 for field_path, field_id in table.schema()._name_to_id.items():
