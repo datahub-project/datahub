@@ -52,6 +52,7 @@ import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.event.EventProducer;
+import com.linkedin.metadata.key.CorpGroupKey;
 import com.linkedin.metadata.key.DatasetKey;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -95,6 +96,7 @@ public class PlatformEventGeneratorHookTest {
 
   private static final String TEST_DATASET_URN =
       "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleDataset,PROD)";
+  private static final String TEST_CORP_GROUP_URN = "urn:li:corpGroup:testGroup";
   private static final String TEST_ACTOR_URN = "urn:li:corpuser:test";
   private static final String TEST_ASSERTION_URN = "urn:li:assertion:123";
   private static final String TEST_RUN_ID = "runId";
@@ -687,6 +689,57 @@ public class PlatformEventGeneratorHookTest {
         createChangeEvent(
             DATASET_ENTITY_NAME,
             Urn.createFromString(TEST_DATASET_URN),
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.HARD_DELETE,
+            null,
+            null,
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeCorpGroupCreate() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CORP_GROUP_ENTITY_NAME);
+    event.setAspectName(CORP_GROUP_KEY_ASPECT_NAME);
+    event.setChangeType(ChangeType.UPSERT);
+    event.setAspect(GenericRecordUtils.serializeAspect(new CorpGroupKey().setName("testGroup")));
+    event.setEntityUrn(Urn.createFromString(TEST_CORP_GROUP_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CORP_GROUP_ENTITY_NAME,
+            Urn.createFromString(TEST_CORP_GROUP_URN),
+            ChangeCategory.LIFECYCLE,
+            ChangeOperation.CREATE,
+            null,
+            null,
+            actorUrn);
+
+    verifyProducePlatformEvent(mockProducer, platformEvent);
+  }
+
+  @Test
+  public void testInvokeCorpGroupHardDelete() throws Exception {
+    MetadataChangeLog event = new MetadataChangeLog();
+    event.setEntityType(CORP_GROUP_ENTITY_NAME);
+    event.setAspectName(CORP_GROUP_KEY_ASPECT_NAME);
+    event.setChangeType(ChangeType.DELETE);
+    event.setPreviousAspectValue(
+        GenericRecordUtils.serializeAspect(new CorpGroupKey().setName("testGroup")));
+    event.setEntityUrn(Urn.createFromString(TEST_CORP_GROUP_URN));
+    event.setCreated(new AuditStamp().setActor(actorUrn).setTime(EVENT_TIME));
+
+    _entityChangeEventHook.invoke(opContext, event);
+
+    PlatformEvent platformEvent =
+        createChangeEvent(
+            CORP_GROUP_ENTITY_NAME,
+            Urn.createFromString(TEST_CORP_GROUP_URN),
             ChangeCategory.LIFECYCLE,
             ChangeOperation.HARD_DELETE,
             null,
@@ -2283,6 +2336,7 @@ public class PlatformEventGeneratorHookTest {
 
     // Entity Lifecycle change event generators
     registry.register(DATASET_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
+    registry.register(CORP_GROUP_KEY_ASPECT_NAME, new EntityKeyChangeEventGenerator<>());
 
     // Run change event generators
     registry.register(ASSERTION_RUN_EVENT_ASPECT_NAME, new AssertionRunEventChangeEventGenerator());
@@ -2391,6 +2445,13 @@ public class PlatformEventGeneratorHookTest {
         .thenReturn(dataProcessInstanceSpec);
 
     Mockito.when(registry.getEntitySpec(eq(DATASET_ENTITY_NAME))).thenReturn(datasetSpec);
+
+    // Build CorpGroup Entity Spec
+    EntitySpec corpGroupSpec = Mockito.mock(EntitySpec.class);
+    AspectSpec mockCorpGroupKey = createMockAspectSpec(CorpGroupKey.class);
+    Mockito.when(corpGroupSpec.getAspectSpec(eq(CORP_GROUP_KEY_ASPECT_NAME)))
+        .thenReturn(mockCorpGroupKey);
+    Mockito.when(registry.getEntitySpec(eq(CORP_GROUP_ENTITY_NAME))).thenReturn(corpGroupSpec);
 
     // Safe lookups are interface default methods; let them delegate to the stubbed getEntitySpec.
     Mockito.when(registry.findEntitySpec(Mockito.anyString())).thenCallRealMethod();

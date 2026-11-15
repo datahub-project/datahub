@@ -92,6 +92,7 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
           Constants.GLOSSARY_TERM_KEY_ASPECT_NAME,
           Constants.DOMAIN_KEY_ASPECT_NAME,
           Constants.TAG_KEY_ASPECT_NAME,
+          Constants.CORP_GROUP_KEY_ASPECT_NAME,
           Constants.STATUS_ASPECT_NAME,
           Constants.BUSINESS_ATTRIBUTE_KEY_ASPECT_NAME);
 
@@ -146,6 +147,12 @@ public class PlatformEventGeneratorHook implements MetadataChangeLogHook {
         Collections.emptyList(),
         Collections.emptyList(),
         false);
+  }
+
+  /** Aspect names whose change log events are routed to the change event generators. */
+  @VisibleForTesting
+  public static Set<String> getSupportedAspectNames() {
+    return ENTITY_CHANGE_SUPPORTED_ASPECT_NAMES;
   }
 
   @Override

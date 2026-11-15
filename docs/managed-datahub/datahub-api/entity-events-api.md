@@ -524,7 +524,7 @@ This event is emitted when a new entity has been created on DataHub.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>LIFECYCLE</td><td>CREATE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>container</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>LIFECYCLE</td><td>CREATE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>container</code>, <code>corpGroup</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
@@ -578,7 +578,7 @@ This event is emitted when a new entity has been hard-deleted on DataHub.
 
 #### Header
 
-<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>LIFECYCLE</td><td>HARD_DELETE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>container</code></td><td></td></tr></tbody></table>
+<table><thead><tr><th>Category</th><th>Operation</th><th>Entity Types</th><th data-hidden></th></tr></thead><tbody><tr><td>LIFECYCLE</td><td>HARD_DELETE</td><td><code>dataset</code>, <code>dashboard</code>, <code>chart</code>, <code>dataJob</code>, <code>dataFlow</code> , <code>glossaryTerm</code>, <code>domain</code>, <code>tag</code>, <code>container</code>, <code>corpGroup</code></td><td></td></tr></tbody></table>
 
 #### Parameters
 
