@@ -63,9 +63,9 @@ def get_frontend_url() -> Optional[str]:
     return os.getenv("DATAHUB_FRONTEND_URL")
 
 
-def get_policy_cache_sql_source_enabled() -> bool:
-    """Whether the GMS under test loads policies from SQL (POLICY_CACHE_SQL_SOURCE_ENABLED)."""
-    return os.getenv("POLICY_CACHE_SQL_SOURCE_ENABLED", "false").lower() == "true"
+def get_policy_cache_immediate_update_enabled() -> bool:
+    """Whether the GMS under test updates its policy cache on each policy write (POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED)."""
+    return os.getenv("POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED", "false").lower() == "true"
 
 
 def get_kafka_url() -> Optional[str]:

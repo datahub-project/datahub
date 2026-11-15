@@ -16,10 +16,13 @@ import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
 import java.net.URISyntaxException;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
+import java.util.HashMap;
+import java.util.HashSet;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -28,6 +31,7 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ScheduledExecutorService;
@@ -68,15 +72,28 @@ public class DataHubAuthorizer
   // no lock and never see a partly built index.
   private volatile PolicySnapshot snapshot = PolicySnapshot.EMPTY;
 
+  // The refresh timer. With a policy loader, it only queues loads, so a slow load cannot stop it.
   private final ScheduledExecutorService refreshExecutorService =
       Executors.newScheduledThreadPool(1);
   private final PolicyRefreshRunnable policyRefreshRunnable;
 
-  // Set when policies load from SQL (POLICY_CACHE_SQL_SOURCE_ENABLED); null keeps the search-based
-  // refresh. See requestLoad() for how loads are ordered and joined.
+  // Set with POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED; null keeps the search-based refresh. See
+  // enqueue() for how loads are ordered and joined.
   @Nullable private final PolicyLoader policyLoader;
+  // Runs every load and update, one at a time, in the order they were queued.
+  @Nullable private final ExecutorService loadExecutor;
   private final Object loadQueueLock = new Object();
-  @Nullable private CompletableFuture<Void> queuedLoad;
+  @Nullable private LoadJob queuedJob;
+  // When the running job started (System.nanoTime), or 0 when no job runs.
+  private volatile long jobStartedNanos;
+  private final int refreshIntervalSeconds;
+
+  // Only read and written on the load thread.
+  private Map<Urn, PolicyFetcher.Policy> policiesByUrn = new HashMap<>();
+  // Policies changed recently, with the System.nanoTime at which each entry expires. A full load
+  // reads these by key too, because the search index may not list a new policy yet.
+  private final Map<Urn, Long> recentChanges = new HashMap<>();
+  private volatile long recentChangeWindowNanos = TimeUnit.MINUTES.toNanos(10);
   private volatile long policyChangeWaitMillis = DEFAULT_POLICY_CHANGE_WAIT_MILLIS;
   // True when this process's entity service calls onPolicyChange after each committed policy write.
   private volatile boolean policyWritesObserved;
@@ -104,10 +121,10 @@ public class DataHubAuthorizer
    *     policyLoader}, which loads first in {@link #initialLoad}
    * @param refreshIntervalSeconds interval of the refresh timer; 0 or less turns the timer off
    * @param policyFetchSize page size of the search-based refresh; not used with a {@code
-   *     policyLoader}, which reads all policies in one query
-   * @param policyLoader when not null, policies load from the primary store with this loader
-   *     instead of the search index. The caller should then call {@link #initialLoad} before the
-   *     authorizer serves requests.
+   *     policyLoader}, which has its own page size
+   * @param policyLoader when not null, the cache loads with this loader and also updates single
+   *     policies by URN ({@link #requestUpdate}). The caller should then call {@link #initialLoad}
+   *     before the authorizer serves requests.
    */
   public DataHubAuthorizer(
       @Nonnull final OperationContext systemOpContext,
@@ -122,16 +139,25 @@ public class DataHubAuthorizer
     this.mode = Objects.requireNonNull(mode);
     this.groupService = Objects.requireNonNull(groupService);
     this.policyLoader = policyLoader;
+    this.refreshIntervalSeconds = refreshIntervalSeconds;
     policyEngine = new PolicyEngine(entityClient, groupService);
     if (policyLoader != null) {
       policyRefreshRunnable = null;
+      loadExecutor =
+          Executors.newSingleThreadExecutor(
+              r -> {
+                final Thread t = new Thread(r, "policy-cache-load");
+                t.setDaemon(true);
+                return t;
+              });
       // The first load is synchronous (initialLoad), so the timer starts one interval later.
       // An interval <= 0 only turns off the timer; requested loads still run.
       if (refreshIntervalSeconds > 0) {
         refreshExecutorService.scheduleAtFixedRate(
-            this::requestLoad, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
+            this::onRefreshTimer, refreshIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
       }
     } else if (refreshIntervalSeconds > 0) {
+      loadExecutor = null;
       policyRefreshRunnable =
           new PolicyRefreshRunnable(
               systemOpContext, new PolicyFetcher(entityClient), this::publish, policyFetchSize);
@@ -139,6 +165,7 @@ public class DataHubAuthorizer
           policyRefreshRunnable, delayIntervalSeconds, refreshIntervalSeconds, TimeUnit.SECONDS);
     } else {
       policyRefreshRunnable = null;
+      loadExecutor = null;
     }
   }
 
@@ -456,8 +483,8 @@ public class DataHubAuthorizer
    */
   public void invalidateCache() {
     if (policyLoader != null) {
-      // With the observer, the write already requested a load after its commit (and waited for
-      // it, unless the wait is 0). Another load here would only read the same policies again.
+      // With the observer, the write already requested a read of the changed policy after its
+      // commit (and waited for it, unless the wait is 0). A full load here would add nothing.
       if (!policyWritesObserved) {
         requestLoad();
       }
@@ -466,86 +493,187 @@ public class DataHubAuthorizer
     }
   }
 
-  public boolean isSqlSourceEnabled() {
+  public boolean isImmediateUpdateEnabled() {
     return policyLoader != null;
   }
 
   /**
-   * Requests a full load of all policies from the primary store, and returns a future that
-   * completes when a load that started after this call has replaced the cached policies.
-   *
-   * <p>All loads run on the single refresh thread, so they finish in the order they start, and a
-   * load that starts later reads newer committed data. That ordering is what keeps the cache
-   * correct: no per-policy versions or merges are needed. A request joins a load that is queued but
-   * not yet started, because that load will still see everything committed before the request. A
-   * load that is already running may have started too early, so a request then queues a new one.
+   * How long a changed policy stays on the recent-changes list. Must be longer than the normal
+   * search index delay: until then, a full load reads the policy by key even if the index does not
+   * list it yet.
+   */
+  public void setRecentChangeWindow(@Nonnull Duration window) {
+    this.recentChangeWindowNanos = window.toNanos();
+  }
+
+  /**
+   * Requests a full load of all policies, and returns a future that completes when a load that
+   * started after this call has replaced the cached policies.
    */
   public CompletableFuture<Void> requestLoad() {
-    if (policyLoader == null) {
+    return enqueue(true, Set.of());
+  }
+
+  /**
+   * Requests a read of the given policies by primary key, and returns a future that completes when
+   * the cache holds their state from a read that started after this call. A policy that no longer
+   * exists is removed from the cache.
+   */
+  public CompletableFuture<Void> requestUpdate(@Nonnull Collection<Urn> policyUrns) {
+    if (policyUrns.isEmpty()) {
       return CompletableFuture.completedFuture(null);
     }
-    increment("policyCache.load.requested");
+    return enqueue(false, policyUrns);
+  }
+
+  /**
+   * All jobs run on the single load thread, so they finish in the order they start, and a job that
+   * starts later reads newer committed data. That ordering is what keeps the cache correct. A
+   * request joins a job that is queued but not yet started, because that job will still read
+   * everything committed before the request: their URN sets merge, and a full load also reads the
+   * waiting URNs. A job that is already running may have started too early, so a request then
+   * queues a new one.
+   */
+  private CompletableFuture<Void> enqueue(boolean full, @Nonnull Collection<Urn> urns) {
+    if (policyLoader == null || loadExecutor == null) {
+      return CompletableFuture.completedFuture(null);
+    }
+    increment(full ? "policyCache.load.requested" : "policyCache.update.requested");
     synchronized (loadQueueLock) {
-      if (queuedLoad == null) {
-        final CompletableFuture<Void> load = new CompletableFuture<>();
-        queuedLoad = load;
+      if (queuedJob == null) {
+        final LoadJob job = new LoadJob();
+        queuedJob = job;
         try {
-          refreshExecutorService.execute(() -> runLoad(load));
+          loadExecutor.execute(() -> runJob(job));
         } catch (RejectedExecutionException e) {
-          queuedLoad = null;
-          load.completeExceptionally(e);
-          return load.copy();
+          queuedJob = null;
+          job.done.completeExceptionally(e);
+          return job.done.copy();
         }
       }
+      queuedJob.full |= full;
+      queuedJob.urns.addAll(urns);
       // A copy, so callers cannot complete the shared future.
-      return queuedLoad.copy();
+      return queuedJob.done.copy();
     }
   }
 
-  private void runLoad(@Nonnull CompletableFuture<Void> load) {
+  private static final class LoadJob {
+    boolean full;
+    final Set<Urn> urns = new HashSet<>();
+    final CompletableFuture<Void> done = new CompletableFuture<>();
+  }
+
+  private void runJob(@Nonnull LoadJob job) {
     synchronized (loadQueueLock) {
-      if (queuedLoad == load) {
-        // From now on, new requests must queue another load.
-        queuedLoad = null;
+      if (queuedJob == job) {
+        // From now on, new requests must queue another job.
+        queuedJob = null;
       }
     }
+    // Until the first full load succeeds, the cache holds no policies, so a key read alone would
+    // publish a partial cache: load everything instead.
+    final boolean full = job.full || !loadedOnce;
+    final String kind = full ? "load" : "update";
     final long start = System.nanoTime();
+    jobStartedNanos = start;
     try {
-      final PolicyLoader.Result result = policyLoader.loadAll();
-      final PolicySnapshot next = PolicySnapshot.of(result.policies());
-      publish(next);
-      loadedOnce = true;
-      consecutiveLoadFailures = 0;
-      increment("policyCache.load.run");
-      if (result.skipped() > 0) {
-        increment("policyCache.load.skipped", result.skipped());
+      // Recorded before the read, so a failed read still makes the next full load read them.
+      final long expires = start + recentChangeWindowNanos;
+      for (Urn urn : job.urns) {
+        recentChanges.put(urn, expires);
       }
+      recentChanges.values().removeIf(expiry -> expiry - start <= 0);
+
+      final Map<Urn, PolicyFetcher.Policy> next =
+          full ? loadAllWithRecentChanges() : updateByUrn(job.urns);
+      final PolicySnapshot snapshot = PolicySnapshot.of(next.values());
+      publish(snapshot);
+      policiesByUrn = next;
+      if (full) {
+        loadedOnce = true;
+      }
+      consecutiveLoadFailures = 0;
+      increment("policyCache." + kind + ".run");
       systemOpContext
           .getMetricUtils()
           .ifPresent(
               m -> {
                 m.time(
-                    DataHubAuthorizer.class.getName() + ".policyCache.load.duration",
+                    DataHubAuthorizer.class.getName() + ".policyCache." + kind + ".duration",
                     System.nanoTime() - start);
-                m.setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", next.size());
+                m.setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", snapshot.size());
               });
-      load.complete(null);
+      job.done.complete(null);
     } catch (Throwable t) {
-      increment("policyCache.load.failed");
-      // Loads run on one thread, so this counter needs no lock. A failure that repeats every few
+      increment("policyCache." + kind + ".failed");
+      // Jobs run on one thread, so this counter needs no lock. A failure that repeats every few
       // seconds logs its stack trace only once.
       if (consecutiveLoadFailures++ == 0) {
-        log.error("Failed to load policies. Keeping the current policies.", t);
+        log.error("Failed to {} policies. Keeping the current policies.", kind, t);
       } else {
         log.error(
-            "Failed to load policies ({} failures in a row). Keeping the current policies: {}",
+            "Failed to {} policies ({} failures in a row). Keeping the current policies: {}",
+            kind,
             consecutiveLoadFailures,
             t.toString());
       }
-      load.completeExceptionally(t);
+      job.done.completeExceptionally(t);
       if (!loadedOnce) {
         scheduleFirstLoadRetry();
       }
+    } finally {
+      jobStartedNanos = 0;
+    }
+  }
+
+  /** Reads every policy, plus the recently changed ones that the search index may not list yet. */
+  private Map<Urn, PolicyFetcher.Policy> loadAllWithRecentChanges() {
+    final Map<Urn, PolicyFetcher.Policy> next = new HashMap<>();
+    for (PolicyFetcher.Policy policy : policyLoader.loadAll()) {
+      if (policy.getUrn() != null) {
+        next.put(policy.getUrn(), policy);
+      }
+    }
+    // Policies the index lists are read from the primary store already. A deleted policy that the
+    // index still lists has no stored value, so the loader leaves it out.
+    final Set<Urn> missing = new HashSet<>(recentChanges.keySet());
+    missing.removeAll(next.keySet());
+    if (!missing.isEmpty()) {
+      next.putAll(policyLoader.loadByUrns(missing));
+    }
+    return next;
+  }
+
+  private Map<Urn, PolicyFetcher.Policy> updateByUrn(@Nonnull Set<Urn> urns) {
+    final Map<Urn, PolicyFetcher.Policy> read = policyLoader.loadByUrns(urns);
+    final Map<Urn, PolicyFetcher.Policy> next = new HashMap<>(policiesByUrn);
+    for (Urn urn : urns) {
+      final PolicyFetcher.Policy policy = read.get(urn);
+      if (policy != null) {
+        next.put(urn, policy);
+      } else {
+        next.remove(urn);
+      }
+    }
+    return next;
+  }
+
+  private void onRefreshTimer() {
+    // The timer must never throw: a scheduled task that throws is not run again.
+    try {
+      final long started = jobStartedNanos;
+      if (started != 0
+          && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(refreshIntervalSeconds)) {
+        // A blocking read cannot be safely stopped, so report it. Later requests queue behind it.
+        increment("policyCache.load.stuck");
+        log.warn(
+            "A policy load has run for {} s; later policy loads wait for it.",
+            TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - started));
+      }
+      requestLoad();
+    } catch (Throwable t) {
+      log.error("Policy refresh timer failed; it runs again on the next interval.", t);
     }
   }
 
@@ -580,7 +708,7 @@ public class DataHubAuthorizer
     if (policyLoader == null) {
       return false;
     }
-    log.info("policy cache source=sql, loading policies");
+    log.info("policy cache immediate updates on, loading policies");
     final long start = System.nanoTime();
     final long deadline = start + TimeUnit.SECONDS.toNanos(INITIAL_LOAD_TIMEOUT_SECONDS);
     for (int attempt = 1; attempt <= attempts; attempt++) {
@@ -628,44 +756,44 @@ public class DataHubAuthorizer
   }
 
   /**
-   * Called after a policy write or delete has been committed in this process. Requests a load and
-   * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
-   * after this process enforces the change. If the limit is reached, the load still completes
-   * later. A limit of 0 requests the load without waiting; if that load fails, it is not retried
-   * here, and the next requested load or the refresh timer applies the change. Never throws: the
-   * write it follows is already committed.
+   * Called after a client's policy write or delete has been committed in this process. Requests a
+   * read of the changed policies by key and waits for it, up to {@link #setPolicyChangeWaitMillis},
+   * so the write's response goes out only after this process enforces the change. If the limit is
+   * reached, the read still completes later. A limit of 0 requests the read without waiting; if
+   * that read fails, it is not retried here, and the next full load reads the policies from the
+   * recent-changes list. Never throws: the write it follows is already committed.
    */
-  public void onPolicyChange() {
-    if (policyLoader == null) {
+  public void onPolicyChange(@Nonnull Collection<Urn> policyUrns) {
+    if (policyLoader == null || policyUrns.isEmpty()) {
       return;
     }
     if (policyChangeWaitMillis == 0) {
-      // Waiting is turned off: the load runs in the background, and that is not a timeout. A zero
+      // Waiting is turned off: the read runs in the background, and that is not a timeout. A zero
       // wait sample keeps the observer.wait count equal to the number of policy changes.
-      requestLoad();
+      requestUpdate(policyUrns);
       recordObserverWait(0);
       return;
     }
     final long start = System.nanoTime();
     try {
-      requestLoad().get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
+      requestUpdate(policyUrns).get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
     } catch (TimeoutException e) {
       increment("policyCache.observer.timeout");
       log.warn(
-          "Policy load did not finish within {} ms after a policy change; it continues in the"
+          "Policy read did not finish within {} ms after a policy change; it continues in the"
               + " background.",
           policyChangeWaitMillis);
     } catch (InterruptedException e) {
       // Stop waiting, but do not keep the interrupt: the write is already committed, and the
-      // interrupt would make the change log send that follows on this thread fail. The load
+      // interrupt would make the change log send that follows on this thread fail. The read
       // continues in the background.
       increment("policyCache.observer.interrupted");
-      log.warn("Interrupted while waiting for the policy load after a policy change.");
+      log.warn("Interrupted while waiting for the policy read after a policy change.");
     } catch (ExecutionException e) {
       increment("policyCache.observer.failed");
-      log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
+      log.warn("Policy read after a policy change failed; requesting one more.", e.getCause());
       // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
-      requestLoad();
+      requestUpdate(policyUrns);
     } finally {
       recordObserverWait(System.nanoTime() - start);
     }

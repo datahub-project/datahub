@@ -22,7 +22,7 @@ public class PolicyChangeListenerFactoryConditionalTest {
 
   private static DataHubAuthorizer authorizer(boolean sqlSource) {
     DataHubAuthorizer authorizer = mock(DataHubAuthorizer.class);
-    when(authorizer.isSqlSourceEnabled()).thenReturn(sqlSource);
+    when(authorizer.isImmediateUpdateEnabled()).thenReturn(sqlSource);
     when(authorizer.getSystemOpContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     return authorizer;

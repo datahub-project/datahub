@@ -1,32 +1,30 @@
 package com.datahub.authorization;
 
+import com.linkedin.common.urn.Urn;
 import java.util.List;
-import java.util.Objects;
+import java.util.Map;
+import java.util.Set;
 import javax.annotation.Nonnull;
 
 /**
- * Loads every policy from the primary store in one consistent read.
+ * Reads policies for the policy cache.
  *
- * <p>Each result must carry the policy URN: {@link PolicySnapshot} uses it to break ties in the
- * policy order.
+ * <p>Each policy must carry its URN: the cache updates policies by URN, and {@link PolicySnapshot}
+ * uses the URN to break ties in the policy order.
  */
 public interface PolicyLoader {
 
+  /**
+   * Reads every policy. The list of policies may lag behind recent writes (it comes from the search
+   * index), but the content of each policy is read from the primary store.
+   */
   @Nonnull
-  Result loadAll();
+  List<PolicyFetcher.Policy> loadAll();
 
   /**
-   * @param policies the policies that were read
-   * @param skipped the number of stored policies that could not be read and are not in {@code
-   *     policies}
+   * Reads the given policies by primary key. A URN that is not in the result has no policy, for
+   * example because it was deleted.
    */
-  record Result(@Nonnull List<PolicyFetcher.Policy> policies, int skipped) {
-    public Result {
-      Objects.requireNonNull(policies);
-    }
-
-    public static Result of(@Nonnull List<PolicyFetcher.Policy> policies) {
-      return new Result(policies, 0);
-    }
-  }
+  @Nonnull
+  Map<Urn, PolicyFetcher.Policy> loadByUrns(@Nonnull Set<Urn> urns);
 }

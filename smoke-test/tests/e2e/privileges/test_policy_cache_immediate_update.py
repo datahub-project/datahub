@@ -1,8 +1,8 @@
-"""Policy changes apply before the write returns when GMS loads policies from SQL.
+"""Policy changes apply before the write returns with immediate policy cache updates.
 
-Without POLICY_CACHE_SQL_SOURCE_ENABLED, GMS refreshes its policy cache on a timer, so a new
+Without POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED, GMS refreshes its policy cache on a timer, so a new
 policy can take up to POLICY_CACHE_REFRESH_INTERVAL_SECONDS to apply. With it, the GMS that
-handled the write reloads its cache before responding.
+handled the write reads the changed policy into its cache before responding.
 
 To prove that, every call here uses ``raw_post``: the plain session ``post`` and the policy
 helpers in ``privileges/utils.py`` wait for Kafka consumers and the search index after each
@@ -17,19 +17,19 @@ import pytest
 from tests.e2e.privileges.utils import is_graphql_auth_denied, remove_policy
 from tests.e2e.utils import get_frontend_url, unique_suffix
 from utilities.domains import Domain
-from utilities.env_vars import get_policy_cache_sql_source_enabled
+from utilities.env_vars import get_policy_cache_immediate_update_enabled
 from utilities.multi_user import cleanup_step_actor_user, make_step_actor_user
 
 logger = logging.getLogger(__name__)
 
-# Only the pytest smoke job turns on the SQL source (DATAHUB_LOCAL_COMMON_ENV). Other jobs run the
+# Only the pytest smoke job turns on immediate updates (DATAHUB_LOCAL_COMMON_ENV). Other jobs run the
 # default search-based cache, where this test does not apply, so it is skipped with a reason that
 # `pytest -rs` lists.
 pytestmark = [
     pytest.mark.domain(Domain.PLATFORM),
     pytest.mark.skipif(
-        not get_policy_cache_sql_source_enabled(),
-        reason="needs a GMS with POLICY_CACHE_SQL_SOURCE_ENABLED=true",
+        not get_policy_cache_immediate_update_enabled(),
+        reason="needs a GMS with POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED=true",
     ),
 ]
 

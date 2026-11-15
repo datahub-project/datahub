@@ -8,8 +8,8 @@ import javax.annotation.Nonnull;
 import org.apache.commons.lang3.StringUtils;
 
 /**
- * The optional topic that carries dataHubPolicy change logs to every process with a policy cache.
- * It is configured as {@code kafka.topics.policyChange}, and its {@code enabled} value follows
+ * The optional topic that carries dataHubPolicy change logs to every GMS with a policy cache. It is
+ * configured as {@code kafka.topics.policyChange}, and its {@code enabled} value follows
  * POLICY_CACHE_BROADCAST_ENABLED.
  */
 public final class PolicyChangeTopic {

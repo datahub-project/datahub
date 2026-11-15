@@ -49,8 +49,8 @@ public class PolicyChangeListenerFactory {
     if (authorizer == null) {
       return null;
     }
-    if (!authorizer.isSqlSourceEnabled()) {
-      log.warn("Policy change listener not started: the SQL policy source is off.");
+    if (!authorizer.isImmediateUpdateEnabled()) {
+      log.warn("Policy change listener not started: immediate policy cache updates are off.");
       return null;
     }
     final Optional<String> topic = PolicyChangeTopic.enabledTopicName(config);

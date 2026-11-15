@@ -1024,7 +1024,7 @@ jobs:
           DATAHUB_LOCAL_COMMON_ENV: /tmp/pytest-smoke-common.env
         run: |
           {
-            echo "POLICY_CACHE_SQL_SOURCE_ENABLED=true"
+            echo "POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED=true"
             echo "POLICY_CACHE_BROADCAST_ENABLED=true"
           } > "$DATAHUB_LOCAL_COMMON_ENV"
           echo "Using compose profile: $PROFILE_NAME"
@@ -1068,7 +1068,7 @@ jobs:
           TEST_STRATEGY: pytests
           BATCH_COUNT: ${{ matrix.batch_count }}
           # Matches the quickstart step above; enables the no-wait policy cache smoke test.
-          POLICY_CACHE_SQL_SOURCE_ENABLED: "true"
+          POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED: "true"
           BATCH_NUMBER: ${{ matrix.batch }}
           # 'p0' or 'full' -- see the setup job's smoke_tier output.
           SMOKE_TIER: ${{ needs.setup.outputs.smoke_tier }}

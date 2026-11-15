@@ -5,6 +5,7 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.group.GroupService;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.client.EntityClient;
@@ -15,9 +16,11 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
+import java.util.Set;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -57,7 +60,24 @@ public class PolicyChangeListenerKafkaTest {
   /** The shared database: both authorizers load the same rows. */
   private final List<PolicyFetcher.Policy> database = new CopyOnWriteArrayList<>();
 
-  private final PolicyLoader loader = () -> PolicyLoader.Result.of(new ArrayList<>(database));
+  private final PolicyLoader loader =
+      new PolicyLoader() {
+        @Override
+        public List<PolicyFetcher.Policy> loadAll() {
+          return new ArrayList<>(database);
+        }
+
+        @Override
+        public Map<Urn, PolicyFetcher.Policy> loadByUrns(Set<Urn> urns) {
+          Map<Urn, PolicyFetcher.Policy> result = new HashMap<>();
+          for (PolicyFetcher.Policy policy : database) {
+            if (urns.contains(policy.getUrn())) {
+              result.put(policy.getUrn(), policy);
+            }
+          }
+          return result;
+        }
+      };
   private final List<PolicyChangeListener> listeners = new ArrayList<>();
 
   @BeforeClass
@@ -131,8 +151,9 @@ public class PolicyChangeListenerKafkaTest {
 
   /** What the writing process does: commit, reload its own cache, then send the change. */
   private void commitPolicyChange(DataHubAuthorizer writer, String id) throws Exception {
-    database.add(policy(id));
-    writer.onPolicyChange();
+    PolicyFetcher.Policy policy = policy(id);
+    database.add(policy);
+    writer.onPolicyChange(Set.of(policy.getUrn()));
     producer
         .send(new ProducerRecord<>(TOPIC, id.getBytes(), new byte[] {1}))
         .get(10, TimeUnit.SECONDS);
