@@ -483,8 +483,8 @@ public class DataHubAuthorizer
    */
   public void invalidateCache() {
     if (policyLoader != null) {
-      // With the observer, the write already requested a load after its commit (and waited for
-      // it, unless the wait is 0). Another load here would only read the same policies again.
+      // With the observer, the write already requested a read of the changed policy after its
+      // commit (and waited for it, unless the wait is 0). A full load here would add nothing.
       if (!policyWritesObserved) {
         requestLoad();
       }
@@ -756,44 +756,44 @@ public class DataHubAuthorizer
   }
 
   /**
-   * Called after a policy write or delete has been committed in this process. Requests a load and
-   * waits for it, up to {@link #setPolicyChangeWaitMillis}, so the write's response goes out only
-   * after this process enforces the change. If the limit is reached, the load still completes
-   * later. A limit of 0 requests the load without waiting; if that load fails, it is not retried
-   * here, and the next requested load or the refresh timer applies the change. Never throws: the
-   * write it follows is already committed.
+   * Called after a client's policy write or delete has been committed in this process. Requests a
+   * read of the changed policies by key and waits for it, up to {@link #setPolicyChangeWaitMillis},
+   * so the write's response goes out only after this process enforces the change. If the limit is
+   * reached, the read still completes later. A limit of 0 requests the read without waiting; if
+   * that read fails, it is not retried here, and the next full load reads the policies from the
+   * recent-changes list. Never throws: the write it follows is already committed.
    */
-  public void onPolicyChange() {
-    if (policyLoader == null) {
+  public void onPolicyChange(@Nonnull Collection<Urn> policyUrns) {
+    if (policyLoader == null || policyUrns.isEmpty()) {
       return;
     }
     if (policyChangeWaitMillis == 0) {
-      // Waiting is turned off: the load runs in the background, and that is not a timeout. A zero
+      // Waiting is turned off: the read runs in the background, and that is not a timeout. A zero
       // wait sample keeps the observer.wait count equal to the number of policy changes.
-      requestLoad();
+      requestUpdate(policyUrns);
       recordObserverWait(0);
       return;
     }
     final long start = System.nanoTime();
     try {
-      requestLoad().get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
+      requestUpdate(policyUrns).get(policyChangeWaitMillis, TimeUnit.MILLISECONDS);
     } catch (TimeoutException e) {
       increment("policyCache.observer.timeout");
       log.warn(
-          "Policy load did not finish within {} ms after a policy change; it continues in the"
+          "Policy read did not finish within {} ms after a policy change; it continues in the"
               + " background.",
           policyChangeWaitMillis);
     } catch (InterruptedException e) {
       // Stop waiting, but do not keep the interrupt: the write is already committed, and the
-      // interrupt would make the change log send that follows on this thread fail. The load
+      // interrupt would make the change log send that follows on this thread fail. The read
       // continues in the background.
       increment("policyCache.observer.interrupted");
-      log.warn("Interrupted while waiting for the policy load after a policy change.");
+      log.warn("Interrupted while waiting for the policy read after a policy change.");
     } catch (ExecutionException e) {
       increment("policyCache.observer.failed");
-      log.warn("Policy load after a policy change failed; requesting one more.", e.getCause());
+      log.warn("Policy read after a policy change failed; requesting one more.", e.getCause());
       // One retry, without waiting. Otherwise this process keeps the old policies until the timer.
-      requestLoad();
+      requestUpdate(policyUrns);
     } finally {
       recordObserverWait(System.nanoTime() - start);
     }

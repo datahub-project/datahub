@@ -198,8 +198,8 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   private final Boolean cdcModeChangeLog;
   @Nullable @Getter private SearchIndicesService updateIndicesService;
 
-  // Set by the authorizer when its policy cache loads from SQL. Volatile: set once at startup and
-  // read on every write thread.
+  // Set in GMS with POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED. Volatile: set once at startup and read
+  // on every write thread.
   @Nullable @Setter private volatile PolicyChangeObserver policyChangeObserver;
   private final PreProcessHooks preProcessHooks;
   protected static final int MAX_KEYS_PER_QUERY = 500;
@@ -1254,10 +1254,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
     // ingestAspectsToLocalDB runs in its own transaction (requiresNew), so it is committed here.
-    if (ingestResults.getUpdateAspectResults().stream()
-        .anyMatch(r -> !r.isNoOp() && isPolicy(r.getUrn()))) {
-      notifyPolicyChange();
-    }
+    notifyPolicyChange(
+        opContext,
+        ingestResults.getUpdateAspectResults().stream()
+            .filter(r -> !r.isNoOp() && isPolicy(r.getUrn()))
+            .map(UpdateAspectResult::getUrn)
+            .collect(Collectors.toSet()));
 
     // Produce MCLs & run side effects
     List<MetadataChangeLog> mcls =
@@ -4121,13 +4123,17 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     return urn != null && POLICY_ENTITY_NAME.equals(urn.getEntityType());
   }
 
-  private void notifyPolicyChange() {
+  /**
+   * Only a client's write notifies: the MCE consumer commits queued writes with the system
+   * operation context, which has no request context, and must not wait for a cache read.
+   */
+  private void notifyPolicyChange(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
     final PolicyChangeObserver observer = policyChangeObserver;
-    if (observer == null) {
+    if (observer == null || urns.isEmpty() || opContext.getRequestContext() == null) {
       return;
     }
     try {
-      observer.onPolicyChange();
+      observer.onPolicyChange(urns);
     } catch (RuntimeException e) {
       // The write is already committed; a cache refresh failure must not fail it.
       log.warn("Policy change observer failed after a committed policy write.", e);
@@ -4653,7 +4659,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     // The delete ran in its own transaction (requiresNew), so it is committed here.
     if (result != null && isPolicy(entityUrn)) {
-      notifyPolicyChange();
+      notifyPolicyChange(opContext, Set.of(entityUrn));
     }
 
     return result;

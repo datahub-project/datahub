@@ -52,6 +52,7 @@ public class DataHubAuthorizerImmediateUpdateTest {
     final AtomicInteger fullLoads = new AtomicInteger();
     final AtomicInteger keyReads = new AtomicInteger();
     volatile int failuresLeft = 0;
+    volatile int keyReadFailuresLeft = 0;
     volatile CountDownLatch entered;
     volatile CountDownLatch release;
 
@@ -91,6 +92,17 @@ public class DataHubAuthorizerImmediateUpdateTest {
     @Override
     public Map<Urn, PolicyFetcher.Policy> loadByUrns(Set<Urn> urns) {
       keyReads.incrementAndGet();
+      if (release != null) {
+        try {
+          release.await(10, TimeUnit.SECONDS);
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+        }
+      }
+      if (keyReadFailuresLeft > 0) {
+        keyReadFailuresLeft--;
+        throw new IllegalStateException("simulated database error");
+      }
       Map<Urn, PolicyFetcher.Policy> result = new HashMap<>();
       for (Urn urn : urns) {
         if (store.containsKey(urn)) {
@@ -443,15 +455,15 @@ public class DataHubAuthorizerImmediateUpdateTest {
   }
 
   @Test
-  public void testPolicyChangeWaitsForTheLoad() {
+  public void testPolicyChangeWaitsForTheKeyRead() {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
-    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p1", 1L), false);
 
-    authorizer.onPolicyChange();
+    authorizer.onPolicyChange(Set.of(urn("p1")));
 
-    // No extra wait: the call returns only after a load that started after it has finished.
+    // No extra wait: the call returns only after a key read that started after it has finished.
     assertEquals(allNames(authorizer), List.of("p1"));
   }
 
@@ -461,17 +473,17 @@ public class DataHubAuthorizerImmediateUpdateTest {
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
     authorizer.setPolicyChangeWaitMillis(50);
-    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p1", 1L), false);
     loader.release = new CountDownLatch(1);
 
     long start = System.nanoTime();
-    authorizer.onPolicyChange();
+    authorizer.onPolicyChange(Set.of(urn("p1")));
     long waitedMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
 
     assertTrue(waitedMillis < 5_000, "the wait must stop at the limit, waited " + waitedMillis);
     loader.release.countDown();
-    // The slow load still completes after the caller stops waiting.
-    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    // The slow read still completes after the caller stops waiting.
+    authorizer.requestUpdate(Set.of(urn("p1"))).get(10, TimeUnit.SECONDS);
     assertEquals(allNames(authorizer), List.of("p1"));
   }
 
@@ -484,7 +496,7 @@ public class DataHubAuthorizerImmediateUpdateTest {
 
     Thread.currentThread().interrupt();
     try {
-      authorizer.onPolicyChange();
+      authorizer.onPolicyChange(Set.of(urn("p1")));
       // The committed write's change log is sent next on this thread; it must not see an interrupt.
       assertFalse(Thread.interrupted());
     } finally {
@@ -512,24 +524,22 @@ public class DataHubAuthorizerImmediateUpdateTest {
   }
 
   @Test
-  public void testFailedObservedLoadRequestsOneMore() throws Exception {
+  public void testFailedObservedReadRequestsOneMore() throws Exception {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
-    loader.add(policy("p1", 1L), true);
-    loader.failuresLeft = 1;
+    loader.add(policy("p1", 1L), false);
+    loader.keyReadFailuresLeft = 1;
 
-    authorizer.onPolicyChange();
+    authorizer.onPolicyChange(Set.of(urn("p1")));
 
-    // The failed load is followed by one more, so the change applies without the timer.
-    long deadline = System.currentTimeMillis() + 10_000;
-    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
-      Thread.sleep(20);
-    }
+    // The failed read is followed by one more, so the change applies without the timer.
+    waitFor(() -> !allNames(authorizer).isEmpty());
     assertEquals(allNames(authorizer), List.of("p1"));
     Thread.sleep(300);
-    // The first load, the failed load, and exactly one more: no retry loop.
-    assertEquals(loader.fullLoads.get(), 3);
+    // The failed read and exactly one more: no retry loop, and no full load.
+    assertEquals(loader.keyReads.get(), 2);
+    assertEquals(loader.fullLoads.get(), 1);
   }
 
   @DataProvider
@@ -538,7 +548,7 @@ public class DataHubAuthorizerImmediateUpdateTest {
   }
 
   @Test(dataProvider = "noWaitValues")
-  public void testNoWaitRequestsALoadWithoutATimeout(long waitMillis) throws Exception {
+  public void testNoWaitRequestsAReadWithoutATimeout(long waitMillis) throws Exception {
     MetricUtils metrics = mock(MetricUtils.class);
     OperationContext context = mock(OperationContext.class);
     when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
@@ -555,11 +565,11 @@ public class DataHubAuthorizerImmediateUpdateTest {
             loader);
     authorizer.initialLoad(1, 0);
     authorizer.setPolicyChangeWaitMillis(waitMillis);
-    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p1", 1L), false);
     loader.release = new CountDownLatch(1);
 
     long start = System.nanoTime();
-    authorizer.onPolicyChange();
+    authorizer.onPolicyChange(Set.of(urn("p1")));
     long waited = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
     loader.release.countDown();
 
@@ -567,8 +577,8 @@ public class DataHubAuthorizerImmediateUpdateTest {
     // A negative wait is set to 0. Not waiting is not a timeout, so there is no timeout metric.
     verify(metrics, never())
         .increment(eq(DataHubAuthorizer.class), eq("policyCache.observer.timeout"), anyDouble());
-    // The load still runs in the background.
-    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+    // The read still runs in the background.
+    authorizer.requestUpdate(Set.of(urn("p1"))).get(10, TimeUnit.SECONDS);
     assertEquals(allNames(authorizer), List.of("p1"));
   }
 }

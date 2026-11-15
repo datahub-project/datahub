@@ -59,6 +59,7 @@ import org.springframework.core.env.Environment;
       "io.datahubproject.metadata.jobs.common.health.pgqueue",
       "com.linkedin.gms.factory.context",
       "com.linkedin.gms.factory.auth",
+      "com.linkedin.gms.factory.policycache",
       "com.linkedin.gms.factory.ratelimit",
       "com.linkedin.gms.factory.search",
       "com.linkedin.gms.factory.secret",
