@@ -1,3 +1,4 @@
+import json
 import logging
 import re
 from typing import Any, Dict, List, Optional, Tuple, cast
@@ -5956,8 +5957,8 @@ class TestConnectorExternalUrl:
             mock_response.json.return_value = []
             mock_get.return_value = mock_response
             source = KafkaConnectSource(config, Mock())
+            workunit = source.construct_flow_workunit(self.manifest("sink", "my-sink"))
 
-        workunit = source.construct_flow_workunit(self.manifest("sink", "my-sink"))
         mcp = workunit.metadata
         assert isinstance(mcp, MetadataChangeProposalWrapper)
         aspect = mcp.aspect
@@ -5972,6 +5973,23 @@ class TestConnectorExternalUrl:
             f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
             f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sinks/my-sink"
         )
+
+    def test_connect_uri_credentials_never_reach_the_flow(self) -> None:
+        """The ids behind the URL may come from connect_uri, but only from its
+        path, so userinfo embedded in the URI is never published."""
+        config = KafkaConnectSourceConfig(
+            connect_uri=(
+                "https://user:hunter2@api.confluent.cloud/connect/v1"
+                f"/environments/{self.CLOUD_ENV_ID}/clusters/{self.CLOUD_CLUSTER_ID}"
+            ),
+            username="test-api-key",
+            password="test-api-secret",
+        )
+
+        aspect = self._flow_info(config)
+
+        assert aspect.externalUrl is not None
+        assert "hunter2" not in json.dumps(aspect.to_obj())
 
     def test_flow_workunit_has_no_external_url_when_self_hosted(self) -> None:
         """Self-hosted DataFlows are unchanged - no externalUrl is set."""

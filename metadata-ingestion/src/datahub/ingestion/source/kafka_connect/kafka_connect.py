@@ -1032,12 +1032,7 @@ class KafkaConnectSource(StatefulIngestionSourceBase):
         connector_type = connector.type
         connector_class = connector.config.get(CONNECTOR_CLASS)
         flow_property_bag = connector.flow_property_bag
-        # NOTE: connector.url is still not used as the externalUrl. It is derived
-        # from connect_uri, which for a self-hosted Connect cluster can embed
-        # basic-auth credentials that would then be published on the DataFlow.
-        # get_connector_external_url only returns a Confluent Cloud console URL,
-        # which is assembled from the configured environment and cluster ids plus
-        # the connector name and so carries no credentials.
+        # Not connector.url: it derives from connect_uri, which may embed credentials.
         external_url = get_connector_external_url(self.config, connector)
         flow_urn = builder.make_data_flow_urn(
             self.platform,

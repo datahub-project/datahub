@@ -109,16 +109,7 @@ _CONFLUENT_CLOUD_CONNECT_PATH_RE: Final = re.compile(
     r"/connect/v1/environments/(?P<env>[^/]+)/clusters/(?P<cluster>[^/]+)"
 )
 
-# Confluent Cloud web console. Connector pages live under a per-type path
-# segment, e.g.
-#   https://confluent.cloud/environments/env-xxxxx/clusters/lkc-xxxxx
-#       /connectors/sinks/<connector-name>
-# The console keys on the connector name rather than on its lcc-* id.
 CONFLUENT_CLOUD_CONSOLE_URI: Final[str] = "https://confluent.cloud"
-CONFLUENT_CLOUD_CONSOLE_CONNECTOR_PATHS: Final[Dict[str, str]] = {
-    SINK: "sinks",
-    SOURCE: "sources",
-}
 
 _QUOTED_IDENTIFIER_RE: Final = re.compile(r'"([^"]+)"')
 _VALID_TOPIC_NAME_RE: Final = re.compile(r'^[a-zA-Z0-9._\-"\s]+$')
@@ -690,34 +681,25 @@ class ConnectorManifest:
 def get_connector_external_url(
     config: "KafkaConnectSourceConfig", connector: ConnectorManifest
 ) -> Optional[str]:
-    """Build a credential-free console URL for a connector, if one exists.
+    """Build a credential-free Confluent Cloud console URL for a connector.
 
-    Only Confluent Cloud is handled. The console URL is assembled from the
-    configured environment and cluster ids plus the connector name, so it can
-    never leak a secret. The Connect REST URI is deliberately not used as a
-    fallback for self-hosted deployments: `connect_uri` may embed basic-auth
-    credentials, which would then be published on the DataFlow.
+    The URL is assembled from the environment and cluster ids plus the
+    connector name, e.g.
+    https://confluent.cloud/environments/env-xxxxx/clusters/lkc-xxxxx/connectors/sinks/<name>
+    The console keys on the connector name, not on its lcc-* id. connect_uri is
+    deliberately never used directly, since it may embed basic-auth credentials
+    that would then be published on the DataFlow; the ids may have been read
+    from its path, which carries none.
 
-    Returns None when the deployment is self-hosted, when either Confluent
-    Cloud id is unset, or when the connector type is neither source nor sink.
+    Returns None for self-hosted deployments, and for a connector type that is
+    neither source nor sink (the type comes unvalidated off the REST manifest).
     """
-    if not config.is_confluent_cloud():
-        return None
-
-    environment_id = config.confluent_cloud_environment_id
-    cluster_id = config.confluent_cloud_cluster_id
-    if not environment_id or not cluster_id:
-        # Confluent Cloud was detected from connect_uri alone, so the ids the
-        # console URL needs were never configured.
-        return None
-
-    connector_path = CONFLUENT_CLOUD_CONSOLE_CONNECTOR_PATHS.get(connector.type)
-    if not connector_path:
+    if not config.is_confluent_cloud() or connector.type not in (SOURCE, SINK):
         return None
 
     return (
-        f"{CONFLUENT_CLOUD_CONSOLE_URI}/environments/{environment_id}"
-        f"/clusters/{cluster_id}/connectors/{connector_path}"
+        f"{CONFLUENT_CLOUD_CONSOLE_URI}/environments/{config.confluent_cloud_environment_id}"
+        f"/clusters/{config.confluent_cloud_cluster_id}/connectors/{connector.type}s"
         f"/{quote(connector.name, safe='')}"
     )
 
