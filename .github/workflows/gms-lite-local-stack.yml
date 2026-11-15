@@ -49,8 +49,9 @@ jobs:
             :metadata-service:opensearch-embedded:installDist \
             -x test
 
+      # The base CLI is enough here; installDev's plugin extras need native headers (krb5) the runner lacks.
       - name: Install the CLI
-        run: ./gradlew :metadata-ingestion:installDev
+        run: ./gradlew :metadata-ingestion:install
 
       - name: Start, use, restart and nuke the local stack
         env:
