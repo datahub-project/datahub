@@ -53,13 +53,13 @@ repos:
         files: ^\.github/workflows/.*\.yml$
         pass_filenames: false
         stages: [pre-commit]
-      - id: actionlint-docker
+      - id: actionlint
         name: Lint GitHub Actions workflow files
-        description: Runs actionlint Docker image to lint GitHub Actions workflow files
-        language: docker_image
+        description: Runs the pinned actionlint, locally when installed (mise) or via Docker
+        language: system
         types: ["yaml"]
         files: ^\.github/workflows/
-        entry: docker.io/rhysd/actionlint:1.7.11
+        entry: bash .github/scripts/pre-commit/run_actionlint.sh
         stages: [pre-commit]
       - id: docusaurus-markdown-lint
         name: Lint Docusaurus Markdown
