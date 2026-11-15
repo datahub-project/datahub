@@ -1,0 +1,76 @@
+name: "GMS-lite Local Stack"
+
+# Boots the Docker-free local dev stack (`datahub-dev.sh start --local`) and drives it through the
+# worktree's CLI profile: GraphQL, a write that must reach search, warm restart and nuke.
+
+on:
+  pull_request:
+    paths:
+      - "metadata-service/gms-lite/**"
+      - "metadata-service/opensearch-embedded/**"
+      - "metadata-service/war/**"
+      - "metadata-service/auth-config/**"
+      - "metadata-service/auth-filter/**"
+      - "metadata-service/configuration/**"
+      - "datahub-upgrade/**"
+      - "scripts/dev/datahub-dev.sh"
+      - "scripts/dev/datahub_dev.py"
+      - "scripts/dev/datahub_dev_local.py"
+      - "scripts/dev/tests/local_stack_e2e.sh"
+      - "metadata-ingestion/src/datahub/cli/_profile_store.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
+      - "metadata-ingestion/src/datahub/cli/profile_cli.py"
+      - ".github/workflows/gms-lite-local-stack.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  local-stack:
+    name: "Local stack boot, profile and lifecycle"
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+
+      - name: Build jars and the embedded OpenSearch node
+        run: |
+          ./gradlew \
+            :metadata-service:war:bootJar \
+            :datahub-upgrade:bootJar \
+            :metadata-service:opensearch-embedded:installDist \
+            -x test
+
+      - name: Install the CLI
+        run: ./gradlew :metadata-ingestion:installDev
+
+      - name: Start, use, restart and nuke the local stack
+        env:
+          DATAHUB_TELEMETRY_ENABLED: "false"
+        run: scripts/dev/tests/local_stack_e2e.sh
+
+      - name: Stop the shared OpenSearch node
+        if: always()
+        run: |
+          scripts/dev/datahub-dev.sh stop || true
+          python3 metadata-service/gms-lite/bin/_opensearch_manager.py \
+            stop --dir ~/.datahub/local/opensearch-3 || true
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: gms-lite-local-stack-logs
+          path: |
+            ~/.datahub/local/stacks/*/launcher.log
+            ~/.datahub/local/stacks/*/logs/
+            ~/.datahub/local/opensearch-3/log
+          retention-days: 3

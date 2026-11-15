@@ -20,6 +20,7 @@ on:
       - "Docker Build, Scan, Test"
       - "documentation"
       - "Frontend Preview"
+      - "GMS-lite Local Stack"
       - "GX Plugin"
       - "ingestion smoke"
       - "lint"
