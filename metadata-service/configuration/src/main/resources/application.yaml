@@ -110,12 +110,14 @@ authorization:
       # A changed policy is read by key on every full load for this long, so a search index that
       # does not list it yet cannot drop it from the cache. Keep it longer than the index delay.
       recentChangeWindowSeconds: ${POLICY_CACHE_RECENT_CHANGE_WINDOW_SECONDS:600}
-      # After a policy write or delete, wait up to this long for the reload before the write returns.
+      # After a synchronous policy write or delete, wait up to this long for GMS to read the changed
+      # policy before the write returns.
       policyChangeWaitMillis: ${POLICY_CACHE_POLICY_CHANGE_WAIT_MILLIS:5000}
-    # Send each policy change to every process with a policy cache over kafka.topics.policyChange,
-    # and write dataHubPolicy proposals synchronously. Opt-in; also turns on sqlSource.
-    # With CDC mode (cdcModeChangeLog), the CDC consumer sends the change logs, so the broadcast
-    # arrives after the CDC lag. The writing GMS still refreshes its own cache before it returns.
+    # Send each committed policy change over kafka.topics.policyChange, so every GMS reads the
+    # changed policy by key. Opt-in; also turns on immediateUpdate. The process that commits the
+    # write sends it: for an async write, that is the MCE consumer. With CDC mode
+    # (cdcModeChangeLog), the CDC consumer sends the change logs, so the broadcast arrives after
+    # the CDC lag. A synchronous write still updates the writing GMS before it returns.
     changeBroadcast:
       enabled: ${POLICY_CACHE_BROADCAST_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.

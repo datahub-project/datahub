@@ -29,8 +29,8 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class EventProducer {
 
-  // When set, each change log for a dataHubPolicy is also sent to this topic, so every process with
-  // a policy cache can reload it (POLICY_CACHE_BROADCAST_ENABLED). Null: not sent.
+  // When set, each change log for a dataHubPolicy is also sent to this topic, so every GMS can read
+  // the changed policy into its cache (POLICY_CACHE_BROADCAST_ENABLED). Null: not sent.
   @Nullable private volatile String policyChangeTopicName;
 
   /** Flush the producer * */

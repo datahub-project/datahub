@@ -36,7 +36,7 @@ public class PolicyChangeObserverFactoryTest {
 
     assertNotNull(
         new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(authorizer), provider(service), 5000L, false));
+            .policyChangeObserver(provider(authorizer), provider(service), 5000L));
 
     verify(service).setPolicyChangeObserver(any());
     verify(authorizer).setPolicyWritesObserved(true);
@@ -49,7 +49,7 @@ public class PolicyChangeObserverFactoryTest {
 
     assertNull(
         new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(authorizer(false)), provider(service), 5000L, false));
+            .policyChangeObserver(provider(authorizer(false)), provider(service), 5000L));
 
     verify(service, never()).setPolicyChangeObserver(any());
   }
@@ -61,7 +61,7 @@ public class PolicyChangeObserverFactoryTest {
 
     assertNull(
         new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(null), provider(service), 5000L, false));
+            .policyChangeObserver(provider(null), provider(service), 5000L));
 
     verify(service, never()).setPolicyChangeObserver(any());
   }
@@ -73,7 +73,7 @@ public class PolicyChangeObserverFactoryTest {
     assertNull(
         new PolicyChangeObserverFactory()
             .policyChangeObserver(
-                provider(authorizer), provider(mock(EntityService.class)), 5000L, false));
+                provider(authorizer), provider(mock(EntityService.class)), 5000L));
 
     verify(authorizer, never()).setPolicyWritesObserved(true);
   }

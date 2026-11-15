@@ -14,17 +14,14 @@ import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.reset;
 import static org.mockito.Mockito.spy;
-import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
-import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.util.RecordUtils;
@@ -49,7 +46,6 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
-import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -102,7 +98,6 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
-import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
@@ -1212,62 +1207,7 @@ public class EbeanEntityServiceTest
   }
 
   @Test
-  public void testAsyncPolicyProposalsAreWrittenSynchronouslyWhenEnabled() {
-    _entityServiceImpl.setSyncPolicyWrites(true);
-    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:sync-policy-test");
-    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:sync-policy-test");
-    DataHubPolicyInfo policy =
-        new DataHubPolicyInfo()
-            .setDisplayName("sync policy test")
-            .setDescription("written synchronously")
-            .setType("METADATA")
-            .setState("ACTIVE")
-            .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
-            .setActors(new DataHubActorFilter().setAllUsers(true));
-    // Records whether the policy was already written when the other item was queued.
-    AtomicReference<Boolean> policyWrittenWhenQueued = new AtomicReference<>();
-    doAnswer(
-            inv -> {
-              policyWrittenWhenQueued.set(
-                  _entityServiceImpl.getLatestAspect(
-                          opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME)
-                      != null);
-              return CompletableFuture.completedFuture(null);
-            })
-        .when(_mockProducer)
-        .produceMetadataChangeProposal(
-            any(OperationContext.class), eq(userUrn), any(MCPItem.class));
-
-    List<IngestResult> results =
-        _entityServiceImpl.ingestProposal(
-            opContext,
-            proposalBatch(
-                upsertProposal(
-                    userUrn,
-                    "corpUserInfo",
-                    AspectGenerationUtils.createCorpUserInfo("sync@test.com")),
-                upsertProposal(policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, policy)),
-            true);
-
-    // The policy is committed before ingestProposal returns, even though the request was async.
-    assertNotNull(
-        _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
-    // The other item stays async: it is queued, not written.
-    assertNull(_entityServiceImpl.getLatestAspect(opContext, userUrn, "corpUserInfo"));
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeProposal(
-            any(OperationContext.class), eq(userUrn), any(MCPItem.class));
-    // The other item is queued before the policy write, so a failed policy write cannot drop it.
-    assertEquals(policyWrittenWhenQueued.get(), Boolean.FALSE);
-    // Results keep the input order. A new policy can add a result for its key aspect, so compare
-    // the order of the entities, not the exact list.
-    assertEquals(
-        results.stream().map(IngestResult::getUrn).distinct().collect(Collectors.toList()),
-        List.of(userUrn, policyUrn));
-  }
-
-  @Test
-  public void testAsyncPolicyProposalsStayAsyncByDefault() {
+  public void testAsyncPolicyProposalStaysAsync() {
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:async-policy-test");
     DataHubPolicyInfo policy =
         new DataHubPolicyInfo()
@@ -1283,92 +1223,7 @@ public class EbeanEntityServiceTest
         proposalBatch(upsertProposal(policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, policy)),
         true);
 
-    assertNull(
-        _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
-  }
-
-  private static DataHubPolicyInfo testPolicy(String name) {
-    return new DataHubPolicyInfo()
-        .setDisplayName(name)
-        .setDescription(name)
-        .setType("METADATA")
-        .setState("ACTIVE")
-        .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
-        .setActors(new DataHubActorFilter().setAllUsers(true));
-  }
-
-  @Test
-  public void testAsyncBatchOfOnlyPoliciesIsWrittenSynchronously() {
-    _entityServiceImpl.setSyncPolicyWrites(true);
-    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:sync-only-policy-test");
-
-    List<IngestResult> results =
-        _entityServiceImpl.ingestProposal(
-            opContext,
-            proposalBatch(
-                upsertProposal(
-                    policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, testPolicy("sync only policy"))),
-            true);
-
-    assertNotNull(
-        _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
-    // The results are those of a synchronous write: committed, not queued.
-    assertFalse(results.isEmpty());
-    for (IngestResult result : results) {
-      assertEquals(result.getUrn(), policyUrn);
-      assertTrue(result.isSqlCommitted());
-      assertFalse(result.isPublishedMCP());
-    }
-    // Nothing is left for the async path.
-    verify(_mockProducer, never())
-        .produceMetadataChangeProposal(any(OperationContext.class), any(), any(MCPItem.class));
-  }
-
-  @Test
-  public void testFailedPolicyWriteStillQueuesTheOtherItems() {
-    Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:failed-policy-test");
-    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:failed-policy-test");
-    // The database rejects every transaction. Only the policy part opens one: the other item is
-    // async, so it is only queued.
-    EbeanAspectDao failingDao = spy(_aspectDao);
-    doThrow(new IllegalStateException("simulated database failure"))
-        .when(failingDao)
-        .runInTransactionWithRetry(
-            any(OperationContext.class), any(), any(AspectsBatch.class), anyInt());
-    EntityServiceImpl service =
-        new EntityServiceImpl(
-            failingDao,
-            _mockProducer,
-            new PreProcessHooks(),
-            new EntityServiceConfiguration()
-                .setAlwaysEmitChangeLog(false)
-                .setCdcModeChangeLog(cdcModeChangeLog)
-                .setEnableBrowseV2(true),
-            metricUtils);
-    service.setUpdateIndicesService(_mockUpdateIndicesService);
-    service.setSyncPolicyWrites(true);
-
-    assertThrows(
-        RuntimeException.class,
-        () ->
-            service.ingestProposal(
-                opContext,
-                proposalBatch(
-                    upsertProposal(
-                        userUrn,
-                        "corpUserInfo",
-                        AspectGenerationUtils.createCorpUserInfo("failed@test.com")),
-                    upsertProposal(
-                        policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, testPolicy("failed policy"))),
-                true));
-
-    // The caller gets the error, and the other item is still queued.
-    verify(_mockProducer, times(1))
-        .produceMetadataChangeProposal(
-            any(OperationContext.class), eq(userUrn), any(MCPItem.class));
-    verify(failingDao)
-        .runInTransactionWithRetry(
-            any(OperationContext.class), any(), any(AspectsBatch.class), anyInt());
+    // The caller chose async: the policy is queued, not written, even with the broadcast on.
     assertNull(
         _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
   }

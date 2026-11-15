@@ -28,9 +28,7 @@ public class PolicyChangeObserverFactory {
       @Qualifier("dataHubAuthorizer") final ObjectProvider<DataHubAuthorizer> authorizerProvider,
       @Qualifier("entityService") final ObjectProvider<EntityService<?>> entityServiceProvider,
       @Value("${authorization.defaultAuthorizer.immediateUpdate.policyChangeWaitMillis:5000}")
-          final long policyChangeWaitMillis,
-      @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
-          final boolean changeBroadcastEnabled) {
+          final long policyChangeWaitMillis) {
     // system-update scans all factory packages but builds no authorizer. The authorizer has
     // immediate updates with either POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED or the broadcast flag.
     final DataHubAuthorizer authorizer = authorizerProvider.getIfAvailable();
@@ -48,7 +46,6 @@ public class PolicyChangeObserverFactory {
     final PolicyChangeObserver observer = authorizer::onPolicyChange;
     impl.setPolicyChangeObserver(observer);
     authorizer.setPolicyWritesObserved(true);
-    impl.setSyncPolicyWrites(changeBroadcastEnabled);
     return observer;
   }
 }
