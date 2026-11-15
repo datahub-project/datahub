@@ -88,6 +88,7 @@ def test_start_marks_and_records_stack(
     monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
     start = Mock(return_value=0)
     monkeypatch.setattr(local, "cmd_start_local", start)
+    monkeypatch.setattr(local, "launch_frontend", Mock(return_value=0))
     assert dev.cmd_start(argparse.Namespace(local=True, processes=2)) == 0
     registered = dev._get_instance()
     assert registered is not None and local.is_owned_entry(registered)
@@ -103,6 +104,7 @@ def test_start_can_restore_auth_and_remembers_setting(
     monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
     start = Mock(return_value=0)
     monkeypatch.setattr(local, "cmd_start_local", start)
+    monkeypatch.setattr(local, "launch_frontend", Mock(return_value=0))
     parser = dev.build_parser()
     for flags, no_auth in [
         (["--no-auth"], True),
@@ -129,6 +131,7 @@ def test_start_refuses_unknown_directory_without_reserving_slot(
     sentinel.write_text("keep")
     start = Mock()
     monkeypatch.setattr(local, "cmd_start_local", start)
+    monkeypatch.setattr(local, "launch_frontend", Mock(return_value=0))
 
     assert dev.cmd_start(dev.build_parser().parse_args(["start", "--local"])) == 1
     assert dev._get_instance() is None
@@ -423,7 +426,7 @@ def test_occupied_port_preserves_stack_data(
     with socket.socket() as listener:
         listener.bind(("127.0.0.1", 0))
         listener.listen()
-        ports = {"gms": listener.getsockname()[1]}
+        ports = {"gms": listener.getsockname()[1], "frontend": 9002}
         assert local.cmd_start_local(0, ports, "abc123", tmp_path, fresh=True) == 1
     assert sentinel.exists()
 
@@ -472,6 +475,7 @@ def test_env_restart_remembers_options(
     monkeypatch.setattr(local, "cmd_stop_local", Mock(return_value=0))
     start = Mock(return_value=0)
     monkeypatch.setattr(local, "cmd_start_local", start)
+    monkeypatch.setattr(local, "launch_frontend", Mock(return_value=0))
     assert dev.cmd_env_set(argparse.Namespace(assignment="FOO=bar")) == 0
     assert "FOO=bar" in dev._local_env_file().read_text()
     assert dev.cmd_env_restart(argparse.Namespace()) == 0
@@ -581,3 +585,91 @@ def test_fresh_clears_data_and_retains_instance_record(
     assert not (data_dir / "obsolete").exists()
     assert local.read_instance_record("abc123") == entry
     assert (data_dir / "env-overrides.env").read_text() == ""
+
+
+@pytest.mark.parametrize("valid", [True, False])
+def test_frontend_ownership_requires_task_and_exact_stack_path(
+    entry: dict[str, object], monkeypatch: pytest.MonkeyPatch, valid: bool
+) -> None:
+    data_dir = register(entry)
+    command = [
+        "/usr/bin/java",
+        "-jar",
+        "/repo/gradle/wrapper/gradle-wrapper.jar",
+        "--no-daemon",
+        ":datahub-web-react:yarnServe",
+        "-PfrontendMode=lite",
+        f"-PfrontendStackFile={data_dir / 'stack.json'}"
+        + (".other" if not valid else ""),
+    ]
+    monkeypatch.setattr(local, "_process_command", lambda pid: " ".join(command))
+    assert local._owned_by(123, data_dir) is valid
+    if not valid:
+        local._save_pids(data_dir / "pids.json", {"frontend": 123})
+        signal_process = Mock()
+        monkeypatch.setattr(local.os, "killpg", signal_process)
+        assert local.cmd_stop_local("abc123") == 0
+        signal_process.assert_not_called()
+
+
+def test_frontend_start_records_both_pids_before_readiness(
+    entry: dict[str, object], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    data_dir = register(entry)
+    (data_dir / "stack.json").write_text(json.dumps({"frontendPort": 9002}))
+    local._save_pids(data_dir / "pids.json", {"launcher": 456})
+    monkeypatch.setattr(local, "_occupied_stack_port", lambda *args, **kwargs: None)
+    process = Mock(pid=123)
+    process.poll.return_value = None
+    launch = Mock(return_value=process)
+    monkeypatch.setattr(local.subprocess, "Popen", launch)
+
+    def ready(url: str, timeout: float) -> bool:
+        assert local._load_pids(data_dir / "pids.json") == {
+            "launcher": 456,
+            "frontend": 123,
+        }
+        return True
+
+    monkeypatch.setattr(local, "_http_ok", ready)
+    assert local.launch_frontend("abc123", local.local_ports(0), tmp_path) == 0
+    command = launch.call_args.args[0]
+    assert f"-PfrontendStackFile={data_dir / 'stack.json'}" in command
+    assert ":datahub-web-react:yarnServe" in command
+    assert launch.call_args.kwargs["start_new_session"] is True
+
+
+def test_no_frontend_is_remembered_on_restart(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
+    monkeypatch.setattr(local, "cmd_start_local", Mock(return_value=0))
+    frontend = Mock()
+    monkeypatch.setattr(local, "launch_frontend", frontend)
+    for flags in [["--no-frontend"], []]:
+        assert (
+            dev.cmd_start(dev.build_parser().parse_args(["start", "--local", *flags]))
+            == 0
+        )
+        assert dev._get_instance()["local_options"]["no_frontend"] is True
+    frontend.assert_not_called()
+    frontend.return_value = 0
+    assert (
+        dev.cmd_start(dev.build_parser().parse_args(["start", "--local", "--frontend"]))
+        == 0
+    )
+    frontend.assert_called_once()
+
+
+def test_occupied_frontend_blocks_start_before_changing_data(
+    entry: dict[str, object], tmp_path: Path
+) -> None:
+    data_dir = register(entry)
+    sentinel = data_dir / "keep"
+    sentinel.touch()
+    with socket.socket() as listener:
+        listener.bind(("127.0.0.1", 0))
+        listener.listen()
+        ports = {"gms": 0, "frontend": listener.getsockname()[1]}
+        assert local.cmd_start_local(0, ports, "abc123", tmp_path, fresh=True) == 1
+        assert local._occupied_stack_port(ports, 1, no_frontend=True) is None
+    assert sentinel.exists()

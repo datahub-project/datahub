@@ -1940,6 +1940,9 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
         options = {
             "processes": getattr(args, "processes", None)
             or recorded.get("processes", 1),
+            "no_frontend": not args.frontend
+            if getattr(args, "frontend", None) is not None
+            else recorded.get("no_frontend", False),
             "no_auth": not args.auth
             if getattr(args, "auth", None) is not None
             else recorded.get("no_auth", False),
@@ -1998,18 +2001,23 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             _log(f"ERROR: {error}")
             return 1
         registry["instances"][WORKTREE_ID] = instance
-    return local.cmd_start_local(
+    result = local.cmd_start_local(
         slot=instance["slot"],
         ports=instance["ports"],
         worktree_id=WORKTREE_ID,
         repo_root=REPO_ROOT,
         processes=processes,
         no_auth=options["no_auth"],
+        no_frontend=options["no_frontend"],
         skip_build=getattr(args, "skip_build", False),
         fresh=getattr(args, "fresh", False),
         registry_instances=registry["instances"],
         timeout=getattr(args, "timeout", DEFAULT_TIMEOUT),
     )
+
+    if result or options["no_frontend"]:
+        return result
+    return local.launch_frontend(WORKTREE_ID, instance["ports"], REPO_ROOT)
 
 
 def cmd_start(args: argparse.Namespace) -> int:
@@ -2411,6 +2419,12 @@ def build_parser() -> argparse.ArgumentParser:
     # start
     start_p = subparsers.add_parser(
         "start", help="Start DataHub (quickstartDebug) and wait for readiness"
+    )
+    start_p.add_argument(
+        "--frontend",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable Vite in local mode (default: recorded value)",
     )
     start_p.add_argument(
         "--local",

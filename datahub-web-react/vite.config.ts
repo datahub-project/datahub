@@ -11,6 +11,7 @@ import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
+import { liteModePlugin } from './devtools/vite-preview-plugin/liteMode';
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
@@ -137,7 +138,7 @@ function substituteBasePathForDev(): PluginOption {
         name: 'substitute-base-path-dev',
         apply: 'serve',
         transformIndexHtml(html) {
-            return html.replace('@basePath', '/');
+            return html.replace('@basePath', '/').replace('@sentryConfig', 'null');
         },
     };
 }
@@ -181,14 +182,17 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
-    const proxyOptions = {
-        '/logIn': frontendProxy,
-        '/authenticate': frontendProxy,
-        '/api/v2/graphql': frontendProxy,
-        '/openapi/v1/tracking/track': frontendProxy,
-        '/openapi/v1/files': frontendProxy,
-        '/mfe/config': frontendProxy,
-    };
+    const proxyOptions =
+        process.env.PREVIEW_MODE === 'lite'
+            ? {}
+            : {
+                  '/logIn': frontendProxy,
+                  '/authenticate': frontendProxy,
+                  '/api/v2/graphql': frontendProxy,
+                  '/openapi/v1/tracking/track': frontendProxy,
+                  '/openapi/v1/files': frontendProxy,
+                  '/mfe/config': frontendProxy,
+              };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const localesDir = path.resolve(__dirname, 'src/i18n/locales');
@@ -207,6 +211,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            liteModePlugin(),
             i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
@@ -335,7 +340,7 @@ export default defineConfig(async ({ mode }) => {
         test: {
             // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
             // Vitest would otherwise collect it and fail with "No test suite found".
-            exclude: [...configDefaults.exclude, 'scripts/**'],
+            exclude: [...configDefaults.exclude, 'scripts/**', 'devtools/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',

@@ -105,8 +105,13 @@ def _http_ok(url: str, timeout: float = 3.0) -> bool:
         return False
 
 
-def _occupied_stack_port(ports: Mapping[str, int], processes: int) -> int | None:
-    for port in range(ports["gms"], ports["gms"] + processes):
+def _occupied_stack_port(
+    ports: Mapping[str, int], processes: int, no_frontend: bool = False
+) -> int | None:
+    requested = list(range(ports["gms"], ports["gms"] + processes))
+    if not no_frontend:
+        requested.append(ports["frontend"])
+    for port in requested:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as probe:
             probe.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
             try:
@@ -143,9 +148,21 @@ def _owned_by(pid: int, data_dir: Path, unknown: bool = False) -> bool:
         return unknown
     # Require both the launcher and the exact data argument: a substring can name
     # another stack or an unrelated process inspecting this directory.
-    return any(arg.endswith("/gms-lite-stack.py") for arg in args) and any(
+    launcher = any(arg.endswith("/gms-lite-stack.py") for arg in args) and any(
         args[i : i + 2] == ["--data-dir", str(data_dir)] for i in range(len(args) - 1)
     )
+    frontend = (
+        any(
+            arg.endswith("/gradlew")
+            or arg.endswith("/gradle/wrapper/gradle-wrapper.jar")
+            or arg == "org.gradle.wrapper.GradleWrapperMain"
+            for arg in args
+        )
+        and ":datahub-web-react:yarnServe" in args
+        and f"-PfrontendStackFile={data_dir / 'stack.json'}" in args
+        and "-PfrontendMode=lite" in args
+    )
+    return launcher or frontend
 
 
 def _load_pids(path: Path) -> dict[str, int]:
@@ -171,8 +188,12 @@ def _launcher_alive(data_dir: Path) -> bool:
 
 
 def stack_running(worktree_id: str, ports: Mapping[str, int] | None = None) -> bool:
-    return _launcher_alive(local_data_dir(worktree_id)) or bool(
-        ports and _http_ok(f"http://localhost:{ports['gms']}/health")
+    data_dir = local_data_dir(worktree_id)
+    frontend = _load_pids(data_dir / "pids.json").get("frontend")
+    return (
+        _launcher_alive(data_dir)
+        or bool(frontend and _owned_by(frontend, data_dir, unknown=True))
+        or bool(ports and _http_ok(f"http://localhost:{ports['gms']}/health"))
     )
 
 
@@ -392,6 +413,7 @@ def cmd_start_local(
     skip_build: bool = False,
     fresh: bool = False,
     no_auth: bool = False,
+    no_frontend: bool = False,
     registry_instances: Mapping[str, Mapping[str, object]] | None = None,
     timeout: int = 1200,
 ) -> int:
@@ -411,7 +433,7 @@ def cmd_start_local(
             "ERROR: this local stack is running or still starting; stop it first with 'datahub-dev.sh stop'."
         )
         return 1
-    occupied = _occupied_stack_port(ports, processes)
+    occupied = _occupied_stack_port(ports, processes, no_frontend)
     if occupied is not None:
         _log(
             f"ERROR: port {occupied} is in use; stop the owning service before starting this stack"
@@ -468,6 +490,8 @@ def cmd_start_local(
         str(ports["gms"]),
         "--data-dir",
         str(data_dir),
+        "--frontend-port",
+        str(ports["frontend"]),
         "--shared-opensearch-dir",
         str(SHARED_OPENSEARCH_DIR),
         "--env-file",
@@ -506,8 +530,69 @@ def cmd_start_local(
     return 1
 
 
+def launch_frontend(
+    worktree_id: str, ports: Mapping[str, int], repo_root: Path, timeout: int = 900
+) -> int:
+    _require_owned(worktree_id)
+    data_dir = local_data_dir(worktree_id)
+    stack_file = data_dir / "stack.json"
+    stack = json.loads(stack_file.read_text())
+    port = ports["frontend"]
+    if stack.get("frontendPort") != port:
+        _log(
+            f"ERROR: frontendPort does not match registry; restart the stack: {stack_file}"
+        )
+        return 1
+    pids_file = data_dir / "pids.json"
+    pids = _load_pids(pids_file)
+    pid = pids.get("frontend")
+    if pid and _owned_by(pid, data_dir, unknown=True):
+        if _owned_by(pid, data_dir) and _http_ok(f"http://localhost:{port}/health"):
+            _log(f"Frontend HMR already running: http://localhost:{port}")
+            return 0
+        _log("ERROR: frontend is still starting or ownership is unknown; stop it first")
+        return 1
+    if _occupied_stack_port({"gms": port, "frontend": port}, 1, no_frontend=True):
+        _log(f"ERROR: frontend port {port} is in use; stop its owning service first")
+        return 1
+    command = [
+        str(repo_root / "gradlew"),
+        "--no-daemon",
+        ":datahub-web-react:yarnServe",
+        f"-PfrontendPort={port}",
+        "-PfrontendMode=lite",
+        f"-PfrontendStackFile={stack_file}",
+    ]
+    log_file = data_dir / "frontend.log"
+    _log(f"Starting frontend HMR: http://localhost:{port}; tail -f {log_file}")
+    with log_file.open("w") as output:
+        process = subprocess.Popen(
+            command,
+            cwd=repo_root,
+            stdin=subprocess.DEVNULL,
+            stdout=output,
+            stderr=subprocess.STDOUT,
+            start_new_session=True,
+            env={**os.environ, "GMS_LITE_STACK_FILE": str(stack_file)},
+        )
+    # Record before dependency preparation so stop can interrupt a partially started frontend.
+    _save_pids(pids_file, {**pids, "frontend": process.pid})
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if process.poll() is not None:
+            _log(f"ERROR: frontend exited with {process.returncode}; see {log_file}")
+            return 1
+        if _http_ok(f"http://localhost:{port}/health", timeout=1):
+            _log(f"Frontend HMR ready: http://localhost:{port}")
+            return 0
+        time.sleep(1)
+    _log(f"ERROR: frontend did not become ready within {timeout}s; see {log_file}")
+    cmd_stop_local(worktree_id)
+    return 1
+
+
 def cmd_stop_local(worktree_id: str) -> int:
-    """Stop only the recorded launcher; its shutdown handler stops its children."""
+    """Stop the recorded launcher and frontend only after proving ownership."""
     _require_owned(worktree_id)
     data_dir = local_data_dir(worktree_id)
     pids_file = data_dir / "pids.json"
@@ -555,9 +640,9 @@ def cmd_stop_local(worktree_id: str) -> int:
         except (ProcessLookupError, PermissionError):
             pass
 
-    if _launcher_alive(data_dir):
+    if any(_owned_by(pid, data_dir, unknown=True) for pid in pids.values()):
         _log(
-            "ERROR: launcher ownership is unknown or it did not stop; PID file retained"
+            "ERROR: process ownership is unknown or it did not stop; PID file retained"
         )
         return 1
     pids_file.unlink(missing_ok=True)
@@ -578,6 +663,17 @@ def cmd_status_local(worktree_id: str, ports: dict[str, int]) -> int:
     for name, url in urls.items():
         services[name] = {"url": url, "healthy": _http_ok(f"{url}/health")}
     ready = bool(services) and all(service["healthy"] for service in services.values())
+    record = read_instance_record(worktree_id) or {}
+    options = cast(dict[str, object], record.get("local_options", {}))
+    if not options.get("no_frontend", False):
+        frontend_pid = _load_pids(data_dir / "pids.json").get("frontend")
+        frontend_url = f"http://localhost:{ports['frontend']}"
+        services["frontend"] = {
+            "url": frontend_url,
+            "pid": frontend_pid,
+            "healthy": bool(frontend_pid and _owned_by(frontend_pid, data_dir))
+            and _http_ok(f"{frontend_url}/health"),
+        }
     manager = opensearch_manager()
     status = manager.status()
     if status["healthy"]:

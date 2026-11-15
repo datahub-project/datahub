@@ -472,14 +472,17 @@ Run `scripts/dev/datahub-dev.sh --help` to see all available subcommands (`start
 `setup`, `frontend`, `docs`, `status`, `wait`, `rebuild`, `test`, `flag list/get`, `env`,
 `sync-flags`, `reset`, `nuke`, `instances list/clean`, `shell-env`).
 
-### Docker-free backend
+### Docker-free stack
 
 Run `scripts/dev/datahub-dev.sh start --local` with JDK 25 to launch GMS on H2,
 in-memory queues and a shared OpenSearch 3 node. Use `--processes N` for isolated
 GMS instances, `--fresh` to reset this stack's data, `--auth` / `--no-auth` to enable
 or disable auth (omitting both keeps the recorded setting), and `--skip-build`
 to require existing artifacts (built jars are reused automatically).
-Data lives in `~/.datahub/local/stacks/<worktree-id>/`; this mode has no frontend.
+Vite serves the React UI with hot reload on `9002 + slot * 1000`, using lite mode
+without a Play server. Log in with `datahub` / `datahub`. `--no-frontend` skips Vite;
+restarts retain this choice. Status includes Vite, and stop/nuke stop its recorded process
+only after checking its command line. Data lives in `~/.datahub/local/stacks/<worktree-id>/`.
 
 `status`, `wait`, `stop`, `reset`, `rebuild`, `env set/list/restart`, `instances list/clean`, `nuke`
 and `shell-env` recognize local stacks. Local `nuke` removes this stack's data,

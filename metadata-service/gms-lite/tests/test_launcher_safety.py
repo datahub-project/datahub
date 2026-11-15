@@ -56,6 +56,26 @@ def hold_port(connection: Connection) -> None:
 
 
 class LauncherSafetyTest(unittest.TestCase):
+    def test_frontend_port_cannot_overlap_gms(self) -> None:
+        with (
+            patch.object(
+                sys,
+                "argv",
+                [
+                    "gms-lite-stack.py",
+                    "--port-base",
+                    "18090",
+                    "--frontend-port",
+                    "18090",
+                ],
+            ),
+            patch.object(stack, "run_stack") as run,
+        ):
+            with self.assertRaises(SystemExit) as error:
+                stack.main()
+            self.assertEqual(error.exception.code, 2)
+            run.assert_not_called()
+
     def test_occupied_port_is_rejected_without_terminating_owner(self) -> None:
         parent, child = multiprocessing.Pipe()
         owner = multiprocessing.Process(target=hold_port, args=(child,))
