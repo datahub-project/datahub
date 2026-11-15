@@ -16,7 +16,7 @@ from typing import (
     Sequence,
     Set,
 )
-from urllib.parse import quote
+from urllib.parse import quote, urlparse
 
 from pydantic import model_validator
 from pydantic.fields import Field
@@ -100,6 +100,14 @@ _JTDS_RE: Final = re.compile(
 
 # Default connection settings
 DEFAULT_CONNECT_URI: Final[str] = "http://localhost:8083/"
+
+# Path of a Confluent Cloud Connect REST URI, e.g.
+#   /connect/v1/environments/env-xxxxx/clusters/lkc-xxxxx
+# Only ever matched against the parsed path: userinfo lives in the netloc, so
+# credentials embedded in connect_uri cannot leak into the extracted ids.
+_CONFLUENT_CLOUD_CONNECT_PATH_RE: Final = re.compile(
+    r"/connect/v1/environments/(?P<env>[^/]+)/clusters/(?P<cluster>[^/]+)"
+)
 
 # Confluent Cloud web console. Connector pages live under a per-type path
 # segment, e.g.
@@ -425,31 +433,82 @@ class KafkaConnectSourceConfig(
         """
         Detect if this configuration is for Confluent Cloud.
 
-        Detection logic:
-        1. If environment_id and cluster_id are explicitly configured, assume Confluent Cloud
-        2. Otherwise, check if connect_uri follows Confluent Cloud pattern:
-           https://api.confluent.cloud/connect/v1/environments/{env-id}/clusters/{cluster-id}
+        The environment and cluster ids are the single source of truth. A config
+        that sets only a Confluent Cloud connect_uri has them backfilled from the
+        URI during validation (see _resolve_confluent_cloud_ids).
         """
-        # Explicit Confluent Cloud configuration takes precedence
-        if self.confluent_cloud_environment_id and self.confluent_cloud_cluster_id:
-            return True
+        return bool(
+            self.confluent_cloud_environment_id and self.confluent_cloud_cluster_id
+        )
 
-        # Fallback to URI-based detection
-        uri = self.connect_uri.lower()
-        return "api.confluent.cloud" in uri and "/connect/v1/" in uri
+    def _resolve_confluent_cloud_ids(self) -> None:
+        """
+        Reconcile the Confluent Cloud ids with connect_uri.
+
+        - Exactly one id set is an error.
+        - No ids and a Confluent Cloud connect_uri: the ids are taken from its path.
+        - Ids set and connect_uri naming a different environment or cluster is an
+          error, since ingestion would read one cluster while the metadata derived
+          from the ids (such as console links) describes another. Only the ids are
+          compared, not the host, so a proxy or mock serving the Cloud API path
+          from another host stays valid.
+        - Ids set and a connect_uri that names no environment or cluster (e.g. a
+          proxy at a custom path) is accepted, and the ids are used as given.
+        """
+        env_id = self.confluent_cloud_environment_id
+        cluster_id = self.confluent_cloud_cluster_id
+
+        if (env_id is None) != (cluster_id is None):
+            raise ValueError(
+                "Configuration error: Both 'confluent_cloud_environment_id' and 'confluent_cloud_cluster_id' "
+                "must be provided together for automatic URI construction. "
+                f"Currently environment_id={'not set' if env_id is None else 'set'}, "
+                f"cluster_id={'not set' if cluster_id is None else 'set'}."
+            )
+
+        parsed_uri = urlparse(self.connect_uri)
+        path_match = _CONFLUENT_CLOUD_CONNECT_PATH_RE.search(parsed_uri.path)
+
+        if env_id is None:
+            if path_match and "api.confluent.cloud" in (parsed_uri.hostname or ""):
+                self.confluent_cloud_environment_id = path_match["env"]
+                self.confluent_cloud_cluster_id = path_match["cluster"]
+            return
+
+        if path_match is None:
+            # Not logging connect_uri itself: it may embed credentials.
+            logger.warning(
+                "connect_uri does not name a Confluent Cloud environment and cluster. "
+                f"Ingestion will connect to connect_uri, and treat the deployment as "
+                f"Confluent Cloud environment '{env_id}', cluster '{cluster_id}'."
+            )
+            return
+
+        if path_match["env"] != env_id or path_match["cluster"] != cluster_id:
+            raise ValueError(
+                "Configuration error: 'connect_uri' names Confluent Cloud environment "
+                f"'{path_match['env']}' and cluster '{path_match['cluster']}', but "
+                f"confluent_cloud_environment_id='{env_id}' and "
+                f"confluent_cloud_cluster_id='{cluster_id}'. Make the ids match "
+                "connect_uri, or remove connect_uri to have it constructed from the ids."
+            )
 
     @model_validator(mode="after")
     def validate_configuration_interdependencies(self) -> "KafkaConnectSourceConfig":
         """
         Validate configuration field interdependencies and provide clear error messages.
 
-        Checks:
-        1. Auto-enable schema_resolver for Confluent Cloud (if not explicitly disabled)
-        2. Schema resolver dependent fields require use_schema_resolver=True
-        3. Kafka API credentials are complete (key + secret)
-        4. Confluent Cloud IDs are complete (environment + cluster)
-        5. Warn if conflicting configurations are provided
+        Checks, after reconciling the Confluent Cloud ids with connect_uri:
+        0. Auto-enable schema_resolver for Confluent Cloud (if not explicitly disabled)
+        1. Default the schema resolver sub-features from use_schema_resolver
+        2. Kafka API credentials are complete (key + secret)
+        3. kafka_rest_endpoint is an HTTP(S) URL
+        4. Warn if schema resolver is enabled with every feature disabled
         """
+        # Must run first: is_confluent_cloud() reads the ids it may backfill, and
+        # gates the schema-resolver auto-enable below.
+        self._resolve_confluent_cloud_ids()
+
         # 0. Auto-enable schema_resolver for Confluent Cloud if not explicitly configured
         # This provides better defaults for Cloud users who likely have proper DataHub setup
         if self.is_confluent_cloud() and self.use_schema_resolver is False:
@@ -490,36 +549,7 @@ class KafkaConnectSourceConfig(
                 f"kafka_api_secret={'set' if kafka_api_secret_provided else 'not set'}."
             )
 
-        # 3. Validate Confluent Cloud IDs are complete
-        env_id_provided = self.confluent_cloud_environment_id is not None
-        cluster_id_provided = self.confluent_cloud_cluster_id is not None
-
-        if env_id_provided != cluster_id_provided:
-            raise ValueError(
-                "Configuration error: Both 'confluent_cloud_environment_id' and 'confluent_cloud_cluster_id' "
-                "must be provided together for automatic URI construction. "
-                f"Currently environment_id={'set' if env_id_provided else 'not set'}, "
-                f"cluster_id={'set' if cluster_id_provided else 'not set'}."
-            )
-
-        # 4. Warn if conflicting configurations (informational, not error)
-        if env_id_provided and cluster_id_provided:
-            # Confluent Cloud IDs provided - check for potential conflicts
-            if self.connect_uri and self.connect_uri != DEFAULT_CONNECT_URI:
-                # User explicitly set connect_uri AND provided Cloud IDs
-                constructed_uri = self.construct_confluent_cloud_uri(
-                    self.confluent_cloud_environment_id,  # type: ignore[arg-type]
-                    self.confluent_cloud_cluster_id,  # type: ignore[arg-type]
-                )
-                if self.connect_uri != constructed_uri:
-                    logger.warning(
-                        f"Configuration conflict: Both 'connect_uri' and Confluent Cloud IDs are set. "
-                        f"Using connect_uri='{self.connect_uri}' (ignoring environment/cluster IDs). "
-                        f"Expected URI from IDs would be: '{constructed_uri}'. "
-                        f"Remove connect_uri to use automatic URI construction."
-                    )
-
-        # 5. Validate kafka_rest_endpoint format if provided
+        # 3. Validate kafka_rest_endpoint format if provided
         if self.kafka_rest_endpoint:
             if not self.kafka_rest_endpoint.startswith(("http://", "https://")):
                 raise ValueError(
@@ -528,7 +558,7 @@ class KafkaConnectSourceConfig(
                     f"Expected format: https://pkc-xxxxx.region.provider.confluent.cloud"
                 )
 
-        # 6. Warn if schema resolver enabled but all features explicitly disabled
+        # 4. Warn if schema resolver enabled but all features explicitly disabled
         if self.use_schema_resolver:
             if (
                 self.schema_resolver_expand_patterns is False

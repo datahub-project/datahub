@@ -5920,8 +5920,8 @@ class TestConnectorExternalUrl:
 
         assert get_connector_external_url(config, self.manifest("sink")) is None
 
-    def test_cloud_without_ids_has_no_url(self) -> None:
-        """Confluent Cloud detected from connect_uri alone lacks the ids."""
+    def test_cloud_configured_by_uri_alone_gets_url(self) -> None:
+        """The ids are backfilled from a Confluent Cloud connect_uri."""
         config = KafkaConnectSourceConfig(
             connect_uri=(
                 "https://api.confluent.cloud/connect/v1"
@@ -5931,9 +5931,19 @@ class TestConnectorExternalUrl:
             password="test-api-secret",
         )
 
-        assert config.is_confluent_cloud() is True
-        assert config.confluent_cloud_environment_id is None
-        assert get_connector_external_url(config, self.manifest("sink")) is None
+        assert get_connector_external_url(config, self.manifest("sink", "my-sink")) == (
+            f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
+            f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sinks/my-sink"
+        )
+
+    def test_uri_naming_no_cluster_uses_ids_for_url(self) -> None:
+        """A proxy connect_uri cannot contradict the ids, so they drive the URL."""
+        config = self.cloud_config(connect_uri="https://connect-proxy.example/v1")
+
+        assert get_connector_external_url(config, self.manifest("sink", "my-sink")) == (
+            f"https://confluent.cloud/environments/{self.CLOUD_ENV_ID}"
+            f"/clusters/{self.CLOUD_CLUSTER_ID}/connectors/sinks/my-sink"
+        )
 
     def _flow_info(self, config: KafkaConnectSourceConfig) -> DataFlowInfoClass:
         from datahub.ingestion.source.kafka_connect.kafka_connect import (
