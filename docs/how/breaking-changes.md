@@ -74,6 +74,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#21234](https://github.com/datahub-project/datahub/pull/21234) **(GMS / Authorization, Java extensions only)** `DataHubAuthorizer` has a new constructor argument, `policyLoader`, and no longer exposes its policy cache fields (`policyCache`, `readWriteLock`, `readLock`). Policy evaluation is unchanged. **Action:** code that builds or subclasses `DataHubAuthorizer` passes `null` as the last constructor argument to keep the current behavior, and uses `replacePolicies` instead of writing to the cache fields. Deployments that do not extend `DataHubAuthorizer` need no change.
+
 - [#21159](https://github.com/datahub-project/datahub/pull/21159) **(Ingestion / GitHub documents)** OKF import is now off by default. The default-on behavior only shipped in 1.7.0.20 release candidates. Files, including their frontmatter, are imported as plain text unless you opt in. Server support is no longer detected automatically. **Action:** set `enable_okf: true` to import OKF concepts; this requires a DataHub server with the `okfProperties` aspect and fails the run if the server does not support it. Turning OKF off clears previously imported OKF metadata when a graph connection is available.
 
 - [#21095](https://github.com/datahub-project/datahub/pull/21095) **(GMS / Search)** The opt-in setting `ELASTICSEARCH_SEARCH_HIDE_NON_PRIMARY_SIBLINGS` is removed. It was never in an OSS release, but some builds had it. With it on, a search could leave out a whole sibling group, and API, SDK and CLI listings could skip datasets. Search, autocomplete and browse no longer hide non-primary siblings. **Action:** remove the variable if you set it; it is ignored.

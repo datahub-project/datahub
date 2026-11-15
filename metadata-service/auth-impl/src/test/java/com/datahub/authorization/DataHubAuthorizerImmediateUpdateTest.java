@@ -6,11 +6,13 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.datahub.authentication.group.GroupService;
+import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.client.EntityClient;
@@ -18,11 +20,15 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.time.Duration;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.TimeUnit;
@@ -30,21 +36,35 @@ import java.util.concurrent.atomic.AtomicInteger;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
-/** Tests for the SQL policy source: synchronous first load, ordered and joined loads. */
-public class DataHubAuthorizerSqlSourceTest {
+/**
+ * Tests for immediate policy updates: synchronous first load, key reads, the recent-changes list,
+ * and ordered, joined jobs.
+ */
+public class DataHubAuthorizerImmediateUpdateTest {
 
-  /** A loader whose result can change between calls, and that can fail or block on demand. */
+  /**
+   * A primary store plus a search index that can lag behind it. A full load lists the indexed URNs
+   * and reads their content from the store, as the search-based loader does.
+   */
   private static final class FakeLoader implements PolicyLoader {
-    final List<PolicyFetcher.Policy> policies = new CopyOnWriteArrayList<>();
-    final AtomicInteger calls = new AtomicInteger();
+    final Map<Urn, PolicyFetcher.Policy> store = new ConcurrentHashMap<>();
+    final Set<Urn> indexed = ConcurrentHashMap.newKeySet();
+    final AtomicInteger fullLoads = new AtomicInteger();
+    final AtomicInteger keyReads = new AtomicInteger();
     volatile int failuresLeft = 0;
-    volatile int skipped = 0;
     volatile CountDownLatch entered;
     volatile CountDownLatch release;
 
+    void add(PolicyFetcher.Policy policy, boolean indexNow) {
+      store.put(policy.getUrn(), policy);
+      if (indexNow) {
+        indexed.add(policy.getUrn());
+      }
+    }
+
     @Override
-    public Result loadAll() {
-      calls.incrementAndGet();
+    public List<PolicyFetcher.Policy> loadAll() {
+      fullLoads.incrementAndGet();
       if (entered != null) {
         entered.countDown();
       }
@@ -57,10 +77,32 @@ public class DataHubAuthorizerSqlSourceTest {
       }
       if (failuresLeft > 0) {
         failuresLeft--;
-        throw new IllegalStateException("simulated database error");
+        throw new IllegalStateException("simulated search error");
       }
-      return new Result(new ArrayList<>(policies), skipped);
+      List<PolicyFetcher.Policy> result = new ArrayList<>();
+      for (Urn urn : indexed) {
+        if (store.containsKey(urn)) {
+          result.add(store.get(urn));
+        }
+      }
+      return result;
     }
+
+    @Override
+    public Map<Urn, PolicyFetcher.Policy> loadByUrns(Set<Urn> urns) {
+      keyReads.incrementAndGet();
+      Map<Urn, PolicyFetcher.Policy> result = new HashMap<>();
+      for (Urn urn : urns) {
+        if (store.containsKey(urn)) {
+          result.put(urn, store.get(urn));
+        }
+      }
+      return result;
+    }
+  }
+
+  private static Urn urn(String id) {
+    return UrnUtils.getUrn("urn:li:dataHubPolicy:" + id);
   }
 
   private static PolicyFetcher.Policy policy(String id, Long lastUpdated) {
@@ -73,12 +115,18 @@ public class DataHubAuthorizerSqlSourceTest {
     if (lastUpdated != null) {
       info.setLastUpdatedTimestamp(lastUpdated);
     }
-    return new PolicyFetcher.Policy(UrnUtils.getUrn("urn:li:dataHubPolicy:" + id), info);
+    return new PolicyFetcher.Policy(urn(id), info);
   }
 
   private static DataHubAuthorizer authorizer(PolicyLoader loader, int refreshSeconds) {
+    return authorizer(
+        TestOperationContexts.systemContextNoSearchAuthorization(), loader, refreshSeconds);
+  }
+
+  private static DataHubAuthorizer authorizer(
+      OperationContext context, PolicyLoader loader, int refreshSeconds) {
     return new DataHubAuthorizer(
-        TestOperationContexts.systemContextNoSearchAuthorization(),
+        context,
         mock(EntityClient.class),
         mock(GroupService.class),
         10,
@@ -97,33 +145,101 @@ public class DataHubAuthorizerSqlSourceTest {
     return names;
   }
 
+  private static void waitFor(java.util.function.BooleanSupplier condition) throws Exception {
+    long deadline = System.currentTimeMillis() + 10_000;
+    while (!condition.getAsBoolean() && System.currentTimeMillis() < deadline) {
+      Thread.sleep(20);
+    }
+  }
+
   @Test
   public void testInitialLoadIsSynchronous() {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     DataHubAuthorizer authorizer = authorizer(loader, 120);
 
     assertTrue(authorizer.initialLoad(1, 0));
 
     assertEquals(allNames(authorizer), List.of("p1"));
-    assertTrue(authorizer.isSqlSourceEnabled());
+    assertTrue(authorizer.isImmediateUpdateEnabled());
   }
 
   @Test
-  public void testRequestedLoadReadsTheCurrentData() throws Exception {
+  public void testUpdateReadsOnlyTheChangedPolicyByKey() throws Exception {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
-    DataHubAuthorizer authorizer = authorizer(loader, 120);
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
 
-    loader.policies.add(policy("p2", 2L));
+    // Committed, but the search index does not list it yet.
+    loader.add(policy("p2", 2L), false);
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p2", "p1"));
+    assertEquals(loader.fullLoads.get(), 1, "an update must not run a full load");
+  }
+
+  @Test
+  public void testUpdateRemovesADeletedPolicy() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p2", 2L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    loader.store.remove(urn("p2"));
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testFullLoadKeepsARecentChangeTheIndexDoesNotListYet() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    loader.add(policy("p2", 2L), false);
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+    // A timer reload while the index still lags must not drop p2.
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
 
     assertEquals(allNames(authorizer), List.of("p2", "p1"));
   }
 
   @Test
-  public void testRequestsDuringARunningLoadJoinOneLaterLoad() throws Exception {
+  public void testRecentChangeExpires() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.setRecentChangeWindow(Duration.ofMillis(50));
+    authorizer.initialLoad(1, 0);
+
+    loader.add(policy("p2", 2L), false);
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+    Thread.sleep(100);
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+
+    // After the window, the cache follows the index again.
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testUpdateBeforeTheFirstLoadLoadsEverything() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p2", 2L), false);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+
+    // No initial load: a key read alone would leave the cache with only p2.
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p2", "p1"));
+  }
+
+  @Test
+  public void testRequestsDuringARunningJobJoinOneLaterJob() throws Exception {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     loader.entered = new CountDownLatch(1);
@@ -133,12 +249,14 @@ public class DataHubAuthorizerSqlSourceTest {
     assertTrue(loader.entered.await(10, TimeUnit.SECONDS), "first load did not start");
 
     // The first load is running. These requests may follow commits it did not see, so they must
-    // get a later load, and they should all share that one load.
-    loader.policies.add(policy("p1", 1L));
+    // get a later job, and they should all share that one job.
+    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p2", 2L), false);
     List<CompletableFuture<Void>> later = new ArrayList<>();
-    for (int i = 0; i < 5; i++) {
+    for (int i = 0; i < 3; i++) {
       later.add(authorizer.requestLoad());
     }
+    later.add(authorizer.requestUpdate(List.of(urn("p2"))));
 
     loader.release.countDown();
     first.get(10, TimeUnit.SECONDS);
@@ -146,18 +264,19 @@ public class DataHubAuthorizerSqlSourceTest {
       f.get(10, TimeUnit.SECONDS);
     }
 
-    assertEquals(loader.calls.get(), 2);
-    assertEquals(allNames(authorizer), List.of("p1"));
+    assertEquals(loader.fullLoads.get(), 2);
+    // The joined full load also read the waiting URN.
+    assertEquals(allNames(authorizer), List.of("p2", "p1"));
   }
 
   @Test
   public void testFailedLoadKeepsThePreviousPolicies() throws Exception {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
 
-    loader.policies.clear();
+    loader.store.clear();
     loader.failuresLeft = 1;
     CompletableFuture<Void> failed = authorizer.requestLoad();
 
@@ -168,15 +287,15 @@ public class DataHubAuthorizerSqlSourceTest {
   @Test
   public void testInitialLoadRetriesThenContinuesWithoutPolicies() throws Exception {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     loader.failuresLeft = 10;
     DataHubAuthorizer authorizer = authorizer(loader, 120);
 
     assertFalse(authorizer.initialLoad(3, 0));
-    assertEquals(loader.calls.get(), 3);
+    assertEquals(loader.fullLoads.get(), 3);
     assertEquals(allNames(authorizer), List.of());
 
-    // The database recovers; the next requested load succeeds.
+    // Search recovers; the next requested load succeeds.
     loader.failuresLeft = 0;
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
     assertEquals(allNames(authorizer), List.of("p1"));
@@ -185,7 +304,7 @@ public class DataHubAuthorizerSqlSourceTest {
   @Test
   public void testFailedStartupRetriesBeforeTheRefreshInterval() throws Exception {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     loader.failuresLeft = 2;
     DataHubAuthorizer authorizer = authorizer(loader, 120);
     authorizer.setFirstLoadRetryMillis(50);
@@ -193,14 +312,11 @@ public class DataHubAuthorizerSqlSourceTest {
     assertFalse(authorizer.initialLoad(1, 0));
 
     // No request and no timer tick: the retry after a failed first load loads p1.
-    long deadline = System.currentTimeMillis() + 10_000;
-    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
-      Thread.sleep(20);
-    }
+    waitFor(() -> !allNames(authorizer).isEmpty());
     assertEquals(allNames(authorizer), List.of("p1"));
-    int calls = loader.calls.get();
+    int calls = loader.fullLoads.get();
     Thread.sleep(300);
-    assertEquals(loader.calls.get(), calls, "retries stop after the first success");
+    assertEquals(loader.fullLoads.get(), calls, "retries stop after the first success");
   }
 
   @Test
@@ -211,19 +327,19 @@ public class DataHubAuthorizerSqlSourceTest {
     authorizer.setFirstLoadRetryMillis(100);
 
     assertFalse(authorizer.initialLoad(1, 0));
-    // More failed loads from other paths while the database is down.
+    // More failed loads from other paths while search is down.
     for (int i = 0; i < 4; i++) {
       try {
         authorizer.requestLoad().get(10, TimeUnit.SECONDS);
       } catch (ExecutionException expected) {
-        // The database is down.
+        // Search is down.
       }
     }
-    int before = loader.calls.get();
+    int before = loader.fullLoads.get();
     Thread.sleep(1_000);
 
     // One chain retries about 10 times per second; five chains would retry about 50 times.
-    int retries = loader.calls.get() - before;
+    int retries = loader.fullLoads.get() - before;
     assertTrue(retries <= 15, "retries in 1 s: " + retries);
     loader.failuresLeft = 0;
   }
@@ -231,8 +347,8 @@ public class DataHubAuthorizerSqlSourceTest {
   @Test
   public void testUrnBreaksTimestampTies() {
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("b", 5L));
-    loader.policies.add(policy("a", 5L));
+    loader.add(policy("b", 5L), true);
+    loader.add(policy("a", 5L), true);
     DataHubAuthorizer authorizer = authorizer(loader, 0);
 
     authorizer.initialLoad(1, 0);
@@ -245,7 +361,7 @@ public class DataHubAuthorizerSqlSourceTest {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
 
     authorizer.invalidateCache();
     // A request made after invalidateCache joins or follows its load, so it sees p1 either way.
@@ -259,42 +375,52 @@ public class DataHubAuthorizerSqlSourceTest {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 1);
     authorizer.initialLoad(1, 0);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
 
     // No request and no invalidateCache: only the 1 s timer can load p1.
-    long deadline = System.currentTimeMillis() + 10_000;
-    while (allNames(authorizer).isEmpty() && System.currentTimeMillis() < deadline) {
-      Thread.sleep(50);
-    }
+    waitFor(() -> !allNames(authorizer).isEmpty());
     assertEquals(allNames(authorizer), List.of("p1"));
   }
 
   @Test
-  public void testLoadMetrics() throws Exception {
+  public void testTimerReportsAStuckLoad() throws Exception {
     MetricUtils metrics = mock(MetricUtils.class);
     OperationContext context = mock(OperationContext.class);
     when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
     FakeLoader loader = new FakeLoader();
-    loader.policies.add(policy("p1", 1L));
-    loader.skipped = 2;
-    DataHubAuthorizer authorizer =
-        new DataHubAuthorizer(
-            context,
-            mock(EntityClient.class),
-            mock(GroupService.class),
-            10,
-            0,
-            DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1000,
-            loader);
+    DataHubAuthorizer authorizer = authorizer(context, loader, 1);
+    authorizer.initialLoad(1, 0);
+    loader.entered = new CountDownLatch(1);
+    loader.release = new CountDownLatch(1);
+    try {
+      // The timer queues a load that hangs; its next ticks still run and report it.
+      verify(metrics, timeout(10_000))
+          .increment(DataHubAuthorizer.class, "policyCache.load.stuck", 1);
+    } finally {
+      loader.release.countDown();
+    }
+  }
+
+  @Test
+  public void testLoadAndUpdateMetrics() throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext context = mock(OperationContext.class);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(context, loader, 0);
 
     assertTrue(authorizer.initialLoad(1, 0));
     verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
     verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.run", 1);
-    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.skipped", 2);
     verify(metrics).setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", 1);
     verify(metrics)
         .time(eq(DataHubAuthorizer.class.getName() + ".policyCache.load.duration"), anyLong());
+
+    authorizer.requestUpdate(List.of(urn("p1"))).get(10, TimeUnit.SECONDS);
+    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.update.run", 1);
+    verify(metrics)
+        .time(eq(DataHubAuthorizer.class.getName() + ".policyCache.update.duration"), anyLong());
     verify(metrics, never())
         .increment(eq(DataHubAuthorizer.class), eq("policyCache.load.failed"), anyDouble());
 
@@ -303,24 +429,17 @@ public class DataHubAuthorizerSqlSourceTest {
       authorizer.requestLoad().get(10, TimeUnit.SECONDS);
       fail("the load must fail");
     } catch (ExecutionException expected) {
-      // The simulated database error.
+      // The simulated search error.
     }
     verify(metrics, atLeastOnce()).increment(DataHubAuthorizer.class, "policyCache.load.failed", 1);
   }
 
   @Test
-  public void testWithoutLoaderTheSqlSourceIsOff() {
-    DataHubAuthorizer authorizer =
-        new DataHubAuthorizer(
-            TestOperationContexts.systemContextNoSearchAuthorization(),
-            mock(EntityClient.class),
-            mock(GroupService.class),
-            10,
-            0,
-            DataHubAuthorizer.AuthorizationMode.DEFAULT,
-            1000,
-            null);
-    assertFalse(authorizer.isSqlSourceEnabled());
+  public void testWithoutLoaderImmediateUpdatesAreOff() throws Exception {
+    DataHubAuthorizer authorizer = authorizer(null, 0);
+    assertFalse(authorizer.isImmediateUpdateEnabled());
+    // Requests complete at once and do nothing.
+    authorizer.requestUpdate(List.of(urn("p1"))).get(1, TimeUnit.SECONDS);
   }
 
   @Test
@@ -328,7 +447,7 @@ public class DataHubAuthorizerSqlSourceTest {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
 
     authorizer.onPolicyChange();
 
@@ -342,7 +461,7 @@ public class DataHubAuthorizerSqlSourceTest {
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
     authorizer.setPolicyChangeWaitMillis(50);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     loader.release = new CountDownLatch(1);
 
     long start = System.nanoTime();
@@ -384,12 +503,12 @@ public class DataHubAuthorizerSqlSourceTest {
     authorizer.invalidateCache();
     // Any load that invalidateCache queued would run before this one on the single load thread.
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
-    assertEquals(loader.calls.get(), 2, "initial load and the request above only");
+    assertEquals(loader.fullLoads.get(), 2, "initial load and the request above only");
 
     authorizer.setPolicyWritesObserved(false);
     authorizer.invalidateCache();
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
-    assertTrue(loader.calls.get() >= 3);
+    assertTrue(loader.fullLoads.get() >= 3);
   }
 
   @Test
@@ -397,7 +516,7 @@ public class DataHubAuthorizerSqlSourceTest {
     FakeLoader loader = new FakeLoader();
     DataHubAuthorizer authorizer = authorizer(loader, 0);
     authorizer.initialLoad(1, 0);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     loader.failuresLeft = 1;
 
     authorizer.onPolicyChange();
@@ -410,7 +529,7 @@ public class DataHubAuthorizerSqlSourceTest {
     assertEquals(allNames(authorizer), List.of("p1"));
     Thread.sleep(300);
     // The first load, the failed load, and exactly one more: no retry loop.
-    assertEquals(loader.calls.get(), 3);
+    assertEquals(loader.fullLoads.get(), 3);
   }
 
   @DataProvider
@@ -436,7 +555,7 @@ public class DataHubAuthorizerSqlSourceTest {
             loader);
     authorizer.initialLoad(1, 0);
     authorizer.setPolicyChangeWaitMillis(waitMillis);
-    loader.policies.add(policy("p1", 1L));
+    loader.add(policy("p1", 1L), true);
     loader.release = new CountDownLatch(1);
 
     long start = System.nanoTime();
