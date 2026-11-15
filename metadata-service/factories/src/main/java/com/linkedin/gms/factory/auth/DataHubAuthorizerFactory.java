@@ -20,8 +20,7 @@ public class DataHubAuthorizerFactory {
 
   // Startup load: try a few times, then continue and retry in the background, so a short search or
   // database problem does not stop the process from starting. All attempts share one 60 s limit, so
-  // bean
-  // creation is blocked for at most about 60 s.
+  // bean creation is blocked for at most about 60 s.
   private static final int INITIAL_LOAD_ATTEMPTS = 3;
   private static final long INITIAL_LOAD_BACKOFF_MILLIS = 2000;
 

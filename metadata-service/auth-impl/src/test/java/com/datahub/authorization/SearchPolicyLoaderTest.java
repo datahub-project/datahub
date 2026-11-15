@@ -15,6 +15,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
@@ -82,6 +83,22 @@ public class SearchPolicyLoaderTest {
     assertEquals(result.get(P1).getPolicyInfo().getDisplayName(), "p1");
     verify(client, never())
         .batchGetV2(any(OperationContext.class), any(String.class), anySet(), anySet());
+  }
+
+  @Test
+  public void testFailedSecondChunkFailsTheRead() throws Exception {
+    OperationContext context = TestOperationContexts.systemContextNoSearchAuthorization();
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    // Chunks of 1: the first read succeeds, the second fails.
+    when(client.batchGetV2NoCache(
+            any(OperationContext.class), eq(POLICY_ENTITY_NAME), anySet(), anySet()))
+        .thenReturn(Map.of(P1, response(P1, true)))
+        .thenThrow(new RuntimeException("database down"));
+
+    // A partial result would publish a cache without the second policy.
+    assertThrows(
+        IllegalStateException.class,
+        () -> new SearchPolicyLoader(context, client, 1).loadByUrns(Set.of(P1, P2)));
   }
 
   @Test

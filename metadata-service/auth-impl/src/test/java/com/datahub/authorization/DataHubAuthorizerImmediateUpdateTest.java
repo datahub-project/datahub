@@ -3,6 +3,7 @@ package com.datahub.authorization;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -456,6 +457,22 @@ public class DataHubAuthorizerImmediateUpdateTest {
     // No request and no invalidateCache: only the 1 s timer can load p1.
     waitFor(() -> !allNames(authorizer).isEmpty());
     assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testTimerSurvivesAnError() throws Exception {
+    MetricUtils metrics = mock(MetricUtils.class);
+    OperationContext context = mock(OperationContext.class);
+    when(context.getMetricUtils()).thenReturn(Optional.of(metrics));
+    // Each timer tick requests a load, and that request throws an Error.
+    doThrow(new AssertionError("simulated error"))
+        .when(metrics)
+        .increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
+    authorizer(context, new FakeLoader(), 1);
+
+    // A scheduled task that throws is never run again, so a second tick proves the timer lives.
+    verify(metrics, timeout(10_000).atLeast(2))
+        .increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
   }
 
   @Test
