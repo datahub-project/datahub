@@ -46,6 +46,7 @@ import com.linkedin.metadata.EbeanTestUtils;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
+import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.config.EbeanConfiguration;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
@@ -1283,5 +1284,9 @@ public class EbeanEntityServiceTest
     // an async policy write into a sync one.
     assertNull(
         _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
+    // It goes to the proposal topic, so the MCE consumer commits it later.
+    verify(_mockProducer)
+        .produceMetadataChangeProposal(
+            any(OperationContext.class), eq(policyUrn), any(MCPItem.class));
   }
 }

@@ -10,7 +10,9 @@ import javax.annotation.Nonnull;
  * the changed policies into its cache before the write returns.
  *
  * <p>Only writes with a request context call it. A queued write that the MCE consumer commits has
- * none, so it does not. The standalone MCE consumer registers no observer.
+ * none, so it does not. The standalone MCE consumer registers no observer. A consumer set to send
+ * writes to GMS ({@code entityClient.impl=restli}) does so through a request, so GMS calls it for
+ * those writes.
  *
  * <p>Runs on the writing thread. Implementations may block for a bounded time; exceptions are
  * logged and never fail the write.
