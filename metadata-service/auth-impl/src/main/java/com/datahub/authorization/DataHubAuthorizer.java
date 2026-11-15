@@ -608,7 +608,11 @@ public class DataHubAuthorizer
                 m.setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", snapshot.size());
               });
     } catch (VirtualMachineError e) {
+      log.error("Policy {} failed with a JVM error. Keeping the current policies.", kind, e);
       job.done.completeExceptionally(e);
+      if (!loadedOnce) {
+        scheduleFirstLoadRetry();
+      }
       throw e;
     } catch (Throwable t) {
       if (job.done.isDone()) {
@@ -692,10 +696,10 @@ public class DataHubAuthorizer
             TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - started));
       }
       requestLoad();
-    } catch (VirtualMachineError e) {
-      throw e;
-    } catch (Exception e) {
-      log.error("Policy refresh timer failed; it runs again on the next interval.", e);
+    } catch (Throwable t) {
+      // Never rethrow: scheduleAtFixedRate cancels the task for good on any throwable, and this
+      // process would then never refresh its policies again.
+      log.error("Policy refresh timer failed; it runs again on the next interval.", t);
     }
   }
 
