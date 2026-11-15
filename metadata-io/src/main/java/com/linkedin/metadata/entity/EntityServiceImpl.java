@@ -4662,7 +4662,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     }
 
     // The delete ran in its own transaction (requiresNew), so it is committed here.
-    if (result != null && isPolicy(entityUrn)) {
+    if (result != null && policyChangeObserver != null && isPolicy(entityUrn)) {
       notifyPolicyChange(opContext, Set.of(entityUrn));
     }
 
