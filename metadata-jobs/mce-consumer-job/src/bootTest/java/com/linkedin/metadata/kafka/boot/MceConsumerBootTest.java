@@ -54,8 +54,8 @@ public class MceConsumerBootTest {
 
   /**
    * POLICY_CACHE_BROADCAST_ENABLED is set on the MCE consumer too, so it sends the policy changes
-   * it commits. It serves no requests, so it starts no policy change listener and registers no
-   * policy write observer.
+   * it commits. It does not scan the GMS-only policy cache package, so it starts no policy change
+   * listener and registers no policy write observer; its own Rest.li endpoints keep the timer.
    */
   @Test
   public void bootsWithPolicyChangeBroadcast() {

@@ -379,7 +379,8 @@ public class PolicyChangeListener implements AutoCloseable {
           unreadable);
     }
     // Do not wait: requests are ordered and joined, so a new batch gets one later read. With an
-    // unreadable key, both are requested: they merge into one full load that also reads the good
+    // unreadable key, both are requested: they usually merge into one full load that also reads the
+    // good
     // URNs by key, so those still go on the recent-changes list.
     final CompletableFuture<Void> update =
         urns.isEmpty() ? CompletableFuture.completedFuture(null) : updateRequester.apply(urns);
