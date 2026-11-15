@@ -33,7 +33,7 @@ permissions:
 jobs:
   local-stack:
     name: "Local stack boot, profile and lifecycle"
-    runs-on: ubuntu-24.04
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
@@ -49,9 +49,15 @@ jobs:
             :metadata-service:opensearch-embedded:installDist \
             -x test
 
-      # The base CLI is enough here; installDev's plugin extras need native headers (krb5) the runner lacks.
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install native dependencies for the CLI
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
       - name: Install the CLI
-        run: ./gradlew :metadata-ingestion:install
+        run: ./gradlew :metadata-ingestion:installDev
 
       - name: Start, use, restart and nuke the local stack
         env:
