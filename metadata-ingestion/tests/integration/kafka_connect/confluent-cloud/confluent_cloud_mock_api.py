@@ -318,13 +318,13 @@ CATALOG_CONNECTORS_DATA = [
         "topics": [
             {
                 "name": "public.customer_profiles",
-                "qualifiedName": "cluster-123:public.customer_profiles",
+                "qualifiedName": "lkc-00000:public.customer_profiles",
                 "tags": ["pii"],
                 "business_metadata": [{"name": "retention_days", "value": 30}],
             },
             {
                 "name": "analytics.order_events",
-                "qualifiedName": "cluster-123:analytics.order_events",
+                "qualifiedName": "lkc-00000:analytics.order_events",
                 "tags": None,
                 "business_metadata": None,
             },
@@ -338,7 +338,7 @@ CATALOG_CONNECTORS_DATA = [
         "topics": [
             {
                 "name": "analytics.order_events",
-                "qualifiedName": "cluster-123:analytics.order_events",
+                "qualifiedName": "lkc-00000:analytics.order_events",
                 "tags": None,
                 "business_metadata": None,
             }

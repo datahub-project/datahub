@@ -10,11 +10,11 @@ source:
   config:
     # Connect URI pointing to the mock API
     # Format matches Confluent Cloud API structure
-    connect_uri: "http://localhost:8888/connect/v1/environments/env-00000/clusters/cluster-123"
+    connect_uri: "http://localhost:8888/connect/v1/environments/env-00000/clusters/lkc-00000"
 
-    # Confluent Cloud environment and cluster IDs (for reference)
+    # Confluent Cloud environment and cluster IDs; must match those in connect_uri
     confluent_cloud_environment_id: "env-00000"
-    confluent_cloud_cluster_id: "cluster-123"
+    confluent_cloud_cluster_id: "lkc-00000"
 
     # Confluent Cloud Kafka REST API endpoint for topic retrieval
     kafka_rest_endpoint: "http://localhost:8888"
