@@ -1155,6 +1155,62 @@ public class EbeanEntityServiceTest
   }
 
   @Test
+  public void testTwoPoliciesInOneBatchNotifyOnceWithBothUrns() {
+    List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
+    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+    Urn first = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-batch-1");
+    Urn second = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-batch-2");
+    DataHubPolicyInfo info =
+        new DataHubPolicyInfo()
+            .setDisplayName("observer batch policy")
+            .setDescription("batch")
+            .setType("METADATA")
+            .setState("ACTIVE")
+            .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
+            .setActors(new DataHubActorFilter().setAllUsers(true));
+
+    _entityServiceImpl.ingestAspects(
+        clientContext(),
+        AspectsBatchImpl.builder()
+            .retrieverContext(opContext.getRetrieverContext())
+            .items(
+                List.of(first, second).stream()
+                    .map(
+                        urn ->
+                            ChangeItemImpl.builder()
+                                .urn(urn)
+                                .aspectName(DATAHUB_POLICY_INFO_ASPECT_NAME)
+                                .recordTemplate(info)
+                                .auditStamp(TEST_AUDIT_STAMP)
+                                .systemMetadata(SystemMetadataUtils.createDefaultSystemMetadata())
+                                .build(opContext.getAspectRetriever()))
+                    .collect(Collectors.toList()))
+            .build(opContext),
+        true,
+        true);
+
+    assertEquals(calls, List.of(Set.of(first, second)));
+  }
+
+  @Test
+  public void testPolicyAspectDeleteNotifies() {
+    List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-aspect-delete");
+    ingestPolicy(policyUrn, "to delete");
+    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+
+    _entityServiceImpl.deleteAspect(
+        clientContext(),
+        policyUrn.toString(),
+        DATAHUB_POLICY_INFO_ASPECT_NAME,
+        Map.of(),
+        true,
+        true);
+
+    assertEquals(calls, List.of(Set.of(policyUrn)));
+  }
+
+  @Test
   public void testPolicyWriteWithoutARequestContextDoesNotNotify() {
     List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
     _entityServiceImpl.setPolicyChangeObserver(calls::add);

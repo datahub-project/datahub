@@ -1017,8 +1017,8 @@ jobs:
           ACTIONS_CONFIG: "https://raw.githubusercontent.com/acryldata/datahub-actions/main/docker/config/executor.yaml"
           PROFILE_NAME: ${{ needs.setup.outputs.smoke_profile_name || env.PROFILE_NAME }}
           EXPECT_PR_TAGGED_IMAGES: ${{ needs.setup.outputs.image_built_repos }}
-          # The pytest smoke suite runs with the SQL policy source (opt-in elsewhere), so policy
-          # changes apply before the write returns. Other smoke jobs keep the default. The env file
+          # The pytest smoke suite runs with immediate policy cache updates (opt-in elsewhere), so
+          # policy changes apply before the write returns. Other smoke jobs keep the default. The env file
           # is read by every DataHub service in docker-compose.gms.yml.
           DATAHUB_LOCAL_COMMON_ENV: /tmp/pytest-smoke-common.env
         run: |

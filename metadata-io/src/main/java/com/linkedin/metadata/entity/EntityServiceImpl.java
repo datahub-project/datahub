@@ -1254,12 +1254,15 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     IngestAspectsResult ingestResults = ingestAspectsToLocalDB(opContext, aspectsBatch, overwrite);
     // ingestAspectsToLocalDB runs in its own transaction (requiresNew), so it is committed here.
-    notifyPolicyChange(
-        opContext,
-        ingestResults.getUpdateAspectResults().stream()
-            .filter(r -> !r.isNoOp() && isPolicy(r.getUrn()))
-            .map(UpdateAspectResult::getUrn)
-            .collect(Collectors.toSet()));
+    // Without an observer (the default), no per-write work is done.
+    if (policyChangeObserver != null) {
+      notifyPolicyChange(
+          opContext,
+          ingestResults.getUpdateAspectResults().stream()
+              .filter(r -> !r.isNoOp() && isPolicy(r.getUrn()))
+              .map(UpdateAspectResult::getUrn)
+              .collect(Collectors.toSet()));
+    }
 
     // Produce MCLs & run side effects
     List<MetadataChangeLog> mcls =
@@ -4124,8 +4127,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Only a client's write notifies: the MCE consumer commits queued writes with the system
-   * operation context, which has no request context, and must not wait for a cache read.
+   * Only a write with a request context notifies. A queued write that the MCE consumer commits runs
+   * with the system operation context, which has none, so committing it never waits for a cache
+   * read.
    */
   private void notifyPolicyChange(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
     final PolicyChangeObserver observer = policyChangeObserver;

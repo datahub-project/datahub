@@ -16,8 +16,9 @@ import org.springframework.context.annotation.Configuration;
 /**
  * Makes a client's committed policy write update this GMS's policy cache before the write returns.
  *
- * <p>Only GMS scans this package (CommonApplicationConfig). The standalone MCE consumer does not:
- * it serves no requests, and it commits queued writes that must not wait for a cache read.
+ * <p>GMS scans this package (CommonApplicationConfig), and so does system-update, which has no
+ * authorizer and so registers nothing. The standalone MCE consumer does not scan it: its queued
+ * writes must not wait for a cache read. Its own Rest.li endpoints keep the timer refresh.
  */
 @Slf4j
 @Configuration
