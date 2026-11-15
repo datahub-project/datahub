@@ -2,6 +2,7 @@ package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyList;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
@@ -38,6 +40,7 @@ public class SearchPolicyLoaderTest {
 
   private static final Urn P1 = UrnUtils.getUrn("urn:li:dataHubPolicy:p1");
   private static final Urn P2 = UrnUtils.getUrn("urn:li:dataHubPolicy:p2");
+  private static final Urn P3 = UrnUtils.getUrn("urn:li:dataHubPolicy:p3");
 
   private static EntityResponse response(Urn urn, boolean withInfo) {
     EnvelopedAspectMap aspects = new EnvelopedAspectMap();
@@ -50,19 +53,30 @@ public class SearchPolicyLoaderTest {
     return new EntityResponse().setUrn(urn).setEntityName(POLICY_ENTITY_NAME).setAspects(aspects);
   }
 
+  private static EntityResponse removed(Urn urn) {
+    EntityResponse response = response(urn, true);
+    response
+        .getAspects()
+        .put(
+            STATUS_ASPECT_NAME,
+            new EnvelopedAspect().setValue(new Aspect(new Status().setRemoved(true).data())));
+    return response;
+  }
+
   @Test
-  public void testLoadByUrnsReadsWithoutTheCacheAndSkipsMissingPolicies() throws Exception {
+  public void testLoadByUrnsReadsWithoutTheCacheAndSkipsMissingAndRemovedPolicies()
+      throws Exception {
     OperationContext context = TestOperationContexts.systemContextNoSearchAuthorization();
     SystemEntityClient client = mock(SystemEntityClient.class);
     when(client.batchGetV2NoCache(
             any(OperationContext.class),
             eq(POLICY_ENTITY_NAME),
-            eq(Set.of(P1, P2)),
-            eq(Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME))))
-        .thenReturn(Map.of(P1, response(P1, true), P2, response(P2, false)));
+            eq(Set.of(P1, P2, P3)),
+            eq(Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME, STATUS_ASPECT_NAME))))
+        .thenReturn(Map.of(P1, response(P1, true), P2, response(P2, false), P3, removed(P3)));
 
     Map<Urn, PolicyFetcher.Policy> result =
-        new SearchPolicyLoader(context, client, 100).loadByUrns(Set.of(P1, P2));
+        new SearchPolicyLoader(context, client, 100).loadByUrns(Set.of(P1, P2, P3));
 
     assertEquals(result.keySet(), Set.of(P1));
     assertEquals(result.get(P1).getPolicyInfo().getDisplayName(), "p1");

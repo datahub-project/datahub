@@ -576,7 +576,7 @@ public class DataHubAuthorizer
       recentChanges.values().removeIf(expiry -> expiry - start <= 0);
 
       final Map<Urn, PolicyFetcher.Policy> next =
-          full ? loadAllWithRecentChanges() : updateByUrn(job.urns);
+          full ? loadAllWithRecentChanges(job.urns) : updateByUrn(job.urns);
       final PolicySnapshot snapshot = PolicySnapshot.of(next.values());
       publish(snapshot);
       policiesByUrn = next;
@@ -584,6 +584,9 @@ public class DataHubAuthorizer
         loadedOnce = true;
       }
       consecutiveLoadFailures = 0;
+      // Complete before the metrics: the new policies are published, so a metrics failure must not
+      // report this job as failed.
+      job.done.complete(null);
       increment("policyCache." + kind + ".run");
       systemOpContext
           .getMetricUtils()
@@ -594,8 +597,15 @@ public class DataHubAuthorizer
                     System.nanoTime() - start);
                 m.setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", snapshot.size());
               });
-      job.done.complete(null);
+    } catch (VirtualMachineError e) {
+      job.done.completeExceptionally(e);
+      throw e;
     } catch (Throwable t) {
+      if (job.done.isDone()) {
+        // Only the metrics failed, after the policies were published.
+        log.warn("Failed to record policy cache metrics.", t);
+        return;
+      }
       increment("policyCache." + kind + ".failed");
       // Jobs run on one thread, so this counter needs no lock. A failure that repeats every few
       // seconds logs its stack trace only once.
@@ -617,35 +627,44 @@ public class DataHubAuthorizer
     }
   }
 
-  /** Reads every policy, plus the recently changed ones that the search index may not list yet. */
-  private Map<Urn, PolicyFetcher.Policy> loadAllWithRecentChanges() {
+  /**
+   * Reads every policy, then reads the recently changed policies and this job's own URNs again by
+   * key. The key read wins: the index may not list a new policy yet, may still list a deleted one,
+   * and the full load's own read may come from a cache.
+   */
+  private Map<Urn, PolicyFetcher.Policy> loadAllWithRecentChanges(@Nonnull Set<Urn> jobUrns) {
     final Map<Urn, PolicyFetcher.Policy> next = new HashMap<>();
     for (PolicyFetcher.Policy policy : policyLoader.loadAll()) {
       if (policy.getUrn() != null) {
         next.put(policy.getUrn(), policy);
       }
     }
-    // Policies the index lists are read from the primary store already. A deleted policy that the
-    // index still lists has no stored value, so the loader leaves it out.
-    final Set<Urn> missing = new HashSet<>(recentChanges.keySet());
-    missing.removeAll(next.keySet());
-    if (!missing.isEmpty()) {
-      next.putAll(policyLoader.loadByUrns(missing));
+    // The job's own URNs are read even when the window is 0 and the list is already empty.
+    final Set<Urn> byKey = new HashSet<>(recentChanges.keySet());
+    byKey.addAll(jobUrns);
+    if (!byKey.isEmpty()) {
+      applyKeyReads(next, byKey, policyLoader.loadByUrns(byKey));
     }
     return next;
   }
 
-  private Map<Urn, PolicyFetcher.Policy> updateByUrn(@Nonnull Set<Urn> urns) {
-    final Map<Urn, PolicyFetcher.Policy> read = policyLoader.loadByUrns(urns);
-    final Map<Urn, PolicyFetcher.Policy> next = new HashMap<>(policiesByUrn);
+  private static void applyKeyReads(
+      @Nonnull Map<Urn, PolicyFetcher.Policy> policies,
+      @Nonnull Set<Urn> urns,
+      @Nonnull Map<Urn, PolicyFetcher.Policy> read) {
     for (Urn urn : urns) {
       final PolicyFetcher.Policy policy = read.get(urn);
       if (policy != null) {
-        next.put(urn, policy);
+        policies.put(urn, policy);
       } else {
-        next.remove(urn);
+        policies.remove(urn);
       }
     }
+  }
+
+  private Map<Urn, PolicyFetcher.Policy> updateByUrn(@Nonnull Set<Urn> urns) {
+    final Map<Urn, PolicyFetcher.Policy> next = new HashMap<>(policiesByUrn);
+    applyKeyReads(next, urns, policyLoader.loadByUrns(urns));
     return next;
   }
 
@@ -656,14 +675,17 @@ public class DataHubAuthorizer
       if (started != 0
           && System.nanoTime() - started > TimeUnit.SECONDS.toNanos(refreshIntervalSeconds)) {
         // A blocking read cannot be safely stopped, so report it. Later requests queue behind it.
+        // Counted once for each timer tick while the job runs.
         increment("policyCache.load.stuck");
         log.warn(
             "A policy load has run for {} s; later policy loads wait for it.",
             TimeUnit.NANOSECONDS.toSeconds(System.nanoTime() - started));
       }
       requestLoad();
-    } catch (Throwable t) {
-      log.error("Policy refresh timer failed; it runs again on the next interval.", t);
+    } catch (VirtualMachineError e) {
+      throw e;
+    } catch (Exception e) {
+      log.error("Policy refresh timer failed; it runs again on the next interval.", e);
     }
   }
 

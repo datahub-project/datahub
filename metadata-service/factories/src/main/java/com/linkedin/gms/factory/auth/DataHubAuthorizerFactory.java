@@ -70,7 +70,7 @@ public class DataHubAuthorizerFactory {
       authorizer.setRecentChangeWindow(Duration.ofSeconds(recentChangeWindowSeconds));
       authorizer.initialLoad(INITIAL_LOAD_ATTEMPTS, INITIAL_LOAD_BACKOFF_MILLIS);
     } else {
-      log.info("policy cache source=search");
+      log.info("policy cache immediate updates off; refreshing from search on the timer");
     }
     return authorizer;
   }
