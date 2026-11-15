@@ -908,6 +908,39 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _smoke_test_env() -> Dict[str, str]:
+    """Environment for smoke tests against this worktree's instance.
+
+    Replicates set-test-env-vars.sh. An inherited DATAHUB_PROFILE is dropped: the CLI
+    ranks it above DATAHUB_GMS_URL, so CLI and SDK calls inside the tests would
+    otherwise go to that profile's server instead of this worktree's instance.
+    """
+    env = _dev_env()
+    env.pop("DATAHUB_PROFILE", None)
+    gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
+    instance_gms_url = _gms_url()
+    if gms_base_path == "/" or not gms_base_path:
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            f"{instance_gms_url}/schema-registry/api",
+        )
+        env.setdefault("DATAHUB_GMS_URL", instance_gms_url)
+    else:
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            f"{instance_gms_url}{gms_base_path}/schema-registry/api",
+        )
+        env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
+
+    env.setdefault("ADMIN_USERNAME", "datahub")
+    env.setdefault("ADMIN_PASSWORD", "datahub")
+
+    # Disable telemetry during tests
+    env["DATAHUB_TELEMETRY_ENABLED"] = "false"
+
+    return env
+
+
 def cmd_test(args: argparse.Namespace) -> int:
     """Run targeted smoke tests."""
     test_path = args.path
@@ -943,28 +976,7 @@ def cmd_test(args: argparse.Namespace) -> int:
             _log("Failed to set up smoke-test venv.")
             return 1
 
-    # Set up environment variables (replicate set-test-env-vars.sh)
-    env = _dev_env()
-    gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
-    instance_gms_url = _gms_url()
-    if gms_base_path == "/" or not gms_base_path:
-        env.setdefault(
-            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
-            f"{instance_gms_url}/schema-registry/api",
-        )
-        env.setdefault("DATAHUB_GMS_URL", instance_gms_url)
-    else:
-        env.setdefault(
-            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
-            f"{instance_gms_url}{gms_base_path}/schema-registry/api",
-        )
-        env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
-
-    env.setdefault("ADMIN_USERNAME", "datahub")
-    env.setdefault("ADMIN_PASSWORD", "datahub")
-
-    # Disable telemetry during tests
-    env["DATAHUB_TELEMETRY_ENABLED"] = "false"
+    env = _smoke_test_env()
 
     # Build pytest command
     pytest_cmd = [
@@ -1991,6 +2003,9 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
     Usage: eval $(datahub-dev.sh shell-env)
     """
     gms = _gms_url()
+    # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; clear it so this shell
+    # targets the worktree instance rather than a previously selected profile.
+    print("unset DATAHUB_PROFILE")
     print(f"export DATAHUB_GMS_URL={gms}")
 
     # Propagate token if present in the dev env file.

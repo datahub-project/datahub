@@ -9,6 +9,7 @@ export function TabButtons({
     activeTab: activeKey,
     onTabClick,
     fit = tabButtonsDefaults.fit,
+    size = 'md',
     className,
     'data-testid': dataTestId,
     'aria-label': ariaLabel,
@@ -32,6 +33,7 @@ export function TabButtons({
                     <StyledTabButton
                         $active={isActive}
                         $fit={fit}
+                        $size={size}
                         onClick={(e) => onTabClickHandler(e, tab.key)}
                         variant="text"
                         key={tab.key}
