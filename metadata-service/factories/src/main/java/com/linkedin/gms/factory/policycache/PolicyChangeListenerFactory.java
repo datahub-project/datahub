@@ -28,8 +28,9 @@ import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 /**
  * Starts a {@link PolicyChangeListener} in GMS when POLICY_CACHE_BROADCAST_ENABLED is true.
  *
- * <p>Only GMS scans this package (CommonApplicationConfig). The standalone MCE consumer serves no
- * requests, so it needs no up-to-date policy cache; it only sends the changes it commits.
+ * <p>GMS scans this package (CommonApplicationConfig); system-update scans it too but has no
+ * authorizer, so it starts nothing. The standalone MCE consumer does not scan it: it sends the
+ * changes it commits, and its own Rest.li endpoints keep the timer refresh.
  */
 @Slf4j
 @Configuration

@@ -119,7 +119,8 @@ public class PolicyChangeListener implements AutoCloseable {
 
   /** Starts the listener thread. The process does not wait for it. */
   public synchronized void start() {
-    if (thread != null) {
+    // Not again after close(): the stopped latch is already released.
+    if (thread != null || stopped.getCount() == 0) {
       return;
     }
     running = true;
@@ -343,7 +344,7 @@ public class PolicyChangeListener implements AutoCloseable {
   private void onRecords(ConsumerRecords<byte[], byte[]> records) {
     final int count = records.count();
     final Set<Urn> urns = new HashSet<>();
-    boolean unreadableKey = false;
+    int unreadable = 0;
     int replayed = 0;
     long oldest = Long.MAX_VALUE;
     for (ConsumerRecord<byte[], byte[]> record : records) {
@@ -351,7 +352,7 @@ public class PolicyChangeListener implements AutoCloseable {
       if (urn != null) {
         urns.add(urn);
       } else {
-        unreadableKey = true;
+        unreadable++;
       }
       final TopicPartition tp = new TopicPartition(record.topic(), record.partition());
       if (record.offset() < replayEnds.getOrDefault(tp, 0L)) {
@@ -370,9 +371,20 @@ public class PolicyChangeListener implements AutoCloseable {
         count,
         replayed);
     final long oldestTimestamp = oldest;
-    // Do not wait: requests are ordered and joined, so a new batch gets one later read.
+    if (unreadable > 0) {
+      increment("policyChange.unreadable_key", unreadable);
+      log.warn(
+          "policy change listener read {} messages whose key is not a policy URN; loading all"
+              + " policies",
+          unreadable);
+    }
+    // Do not wait: requests are ordered and joined, so a new batch gets one later read. With an
+    // unreadable key, both are requested: they merge into one full load that also reads the good
+    // URNs by key, so those still go on the recent-changes list.
+    final CompletableFuture<Void> update =
+        urns.isEmpty() ? CompletableFuture.completedFuture(null) : updateRequester.apply(urns);
     final CompletableFuture<Void> applied =
-        unreadableKey ? loadRequester.get() : updateRequester.apply(urns);
+        unreadable > 0 ? CompletableFuture.allOf(loadRequester.get(), update) : update;
     applied.whenComplete(
         (ignored, error) -> {
           if (error != null) {

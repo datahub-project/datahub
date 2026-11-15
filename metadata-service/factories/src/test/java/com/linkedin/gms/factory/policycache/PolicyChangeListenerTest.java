@@ -193,16 +193,42 @@ public class PolicyChangeListenerTest {
   }
 
   @Test
-  public void testUnreadableKeyRequestsAFullLoad() throws Exception {
+  public void testUnreadableKeysRequestAFullLoad() throws Exception {
     topicWithPartitions(P0);
     consumer.updateEndOffsets(Map.of(P0, 0L));
     listener.step();
 
     record(P0, 0, "not a urn");
+    // A URN, but not a policy.
+    record(P0, 1, "urn:li:corpuser:someone");
+    consumer.addRecord(new ConsumerRecord<>(TOPIC, P0.partition(), 2L, null, new byte[0]));
     listener.step();
 
     assertEquals(loads.get(), 2);
     assertEquals(updates, List.of());
+  }
+
+  @Test
+  public void testMixedBatchStillReadsTheGoodKeys() throws Exception {
+    topicWithPartitions(P0);
+    consumer.updateEndOffsets(Map.of(P0, 0L));
+    listener.step();
+
+    record(P0, 0);
+    record(P0, 1, "not a urn");
+    listener.step();
+
+    // Both requests: they merge into one full load that also reads p0 by key, so p0 goes on the
+    // recent-changes list.
+    assertEquals(loads.get(), 2);
+    assertEquals(updates, List.of(Set.of(urn("p0"))));
+  }
+
+  @Test
+  public void testStartAfterCloseDoesNothing() {
+    listener.close();
+    listener.start();
+    assertEquals(loads.get(), 0);
   }
 
   @Test
