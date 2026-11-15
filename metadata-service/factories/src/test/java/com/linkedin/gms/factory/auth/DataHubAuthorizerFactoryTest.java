@@ -1,12 +1,18 @@
 package com.linkedin.gms.factory.auth;
 
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.metadata.search.ScrollResult;
+import com.linkedin.metadata.search.SearchEntityArray;
+import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.DataProvider;
@@ -23,11 +29,18 @@ public class DataHubAuthorizerFactoryTest {
     ReflectionTestUtils.setField(factory, "recentChangeWindowSeconds", 600L);
     ReflectionTestUtils.setField(factory, "changeBroadcastEnabled", broadcast);
     ReflectionTestUtils.setField(factory, "messagingTransport", "kafka");
-    // The mocked client returns no search results, so the startup load fails fast; the flags are
-    // what this test checks.
+    // An empty search result, so the startup load succeeds at once.
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    try {
+      when(client.scrollAcrossEntities(
+              any(OperationContext.class), anyList(), any(), any(), any(), any(), anyList(), any()))
+          .thenReturn(new ScrollResult().setNumEntities(0).setEntities(new SearchEntityArray()));
+    } catch (Exception e) {
+      throw new IllegalStateException(e);
+    }
     return factory.dataHubAuthorizer(
         TestOperationContexts.systemContextNoSearchAuthorization(),
-        mock(SystemEntityClient.class),
+        client,
         mock(GroupService.class));
   }
 

@@ -3,7 +3,6 @@ package com.datahub.authorization;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.timeout;
@@ -49,6 +48,8 @@ public class DataHubAuthorizerImmediateUpdateTest {
   private static final class FakeLoader implements PolicyLoader {
     final Map<Urn, PolicyFetcher.Policy> store = new ConcurrentHashMap<>();
     final Set<Urn> indexed = ConcurrentHashMap.newKeySet();
+    // What a full load returns for a URN instead of the stored value, like a stale cache.
+    final Map<Urn, PolicyFetcher.Policy> staleListing = new ConcurrentHashMap<>();
     final AtomicInteger fullLoads = new AtomicInteger();
     final AtomicInteger keyReads = new AtomicInteger();
     volatile int failuresLeft = 0;
@@ -82,7 +83,9 @@ public class DataHubAuthorizerImmediateUpdateTest {
       }
       List<PolicyFetcher.Policy> result = new ArrayList<>();
       for (Urn urn : indexed) {
-        if (store.containsKey(urn)) {
+        if (staleListing.containsKey(urn)) {
+          result.add(staleListing.get(urn));
+        } else if (store.containsKey(urn)) {
           result.add(store.get(urn));
         }
       }
@@ -118,16 +121,21 @@ public class DataHubAuthorizerImmediateUpdateTest {
   }
 
   private static PolicyFetcher.Policy policy(String id, Long lastUpdated) {
+    return policy(id, lastUpdated, id);
+  }
+
+  /** A policy stored under {@code urnId} and shown as {@code name}. */
+  private static PolicyFetcher.Policy policy(String name, Long lastUpdated, String urnId) {
     DataHubPolicyInfo info =
         new DataHubPolicyInfo()
-            .setDisplayName(id)
+            .setDisplayName(name)
             .setType("METADATA")
             .setState("ACTIVE")
             .setPrivileges(new StringArray(List.of("EDIT_ENTITY")));
     if (lastUpdated != null) {
       info.setLastUpdatedTimestamp(lastUpdated);
     }
-    return new PolicyFetcher.Policy(urn(id), info);
+    return new PolicyFetcher.Policy(urn(urnId), info);
   }
 
   private static DataHubAuthorizer authorizer(PolicyLoader loader, int refreshSeconds) {
@@ -216,6 +224,62 @@ public class DataHubAuthorizerImmediateUpdateTest {
     authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
     // A timer reload while the index still lags must not drop p2.
     authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p2", "p1"));
+  }
+
+  @Test
+  public void testFullLoadDoesNotOverwriteAFreshKeyRead() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    // p1 is updated; the full load still returns the old value (for example from a cache).
+    loader.staleListing.put(urn("p1"), loader.store.get(urn("p1")));
+    loader.add(policy("p1-new", 2L, "p1"), true);
+    authorizer.requestUpdate(List.of(urn("p1"))).get(10, TimeUnit.SECONDS);
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p1-new"));
+  }
+
+  @Test
+  public void testFullLoadDropsADeletedPolicyTheIndexStillLists() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    loader.add(policy("p2", 2L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.initialLoad(1, 0);
+
+    // Deleted, but the full load still returns it.
+    loader.staleListing.put(urn("p2"), loader.store.remove(urn("p2")));
+    authorizer.requestUpdate(List.of(urn("p2"))).get(10, TimeUnit.SECONDS);
+    authorizer.requestLoad().get(10, TimeUnit.SECONDS);
+
+    assertEquals(allNames(authorizer), List.of("p1"));
+  }
+
+  @Test
+  public void testJoinedFullLoadReadsItsUrnsEvenWithAZeroWindow() throws Exception {
+    FakeLoader loader = new FakeLoader();
+    loader.add(policy("p1", 1L), true);
+    DataHubAuthorizer authorizer = authorizer(loader, 0);
+    authorizer.setRecentChangeWindow(Duration.ZERO);
+    authorizer.initialLoad(1, 0);
+    loader.entered = new CountDownLatch(1);
+    loader.release = new CountDownLatch(1);
+    CompletableFuture<Void> running = authorizer.requestLoad();
+    assertTrue(loader.entered.await(10, TimeUnit.SECONDS));
+
+    // Queued behind the running load: an update and a full load merge into one job.
+    loader.add(policy("p2", 2L), false);
+    CompletableFuture<Void> update = authorizer.requestUpdate(List.of(urn("p2")));
+    CompletableFuture<Void> load = authorizer.requestLoad();
+    loader.release.countDown();
+    running.get(10, TimeUnit.SECONDS);
+    update.get(10, TimeUnit.SECONDS);
+    load.get(10, TimeUnit.SECONDS);
 
     assertEquals(allNames(authorizer), List.of("p2", "p1"));
   }
@@ -423,15 +487,18 @@ public class DataHubAuthorizerImmediateUpdateTest {
     DataHubAuthorizer authorizer = authorizer(context, loader, 0);
 
     assertTrue(authorizer.initialLoad(1, 0));
-    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
-    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.load.run", 1);
-    verify(metrics).setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", 1);
-    verify(metrics)
+    // A job completes before its metrics are recorded, so wait for them.
+    verify(metrics, timeout(5_000))
+        .increment(DataHubAuthorizer.class, "policyCache.load.requested", 1);
+    verify(metrics, timeout(5_000)).increment(DataHubAuthorizer.class, "policyCache.load.run", 1);
+    verify(metrics, timeout(5_000))
+        .setGaugeValue(DataHubAuthorizer.class, "policyCache.policies", 1);
+    verify(metrics, timeout(5_000))
         .time(eq(DataHubAuthorizer.class.getName() + ".policyCache.load.duration"), anyLong());
 
     authorizer.requestUpdate(List.of(urn("p1"))).get(10, TimeUnit.SECONDS);
-    verify(metrics).increment(DataHubAuthorizer.class, "policyCache.update.run", 1);
-    verify(metrics)
+    verify(metrics, timeout(5_000)).increment(DataHubAuthorizer.class, "policyCache.update.run", 1);
+    verify(metrics, timeout(5_000))
         .time(eq(DataHubAuthorizer.class.getName() + ".policyCache.update.duration"), anyLong());
     verify(metrics, never())
         .increment(eq(DataHubAuthorizer.class), eq("policyCache.load.failed"), anyDouble());
@@ -443,7 +510,8 @@ public class DataHubAuthorizerImmediateUpdateTest {
     } catch (ExecutionException expected) {
       // The simulated search error.
     }
-    verify(metrics, atLeastOnce()).increment(DataHubAuthorizer.class, "policyCache.load.failed", 1);
+    verify(metrics, timeout(5_000).atLeastOnce())
+        .increment(DataHubAuthorizer.class, "policyCache.load.failed", 1);
   }
 
   @Test

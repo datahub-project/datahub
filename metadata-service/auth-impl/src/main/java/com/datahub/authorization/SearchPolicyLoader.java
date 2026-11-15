@@ -2,7 +2,10 @@ package com.datahub.authorization;
 
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 
+import com.google.common.collect.Iterables;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
@@ -11,6 +14,7 @@ import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -56,30 +60,39 @@ public class SearchPolicyLoader implements PolicyLoader {
     return policies;
   }
 
+  /**
+   * Reads by primary key, in chunks of the fetch size. A policy with {@code status.removed=true} is
+   * left out, as the search listing leaves it out. The dataHubPolicy entity has no status aspect
+   * today, so this only matters if one is added.
+   */
   @Nonnull
   @Override
   public Map<Urn, PolicyFetcher.Policy> loadByUrns(@Nonnull Set<Urn> urns) {
-    if (urns.isEmpty()) {
-      return Map.of();
-    }
-    final Map<Urn, EntityResponse> responses;
-    try {
-      // No cache: a cached read could return the value from before the change being applied.
-      responses =
-          entityClient.batchGetV2NoCache(
-              systemOpContext, POLICY_ENTITY_NAME, urns, Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME));
-    } catch (Exception e) {
-      throw new IllegalStateException("Failed to read policies " + urns, e);
-    }
     final Map<Urn, PolicyFetcher.Policy> result = new HashMap<>();
-    for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
-      final EnvelopedAspect aspect =
-          entry.getValue().getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME);
-      if (aspect != null) {
+    for (List<Urn> chunk : Iterables.partition(urns, Math.max(1, fetchSize))) {
+      final Map<Urn, EntityResponse> responses;
+      try {
+        // No cache: a cached read could return the value from before the change being applied.
+        responses =
+            entityClient.batchGetV2NoCache(
+                systemOpContext,
+                POLICY_ENTITY_NAME,
+                new HashSet<>(chunk),
+                Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME, STATUS_ASPECT_NAME));
+      } catch (Exception e) {
+        throw new IllegalStateException("Failed to read " + chunk.size() + " policies", e);
+      }
+      for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
+        final EnvelopedAspect info =
+            entry.getValue().getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME);
+        final EnvelopedAspect status = entry.getValue().getAspects().get(STATUS_ASPECT_NAME);
+        if (info == null || (status != null && new Status(status.getValue().data()).isRemoved())) {
+          continue;
+        }
         result.put(
             entry.getKey(),
             new PolicyFetcher.Policy(
-                entry.getKey(), new DataHubPolicyInfo(aspect.getValue().data())));
+                entry.getKey(), new DataHubPolicyInfo(info.getValue().data())));
       }
     }
     return result;
