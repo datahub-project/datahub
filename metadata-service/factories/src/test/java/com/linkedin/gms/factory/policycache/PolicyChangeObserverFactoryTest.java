@@ -11,7 +11,10 @@ import static org.testng.Assert.assertNull;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
+import io.datahubproject.test.wiring.WiringCoverage;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.testng.annotations.Test;
 
 public class PolicyChangeObserverFactoryTest {
@@ -34,9 +37,16 @@ public class PolicyChangeObserverFactoryTest {
     DataHubAuthorizer authorizer = authorizer(true);
     EntityServiceImpl service = mock(EntityServiceImpl.class);
 
-    assertNotNull(
-        new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(authorizer), provider(service), 5000L));
+    // A real Spring context, so the bean method runs as it does in GMS.
+    new ApplicationContextRunner()
+        .withInitializer(WiringCoverage.initializer())
+        .withUserConfiguration(PolicyChangeObserverFactory.class)
+        .withBean("dataHubAuthorizer", DataHubAuthorizer.class, () -> authorizer)
+        .withBean("entityService", EntityService.class, () -> service)
+        .withPropertyValues(
+            "authorization.defaultAuthorizer.immediateUpdate.enabled=true",
+            "authorization.defaultAuthorizer.immediateUpdate.policyChangeWaitMillis=5000")
+        .run(context -> assertNotNull(context.getBean(PolicyChangeObserver.class)));
 
     verify(service).setPolicyChangeObserver(any());
     verify(authorizer).setPolicyWritesObserved(true);
