@@ -80,7 +80,12 @@ public class SearchPolicyLoader implements PolicyLoader {
                 new HashSet<>(chunk),
                 Set.of(DATAHUB_POLICY_INFO_ASPECT_NAME, STATUS_ASPECT_NAME));
       } catch (Exception e) {
-        throw new IllegalStateException("Failed to read " + chunk.size() + " policies", e);
+        throw new IllegalStateException(
+            "Failed to read "
+                + chunk.size()
+                + " policies, starting with "
+                + chunk.subList(0, Math.min(chunk.size(), 5)),
+            e);
       }
       for (Map.Entry<Urn, EntityResponse> entry : responses.entrySet()) {
         final EnvelopedAspect info =
