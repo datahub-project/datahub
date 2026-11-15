@@ -11,14 +11,8 @@ apply from: '../gradle/versioning/versioning.gradle'
 
 node {
 
-  // If true, it will download node using above parameters.
-  // If false, it will try to use globally installed node.
-
-  if (project.hasProperty('useSystemNode')) {
-    download = ! project.getProperty('useSystemNode').toBoolean()
-  } else {
-    download = true
-  }
+  // Download Node unless the root build says to use the one on PATH (the default in CI).
+  download = !rootProject.ext.useSystemNode
 
   // Version of node to use.
   version = rootProject.ext.nodeVersion

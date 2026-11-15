@@ -29,10 +29,14 @@ inputs:
     description: setup-gradle gradle-home-cache-excludes. Empty caches everything.
     default: caches/build-cache-1
   node:
-    description: Install Node
-    default: "false"
+    description: >-
+      Install Node. On by default because Gradle uses the Node on PATH in CI
+      (useSystemNode, root build.gradle) instead of downloading its own.
+    default: "true"
   node-version:
-    description: setup-node node-version
+    description: >-
+      setup-node node-version. Must share the major version of nodeVersion in
+      the root build.gradle; Gradle's verifySystemNode task fails otherwise.
     default: "22"
 
 runs:

@@ -147,8 +147,15 @@ buildscript {
 
   // CVE-2026-111497 (Brotli out-of-bounds write), CVE-2026-106069 (TLS hostname bypass),
   // CVE-2026-105482 (dns.resolve NUL truncation): fixed in 22.23.4 (October 2026 security release)
+  // nodeVersion is only what the node-gradle plugin downloads when it downloads Node. CI installs
+  // Node itself (.github/actions/setup-toolchain) and uses that copy, which only has to share the
+  // major version; downloading a second copy adds ~30s per Node task and fails when nodejs.org flakes.
+  // An explicit -PuseSystemNode=<bool> (or ORG_GRADLE_PROJECT_useSystemNode) always wins.
   ext.nodeVersion = '22.23.4'
   ext.yarnVersion = '1.22.22'
+  ext.useSystemNode = project.hasProperty('useSystemNode')
+      ? project.getProperty('useSystemNode').toBoolean()
+      : System.getenv('CI') == 'true'
 
   ext.docker_registry = project.getProperties().getOrDefault("dockerRegistry", 'acryldata')
 
@@ -918,6 +925,45 @@ allprojects {
           !(details.requested.name in ['websocket-api', 'websocket-client', 'websocket-common'])) {
         details.useVersion(rootProject.ext.jettyVersion)
         details.because("Align all Jetty modules to ${rootProject.ext.jettyVersion}")
+      }
+    }
+  }
+}
+
+// With useSystemNode (the CI default), the node plugin runs whatever `node` is on PATH. Fail early,
+// with a fix in the message, if it is missing or on a different major version than nodeVersion,
+// rather than building with whatever the runner image happens to ship.
+if (rootProject.ext.useSystemNode) {
+  def expectedNodeMajor = rootProject.ext.nodeVersion.tokenize('.')[0]
+  def verifySystemNode = tasks.register('verifySystemNode') {
+    group = 'verification'
+    description = "Checks that the Node on PATH is major version ${expectedNodeMajor} (useSystemNode=true)."
+    doLast {
+      String found = null
+      try {
+        def node = providers.exec {
+          commandLine 'node', '--version'
+          ignoreExitValue = true
+        }
+        if (node.result.get().exitValue == 0) {
+          found = node.standardOutput.asText.get().trim()
+        }
+      } catch (Exception ignored) {
+        // node is not on PATH; reported below.
+      }
+      def foundMajor = found?.replaceFirst(/^v/, '')?.tokenize('.')?.getAt(0)
+      if (foundMajor != expectedNodeMajor) {
+        throw new GradleException(
+          "useSystemNode=true needs Node ${expectedNodeMajor}.x on PATH, but found ${found ?: 'no node'}.\n" +
+          "In CI, install it with .github/actions/setup-toolchain (node: true, node-version: '${expectedNodeMajor}').\n" +
+          "Or pass -PuseSystemNode=false to let Gradle download Node ${rootProject.ext.nodeVersion}.")
+      }
+    }
+  }
+  subprojects {
+    pluginManager.withPlugin('com.github.node-gradle.node') {
+      tasks.withType(com.github.gradle.node.task.BaseTask).configureEach {
+        dependsOn verifySystemNode
       }
     }
   }
