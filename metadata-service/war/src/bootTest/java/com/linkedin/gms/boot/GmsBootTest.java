@@ -1,12 +1,13 @@
 package com.linkedin.gms.boot;
 
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.auth.authentication.AuthServiceController;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.graphql.GraphQLController;
 import com.linkedin.gms.GMSApplication;
-import com.linkedin.gms.factory.auth.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeListener;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.servlet.AuthServletConfig;
 import com.linkedin.gms.servlet.GraphQLServletConfig;
@@ -14,6 +15,7 @@ import com.linkedin.gms.servlet.IcebergCatalogServletConfig;
 import com.linkedin.gms.servlet.OpenAPIServletConfig;
 import com.linkedin.gms.servlet.RestliServletConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.iceberg.catalog.rest.open.PublicIcebergApiController;
 import io.datahubproject.iceberg.catalog.rest.secure.IcebergApiController;
@@ -62,7 +64,10 @@ public class GmsBootTest {
     boot(Messaging.PGQUEUE);
   }
 
-  /** POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in this process. */
+  /**
+   * POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in GMS, and registers the
+   * policy write observer.
+   */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
     try (ConfigurableApplicationContext ctx =
@@ -76,6 +81,7 @@ public class GmsBootTest {
             .start()) {
       contract(Messaging.KAFKA).verify(ctx);
       assertTrue(ctx.getBean("policyChangeListener") instanceof PolicyChangeListener);
+      assertNotNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
     }
   }
 

@@ -1,11 +1,12 @@
 package com.linkedin.metadata.kafka.boot;
 
-import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.assertNull;
 
-import com.linkedin.gms.factory.auth.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeListener;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
 import com.linkedin.metadata.kafka.MceConsumerApplication;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.test.boot.BootContract;
@@ -51,7 +52,11 @@ public class MceConsumerBootTest {
     boot(Messaging.PGQUEUE);
   }
 
-  /** POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in this process. */
+  /**
+   * POLICY_CACHE_BROADCAST_ENABLED is set on the MCE consumer too, so it sends the policy changes
+   * it commits. It serves no requests, so it starts no policy change listener and registers no
+   * policy write observer.
+   */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
     try (ConfigurableApplicationContext ctx =
@@ -63,7 +68,8 @@ public class MceConsumerBootTest {
             .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
             .start()) {
       contract(Messaging.KAFKA).verify(ctx);
-      assertTrue(ctx.getBean("policyChangeListener") instanceof PolicyChangeListener);
+      assertNull(ctx.getBeanProvider(PolicyChangeListener.class).getIfAvailable());
+      assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
     }
   }
 

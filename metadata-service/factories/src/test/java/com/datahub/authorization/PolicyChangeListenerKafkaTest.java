@@ -9,10 +9,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.client.EntityClient;
-import com.linkedin.gms.factory.auth.PolicyChangeListener;
-import com.linkedin.gms.factory.auth.PolicyChangeListenerFactory;
+import com.linkedin.gms.factory.policycache.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeListenerFactory;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -21,6 +22,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Properties;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.TimeUnit;
 import java.util.function.BooleanSupplier;
@@ -52,19 +54,29 @@ public class PolicyChangeListenerKafkaTest {
           Duration.ofMillis(200),
           Duration.ofMillis(500),
           Duration.ofMinutes(5),
-          Duration.ofSeconds(30));
+          Duration.ofSeconds(30),
+          Duration.ofMinutes(10));
 
   private ConfluentKafkaContainer kafka;
   private KafkaProducer<byte[], byte[]> producer;
 
-  /** The shared database: both authorizers load the same rows. */
+  /** The shared database: every authorizer reads the same rows. */
   private final List<PolicyFetcher.Policy> database = new CopyOnWriteArrayList<>();
+
+  /** What the search index lists. It lags: new policies are not in it. */
+  private final Set<Urn> indexed = ConcurrentHashMap.newKeySet();
 
   private final PolicyLoader loader =
       new PolicyLoader() {
         @Override
         public List<PolicyFetcher.Policy> loadAll() {
-          return new ArrayList<>(database);
+          List<PolicyFetcher.Policy> result = new ArrayList<>();
+          for (PolicyFetcher.Policy policy : database) {
+            if (indexed.contains(policy.getUrn())) {
+              result.add(policy);
+            }
+          }
+          return result;
         }
 
         @Override
@@ -131,6 +143,7 @@ public class PolicyChangeListenerKafkaTest {
                     Map.of(ConsumerConfig.BOOTSTRAP_SERVERS_CONFIG, kafka.getBootstrapServers()))),
             TOPIC,
             authorizer::requestLoad,
+            authorizer::requestUpdate,
             null,
             SETTINGS,
             Clock.systemUTC());
@@ -149,13 +162,18 @@ public class PolicyChangeListenerKafkaTest {
             .setPrivileges(new StringArray(List.of("EDIT_ENTITY"))));
   }
 
-  /** What the writing process does: commit, reload its own cache, then send the change. */
+  /**
+   * What the writing process does: commit, read the change into its own cache, then send the change
+   * log keyed by the policy URN. The search index does not list the policy yet.
+   */
   private void commitPolicyChange(DataHubAuthorizer writer, String id) throws Exception {
     PolicyFetcher.Policy policy = policy(id);
     database.add(policy);
     writer.onPolicyChange(Set.of(policy.getUrn()));
     producer
-        .send(new ProducerRecord<>(TOPIC, id.getBytes(), new byte[] {1}))
+        .send(
+            new ProducerRecord<>(
+                TOPIC, policy.getUrn().toString().getBytes(StandardCharsets.UTF_8), new byte[] {1}))
         .get(10, TimeUnit.SECONDS);
   }
 
@@ -188,9 +206,10 @@ public class PolicyChangeListenerKafkaTest {
 
     await(() -> hasPolicy(reader, "broadcast-1"), "the other process never got the change");
 
-    // A process that starts after the change still has it, from its start load.
+    // A process that starts after the change, while the index still lags: its full load misses
+    // the policy, and the replay of the recent messages reads it by key.
     DataHubAuthorizer late = startProcess();
-    assertTrue(hasPolicy(late, "broadcast-1"));
+    await(() -> hasPolicy(late, "broadcast-1"), "the late process never got the change");
     assertEquals(
         late.currentSnapshot().getOrDefault(DataHubAuthorizer.ALL, List.of()).size(),
         reader.currentSnapshot().getOrDefault(DataHubAuthorizer.ALL, List.of()).size());

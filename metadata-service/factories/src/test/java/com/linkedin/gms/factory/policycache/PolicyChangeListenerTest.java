@@ -1,24 +1,31 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.gms.factory.policycache;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
 
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicInteger;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.consumer.ConsumerRecord;
 import org.apache.kafka.clients.consumer.MockConsumer;
 import org.apache.kafka.clients.consumer.NoOffsetForPartitionException;
+import org.apache.kafka.clients.consumer.OffsetAndTimestamp;
 import org.apache.kafka.clients.consumer.OffsetOutOfRangeException;
 import org.apache.kafka.common.Node;
 import org.apache.kafka.common.PartitionInfo;
@@ -35,10 +42,15 @@ public class PolicyChangeListenerTest {
   private static final TopicPartition P1 = new TopicPartition(TOPIC, 1);
   private static final PolicyChangeListener.Settings SETTINGS =
       new PolicyChangeListener.Settings(
-          Duration.ZERO, Duration.ZERO, Duration.ofMinutes(5), Duration.ofSeconds(5));
+          Duration.ZERO,
+          Duration.ZERO,
+          Duration.ofMinutes(5),
+          Duration.ofSeconds(5),
+          Duration.ofMinutes(10));
 
-  private MockConsumer<byte[], byte[]> consumer;
+  private ReplayConsumer consumer;
   private AtomicInteger loads;
+  private List<Set<Urn>> updates;
   private MutableClock clock;
   private PolicyChangeListener listener;
 
@@ -62,22 +74,54 @@ public class PolicyChangeListenerTest {
     }
   }
 
+  /** MockConsumer does not implement offsetsForTimes; this one returns set replay offsets. */
+  private static class ReplayConsumer extends MockConsumer<byte[], byte[]> {
+    final Map<TopicPartition, Long> replayOffsets = new HashMap<>();
+
+    ReplayConsumer() {
+      super("none");
+    }
+
+    @Override
+    public synchronized Map<TopicPartition, OffsetAndTimestamp> offsetsForTimes(
+        Map<TopicPartition, Long> timestampsToSearch) {
+      Map<TopicPartition, OffsetAndTimestamp> result = new HashMap<>();
+      for (TopicPartition tp : timestampsToSearch.keySet()) {
+        Long offset = replayOffsets.get(tp);
+        result.put(tp, offset == null ? null : new OffsetAndTimestamp(offset, 0L));
+      }
+      return result;
+    }
+  }
+
+  private PolicyChangeListener listener(ReplayConsumer kafka) {
+    return new PolicyChangeListener(
+        kafka,
+        TOPIC,
+        () -> {
+          loads.incrementAndGet();
+          return CompletableFuture.completedFuture(null);
+        },
+        urns -> {
+          updates.add(urns);
+          return CompletableFuture.completedFuture(null);
+        },
+        null,
+        SETTINGS,
+        clock);
+  }
+
   @BeforeMethod
   public void setup() {
-    consumer = new MockConsumer<>("none");
+    consumer = new ReplayConsumer();
     loads = new AtomicInteger();
+    updates = new CopyOnWriteArrayList<>();
     clock = new MutableClock();
-    listener =
-        new PolicyChangeListener(
-            consumer,
-            TOPIC,
-            () -> {
-              loads.incrementAndGet();
-              return CompletableFuture.completedFuture(null);
-            },
-            null,
-            SETTINGS,
-            clock);
+    listener = listener(consumer);
+  }
+
+  private static Urn urn(String id) {
+    return UrnUtils.getUrn("urn:li:dataHubPolicy:" + id);
   }
 
   private void topicWithPartitions(TopicPartition... partitions) {
@@ -88,9 +132,14 @@ public class PolicyChangeListenerTest {
     consumer.updatePartitions(TOPIC, infos);
   }
 
-  private void record(TopicPartition tp, long offset) {
+  private void record(TopicPartition tp, long offset, String key) {
     consumer.addRecord(
-        new ConsumerRecord<>(TOPIC, tp.partition(), offset, new byte[0], new byte[0]));
+        new ConsumerRecord<>(
+            TOPIC, tp.partition(), offset, key.getBytes(StandardCharsets.UTF_8), new byte[0]));
+  }
+
+  private void record(TopicPartition tp, long offset) {
+    record(tp, offset, urn("p" + offset).toString());
   }
 
   @Test
@@ -105,7 +154,7 @@ public class PolicyChangeListenerTest {
   }
 
   @Test
-  public void testEachPolledBatchRequestsOneLoad() throws Exception {
+  public void testEachPolledBatchRequestsOneUpdateOfItsPolicies() throws Exception {
     topicWithPartitions(P0);
     consumer.updateEndOffsets(Map.of(P0, 0L));
     listener.step();
@@ -114,14 +163,81 @@ public class PolicyChangeListenerTest {
     record(P0, 0);
     record(P0, 1);
     listener.step();
-    assertEquals(loads.get(), 1, "two messages in one poll share one load");
+    assertEquals(updates, List.of(Set.of(urn("p0"), urn("p1"))), "one poll, one key read");
 
     listener.step();
-    assertEquals(loads.get(), 1, "an empty poll does not load");
+    assertEquals(updates.size(), 1, "an empty poll reads nothing");
 
     record(P0, 2);
     listener.step();
+    assertEquals(updates.get(1), Set.of(urn("p2")));
+    assertEquals(loads.get(), 0, "messages never cause a full load");
+  }
+
+  @Test
+  public void testStartReplaysTheWindowByKey() throws Exception {
+    topicWithPartitions(P0);
+    consumer.updateEndOffsets(Map.of(P0, 7L));
+    // Messages 4 to 6 are within the replay window. The full load may have missed them.
+    consumer.replayOffsets.put(P0, 4L);
+
+    listener.step();
+    assertEquals(loads.get(), 1);
+    assertEquals(consumer.position(P0), 4L);
+
+    record(P0, 4);
+    record(P0, 5);
+    record(P0, 6);
+    listener.step();
+    assertEquals(updates, List.of(Set.of(urn("p4"), urn("p5"), urn("p6"))));
+  }
+
+  @Test
+  public void testUnreadableKeyRequestsAFullLoad() throws Exception {
+    topicWithPartitions(P0);
+    consumer.updateEndOffsets(Map.of(P0, 0L));
+    listener.step();
+
+    record(P0, 0, "not a urn");
+    listener.step();
+
     assertEquals(loads.get(), 2);
+    assertEquals(updates, List.of());
+  }
+
+  @Test
+  public void testCloseDoesNotWaitForASlowStartLoad() throws Exception {
+    topicWithPartitions(P0);
+    consumer.updateEndOffsets(Map.of(P0, 0L));
+    CompletableFuture<Void> neverDone = new CompletableFuture<>();
+    CompletableFuture<Void> requested = new CompletableFuture<>();
+    PolicyChangeListener slow =
+        new PolicyChangeListener(
+            consumer,
+            TOPIC,
+            () -> {
+              requested.complete(null);
+              return neverDone;
+            },
+            urns -> CompletableFuture.completedFuture(null),
+            null,
+            new PolicyChangeListener.Settings(
+                Duration.ofMillis(100),
+                Duration.ofMillis(100),
+                Duration.ofMinutes(5),
+                Duration.ofSeconds(90),
+                Duration.ofMinutes(10)),
+            clock);
+    slow.start();
+    requested.get(10, TimeUnit.SECONDS);
+
+    long start = System.nanoTime();
+    slow.close();
+    long closeMillis = TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - start);
+
+    // The start load waits in 1 s steps, so close() returns long before the 90 s load timeout.
+    assertTrue(closeMillis < 5_000, "close took " + closeMillis + " ms");
+    assertTrue(consumer.closed(), "the listener closed its consumer");
   }
 
   @Test
@@ -195,7 +311,7 @@ public class PolicyChangeListenerTest {
         loads.get(), 2, "positioning again loads, so nothing on the new partition is lost");
     record(P1, 0);
     listener.step();
-    assertEquals(loads.get(), 3);
+    assertEquals(updates, List.of(Set.of(urn("p0"))));
   }
 
   @Test
@@ -206,7 +322,8 @@ public class PolicyChangeListenerTest {
         new PolicyChangeListener(
             consumer,
             TOPIC,
-            () -> CompletableFuture.failedFuture(new IllegalStateException("database down")),
+            () -> CompletableFuture.failedFuture(new IllegalStateException("search down")),
+            urns -> CompletableFuture.completedFuture(null),
             null,
             SETTINGS,
             clock);
@@ -221,8 +338,8 @@ public class PolicyChangeListenerTest {
   @Test
   public void testTopicCheckTimeoutKeepsThePosition() throws Exception {
     final boolean[] slowBroker = {false};
-    MockConsumer<byte[], byte[]> slow =
-        new MockConsumer<>("none") {
+    ReplayConsumer slow =
+        new ReplayConsumer() {
           @Override
           public synchronized List<PartitionInfo> partitionsFor(String topic, Duration timeout) {
             if (slowBroker[0]) {
@@ -233,17 +350,7 @@ public class PolicyChangeListenerTest {
         };
     slow.updatePartitions(TOPIC, List.of(new PartitionInfo(TOPIC, 0, Node.noNode(), null, null)));
     slow.updateEndOffsets(Map.of(P0, 3L));
-    PolicyChangeListener timed =
-        new PolicyChangeListener(
-            slow,
-            TOPIC,
-            () -> {
-              loads.incrementAndGet();
-              return CompletableFuture.completedFuture(null);
-            },
-            null,
-            SETTINGS,
-            clock);
+    PolicyChangeListener timed = listener(slow);
     timed.step();
     assertEquals(loads.get(), 1);
 

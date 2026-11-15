@@ -1,4 +1,4 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.gms.factory.policycache;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.Mockito.mock;
@@ -20,9 +20,9 @@ import org.testng.annotations.Test;
 /** Verifies when the policy change listener starts. */
 public class PolicyChangeListenerFactoryConditionalTest {
 
-  private static DataHubAuthorizer authorizer(boolean sqlSource) {
+  private static DataHubAuthorizer authorizer(boolean immediateUpdate) {
     DataHubAuthorizer authorizer = mock(DataHubAuthorizer.class);
-    when(authorizer.isImmediateUpdateEnabled()).thenReturn(sqlSource);
+    when(authorizer.isImmediateUpdateEnabled()).thenReturn(immediateUpdate);
     when(authorizer.getSystemOpContext())
         .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     return authorizer;
@@ -47,9 +47,9 @@ public class PolicyChangeListenerFactoryConditionalTest {
         .withBean("configurationProvider", ConfigurationProvider.class, () -> configWithTopic());
   }
 
-  private static ApplicationContextRunner withAuthorizer(boolean sqlSource) {
+  private static ApplicationContextRunner withAuthorizer(boolean immediateUpdate) {
     return runner()
-        .withBean("dataHubAuthorizer", DataHubAuthorizer.class, () -> authorizer(sqlSource));
+        .withBean("dataHubAuthorizer", DataHubAuthorizer.class, () -> authorizer(immediateUpdate));
   }
 
   @Test
@@ -78,7 +78,7 @@ public class PolicyChangeListenerFactoryConditionalTest {
   }
 
   @Test
-  public void notStartedWithoutTheSqlSource() {
+  public void notStartedWithoutImmediateUpdates() {
     withAuthorizer(false)
         .withPropertyValues("authorization.defaultAuthorizer.changeBroadcast.enabled=true")
         .run(

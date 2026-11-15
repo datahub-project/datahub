@@ -10,7 +10,7 @@ import com.linkedin.datahub.upgrade.system.SystemUpdateBlocking;
 import com.linkedin.datahub.upgrade.system.SystemUpdateNonBlocking;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.datahub.upgrade.system.kafka.KafkaSetup;
-import com.linkedin.gms.factory.auth.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeListener;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;

@@ -1,10 +1,11 @@
-package com.linkedin.gms.factory.auth;
+package com.linkedin.gms.factory.policycache;
 
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.kafka.PolicyChangeTopic;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabledCondition;
 import java.time.Clock;
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Optional;
@@ -17,6 +18,7 @@ import org.apache.kafka.clients.consumer.KafkaConsumer;
 import org.apache.kafka.common.serialization.ByteArrayDeserializer;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -24,8 +26,10 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
 
 /**
- * Starts a {@link PolicyChangeListener} in each process with a policy cache (GMS and the standalone
- * MCE consumer) when POLICY_CACHE_BROADCAST_ENABLED is true.
+ * Starts a {@link PolicyChangeListener} in GMS when POLICY_CACHE_BROADCAST_ENABLED is true.
+ *
+ * <p>Only GMS scans this package (CommonApplicationConfig). The standalone MCE consumer serves no
+ * requests, so it needs no up-to-date policy cache; it only sends the changes it commits.
  */
 @Slf4j
 @Configuration
@@ -42,9 +46,10 @@ public class PolicyChangeListenerFactory {
       @Qualifier("dataHubAuthorizer") final ObjectProvider<DataHubAuthorizer> authorizerProvider,
       @Qualifier("configurationProvider") final ConfigurationProvider config,
       @Qualifier("kafkaConsumerFactory")
-          final ObjectProvider<DefaultKafkaConsumerFactory<String, GenericRecord>>
-              consumerFactory) {
-    // Processes without a policy cache (system-update) scan this package but have no authorizer.
+          final ObjectProvider<DefaultKafkaConsumerFactory<String, GenericRecord>> consumerFactory,
+      @Value("${authorization.defaultAuthorizer.immediateUpdate.recentChangeWindowSeconds:600}")
+          final long recentChangeWindowSeconds) {
+    // system-update scans all factory packages but has no authorizer.
     final DataHubAuthorizer authorizer = authorizerProvider.getIfAvailable();
     if (authorizer == null) {
       return null;
@@ -69,8 +74,10 @@ public class PolicyChangeListenerFactory {
             new KafkaConsumer<>(listenerProperties(factory.getConfigurationProperties())),
             topic.get(),
             authorizer::requestLoad,
+            authorizer::requestUpdate,
             authorizer.getSystemOpContext().getMetricUtils().orElse(null),
-            PolicyChangeListener.Settings.defaults(),
+            // Replays as far back as the authorizer remembers recent changes.
+            PolicyChangeListener.Settings.defaults(Duration.ofSeconds(recentChangeWindowSeconds)),
             Clock.systemUTC());
     listener.start();
     return listener;
@@ -78,7 +85,7 @@ public class PolicyChangeListenerFactory {
 
   /**
    * The shared consumer settings (brokers, security, MSK IAM), changed for a reader that is not in
-   * a consumer group, commits nothing and never decodes the message: any message means "reload". So
+   * a consumer group, commits nothing and only reads the message key (the policy URN, as text). So
    * the listener does not need the schema registry.
    */
   @Nonnull
