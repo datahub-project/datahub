@@ -218,9 +218,8 @@ public class PolicyChangeListenerTest {
     record(P0, 1, "not a urn");
     listener.step();
 
-    // Both requests: they usually merge into one full load that also reads p0 by key, so p0 goes on
-    // the
-    // recent-changes list.
+    // Both requests: they usually merge into one full load that also reads p0 by key, so p0 goes
+    // on the recent-changes list.
     assertEquals(loads.get(), 2);
     assertEquals(updates, List.of(Set.of(urn("p0"))));
   }
