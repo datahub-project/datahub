@@ -1,6 +1,7 @@
 """Local lifecycle regressions: isolation, guardrails and CLI connections."""
 
 import argparse
+import fcntl
 import json
 import os
 import socket
@@ -95,6 +96,96 @@ def test_start_marks_and_records_stack(
     assert start.call_args.kwargs["processes"] == 2
 
 
+def test_start_can_restore_auth_and_remembers_setting(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
+    start = Mock(return_value=0)
+    monkeypatch.setattr(local, "cmd_start_local", start)
+    parser = dev.build_parser()
+    for flags, no_auth in [
+        (["--no-auth"], True),
+        ([], True),
+        (["--auth"], False),
+        ([], False),
+    ]:
+        args = parser.parse_args(["start", "--local", *flags])
+        assert dev.cmd_start(args) == 0
+        assert start.call_args.kwargs["no_auth"] is no_auth
+        record = local.read_instance_record("abc123")
+        assert record == dev._get_instance()
+        assert record is not None and record["local_options"]["no_auth"] is no_auth
+
+
+def test_start_refuses_unknown_directory_without_reserving_slot(
+    monkeypatch: pytest.MonkeyPatch, capsys: pytest.CaptureFixture[str]
+) -> None:
+    monkeypatch.setattr(dev, "WORKTREE_ID", "abc123")
+    monkeypatch.setattr(dev, "_is_port_free", lambda port: True)
+    directory = local.local_data_dir("abc123")
+    directory.mkdir(parents=True)
+    sentinel = directory / "unrecognized"
+    sentinel.write_text("keep")
+    start = Mock()
+    monkeypatch.setattr(local, "cmd_start_local", start)
+
+    assert dev.cmd_start(dev.build_parser().parse_args(["start", "--local"])) == 1
+    assert dev._get_instance() is None
+    assert local.read_instance_record("abc123") is None
+    assert sentinel.read_text() == "keep"
+    assert str(directory) in capsys.readouterr().err
+    start.assert_not_called()
+
+
+@pytest.mark.parametrize("remote", [False, True])
+def test_registration_holds_registry_lock(
+    monkeypatch: pytest.MonkeyPatch, remote: bool
+) -> None:
+    load = dev._load_registry
+    save = dev._save_registry
+
+    def assert_locked() -> None:
+        with (dev.DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
+            with pytest.raises(BlockingIOError):
+                fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+
+    def load_locked() -> dict[str, object]:
+        assert_locked()
+        return load()
+
+    def save_locked(registry: dict[str, object]) -> None:
+        assert_locked()
+        save(registry)
+
+    monkeypatch.setattr(dev, "_load_registry", load_locked)
+    monkeypatch.setattr(dev, "_save_registry", save_locked)
+    if remote:
+        instance = dev._register_remote_instance("/path/to/runner.sh", 2)
+    else:
+        instance = dev._register_instance(0, dev._compute_ports(0))
+    assert load()["instances"][dev.WORKTREE_ID] == instance
+
+
+@pytest.mark.parametrize("contents", ["{invalid", "[]"])
+def test_main_reports_bad_registry_without_overwriting(
+    contents: str,
+) -> None:
+    dev.DATAHUB_DEV_DIR.mkdir(parents=True)
+    dev.INSTANCES_FILE.write_text(contents)
+    result = subprocess.run(
+        [sys.executable, dev.__file__, "instances", "clean"],
+        capture_output=True,
+        text=True,
+        timeout=10,
+    )
+    assert result.returncode == 1
+    assert dev.INSTANCES_FILE.read_text() == contents
+    assert str(dev.INSTANCES_FILE) in result.stderr
+    assert "Repair" in result.stderr
+    assert "Traceback" not in result.stderr
+
+
 @pytest.mark.parametrize(
     "command",
     [
@@ -152,6 +243,45 @@ def test_clean_preserves_running_and_unrecorded_stacks(
     (data_dir / local.INSTANCE_RECORD).unlink()
     monkeypatch.setattr(local, "stack_running", lambda *args: False)
     assert local.reclaim_stale({"abc123": entry}) == []
+
+
+def test_clean_removes_stale_docker_and_remote_entries_only(tmp_path: Path) -> None:
+    stale = {"worktree_path": str(tmp_path / "gone")}
+    unmanaged = {**stale, "mode": "local"}
+    live = {"worktree_path": str(tmp_path)}
+    dev._save_registry(
+        {
+            "instances": {
+                "docker": {**stale, "type": "local"},
+                "remote": {**stale, "type": "remote"},
+                "unmanaged": unmanaged,
+                "live": live,
+            }
+        }
+    )
+    assert dev._cmd_instances_clean(argparse.Namespace()) == 0
+    assert dev._load_registry()["instances"] == {"unmanaged": unmanaged, "live": live}
+
+
+def test_clean_releases_lock_and_preserves_concurrent_updates(
+    entry: dict[str, object], tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    entry["worktree_path"] = str(tmp_path / "gone")
+    register(entry)
+    updated = {**entry, "created_at": "updated"}
+    live = {"worktree_path": str(tmp_path)}
+
+    def nuke(worktree_id: str, ports: dict[str, int], keep_data: bool) -> int:
+        with (dev.DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
+            fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
+        with dev._registry_transaction() as registry:
+            registry["instances"][worktree_id] = updated
+            registry["instances"]["live"] = live
+        return 0
+
+    monkeypatch.setattr(local, "cmd_nuke_local", nuke)
+    assert dev._cmd_instances_clean(argparse.Namespace()) == 0
+    assert dev._load_registry()["instances"] == {"abc123": updated, "live": live}
 
 
 def test_profiles_refresh_and_remove_preserve_default(
@@ -395,11 +525,14 @@ def test_repeated_healthy_start_reuses_launcher(
     launch.assert_not_called()
 
 
+@pytest.mark.parametrize("missing_setting", [False, True])
 def test_shard_inventory_uses_effective_limit_and_counts_replicas(
-    monkeypatch: pytest.MonkeyPatch,
+    monkeypatch: pytest.MonkeyPatch, missing_setting: bool
 ) -> None:
     def request(port: int, path: str) -> object:
         if path.startswith("/_cluster/settings"):
+            if missing_setting:
+                return {}
             return {
                 "transient": {"cluster.max_shards_per_node": "200"},
                 "persistent": {},
@@ -414,7 +547,11 @@ def test_shard_inventory_uses_effective_limit_and_counts_replicas(
 
     monkeypatch.setattr(local, "request_json", request)
     usage, shards = local.shard_inventory(1234)
-    assert (usage.used, usage.limit, shards) == (4, 400, {"open": 4})
+    assert (usage.used, usage.limit, shards) == (
+        4,
+        2000 if missing_setting else 400,
+        {"open": 4},
+    )
 
 
 def test_fresh_clears_data_and_retains_instance_record(

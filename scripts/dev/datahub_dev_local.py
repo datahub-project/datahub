@@ -218,9 +218,13 @@ def shard_inventory(port: int) -> tuple[ShardUsage, dict[str, int]]:
         ),
     )
     per_node = next(
-        int(settings[scope]["cluster.max_shards_per_node"])
-        for scope in ("transient", "persistent", "defaults")
-        if "cluster.max_shards_per_node" in settings.get(scope, {})
+        (
+            int(settings[scope]["cluster.max_shards_per_node"])
+            for scope in ("transient", "persistent", "defaults")
+            if "cluster.max_shards_per_node" in settings.get(scope, {})
+        ),
+        # OpenSearch defaults to 1000 when no scope supplies the setting.
+        1000,
     )
     health = cast(dict[str, object], request_json(port, "/_cluster/health"))
     rows = cast(

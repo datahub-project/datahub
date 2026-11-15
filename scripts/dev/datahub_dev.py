@@ -31,6 +31,7 @@ Remote runner (set DATAHUB_RUNNER or 'runner' in ~/.datahub/dev/config.json):
 """
 
 import argparse
+import copy
 import dataclasses
 import datetime
 import fcntl
@@ -45,8 +46,9 @@ import sys
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Mapping, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -185,6 +187,10 @@ PORT_BASE: Dict[str, int] = {
 SLOT_OFFSET: int = 1000
 
 
+class RegistryError(RuntimeError):
+    """The registry must be repaired before any command can update it."""
+
+
 def _load_registry() -> Dict[str, Any]:
     """Read ~/.datahub/dev/instances.json; return empty structure if absent."""
     if not INSTANCES_FILE.exists():
@@ -194,11 +200,11 @@ def _load_registry() -> Dict[str, Any]:
         if not isinstance(data, dict) or not isinstance(
             data.get("instances", {}), dict
         ):
-            raise RuntimeError(f"Invalid instance registry: {INSTANCES_FILE}")
+            raise RegistryError(f"Invalid instance registry: {INSTANCES_FILE}")
         data.setdefault("instances", {})
         return data
     except (json.JSONDecodeError, OSError) as error:
-        raise RuntimeError(
+        raise RegistryError(
             f"Cannot read instance registry {INSTANCES_FILE}: {error}"
         ) from error
 
@@ -209,6 +215,19 @@ def _save_registry(data: Dict[str, Any]) -> None:
     tmp = INSTANCES_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
     tmp.rename(INSTANCES_FILE)
+
+
+@contextmanager
+def _registry_transaction() -> Iterator[Dict[str, Any]]:
+    """Serialize registry updates across local, Docker and remote commands."""
+    DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
+    with (DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        registry = _load_registry()
+        original = copy.deepcopy(registry)
+        yield registry
+        if registry != original:
+            _save_registry(registry)
 
 
 def _load_dev_config() -> Dict[str, Any]:
@@ -315,7 +334,6 @@ def _register_remote_instance(runner: str, slot: int) -> Dict[str, Any]:
     (slot-offset).  Docker on the remote machine always runs on PORT_BASE
     defaults — the slot offset is only used for local port-forwarding.
     """
-    registry = _load_registry()
     local_ports = _compute_ports(slot)  # slot-offset → used as tunnel local ports
     instance: Dict[str, Any] = {
         "worktree_path": str(REPO_ROOT),
@@ -326,8 +344,8 @@ def _register_remote_instance(runner: str, slot: int) -> Dict[str, Any]:
         "ports": local_ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    registry["instances"][WORKTREE_ID] = instance
-    _save_registry(registry)
+    with _registry_transaction() as registry:
+        registry["instances"][WORKTREE_ID] = instance
     return instance
 
 
@@ -347,8 +365,6 @@ def _compute_tunnel_pairs(local_ports: Dict[str, int]) -> List[str]:
 
 def _register_instance(slot: int, ports: Dict[str, int]) -> Dict[str, Any]:
     """Add or update this worktree's LOCAL instance entry in the registry."""
-    # Re-read to catch concurrent writes before committing.
-    registry = _load_registry()
     instance: Dict[str, Any] = {
         "worktree_path": str(REPO_ROOT),
         "project_name": COMPOSE_PROJECT,
@@ -357,8 +373,8 @@ def _register_instance(slot: int, ports: Dict[str, int]) -> Dict[str, Any]:
         "ports": ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    registry["instances"][WORKTREE_ID] = instance
-    _save_registry(registry)
+    with _registry_transaction() as registry:
+        registry["instances"][WORKTREE_ID] = instance
     return instance
 
 
@@ -509,7 +525,10 @@ def _log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-CONFIG: DevToolingConfig = _load_config()
+CONFIG: DevToolingConfig
+# CLI configuration reads the registry and must run inside main's error handler.
+if __name__ != "__main__":
+    CONFIG = _load_config()
 
 
 def _rebuild_config_services() -> None:
@@ -1894,12 +1913,9 @@ def _local_env_file() -> Path:
 
 
 def _remove_local_registry_entry(expected: Mapping[str, object]) -> None:
-    with (DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        registry = _load_registry()
+    with _registry_transaction() as registry:
         if registry["instances"].get(WORKTREE_ID) == expected:
             del registry["instances"][WORKTREE_ID]
-            _save_registry(registry)
 
 
 def _restart_local_stack(instance: Mapping[str, object]) -> int:
@@ -1913,10 +1929,7 @@ def _restart_local_stack(instance: Mapping[str, object]) -> int:
 def _cmd_start_local(args: argparse.Namespace) -> int:
     import datahub_dev_local as local
 
-    DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
-    with (DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        registry = _load_registry()
+    with _registry_transaction() as registry:
         instance = registry["instances"].get(WORKTREE_ID)
         if instance is not None and not local.is_owned_entry(instance):
             _log(
@@ -1927,8 +1940,8 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
         options = {
             "processes": getattr(args, "processes", None)
             or recorded.get("processes", 1),
-            "no_auth": getattr(args, "no_auth", None)
-            if getattr(args, "no_auth", None) is not None
+            "no_auth": not args.auth
+            if getattr(args, "auth", None) is not None
             else recorded.get("no_auth", False),
         }
         processes = options["processes"]
@@ -1978,9 +1991,13 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                     for i in range(processes)
                 },
             }
-            registry["instances"][WORKTREE_ID] = instance
-            _save_registry(registry)
-        local.write_instance_record(WORKTREE_ID, instance)
+        try:
+            # A refused data directory must not leave a registry reservation behind.
+            local.write_instance_record(WORKTREE_ID, instance)
+        except (OSError, RuntimeError, ValueError) as error:
+            _log(f"ERROR: {error}")
+            return 1
+        registry["instances"][WORKTREE_ID] = instance
     return local.cmd_start_local(
         slot=instance["slot"],
         ports=instance["ports"],
@@ -2264,19 +2281,37 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_instances_clean(args: argparse.Namespace) -> int:
-    """Reclaim marked local stacks whose worktrees are gone; preserve unknown entries."""
+    """Reclaim missing worktrees, preserving local stacks we do not own."""
     import datahub_dev_local as local
 
-    DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
-    with (DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
-        fcntl.flock(lock, fcntl.LOCK_EX)
-        registry = _load_registry()
-        removed = local.reclaim_stale(registry["instances"])
-        for worktree_id in removed:
-            registry["instances"].pop(worktree_id)
-        if removed:
-            _save_registry(registry)
-    _log(f"Cleaned {len(removed)} stale local instance(s). Unmanaged entries retained.")
+    with _registry_transaction() as registry:
+        candidates = {
+            worktree_id: entry
+            for worktree_id, entry in registry["instances"].items()
+            if entry.get("worktree_path")
+            and not Path(entry["worktree_path"]).exists()
+            and (entry.get("mode") != "local" or local.is_owned_entry(entry))
+        }
+    # Local cleanup may need to start the shared search node. Keep reservations
+    # visible while it runs without blocking unrelated registry writers.
+    reclaimed = local.reclaim_stale(candidates)
+    to_remove = [
+        key for key, entry in candidates.items() if entry.get("mode") != "local"
+    ] + reclaimed
+    removed = 0
+    with _registry_transaction() as registry:
+        for worktree_id in to_remove:
+            expected = candidates[worktree_id]
+            if registry["instances"].get(worktree_id) == expected:
+                del registry["instances"][worktree_id]
+                _log(
+                    f"Removed stale instance {worktree_id} ({expected.get('worktree_path', '?')})"
+                )
+                removed += 1
+    if removed:
+        _log(f"Cleaned {removed} stale instance(s).")
+    else:
+        _log("No stale instances found.")
     return 0
 
 
@@ -2394,10 +2429,10 @@ def build_parser() -> argparse.ArgumentParser:
         help="Clear this local stack's H2 and search data before starting",
     )
     start_p.add_argument(
-        "--no-auth",
-        action="store_true",
+        "--auth",
+        action=argparse.BooleanOptionalAction,
         default=None,
-        help="Disable authentication in local mode",
+        help="Enable or disable authentication in local mode (default: recorded value)",
     )
     start_p.add_argument(
         "--skip-build",
@@ -2559,7 +2594,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def _main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
@@ -2622,6 +2657,20 @@ def main() -> int:
 
     parser.print_help()
     return 1
+
+
+def main() -> int:
+    global CONFIG
+    try:
+        CONFIG = _load_config()
+        return _main()
+    except RegistryError as error:
+        _log(f"ERROR: {error}")
+        _log(
+            f"Repair {INSTANCES_FILE}, or move it aside after backing it up "
+            "and inspecting existing instances, then retry."
+        )
+        return 1
 
 
 if __name__ == "__main__":

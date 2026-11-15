@@ -22,7 +22,8 @@ when source changes. The start command prints the log path for `tail -f`.
   port is reserved in the shared registry, including additional processes.
 - `--skip-build`: require existing GMS, upgrade and OpenSearch artifacts.
 - `--fresh`: reset this stack's data and indices before starting, including env overrides.
-- `--no-auth`: disable authentication for this local backend.
+- `--auth` / `--no-auth`: enable or disable authentication for this local backend.
+  Omitting both keeps the recorded setting (enabled for new stacks).
 - `env set KEY=VALUE`, `env list`, `env restart`: maintain the worktree's
   `env-overrides.env`, passed to the launcher through `--env-file`. Restart retains
   the previous process count and authentication setting. The launcher protects its
@@ -34,7 +35,8 @@ when source changes. The start command prints the log path for `tail -f`.
 - `nuke --keep-data`: stop and remove stale H2 locks; retain data and profiles.
 - `nuke`: remove this stack's indices, data, profiles and registry entry; no restart.
 - `instances clean`: reclaim marked, stopped stacks whose recorded worktrees no
-  longer exist, including their indices and profiles. Unknown entries are retained.
+  longer exist, including their indices and profiles. Stale Docker and remote entries
+  are removed from the registry only. Unrecognized local entries are retained.
   Stacks missing their registry entry are left for manual inspection.
 
 Persistent stack data lives in `~/.datahub/local/stacks/<worktree-id>/`. The registry
