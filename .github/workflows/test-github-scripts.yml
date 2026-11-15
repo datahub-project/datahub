@@ -5,6 +5,9 @@ on:
     paths:
       - ".github/scripts/**"
       - ".github/smart-testing/**"
+      - "scripts/dev/**"
+      - "metadata-service/gms-lite/bin/**"
+      - "metadata-ingestion/src/datahub/cli/_profile_store.py"
     branches:
       - master
       - releases/**
@@ -13,6 +16,9 @@ on:
     paths:
       - ".github/scripts/**"
       - ".github/smart-testing/**"
+      - "scripts/dev/**"
+      - "metadata-service/gms-lite/bin/**"
+      - "metadata-ingestion/src/datahub/cli/_profile_store.py"
     branches:
       - "**"
 
@@ -40,4 +46,4 @@ jobs:
 
       - name: Run tests
         run: |
-          pytest .github/scripts/test .github/scripts/release/test .github/smart-testing/test .github/scripts/pre-commit/tests
+          pytest .github/scripts/test .github/scripts/release/test .github/smart-testing/test .github/scripts/pre-commit/tests scripts/dev/tests
