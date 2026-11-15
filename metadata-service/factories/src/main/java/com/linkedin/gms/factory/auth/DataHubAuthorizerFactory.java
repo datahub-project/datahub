@@ -2,12 +2,12 @@ package com.linkedin.gms.factory.auth;
 
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
+import com.datahub.authorization.SearchPolicyLoader;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.metadata.entity.AspectDao;
 import io.datahubproject.metadata.context.OperationContext;
+import java.time.Duration;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
-import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -18,8 +18,9 @@ import org.springframework.context.annotation.Scope;
 @Configuration
 public class DataHubAuthorizerFactory {
 
-  // Startup load: try a few times, then continue and retry in the background, so a short database
-  // problem does not stop the process from starting. All attempts share one 60 s limit, so bean
+  // Startup load: try a few times, then continue and retry in the background, so a short search or
+  // database problem does not stop the process from starting. All attempts share one 60 s limit, so
+  // bean
   // creation is blocked for at most about 60 s.
   private static final int INITIAL_LOAD_ATTEMPTS = 3;
   private static final long INITIAL_LOAD_BACKOFF_MILLIS = 2000;
@@ -33,8 +34,11 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.enabled:true}")
   private Boolean policiesEnabled;
 
-  @Value("${authorization.defaultAuthorizer.sqlSource.enabled:false}")
-  private Boolean sqlSourceEnabled;
+  @Value("${authorization.defaultAuthorizer.immediateUpdate.enabled:false}")
+  private Boolean immediateUpdateEnabled;
+
+  @Value("${authorization.defaultAuthorizer.immediateUpdate.recentChangeWindowSeconds:600}")
+  private Long recentChangeWindowSeconds;
 
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
@@ -42,20 +46,12 @@ public class DataHubAuthorizerFactory {
   protected DataHubAuthorizer dataHubAuthorizer(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
       final SystemEntityClient systemEntityClient,
-      @Qualifier("groupService") final GroupService groupService,
-      @Qualifier("entityAspectDao") final ObjectProvider<AspectDao> aspectDao) {
+      @Qualifier("groupService") final GroupService groupService) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
             ? DataHubAuthorizer.AuthorizationMode.DEFAULT
             : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
-
-    final AspectDao dao = Boolean.TRUE.equals(sqlSourceEnabled) ? aspectDao.getIfAvailable() : null;
-    if (Boolean.TRUE.equals(sqlSourceEnabled) && dao == null) {
-      log.error(
-          "POLICY_CACHE_SQL_SOURCE_ENABLED is true, but this process has no entity store."
-              + " Falling back to the search-based policy cache.");
-    }
 
     final DataHubAuthorizer authorizer =
         new DataHubAuthorizer(
@@ -66,9 +62,12 @@ public class DataHubAuthorizerFactory {
             policyCacheRefreshIntervalSeconds,
             mode,
             policyCacheFetchSize,
-            dao != null ? new SqlPolicyLoader(dao) : null);
+            Boolean.TRUE.equals(immediateUpdateEnabled)
+                ? new SearchPolicyLoader(systemOpContext, systemEntityClient, policyCacheFetchSize)
+                : null);
 
-    if (authorizer.isSqlSourceEnabled()) {
+    if (authorizer.isImmediateUpdateEnabled()) {
+      authorizer.setRecentChangeWindow(Duration.ofSeconds(recentChangeWindowSeconds));
       authorizer.initialLoad(INITIAL_LOAD_ATTEMPTS, INITIAL_LOAD_BACKOFF_MILLIS);
     } else {
       log.info("policy cache source=search");
