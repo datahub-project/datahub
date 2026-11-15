@@ -44,7 +44,6 @@ public class PolicyChangeObserverFactoryTest {
         .withBean("dataHubAuthorizer", DataHubAuthorizer.class, () -> authorizer)
         .withBean("entityService", EntityService.class, () -> service)
         .withPropertyValues(
-            "authorization.defaultAuthorizer.immediateUpdate.enabled=true",
             "authorization.defaultAuthorizer.immediateUpdate.policyChangeWaitMillis=5000")
         .run(context -> assertNotNull(context.getBean(PolicyChangeObserver.class)));
 

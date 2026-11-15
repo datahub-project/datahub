@@ -1279,7 +1279,8 @@ public class EbeanEntityServiceTest
         proposalBatch(upsertProposal(policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME, policy)),
         true);
 
-    // The caller chose async: the policy is queued, not written, even with the broadcast on.
+    // The caller chose async: the policy is queued, not written. Nothing in ingestProposal turns
+    // an async policy write into a sync one.
     assertNull(
         _entityServiceImpl.getLatestAspect(opContext, policyUrn, DATAHUB_POLICY_INFO_ASPECT_NAME));
   }
