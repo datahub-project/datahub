@@ -86,6 +86,7 @@ import com.linkedin.retention.TimeBasedRetention;
 import com.linkedin.retention.VersionBasedRetention;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.DataGenerator;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -102,9 +103,9 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.CopyOnWriteArrayList;
 import java.util.concurrent.LinkedBlockingQueue;
 import java.util.concurrent.atomic.AtomicBoolean;
-import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
 import java.util.function.Function;
 import java.util.stream.Collectors;
@@ -1089,7 +1090,18 @@ public class EbeanEntityServiceTest
         true);
   }
 
+  /** A client's request; the MCE consumer writes with the plain system context instead. */
+  private OperationContext clientContext() {
+    return opContext.toBuilder()
+        .requestContext(RequestContext.TEST.build())
+        .build(opContext.getSessionAuthentication(), false);
+  }
+
   private void ingestPolicy(Urn policyUrn, String description) {
+    ingestPolicy(clientContext(), policyUrn, description);
+  }
+
+  private void ingestPolicy(OperationContext context, Urn policyUrn, String description) {
     DataHubPolicyInfo info =
         new DataHubPolicyInfo()
             .setDisplayName("observer test policy")
@@ -1099,7 +1111,7 @@ public class EbeanEntityServiceTest
             .setPrivileges(new StringArray(List.of("EDIT_ENTITY")))
             .setActors(new DataHubActorFilter().setAllUsers(true));
     _entityServiceImpl.ingestAspects(
-        opContext,
+        context,
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(
@@ -1118,19 +1130,19 @@ public class EbeanEntityServiceTest
 
   @Test
   public void testPolicyChangeObserverRunsAfterPolicyWritesAndDeletes() throws Exception {
-    AtomicInteger calls = new AtomicInteger();
-    _entityServiceImpl.setPolicyChangeObserver(calls::incrementAndGet);
+    List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
+    _entityServiceImpl.setPolicyChangeObserver(calls::add);
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-test");
 
     ingestPolicy(policyUrn, "first");
-    assertEquals(calls.get(), 1, "a policy write notifies the observer");
+    assertEquals(calls, List.of(Set.of(policyUrn)), "a policy write notifies with its URN");
 
     ingestPolicy(policyUrn, "first");
-    assertEquals(calls.get(), 1, "a write that changes nothing does not notify");
+    assertEquals(calls.size(), 1, "a write that changes nothing does not notify");
 
     Urn userUrn = UrnUtils.getUrn("urn:li:corpuser:observer-test");
     _entityServiceImpl.ingestAspects(
-        opContext,
+        clientContext(),
         AspectsBatchImpl.builder()
             .retrieverContext(opContext.getRetrieverContext())
             .items(
@@ -1145,16 +1157,29 @@ public class EbeanEntityServiceTest
             .build(opContext),
         true,
         true);
-    assertEquals(calls.get(), 1, "a write to another entity type does not notify");
+    assertEquals(calls.size(), 1, "a write to another entity type does not notify");
 
+    _entityServiceImpl.deleteUrn(clientContext(), policyUrn);
+    assertEquals(calls, List.of(Set.of(policyUrn), Set.of(policyUrn)), "a delete notifies");
+  }
+
+  @Test
+  public void testPolicyWriteWithoutARequestContextDoesNotNotify() {
+    List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
+    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+    Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-consumer");
+
+    // How the MCE consumer commits a queued write: the system context, no request context.
+    ingestPolicy(opContext, policyUrn, "queued");
     _entityServiceImpl.deleteUrn(opContext, policyUrn);
-    assertEquals(calls.get(), 2, "a policy delete notifies the observer");
+
+    assertEquals(calls, List.of());
   }
 
   @Test
   public void testPolicyChangeObserverFailureDoesNotFailTheWrite() {
     _entityServiceImpl.setPolicyChangeObserver(
-        () -> {
+        urns -> {
           throw new IllegalStateException("observer failure");
         });
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-failure");
