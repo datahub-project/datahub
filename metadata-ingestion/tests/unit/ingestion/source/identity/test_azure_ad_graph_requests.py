@@ -109,6 +109,8 @@ def test_warns_when_graph_omits_account_enabled() -> None:
         {"userPrincipalName": "a@example.com", "accountEnabled": True},
         {"userPrincipalName": "b@example.com"},
         {"userPrincipalName": "c@example.com", "accountEnabled": None},
+        # The same user listed twice, as happens across group memberships.
+        {"userPrincipalName": "c@example.com", "accountEnabled": None},
     ]
     with patch.object(AzureADSource, "_get_azure_ad_users", return_value=[users]):
         list(source.get_workunits_internal())
@@ -116,7 +118,7 @@ def test_warns_when_graph_omits_account_enabled() -> None:
     warnings = list(source.report.warnings)
     assert len(warnings) == 1
     assert "User.Read.All" in str(warnings[0].context)
-    assert "2" in str(warnings[0].context)
+    assert "2 user(s)" in str(warnings[0].context)
 
 
 def test_no_account_enabled_warning_when_graph_returns_it() -> None:

@@ -4,7 +4,7 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set
 
 import click
 import requests
@@ -251,6 +251,8 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
+        # A set, because a user in several groups is mapped once per membership.
+        self.urns_missing_account_enabled: Set[str] = set()
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -640,7 +642,10 @@ class AzureADSource(StatefulIngestionSourceBase):
                 self.report.report_filtered(f"{corp_user_urn}.*")
                 continue
             if user.get("accountEnabled") is None:
-                self.report.users_missing_account_enabled += 1
+                self.urns_missing_account_enabled.add(corp_user_urn)
+                self.report.users_missing_account_enabled = len(
+                    self.urns_missing_account_enabled
+                )
             yield AzureADUserAspects(
                 urn=corp_user_urn,
                 info=self._map_azure_ad_user_to_corp_user(user),
