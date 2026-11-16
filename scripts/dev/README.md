@@ -1,7 +1,7 @@
 # DataHub development wrapper
 
 Use `scripts/dev/datahub-dev.sh --help` for the full Docker and remote-runner
-commands. The wrapper also supports a Docker-free backend on JDK 25:
+commands. The wrapper also supports a Docker-free stack on JDK 25:
 
 ```bash
 scripts/dev/datahub-dev.sh start --local
@@ -17,18 +17,25 @@ It builds GMS, upgrade and embedded OpenSearch artifacts when missing, then runs
 the launcher detached. Existing artifacts are reused; rebuild them with Gradle
 when source changes. The start command prints the log path for `tail -f`.
 
+Vite serves the UI at `http://localhost:<9002 + slot * 1000>` with hot reload and
+no Play server. Log in as `datahub` / `datahub`. The plugin reads `GMS_LITE_STACK_FILE`
+from the worktree's `stack.json`, handles sessions, and proxies GraphQL and OpenAPI
+to GMS. `frontend.log` contains startup and HMR output; use `tail -f <data-dir>/frontend.log`.
+
 - `start --local --processes N`: N isolated GMS instances, starting at the slot's
   GMS port. Ports use the Docker registry's `base + slot * 1000` scheme. Every GMS
   port is reserved in the shared registry, including additional processes.
+
+- `--no-frontend`: start only the backend. Restarts retain this choice; `--frontend` re-enables Vite.
 - `--skip-build`: require existing GMS, upgrade and OpenSearch artifacts.
 - `--fresh`: reset this stack's data and indices before starting, including env overrides.
 - `--auth` / `--no-auth`: enable or disable authentication for this local backend.
   Omitting both keeps the recorded setting (enabled for new stacks).
 - `env set KEY=VALUE`, `env list`, `env restart`: maintain the worktree's
   `env-overrides.env`, passed to the launcher through `--env-file`. Restart retains
-  the previous process count and authentication setting. The launcher protects its
+  the previous process count, authentication and frontend settings. The launcher protects its
   per-instance storage, port and authentication settings from env overrides.
-- `stop`: stop GMS processes, retaining data, profiles and the registry reservation.
+- `stop`: stop GMS and Vite processes, retaining data, profiles and the registry reservation.
 - `reset`: stop and warm-start with the recorded options.
 - `rebuild`: rebuild the GMS artifact and warm-start with the recorded options.
 - `wait`: wait for all GMS instances to become healthy.

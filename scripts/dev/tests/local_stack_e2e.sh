@@ -29,7 +29,8 @@ WORK="$(mktemp -d)"
 trap 'rm -rf "$WORK"' EXIT
 
 step "start --local (cold)"
-"$DEV" start --local --fresh
+# The UI checks boot their own stack after this script's nuke.
+"$DEV" start --local --fresh --no-frontend
 end_step
 
 step "status"

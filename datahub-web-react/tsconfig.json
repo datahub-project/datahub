@@ -38,6 +38,7 @@
         "src/conf/theme/styled-components.d.ts",
         "vite.config.ts",
         "vite-plugins",
+        "devtools",
         ".eslintrc.js",
         "functions",
         "eslint-rules"
