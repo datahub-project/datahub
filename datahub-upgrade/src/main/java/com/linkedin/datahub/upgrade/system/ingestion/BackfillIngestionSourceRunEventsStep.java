@@ -244,11 +244,15 @@ public class BackfillIngestionSourceRunEventsStep implements UpgradeStep {
     return proposals;
   }
 
+  /**
+   * The events already recorded for the sources. The read is strict: a source whose query failed
+   * would look like one with no event, and the backfill would replace the hook's newer event.
+   */
   @Nonnull
   private Map<Urn, DataHubIngestionSourceRunEvent> recordedEvents(@Nonnull Set<Urn> sourceUrns) {
     Map<Urn, DataHubIngestionSourceRunEvent> recorded = new HashMap<>();
     timeseriesAspectService
-        .getLatestTimeseriesAspectValues(
+        .getLatestTimeseriesAspectValuesStrict(
             opContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
         .forEach(
             (sourceUrn, aspects) -> {

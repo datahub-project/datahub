@@ -99,7 +99,7 @@ public class BackfillIngestionSourceRunEventsStepTest {
     entitySearchService = mock(EntitySearchService.class);
     timeseriesAspectService = mock(TimeseriesAspectService.class);
     context = mock(UpgradeContext.class);
-    when(timeseriesAspectService.getLatestTimeseriesAspectValues(
+    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
             any(OperationContext.class), any(), any(), any()))
         .thenAnswer(
             invocation -> {
@@ -253,6 +253,25 @@ public class BackfillIngestionSourceRunEventsStepTest {
 
     assertEquals(execute(), DataHubUpgradeState.FAILED);
 
+    verifyMarkerWritten(false);
+  }
+
+  @Test
+  public void testFailedRecordedEventReadWritesNothingAndFails() {
+    // A source whose read failed would look unrecorded, and its backfilled event would replace the
+    // hook's newer one.
+    source(SOURCE_A);
+    run(LATEST_RUN, SOURCE_A, 300, "SUCCESS");
+    latestRuns.put(SOURCE_A, new LatestIngestionRuns(LATEST_RUN, LATEST_RUN, null));
+    stubScroll(page(null, SOURCE_A));
+    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
+            any(OperationContext.class), any(), any(), any()))
+        .thenThrow(new IllegalStateException("subquery failed"));
+
+    assertEquals(execute(), DataHubUpgradeState.FAILED);
+
+    verify(entityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
     verifyMarkerWritten(false);
   }
 
