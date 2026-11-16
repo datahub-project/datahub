@@ -1275,9 +1275,9 @@ class GlueSource(StatefulIngestionSourceBase):
         self, table: Dict, dataset_urn: str, table_name: str
     ) -> Optional[ViewPropertiesClass]:
         """View properties for a resource link listed as a bare pointer (no ``TableType`` or
-        columns) whose owning table is a view; None otherwise."""
-        # A row with its own columns is the owner's table itself (e.g. under a database-level
-        # link); without a TableType it is not a view, so there is nothing to look up.
+        ``StorageDescriptor``) whose owning table is a view; None otherwise."""
+        # A row with its own StorageDescriptor is the owner's table itself (e.g. under a
+        # database-level link); without a TableType it is not a view, so there is nothing to look up.
         if (
             not self.source_config.resolve_resource_link_schema
             or table.get("TableType")

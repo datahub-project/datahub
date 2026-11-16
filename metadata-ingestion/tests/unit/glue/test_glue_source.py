@@ -1071,10 +1071,10 @@ def test_resource_link_stays_table_when_owner_is_table_or_unknown(
 
 
 @pytest.mark.parametrize(
-    "case", ["flag-off", "link-has-table-type", "link-has-columns"]
+    "case", ["flag-off", "link-has-table-type", "link-has-storage-descriptor"]
 )
 def test_resource_link_type_not_looked_up(case: str) -> None:
-    # A link that already carries a TableType or its own columns (as tables under a
+    # A link that already carries a TableType or a StorageDescriptor (as tables under a
     # database-level link do), or resolve_resource_link_schema=False, skips the owner View/Table
     # lookup.
     source = _resource_link_schema_source(resolve=case != "flag-off")
@@ -1083,7 +1083,7 @@ def test_resource_link_type_not_looked_up(case: str) -> None:
     link = dict(resource_link_table_in_mixed_database)
     if case == "link-has-table-type":
         link["TableType"] = "EXTERNAL_TABLE"
-    if case == "link-has-columns":
+    if case == "link-has-storage-descriptor":
         link["StorageDescriptor"] = {"Columns": [{"Name": "txn_id", "Type": "bigint"}]}
 
     wus, _ = _link_wus(source, link=link)
