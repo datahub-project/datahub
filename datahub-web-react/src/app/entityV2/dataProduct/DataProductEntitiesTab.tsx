@@ -1,10 +1,10 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import generateUseDownloadListDataProductAssets from '@app/entityV2/dataProduct/generateUseDownloadListDataProductAssets';
 import generateUseListDataProductAssets from '@app/entityV2/dataProduct/generateUseListDataProductAssets';
 import { generateUseListDataProductAssetsCount } from '@app/entityV2/dataProduct/generateUseListDataProductAssetsCount';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 

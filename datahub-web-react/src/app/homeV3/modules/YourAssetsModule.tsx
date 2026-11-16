@@ -11,6 +11,7 @@ import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';
+import { MODULE_LIST_PAGE_SIZE } from '@app/homeV3/modules/constants';
 import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 
@@ -20,12 +21,10 @@ const ContentWrapper = styled.div`
     height: 100%;
 `;
 
-const DEFAULT_PAGE_SIZE = 10;
-
 export default function YourAssetsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
     const { user } = useUserContext();
-    const { loading, fetchEntities, total } = useGetAssetsYouOwn(user, DEFAULT_PAGE_SIZE);
+    const { loading, fetchEntities, total } = useGetAssetsYouOwn(user, MODULE_LIST_PAGE_SIZE);
 
     const searchForYourAssets = useSearchYourAssets();
     const history = useHistory();
@@ -42,7 +41,7 @@ export default function YourAssetsModule(props: ModuleProps) {
                     renderItem={(entity) => (
                         <EntityItem entity={entity} key={entity.urn} moduleType={DataHubPageModuleType.OwnedAssets} />
                     )}
-                    pageSize={DEFAULT_PAGE_SIZE}
+                    pageSize={MODULE_LIST_PAGE_SIZE}
                     emptyState={
                         <EmptyContent
                             icon={User}

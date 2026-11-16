@@ -26,9 +26,8 @@ import org.springframework.stereotype.Component;
  *   <li>Race conditions during deletion
  * </ul>
  *
- * <p>This check does NOT use the normal {@link #check(CheckContext, Map)} pattern that examines
- * EntityResponses. Instead, it examines the {@link CheckContext#getOrphanUrns(String)} which is
- * populated by ConsistencyService when URNs found in ES don't have corresponding SQL records.
+ * <p>{@link #check(CheckContext, Map)} does not see orphan URNs, because those entities are not in
+ * the SQL batch. {@link #followUp} reports them from the orphan URNs the service already computed.
  *
  * <p>The fix is {@link ConsistencyFixType#DELETE_INDEX_DOCUMENTS} which removes the orphaned
  * documents from all indices without going through MCP.
@@ -78,26 +77,30 @@ public class OrphanIndexDocumentCheck implements ConsistencyCheck {
     return Optional.of(Set.of());
   }
 
-  /**
-   * Normal check method - we override this but the real work happens in orphan detection.
-   *
-   * <p>This method is called with entityResponses that DO exist in SQL. The orphan URNs are the
-   * ones that were queried from ES but NOT in this map. ConsistencyService populates the orphan
-   * URNs in CheckContext before calling this.
-   */
+  /** SQL entities are not orphans. Orphan URNs are reported from {@link #followUp}. */
   @Override
   @Nonnull
   public List<ConsistencyIssue> check(
       @Nonnull CheckContext ctx, @Nonnull Map<Urn, EntityResponse> entityResponses) {
-    // The actual orphan detection is done by examining ctx.getOrphanUrns()
-    // This is called separately by ConsistencyService after populating orphan URNs
     return List.of();
+  }
+
+  @Override
+  @Nonnull
+  public CheckFollowUp followUp(@Nonnull CheckFollowUpRequest request) {
+    // The request set is this page. The context set accumulates across batches when a caller
+    // reuses it, so reading the context would report orphans that were already handled.
+    List<ConsistencyIssue> issues = issuesFor(request.getOrphanUrns(), request.getEntityType());
+    if (issues.isEmpty()) {
+      return CheckFollowUp.none();
+    }
+    return CheckFollowUp.builder().issues(issues).build();
   }
 
   /**
    * Check for orphan URNs of a specific entity type.
    *
-   * <p>This method is called directly by ConsistencyService after it identifies orphan URNs.
+   * <p>The batch context holds URNs the service found in the system-metadata page and not in SQL.
    *
    * @param ctx the check context containing orphan URNs
    * @param entityType the entity type to check for orphans
@@ -106,7 +109,12 @@ public class OrphanIndexDocumentCheck implements ConsistencyCheck {
   @Nonnull
   public List<ConsistencyIssue> checkOrphans(
       @Nonnull CheckContext ctx, @Nonnull String entityType) {
-    Set<Urn> orphanUrns = ctx.getOrphanUrns(entityType);
+    return issuesFor(ctx.getOrphanUrns(entityType), entityType);
+  }
+
+  @Nonnull
+  private List<ConsistencyIssue> issuesFor(
+      @Nonnull Set<Urn> orphanUrns, @Nonnull String entityType) {
     if (orphanUrns.isEmpty()) {
       return List.of();
     }

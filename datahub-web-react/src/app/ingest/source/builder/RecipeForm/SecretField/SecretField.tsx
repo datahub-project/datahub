@@ -4,10 +4,10 @@ import React, { ReactNode } from 'react';
 import styled from 'styled-components/macro';
 
 import { useUserContext } from '@app/context/useUserContext';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
-import { clearSecretListCache } from '@app/ingest/secret/cacheUtils';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import CreateSecretButton from '@app/ingest/source/builder/RecipeForm/SecretField/CreateSecretButton';
 import { RecipeField } from '@app/ingest/source/builder/RecipeForm/common';
+import { clearSecretListCache } from '@app/ingestV2/secret/cacheUtils';
 
 import { Secret } from '@types';
 

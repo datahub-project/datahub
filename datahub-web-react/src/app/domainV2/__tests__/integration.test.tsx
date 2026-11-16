@@ -1,9 +1,9 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { DomainsContext } from '@app/domainV2/DomainsContext';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Simple mock implementations
 const mockUseInView = vi.fn();

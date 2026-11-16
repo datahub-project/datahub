@@ -1,0 +1,37 @@
+name: Fetch Claude identity token
+description: >
+  Fetch a GitHub OIDC JWT for Claude Workload Identity Federation and write it to a file.
+  The Anthropic SDK exchanges it for a short-lived token, so no static API key is stored.
+  The calling job needs `id-token: write`. Call this right before the step that uses Claude,
+  because the JWT expires about 5 minutes after issuance. Pass the file path to the SDK via
+  ANTHROPIC_IDENTITY_TOKEN_FILE, together with ANTHROPIC_FEDERATION_RULE_ID,
+  ANTHROPIC_ORGANIZATION_ID, ANTHROPIC_SERVICE_ACCOUNT_ID and ANTHROPIC_WORKSPACE_ID, and leave
+  ANTHROPIC_API_KEY unset (it outranks federation).
+
+inputs:
+  audience:
+    description: "OIDC token audience"
+    required: false
+    default: "https://api.anthropic.com"
+
+outputs:
+  token_file:
+    description: "Path of the file holding the JWT"
+    value: ${{ steps.fetch.outputs.token_file }}
+
+runs:
+  using: composite
+  steps:
+    - name: Fetch OIDC token
+      id: fetch
+      shell: bash
+      env:
+        AUDIENCE: ${{ inputs.audience }}
+      run: |
+        umask 077
+        token_file="${RUNNER_TEMP}/anthropic-oidc-token"
+        jwt=$(curl -sSf -H "Authorization: bearer ${ACTIONS_ID_TOKEN_REQUEST_TOKEN}" \
+          "${ACTIONS_ID_TOKEN_REQUEST_URL}&audience=${AUDIENCE}" | jq -r '.value')
+        echo "::add-mask::${jwt}"
+        printf '%s' "${jwt}" > "${token_file}"
+        echo "token_file=${token_file}" >> "$GITHUB_OUTPUT"

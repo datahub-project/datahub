@@ -1,0 +1,25 @@
+"""
+An entity with a top-level name field
+"""
+interface HasName {
+  """
+  The name of the entity. Not always the display name, e.g. for Dataset this is the name from its key
+  """
+  name: String!
+}
+
+extend type AccessTokenMetadata implements HasName
+extend type CorpGroup implements HasName
+extend type DataHubPolicy implements HasName
+extend type DataHubRole implements HasName
+extend type DataHubView implements HasName
+extend type DataPlatform implements HasName
+extend type Dataset implements HasName
+extend type MLFeature implements HasName
+extend type MLFeatureTable implements HasName
+extend type MLModel implements HasName
+extend type MLModelGroup implements HasName
+extend type MLPrimaryKey implements HasName
+extend type ServiceAccount implements HasName
+extend type Test implements HasName
+extend type VersionedDataset implements HasName

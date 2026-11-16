@@ -10,5 +10,12 @@
     "customOwnershipType": "Anpassad ägarskapstyp",
     "ingestionSource": "Ingestion-källa",
     "groupBy.displayValue": "Gruppera {{label}}",
-    "groupBy.group": "Gruppera"
+    "groupBy.group": "Gruppera",
+    "selectItems.addMoreSection": "Lägg till fler",
+    "selectItems.entitiesLabel": "entiteter",
+    "selectItems.itemsLabel": "objekt",
+    "selectItems.noEntityFound": "Ingen {{entityName}} hittades",
+    "selectItems.removeAll": "Ta bort alla",
+    "selectItems.searchForEntity": "Sök efter {{entityName}}...",
+    "selectItems.selectedSection": "Valda"
 }

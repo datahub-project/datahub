@@ -1,12 +1,19 @@
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
+from sqlalchemy.exc import DatabaseError, ProgrammingError
 
+from datahub.ingestion.source.sql.postgres import PostgresConfig
 from datahub.ingestion.source.sql.postgres.lineage import (
     PostgresLineageExtractor,
     PostgresQueryEntry,
 )
 from datahub.ingestion.source.sql.postgres.query import PostgresQuery
+from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.sql_parsing.sqlglot_lineage import SqlUnderstandingError
+from tests.unit.conftest import as_mock, log_contexts
+from tests.unit.sql_test_helpers import FakeResult
 
 
 class TestPostgresQuery:
@@ -281,3 +288,139 @@ class TestPostgresQueryEntry:
         )
 
         assert entry.avg_exec_time_ms == 0.0
+
+
+class TestPostgresLineageExtractorFailures:
+    """Realistic degradations: an old server, a missing extension, a denied
+    role, and queries sqlglot cannot understand must each degrade cleanly."""
+
+    @pytest.fixture
+    def report(self) -> SQLSourceReport:
+        return SQLSourceReport()
+
+    @pytest.fixture
+    def extractor(self, report: SQLSourceReport) -> PostgresLineageExtractor:
+        config = PostgresConfig.model_validate(
+            {
+                "host_port": "localhost:5432",
+                "username": "u",
+                "password": "p",
+                "database": "testdb",
+                "include_query_lineage": True,
+            }
+        )
+        return PostgresLineageExtractor(
+            config=config,
+            connection=MagicMock(),
+            report=report,
+            sql_aggregator=create_autospec(SqlParsingAggregator, instance=True),
+        )
+
+    @staticmethod
+    def _row(*values: object) -> FakeResult:
+        return FakeResult([list(values)])
+
+    def test_version_check_failure_does_not_block_extraction(
+        self, extractor: PostgresLineageExtractor
+    ) -> None:
+        """The version query is advisory: when it fails the extension and
+        permission checks still decide readiness."""
+        as_mock(extractor.connection).execute.side_effect = [
+            DatabaseError("no pg_catalog access", None, Exception()),
+            self._row(True),
+            self._row(True, False),
+        ]
+
+        is_ready, _ = extractor.check_prerequisites()
+
+        assert is_ready
+
+    def test_extension_check_failure_is_not_ready(
+        self, extractor: PostgresLineageExtractor
+    ) -> None:
+        as_mock(extractor.connection).execute.side_effect = [
+            self._row(130000),
+            DatabaseError("relation pg_extension denied", None, Exception()),
+        ]
+
+        is_ready, message = extractor.check_prerequisites()
+
+        assert not is_ready
+        assert "Extension check failed" in message
+
+    def test_missing_stats_role_is_not_ready(
+        self, extractor: PostgresLineageExtractor
+    ) -> None:
+        """Without superuser or pg_read_all_stats, pg_stat_statements hides other
+        roles' query text, so extraction would silently see almost nothing."""
+        as_mock(extractor.connection).execute.side_effect = [
+            self._row(130000),
+            self._row(True),
+            self._row(False, False),
+        ]
+
+        is_ready, message = extractor.check_prerequisites()
+
+        assert not is_ready
+        assert "pg_read_all_stats" in message
+
+    def test_extract_query_history_reports_unmet_prerequisites(
+        self, extractor: PostgresLineageExtractor, report: SQLSourceReport
+    ) -> None:
+        with patch.object(
+            extractor, "check_prerequisites", return_value=(False, "not installed")
+        ):
+            assert extractor.extract_query_history() == []
+
+        assert "pg_stat_statements_not_ready" in log_contexts(report.failures)
+        as_mock(extractor.connection).execute.assert_not_called()
+
+    def test_extract_query_history_reports_query_failure(
+        self, extractor: PostgresLineageExtractor, report: SQLSourceReport
+    ) -> None:
+        as_mock(extractor.connection).execute.side_effect = ProgrammingError(
+            "column total_exec_time does not exist", None, Exception()
+        )
+        with patch.object(
+            extractor, "check_prerequisites", return_value=(True, "Prerequisites met")
+        ):
+            assert extractor.extract_query_history() == []
+
+        assert "query_history_extraction_failed" in log_contexts(report.failures)
+
+    def test_unparseable_queries_are_counted_not_fatal(
+        self, extractor: PostgresLineageExtractor, report: SQLSourceReport
+    ) -> None:
+        """A query the aggregator rejects is counted as a parse failure and the
+        rest of the batch is still handed over."""
+
+        def entry(query_id: str, text: str) -> PostgresQueryEntry:
+            return PostgresQueryEntry(
+                query_id=query_id,
+                query_text=text,
+                execution_count=1,
+                total_exec_time_ms=1.0,
+                user_name=None,
+                database_name="testdb",
+            )
+
+        aggregator = as_mock(extractor.sql_aggregator)
+        aggregator.add_observed_query.side_effect = [
+            SqlUnderstandingError("unsupported"),
+            None,
+            ValueError("bad urn"),
+        ]
+        with patch.object(
+            extractor,
+            "extract_query_history",
+            return_value=[
+                entry("1", "MERGE INTO t USING s ON ..."),
+                entry("2", "INSERT INTO t SELECT * FROM s"),
+                entry("3", "CREATE TABLE x AS SELECT 1"),
+            ],
+        ):
+            extractor.populate_lineage_from_queries()
+
+        assert aggregator.add_observed_query.call_count == 3
+        assert report.num_queries_parsed == 1
+        assert report.num_queries_parse_failures == 2

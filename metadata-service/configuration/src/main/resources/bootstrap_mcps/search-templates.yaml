@@ -82,6 +82,7 @@
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&nameFieldsJson}}
               }
             }
@@ -92,6 +93,7 @@
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&qualifiedNameFieldsJson}}
               }
             }
@@ -102,6 +104,7 @@
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&idFieldsJson}}
               }
             }
@@ -162,6 +165,7 @@
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&nameFieldsJson}},
                 "boost": 1.5
               }
@@ -173,6 +177,7 @@
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&qualifiedNameFieldsJson}},
                 "boost": 1.5
               }
@@ -184,6 +189,7 @@
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&idFieldsJson}},
                 "boost": 1.5
               }
@@ -1513,7 +1519,7 @@
   changeType: UPSERT
   aspect:
     name: Autocomplete
-    description: "Typeahead prefix on one field. A one- or two-character prefix is kept, and expansions are capped. Java sets the field, the limit, the filters, and skips the total-hit count."
+    description: "Typeahead prefix on one field. The lowercase keyword of the name matches a prefix of the whole name, so a one- or two-character prefix still finds it. The analyzed text matches a later word. Expansions are capped. Java sets the field, the keyword field when the field has one, the limit, the filters, and skips the total-hit count."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
@@ -1521,12 +1527,30 @@
     query: |
       {{=<% %>=}}
       {
-        "match_phrase_prefix": {
-          "{{prefixField}}": {
-            "query": "{{unquoted}}",
-            "analyzer": "partial",
-            "max_expansions": {{prefixMaxExpansions}}
-          }
+        "bool": {
+          "should": [
+            {{#prefixKeyword}}
+            {
+              "prefix": {
+                "{{prefixKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "rewrite": "top_terms_{{prefixMaxExpansions}}",
+                  "boost": 10.0
+                }
+              }
+            },
+            {{/prefixKeyword}}
+            {
+              "match_phrase_prefix": {
+                "{{prefixField}}": {
+                  "query": "{{unquoted}}",
+                  "analyzer": "partial",
+                  "max_expansions": {{prefixMaxExpansions}}
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
         }
       }
       <%={{ }}=%>

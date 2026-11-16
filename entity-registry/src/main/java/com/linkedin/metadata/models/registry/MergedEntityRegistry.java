@@ -20,6 +20,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -291,6 +292,13 @@ public class MergedEntityRegistry implements EntityRegistry {
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
     return entityNameToSpec.get(lowercaseEntityName);
+  }
+
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
   }
 
   @Nonnull

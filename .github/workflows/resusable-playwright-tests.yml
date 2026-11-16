@@ -17,12 +17,17 @@ on:
         required: true
         type: string
       depot_build_id:
-        description: "Depot build ID to pull images from. Ignored on workflow_dispatch (images are pulled from registry instead). On other events: when set images are pulled from depot; when empty images are built locally."
+        description: "Depot build ID to pull images from. When set images are pulled from depot; when empty images are built locally. Ignored when pull_from_registry is true."
         required: false
         type: string
         default: ""
+      pull_from_registry:
+        description: "Skip Depot and the local build and pull prebuilt datahub_version images from the registry. For callers that test an already-published tag; callers that build images for their own run must leave this false so the run's own images are used."
+        required: false
+        type: boolean
+        default: false
       image_build_task:
-        description: "Gradle task used to build images locally (used when depot_build_id is empty and docker_login is true)"
+        description: "Gradle task used to build images locally (used when depot_build_id is empty and pull_from_registry is false)"
         required: false
         type: string
         default: ":docker:buildImagesQuickstartConsumers"
@@ -71,6 +76,13 @@ on:
         required: false
         type: string
         default: "1"
+      tier_plan_artifact:
+        description: >-
+          PR P0 tier only: name of the artifact holding plan_playwright_tier.py's plan. Each
+          shard then runs only its share of the plan's tests (--test-list). Empty runs every spec.
+        required: false
+        type: string
+        default: ""
 jobs:
   playwright_test:
     name: Playwright E2E Tests
@@ -89,29 +101,22 @@ jobs:
       - name: Free up disk space
         uses: ./.github/actions/free-disk-space
 
-      - name: Set up JDK 25
-        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
         with:
-          distribution: "temurin"
-          java-version: 25
+          gradle: false
+          node: true
 
-      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
-        with:
-          python-version: "3.11"
-          cache: "pip"
-
-      - name: Set up Node.js
-        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
-        with:
-          node-version: "22"
-
-      # Path 1: Pull images from depot cache (docker-unified non fork trigger)
+      # Path 1: Pull images from depot cache (docker-unified non fork trigger).
+      # Keyed on inputs, not github.event_name: a reusable workflow sees its
+      # caller's event, so a branch dispatch of docker-unified must still use the
+      # images that run built rather than look for a branch tag in the registry.
       - name: Set up Depot CLI
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
+        if: ${{ !inputs.pull_from_registry && inputs.depot_build_id != '' }}
         uses: depot/setup-action@15c09a5f77a0840ad4bce955686522a257853461 # v1
 
       - name: Pull images from depot
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id != '' }}
+        if: ${{ !inputs.pull_from_registry && inputs.depot_build_id != '' }}
         env:
           DEPOT_BUILD_ID: ${{ inputs.depot_build_id }}
         run: |
@@ -124,7 +129,7 @@ jobs:
         # reused every image rather than baking any, so there is nothing to
         # build here -- compose pulls them from the registry. An empty build id
         # with no overrides is the fork path, which has no shared build at all.
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
+        if: ${{ !inputs.pull_from_registry && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
         uses: ./.github/actions/setup-uv-credentials
         with:
           base_profile: ${{ vars.CI_BASE_UV_DOCKER_PROFILE || 'default' }}
@@ -136,7 +141,7 @@ jobs:
         # reused every image rather than baking any, so there is nothing to
         # build here -- compose pulls them from the registry. An empty build id
         # with no overrides is the fork path, which has no shared build at all.
-        if: ${{ github.event_name != 'workflow_dispatch' && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
+        if: ${{ !inputs.pull_from_registry && inputs.depot_build_id == '' && inputs.image_version_env == '' }}
         timeout-minutes: 60
         env:
           DOCKER_CACHE: GITHUB
@@ -150,7 +155,7 @@ jobs:
           ./gradlew "$BUILD_TASK" -Ptag="$DATAHUB_VERSION" -Pdatahub.dependencies.python.uvDockerProfile="$UV_DOCKER_PROFILE" "${extra_flags[@]}"
           docker images
 
-      # Path 3: Pull images from ECR for given datahub_version (on workflow_dispatch)
+      # Path 3: Pull images from the registry for given datahub_version (pull_from_registry)
       # Also needed on the other paths whenever image_version_env is non-empty:
       # those images come from the registry rather than the depot pull, and an
       # anonymous pull across every shard runs into Docker Hub's rate limit.
@@ -159,7 +164,7 @@ jobs:
         # the secrets context is not allowed in step-level if): reused images can
         # be pulled anonymously as a fallback, and login-action with empty
         # credentials fails the job.
-        if: ${{ (github.event_name == 'workflow_dispatch' || inputs.image_version_env != '') && inputs.docker_login == 'true' }}
+        if: ${{ (inputs.pull_from_registry || inputs.image_version_env != '') && inputs.docker_login == 'true' }}
         uses: docker/login-action@b45d80f862d83dbcd57f89517bcf500b2ab88fb2 # v4.0.0
         with:
           username: ${{ secrets.ACRYL_DOCKER_USERNAME }}
@@ -208,6 +213,13 @@ jobs:
           yarn install --frozen-lockfile
           npx playwright install --with-deps chromium
 
+      - name: Download Playwright P0 tier plan
+        if: ${{ inputs.tier_plan_artifact != '' }}
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8
+        with:
+          name: ${{ inputs.tier_plan_artifact }}
+          path: e2e-test/ui/playwright/tier-plan
+
       - name: Compute this shard's spec files
         # Individual spec-file args bypass Playwright's fullyParallel worker-hash grouping
         # (keyed off featureName, used inconsistently across files, not path) entirely, so
@@ -216,13 +228,21 @@ jobs:
         env:
           SHARD: ${{ inputs.shard }}
           SHARD_COUNT: ${{ inputs.shard_count }}
+          TIER: ${{ inputs.tier_plan_artifact != '' }}
         run: |
+          # PR P0 tier: pack only the plan's specs and write this shard's --test-list.
+          tier_args=()
+          if [ "$TIER" = "true" ]; then
+            tier_args=(--tier-plan e2e-test/ui/playwright/tier-plan/playwright-tier-plan.json
+                       --output-test-list e2e-test/ui/playwright/shard-tests.txt)
+          fi
           python3 .github/scripts/split_playwright_tests.py \
             --split-index "$((SHARD - 1))" --split-total "$SHARD_COUNT" \
             --repo-root . \
             --test-dir e2e-test/ui/playwright/tests \
             --weights e2e-test/ui/playwright/playwright_test_weights.json \
-            --output-args e2e-test/ui/playwright/shard-files.txt
+            --output-args e2e-test/ui/playwright/shard-files.txt \
+            "${tier_args[@]}"
 
       - name: Run Playwright tests
         working-directory: e2e-test/ui/playwright
@@ -237,19 +257,42 @@ jobs:
           # them -- set this explicitly instead.
           PLAYWRIGHT_BLOB_OUTPUT_FILE: blob-report/report-${{ inputs.shard }}.zip
           TEST_RUNNER_TYPE: ${{ inputs.test_runner_type }}
+          SHARD: ${{ inputs.shard }}
+          SHARD_COUNT: ${{ inputs.shard_count }}
+          TIER: ${{ inputs.tier_plan_artifact != '' }}
         run: |
-          mapfile -t ARGS < shard-files.txt
           # *-scale specs assert wall-clock budgets tuned for Depot runners; GitHub-hosted
           # runners (fork PRs without the "depot" label) are ~1.5-2x slower and fail them.
+          skip_scale=false
           if [[ "$TEST_RUNNER_TYPE" != depot-* ]]; then
-            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+            skip_scale=true
             echo "Skipping *-scale specs on non-Depot runner $TEST_RUNNER_TYPE"
           fi
+          if [ "$TIER" = "true" ]; then
+            # PR P0 tier: Playwright loads only the files the test list names. A line is
+            # either a whole spec ("dir/x.spec.ts") or one test ("[project] › dir/x.spec.ts › ...").
+            if [ "$skip_scale" = "true" ]; then
+              grep -vE -- '^(\[[^]]*\] › )?[^/ ]*-scale/' shard-tests.txt > shard-tests.filtered.txt || true
+              mv shard-tests.filtered.txt shard-tests.txt
+            fi
+            if [ ! -s shard-tests.txt ]; then
+              echo "No tests assigned to shard $SHARD/$SHARD_COUNT — skipping."
+              exit 0
+            fi
+            echo "Running P0 tier shard $SHARD/$SHARD_COUNT ($(wc -l < shard-tests.txt | tr -d ' ') test-list entries) at $WORKERS_PER_SHARD worker(s)"
+            cat shard-tests.txt
+            npx playwright test --test-list shard-tests.txt --workers="$WORKERS_PER_SHARD"
+            exit
+          fi
+          mapfile -t ARGS < shard-files.txt
+          if [ "$skip_scale" = "true" ]; then
+            mapfile -t ARGS < <(printf '%s\n' "${ARGS[@]}" | grep -v -- '^[^/]*-scale/')
+          fi
           if [ "${#ARGS[@]}" -eq 0 ]; then
-            echo "No spec files assigned to shard ${{ inputs.shard }}/${{ inputs.shard_count }} — skipping."
+            echo "No spec files assigned to shard $SHARD/$SHARD_COUNT — skipping."
             exit 0
           fi
-          echo "Running Playwright shard ${{ inputs.shard }}/${{ inputs.shard_count }} (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
+          echo "Running Playwright shard $SHARD/$SHARD_COUNT (${#ARGS[@]} spec files) at $WORKERS_PER_SHARD worker(s)"
           npx playwright test "${ARGS[@]}" --workers="$WORKERS_PER_SHARD"
 
       - name: Upload Playwright blob report
@@ -342,9 +385,3 @@ jobs:
           token: ${{ secrets.CODECOV_TOKEN }}
           report_type: test_results
           override_branch: ${{ github.head_ref || github.ref_name }}
-
-      - uses: actions/cache/save@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
-        if: ${{ github.ref == 'refs/heads/master' && inputs.shard == '1' }}
-        with:
-          path: ~/.cache/yarn
-          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}

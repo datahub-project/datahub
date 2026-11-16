@@ -27,8 +27,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.action.delete.DeleteRequest;
-import org.opensearch.action.delete.DeleteResponse;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.action.update.UpdateRequest;
@@ -108,21 +106,6 @@ public class ESSystemMetadataDAO {
     // the same (urn, aspect) — e.g. setDocStatus during soft-delete racing with a
     // normal aspect insert — serialize on one bulk thread and retryOnConflict works.
     bulkProcessor.add(opContext, docId, updateRequest);
-  }
-
-  public DeleteResponse deleteByDocId(
-      @Nonnull OperationContext opContext, @Nonnull final String docId) {
-    DeleteRequest deleteRequest = new DeleteRequest(indexName(opContext), docId);
-
-    try {
-      final DeleteResponse deleteResponse =
-          client.deleteDocument(opContext, deleteRequest, RequestOptions.DEFAULT);
-      return deleteResponse;
-    } catch (IOException e) {
-      log.error("ERROR: Failed to delete by query. See stacktrace for a more detailed error:");
-      e.printStackTrace();
-    }
-    return null;
   }
 
   public BulkByScrollResponse deleteByUrn(

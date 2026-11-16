@@ -1,7 +1,9 @@
+import { Tag } from '@phosphor-icons/react/dist/csr/Tag';
 import ColorHash from 'color-hash';
 import React from 'react';
 import styled, { css } from 'styled-components';
 
+import ColoredEntityIcon from '@app/sharedV2/icons/ColoredEntityIcon';
 import PillRemoveIcon from '@app/sharedV2/icons/PillRemoveIcon';
 
 /**
@@ -44,7 +46,7 @@ const PillRoot = styled.span<{
             : css`
                   height: 26px;
                   box-sizing: border-box;
-                  padding: 0 ${props.$hasRemove ? '6px' : '8px'} 0 8px;
+                  padding: 0 ${props.$hasRemove ? '6px' : '8px'} 0 3px;
                   border-radius: 100em;
                   border: 1px solid
                       ${props.$variant === 'highlighted' ? props.theme.colors.borderHover : props.theme.colors.border};
@@ -52,14 +54,6 @@ const PillRoot = styled.span<{
                       ? props.theme.colors.bgHighlight
                       : props.theme.colors.bg};
               `}
-`;
-
-const ColorDot = styled.span<{ $color: string }>`
-    display: inline-block;
-    min-width: 8px;
-    min-height: 8px;
-    background: ${(props) => props.$color};
-    border-radius: 100em;
 `;
 
 const PillLabel = styled.span<{ $size: TagPillSize }>`
@@ -107,7 +101,12 @@ export default function TagPill({
     className,
     dataTestId,
 }: Props) {
-    const dotColor = color || (colorHash ? generateColor.hex(colorHash) : generateColor.hex(name));
+    const tagColor = color || (colorHash ? generateColor.hex(colorHash) : generateColor.hex(name));
+    // Borderless usages sit alongside body text, so the icon container shrinks to read at the same
+    // visual weight as a single character. Mirrors GlossaryTermPill, but circular.
+    const isBorderless = variant === 'borderless';
+    const iconBoxSize = isBorderless ? 16 : 20;
+    const iconGlyphSize = isBorderless ? 10 : 12;
     return (
         <PillRoot
             $variant={variant}
@@ -116,7 +115,13 @@ export default function TagPill({
             className={className}
             data-testid={dataTestId ?? `tag-${name}`}
         >
-            <ColorDot $color={dotColor} />
+            <ColoredEntityIcon
+                color={tagColor}
+                icon={Tag}
+                size={iconBoxSize}
+                iconSize={iconGlyphSize}
+                radius={iconBoxSize / 2}
+            />
             <PillLabel $size={size}>{children ?? name}</PillLabel>
             {rightAdornment}
             {onRemove && (

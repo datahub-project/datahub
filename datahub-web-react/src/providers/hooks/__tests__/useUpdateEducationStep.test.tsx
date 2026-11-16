@@ -1,10 +1,10 @@
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { EducationStepsContext } from '@providers/EducationStepsContext';
 import useUpdateEducationStep from '@providers/hooks/useUpdateEducationStep';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useBatchUpdateStepStatesMutation } from '@graphql/step.generated';
 import { StepStateResult } from '@types';

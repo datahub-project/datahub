@@ -72,8 +72,10 @@ pyarrow>=23.0.1
 # google-cloud-logging / mlflow-skinny; the sdk and semantic-conventions
 # packages version-lock to the api, so they move together.
 opentelemetry-api>=1.45.1
-# Docker minimum; airflow-plugin accepts older filelock from Airflow 2.7.3+ constraints for compatibility.
-filelock>=3.20.3
+# Docker minimum; CVE-2026-112940 fixed in 4.2.1 (reachable once unstructured 0.27+
+# lifted its <4 cap). airflow-plugin accepts older filelock from Airflow 2.7.3+
+# constraints for compatibility.
+filelock>=4.2.1
 nbconvert>=7.17.0
 # pip: CVE-2026-3219, CVE-2026-6357 (fixed in 26.1); CVE-2026-8643 — path traversal via
 # console_scripts/gui_scripts entry point names; fixed in 26.1.2; CVE-2026-13346 — the URL

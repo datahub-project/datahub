@@ -6,13 +6,12 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Editor } from '@components/components/Editor';
-
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EditorContainer } from '@app/entityV2/shared/EntityDropdown/glossaryEntityModal.shared';
 import { suggestNextVersionLabel } from '@app/entityV2/shared/EntityDropdown/utils';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
 import { buildOptimisticGlossaryEntity, getParentNodeToUpdate, updateGlossarySidebar } from '@app/glossaryV2/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { validateCustomUrnId } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

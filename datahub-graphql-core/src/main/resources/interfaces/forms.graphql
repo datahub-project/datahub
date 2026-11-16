@@ -1,0 +1,29 @@
+"""
+An entity that can have forms assigned
+"""
+interface HasForms {
+  """
+  The forms associated with the entity
+  """
+  forms: Forms
+}
+
+extend type Application implements HasForms
+extend type Chart implements HasForms
+extend type Container implements HasForms
+extend type CorpGroup implements HasForms
+extend type CorpUser implements HasForms
+extend type Dashboard implements HasForms
+extend type DataFlow implements HasForms
+extend type DataJob implements HasForms
+extend type DataProduct implements HasForms
+extend type Dataset implements HasForms
+extend type Domain implements HasForms
+extend type GlossaryNode implements HasForms
+extend type GlossaryTerm implements HasForms
+extend type MLFeature implements HasForms
+extend type MLFeatureTable implements HasForms
+extend type MLModel implements HasForms
+extend type MLModelGroup implements HasForms
+extend type MLPrimaryKey implements HasForms
+extend type SchemaFieldEntity implements HasForms

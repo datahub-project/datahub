@@ -128,7 +128,9 @@ const turndownService = new TurndownService({
             const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn);
             if (!urn) return '';
 
-            return `[${node.textContent}](${urn})`;
+            // Prefer the dedicated name attr — React node views may include icon letter glyphs in textContent.
+            const name = node.getAttribute(DATAHUB_MENTION_ATTRS.name) || node.textContent?.replace(/^@/, '') || urn;
+            return `[@${name}](${urn})`;
         },
     })
     /* Formats HTML file nodes to Markdown - looks for React components with file-node class */

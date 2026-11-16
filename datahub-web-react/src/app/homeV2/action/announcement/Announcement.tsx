@@ -1,8 +1,7 @@
 import React from 'react';
 import styled from 'styled-components/macro';
 
-import { Editor } from '@components/components/Editor';
-
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { Post } from '@types';

@@ -10,5 +10,12 @@
     "customOwnershipType": "Tipo di proprietà personalizzato",
     "ingestionSource": "Origine di ingestion",
     "groupBy.displayValue": "Raggruppa per {{label}}",
-    "groupBy.group": "Raggruppa"
+    "groupBy.group": "Raggruppa",
+    "selectItems.addMoreSection": "Aggiungi altri",
+    "selectItems.entitiesLabel": "entità",
+    "selectItems.itemsLabel": "elementi",
+    "selectItems.noEntityFound": "Nessun {{entityName}} trovato",
+    "selectItems.removeAll": "Rimuovi tutto",
+    "selectItems.searchForEntity": "Cerca {{entityName}}...",
+    "selectItems.selectedSection": "Selezionati"
 }

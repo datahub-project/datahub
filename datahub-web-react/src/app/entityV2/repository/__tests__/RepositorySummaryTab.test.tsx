@@ -7,7 +7,7 @@ import { RepositorySummaryTab } from '@app/entityV2/repository/RepositorySummary
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
 const mockUseBaseEntity = vi.fn();
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useBaseEntity: () => mockUseBaseEntity(),
 }));
 vi.mock('@app/useEntityRegistry', () => ({

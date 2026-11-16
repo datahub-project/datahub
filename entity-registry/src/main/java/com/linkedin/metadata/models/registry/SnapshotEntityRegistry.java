@@ -34,6 +34,7 @@ import com.linkedin.metadata.aspect.patch.template.dataset.UpstreamLineageTempla
 import com.linkedin.metadata.aspect.patch.template.domain.DomainPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.form.FormInfoTemplate;
 import com.linkedin.metadata.aspect.patch.template.ml.EditableMLModelGroupPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.ml.MLModelPropertiesTemplate;
 import com.linkedin.metadata.aspect.patch.template.structuredproperty.StructuredPropertyDefinitionTemplate;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
@@ -48,6 +49,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -131,6 +133,7 @@ public class SnapshotEntityRegistry implements EntityRegistry {
     aspectSpecTemplateMap.put(DOMAIN_PROPERTIES_ASPECT_NAME, new DomainPropertiesTemplate());
     aspectSpecTemplateMap.put(CHART_INFO_ASPECT_NAME, new ChartInfoTemplate());
     aspectSpecTemplateMap.put(DASHBOARD_INFO_ASPECT_NAME, new DashboardInfoTemplate());
+    aspectSpecTemplateMap.put(ML_MODEL_PROPERTIES_ASPECT_NAME, new MLModelPropertiesTemplate());
     aspectSpecTemplateMap.put(DATA_JOB_INPUT_OUTPUT_ASPECT_NAME, new DataJobInputOutputTemplate());
     aspectSpecTemplateMap.put(API_SIGNATURE_ASPECT_NAME, new ApiSignatureTemplate());
     aspectSpecTemplateMap.put(
@@ -161,6 +164,13 @@ public class SnapshotEntityRegistry implements EntityRegistry {
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
     return entityNameToSpec.get(lowercaseEntityName);
+  }
+
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
   }
 
   @Nonnull

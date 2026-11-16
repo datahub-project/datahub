@@ -1,19 +1,20 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { useIncidentHandler } from '@app/entityV2/shared/tabs/Incident/AcrylComponents/hooks/useIncidentHandler';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import { useRaiseIncidentMutation, useUpsertIncidentMutation } from '@src/graphql/mutations.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@src/graphql/mutations.generated', () => ({
     useRaiseIncidentMutation: vi.fn(),
     useUpsertIncidentMutation: vi.fn(),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
 }));
 

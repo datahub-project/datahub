@@ -3,13 +3,17 @@ import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
 import { Download } from '@phosphor-icons/react/dist/csr/Download';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 
 import { GridList } from '@src/alchemy-components/.docs/mdx-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { Card, cardDefaults } from '.';
+
+const ChildContent = styled.div`
+    background-color: ${({ theme }) => theme.colors.bgSurface};
+`;
 
 // Auto Docs
 const meta = {
@@ -29,9 +33,6 @@ const meta = {
     argTypes: {
         title: {
             description: 'The title of the card',
-            table: {
-                defaultValue: { summary: `${cardDefaults.title}` },
-            },
             control: {
                 type: 'text',
             },
@@ -44,9 +45,7 @@ const meta = {
         },
         icon: {
             description: 'The icon on the card',
-            control: {
-                type: 'text',
-            },
+            control: false,
         },
         iconAlignment: {
             description: 'Whether the alignment of icon is horizontal or vertical',
@@ -65,9 +64,7 @@ const meta = {
         },
         button: {
             description: 'The button on the card',
-            control: {
-                type: 'text',
-            },
+            control: false,
         },
         width: {
             description: 'The width of the card',
@@ -88,13 +85,13 @@ const meta = {
             },
         },
         padding: {
-            desciption: 'The padding of the card',
+            description: 'The padding of the card',
             control: {
                 type: 'text',
             },
         },
         gap: {
-            desciption: 'The gap between title, content and footer',
+            description: 'The gap between title, content and footer',
             control: {
                 type: 'text',
             },
@@ -168,13 +165,13 @@ export const sandbox: Story = {
 
 export const withChildren = () => (
     <Card title="Title" subTitle="Subtitle">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );
 
 export const withoutSubtitle = () => (
     <Card title="Title">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );
 
@@ -232,7 +229,7 @@ export const collapsible = () => (
             subTitle="Expand to read the full reasoning."
             width="480px"
         >
-            <div style={{ backgroundColor: colors.gray[1000], padding: '8px 16px' }}>Additional details</div>
+            <ChildContent style={{ padding: '8px 16px' }}>Additional details</ChildContent>
         </Card>
     </GridList>
 );
@@ -246,6 +243,6 @@ export const withAllTheElements = () => (
         button={<Icon icon={Download} color="gray" size="2xl" />}
         onClick={() => window.alert('Card clicked')}
     >
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );

@@ -50,8 +50,8 @@ import {
 } from '@app/searchV2/utils/constants';
 import getTypeIcon from '@app/sharedV2/icons/getTypeIcon';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
+import { stripMarkdown } from '@app/sharedV2/stripMarkdown';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
-import { removeMarkdown } from '@src/app/entity/shared/components/styled/StripMarkdownText';
 import {
     DATE_TYPE_URN,
     NUMBER_TYPE_URN,
@@ -617,7 +617,7 @@ export function getStructuredPropFilterDisplayName(field: string, value: string,
         return parseFloat(value).toString();
     }
 
-    return removeMarkdown(value);
+    return stripMarkdown(value);
 }
 
 /**

@@ -42,7 +42,6 @@ import enEntitySharedStats from '@src/i18n/locales/en/entity.shared.stats.json';
 import enEntitySharedVersioning from '@src/i18n/locales/en/entity.shared.versioning.json';
 import enEntityTypes from '@src/i18n/locales/en/entity.types.json';
 import enEntityViews from '@src/i18n/locales/en/entity.views.json';
-import enEntityV1SharedComponents from '@src/i18n/locales/en/entityV1.shared.components.json';
 import enGovernanceDomain from '@src/i18n/locales/en/governance.domain.json';
 import enGovernanceGlossary from '@src/i18n/locales/en/governance.glossary.json';
 import enGovernanceStructuredProperties from '@src/i18n/locales/en/governance.structured-properties.json';
@@ -119,7 +118,6 @@ i18n.use(initReactI18next).init({
             'entity.shared.versioning': enEntitySharedVersioning,
             'entity.types': enEntityTypes,
             'entity.views': enEntityViews,
-            'entityV1.shared.components': enEntityV1SharedComponents,
             'governance.domain': enGovernanceDomain,
             'governance.glossary': enGovernanceGlossary,
             'governance.structured-properties': enGovernanceStructuredProperties,

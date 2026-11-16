@@ -7,10 +7,10 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 # Certification
 
-<FeatureAvailability saasOnly />
+<FeatureAvailability saasOnly stage="public-beta"/>
 
-:::caution Public Beta
-Certification is part of the DataHub Cloud **Context** add-on and is in Public Beta. Details on this page may change as the feature evolves.
+:::info Context add-on
+Certification is part of the DataHub Cloud **Context** add-on.
 :::
 
 Most organizations have several tables, dashboards, and documents that look like the answer to a question, and only one that is. Certification lets the people who know the data say which one to trust. Certify an asset or document, and DataHub marks it everywhere it appears, records who vouched for it and why, and passes that signal to AI agents, so they build answers on trusted sources and say when they couldn't.

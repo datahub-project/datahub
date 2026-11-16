@@ -553,9 +553,8 @@ logging:
     com.linkedin.metadata.search: DEBUG
 ```
 
-Check logs for:
+At startup, GMS logs (at INFO) whether semantic dual-write is enabled and for which entities:
 
 ```
-[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: true
-Semantic dual-write enabled=true, enabledEntities=[document]
+Creating UpdateIndicesV2Strategy bean with semantic search enabled: true, entities: [document]
 ```

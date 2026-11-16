@@ -270,4 +270,49 @@ public class CassandraEntityServiceTest
   public void testNestedTransactions() {
     // Doesn't look like Cassandra can support nested transactions (or nested batching).
   }
+
+  @Test
+  public void testHardDeleteRemovesAspectsUnknownToRegistry() {
+    // A newer version can store aspects this registry doesn't know (read after a rollback); a hard
+    // delete must remove them too, or they come back after re-upgrading.
+    final String urn = "urn:li:corpuser:hardDeleteUnknownAspect";
+    storeRows(urn, "corpUserKey", "corpUserInfo", "aspectFromNewerBuild");
+
+    _aspectDao.deleteUrn(opContext, null, urn);
+
+    assertEquals(storedAspects(urn), List.of());
+  }
+
+  @Test
+  public void testHardDeleteKeepsOnlyTheKeptAspects() {
+    final String urn = "urn:li:corpuser:hardDeleteKeepingAspect";
+    storeRows(urn, "corpUserKey", "corpUserInfo", "aspectFromNewerBuild", "status");
+
+    _aspectDao.deleteUrnExcept(opContext, null, urn, Set.of("corpUserInfo"));
+
+    assertEquals(storedAspects(urn), List.of("corpUserInfo"));
+  }
+
+  private void storeRows(final String urn, final String... aspects) {
+    for (String aspect : aspects) {
+      for (long version = 0; version < 2; version++) {
+        _currentSession.execute(
+            "INSERT INTO metadata_aspect_v2 (urn, aspect, version, metadata, createdon, createdby)"
+                + " VALUES (?, ?, ?, '{}', toTimestamp(now()), 'urn:li:corpuser:test')",
+            urn,
+            aspect,
+            version);
+      }
+    }
+  }
+
+  private List<String> storedAspects(final String urn) {
+    return _currentSession
+        .execute("SELECT aspect FROM metadata_aspect_v2 WHERE urn = ?", urn)
+        .all()
+        .stream()
+        .map(row -> row.getString("aspect"))
+        .distinct()
+        .collect(Collectors.toList());
+  }
 }

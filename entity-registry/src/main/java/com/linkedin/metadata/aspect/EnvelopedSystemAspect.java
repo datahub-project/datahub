@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect;
 
+import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
@@ -43,7 +44,22 @@ public class EnvelopedSystemAspect implements SystemAspect {
   @Nullable
   @Override
   public RecordTemplate getRecordTemplate() {
-    return envelopedAspect.getValue();
+    // EnvelopedAspect.getValue() is a placeholder Aspect record that holds the aspect's raw
+    // DataMap. Callers read the typed aspect's fields (e.g. FieldExtractor), so rewrap to the
+    // aspect's own record class.
+    final com.linkedin.entity.Aspect value = envelopedAspect.getValue();
+    if (value == null) {
+      return null;
+    }
+    if (aspectSpec == null) {
+      throw new IllegalStateException(
+          "No aspect spec for '"
+              + envelopedAspect.getName()
+              + "' on entity '"
+              + entitySpec.getName()
+              + "'");
+    }
+    return RecordUtils.toRecordTemplate(aspectSpec.getDataTemplateClass(), value.data());
   }
 
   @Nullable
