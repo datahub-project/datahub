@@ -17,12 +17,18 @@ from typing import (
 from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, ValidationInfo, field_validator
+from pydantic import (
+    Field,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -126,13 +132,6 @@ _VIEW_EXTERNAL_ID_PREFIX = "view:"
 # is resolved exactly like one on a `BW` connection.
 _S4HANA_TRANSIENT_QUERY_PREFIX = "2C"
 _S4HANA_PLATFORM = "s4hana"
-# Upstream platform used when the connection has no `connection_mapping` platform.
-_DEFAULT_UPSTREAM_PLATFORMS: Dict[str, str] = {
-    _BW_SYSTEM_TYPE: "bw",
-    _HANA_SYSTEM_TYPE: "hana",
-    _S4HANA_SYSTEM_TYPE: _S4HANA_PLATFORM,
-}
-
 # SAC models are discovered through the stories that consume them, so SAC exposes no
 # folder for a model on that path (and most are private/embedded models created by a
 # data import, which have no standalone folder at all). Without an explicit browse path,
@@ -140,6 +139,83 @@ _DEFAULT_UPSTREAM_PLATFORMS: Dict[str, str] = {
 # meaningless `t` > `4` tree. Group all models under a single synthetic "Models" root
 # instead. SAC has no such folder — the connector invents this root.
 _MODEL_BROWSE_ROOT = "Models"
+
+
+class ExternalIdFormat(ConfigEnum):
+    # query:[][][<query>]
+    QUERY = "QUERY"
+    # view:[<schema>][<schema>.<namespace>][<view>]
+    VIEW = "VIEW"
+
+
+class SystemTypeMappingConfig(ConfigModel):
+    platform: str = Field(
+        description=(
+            "DataHub platform of the upstream datasets for models of this system type, "
+            "e.g. `bw` or `hana`. `connection_mapping.<connection_id>.platform` takes "
+            "precedence for an individual connection."
+        ),
+    )
+
+    external_id_format: ExternalIdFormat = Field(
+        description=(
+            "How to parse the model's SAC `externalId` into the upstream dataset name: "
+            "`QUERY` for `query:[][][<query>]` (BW-style, named with "
+            "`query_name_template`), `VIEW` for "
+            "`view:[<schema>][<schema>.<namespace>][<view>]` (HANA-style)."
+        ),
+    )
+
+    transient_query_prefix: Optional[str] = Field(
+        default=None,
+        description=(
+            "`QUERY` format only. For systems with an embedded BW that exposes their own "
+            "views as generated BW queries, as S/4HANA does with `2C<CDS view>`. A query "
+            "with this prefix resolves to the view: prefix removed, "
+            "`query_name_template` not applied, and lower-cased unless "
+            "`connection_mapping.<connection_id>.convert_urns_to_lowercase` is false. A "
+            "query without it is an ordinary BW query, resolved like one on a `BW` "
+            "connection."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _transient_query_prefix_requires_query_format(
+        self,
+    ) -> "SystemTypeMappingConfig":
+        if (
+            self.transient_query_prefix
+            and self.external_id_format != ExternalIdFormat.QUERY
+        ):
+            raise ValueError(
+                "transient_query_prefix is only supported with external_id_format QUERY"
+            )
+        return self
+
+
+# Built-in system types. `system_type_mapping` in the recipe adds to these, or replaces
+# one of them wholesale.
+_BUILTIN_SYSTEM_TYPE_MAPPINGS: Dict[str, SystemTypeMappingConfig] = {
+    _BW_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform="bw", external_id_format=ExternalIdFormat.QUERY
+    ),
+    _HANA_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform="hana", external_id_format=ExternalIdFormat.VIEW
+    ),
+    _S4HANA_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform=_S4HANA_PLATFORM,
+        external_id_format=ExternalIdFormat.QUERY,
+        transient_query_prefix=_S4HANA_TRANSIENT_QUERY_PREFIX,
+    ),
+}
+
+
+@dataclass(frozen=True)
+class _ParsedUpstream:
+    name: str
+    platform: str
+    # Named after a view exposed as a transient query; lower-cased by default.
+    from_transient_query: bool = False
 
 
 class ConnectionMappingConfig(EnvConfigMixin):
@@ -320,6 +396,20 @@ class SACSourceConfig(
         default={}, description="Custom mappings for connections"
     )
 
+    system_type_mapping: Dict[str, SystemTypeMappingConfig] = Field(
+        default={},
+        description=(
+            "Resolve upstream lineage for Live Data Models on connection system types "
+            "the source plugin doesn't map yet. Keyed by the system type exactly as SAC "
+            "reports it (the `system_type=` value in the 'Unknown system type for model' "
+            "warning). `BW`, `HANA` and `S/4 HANA` are built in; an entry with one of "
+            "those keys replaces the built-in mapping wholesale, so to change only the "
+            "upstream platform use `connection_mapping.<connection_id>.platform` "
+            "instead. SAP Datasphere (`DWC`) has its own resolution and can't be mapped "
+            "here."
+        ),
+    )
+
     query_name_template: Optional[str] = Field(
         default="QUERY/{name}",
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
@@ -359,6 +449,18 @@ class SACSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @field_validator("system_type_mapping", mode="after")
+    @classmethod
+    def _reject_datasphere_system_type(
+        cls, v: Dict[str, SystemTypeMappingConfig]
+    ) -> Dict[str, SystemTypeMappingConfig]:
+        if _DWC_SYSTEM_TYPE in v:
+            raise ValueError(
+                f"system_type_mapping can't map '{_DWC_SYSTEM_TYPE}'; Datasphere lineage "
+                "is configured with resolve_datasphere_lineage and connection_mapping"
+            )
+        return v
 
     @field_validator(
         "public_root_folder_name", "private_root_folder_name", mode="after"
@@ -429,6 +531,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         self.ingested_dataset_entities = set()
         self.ingested_upstream_dataset_keys = set()
+        self.system_type_mappings: Dict[str, SystemTypeMappingConfig] = {
+            **_BUILTIN_SYSTEM_TYPE_MAPPINGS,
+            **config.system_type_mapping,
+        }
         # One graph fetch per upstream urn, shared by suffix-correction and column lineage.
         self._datasphere_schema_cache: Dict[str, Optional[SchemaMetadataClass]] = {}
         # Urns whose schema lookup errored (as opposed to a clean "no aspect"). A cached
@@ -705,36 +811,21 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 # the 412 rejections so the report can answer "how many did DES reject?".
                 self.report.acquired_model_schema_skipped_known_live += 1
 
-        if (
-            model.system_type in _DEFAULT_UPSTREAM_PLATFORMS
-            and model.external_id is not None
-        ):
-            upstream_dataset_name: Optional[str] = None
-            default_platform = _DEFAULT_UPSTREAM_PLATFORMS[model.system_type]
-            is_cds_view = False
+        system_type_mapping = (
+            self.system_type_mappings.get(model.system_type)
+            if model.system_type is not None
+            else None
+        )
+        if system_type_mapping is not None:
+            parsed_upstream = (
+                self._parse_upstream(model.external_id, system_type_mapping)
+                if model.external_id is not None
+                else None
+            )
 
-            if model.system_type in (
-                _BW_SYSTEM_TYPE,
-                _S4HANA_SYSTEM_TYPE,
-            ) and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX):
-                query = model.external_id[11:-1]  # query:[][][query]
-                if model.system_type == _S4HANA_SYSTEM_TYPE and query.startswith(
-                    _S4HANA_TRANSIENT_QUERY_PREFIX
-                ):
-                    upstream_dataset_name = query.removeprefix(
-                        _S4HANA_TRANSIENT_QUERY_PREFIX
-                    )
-                    is_cds_view = True
-                else:
-                    upstream_dataset_name = self.get_query_name(query)
-                    default_platform = _DEFAULT_UPSTREAM_PLATFORMS[_BW_SYSTEM_TYPE]
-            elif (
-                model.system_type == _HANA_SYSTEM_TYPE
-                and model.external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX)
-            ):
-                upstream_dataset_name = self._get_hana_view_name(model.external_id)
-
-            if upstream_dataset_name is not None:
+            if parsed_upstream is not None:
+                upstream_dataset_name = parsed_upstream.name
+                default_platform = parsed_upstream.platform
                 connection: Optional[ConnectionMappingConfig] = (
                     self.config.connection_mapping.get(model.connection_id)
                     if model.connection_id is not None
@@ -753,7 +844,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                         f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance"
                     )
 
-                if is_cds_view and (
+                if parsed_upstream.from_transient_query and (
                     connection is None or connection.convert_urns_to_lowercase
                 ):
                     upstream_dataset_name = upstream_dataset_name.lower()
@@ -793,7 +884,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_datasphere_lineage(dataset_urn, model)
         elif model.system_type is not None:
             self.report.warning(
-                message="Unknown system type for model",
+                message="Unknown system type for model. Map it with `system_type_mapping` to resolve its upstream lineage",
                 context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
                 log=False,
             )
@@ -1305,6 +1396,36 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         return parse_result
+
+    def _parse_upstream(
+        self, external_id: str, mapping: SystemTypeMappingConfig
+    ) -> Optional[_ParsedUpstream]:
+        if mapping.external_id_format == ExternalIdFormat.VIEW:
+            if not external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX):
+                return None
+            view_name = self._get_hana_view_name(external_id)
+            if view_name is None:
+                return None
+            return _ParsedUpstream(name=view_name, platform=mapping.platform)
+
+        if not external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX):
+            return None
+        query = external_id[11:-1]  # query:[][][query]
+        prefix = mapping.transient_query_prefix
+        if prefix and query.startswith(prefix):
+            return _ParsedUpstream(
+                name=query.removeprefix(prefix),
+                platform=mapping.platform,
+                from_transient_query=True,
+            )
+        # A system with transient queries also hosts ordinary BW queries in its
+        # embedded BW; those resolve exactly like a query on a BW connection.
+        platform = (
+            _BUILTIN_SYSTEM_TYPE_MAPPINGS[_BW_SYSTEM_TYPE].platform
+            if prefix
+            else mapping.platform
+        )
+        return _ParsedUpstream(name=self.get_query_name(query), platform=platform)
 
     def _get_hana_view_name(self, external_id: str) -> Optional[str]:
         # view:[schema][schema.namespace][view]
