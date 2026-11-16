@@ -11,14 +11,15 @@ def test_space_metrics_track_scanned_processed_and_failed() -> None:
     report.report_space_scanned("TEAM")
     report.report_space_scanned("DOCS")
     report.report_space_processed("TEAM")
-    report.report_space_failed("DOCS", "permission denied")
+    report.report_space_failed("DOCS", PermissionError("permission denied"))
 
     assert report.spaces_scanned == 2
     assert report.spaces_processed == 1
     assert report.spaces_failed == 1
     # A failed space is recorded so operators can see which spaces to investigate.
     assert report.failed_spaces == ["DOCS"]
-    assert any("permission denied" in str(warning) for warning in report.warnings)
+    # A failure, not a warning, so stale removal skips the run.
+    assert any("permission denied" in str(failure) for failure in report.failures)
 
 
 def test_page_skipped_and_failed_are_recorded() -> None:
