@@ -3,6 +3,8 @@
 from typing import Any, List, Optional
 from unittest.mock import MagicMock, patch
 
+import pytest
+
 from datahub.ingestion.source.powerbi.config import (
     Constant,
     PowerBiDashboardSourceConfig,
@@ -15,7 +17,9 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
+    MQueryLineageResult,
 )
+from datahub.ingestion.source.powerbi.m_query.parser import get_upstream_lineage
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,
@@ -146,8 +150,8 @@ def test_fine_grained_lineage_emitted_once_per_lineage_not_per_upstream() -> Non
         ],
     )
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[lineage],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(lineages=[lineage]),
     ):
         aspect = _lineage_aspect(
             mapper.extract_lineage(table, _urn(mapper, table), _workspace())
@@ -198,8 +202,8 @@ def test_measure_references_become_cross_table_fine_grained_lineage() -> None:
     )
     _dataset([policies, kpis])
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(),
     ):
         aspect = _lineage_aspect(
             mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
@@ -245,8 +249,8 @@ def test_measure_references_match_model_names_case_insensitively() -> None:
     )
     _dataset([policies, kpis])
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(),
     ):
         aspect = _lineage_aspect(
             mapper.extract_lineage(kpis, _urn(mapper, kpis), _workspace())
@@ -388,13 +392,73 @@ def test_model_internal_lineage_withheld_when_m_source_unresolved() -> None:
     mapper = _mapper()
     _, orders = _fact_with_measure()
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(),
     ):
         mcps = mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
 
     assert _lineage_aspect(mcps) is None
     assert mapper._Mapper__reporter.model_internal_lineage_withheld == 1  # type: ignore[attr-defined]
+
+
+def test_model_internal_lineage_emitted_when_m_source_has_no_data_access() -> None:
+    """An "Enter data" measure table has no data-access function, so it never
+    has external lineage to protect and keeps its measure edges."""
+    mapper = _mapper()
+    policies, orders = _fact_with_measure()
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(no_data_access_function=True),
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
+        )
+
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, policies)]
+    assert aspect.fineGrainedLineages is not None
+    assert [e.upstreams for e in aspect.fineGrainedLineages] == [
+        [f"urn:li:schemaField:({_urn(mapper, policies)},Premium)"]
+    ]
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
+
+
+@pytest.mark.parametrize(
+    "expression, no_data_access_function",
+    [
+        pytest.param(
+            'let Source = Table.FromRows(Json.Document(Binary.Decompress(Binary.FromText("i45WMlSK1YlWMgJTxkqxsQA=", BinaryEncoding.Base64), Compression.Deflate)), let _t = ((type nullable text) meta [Serialized.Text = true]) in type table [Column1 = _t]) in Source',
+            True,
+            id="enter-data-from-rows",
+        ),
+        pytest.param(
+            'let Source = #table(type table [Name = text], {{"a"}}) in Source',
+            True,
+            id="enter-data-table-literal",
+        ),
+        pytest.param(
+            'let Source = Snowflake.Databases("acct.snowflakecomputing.com", "WH"), db = Source{[Name="DB",Kind="Database"]}[Data] in db',
+            False,
+            id="data-access-without-lineage",
+        ),
+        pytest.param("let Source = in Source", False, id="parse-failure"),
+    ],
+)
+def test_m_query_result_flags_only_sources_without_data_access(
+    expression: str, no_data_access_function: bool
+) -> None:
+    table = Table(name="T", full_name="Model.T", expression=expression)
+    _dataset([table])
+    config = _config()
+    result = get_upstream_lineage(
+        table=table,
+        reporter=PowerBiDashboardSourceReport(),
+        platform_instance_resolver=create_dataplatform_instance_resolver(config),
+        ctx=MagicMock(),
+        config=config,
+    )
+
+    assert result.no_data_access_function == no_data_access_function
 
 
 def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
@@ -407,8 +471,8 @@ def test_model_internal_lineage_merged_with_resolved_m_source() -> None:
         column_lineage=[],
     )
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[lineage],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(lineages=[lineage]),
     ):
         aspect = _lineage_aspect(
             mapper.extract_lineage(orders, _urn(mapper, orders), _workspace())
@@ -433,8 +497,8 @@ def test_calculated_table_depends_on_referenced_model_tables() -> None:
     )
     _dataset([policies, claims, by_state])
     with patch(
-        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
-        return_value=[],
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_lineage",
+        return_value=MQueryLineageResult(),
     ):
         aspect = _lineage_aspect(
             mapper.extract_lineage(by_state, _urn(mapper, by_state), _workspace())
