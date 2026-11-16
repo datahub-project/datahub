@@ -248,6 +248,24 @@ def test_parse_directlake_entity_name_with_spaces_is_unquoted() -> None:
     assert table.partition.schema_name == "dbo"
 
 
+def test_parse_column_unquotes_source_column() -> None:
+    # A composite model mirrors source columns by `sourceColumn`; TMDL quotes
+    # a value with spaces, and the match needs the bare source column name.
+    table = parse_table(
+        "table Policies\n"
+        "\n"
+        "\tcolumn 'Policy Holder'\n"
+        "\t\tdataType: string\n"
+        "\t\tsourceColumn: 'Policy Holder'\n"
+        "\n"
+        "\tcolumn State\n"
+        "\t\tdataType: string\n"
+        "\t\tsourceColumn: STATE_CODE\n"
+    )
+    assert table is not None
+    assert [c.source_column for c in table.columns] == ["Policy Holder", "STATE_CODE"]
+
+
 def test_parse_entity_partition_unquotes_expression_source() -> None:
     # A composite model's remote table names a shared expression with spaces,
     # which TMDL quotes; the lookup into shared_expressions needs the bare name.
