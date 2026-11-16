@@ -1,5 +1,4 @@
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { IconStyleType } from '@app/entityV2/Entity';
@@ -34,6 +33,7 @@ import {
     URN_TYPE_URN,
 } from '@src/app/sharedV2/constants';
 import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { AggregationMetadata, EntityType, FilterOperator } from '@types';
 

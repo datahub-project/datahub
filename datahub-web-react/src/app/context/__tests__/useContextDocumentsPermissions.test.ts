@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { vi } from 'vitest';
 
 import { useContextDocumentsPermissions } from '@app/context/useContextDocumentsPermissions';
 import { UserContext } from '@app/context/userContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock user context values
 const createMockUserContext = (

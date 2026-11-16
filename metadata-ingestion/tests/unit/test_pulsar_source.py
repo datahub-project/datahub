@@ -49,6 +49,27 @@ class TestPulsarSourceConfig:
                 "http://localhost&:8080/"
             )
 
+    def test_pulsar_config_denies_individual_partitions_once(self) -> None:
+        config = PulsarSourceConfig.model_validate(
+            {"web_service_url": "http://localhost:8080"}
+        )
+        assert config.topic_patterns.deny.count(r".*-partition-[0-9]+") == 1
+        assert not config.topic_patterns.allowed("persistent://t/ns/topic-partition-0")
+        assert config.topic_patterns.allowed("persistent://t/ns/topic")
+
+        round_tripped = PulsarSourceConfig.model_validate(config.model_dump())
+        assert round_tripped.topic_patterns.deny.count(r".*-partition-[0-9]+") == 1
+
+    def test_pulsar_config_keeps_partitions_when_not_excluded(self) -> None:
+        config = PulsarSourceConfig.model_validate(
+            {
+                "web_service_url": "http://localhost:8080",
+                "exclude_individual_partitions": False,
+            }
+        )
+        assert config.topic_patterns.deny == ["/__.*$"]
+        assert config.topic_patterns.allowed("persistent://t/ns/topic-partition-0")
+
 
 class TestPulsarTopic:
     def test_pulsar_source_parse_topic_string(self) -> None:

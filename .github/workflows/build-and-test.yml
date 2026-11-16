@@ -315,6 +315,33 @@ jobs:
           # no longer uploads its output.
           path: |
             datahub-web-react/src/**/*.generated.ts
+      # datahub-frontend's Java tests (and their JaCoCo report) run in this job's Gradle build,
+      # not in frontend-test, so its coverage has to be uploaded from here. Keep these steps after
+      # "Ensure codegen is updated": codecov-action downloads its CLI into the workspace, which
+      # that step's `git status --porcelain` check would report as uncommitted changes.
+      - name: Upload datahub-frontend Java coverage to Codecov
+        if: ${{ !cancelled() && github.event_name != 'release' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/datahub-frontend/jacoco-datahub-frontend.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: frontend-java
+          name: frontend-java
+          verbose: true
+      - name: Upload datahub-frontend Java coverage to Codecov on Release
+        if: ${{ !cancelled() && github.event_name == 'release' }}
+        uses: codecov/codecov-action@fb8b3582c8e4def4969c97caa2f19720cb33a72f # v7.0.0
+        with:
+          token: ${{ secrets.CODECOV_TOKEN }}
+          files: ./build/coverage-reports/datahub-frontend/jacoco-datahub-frontend.xml
+          disable_search: true
+          fail_ci_if_error: false
+          flags: frontend-java
+          name: frontend-java
+          verbose: true
+          override_branch: ${{ github.head_ref || github.ref_name }}
 
   frontend-test:
     strategy:

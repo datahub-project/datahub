@@ -36,6 +36,7 @@
     "sources.glue.description": "从 AWS Glue 导入表、数据库、作业、统计信息以及到 S3 的数据血缘。",
     "sources.grafana.description": "从 Grafana 导入仪表板、图表和数据源。",
     "sources.hex.description": "从 Hex 导入项目、组件、数据血缘、运行历史和 AI 上下文文档。",
+    "sources.hightouch.description": "从 Hightouch 导入模型、同步、同步运行历史，以及仓库源与下游目标之间的血缘。",
     "sources.hive.description": "从 Hive 导入表、视图、数据库、架构和统计信息。",
     "sources.iceberg.description": "从任意 Iceberg catalog 实现中导入数据库和表。",
     "sources.informatica.description": "从 Informatica Intelligent Data Management Cloud（IDMC）导入映射、任务流、数据血缘、所有权和标签。",

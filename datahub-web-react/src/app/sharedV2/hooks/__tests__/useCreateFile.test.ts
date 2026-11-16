@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import useCreateFile from '@app/sharedV2/hooks/useCreateFile';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { UploadDownloadScenario } from '@types';
 

@@ -4,6 +4,7 @@ plugins {
 }
 
 apply from: "../gradle/versioning/versioning.gradle"
+apply from: '../gradle/testing/boot-test.gradle'
 apply from: "../gradle/coverage/java-coverage.gradle"
 apply from: "../gradle/docker/docker.gradle"
 
@@ -129,6 +130,9 @@ dependencies {
   testImplementation externalDependency.testContainersOpenSearch
   testCompileOnly externalDependency.lombok
   testAnnotationProcessor externalDependency.lombok
+
+  // Local file-backed bootstrap uses the same driver as the GMS runtime.
+  runtimeOnly externalDependency.h2
 
   testImplementation externalDependency.h2
   testImplementation testFixtures(project(':metadata-io'))

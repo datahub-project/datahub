@@ -1,4 +1,3 @@
-import { MockedProvider } from '@apollo/client/testing';
 import { Remirror, ThemeProvider, useRemirror } from '@remirror/react';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
@@ -7,8 +6,6 @@ import { useTheme } from 'styled-components';
 
 import { Editor } from '@components/components/Editor/Editor';
 import { getEditorTheme } from '@components/components/Editor/EditorTheme';
-
-import UserContextProvider from '@src/app/context/UserContextProvider';
 
 const meta = {
     title: 'Components / Editor',
@@ -24,13 +21,9 @@ const meta = {
             const theme = useTheme();
             const editorTheme = getEditorTheme(theme);
             return (
-                <MockedProvider mocks={[]} addTypename={false}>
-                    <ThemeProvider theme={editorTheme}>
-                        <UserContextProvider>
-                            <Story />
-                        </UserContextProvider>
-                    </ThemeProvider>
-                </MockedProvider>
+                <ThemeProvider theme={editorTheme}>
+                    <Story />
+                </ThemeProvider>
             );
         },
     ],

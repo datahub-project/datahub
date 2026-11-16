@@ -9,6 +9,7 @@ import com.linkedin.common.client.restli.RestliRequestContextEnricher;
 import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.restli.client.AbstractRequestBuilder;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.wiring.WiringCoverage;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -25,6 +26,7 @@ public class RestliRequestContextResolverFactoryTest {
 
   private final ApplicationContextRunner runner =
       new ApplicationContextRunner()
+          .withInitializer(WiringCoverage.initializer())
           .withUserConfiguration(RestliRequestContextResolverFactory.class);
 
   @Test

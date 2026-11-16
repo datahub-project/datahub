@@ -4,7 +4,7 @@ const cases = [
     [
         'should parse datahub mentions',
         'Lorem [@SampleHiveDataset](urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)) ipsum',
-        '<p>Lorem <span data-datahub-mention-urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)">@SampleHiveDataset</span> ipsum</p>\n',
+        '<p>Lorem <span data-datahub-mention-urn="urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)" data-datahub-mention-name="SampleHiveDataset">@SampleHiveDataset</span> ipsum</p>\n',
     ],
     ['should not parse github mentions', 'Lorem @githubuser ipsum', '<p>Lorem @githubuser ipsum</p>\n'],
     [

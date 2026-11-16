@@ -27,6 +27,7 @@ import io.datahubproject.metadata.context.ObjectMapperContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.wiring.WiringCoverage;
 import java.util.List;
 import org.mockito.ArgumentMatchers;
 import org.mockito.MockedStatic;
@@ -61,6 +62,7 @@ public class PgQueueMessagingOperationsControllerTest extends AbstractTestNGSpri
 
   private final ApplicationContextRunner contextRunner =
       new ApplicationContextRunner()
+          .withInitializer(WiringCoverage.initializer())
           .withUserConfiguration(
               PgQueueMessagingOperationsController.class,
               PgQueueMessagingOperationsControllerTest.SharedBeans.class);

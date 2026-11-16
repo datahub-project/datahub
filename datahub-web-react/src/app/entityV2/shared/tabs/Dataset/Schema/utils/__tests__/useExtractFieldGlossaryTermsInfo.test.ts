@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach } from 'vitest';
 
 import useExtractFieldGlossaryTermsInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldGlossaryTermsInfo';
@@ -10,6 +9,7 @@ import {
     SchemaField,
     SchemaFieldDataType,
 } from '@src/types.generated';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockUseBaseEntity = vi.hoisted(() => vi.fn());
 

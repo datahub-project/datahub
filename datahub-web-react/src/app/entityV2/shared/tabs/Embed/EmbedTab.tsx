@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 const EmbedContainer = styled.div`
     width: 100%;

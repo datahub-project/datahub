@@ -209,7 +209,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             new ConfiguredIndexPrefixResolver(indexPrefix()),
             entityIndex);
     EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
-    MappingsBuilder mappingsBuilder = createDelegatingMappingsBuilder(entityIndex);
+    MappingsBuilder mappingsBuilder =
+        createDelegatingMappingsBuilder(entityIndex, getSearchClient());
     Map<Urn, List<RecordTemplate>> definitionAspects = new LinkedHashMap<>();
     for (String templateUrn : SearchTemplateBootstrap.urns()) {
       SearchTemplateProperties template = SearchTemplateBootstrap.get(templateUrn);
