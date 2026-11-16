@@ -4,13 +4,14 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, UserConfig, defineConfig, loadEnv } from 'vite';
+import { PluginOption, ProxyOptions, UserConfig, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
+import { liteModePlugin } from './devtools/vite-preview-plugin/liteMode';
 import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
@@ -137,7 +138,7 @@ function substituteBasePathForDev(): PluginOption {
         name: 'substitute-base-path-dev',
         apply: 'serve',
         transformIndexHtml(html) {
-            return html.replace('@basePath', '/');
+            return html.replace('@basePath', '/').replace('@sentryConfig', 'null');
         },
     };
 }
@@ -181,14 +182,17 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         configure: proxyDebugConfig,
     };
 
-    const proxyOptions = {
-        '/logIn': frontendProxy,
-        '/authenticate': frontendProxy,
-        '/api/v2/graphql': frontendProxy,
-        '/openapi/v1/tracking/track': frontendProxy,
-        '/openapi/v1/files': frontendProxy,
-        '/mfe/config': frontendProxy,
-    };
+    const proxyOptions: Record<string, ProxyOptions> =
+        process.env.PREVIEW_MODE === 'lite'
+            ? {}
+            : {
+                  '/logIn': frontendProxy,
+                  '/authenticate': frontendProxy,
+                  '/api/v2/graphql': frontendProxy,
+                  '/openapi/v1/tracking/track': frontendProxy,
+                  '/openapi/v1/files': frontendProxy,
+                  '/mfe/config': frontendProxy,
+              };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const localesDir = path.resolve(__dirname, 'src/i18n/locales');
@@ -207,6 +211,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            liteModePlugin(),
             i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
@@ -318,6 +323,8 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
+            // Vite 6 types `https` as TLS options; an empty object enables HTTPS like `true` did.
+            https: isHttps ? {} : undefined,
         },
         css: {
             preprocessorOptions: {
@@ -332,7 +339,7 @@ export default defineConfig(async ({ mode }): Promise<UserConfig> => {
         test: {
             // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
             // Vitest would otherwise collect it and fail with "No test suite found".
-            exclude: [...configDefaults.exclude, 'scripts/**'],
+            exclude: [...configDefaults.exclude, 'scripts/**', 'devtools/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',

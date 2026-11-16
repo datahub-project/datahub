@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -11,6 +11,7 @@ from datahub.ingestion.source.qlik_sense.data_classes import App, UnreadItem
 from datahub.ingestion.source.qlik_sense.qlik_base_api import UNREAD_DATA_CONNECTIONS
 from datahub.ingestion.source.qlik_sense.qlik_sense import QlikSenseSource
 from datahub.ingestion.source.qlik_sense.qvd_lineage import (
+    AppQvdLineage,
     QvdPathResolver,
     app_qvd_lineage,
     canonical_path,
@@ -21,6 +22,8 @@ from datahub.ingestion.source.qlik_sense.script_lineage import (
     parse_script,
 )
 from datahub.metadata.schema_classes import (
+    ContainerClass,
+    ContainerPropertiesClass,
     DatasetLineageTypeClass,
     DatasetPropertiesClass,
     FineGrainedLineageClass,
@@ -263,6 +266,8 @@ def _run(
                 SchemaMetadataClass,
                 DatasetPropertiesClass,
                 SubTypesClass,
+                ContainerClass,
+                ContainerPropertiesClass,
             ):
                 aspect = wu.get_aspect_of_type(aspect_type)
                 if aspect:
@@ -521,6 +526,85 @@ def test_stored_qvd_takes_the_data_model_fields_a_load_star_hides() -> None:
         ("id", "id"),
         ("amount", "amount"),
     ]
+
+
+def test_qvds_are_in_folder_containers_of_their_share() -> None:
+    _, aspects = _run([_app("etl-app", ETL_SCRIPT), _app("report-app", REPORT_SCRIPT)])
+    names = {
+        urn: props["ContainerPropertiesClass"].name
+        for urn, props in aspects.items()
+        if "ContainerPropertiesClass" in props
+        and props["SubTypesClass"].typeNames == ["Folder"]
+    }
+    # One container per folder, however many QVDs and apps it holds.
+    assert sorted(names.values()) == ["clean", "nas", "qvd", "raw"]
+    clean_folder = aspects[CLEAN]["ContainerClass"].container
+    raw_folder = aspects[RAW]["ContainerClass"].container
+    assert names[clean_folder] == "clean"
+    assert names[raw_folder] == "raw"
+    share = aspects[clean_folder]["ContainerClass"].container
+    assert names[share] == "qvd"
+    assert names[aspects[share]["ContainerClass"].container] == "nas"
+
+
+@patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI")
+def test_every_app_emits_the_folders_of_its_qvds(mock_api_cls: MagicMock) -> None:
+    source = QlikSenseSource(
+        QlikSourceConfig.model_validate(ONPREM_CONFIG),
+        PipelineContext(run_id="test-qvd-lineage"),
+    )
+
+    def folder_urns(lineage: AppQvdLineage) -> List[str]:
+        return [
+            wu.get_urn()
+            for wu in source._gen_qvd_entities(lineage)
+            if wu.get_aspect_of_type(ContainerPropertiesClass)
+        ]
+
+    first = folder_urns(AppQvdLineage(paths={CLEAN: "//nas/qvd/clean/orders.qvd"}))
+    second = folder_urns(AppQvdLineage(paths={RAW: "//nas/qvd/raw/orders.qvd"}))
+
+    # Each app's checkpoint keeps only what it emitted, so the server and
+    # share it shares with the other app are emitted by both.
+    assert len(first) == len(second) == 3
+    assert first[:2] == second[:2]
+
+
+def _qvd_folders(config: Dict[str, Any], path: str) -> List[Tuple[str, str]]:
+    """(container URN, name) of the folders a QVD's entities emit, in order."""
+    with patch("datahub.ingestion.source.qlik_sense.qlik_sense.QlikOnPremAPI"):
+        source = QlikSenseSource(
+            QlikSourceConfig.model_validate(config),
+            PipelineContext(run_id="test-qvd-lineage"),
+        )
+    return [
+        (wu.get_urn(), properties.name)
+        for wu in source._gen_qvd_entities(AppQvdLineage(paths={_urn(path): path}))
+        if (properties := wu.get_aspect_of_type(ContainerPropertiesClass))
+    ]
+
+
+@pytest.mark.parametrize(
+    "path, folders",
+    [
+        ("//nas/qvd/raw/orders.qvd", ["nas", "qvd", "raw"]),
+        ("d:/data/sales/orders.qvd", ["d:", "data", "sales"]),
+        # Relative to a Directory statement, so the root is unknown.
+        ("orders.qvd", []),
+        ("data/orders.qvd", []),
+    ],
+)
+def test_qvd_folders_start_at_a_share_or_drive(path: str, folders: List[str]) -> None:
+    assert [name for _, name in _qvd_folders(ONPREM_CONFIG, path)] == folders
+
+
+def test_qvd_folder_keys_include_the_platform_instance() -> None:
+    path = "//nas/qvd/raw/orders.qvd"
+    plain = _qvd_folders(ONPREM_CONFIG, path)
+    with_instance = _qvd_folders({**ONPREM_CONFIG, "platform_instance": "onprem"}, path)
+    # The same folders, under other keys, so two sites never share a folder.
+    assert [name for _, name in with_instance] == [name for _, name in plain]
+    assert not {urn for urn, _ in with_instance} & {urn for urn, _ in plain}
 
 
 def _removed_columns(aspects: Dict[str, Dict[str, Any]], urn: str) -> List[str]:
