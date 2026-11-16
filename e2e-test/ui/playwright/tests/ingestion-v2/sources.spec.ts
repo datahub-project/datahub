@@ -142,6 +142,8 @@ test.describe('ingestion sources', () => {
     await ingestionPage.sourcesTab.waitForLastRunsIndexed(LAST_RUN_SOURCE_URNS);
     await ingestionPage.goto();
     await ingestionPage.sourcesTab.fillSearch(LAST_RUN_SEARCH);
+    // The search refetch replaces the header with a spinner; sort once the filtered rows are back.
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_OLDER_SOURCE);
 
     await ingestionPage.sourcesTab.sortByLastRun();
     await ingestionPage.sourcesTab.expectSourceOrder([LAST_RUN_OLDER_SOURCE, LAST_RUN_NEWER_SOURCE]);
