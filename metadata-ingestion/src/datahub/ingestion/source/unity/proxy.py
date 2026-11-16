@@ -667,6 +667,9 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                 yield optional_ml_model
 
     def volumes(self, schema: Schema) -> Iterable[Volume]:
+        # Volumes are a Unity Catalog object; hive_metastore schemas have none.
+        if schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
+            return
         for obj in self._workspace_client.volumes.list(
             catalog_name=schema.catalog.name,
             schema_name=schema.name,

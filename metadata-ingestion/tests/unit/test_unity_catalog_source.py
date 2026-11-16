@@ -3407,6 +3407,17 @@ class TestUnityCatalogVolumes:
         assert any(wu.get_aspect_of_type(ContainerPropertiesClass) for wu in wus)
         assert len(source.report.warnings) == 1
 
+    def test_volume_listing_failure_is_contained(self) -> None:
+        source = self._build_source(include_volumes=True)
+        with patch.object(
+            source.unity_catalog_api_proxy,
+            "volumes",
+            side_effect=RuntimeError("PERMISSION_DENIED"),
+        ):
+            assert list(source.process_volumes(self._schema())) == []
+
+        assert [w.title for w in source.report.warnings] == ["Failed to ingest volumes"]
+
     def test_include_volumes_false_makes_no_api_call(self) -> None:
         source = self._build_source()
         with patch.object(source.unity_catalog_api_proxy, "volumes") as mock_volumes:

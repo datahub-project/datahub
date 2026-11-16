@@ -1124,12 +1124,22 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
         if not self.config.include_volumes:
             return
-        for volume in self.unity_catalog_api_proxy.volumes(schema):
-            if not self.config.volume_pattern.allowed(volume.id):
-                self.report.volumes.dropped(volume.id)
-                continue
-            yield from self._gen_volume_workunits(volume)
-            self.report.volumes.processed(volume.id)
+        # Contained here so a volume failure (e.g. a missing READ VOLUME/BROWSE
+        # grant) doesn't report the schema's already-emitted tables as missed.
+        try:
+            for volume in self.unity_catalog_api_proxy.volumes(schema):
+                if not self.config.volume_pattern.allowed(volume.id):
+                    self.report.volumes.dropped(volume.id)
+                    continue
+                yield from self._gen_volume_workunits(volume)
+                self.report.volumes.processed(volume.id)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to ingest volumes",
+                message="Volumes in this schema were skipped. Check the READ VOLUME or BROWSE privilege.",
+                context=schema.id,
+                exc=e,
+            )
 
     def _gen_volume_workunits(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
         catalog_name = volume.schema.catalog.name

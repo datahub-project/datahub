@@ -1212,6 +1212,39 @@ class TestUnityCatalogProxy:
             2025, 1, 1, tzinfo=volume.created_at.tzinfo
         )
 
+    def test_volumes_skips_hive_metastore_schema(self, mock_proxy):
+        from datahub.ingestion.source.unity.proxy_types import (
+            Catalog,
+            CustomCatalogType,
+            Metastore,
+            Schema,
+        )
+
+        metastore = Metastore(
+            id="m",
+            name="m",
+            comment=None,
+            global_metastore_id=None,
+            metastore_id=None,
+            owner=None,
+            region=None,
+            cloud=None,
+        )
+        catalog = Catalog(
+            id="hive_metastore",
+            name="hive_metastore",
+            metastore=metastore,
+            comment=None,
+            owner=None,
+            type=CustomCatalogType.HIVE_METASTORE_CATALOG,
+        )
+        schema = Schema(
+            id="hive_metastore.s", name="s", catalog=catalog, comment=None, owner=None
+        )
+
+        assert list(mock_proxy.volumes(schema)) == []
+        mock_proxy._workspace_client.volumes.list.assert_not_called()
+
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_create_ml_model_success(self, mock_workspace_client):
         """Test _create_ml_model() successfully creates a model."""
