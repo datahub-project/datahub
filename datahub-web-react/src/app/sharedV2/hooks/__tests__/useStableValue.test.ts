@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useStableValue } from '@app/sharedV2/hooks/useStableValue';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useStableValue', () => {
     it('should return the initial value', () => {

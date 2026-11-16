@@ -255,6 +255,10 @@ module.exports = {
               to: "https://demo.datahub.com/",
             },
             {
+              label: "Product Tours",
+              href: "https://tours.datahub.com/?utm_source=oss-docs&utm_medium=oss-referral&utm_campaign=oss-product-tours&utm_content=docs-footer",
+            },
+            {
               label: "Free Trial",
               href: "https://datahub.com/free-trial/",
             },
@@ -405,6 +409,14 @@ module.exports = {
           {
             from: '/docs/features/feature-guides/observe',
             to: '/docs/managed-datahub/observe/overview',
+          },
+          {
+            from: '/docs/features/feature-guides/file-upload-download',
+            to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/posts',
+            to: '/docs/features/feature-guides/custom-home-page',
           },
           {
             from: '/docs/managed-datahub/context/overview',

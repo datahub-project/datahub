@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
@@ -10,6 +10,7 @@ import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { DEFAULT_TEMPLATE } from '@app/homeV3/modules/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, RecommendationModuleId, ScenarioType } from '@types';

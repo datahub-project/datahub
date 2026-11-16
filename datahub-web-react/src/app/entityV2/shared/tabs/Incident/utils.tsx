@@ -1,6 +1,5 @@
 import { format } from 'date-fns';
 import Fuse from 'fuse.js';
-import React from 'react';
 
 import {
     INCIDENT_PRIORITY,
@@ -27,8 +26,7 @@ import {
 } from '@app/entityV2/shared/tabs/Incident/types';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { getPlatformNameFromEntityData } from '@app/entityV2/shared/utils';
-import { getCapitalizeWord } from '@src/alchemy-components/components/IncidentStagePill/utils';
-import { SortingState } from '@src/alchemy-components/components/Table/types';
+import { getCapitalizeWord } from '@app/sharedV2/textUtil';
 import {
     EntityType,
     Incident,
@@ -89,11 +87,6 @@ const createIncidentGroupsFromMap = (
             untransformedIncidents: groupedIncidents,
             incidents: mapIncidentData(groupedIncidents),
             [keyName]: key, // Dynamically set the group key (type, stage, or priority)
-            groupName: (
-                <>
-                    {getCapitalizeWord(key)} <span>({groupedIncidents.length})</span>
-                </>
-            ),
         };
         incidentGroups.push(newGroup);
     });
@@ -479,37 +472,6 @@ export const getFormattedDateForResolver = (lastUpdate) => {
 
 // Helper function for validating the form errors
 export const validateForm = (form) => !form.getFieldsError().some(({ errors }) => errors.length > 0);
-
-export const getSortedIncidents = (record: any, sortedOptions: { sortColumn: string; sortOrder: SortingState }) => {
-    const { sortOrder, sortColumn } = sortedOptions;
-
-    if (sortOrder === SortingState.ORIGINAL) return record.incidents;
-
-    const localeOptions = { sensitivity: 'base' };
-
-    const sortFunctions = {
-        created: (a, b) => (sortOrder === SortingState.ASCENDING ? b.created - a.created : a.created - b.created),
-        name: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? (a.title || '').localeCompare(b.title || '', undefined, localeOptions)
-                : (b.title || '').localeCompare(a.title || '', undefined, localeOptions),
-        type: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? (a.type || '').localeCompare(b.type || '', undefined, localeOptions)
-                : (b.type || '').localeCompare(a.type || '', undefined, localeOptions),
-        linkedAssets: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? b.linkedAssets.length - a.linkedAssets.length
-                : a.linkedAssets.length - b.linkedAssets.length,
-        assignees: (a, b) =>
-            sortOrder === SortingState.ASCENDING
-                ? b.assignees?.length - a.assignees?.length
-                : a.assignees?.length - b.assignees?.length,
-    };
-
-    const sortFunction = sortFunctions[sortColumn];
-    return sortFunction ? [...record.incidents].sort(sortFunction) : record.incidents;
-};
 
 export const getExistingIncidents = (currData) => {
     return [...(currData?.entity?.incidents?.incidents || [])];

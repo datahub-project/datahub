@@ -1,6 +1,13 @@
 repos:
   - repo: local
     hooks:
+      - id: gms-lite-python
+        name: GMS-lite Python lint and format
+        entry: ./gradlew :metadata-service:gms-lite:lintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-service/gms-lite/.*\.(py|toml)$
+        pass_filenames: false
+        stages: [pre-commit]
       - id: guard-push-file-count
         name: Guard against massive pushes (>500 files)
         entry: bash .github/scripts/pre-commit/guard_push_file_count.sh
@@ -46,13 +53,13 @@ repos:
         files: ^\.github/workflows/.*\.yml$
         pass_filenames: false
         stages: [pre-commit]
-      - id: actionlint-docker
+      - id: actionlint
         name: Lint GitHub Actions workflow files
-        description: Runs actionlint Docker image to lint GitHub Actions workflow files
-        language: docker_image
+        description: Runs the pinned actionlint, locally when installed (mise) or via Docker
+        language: system
         types: ["yaml"]
         files: ^\.github/workflows/
-        entry: docker.io/rhysd/actionlint:1.7.11
+        entry: bash .github/scripts/pre-commit/run_actionlint.sh
         stages: [pre-commit]
       - id: docusaurus-markdown-lint
         name: Lint Docusaurus Markdown
@@ -123,7 +130,7 @@ repos:
           runs a chain step without its predecessors
         entry: python3 .github/scripts/check_playwright_p0.py
         language: system
-        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/check_playwright_p0\.py)$
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/(check_playwright_p0|plan_playwright_tier)\.py)$
         # The script globs the specs itself; it needs the whole tree, not the diff.
         pass_filenames: false
         # Also runs in CI via lint-jobs.yml playwright-e2e-lint.

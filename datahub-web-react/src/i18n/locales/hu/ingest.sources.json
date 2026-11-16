@@ -36,6 +36,7 @@
     "sources.glue.description": "Táblák, adatbázisok, Jobs, statisztikák és az S3 felé mutató Lineage importálása az AWS Glue-ból.",
     "sources.grafana.description": "Irányítópultok, diagramok és adatforrások importálása a Grafana-ból.",
     "sources.hex.description": "Projects, Components, Lineage, futtatási előzmények és AI-kontextusdokumentumok importálása a Hex-ből.",
+    "sources.hightouch.description": "Modellek, szinkronizálások, futási előzmények és a raktárforrások és alsóbb célhelyek közötti leszármazás importálása a Hightouchból.",
     "sources.hive.description": "Táblák, nézetek, adatbázisok, sémák és statisztikák importálása a Hive-ból.",
     "sources.iceberg.description": "Adatbázisok és táblák betöltése bármely Iceberg katalógusimplementációból.",
     "sources.informatica.description": "Mappings, Taskflows, Lineage, tulajdonlás és címkék importálása az Informatica Intelligent Data Management Cloud-ból (IDMC).",

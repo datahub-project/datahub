@@ -81,6 +81,8 @@ source_mappings:
 
 Module behavior is constrained by source APIs, permissions, and metadata exposed by the platform. Refer to capability notes for unsupported or conditional features.
 
+`schema_pattern` is evaluated inside Dremio. It matches from the start of the schema path and ignores case. Unlike elsewhere in DataHub, `ignoreCase: false` is not honoured, and `\w`, `\d` and `\s` match ASCII characters only. Write non-ASCII letters as themselves, not escaped: an escaped letter such as `\u00e9` is not case-folded, so it doesn't match. Python-only syntax, such as named groups `(?P<name>...)`, is rejected by Dremio.
+
 ### Troubleshooting
 
 If ingestion fails, validate credentials, permissions, connectivity, and scope filters first. Then review ingestion logs for source-specific errors and adjust configuration accordingly.

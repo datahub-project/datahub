@@ -36,6 +36,7 @@
     "sources.glue.description": "Importera Tables, Databases, Jobs, statistik och Lineage till S3 från AWS Glue.",
     "sources.grafana.description": "Importera Dashboards, Charts och Data Sources från Grafana.",
     "sources.hex.description": "Importera Projects, Components, Lineage, körhistorik och AI-kontextdokument från Hex.",
+    "sources.hightouch.description": "Importera modeller, synkroniseringar, körningshistorik och härkomst mellan lagerkällor och nedströms mål från Hightouch.",
     "sources.hive.description": "Importera Tables, Views, Databases, Schemas och statistik från Hive.",
     "sources.iceberg.description": "Ta in databaser och tabeller från valfri Iceberg-katalogimplementation.",
     "sources.informatica.description": "Importera Mappings, Taskflows, Lineage, Ownership och Tags från Informatica Intelligent Data Management Cloud (IDMC).",

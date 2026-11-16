@@ -10,5 +10,12 @@
     "customOwnershipType": "Egyéni tulajdonlási típus",
     "ingestionSource": "Adatbetöltési forrás",
     "groupBy.displayValue": "Csoportosítás {{label}} szerint",
-    "groupBy.group": "Csoportosítás"
+    "groupBy.group": "Csoportosítás",
+    "selectItems.addMoreSection": "Továbbiak hozzáadása",
+    "selectItems.entitiesLabel": "entitások",
+    "selectItems.itemsLabel": "elemek",
+    "selectItems.noEntityFound": "Nem található {{entityName}}",
+    "selectItems.removeAll": "Összes eltávolítása",
+    "selectItems.searchForEntity": "{{entityName}} keresése...",
+    "selectItems.selectedSection": "Kiválasztva"
 }

@@ -36,6 +36,7 @@
     "sources.glue.description": "Tuo taulut, tietokannat, työt, tilastot ja lineage S3:ään AWS Gluesta.",
     "sources.grafana.description": "Tuo koontinäytöt, kaaviot ja tietolähteet Grafanasta.",
     "sources.hex.description": "Tuo projektit, komponentit, lineage, ajohistoria ja tekoälyn kontekstidokumentit Hexistä.",
+    "sources.hightouch.description": "Tuo Hightouchista mallit, synkronoinnit, ajohistoria ja periytyvyys varastolähteiden ja jatkokohteiden välillä.",
     "sources.hive.description": "Tuo taulut, näkymät, tietokannat, skeemat ja tilastot Hivestä.",
     "sources.iceberg.description": "Tuo tietokannat ja taulut mistä tahansa Iceberg-katalogitoteutuksesta.",
     "sources.informatica.description": "Tuo kartoitukset, tehtävävirrat, lineage, omistajuus ja tunnisteet Informatica Intelligent Data Management Cloudista (IDMC).",

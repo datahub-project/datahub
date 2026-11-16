@@ -1,9 +1,9 @@
 import { act } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { THEME_DARK_MODE_FLAG, loadIsDarkMode, useIsDarkMode } from '@app/theme/useIsDarkMode';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/sharedV2/hooks/useFeatureFlag', async () => {
     const actual = await vi.importActual<typeof import('@app/sharedV2/hooks/useFeatureFlag')>(

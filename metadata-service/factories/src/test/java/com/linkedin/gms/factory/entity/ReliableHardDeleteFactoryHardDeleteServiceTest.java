@@ -21,6 +21,7 @@ import com.linkedin.metadata.service.HardDeleteRequest;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import io.datahubproject.test.wiring.WiringCoverage;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -79,6 +80,8 @@ public class ReliableHardDeleteFactoryHardDeleteServiceTest {
     when(configurationProvider.getFeatureFlags()).thenReturn(featureFlags);
 
     final AnnotationConfigApplicationContext context = new AnnotationConfigApplicationContext();
+
+    WiringCoverage.attach(context);
     context.registerBean("entityService", EntityService.class, () -> entityService);
     context.registerBean(
         "deleteEntityService", DeleteEntityService.class, () -> mock(DeleteEntityService.class));
