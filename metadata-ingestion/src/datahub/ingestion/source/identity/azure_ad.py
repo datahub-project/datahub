@@ -507,7 +507,9 @@ class AzureADSource(StatefulIngestionSourceBase):
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
                 hint = ""
-                if 400 <= response.status_code < 500 and "$select=" in str(url):
+                # Graph answers an unknown $select property with 400; 401/403
+                # are permission problems and must not point at this setting.
+                if response.status_code == 400 and "$select=" in str(url):
                     hint = (
                         " If Graph rejected a selected property, check that "
                         "azure_ad_response_to_username_attr "

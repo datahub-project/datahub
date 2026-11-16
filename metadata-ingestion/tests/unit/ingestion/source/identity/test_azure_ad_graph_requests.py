@@ -81,6 +81,20 @@ def test_rejected_select_names_the_username_setting(fetch: Fetch) -> None:
     assert graph_error in str(raised.value)
 
 
+@pytest.mark.parametrize("status_code", [401, 403])
+def test_permission_errors_do_not_blame_the_username_setting(status_code: int) -> None:
+    source = _make_source()
+    _respond_with(
+        source, status_code, '{"error": {"code": "Authorization_RequestDenied"}}'
+    )
+
+    with pytest.raises(Exception) as raised:
+        list(source._get_azure_ad_users())
+
+    assert "azure_ad_response_to_username_attr" not in str(raised.value)
+    assert "Authorization_RequestDenied" in str(raised.value)
+
+
 def test_user_country_comes_from_usage_location_not_mobile_phone() -> None:
     info = _make_source()._map_azure_ad_user_to_corp_user(
         {"displayName": "Jane Doe", "mobilePhone": "+1 555 0100", "usageLocation": "GB"}
