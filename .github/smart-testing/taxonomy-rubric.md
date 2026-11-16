@@ -235,8 +235,11 @@ narrower than expected (`coverage-risk`) or broader (`costlier`). PRs that paths
 classify replay offline as unit tests. The rest need classifier calls: the Smart Testing
 Replay workflow (`.github/workflows/smart-testing-replay.yml`) replays them three times on
 every PR that changes `.github/smart-testing/`, with the same Workload Identity Federation
-credentials as the classifier, and fails on any `coverage-risk`. Add PRs with
-`replay_prs.py fetch <number>`.
+credentials as the classifier. It fails when two of a PR's three runs are `coverage-risk`
+or errors; one bad run is a warning, since the classifier does not always answer the same
+way. A p0 fail-safe counts as `costlier`. Add PRs with `replay_prs.py fetch <number>`.
+The fork replays only its own PRs, from `golden_prs.saas.yaml`, and ignores the OSS
+`golden_prs.yaml` that the sync brings in.
 
 ### Step 5: Write tag definitions
 
