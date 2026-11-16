@@ -41,16 +41,19 @@ interface Props {
 
 export default function FieldLogicalSection({ expandedField }: Props) {
     const { t } = useTranslation('entity.profile.schema');
-    const { logicalModelsEnabled } = useAppConfig().config.featureFlags;
+    const { config } = useAppConfig();
+    const { logicalModelsEnabled } = config.featureFlags;
+    // Deployments can hide this section (e.g. when a micro frontend replaces it): visualConfig.hideLogicalModelColumnSection.
+    const hidden = !!config.visualConfig?.hideLogicalModelColumnSection;
     const [showAllChildren, setShowAllChildren] = useState(false);
     const urn = expandedField.schemaFieldEntity?.urn;
 
     const { data } = useGetSchemaFieldQuery({
         variables: { urn: urn || '' },
-        skip: !urn || !logicalModelsEnabled,
+        skip: !urn || !logicalModelsEnabled || hidden,
     });
 
-    if (!logicalModelsEnabled || !urn || data?.entity?.__typename !== 'SchemaFieldEntity') {
+    if (!logicalModelsEnabled || hidden || !urn || data?.entity?.__typename !== 'SchemaFieldEntity') {
         return null;
     }
 

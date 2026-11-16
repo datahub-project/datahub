@@ -426,6 +426,16 @@ type VisualConfig {
   hideGlossary: Boolean
 
   """
+  Whether to hide the built-in Logical Parent / Physical Children section in an entity's right sidebar
+  """
+  hideLogicalModelSidebarSection: Boolean
+
+  """
+  Whether to hide the built-in Logical Parent / Physical Children section in the column drawer
+  """
+  hideLogicalModelColumnSection: Boolean
+
+  """
   Configuration for the queries tab
   """
   queriesTab: QueriesTabConfig

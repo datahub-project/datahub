@@ -140,6 +140,8 @@ export type EntitySidebarTab = {
 };
 
 export type EntitySidebarSection = {
+    /** Stable, language-independent id for the section; micro frontends position themselves after it. */
+    key?: string;
     component: React.FunctionComponent<{
         properties?: any;
         readOnly?: boolean;

@@ -1209,6 +1209,8 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "visualConfig.assets.logoUrl",
           "visualConfig.entityProfile.domainDefaultTab",
           "visualConfig.hideGlossary",
+          "visualConfig.hideLogicalModelColumnSection",
+          "visualConfig.hideLogicalModelSidebarSection",
           "visualConfig.queriesTab.queriesTabResultSize",
           "visualConfig.searchResult.enableNameHighlight",
           "visualConfig.showFullTitleInLineage",

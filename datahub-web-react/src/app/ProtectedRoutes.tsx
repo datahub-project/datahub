@@ -7,6 +7,7 @@ import DataHubTitle from '@app/DataHubTitle';
 import { useSetUserPersona } from '@app/homeV2/persona/useUserPersona';
 import { useShowHomePageRedesign } from '@app/homeV3/context/hooks/useShowHomePageRedesign';
 import { useSetUserTitle } from '@app/identity/user/useUserTitle';
+import MFEConfigProvider from '@app/mfeframework/MFEConfigProvider';
 import { OnboardingContextProvider } from '@app/onboarding/OnboardingContextProvider';
 import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
 import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
@@ -49,17 +50,19 @@ export const ProtectedRoutes = (): JSX.Element => {
 
     return (
         <OnboardingContextProvider>
-            <DataHubTitle />
-            <StyledLayout className="themeV2">
-                <Suspense fallback={<SuspenseGlobal />}>
-                    <Switch>
-                        <Route exact path="/" render={() => <FinalHomePage />} />
-                        <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
-                        <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
-                        <Route path="/*" component={SearchRoutes} />
-                    </Switch>
-                </Suspense>
-            </StyledLayout>
+            <MFEConfigProvider>
+                <DataHubTitle />
+                <StyledLayout className="themeV2">
+                    <Suspense fallback={<SuspenseGlobal />}>
+                        <Switch>
+                            <Route exact path="/" render={() => <FinalHomePage />} />
+                            <Route path={PageRoutes.EMBED} render={() => <EmbedRoutes />} />
+                            <Route exact path={PageRoutes.INTRODUCE} render={() => <IntroduceYourself />} />
+                            <Route path="/*" component={SearchRoutes} />
+                        </Switch>
+                    </Suspense>
+                </StyledLayout>
+            </MFEConfigProvider>
         </OnboardingContextProvider>
     );
 };

@@ -1,0 +1,48 @@
+[
+  {
+    "proposedSnapshot": {
+      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
+        "urn": "urn:li:dataset:(urn:li:dataPlatform:hive,mfe_slot_test_dataset,PROD)",
+        "aspects": [
+          {
+            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
+              "description": "Dataset used by the MFE framework slot tests",
+              "customProperties": {}
+            }
+          },
+          {
+            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
+              "schemaName": "mfe_slot_test_dataset",
+              "platform": "urn:li:dataPlatform:hive",
+              "version": 0,
+              "created": { "time": 1581407189000, "actor": "urn:li:corpuser:jdoe" },
+              "modified": { "time": 1581407189000, "actor": "urn:li:corpuser:jdoe" },
+              "hash": "",
+              "platformSchema": {
+                "com.linkedin.pegasus2avro.schema.OtherSchema": { "rawSchema": "" }
+              },
+              "fields": [
+                {
+                  "fieldPath": "col_a",
+                  "nullable": false,
+                  "description": "First column",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.StringType": {} } },
+                  "nativeDataType": "string",
+                  "recursive": false
+                },
+                {
+                  "fieldPath": "col_b",
+                  "nullable": true,
+                  "description": "Second column",
+                  "type": { "type": { "com.linkedin.pegasus2avro.schema.NumberType": {} } },
+                  "nativeDataType": "bigint",
+                  "recursive": false
+                }
+              ]
+            }
+          }
+        ]
+      }
+    }
+  }
+]

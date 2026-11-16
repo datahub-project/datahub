@@ -7,6 +7,7 @@ import PropertiesHeader from '@app/entityV2/summary/properties/PropertiesHeader'
 import { StyledDivider } from '@app/entityV2/summary/styledComponents';
 import { PageTemplateProvider } from '@app/homeV3/context/PageTemplateContext';
 import Template from '@app/homeV3/template/Template';
+import MFEEntityRegion from '@app/mfeframework/slots/MFEEntityRegion';
 
 import { PageTemplateSurfaceType } from '@types';
 
@@ -31,6 +32,7 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
     return (
         <PageTemplateProvider templateType={PageTemplateSurfaceType.AssetSummary}>
             <SummaryWrapper>
+                <MFEEntityRegion slot="entity.summary.top" />
                 <PropertiesHeader />
                 {properties?.preContent}
                 {properties?.preContent && <StyledDivider />}
@@ -41,6 +43,7 @@ export default function SummaryTab({ properties }: { properties?: Props }) {
                 />
                 <StyledDivider />
                 <Template />
+                <MFEEntityRegion slot="entity.summary.bottom" />
             </SummaryWrapper>
         </PageTemplateProvider>
     );

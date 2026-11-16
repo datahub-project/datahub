@@ -43,8 +43,10 @@ function logicalModelEntityData(canEditProperties: boolean, total = 1) {
     };
 }
 
-function renderSection(entityData: ReturnType<typeof logicalModelEntityData>) {
-    useAppConfigMock.mockReturnValue({ config: { featureFlags: { logicalModelsEnabled: true } } });
+function renderSection(entityData: ReturnType<typeof logicalModelEntityData>, hideLogicalModelSidebarSection = false) {
+    useAppConfigMock.mockReturnValue({
+        config: { featureFlags: { logicalModelsEnabled: true }, visualConfig: { hideLogicalModelSidebarSection } },
+    });
     useEntityDataMock.mockReturnValue({
         urn: 'urn:li:dataset:(urn:li:dataPlatform:logical,model,PROD)',
         entityType: EntityType.Dataset,
@@ -60,6 +62,13 @@ function renderSection(entityData: ReturnType<typeof logicalModelEntityData>) {
 }
 
 describe('SidebarLogicalSection', () => {
+    it('renders nothing when the deployment hides the section', () => {
+        renderSection(logicalModelEntityData(true), true);
+
+        expect(screen.queryByTestId('physical-children-list')).not.toBeInTheDocument();
+        expect(screen.queryByTestId('add-physical-child')).not.toBeInTheDocument();
+    });
+
     it('shows link/unlink affordances when the user can edit the model', () => {
         renderSection(logicalModelEntityData(true));
 

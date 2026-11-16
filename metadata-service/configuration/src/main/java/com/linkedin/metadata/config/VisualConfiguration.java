@@ -32,6 +32,12 @@ public class VisualConfiguration {
   /** Boolean flag enabled shows the full title of an entity in lineage view by default */
   public boolean showFullTitleInLineage;
 
+  /** Hides the built-in Logical Parent / Physical Children section in an entity's right sidebar. */
+  public boolean hideLogicalModelSidebarSection;
+
+  /** Hides the built-in Logical Parent / Physical Children section in the column drawer. */
+  public boolean hideLogicalModelColumnSection;
+
   /** DEPRECATED: This is now controlled via the UI settings. */
   public ApplicationConfig application;
 }

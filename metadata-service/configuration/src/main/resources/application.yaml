@@ -613,6 +613,9 @@ visualConfig:
   appTitle: ${REACT_APP_TITLE:}
   hideGlossary: ${REACT_APP_HIDE_GLOSSARY:false}
   showFullTitleInLineage: ${REACT_APP_SHOW_FULL_TITLE_IN_LINEAGE:false}
+  # Hide the built-in Logical Parent / Physical Children section, e.g. when a micro frontend replaces it.
+  hideLogicalModelSidebarSection: ${REACT_APP_HIDE_LOGICAL_MODEL_SIDEBAR_SECTION:false} # entity page right sidebar
+  hideLogicalModelColumnSection: ${REACT_APP_HIDE_LOGICAL_MODEL_COLUMN_SECTION:false} # column drawer (Columns tab)
   entityProfile:
     # we only support default tab for domains right now. In order to implement for other entities, update React code
     domainDefaultTab: ${DOMAIN_DEFAULT_TAB:} # set to DOCUMENTATION_TAB to show documentation tab first
