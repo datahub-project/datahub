@@ -1208,9 +1208,11 @@ _CONTRACT_FOR_RELATIONSHIP = "ContractFor"
 # dbt applies constraints only to these materializations; views and
 # ephemerals get the column/type preflight but no constraint DDL.
 _CONSTRAINT_MATERIALIZATIONS = frozenset({"table", "incremental"})
-# Materializations that store no data. Every other one, adapter and custom ones
-# included, builds a relation that holds rows.
-_UNMATERIALIZED_MATERIALIZATIONS = frozenset({"view", "ephemeral", "semantic_view"})
+# Materializations that store no data. Any other, custom ones included,
+# counts as materialized.
+_UNMATERIALIZED_MATERIALIZATIONS = frozenset(
+    {"view", "ephemeral", "semantic_view", "metric_view"}
+)
 _CONTRACT_PREFETCH_CHUNK_SIZE = 200
 
 

@@ -5661,6 +5661,7 @@ def test_dbt_meta_mapping_list_values_yield_one_tag_and_term_per_item():
         ("view", False),
         ("ephemeral", False),
         ("semantic_view", False),
+        ("metric_view", False),
         ("table", True),
         ("incremental", True),
         ("snapshot", True),
