@@ -1,3 +1,4 @@
+import { Tooltip } from '@components';
 import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
@@ -5,6 +6,7 @@ import styled, { useTheme } from 'styled-components';
 
 import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
+import { getContainerPathSegments, getFullContainerPath } from '@app/searchV2/filters/containerDisambiguation';
 import { Label } from '@app/searchV2/filters/styledComponents';
 import { FilterOptionType } from '@app/searchV2/filters/types';
 import {
@@ -117,6 +119,19 @@ const LabelWrapper = styled.div`
     line-height: normal;
 `;
 
+// getContainerPathSegments keeps paths short; the overflow rules are only a backstop for wide glyphs.
+const ContainerPath = styled.span`
+    display: block;
+    max-width: 240px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+`;
+
+const ElidedSegment = styled.span`
+    cursor: help;
+`;
+
 interface Props {
     filterOption: FilterOptionType;
     selectedFilterOptions: FilterOptionType[];
@@ -124,6 +139,8 @@ interface Props {
     nestedOptions?: FilterOptionType[];
     addPadding?: boolean;
     includeCount?: boolean;
+    // Parent containers (nearest first) to prefix to the label so it differs from same-named options.
+    containerParents?: Entity[];
 }
 
 export default function FilterOption({
@@ -133,11 +150,13 @@ export default function FilterOption({
     nestedOptions,
     addPadding,
     includeCount = true,
+    containerParents,
 }: Props) {
     const theme = useTheme();
     const [areChildrenVisible, setAreChildrenVisible] = useState(true);
     const { field, value, count, entity } = filterOption;
     const entityRegistry = useEntityRegistry();
+    const getEntityLabel = (e: Entity) => entityRegistry.getDisplayName(e.type, e);
     const { icon, label } = getFilterIconAndLabel(
         field,
         value,
@@ -189,18 +208,46 @@ export default function FilterOption({
                                 </ParentWrapper>
                             )}
                             <LabelCountWrapper>
-                                <Label
-                                    ellipsis={{
-                                        tooltip: {
-                                            title: label,
-                                            showArrow: false,
-                                            overlayInnerStyle: { color: theme.colors.textSecondary },
-                                        },
-                                    }}
-                                    style={{ maxWidth: 150 }}
-                                >
-                                    {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
-                                </Label>
+                                {entity && containerParents?.length ? (
+                                    <ContainerPath data-testid="filter-option-container-path">
+                                        {getContainerPathSegments(
+                                            getEntityLabel(entity),
+                                            containerParents,
+                                            getEntityLabel,
+                                        ).map((segment, index) => {
+                                            const text = index ? `.${segment.text}` : segment.text;
+                                            return (
+                                                <Tooltip
+                                                    key={segment.key}
+                                                    title={
+                                                        segment.hidden ?? getFullContainerPath(entity, getEntityLabel)
+                                                    }
+                                                >
+                                                    {segment.hidden ? (
+                                                        <ElidedSegment data-testid="filter-option-container-path-elided">
+                                                            {text}
+                                                        </ElidedSegment>
+                                                    ) : (
+                                                        <span>{text}</span>
+                                                    )}
+                                                </Tooltip>
+                                            );
+                                        })}
+                                    </ContainerPath>
+                                ) : (
+                                    <Label
+                                        ellipsis={{
+                                            tooltip: {
+                                                title: label,
+                                                showArrow: false,
+                                                overlayInnerStyle: { color: theme.colors.textSecondary },
+                                            },
+                                        }}
+                                        style={{ maxWidth: 150 }}
+                                    >
+                                        {isSubTypeFilter ? capitalizeFirstLetterOnly(label as string) : label}
+                                    </Label>
+                                )}
                                 {includeCount && <CountText>{getCountText()}</CountText>}
                                 {nestedOptions && nestedOptions.length > 0 && (
                                     <ArrowButton

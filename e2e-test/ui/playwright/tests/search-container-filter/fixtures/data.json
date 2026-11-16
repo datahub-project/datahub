@@ -1,0 +1,579 @@
+[
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_east",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_east"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_east",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Database"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_east",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_west",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_west"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_west",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Database"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_petshop_west",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_store",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "store"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_store",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Schema"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_store",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_store",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_petshop_east"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_west_store",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "store"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_west_store",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Schema"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_west_store",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_west_store",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_petshop_west"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_inventory",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "inventory"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_inventory",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Schema"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_inventory",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_east_inventory",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_petshop_east"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_a",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "lakehouse_a"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_a",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Catalog"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_a",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_b",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "lakehouse_b"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_b",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Catalog"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_lakehouse_b",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_central",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_central"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_central",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Database"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_central",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_central",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_lakehouse_a"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_central",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_central"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_central",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Database"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_central",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_central",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_lakehouse_b"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_supply",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "supply"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_supply",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Schema"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_supply",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_a_supply",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_a_central"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_supply",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+      "json": {
+        "name": "supply"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_supply",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+      "json": {
+        "typeNames": [
+          "Schema"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_supply",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+      "json": {
+        "platform": "urn:li:dataPlatform:hive"
+      }
+    }
+  },
+  {
+    "entityType": "container",
+    "entityUrn": "urn:li:container:pw_cfd_b_supply",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_b_central"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_east.store.kibblecart_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "kibblecart_orders",
+        "description": "Kibblecart sample table for the container filter tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_east.store.kibblecart_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_east_store"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_west.store.kibblecart_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "kibblecart_orders",
+        "description": "Kibblecart sample table for the container filter tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_west.store.kibblecart_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_west_store"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_east.inventory.kibblecart_stock,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "kibblecart_stock",
+        "description": "Kibblecart sample table for the container filter tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,petshop_east.inventory.kibblecart_stock,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_east_inventory"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,lakehouse_a.petshop_central.supply.kibblecart_vendors,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "kibblecart_vendors",
+        "description": "Kibblecart sample table for the container filter tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,lakehouse_a.petshop_central.supply.kibblecart_vendors,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_a_supply"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,lakehouse_b.petshop_central.supply.kibblecart_vendors,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "kibblecart_vendors",
+        "description": "Kibblecart sample table for the container filter tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,lakehouse_b.petshop_central.supply.kibblecart_vendors,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+      "json": {
+        "container": "urn:li:container:pw_cfd_b_supply"
+      }
+    }
+  }
+]
