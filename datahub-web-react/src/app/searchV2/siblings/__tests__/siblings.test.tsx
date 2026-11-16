@@ -1,6 +1,5 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { fireEvent, render, screen, waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { useLocation } from 'react-router-dom';
 
@@ -9,6 +8,7 @@ import { RESULT_URN, group as fixtureGroup, member, settle } from '@app/searchV2
 import { SHOW_SIBLINGS_URL_PARAM, useShowSiblings } from '@app/searchV2/siblings/useShowSiblings';
 import { SiblingMemberData, useSiblingGroups } from '@app/searchV2/siblings/useSiblingGroups';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetSiblingGroupsDocument } from '@graphql/siblings.generated';
 
@@ -121,20 +121,19 @@ describe('useSiblingGroups', () => {
     });
 
     it('fetches the first five members of each group when on', async () => {
-        const { result, waitForNextUpdate } = renderHook(() => useSiblingGroups([RESULT_URN], true), {
+        const { result } = renderHook(() => useSiblingGroups([RESULT_URN], true), {
             wrapper: ({ children }) => (
                 <MockedProvider mocks={[siblingGroupsMock(0, 5)]} addTypename>
                     <TestPageContainer>{children}</TestPageContainer>
                 </MockedProvider>
             ),
         });
-        await waitForNextUpdate();
-        expect(result.current.groups.get(RESULT_URN)?.members).toHaveLength(5);
+        await waitFor(() => expect(result.current.groups.get(RESULT_URN)?.members).toHaveLength(5));
     });
 
     it('skips a member that failed to load', async () => {
         const failed = { ...member('broken'), entity: null } as unknown as SiblingMemberData;
-        const { result, waitForNextUpdate } = renderHook(() => useSiblingGroups([RESULT_URN], true), {
+        const { result } = renderHook(() => useSiblingGroups([RESULT_URN], true), {
             wrapper: ({ children }) => (
                 <MockedProvider
                     mocks={[
@@ -149,11 +148,13 @@ describe('useSiblingGroups', () => {
                 </MockedProvider>
             ),
         });
-        await waitForNextUpdate();
-        expect(result.current.groups.get(RESULT_URN)?.members.map((m) => m.entity.urn)).toEqual([
-            MEMBERS[0].entity.urn,
-            MEMBERS[1].entity.urn,
-        ]);
+        await waitFor(() =>
+            expect(result.current.groups.get(RESULT_URN)?.members.map((m) => m.entity.urn)).toEqual([
+                MEMBERS[0].entity.urn,
+                MEMBERS[1].entity.urn,
+            ]),
+        );
+        expect(result.current.groups.get(RESULT_URN)?.skipped).toBe(1);
     });
 
     it('sends one request for the same datasets in a different order, and keeps the groups meanwhile', async () => {
@@ -168,18 +169,15 @@ describe('useSiblingGroups', () => {
                 result: fetched,
             },
         ];
-        const { result, rerender, waitForNextUpdate } = renderHook(
-            ({ order }: { order: string[] }) => useSiblingGroups(order, true),
-            {
-                initialProps: { order: [RESULT_URN, otherUrn] },
-                wrapper: ({ children }) => (
-                    <MockedProvider mocks={mocks} addTypename>
-                        <TestPageContainer>{children}</TestPageContainer>
-                    </MockedProvider>
-                ),
-            },
-        );
-        await waitForNextUpdate();
+        const { result, rerender } = renderHook(({ order }: { order: string[] }) => useSiblingGroups(order, true), {
+            initialProps: { order: [RESULT_URN, otherUrn] },
+            wrapper: ({ children }) => (
+                <MockedProvider mocks={mocks} addTypename>
+                    <TestPageContainer>{children}</TestPageContainer>
+                </MockedProvider>
+            ),
+        });
+        await waitFor(() => expect(result.current.groups.has(RESULT_URN)).toBe(true));
         rerender({ order: [otherUrn, RESULT_URN] });
         await settle();
         expect(fetched).toHaveBeenCalledTimes(1);
@@ -198,6 +196,23 @@ describe('SearchResultSiblings', () => {
             </MockedProvider>,
         );
     }
+
+    it('has no "+ more" when the only members left are ones that failed to load', () => {
+        // Five members in the group; one failed to load in the inline request, so four are shown.
+        render(
+            <MockedProvider mocks={[]} addTypename>
+                <TestPageContainer>
+                    <SearchResultSiblings
+                        urn={RESULT_URN}
+                        resultName="orders"
+                        group={fixtureGroup(MEMBERS.slice(0, 4), 5, RESULT_URN, 1)}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(screen.getAllByTestId('sibling-row')).toHaveLength(4);
+        expect(screen.queryByText(/more/)).toBeNull();
+    });
 
     it('lists the first five with labels, the primary marked, then "+ N more"', () => {
         renderSiblings();

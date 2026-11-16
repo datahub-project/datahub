@@ -15,11 +15,13 @@ type RawSiblingMember = RawSiblingGroup['members'][number];
 
 /** A group member whose entity loaded. */
 export type SiblingMemberData = RawSiblingMember & { entity: NonNullable<RawSiblingMember['entity']> };
-export type SiblingGroupData = Omit<RawSiblingGroup, 'members'> & { members: SiblingMemberData[] };
+/** {@code skipped}: members in this response whose entity couldn't be loaded, left out of {@code members}. */
+export type SiblingGroupData = Omit<RawSiblingGroup, 'members'> & { members: SiblingMemberData[]; skipped: number };
 
 /** A member's entity is null when it couldn't be loaded; those members are skipped. */
 export function withLoadedMembers(group: RawSiblingGroup): SiblingGroupData {
-    return { ...group, members: group.members.filter((member): member is SiblingMemberData => !!member.entity) };
+    const members = group.members.filter((member): member is SiblingMemberData => !!member.entity);
+    return { ...group, members, skipped: group.members.length - members.length };
 }
 
 /**

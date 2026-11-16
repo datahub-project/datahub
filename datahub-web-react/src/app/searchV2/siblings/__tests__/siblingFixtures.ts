@@ -22,8 +22,13 @@ export function member(name: string, isPrimary = false): SiblingMemberData {
     } as unknown as SiblingMemberData;
 }
 
-export function group(members: SiblingMemberData[], total = members.length, urn = RESULT_URN): SiblingGroupData {
-    return { __typename: 'SiblingGroup', urn, total, truncated: false, members } as SiblingGroupData;
+export function group(
+    members: SiblingMemberData[],
+    total = members.length,
+    urn = RESULT_URN,
+    skipped = 0,
+): SiblingGroupData {
+    return { __typename: 'SiblingGroup', urn, total, truncated: false, members, skipped } as SiblingGroupData;
 }
 
 /**

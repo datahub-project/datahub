@@ -372,7 +372,8 @@ export default function SearchResultSiblings({ urn, resultName, group, onSibling
     }
 
     const shown = group.members.slice(0, SIBLINGS_SHOWN_INLINE);
-    const more = group.total - shown.length;
+    // Members that failed to load in the inline request aren't "more": expanding won't show them.
+    const more = Math.max(0, group.total - shown.length - group.skipped);
     return (
         <Container id={listId} data-testid={`siblings-${urn}`}>
             <div role="list" aria-label={t('siblings.groupTitle', { count: group.total, name: resultName })}>
