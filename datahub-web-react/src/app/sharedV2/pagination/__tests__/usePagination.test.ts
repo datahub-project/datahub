@@ -1,7 +1,8 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import usePagination from '@app/sharedV2/pagination/usePagination';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('usePagination', () => {
     it('should initialize with default page 1 and default page size', () => {

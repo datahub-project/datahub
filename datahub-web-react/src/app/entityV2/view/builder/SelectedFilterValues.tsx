@@ -7,7 +7,7 @@ import styled from 'styled-components';
 import { buildEntityMap } from '@app/entityV2/view/builder/utils';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import { useGetEntities } from '@app/sharedV2/useGetEntities';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { DataHubPageModuleType, Entity } from '@types';
 
@@ -52,7 +52,7 @@ type Props = {
  */
 export function SelectedFilterValues({ selectedUrns, onRemoveUrn }: Props) {
     const { t } = useTranslation('entity.views');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     // Cache resolved entities and fetch only new URNs, so the list doesn't empty (flicker) on each change
     const [entitiesMap, setEntitiesMap] = useState<Record<string, Entity>>({});
     const unresolvedUrns = useMemo(() => selectedUrns.filter((urn) => !entitiesMap[urn]), [selectedUrns, entitiesMap]);

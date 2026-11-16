@@ -305,6 +305,16 @@ public class BuildIndicesConfiguration {
    */
   private boolean rollbackDualWriteEnabled;
 
+  /**
+   * Wall-clock budget for one run of the non-blocking fill that populates new or rebuilt entity
+   * indices from primary storage. When exceeded the run checkpoints its cursor and fails so the
+   * next run resumes. Zero or negative means no budget.
+   */
+  private int maxBackfillHours;
+
+  /** Aspect rows per SQL page and write batch during that fill; zero means the loader default. */
+  private int backfillBatchSize;
+
   /** Default max accumulated metadata-column chars between catch-up flushes (128 MiB). */
   public static final long DEFAULT_CATCH_UP_FLUSH_BYTES_THRESHOLD = 128L * 1024 * 1024;
 

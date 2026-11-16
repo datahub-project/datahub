@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Pesquisar visualizações...",
     "viewSelect.searchPlaceholderLegacy": "Pesquisar",
     "viewSelect.selectYourView": "Selecione sua Visualização",
+    "viewSelect.buttonLabel": "Visualizações",
+    "viewSelect.clearView": "Limpar visualização",
     "viewType.privateDescription": "<bold>Privada</bold> - visível apenas para você.",
     "viewType.publicDescription": "<bold>Pública</bold> - visível para todos."
 }

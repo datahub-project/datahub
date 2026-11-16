@@ -3,10 +3,10 @@ import React from 'react';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { EntitySubtitleProps } from '@app/searchV2/autoCompleteV2/components/subtitle/types';
 import ContextPath from '@src/app/previewV2/ContextPath';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 export default function DefaultEntitySubtitle({ entity }: EntitySubtitleProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const genericEntityProperties = entityRegistry.getGenericEntityProperties(entity.type, entity);
     const parentEntities = getParentEntities(genericEntityProperties, entity.type);
 

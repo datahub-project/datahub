@@ -9,7 +9,9 @@ name: PR & Issue Routing (Linear Shadow Mode)
 #   3. Delete the pr-to-linear.yml workflow (replaced by this one)
 #
 # Requires secrets:
-#   ANTHROPIC_KEY_FOR_ROUTING - Anthropic API key
+#   ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+#   ANTHROPIC_SERVICE_ACCOUNT_ID, ANTHROPIC_WORKSPACE_ID
+#                             - Claude Workload Identity Federation (no static API key)
 #   INGESTION_LINEAR_KEY      - Linear API key (only needed when ticket creation is enabled)
 
 on:
@@ -17,6 +19,12 @@ on:
     types: [opened, reopened, ready_for_review, closed]
   issues:
     types: [opened, reopened, closed]
+
+permissions:
+  contents: read
+  pull-requests: read
+  issues: read
+  id-token: write # Claude Workload Identity Federation
 
 env:
   LINEAR_TEAM_CONFIG: |
@@ -153,12 +161,34 @@ jobs:
             echo "contributor_type=External" >> "$GITHUB_OUTPUT"
           fi
 
+      # pull_request_target / issues check out the default branch. Never check
+      # out the PR head here: this job has access to secrets.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event.action != 'closed'
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
+
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
       - name: Route PR to team
         if: github.event.action != 'closed' && steps.check-pr.outputs.should_skip == 'false'
         id: route-team
         env:
           GH_TOKEN: ${{ github.token }}
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
           PR_TITLE: ${{ github.event.pull_request.title }}
           PR_BODY: ${{ github.event.pull_request.body }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
@@ -192,15 +222,10 @@ jobs:
           PROMPT_EOF
           )
 
-          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+          python3 -m pip install --quiet anthropic==1.9.0 \
+            || echo "::warning::Failed to install the anthropic SDK"
 
-          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
-
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(printf '%s' "$PROMPT" | python3 .github/scripts/claude_route.py | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🔀 Routing result for PR #$PR_NUMBER"
@@ -417,11 +442,33 @@ jobs:
       #       echo "$UPDATE_RESPONSE" | jq . 2>/dev/null || echo "$UPDATE_RESPONSE"
       #     fi
 
+      # pull_request_target / issues check out the default branch. Never check
+      # out the PR head here: this job has access to secrets.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        if: github.event.action != 'closed'
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
+
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: github.repository == 'datahub-project/datahub' && github.event.action != 'closed'
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
       - name: Route issue to team
         if: github.event.action != 'closed'
         id: route-team
         env:
-          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_KEY_FOR_ROUTING }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
           ISSUE_TITLE: ${{ github.event.issue.title }}
           ISSUE_BODY: ${{ github.event.issue.body }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
@@ -446,15 +493,10 @@ jobs:
           PROMPT_EOF
           )
 
-          PROMPT_JSON=$(echo "$PROMPT" | jq -Rs .)
+          python3 -m pip install --quiet anthropic==1.9.0 \
+            || echo "::warning::Failed to install the anthropic SDK"
 
-          CLAUDE_RESPONSE=$(curl -s https://api.anthropic.com/v1/messages \
-            -H "x-api-key: $ANTHROPIC_API_KEY" \
-            -H "anthropic-version: 2023-06-01" \
-            -H "content-type: application/json" \
-            -d "{\"model\": \"claude-haiku-4-5-20251001\", \"max_tokens\": 10, \"messages\": [{\"role\": \"user\", \"content\": $PROMPT_JSON}]}")
-
-          TEAM_KEY=$(echo "$CLAUDE_RESPONSE" | jq -r '.content[0].text' 2>/dev/null | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
+          TEAM_KEY=$(printf '%s' "$PROMPT" | python3 .github/scripts/claude_route.py | tr -d '[:space:]' | tr '[:lower:]' '[:upper:]')
 
           echo "━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━"
           echo "🔀 Routing result for issue #$ISSUE_NUMBER"

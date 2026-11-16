@@ -7,8 +7,8 @@ import styled from 'styled-components';
 import SyncedOrSharedTooltip from '@app/entityV2/shared/containers/profile/sidebar/shared/SyncedOrSharedTooltip';
 import { LabelText } from '@app/entityV2/shared/containers/profile/sidebar/shared/styledComponents';
 import { ActionType, getRelativeTimeStatus } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
-import { toLocalDateString, toRelativeTimeString } from '@app/shared/time/timeUtils';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
+import { toLocalDateString, toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { DataPlatform, Maybe } from '@types';
 

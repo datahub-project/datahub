@@ -1,11 +1,11 @@
 ---
-title: Multi-Language Support
+title: Internationalization
 description: "Display the DataHub UI in your preferred language, and contribute new translations to the open-source project."
 ---
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Multi-Language Support
+# Internationalization
 
 <FeatureAvailability/>
 

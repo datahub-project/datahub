@@ -1,9 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useSelectedSortOption } from '@app/search/context/SearchContext';
 import useGoToSearchPage from '@app/searchV2/useGoToSearchPage';
 import useQueryAndFiltersFromLocation from '@app/searchV2/useQueryAndFiltersFromLocation';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/search/context/SearchContext', () => ({
     useSelectedSortOption: vi.fn(),

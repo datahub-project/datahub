@@ -11,7 +11,7 @@ import {
     getDefaultAccessTokenDuration,
     getTokenExpireDate,
 } from '@app/settingsV2/utils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { useAppConfig } from '@app/useAppConfig';
 import { Button, Input, Modal, SimpleSelect, Text, TextArea, toast } from '@src/alchemy-components';
 import { spacing } from '@src/alchemy-components/theme';

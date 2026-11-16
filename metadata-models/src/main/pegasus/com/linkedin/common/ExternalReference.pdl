@@ -8,7 +8,11 @@ record ExternalReference {
    * URL where the reference exist
    */
   @Searchable = {
-    "fieldType": "KEYWORD"
+    "fieldType": "KEYWORD",
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
   }
   externalUrl: optional Url
 }

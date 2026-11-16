@@ -12,7 +12,7 @@ import useAppliedFilters from '@app/searchV2/filtersV2/context/useAppliedFilters
 import { convertFiltersMapToFilters } from '@app/searchV2/filtersV2/utils';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetSearchResultsForMultipleQuery } from '@graphql/search.generated';
 import { Entity, FacetMetadata } from '@types';
@@ -98,7 +98,7 @@ type Props = {
 
 export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Props) {
     const { t } = useTranslation('entity.views');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const [searchQuery, setSearchQuery] = useState<string | undefined>();
     const { appliedFilters, updateFieldFilters } = useAppliedFilters();
 

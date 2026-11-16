@@ -9,7 +9,7 @@ import HomePageProvider from '@app/homeV3/context/HomePageProvider';
 import I18nProvider from '@app/i18n/context/I18nProvider';
 import OnboardingTourProvider from '@app/onboarding/OnboardingTourContextProvider';
 import SearchContextProvider from '@app/search/context/SearchContextProvider';
-import { BrowserTitleProvider } from '@app/shared/BrowserTabTitleContext';
+import { BrowserTitleProvider } from '@app/sharedV2/BrowserTabTitleContext';
 import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { EducationStepsProvider } from '@providers/EducationStepsProvider';
 import QuickFiltersProvider from '@providers/QuickFiltersProvider';

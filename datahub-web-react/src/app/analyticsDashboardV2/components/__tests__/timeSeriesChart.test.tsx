@@ -1,4 +1,4 @@
-import { computeLines } from '@app/analyticsDashboard/components/TimeSeriesChart';
+import { computeLines } from '@app/analyticsDashboardV2/components/TimeSeriesChart';
 
 import { DateInterval, TimeSeriesChart } from '@types';
 

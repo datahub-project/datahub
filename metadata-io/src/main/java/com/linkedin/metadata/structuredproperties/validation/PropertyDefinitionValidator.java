@@ -25,6 +25,7 @@ import com.linkedin.metadata.models.StructuredPropertyUtils;
 import com.linkedin.structured.PrimitivePropertyValue;
 import com.linkedin.structured.PropertyValue;
 import com.linkedin.structured.StructuredPropertyDefinition;
+import com.linkedin.structured.StructuredPropertyScore;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collection;
@@ -150,6 +151,7 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
       urnIdCheck(item).ifPresent(exceptions::addException);
       qualifiedNameCheck(item, newDefinition.getQualifiedName())
           .ifPresent(exceptions::addException);
+      scoreCheck(item, newDefinition).ifPresent(exceptions::addException);
       allowedTypesCheck(
               item,
               newDefinition.getTypeQualifier(),
@@ -395,6 +397,43 @@ public class PropertyDefinitionValidator extends AspectPayloadValidator {
     if (qualifiedName.contains(" ")) {
       return Optional.of(
           AspectValidationException.forItem(item, "Qualified names cannot have spaces"));
+    }
+    return Optional.empty();
+  }
+
+  /**
+   * A definition may store a numeric range for a template to read. Both bounds, when set, form an
+   * increasing finite span. A multiplier, when set, is finite and at least 1. Storing the range
+   * does not score the property.
+   */
+  private static Optional<AspectValidationException> scoreCheck(
+      MCPItem item, @Nonnull StructuredPropertyDefinition definition) {
+    if (!definition.hasScore() || definition.getScore() == null) {
+      return Optional.empty();
+    }
+    StructuredPropertyScore score = definition.getScore();
+    Double min = score.hasInputMin() ? score.getInputMin() : null;
+    Double max = score.hasInputMax() ? score.getInputMax() : null;
+    if (min != null && !Double.isFinite(min)) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item, "Structured property score inputMin must be finite"));
+    }
+    if (max != null && !Double.isFinite(max)) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item, "Structured property score inputMax must be finite"));
+    }
+    if (min != null && max != null && max <= min) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item, "Structured property score inputMax must be greater than inputMin"));
+    }
+    Double multiplier = score.hasMaxMultiplier() ? score.getMaxMultiplier() : null;
+    if (multiplier != null && (!Double.isFinite(multiplier) || multiplier < 1.0)) {
+      return Optional.of(
+          AspectValidationException.forItem(
+              item, "Structured property score maxMultiplier must be at least 1"));
     }
     return Optional.empty();
   }

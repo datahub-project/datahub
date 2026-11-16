@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { useDocumentPermissions } from '@app/document/hooks/useDocumentPermissions';
 import { useUpdateDocument } from '@app/document/hooks/useUpdateDocument';
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
 import BaseProperty from '@app/entityV2/summary/properties/property/properties/BaseProperty';
 import { PropertyComponentProps } from '@app/entityV2/summary/properties/types';
 import { SimpleSelect } from '@src/alchemy-components';

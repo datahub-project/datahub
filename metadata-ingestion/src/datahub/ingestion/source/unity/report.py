@@ -3,7 +3,7 @@ from typing import TYPE_CHECKING, Optional, Tuple
 
 from datahub.ingestion.api.report import EntityFilterReport
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
-from datahub.utilities.lossy_collections import LossyDict, LossyList
+from datahub.utilities.lossy_collections import LossyDict, LossyList, LossySet
 from datahub.utilities.perf_timer import PerfTimer
 
 if TYPE_CHECKING:
@@ -21,6 +21,7 @@ class UnityCatalogReport(SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    genie_spaces: EntityFilterReport = EntityFilterReport.field(type="genie_space")
     ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
     ml_model_versions: EntityFilterReport = EntityFilterReport.field(
         type="ml_model_version"
@@ -46,6 +47,12 @@ class UnityCatalogReport(SQLSourceReport):
     lineage_tables_unresolvable_sample: LossyList[str] = field(
         default_factory=LossyList
     )
+    num_lineage_tables_not_ingested: int = 0
+    lineage_tables_not_ingested_sample: LossySet[str] = field(default_factory=LossySet)
+    num_lineage_tables_system_skipped: int = 0
+    num_queries_skipped_system_tables_only: int = 0
+    num_queries_skipped_no_ingested_tables: int = 0
+    num_queries_hive_metastore_fallback_to_sqlglot: int = 0
     num_lineage_row_field_read_errors: int = 0
     num_usage_query_fetch_failures: int = 0
 
@@ -78,6 +85,14 @@ class UnityCatalogReport(SQLSourceReport):
     num_federation_columns_backfilled: int = 0
     num_federation_columns_backfill_failed: int = 0
     num_federation_cll_skipped: int = 0
+    num_federation_cll_edges_emitted: int = 0
+    # Edges whose upstream uses the external dataset's original (e.g. v2) field path.
+    num_federation_cll_edges_original_path: int = 0
+    # Mirror columns with no matching external column, so no column edge.
+    num_federation_cll_downstream_unmatched: int = 0
+    federation_cll_downstream_unmatched_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
     num_federation_external_schema_fetch_failed: int = 0
     num_federation_property_defs_failed: int = 0
     num_ml_models_missing_name: int = 0

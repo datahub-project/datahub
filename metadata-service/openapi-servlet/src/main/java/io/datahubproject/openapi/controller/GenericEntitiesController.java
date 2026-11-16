@@ -6,6 +6,7 @@ import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
 import static com.linkedin.metadata.authorization.ApiOperation.EXISTS;
 import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.Authentication;
@@ -25,10 +26,12 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.SensitiveAspectAuthUtil;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
@@ -46,7 +49,6 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.SearchService;
 import com.linkedin.metadata.search.utils.QueryUtils;
-import com.linkedin.metadata.service.async.delete.ReliableHardDelete;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -65,6 +67,7 @@ import io.datahubproject.openapi.models.GenericAspect;
 import io.datahubproject.openapi.models.GenericEntity;
 import io.datahubproject.openapi.models.GenericEntityScrollResult;
 import io.datahubproject.openapi.util.RequestInputUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -105,10 +108,10 @@ public abstract class GenericEntitiesController<
   @Autowired protected EntityService<?> entityService;
   @Autowired protected TimeseriesAspectService timeseriesAspectService;
 
-  // Optional: absent in applications that do not build the reliable hard delete.
+  // Optional: absent in applications that do not build the hard delete service.
   @Autowired(required = false)
   @Nullable
-  protected ReliableHardDelete reliableHardDelete;
+  protected HardDeleteService hardDeleteService;
 
   @Autowired protected AuthorizerChain authorizationChain;
   @Autowired protected ObjectMapper objectMapper;
@@ -239,7 +242,18 @@ public abstract class GenericEntitiesController<
               description =
                   "Point In Time keep alive, accepts a time based string like \"5m\" for five minutes.")
           @RequestParam(value = "pitKeepAlive", required = false, defaultValue = "5m")
-          String pitKeepAlive)
+          String pitKeepAlive,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description = "Caller-selected search template URN (urn:li:searchTemplate:<id>).")
+          @RequestParam(value = "searchTemplate", required = false)
+          String searchTemplate,
+      @Parameter(
+              schema = @Schema(nullable = true),
+              description =
+                  "When true, the response includes the templates visited while choosing the result.")
+          @RequestParam(value = "includeExplain", required = false)
+          Boolean includeExplain)
       throws URISyntaxException {
 
     EntitySpec entitySpec = entityRegistry.getEntitySpec(entityName);
@@ -286,14 +300,17 @@ public abstract class GenericEntitiesController<
                 .withSearchFlags(flags -> DEFAULT_SEARCH_FLAGS)
                 .withSearchFlags(
                     flags ->
-                        flags
-                            .setSkipCache(skipCache)
-                            .setIncludeSoftDeleted(includeSoftDelete)
-                            .setSliceOptions(
-                                sliceId != null && sliceMax != null
-                                    ? new SliceOptions().setId(sliceId).setMax(sliceMax)
-                                    : null,
-                                SetMode.IGNORE_NULL)),
+                        SearchTemplateFlags.apply(
+                            flags
+                                .setSkipCache(skipCache)
+                                .setIncludeSoftDeleted(includeSoftDelete)
+                                .setSliceOptions(
+                                    sliceId != null && sliceMax != null
+                                        ? new SliceOptions().setId(sliceId).setMax(sliceMax)
+                                        : null,
+                                    SetMode.IGNORE_NULL),
+                            searchTemplate,
+                            includeExplain)),
             List.of(entitySpec.getName()),
             query,
             null,
@@ -340,13 +357,30 @@ public abstract class GenericEntitiesController<
         buildScrollResult(
             opContext,
             authorizedEntities,
-            null,
+            routeChainOnly(result),
             mergedAspects,
             withSystemMetadata,
             result.getScrollId(),
             true,
             result.getNumEntities(),
             false));
+  }
+
+  /**
+   * The per-entity scroll has never returned facets, so only the route chain travels with the
+   * result. Aggregations stay on the cross-entity scroll, which takes a {@code skipAggregates}
+   * parameter.
+   */
+  @Nullable
+  private static SearchResultMetadata routeChainOnly(@Nonnull ScrollResult result) {
+    if (!result.hasMetadata() || result.getMetadata() == null) {
+      return null;
+    }
+    SearchResultMetadata metadata = result.getMetadata();
+    if (!metadata.hasRouteChain() || metadata.getRouteChain() == null) {
+      return null;
+    }
+    return new SearchResultMetadata().setRouteChain(metadata.getRouteChain());
   }
 
   @Tag(name = "Generic Entities")
@@ -573,11 +607,22 @@ public abstract class GenericEntitiesController<
     }
 
     if (aspects == null || aspects.isEmpty() || aspects.contains(entitySpec.getKeyAspectName())) {
-      if (reliableHardDelete != null && reliableHardDelete.isEnabled()) {
-        reliableHardDelete.delete(opContext, urn);
+      if (hardDeleteService != null) {
+        hardDeleteService.deleteEntity(opContext, urn);
       } else {
         entityService.deleteUrn(opContext, urn);
       }
+    } else if (handling().toleratesUnknownEntityAspect()) {
+      // Resolve every name first, so a request naming an unknown aspect deletes nothing.
+      final List<String> aspectNames =
+          aspects.stream()
+              .map(
+                  aspectName ->
+                      RequestInputUtil.requireAspectSpec(entitySpec, aspectName).getName())
+              .collect(Collectors.toList());
+      aspectNames.forEach(
+          aspectName ->
+              entityService.deleteAspect(opContext, entityUrn, aspectName, Map.of(), true));
     } else {
       aspects.stream()
           .map(aspectName -> lookupAspectSpec(urn, aspectName).get().getName())
@@ -657,32 +702,48 @@ public abstract class GenericEntitiesController<
           authentication.getActor().toUrnStr() + " is unauthorized to " + DELETE + " entities.");
     }
 
-    lookupAspectSpec(urn, aspectName)
-        .ifPresent(
-            aspectSpec -> {
-              if (aspectSpec.isTimeseries()) {
-                Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
-                    timeseriesAspectService.getLatestTimeseriesAspectValues(
-                        opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
-                com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
-                    latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
-                if (latestAspect != null) {
-                  Long latestTs =
-                      new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
-                          .getTimestampMillis();
-                  timeseriesAspectService.deleteAspectValues(
-                      opContext,
-                      urn.getEntityType(),
-                      aspectSpec.getName(),
-                      QueryUtils.newFilter(
-                          CriterionUtils.buildCriterion(
-                              TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
-                }
-              } else {
-                entityService.deleteAspect(
-                    opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
-              }
-            });
+    final AspectSpec aspectSpec;
+    if (handling().toleratesUnknownEntityAspect()) {
+      // An unknown aspect (e.g. one written by a newer version before a rollback) fails loudly:
+      // silently returning 200 would leave the row in place while telling the caller it is gone.
+      aspectSpec =
+          RequestInputUtil.requireAspectSpec(
+              entityRegistry.getEntitySpec(urn.getEntityType()), aspectName);
+    } else {
+      final Optional<AspectSpec> maybeAspectSpec = lookupAspectSpec(urn, aspectName);
+      if (maybeAspectSpec.isEmpty()) {
+        return;
+      }
+      aspectSpec = maybeAspectSpec.get();
+    }
+    if (aspectSpec.isTimeseries()) {
+      // Run history is deleted without an aspect write the assertion validator sees.
+      if (!AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn))) {
+        throw new UnauthorizedException(
+            authentication.getActor().toUrnStr()
+                + " is unauthorized to delete the run history of "
+                + urn);
+      }
+      Map<Urn, Map<String, com.linkedin.metadata.aspect.EnvelopedAspect>> latestMap =
+          timeseriesAspectService.getLatestTimeseriesAspectValues(
+              opContext, Set.of(urn), Set.of(aspectSpec.getName()), null);
+      com.linkedin.metadata.aspect.EnvelopedAspect latestAspect =
+          latestMap.getOrDefault(urn, Map.of()).get(aspectSpec.getName());
+      if (latestAspect != null) {
+        Long latestTs =
+            new TimeseriesAspectBase(toRecordTemplate(aspectSpec, latestAspect).data())
+                .getTimestampMillis();
+        timeseriesAspectService.deleteAspectValues(
+            opContext,
+            urn.getEntityType(),
+            aspectSpec.getName(),
+            QueryUtils.newFilter(
+                CriterionUtils.buildCriterion(
+                    TIMESTAMP_MILLIS, Condition.EQUAL, String.valueOf(latestTs))));
+      }
+    } else {
+      entityService.deleteAspect(opContext, entityUrn, aspectSpec.getName(), Map.of(), true);
+    }
   }
 
   @Tag(name = "Generic Aspects")
@@ -720,7 +781,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec =
+        handling().toleratesUnknownEntityAspect()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
     ChangeMCP upsert =
         toUpsertItem(
             opContext.getRetrieverContext().getAspectRetriever(),
@@ -794,7 +858,10 @@ public abstract class GenericEntitiesController<
             authentication,
             true);
 
-    AspectSpec aspectSpec = RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
+    AspectSpec aspectSpec =
+        handling().toleratesUnknownEntityAspect()
+            ? RequestInputUtil.requireAspectSpec(entitySpec, aspectName)
+            : RequestInputUtil.lookupAspectSpec(entitySpec, aspectName).get();
 
     MetadataChangeProposal mcp =
         new MetadataChangeProposal()

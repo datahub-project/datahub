@@ -405,8 +405,11 @@ def get_disable_agent_probe_raw_access() -> bool:
 
     On most connectors the typed listings keep working, so recipe diagnosis
     still functions -- this said so unconditionally and was wrong about the
-    two that matter most. Snowflake and BigQuery expose `sql` as their ONLY
-    probe command, so setting this withholds their probe entirely. The
+    two that matter most. Snowflake exposes `sql` as its ONLY probe command, so
+    setting this withholds its probe entirely. BigQuery also declares
+    `projects`, which takes no caller-supplied query or path, so its probe is
+    narrowed rather than withheld: `projects` still authenticates and lists
+    what the recipe would consider. The
     refusal message names what is left for the connector in hand rather than
     promising something in general.
 
@@ -485,6 +488,23 @@ def get_sql_agg_skip_joins() -> bool:
     return os.getenv("DATAHUB_SQL_AGG_SKIP_JOINS", "").lower() == "true"
 
 
+def get_sql_agg_max_queries_per_downstream() -> int:
+    """Optional cap on the queries considered for one downstream table's lineage.
+
+    0 (the default) means no cap: every query is considered, most recent first.
+    Setting it keeps only the newest N parsed queries per downstream, which can drop
+    an upstream that only an older query references; use it as a safety valve for
+    runtime, not as the default.
+    """
+    var = "DATAHUB_SQL_AGG_MAX_QUERIES_PER_DOWNSTREAM"
+    limit = _get_int_env(var, 0)
+    if limit < 0:
+        raise ValueError(
+            f"Environment variable {var}={limit} must be 0 (no cap) or more."
+        )
+    return limit
+
+
 def get_sql_parse_cache_size() -> int:
     """SQL parse result cache size (number of entries)."""
     return int(os.getenv("DATAHUB_SQL_PARSE_CACHE_SIZE", "1000"))
@@ -500,6 +520,17 @@ def get_sql_lineage_timeout_seconds() -> int:
     return _get_int_env("SQL_LINEAGE_TIMEOUT_SECONDS", 10)
 
 
+def get_max_transform_operation_length() -> Optional[int]:
+    """Characters of transformOperation kept before "..." in fine-grained lineage; None when unset."""
+    var = "DATAHUB_MAX_TRANSFORM_OPERATION_LENGTH"
+    if not os.getenv(var, "").strip():
+        return None
+    length = _get_int_env(var, 1)
+    if length < 1:
+        raise ValueError(f"Environment variable {var}={length} must be at least 1.")
+    return length
+
+
 def get_dataset_urn_to_lower() -> str:
     """Convert dataset URNs to lowercase."""
     return os.getenv("DATAHUB_DATASET_URN_TO_LOWER", "false")
@@ -513,6 +544,15 @@ def get_dataset_urn_to_lower() -> str:
 def get_kafka_schema_registry_url() -> Optional[str]:
     """Kafka schema registry URL."""
     return os.getenv("KAFKA_SCHEMAREGISTRY_URL")
+
+
+def get_kafka_auto_register_schemas() -> bool:
+    """Auto-register MCE/MCP schemas with the Kafka Schema Registry (default: True).
+
+    Set to "false" when the ingestion user only has read access to the Schema
+    Registry; the schemas must then be pre-registered.
+    """
+    return os.getenv("DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS", "true").lower() == "true"
 
 
 def get_spark_version() -> Optional[str]:

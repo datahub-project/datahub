@@ -2,7 +2,6 @@ package com.linkedin.datahub.graphql.resolvers;
 
 import static com.datahub.authorization.AuthUtil.isAuthorized;
 import static com.datahub.authorization.AuthUtil.isAuthorizedEntityType;
-import static com.linkedin.datahub.graphql.resolvers.ingest.IngestionAuthUtils.*;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiGroup.ANALYTICS;
 import static com.linkedin.metadata.authorization.ApiOperation.MANAGE;
@@ -74,8 +73,8 @@ public class MeResolver implements DataFetcher<CompletableFuture<AuthenticatedUs
             platformPrivileges.setGeneratePersonalAccessTokens(
                 canGeneratePersonalAccessToken(context));
             platformPrivileges.setManageDomains(canManageDomains(context));
-            platformPrivileges.setManageIngestion(canManageIngestion(context));
-            platformPrivileges.setManageSecrets(canManageSecrets(context));
+            platformPrivileges.setManageIngestion(AuthorizationUtils.canManageIngestion(context));
+            platformPrivileges.setManageSecrets(AuthorizationUtils.canManageSecrets(context));
             platformPrivileges.setManageTokens(canManageTokens(context));
             platformPrivileges.setViewTests(canViewTests(context));
             platformPrivileges.setManageTests(canManageTests(context));

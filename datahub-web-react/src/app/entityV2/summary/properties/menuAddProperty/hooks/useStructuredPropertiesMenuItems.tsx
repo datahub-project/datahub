@@ -11,7 +11,7 @@ import MenuSearchBar from '@app/entityV2/summary/properties/menuAddProperty/comp
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { assetPropertyToMenuItem } from '@app/entityV2/summary/properties/utils';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 
 export default function useStructuredPropertiesMenuItems(onClick: (property: AssetProperty) => void) {
     const { summaryElements } = usePageTemplateContext();

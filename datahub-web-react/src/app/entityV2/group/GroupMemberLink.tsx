@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { CorpUser, EntityType } from '@types';
 

@@ -25,6 +25,22 @@ source:
             allow:
                 - .*
 
+        # SAC returns its built-in public root folder in each resource's browse path
+        # localized to the resource language (e.g. "Public" / "Öffentlich"). The connector
+        # rewrites that first segment to this canonical label so all public content shares
+        # one browse tree; set to null to keep the raw localized name.
+        public_root_folder_name: Public
+
+        # Only a first browse-path segment matching one of these labels (case-insensitive)
+        # is treated as the public root and rewritten. Other shared roots that SAC can also
+        # return (e.g. a team/workspace root like "Default") are left untouched. Add your
+        # tenant language's public-root label if it is not already listed.
+        public_root_folder_aliases:
+            - Public
+            - Öffentlich
+
+        # folder_pattern is matched against the canonicalized browse path, so write rules
+        # against public_root_folder_name (e.g. Public/...) rather than a localized root.
         folder_pattern:
             allow:
                 - .*

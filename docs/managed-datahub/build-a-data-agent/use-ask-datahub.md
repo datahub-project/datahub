@@ -72,7 +72,7 @@ Then open the agent's **Evals** tab and add your domain's evals. Evals added her
 _Screenshot: an agent's Evals tab, with pass rate and trend._
 
 :::info Context add-on
-Custom agents are part of the DataHub Cloud **Context** add-on, currently in Public Beta.
+Custom agents are part of the DataHub Cloud **Context** add-on.
 :::
 
 ## 4. Roll it out

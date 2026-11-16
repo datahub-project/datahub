@@ -1,0 +1,21 @@
+# ODCS v3.2.0 contract whose server uses an unresolved variable: the physical
+# binding must stay unbound rather than compose `${DB}` into a URN.
+apiVersion: v3.2.0
+kind: DataContract
+id: 00000000-0000-0000-0000-000000000033
+name: variable_server
+version: 1.0.0
+status: active
+servers:
+  - server: prod-postgres
+    type: postgres
+    host: postgres.example.internal
+    port: 5432
+    database: ${DB}
+    schema: public
+schema:
+  - name: events
+    physicalName: events
+    properties:
+      - name: col_a
+        logicalType: string

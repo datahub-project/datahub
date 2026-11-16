@@ -25,7 +25,11 @@ record DataProducts {
       "fieldType": "URN",
       "hasValuesFieldName": "hasDataProduct",
       "addToFilters": true,
-      "filterNameOverride": "Data Product"
+      "filterNameOverride": "Data Product",
+      "v3": {
+        "searchLabel": "dataProduct",
+        "copyToOther": true
+      }
     },
     "/*/outputPort": {
       "fieldName": "isDataProductOutputPort",

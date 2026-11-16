@@ -102,7 +102,8 @@ public class EntitySpecBuilderSearchIndexGroupTest {
 
   private AspectSpec createMockAspectSpec(String name) {
     return new AspectSpec(
-        new com.linkedin.metadata.models.annotation.AspectAnnotation(name, false, false, null, 1L),
+        new com.linkedin.metadata.models.annotation.AspectAnnotation(
+            name, false, false, null, 1L, false),
         Collections.emptyList(),
         Collections.emptyList(),
         Collections.emptyList(),

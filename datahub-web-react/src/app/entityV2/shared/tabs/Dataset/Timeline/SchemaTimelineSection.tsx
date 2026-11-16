@@ -6,7 +6,7 @@ import { VerticalTimeline, VerticalTimelineElement } from 'react-vertical-timeli
 import 'react-vertical-timeline-component/style.min.css';
 import styled, { useTheme } from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 
 import { useGetTimelineQuery } from '@graphql/timeline.generated';
 import { ChangeCategoryType, ChangeOperationType } from '@types';

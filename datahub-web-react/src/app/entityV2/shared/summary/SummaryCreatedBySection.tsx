@@ -6,9 +6,9 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, OwnerType } from '@types';
+import { EntityType, Maybe, OwnerType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -31,13 +31,16 @@ const SectionContainer = styled.div`
     flex-direction: column;
 `;
 
-interface Props {
-    owner: OwnerType;
-}
+type Props = {
+    owner: Pick<OwnerType, 'type'> & { editableProperties?: Maybe<{ pictureLink?: Maybe<string> }> };
+};
 
 export default function SummaryCreatedBySection({ owner }: Props) {
-    const { t } = useTranslation('entity.shared.profile');
-    const entityRegistry = useEntityRegistryV2();
+    // This section shows ownership.owners[0], which is not the entity's creator — DataHub records no
+    // human creator for ingested assets, and owners[0] is arbitrary (insertion order). Label it "Owner"
+    // rather than the misleading "Created By".
+    const { t } = useTranslation('common.labels');
+    const entityRegistry = useEntityRegistry();
 
     const ownerName = owner && entityRegistry.getDisplayName(owner.type, owner);
     const ownerPictureLink =
@@ -48,7 +51,7 @@ export default function SummaryCreatedBySection({ owner }: Props) {
         <>
             {!!ownerName && (
                 <SectionContainer>
-                    <StyledTitle>{t('summary.createdByTitle')}</StyledTitle>
+                    <StyledTitle>{t('owner')}</StyledTitle>
                     <Details>
                         <Avatar name={ownerName} imageUrl={ownerPictureLink} type={avatarType} />
                         {ownerName}

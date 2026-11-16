@@ -109,12 +109,18 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
             "You can increase the memory allocated to Docker in the Docker settings."
         )
 
+    # docker-py's containers.run() only returns a container's output when its
+    # logging driver is json-file or journald, and returns None for any other
+    # driver. Docker Desktop 4.94+ defaults new containers to the "local"
+    # driver, so pin json-file for this throwaway container rather than depend
+    # on the daemon's default. See docker/docker-py#3455.
     result = client.containers.run(
         "alpine:latest",
         "sh -c \"df -B1 -P / | awk 'NR==2{print $2, $4}'\"",  # total, available
         remove=True,
         stdout=True,
         stderr=True,
+        log_config=docker.types.LogConfig(type=docker.types.LogConfig.types.JSON),
     )
 
     output = result.decode("utf-8").strip()

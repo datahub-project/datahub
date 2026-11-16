@@ -3,12 +3,12 @@ import React, { useContext } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DefaultEmptyEntityList } from '@app/homeV2/reference/sections/DefaultEmptyEntityList';
 import { EntityLink } from '@app/homeV2/reference/sections/EntityLink';
 import { EntityLinkListSkeleton } from '@app/homeV2/reference/sections/EntityLinkListSkeleton';
 import OnboardingContext from '@app/onboarding/OnboardingContext';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';
 
@@ -76,7 +76,7 @@ export const EntityLinkList = ({
     render,
 }: Props) => {
     const { t: tc } = useTranslation('common.actions');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const isEmpty = entities.length === 0 && !loading;
     const { isUserInitializing } = useContext(OnboardingContext);
 

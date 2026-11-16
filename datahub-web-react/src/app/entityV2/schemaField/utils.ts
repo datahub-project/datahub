@@ -1,4 +1,5 @@
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
 
 /**
  * A schemaField urn is `urn:li:schemaField:(<parentUrn>,<fieldPath>)`. Splitting on the first `)`
@@ -43,5 +44,5 @@ export function getSchemaFieldParentLink(schemaFieldUrn: string) {
     const fieldPath = getFieldPathFromSchemaFieldUrn(schemaFieldUrn);
     const parentUrn = getSourceUrnFromSchemaFieldUrn(schemaFieldUrn);
 
-    return `/dataset/${parentUrn}/Columns?highlightedPath=${fieldPath}`;
+    return `/dataset/${parentUrn}/${EntityTabPath.COLUMNS}?highlightedPath=${fieldPath}`;
 }

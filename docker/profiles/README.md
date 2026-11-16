@@ -185,6 +185,31 @@ instead of a host bind-mount.
 
 ## Advanced Setups
 
+### Search V3 on a second OpenSearch cluster
+
+`docker-compose.search-split-override.yml` adds a second OpenSearch container, `search-secondary` (host port
+`${DATAHUB_MAPPED_ELASTIC_SECONDARY_PORT:-9201}`), and points GMS, system update and the MAE consumer at it for
+Search V3 (`ELASTICSEARCH_CLUSTERS_SECONDARY_URI`, `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3=secondary`). V2
+entity indices stay on `search`. No base file includes it; layer it explicitly:
+
+```shell
+# Debug stack with the second cluster (same modules as quickstartDebug)
+./gradlew quickstartDebugSearchSplit
+# Raw compose, any profile
+cd docker/profiles
+docker compose -f docker-compose.yml -f docker-compose.search-split-override.yml --profile debug up -d
+```
+
+The override supplies the cluster and the routing only. Enable V3 with the usual variables
+(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true` to build and dual-write the V3 indices, later
+`ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED=true` to serve keyword reads from them). Run it while no other
+debug stack is up, or pass the same `-p <project>`, so the two do not compete for ports and networks.
+
+The automated equivalent is `./gradlew :datahub-upgrade:searchV3MigrationTest`: OpenSearch testcontainers run the
+cutover end to end (Phase 1, live dual-writes, resumable fill, catch-up, read flip, a later mapping change and a
+stale-id rebuild) with V3 on a separate cluster and on the same cluster, plus a V3-only fresh install. It is opt-in
+and not part of CI.
+
 ### Version Mixing
 
 In some cases, it might be useful to debug upgrade scenarios where there are intentional version miss-matches. It is possible

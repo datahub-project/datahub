@@ -117,6 +117,7 @@
     "users.columns.name": "名称",
     "users.columns.role": "角色",
     "users.columns.status": "状态",
+    "users.copyUrn": "复制 URN",
     "users.deleteUser": "删除用户",
     "users.emptyTitle": "暂无用户！",
     "users.groups.overflowTitle": "用户组",
@@ -145,5 +146,6 @@
     "users.statusFilter.placeholder": "状态",
     "users.statusFilter.suspended": "已停用",
     "users.statusInactive": "未激活",
-    "users.statusNoUrn": "无 URN"
+    "users.statusNoUrn": "无 URN",
+    "users.urnCopied": "URN 已复制到剪贴板"
 }

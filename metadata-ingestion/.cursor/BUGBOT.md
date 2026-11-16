@@ -61,7 +61,7 @@ config keys, changes URN format, or changes default hierarchy/region/scan
 behavior in a breaking way, then:
 
 - High. Prefer transparent upgrade / dual-read; do not break existing recipes.
-- Flag missing entries in `docs/how/updating-datahub.md` and connector `*_pre.md`.
+- Flag missing entries in `docs/how/breaking-changes.md` and connector `*_pre.md`.
 - Do not flag backward-compatible **additions** of optional recipe keys as
   breaking.
 

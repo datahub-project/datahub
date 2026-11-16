@@ -1,6 +1,8 @@
 package com.linkedin.metadata.authorization;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DOMAIN_ENTITY_NAME;
 import static com.linkedin.metadata.authorization.ApiGroup.ENTITY;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
@@ -10,7 +12,6 @@ import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.EntitySpec;
 import com.datahub.authorization.FieldResolver;
-import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
 import com.datahub.util.RecordUtils;
 import com.linkedin.common.AuditStamp;
@@ -34,7 +35,6 @@ import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collection;
-import java.util.EnumMap;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -220,9 +220,13 @@ public final class DomainWriteAuthorizationUtils {
     }
   }
 
-  /** Whether {@code domains} carries at least one domain URN. */
+  /**
+   * Whether {@code domains} carries at least one domain URN, in {@code domains} or in {@code
+   * domainAssociations}. An association-only aspect must count as membership, otherwise a move away
+   * from it would be authorized against the proposed domain alone.
+   */
   public static boolean hasDomainMembership(@Nullable Domains domains) {
-    return domains != null && domains.hasDomains() && !domains.getDomains().isEmpty();
+    return !EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(domains).isEmpty();
   }
 
   /**
@@ -275,7 +279,8 @@ public final class DomainWriteAuthorizationUtils {
    * <p>{@link ApiOperation#UPDATE} (set / clear / move on an existing entity) accepts {@code
    * EDIT_ENTITY} <em>or</em> {@code EDIT_DOMAINS_PRIVILEGE}. Domain resource filters still apply to
    * whichever privilege matches. {@link ApiOperation#CREATE} stays Create/Edit Entity only so Edit
-   * Domain cannot create entities.
+   * Domain cannot create entities. Establishing a data product's first domains has one more path,
+   * {@link #isAuthorizedDataProductDomainsEstablish}, which callers evaluate separately.
    */
   @Nonnull
   public static Disjunctive<Conjunctive<PoliciesConfig.Privilege>> lookupDomainsAspectPrivileges(
@@ -315,7 +320,38 @@ public final class DomainWriteAuthorizationUtils {
       }
       return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
     }
-    return isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+    return isAuthorizedDataProductDomainsEstablish(session, urn, afterDomains)
+        || isAuthorizedEntityWrite(session, urn, UPDATE, true, afterDomains);
+  }
+
+  /**
+   * Whether {@code MANAGE_DATA_PRODUCTS} on the proposed domains authorizes <em>establishing</em> a
+   * data product's domains: the entity create, or the first {@code domains} write on a product that
+   * has no domain membership yet. That is the write {@code DataProductService.setDomain} performs
+   * right after {@code createDataProduct}, for which {@code CreateDataProductResolver} has already
+   * checked the same privilege on the target domain; a product created that way has no persisted
+   * domains for a domain-scoped Edit Entity policy to match. Moving or clearing the domains of a
+   * product that already has some keeps requiring {@code EDIT_ENTITY} / {@code
+   * EDIT_DOMAINS_PRIVILEGE}, like the GraphQL {@code setDomain} mutation.
+   *
+   * <p>Every proposed domain must be managed, and each must be a domain URN. The rename and
+   * membership checks accept {@code MANAGE_DATA_PRODUCTS} on <em>any</em> product domain because
+   * they act on a product that is already placed; placing a product into domains has to be allowed
+   * for each of them.
+   */
+  public static boolean isAuthorizedDataProductDomainsEstablish(
+      @Nonnull AuthorizationSession session, @Nonnull Urn urn, @Nullable Domains proposedDomains) {
+    if (!DATA_PRODUCT_ENTITY_NAME.equals(urn.getEntityType())) {
+      return false;
+    }
+    Set<Urn> domainUrns = EntityAspectAuthorizationUtils.resolveUniqueDomainUrns(proposedDomains);
+    if (domainUrns.isEmpty()
+        || !domainUrns.stream()
+            .allMatch(domainUrn -> DOMAIN_ENTITY_NAME.equals(domainUrn.getEntityType()))) {
+      return false;
+    }
+    return EntityAspectAuthorizationUtils.isAuthorizedToManageDataProductsOnAllDomains(
+        session, domainUrns);
   }
 
   /**
@@ -400,8 +436,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Seed proposed domains from an MCP batch into the session resource-spec cache so domain-scoped
-   * CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
+   * Seed proposed domains from an MCP batch by recording them as a request-scoped DOMAIN override
+   * so domain-scoped CREATE_ENTITY / EDIT policies can match at the API auth layer before ingest.
    *
    * <p>Accumulates in-batch proposed domains chronologically so a later PATCH for the same URN is
    * applied against an earlier UPSERT in the same request (matching ingest order). {@code
@@ -516,11 +552,13 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Authorize a {@code domains} write against the entity resource, optionally seeding the session
-   * resource-spec cache with proposed domains (plus ancestors) so domain-scoped policies can match.
+   * Authorize a {@code domains} write against the entity resource, optionally recording proposed
+   * domains (plus ancestors) as a request-scoped DOMAIN override so domain-scoped policies can
+   * match.
    *
    * <p>On {@link ApiOperation#UPDATE}, {@code EDIT_DOMAINS_PRIVILEGE} is sufficient; Create still
-   * requires Create/Edit Entity.
+   * requires Create/Edit Entity. Entity-agnostic: the data product establish path is {@link
+   * #isAuthorizedDataProductDomainsEstablish}.
    */
   public static boolean isAuthorizedEntityWrite(
       @Nonnull AuthorizationSession session,
@@ -543,8 +581,8 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Expand proposed domain URNs (including ancestors) and seed the request-scoped resource-spec
-   * cache so DOMAIN field matching uses those values.
+   * Expand proposed domain URNs (including ancestors) and record them as a request-scoped DOMAIN
+   * override so DOMAIN field matching uses those values.
    */
   public static void seedProposedDomainsForResourceSpec(
       @Nonnull OperationContext opContext,
@@ -568,41 +606,21 @@ public final class DomainWriteAuthorizationUtils {
   }
 
   /**
-   * Pre-populate the request-scoped resolved-spec cache so DOMAIN field matching uses proposed
-   * values instead of a persisted (empty) domains aspect. Merges into any existing
-   * ResolvedEntitySpec so OWNER/TAG/CONTAINER resolvers are preserved, while DOMAIN is always
-   * overwritten with the latest proposed values (later items in the same request win).
+   * Record the proposed domains as a request-scoped {@code DOMAIN} override so DOMAIN field
+   * matching uses them instead of the persisted (possibly empty) domains aspect. The authorizer
+   * lays the override over the normally resolved spec, so the entity's other stored fields
+   * (platform instance, container, tags, ...) still apply. Later calls for the same resource in the
+   * same request replace earlier ones.
    */
   public static void seedProposedDomainResourceSpec(
       @Nonnull OperationContext opContext,
       @Nonnull EntitySpec resourceSpec,
       @Nonnull Set<String> domainFieldValues) {
-    Map<EntityFieldType, FieldResolver> baseResolvers = new EnumMap<>(EntityFieldType.class);
-    baseResolvers.put(
-        EntityFieldType.TYPE, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_TYPE,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getType())));
-    baseResolvers.put(
-        EntityFieldType.URN, FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    baseResolvers.put(
-        EntityFieldType.RESOURCE_URN,
-        FieldResolver.getResolverFromValues(Set.of(resourceSpec.getEntity())));
-    FieldResolver domainResolver = FieldResolver.getResolverFromValues(domainFieldValues);
-
     opContext
         .getAuthorizationContext()
-        .getSessionResourceSpecCache()
-        .compute(
+        .getSessionResourceFieldOverrides()
+        .put(
             resourceSpec,
-            (key, existing) -> {
-              Map<EntityFieldType, FieldResolver> merged = new EnumMap<>(EntityFieldType.class);
-              if (existing != null) {
-                merged.putAll(existing.getFieldResolvers());
-              }
-              baseResolvers.forEach(merged::putIfAbsent);
-              merged.put(EntityFieldType.DOMAIN, domainResolver);
-              return new ResolvedEntitySpec(resourceSpec, merged);
-            });
+            Map.of(EntityFieldType.DOMAIN, FieldResolver.getResolverFromValues(domainFieldValues)));
   }
 }

@@ -17,18 +17,9 @@ DATAHUB_SRC="$MODULE_DIR/src/main/java/io/openlineage"
 # Files to compare
 FILES=(
   "spark/api/Vendors.java"
-  "spark/api/VendorsContext.java"
-  "spark/api/VendorsImpl.java"
   "spark/agent/util/PathUtils.java"
   "spark/agent/util/PlanUtils.java"
-  "spark/agent/util/RemovePathPatternUtils.java"
-  "spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
-  "spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
-  "spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
   "spark/agent/lifecycle/plan/TopicPartitionProxy.java"
-  "spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
-  "spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
-  "spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
 )
 
 echo "Generating patches for DataHub customizations vs OpenLineage $UPSTREAM_VERSION..."
@@ -91,7 +82,10 @@ for file in "${FILES[@]}"; do
 # -p1 would silently rewrite patches/upstream-*/ instead of the source tree.
 #
 EOF
-    cat "$PATCH_FILE" >> "$TEMP_PATCH"
+    # Unified diff writes blank context lines as a single space. Since these patches are committed
+    # as text, Git reports that marker as trailing whitespace; patch accepts an empty hunk line as
+    # the same blank context, so normalize it while assembling the final file.
+    sed 's/^ $//' "$PATCH_FILE" >> "$TEMP_PATCH"
     mv "$TEMP_PATCH" "$PATCH_FILE"
   fi
 done

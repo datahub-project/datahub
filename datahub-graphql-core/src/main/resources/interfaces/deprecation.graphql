@@ -1,0 +1,30 @@
+"""
+An entity that can be deprecated
+"""
+interface HasDeprecation {
+  """
+  The deprecation status of the entity
+  """
+  deprecation: Deprecation
+}
+
+extend type Chart implements HasDeprecation
+extend type Container implements HasDeprecation
+extend type Dashboard implements HasDeprecation
+extend type DataFlow implements HasDeprecation
+extend type DataJob implements HasDeprecation
+extend type DataPlatformInstance implements HasDeprecation
+extend type DataProduct implements HasDeprecation
+extend type Dataset implements HasDeprecation
+extend type Domain implements HasDeprecation
+extend type GlossaryTerm implements HasDeprecation
+extend type MLFeature implements HasDeprecation
+extend type MLFeatureTable implements HasDeprecation
+extend type MLModel implements HasDeprecation
+extend type MLModelGroup implements HasDeprecation
+extend type MLPrimaryKey implements HasDeprecation
+extend type Metric implements HasDeprecation
+extend type SchemaFieldEntity implements HasDeprecation
+extend type SemanticModel implements HasDeprecation
+extend type Tag implements HasDeprecation
+extend type VersionedDataset implements HasDeprecation

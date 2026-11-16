@@ -96,7 +96,6 @@ query appConfig {
             showSearchBarAutocompleteRedesign
             showManageTags
             showIntroducePage
-            showIngestionPageRedesign
             showLineageExpandMore
             showLineageFilterNodes
             showStatsTabRedesign
@@ -108,7 +107,6 @@ query appConfig {
             assetSummaryPageV1
             datasetSummaryPageV1
             metricsEnabled
-            ingestionOnboardingRedesignV1
             documentationFileUploadV1
             contextDocumentsEnabled
             hideLineageInSearchCards

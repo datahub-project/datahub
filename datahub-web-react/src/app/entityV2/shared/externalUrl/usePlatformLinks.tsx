@@ -4,10 +4,10 @@ import { useTranslation } from 'react-i18next';
 import { LinkAttributes } from '@app/entityV2/shared/externalUrl/types';
 import { sendClickExternalLinkAnalytics } from '@app/entityV2/shared/externalUrl/utils';
 import { getSiblings } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { getExternalUrlDisplayName } from '@app/entityV2/shared/utils';
 import { ExternalLinkType } from '@src/app/analytics';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
 import { useAppConfig } from '@src/app/useAppConfig';
 
 const MAX_VISIBILE_ACTIONS = 2;

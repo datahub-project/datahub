@@ -2,11 +2,12 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
 import generateUseListDataProductAssets from '@app/entityV2/dataProduct/generateUseListDataProductAssets';
 import { generateUseListDataProductAssetsCount } from '@app/entityV2/dataProduct/generateUseListDataProductAssetsCount';
+import { useEntityData, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';
 
 const ToggleHeader = styled.div`
@@ -62,7 +63,7 @@ export function OutputPortsTab() {
                 <ToggleOption $active type="button">
                     {t('dataProduct.outputPortsToggle', { count: outputPortsCount })}
                 </ToggleOption>
-                <ToggleOption type="button" onClick={() => routeToTab({ tabName: t('tab.assets') })}>
+                <ToggleOption type="button" onClick={() => routeToTab({ tabName: EntityTabPath.ASSETS })}>
                     {t('dataProduct.allAssetsToggle', { count: assetsCount })}
                 </ToggleOption>
             </ToggleHeader>

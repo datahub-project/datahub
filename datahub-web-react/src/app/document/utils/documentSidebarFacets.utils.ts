@@ -1,5 +1,5 @@
 import { DocumentCreator } from '@app/document/DocumentTreeContext';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { CorpGroup, CorpUser, DataPlatform, Entity, EntityType, FacetMetadata } from '@types';
 

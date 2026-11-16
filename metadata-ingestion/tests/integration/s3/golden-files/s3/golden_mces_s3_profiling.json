@@ -11,7 +11,7 @@
                 "number_of_files": "1",
                 "size_in_bytes": "1129"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=profiling_input/measurements.csv",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=profiling_input/measurements.csv",
             "name": "measurements.csv",
             "description": "",
             "tags": []

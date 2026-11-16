@@ -5,7 +5,7 @@ import AddEditLinkModal from '@app/entityV2/shared/components/links/AddEditLinkM
 import { LinkFormData } from '@app/entityV2/shared/components/links/types';
 import { useLinkUtils } from '@app/entityV2/shared/components/links/useLinkUtils';
 import { getInitialLinkFormDataFromInstitutionMemory } from '@app/entityV2/shared/components/links/utils';
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
 import { InstitutionalMemoryMetadata } from '@types';
 

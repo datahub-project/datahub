@@ -1,11 +1,11 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
 import SetDataProductModal from '@app/entityV2/shared/containers/profile/sidebar/DataProduct/SetDataProductModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
-import { useIsMultipleDataProductsEnabled } from '@app/shared/hooks/useIsMultipleDataProductsEnabled';
+import { useIsMultipleDataProductsEnabled } from '@app/sharedV2/hooks/useIsMultipleDataProductsEnabled';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
 import { useBatchSetDataProductMutation } from '@graphql/dataProduct.generated';
@@ -35,22 +35,21 @@ export default function DataProductsDropdown({ urns, disabled = false, refetch }
         })
             .then(({ errors }) => {
                 if (!errors) {
-                    message.loading({ content: tcf('loading'), duration: 2 });
+                    toast.loading(tcf('loading'), { duration: 2 });
                     setTimeout(() => {
-                        message.success({ content: t('searchActions.dataProduct.removedSuccess'), duration: 2 });
+                        toast.success(t('searchActions.dataProduct.removedSuccess'), { duration: 2 });
                         refetch?.();
                     }, 2000);
                 }
                 setIsUnsetModalVisible(false);
             })
             .catch((e) => {
-                message.destroy();
-                message.error(
-                    handleBatchError(urns, e, {
-                        content: t('searchActions.dataProduct.removeError', { message: e.message || '' }),
-                        duration: 3,
-                    }),
-                );
+                toast.destroy();
+                const { content, duration } = handleBatchError(urns, e, {
+                    content: t('searchActions.dataProduct.removeError', { message: e.message || '' }),
+                    duration: 3,
+                });
+                toast.error(content, { duration });
             });
     };
 

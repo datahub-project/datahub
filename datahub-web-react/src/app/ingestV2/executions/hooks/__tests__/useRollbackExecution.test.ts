@@ -1,14 +1,30 @@
-import { act, renderHook } from '@testing-library/react-hooks';
-import message from 'antd/lib/message';
+import { toast } from '@components';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useRollbackIngestionMutation } from '@graphql/ingestion.generated';
 
 vi.mock('@graphql/ingestion.generated', () => ({
     useRollbackIngestionMutation: vi.fn(),
 }));
+
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
 
 describe('useRollbackExecution Hook', () => {
     const mockRefetch = vi.fn();
@@ -40,7 +56,6 @@ describe('useRollbackExecution Hook', () => {
     });
 
     it('should show loading message when rollback starts', async () => {
-        const mockLoading = vi.spyOn(message, 'loading');
         (useRollbackIngestionMutation as any).mockReturnValue([mockRollbackIngestion]);
 
         const { result } = renderHook(() => useRollbackExecution(mockRefetch));
@@ -51,13 +66,10 @@ describe('useRollbackExecution Hook', () => {
             result.current(runId);
         });
 
-        expect(mockLoading).toHaveBeenCalledWith('Requesting rollback...');
+        expect(toast.loading).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
     });
 
     it('should show success message and trigger refetch after timeout', async () => {
-        const mockSuccess = vi.spyOn(message, 'success');
-        const mockDestroy = vi.spyOn(message, 'destroy');
-
         (useRollbackIngestionMutation as any).mockReturnValue([mockRollbackIngestion]);
 
         const { result } = renderHook(() => useRollbackExecution(mockRefetch));
@@ -66,17 +78,16 @@ describe('useRollbackExecution Hook', () => {
 
         await act(async () => {
             result.current(runId);
-            await Promise.resolve(); // resolve initial promise
-            vi.advanceTimersByTime(2000); // simulate timeout
+            await Promise.resolve();
+            vi.advanceTimersByTime(2000);
         });
 
-        expect(mockDestroy).toHaveBeenCalled();
-        expect(mockSuccess).toHaveBeenCalledWith('Successfully requested ingestion rollback');
+        expect(toast.destroy).not.toHaveBeenCalled();
+        expect(toast.success).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
         expect(mockRefetch).toHaveBeenCalled();
     });
 
     it('should show error message if mutation fails', async () => {
-        const mockError = vi.spyOn(message, 'error');
         const failedMutation = vi.fn().mockReturnValue(Promise.reject(new Error('GraphQL error')));
 
         (useRollbackIngestionMutation as any).mockReturnValue([failedMutation]);
@@ -87,9 +98,9 @@ describe('useRollbackExecution Hook', () => {
 
         await act(async () => {
             result.current(runId);
-            await Promise.resolve(); // wait for rejection
+            await Promise.resolve();
         });
 
-        expect(mockError).toHaveBeenCalledWith('Error requesting ingestion rollback');
+        expect(toast.error).toHaveBeenCalledWith(expect.any(String), { key: 'ingestion-execution-rollback' });
     });
 });

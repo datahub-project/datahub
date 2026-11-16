@@ -70,6 +70,10 @@ class DruidConfig(BasicSQLAlchemyConfig):
 @config_class(DruidConfig)
 @support_status(SupportStatus.BETA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class DruidSource(SQLAlchemySource):
     """
     Source that extracts metadata from Apache Druid via SQLAlchemy.

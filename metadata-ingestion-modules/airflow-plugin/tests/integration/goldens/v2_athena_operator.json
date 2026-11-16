@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=athena_operator",
+            "externalUrl": "http://airflow.example.com/dags/athena_operator",
             "name": "athena_operator",
             "env": "PROD"
         }
@@ -289,7 +290,7 @@
             ],
             "outputDatasets": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,PROD)"
             ],
             "inputDatajobs": [],
             "fineGrainedLineages": [
@@ -381,13 +382,13 @@
 },
 {
     "entityType": "dataset",
-    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,PROD)",
     "changeType": "UPSERT",
     "aspectName": "datasetKey",
     "aspect": {
         "json": {
             "platform": "urn:li:dataPlatform:s3",
-            "name": "/",
+            "name": "athena-results-bucket",
             "origin": "PROD"
         }
     }
@@ -469,7 +470,7 @@
         "json": {
             "outputs": [
                 "urn:li:dataset:(urn:li:dataPlatform:athena,athena_db.processed_costs,PROD)",
-                "urn:li:dataset:(urn:li:dataPlatform:s3,/,PROD)"
+                "urn:li:dataset:(urn:li:dataPlatform:s3,athena-results-bucket,PROD)"
             ]
         }
     }

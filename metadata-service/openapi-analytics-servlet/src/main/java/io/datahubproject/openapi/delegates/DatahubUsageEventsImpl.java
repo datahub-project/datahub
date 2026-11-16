@@ -6,6 +6,7 @@ import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.utils.SearchOperation;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.usage.UsageOperation;
@@ -47,7 +48,9 @@ public class DatahubUsageEventsImpl implements DatahubUsageEventsApiDelegate {
     checkAnalyticsAuthorized(opContext);
 
     return ResponseEntity.of(
-        _searchService.raw(opContext, DATAHUB_USAGE_INDEX, body).map(Objects::toString));
+        _searchService
+            .raw(opContext, DATAHUB_USAGE_INDEX, body, SearchOperation.DATAHUB_USAGE)
+            .map(Objects::toString));
   }
 
   /**

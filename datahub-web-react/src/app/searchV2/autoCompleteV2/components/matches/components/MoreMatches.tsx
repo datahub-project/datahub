@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { FontColorLevelOptions, FontColorOptions } from '@components/theme/config';
 
 import { Text } from '@src/alchemy-components';
-import { OverflowListItem } from '@src/app/shared/OverflowList';
+import { OverflowListItem } from '@src/app/searchV2/autoCompleteV2/components/matches/OverflowList';
 
 interface Props<Item extends OverflowListItem> {
     items: Item[];

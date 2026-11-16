@@ -16,7 +16,6 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
 import com.linkedin.datahub.graphql.WeaklyTypedAspectsResolver.AspectsKey;
-import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AspectParams;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -124,25 +123,26 @@ public class WeaklyTypedAspectsResolverBatchTest {
   // ---------- Tests ----------
 
   @Test
-  public void testUnauthorizedDocumentDoesNotLoadRawAspects() {
+  @SuppressWarnings("unchecked")
+  public void testDocumentUsesSharedAspectLoadPath() {
     final DataFetchingEnvironment environment = Mockito.mock(DataFetchingEnvironment.class);
     final Entity document = Mockito.mock(Entity.class);
-    final QueryContext context = mockQueryContext();
-    final OperationContext opContext = context.getOperationContext();
     Mockito.when(document.getUrn()).thenReturn(DOCUMENT_URN.toString());
     Mockito.when(document.getType()).thenReturn(EntityType.DOCUMENT);
     Mockito.when(environment.getSource()).thenReturn(document);
-    Mockito.when(environment.getContext()).thenReturn(context);
+    Mockito.when(environment.getArgument("input")).thenReturn(null);
 
-    try (MockedStatic<AuthorizationUtils> authorizationUtils =
-        Mockito.mockStatic(AuthorizationUtils.class)) {
-      authorizationUtils
-          .when(() -> AuthorizationUtils.canView(opContext, DOCUMENT_URN))
-          .thenReturn(false);
+    final DataLoader<AspectsKey, List<RawAspect>> loader =
+        (DataLoader<AspectsKey, List<RawAspect>>) Mockito.mock(DataLoader.class);
+    final DataLoaderRegistry registry = Mockito.mock(DataLoaderRegistry.class);
+    Mockito.doReturn(loader).when(registry).getDataLoader(WeaklyTypedAspectsResolver.LOADER_NAME);
+    Mockito.when(environment.getDataLoaderRegistry()).thenReturn(registry);
+    final CompletableFuture<List<RawAspect>> expected =
+        CompletableFuture.completedFuture(Collections.emptyList());
+    Mockito.when(loader.load(any(AspectsKey.class))).thenReturn(expected);
 
-      assertTrue(new WeaklyTypedAspectsResolver().get(environment).join().isEmpty());
-      Mockito.verify(environment, Mockito.never()).getDataLoaderRegistry();
-    }
+    assertEquals(new WeaklyTypedAspectsResolver().get(environment), expected);
+    Mockito.verify(loader).load(any(AspectsKey.class));
   }
 
   @Test

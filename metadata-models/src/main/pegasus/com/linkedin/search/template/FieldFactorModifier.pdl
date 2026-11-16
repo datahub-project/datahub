@@ -1,0 +1,12 @@
+namespace com.linkedin.search.template
+
+/**
+ * Elasticsearch field_value_factor modifier. Unset leaves the modifier off the function.
+ */
+enum FieldFactorModifier {
+  LOG1P
+  LN1P
+  SQRT
+  SQUARE
+  RECIPROCAL
+}

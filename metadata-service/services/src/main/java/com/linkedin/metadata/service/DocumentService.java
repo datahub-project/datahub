@@ -27,6 +27,7 @@ import com.linkedin.knowledge.RelatedDocumentArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.DocumentKey;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
@@ -70,13 +71,24 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class DocumentService {
 
+  private static final String CREATED_AT_FIELD = "createdAt";
   private static final String WILDCARD_QUERY = "*";
   private static final String PARENT_DOCUMENT_FIELD = "parentDocument";
 
   private final SystemEntityClient entityClient;
+  private final String createdAtField;
 
   public DocumentService(@Nonnull SystemEntityClient entityClient) {
+    this(entityClient, CREATED_AT_FIELD);
+  }
+
+  /**
+   * @param createdAtField the sort field for a browse with no explicit sort. Search V3 does not
+   *     index {@code createdAt}; that index uses {@code _system.created.time}.
+   */
+  public DocumentService(@Nonnull SystemEntityClient entityClient, @Nonnull String createdAtField) {
     this.entityClient = entityClient;
+    this.createdAtField = createdAtField;
   }
 
   /**
@@ -449,14 +461,17 @@ public class DocumentService {
     mcps.add(
         buildProposal(documentUrn, Constants.DOCUMENT_INFO_ASPECT_NAME, existingInfo, indexMode));
 
-    // semanticText is a standalone aspect. Only write it when the caller opts in so ordinary
-    // document body/title mutations leave an existing curated embedding source untouched.
-    if (semanticText != null) {
+    // semanticText is what the embedding pipeline indexes instead of the body, so it has to
+    // follow the body. A caller that wants its own value passes one on every write that changes
+    // the body; anything else is replaced by the new body. Keeping a value across a write the
+    // caller did not ask about would make it depend on whether the body happened to change.
+    final String resolvedSemanticText = semanticText != null ? semanticText : text;
+    if (resolvedSemanticText != null) {
       mcps.add(
           buildProposal(
               documentUrn,
               Constants.SEMANTIC_TEXT_ASPECT_NAME,
-              new SemanticText().setText(semanticText),
+              new SemanticText().setText(resolvedSemanticText),
               indexMode));
     }
 
@@ -1154,7 +1169,8 @@ public class DocumentService {
    * @param opContext the operation context
    * @param query search query
    * @param filter optional filter
-   * @param sortCriterion optional sort criterion
+   * @param sortCriterion optional sort criterion. When null, a real text query is ranked by
+   *     relevance and a browse-style wildcard query falls back to newest-first.
    * @param start offset
    * @param count number of results
    * @return search result
@@ -1169,21 +1185,101 @@ public class DocumentService {
       int start,
       int count)
       throws Exception {
+    return searchDocuments(opContext, query, filter, sortCriterion, start, count, null, null);
+  }
 
-    final SortCriterion sort =
-        sortCriterion != null
-            ? sortCriterion
-            : new SortCriterion().setField("createdAt").setOrder(SortOrder.DESCENDING);
+  /**
+   * Searches for documents with filters and optional facet aggregations.
+   *
+   * <p>When {@code facets} is non-empty, uses {@code searchAcrossEntities} so callers can request
+   * specific aggregations (and pair with {@code SearchFlags.maxAggValues} / {@code
+   * includeDefaultFacets=false}) — same pattern as Metrics / document filter sidebars.
+   *
+   * @param facets optional facet fields to aggregate; null/empty keeps the default single-entity
+   *     search path
+   * @param searchFlags optional flags; fulltext is always enabled. A caller template and explain
+   *     flag are kept so template selection can authorize and resolve them.
+   */
+  @Nonnull
+  public SearchResult searchDocuments(
+      @Nonnull OperationContext opContext,
+      @Nonnull String query,
+      @Nullable Filter filter,
+      @Nullable SortCriterion sortCriterion,
+      int start,
+      int count,
+      @Nullable List<String> facets,
+      @Nullable SearchFlags searchFlags)
+      throws Exception {
 
-    SearchResult result =
-        entityClient.search(
-            opContext.withSearchFlags(flags -> flags.setFulltext(true)),
-            Constants.DOCUMENT_ENTITY_NAME,
-            query,
-            filter,
-            Collections.singletonList(sort),
-            start,
-            count);
+    // An empty sort list tells Elasticsearch to rank by relevance score. Defaulting to createdAt
+    // for a real text query buries exact title matches under whatever was ingested most recently
+    // (e.g. searching "Average Order Value" would rank the doc of that exact name 40th), so the
+    // recency default only applies to browse-style wildcard queries, where there is no score to
+    // rank by.
+    final List<SortCriterion> sortCriteria;
+    if (sortCriterion != null) {
+      sortCriteria = Collections.singletonList(sortCriterion);
+    } else if (isWildcardQuery(query)) {
+      sortCriteria =
+          Collections.singletonList(
+              new SortCriterion().setField(createdAtField).setOrder(SortOrder.DESCENDING));
+    } else {
+      sortCriteria = Collections.emptyList();
+    }
+    final boolean hasExplicitFacets = facets != null && !facets.isEmpty();
+    final OperationContext searchContext =
+        opContext.withSearchFlags(
+            flags -> {
+              if (searchFlags != null) {
+                if (searchFlags.hasMaxAggValues()) {
+                  flags.setMaxAggValues(searchFlags.getMaxAggValues());
+                }
+                if (searchFlags.hasSkipCache()) {
+                  flags.setSkipCache(searchFlags.isSkipCache());
+                }
+                if (searchFlags.hasSkipAggregates()) {
+                  flags.setSkipAggregates(searchFlags.isSkipAggregates());
+                }
+                if (searchFlags.hasSkipHighlighting()) {
+                  flags.setSkipHighlighting(searchFlags.isSkipHighlighting());
+                }
+                if (searchFlags.hasSearchTemplate()) {
+                  flags.setSearchTemplate(searchFlags.getSearchTemplate());
+                }
+                if (searchFlags.hasIncludeExplain()) {
+                  flags.setIncludeExplain(searchFlags.isIncludeExplain());
+                }
+              }
+              flags.setFulltext(true);
+              // Skip default facets when the caller requested specific aggregations.
+              flags.setIncludeDefaultFacets(!hasExplicitFacets);
+              return flags;
+            });
+
+    final SearchResult result;
+    if (hasExplicitFacets) {
+      result =
+          entityClient.searchAcrossEntities(
+              searchContext,
+              List.of(Constants.DOCUMENT_ENTITY_NAME),
+              query,
+              filter,
+              start,
+              count,
+              sortCriteria,
+              facets);
+    } else {
+      result =
+          entityClient.search(
+              searchContext,
+              Constants.DOCUMENT_ENTITY_NAME,
+              query,
+              filter,
+              sortCriteria,
+              start,
+              count);
+    }
     // Filter unauthorized hits rather than failing the whole page: GraphQL search callers expect
     // mixed-access result sets, and bridge inheritance can authorize only a subset of documents.
     result.setEntities(
@@ -1195,6 +1291,15 @@ public class DocumentService {
                             opContext, READ, entity.getEntity()))
                 .toList()));
     return result;
+  }
+
+  /**
+   * A wildcard or blank query is a "list everything" browse, not a relevance search — every hit
+   * scores the same, so there is nothing meaningful to rank by.
+   */
+  private static boolean isWildcardQuery(@Nonnull final String query) {
+    final String trimmed = query.trim();
+    return trimmed.isEmpty() || WILDCARD_QUERY.equals(trimmed);
   }
 
   @Nonnull

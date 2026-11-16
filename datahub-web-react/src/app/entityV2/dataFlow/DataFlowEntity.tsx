@@ -8,11 +8,11 @@ import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/dataFlow/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -34,8 +34,9 @@ import {
     SidebarTagsSection,
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { isOutputPort } from '@app/entityV2/shared/utils';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { GetDataFlowQuery, useGetDataFlowQuery, useUpdateDataFlowMutation } from '@graphql/dataFlow.generated';
 import { DataFlow, EntityType, SearchResult } from '@types';
@@ -47,6 +48,7 @@ const DataFlowJobsTab = lazyProfileComponent('DataFlowJobsTab', () =>
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -98,17 +100,20 @@ export class DataFlowEntity implements Entity<DataFlow> {
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: DAGTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
                     name: i18next.t('entity.types:dataJob.namePlural'),
+                    path: EntityTabPath.TASKS,
                     component: DataFlowJobsTab,
                     icon: Share,
                     properties: {
@@ -117,6 +122,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, dataFlow) => {
@@ -125,11 +131,13 @@ export class DataFlowEntity implements Entity<DataFlow> {
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
                     name: i18next.t('entity.types:tab.runs'),
+                    path: EntityTabPath.RUNS,
                     component: RunsTab,
                     icon: ArrowsClockwise,
                     display: {
@@ -181,6 +189,7 @@ export class DataFlowEntity implements Entity<DataFlow> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

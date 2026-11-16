@@ -7,8 +7,8 @@ import { useTheme } from 'styled-components';
 import domainAutocompleteOptions from '@app/domainV2/DomainAutocompleteOptions';
 import DomainNavigator from '@app/domainV2/nestedDomains/domainNavigator/DomainNavigator';
 import useParentSelector from '@app/entityV2/shared/EntityDropdown/useParentSelector';
-import ClickOutside from '@app/shared/ClickOutside';
-import { BrowserWrapper } from '@app/shared/tags/BrowserWrapper';
+import ClickOutside from '@app/sharedV2/ClickOutside';
+import { BrowserWrapper } from '@app/sharedV2/tags/BrowserWrapper';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useDomainsContext } from '@src/app/domainV2/DomainsContext';
 

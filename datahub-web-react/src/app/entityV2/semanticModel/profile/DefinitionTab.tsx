@@ -1,8 +1,9 @@
-import { CodeBlock } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { CodeBlock } from '@components/components/CodeBlock';
+
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 
 import { GetSemanticModelQuery } from '@graphql/semanticModel.generated';

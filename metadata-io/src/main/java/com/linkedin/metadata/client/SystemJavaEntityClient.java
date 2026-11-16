@@ -10,6 +10,7 @@ import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.config.cache.client.EntityClientCacheConfig;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.event.EventProducer;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.LineageSearchService;
@@ -47,6 +48,42 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
       EntityClientCacheConfig cacheConfig,
       EntityClientConfig entityClientConfig,
       MetricUtils metricUtils) {
+    this(
+        entityService,
+        deleteEntityService,
+        entitySearchService,
+        cachingEntitySearchService,
+        searchService,
+        lineageSearchService,
+        timeseriesAspectService,
+        rollbackService,
+        eventProducer,
+        cacheConfig,
+        entityClientConfig,
+        metricUtils,
+        null);
+  }
+
+  /**
+   * @param hardDeleteService where the hard deletes this client makes run: through it, a delete is
+   *     offered to the {@code HardDeleteDispatcher} like the user-facing client's are. Null keeps
+   *     every delete in this process (where {@code ReliableHardDeleteFactory} is not scanned).
+   *     Without it, every service built on the system client hard-deleted in-process.
+   */
+  public SystemJavaEntityClient(
+      EntityService<?> entityService,
+      DeleteEntityService deleteEntityService,
+      EntitySearchService entitySearchService,
+      CachingEntitySearchService cachingEntitySearchService,
+      SearchService searchService,
+      LineageSearchService lineageSearchService,
+      TimeseriesAspectService timeseriesAspectService,
+      RollbackService rollbackService,
+      EventProducer eventProducer,
+      EntityClientCacheConfig cacheConfig,
+      EntityClientConfig entityClientConfig,
+      MetricUtils metricUtils,
+      @Nullable HardDeleteService hardDeleteService) {
     super(
         entityService,
         deleteEntityService,
@@ -58,7 +95,8 @@ public class SystemJavaEntityClient extends JavaEntityClient implements SystemEn
         rollbackService,
         eventProducer,
         entityClientConfig,
-        metricUtils);
+        metricUtils,
+        hardDeleteService);
     this.operationContextMap = CacheBuilder.newBuilder().maximumSize(500).build();
     this.entityClientCache =
         buildEntityClientCache(metricUtils, SystemJavaEntityClient.class, cacheConfig);

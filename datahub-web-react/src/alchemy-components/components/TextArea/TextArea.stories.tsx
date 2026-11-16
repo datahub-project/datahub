@@ -1,9 +1,14 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
+import { Info } from '@phosphor-icons/react/dist/csr/Info';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { TextArea, textAreaDefaults } from '@components/components/TextArea/TextArea';
+
+const ICON_OPTIONS = { None: undefined, Info, Star, Globe };
 
 // Auto Docs
 const meta = {
@@ -40,9 +45,9 @@ const meta = {
             },
         },
         icon: {
-            description: 'The icon to display in the Text Area.',
-            type: 'string',
-            options: ['Info', 'Star', 'Globe'],
+            description: 'The Phosphor icon component to display in the Text Area.',
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             table: {
                 defaultValue: { summary: 'undefined' },
             },

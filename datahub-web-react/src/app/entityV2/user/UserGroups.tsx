@@ -4,7 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetUserGroupsLazyQuery } from '@graphql/user.generated';

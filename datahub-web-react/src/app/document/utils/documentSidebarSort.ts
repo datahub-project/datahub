@@ -13,6 +13,14 @@ export type DocumentSidebarSortValue = (typeof DOCUMENT_SIDEBAR_SORT)[keyof type
 
 export const DEFAULT_DOCUMENT_SIDEBAR_SORT: DocumentSidebarSortValue = DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC;
 
+export function isDocumentSidebarSortValue(value: string): value is DocumentSidebarSortValue {
+    return (
+        value === DOCUMENT_SIDEBAR_SORT.NAME_ASC ||
+        value === DOCUMENT_SIDEBAR_SORT.NAME_DESC ||
+        value === DOCUMENT_SIDEBAR_SORT.LAST_MODIFIED_DESC
+    );
+}
+
 /**
  * Same fields as global search Name A–Z / Z–A / Last modified ({@link ENTITY_NAME_FIELD}).
  * Pass via searchDocuments sortInput — never reorder client-side.

@@ -20,8 +20,8 @@ import {
     MAX_COUNT_VAL,
     TYPE_NAMES_FILTER_NAME,
 } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { formatNumber } from '@app/sharedV2/formatNumber';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityType } from '@types';

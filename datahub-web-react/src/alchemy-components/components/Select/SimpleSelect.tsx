@@ -1,9 +1,10 @@
-import { Dropdown, Text } from '@components';
 import isEqual from 'lodash/isEqual';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
+import { Dropdown } from '@components/components/Dropdown';
 import { Loader } from '@components/components/Loader/Loader';
+import { NoResultsFound } from '@components/components/Select/NoResultsFound';
 import {
     ActionButtonsContainer,
     Container,
@@ -25,8 +26,7 @@ import SelectActionButtons from '@components/components/Select/private/SelectAct
 import SelectLabelRenderer from '@components/components/Select/private/SelectLabelRenderer/SelectLabelRenderer';
 import useSelectDropdown from '@components/components/Select/private/hooks/useSelectDropdown';
 import { SelectOption, SelectProps } from '@components/components/Select/types';
-
-import NoResultsFoundPlaceholder from '@app/searchV2/searchBarV2/components/NoResultsFoundPlaceholder';
+import { Text } from '@components/components/Text';
 
 const selectDefaults: Partial<SelectProps> = {
     label: '',
@@ -53,6 +53,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     onClear,
     onOpenChange,
     showSearch = selectDefaults.showSearch,
+    autoFocusSearch = false,
     isDisabled = selectDefaults.isDisabled,
     isReadOnly = selectDefaults.isReadOnly,
     isRequired = selectDefaults.isRequired,
@@ -119,6 +120,15 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
     useEffect(() => {
         onOpenChange?.(isOpen);
     }, [isOpen, onOpenChange]);
+
+    // The dropdown stays mounted between opens, so the input's own autoFocus only fires once.
+    useEffect(() => {
+        if (!isOpen || !showSearch || !autoFocusSearch) {
+            return undefined;
+        }
+        const frame = requestAnimationFrame(() => dropdownRef.current?.querySelector('input')?.focus());
+        return () => cancelAnimationFrame(frame);
+    }, [isOpen, showSearch, autoFocusSearch]);
 
     useEffect(() => {
         if (isOpen) {
@@ -221,6 +231,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                     value={searchQuery}
                                     onChange={(value) => handleSearchChange(value)}
                                     size={size}
+                                    autoFocus={autoFocusSearch}
                                 />
                             )}
                             <OptionList style={optionListStyle} data-testid={optionListTestId}>
@@ -235,7 +246,7 @@ export const SimpleSelect = <OptionType extends SelectOption = SelectOption>({
                                 {isLoading ? (
                                     <Loader size="sm" />
                                 ) : (
-                                    !filteredOptions.length && (emptyState ?? <NoResultsFoundPlaceholder />)
+                                    !filteredOptions.length && (emptyState ?? <NoResultsFound />)
                                 )}
                                 {filteredOptions.map((option) => (
                                     <OptionLabel

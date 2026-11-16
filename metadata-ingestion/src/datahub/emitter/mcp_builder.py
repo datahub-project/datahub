@@ -181,6 +181,10 @@ class BucketKey(ContainerKey):
     bucket_name: str
 
 
+class AwsAccountKey(ContainerKey):
+    account_id: str
+
+
 class NotebookKey(DatahubKey):
     notebook_id: int
     platform: str

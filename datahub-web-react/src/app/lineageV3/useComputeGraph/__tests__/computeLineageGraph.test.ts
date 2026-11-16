@@ -9,8 +9,11 @@ import {
     createLineageFilterNodeId,
 } from '@app/lineageV3/common';
 import computeLineageGraph from '@app/lineageV3/useComputeGraph/computeLineageGraph';
+import { getTestEntityRegistry } from '@utils/test-utils/TestPageContainer';
 
 import { EntityType, LineageDirection } from '@types';
+
+const entityRegistry = getTestEntityRegistry();
 
 type GraphContext = Pick<NodeContext, GraphStoreFields | LineageToggles | 'rootType'>;
 
@@ -67,7 +70,7 @@ function buildLinearContext(overrides: Partial<Pick<NodeContext, LineageToggles>
 
 describe('computeLineageGraph', () => {
     it('returns the root and displays nodes in both directions', () => {
-        const { roots, displayedNodes } = computeLineageGraph('root', buildLinearContext(), false);
+        const { roots, displayedNodes } = computeLineageGraph('root', buildLinearContext(), entityRegistry, false);
 
         expect(roots.map((n) => n.urn)).toEqual(['root']);
         const displayedUrns = displayedNodes.map((n) => n.id).sort();
@@ -75,7 +78,7 @@ describe('computeLineageGraph', () => {
     });
 
     it('signs order indices by direction, with the root at zero', () => {
-        const { orderIndices } = computeLineageGraph('root', buildLinearContext(), false);
+        const { orderIndices } = computeLineageGraph('root', buildLinearContext(), entityRegistry, false);
 
         expect(orderIndices.root).toBe(0);
         expect(orderIndices.downstream).toBeGreaterThan(0);
@@ -83,16 +86,22 @@ describe('computeLineageGraph', () => {
     });
 
     it('returns no roots and no displayed nodes when the root is absent from the graph', () => {
-        const { roots, displayedNodes } = computeLineageGraph('missing', buildLinearContext(), false);
+        const { roots, displayedNodes } = computeLineageGraph('missing', buildLinearContext(), entityRegistry, false);
 
         expect(roots).toEqual([]);
         expect(displayedNodes).toEqual([]);
     });
 
     it('removes nodes matched by nodeFilter before display', () => {
-        const { displayedNodes, newGraphStore } = computeLineageGraph('root', buildLinearContext(), false, {
-            nodeFilter: (node) => node.urn !== 'downstream',
-        });
+        const { displayedNodes, newGraphStore } = computeLineageGraph(
+            'root',
+            buildLinearContext(),
+            entityRegistry,
+            false,
+            {
+                nodeFilter: (node) => node.urn !== 'downstream',
+            },
+        );
 
         expect(newGraphStore.nodes.has('downstream')).toBe(false);
         expect(displayedNodes.some((n) => n.id === 'downstream')).toBe(false);
@@ -100,7 +109,7 @@ describe('computeLineageGraph', () => {
     });
 
     it('applies transformDisplayedNodes to the returned nodes', () => {
-        const { displayedNodes } = computeLineageGraph('root', buildLinearContext(), false, {
+        const { displayedNodes } = computeLineageGraph('root', buildLinearContext(), entityRegistry, false, {
             transformDisplayedNodes: (displayed) => displayed.filter((n) => n.id === 'root'),
         });
 
@@ -136,7 +145,7 @@ describe('computeLineageGraph', () => {
             hideTransformations: true,
         };
 
-        const { newGraphStore, displayedNodes } = computeLineageGraph('root', context, false);
+        const { newGraphStore, displayedNodes } = computeLineageGraph('root', context, entityRegistry, false);
 
         expect(newGraphStore.nodes.has('transform')).toBe(false);
         expect(displayedNodes.some((n) => n.id === 'transform')).toBe(false);
@@ -166,16 +175,27 @@ describe('computeLineageGraph', () => {
         const filterId = createLineageFilterNodeId('root', LineageDirection.Downstream);
 
         it('includes a filter node by default and records pagination state', () => {
-            const { displayedNodes, lineageFilters } = computeLineageGraph('root', buildFanOutContext(), false);
+            const { displayedNodes, lineageFilters } = computeLineageGraph(
+                'root',
+                buildFanOutContext(),
+                entityRegistry,
+                false,
+            );
 
             expect(displayedNodes.some((n) => n.type === LINEAGE_FILTER_TYPE)).toBe(true);
             expect(lineageFilters.get(filterId)?.contents).toEqual(CHILDREN);
         });
 
         it('omits the filter node but keeps its state when createFilterNodes is false', () => {
-            const { displayedNodes, lineageFilters } = computeLineageGraph('root', buildFanOutContext(), false, {
-                createFilterNodes: false,
-            });
+            const { displayedNodes, lineageFilters } = computeLineageGraph(
+                'root',
+                buildFanOutContext(),
+                entityRegistry,
+                false,
+                {
+                    createFilterNodes: false,
+                },
+            );
 
             expect(displayedNodes.some((n) => n.type === LINEAGE_FILTER_TYPE)).toBe(false);
             expect(lineageFilters.get(filterId)).toBeDefined();

@@ -1,13 +1,13 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DEFAULT_LANGUAGE } from '@app/i18n/constants';
 import { useEffectiveLanguage } from '@app/i18n/hooks/useEffectiveLanguage';
 import { useIsI18nEnabled } from '@app/i18n/hooks/useIsI18nEnabled';
-import { useUserLanguage } from '@app/shared/hooks/useUserLanguage';
+import { useUserLanguage } from '@app/sharedV2/hooks/useUserLanguage';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/i18n/hooks/useIsI18nEnabled');
-vi.mock('@app/shared/hooks/useUserLanguage');
+vi.mock('@app/sharedV2/hooks/useUserLanguage');
 
 const mockUseIsI18nEnabled = vi.mocked(useIsI18nEnabled);
 const mockUseUserLanguage = vi.mocked(useUserLanguage);

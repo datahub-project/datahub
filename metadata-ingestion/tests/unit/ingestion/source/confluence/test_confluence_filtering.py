@@ -9,27 +9,9 @@ from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
 from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
-from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (  # type: ignore[import-untyped]
+from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (
     create_mock_confluence_client_from_fixture,
 )
-
-
-@pytest.fixture
-def pipeline_context() -> PipelineContext:
-    """Fixture for pipeline context."""
-    return PipelineContext(run_id="test-filtering")
-
-
-@pytest.fixture
-def base_config_dict() -> dict:
-    """Base configuration dictionary for Cloud instance."""
-    return {
-        "url": "https://test.atlassian.net/wiki",
-        "username": "test@example.com",
-        "api_token": "test-token-123",
-        "cloud": True,
-    }
-
 
 # ============================================================================
 # Space Filtering Tests

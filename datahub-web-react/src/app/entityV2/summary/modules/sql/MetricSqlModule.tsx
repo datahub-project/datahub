@@ -1,10 +1,12 @@
-import { CodeBlock, Pill } from '@components';
+import { Pill } from '@components';
 import { Code } from '@phosphor-icons/react/dist/csr/Code';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { CodeBlock } from '@components/components/CodeBlock';
+
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { ModuleProps } from '@app/homeV3/module/types';

@@ -9,7 +9,7 @@
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_csv/part3.csv"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/food_csv",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=folder_a/folder_aa/folder_aaa/food_csv/",
             "name": "folder_aaa.food_csv",
             "description": "",
             "tags": []
@@ -611,7 +611,7 @@
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/food_parquet",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=folder_a/folder_aa/folder_aaa/food_parquet/",
             "name": "folder_aaa.food_parquet",
             "description": "",
             "tags": []
@@ -799,7 +799,7 @@
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/pokemon_abilities_json/year=2022/month=jan/part3.json",
                 "number_of_partitions": "2"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/pokemon_abilities_json",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=folder_a/folder_aa/folder_aaa/pokemon_abilities_json/",
             "name": "folder_aaa.pokemon_abilities_json",
             "description": "",
             "created": {

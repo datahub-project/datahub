@@ -53,6 +53,10 @@ logger = logging.getLogger(__name__)
     "Derived from observed queries when `include_operational_stats` "
     "and `include_query_usage` are enabled",
 )
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class HanaSource(SQLAlchemySource):
     """DataHub source for SAP HANA.
 

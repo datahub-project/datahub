@@ -2,10 +2,10 @@ import { findParentNodeOfType, isElementDomNode } from '@remirror/core';
 import { FloatingWrapper, useAttrs, useCommands } from '@remirror/react';
 import { Select } from 'antd';
 import React from 'react';
-import { listLanguages } from 'refractor';
 import { Positioner, defaultAbsolutePosition, hasStateChanged, isPositionVisible } from 'remirror/extensions';
 import styled from 'styled-components';
 
+import { listEditorCodeLanguages } from '@components/components/Editor/editorCodeLanguages';
 import { ToolbarContainer } from '@components/components/Editor/toolbar/FloatingToolbar';
 
 const StyledSelect = styled(Select)`
@@ -54,11 +54,11 @@ const codeBlockPositioner = Positioner.create<any>({
     },
 });
 
+const LANGUAGE_OPTIONS = listEditorCodeLanguages().map((language) => ({ value: language }));
+
 const CodeBlockMenu = () => {
     const commands = useCommands();
     const value = (useAttrs(true).codeBlock()?.language as string) ?? 'markup';
-
-    const options = listLanguages().map((language) => ({ value: language }));
 
     const onChange = (language) => {
         commands.updateCodeBlock({ language });
@@ -70,7 +70,7 @@ const CodeBlockMenu = () => {
             <StyledSelect
                 value={value}
                 size="small"
-                options={options}
+                options={LANGUAGE_OPTIONS}
                 onChange={onChange}
                 dropdownMatchSelectWidth={100}
                 showSearch

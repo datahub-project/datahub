@@ -11,6 +11,7 @@
  *   gmsToken    — GMS personal access token read from .auth/gms-token-{user}.json
  *   featureDataLoader — Feature-scoped test data injection with idempotency check
  *   cleanup     — Per-test URN tracker flushed automatically after each test
+ *   gmsRequest  — Authenticated GMS APIRequestContext (bearer + JSON), disposed after each test
  *
  * ─────────────────────────────────────────────────────────────────────────────
  * How authentication works (no global auth-setup project needed):
@@ -39,11 +40,12 @@
  * Login tests must NOT import from this file — use login-test.ts instead.
  */
 
-import { mergeTests } from '@playwright/test';
+import { mergeTests, type APIRequestContext } from '@playwright/test';
 import { loggerFixture } from './logger.fixture';
 import { mockingFixture } from './mocking.fixture';
 import { loginFixture } from './login.fixture';
 import { seedingFixture } from './seeding.fixture';
+import { domainFixture } from './domain.fixture';
 import { readGmsToken } from './login';
 import { RestFeatureDataLoader, type FeatureDataLoader } from '../utils/test-data';
 import { ApiScopedCleanup, type ScopedCleanup } from '../utils/cleanup';
@@ -51,7 +53,7 @@ import { gmsUrl } from '../utils/constants';
 
 // ── Compose the four core capability fixtures ─────────────────────────────────
 
-const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, seedingFixture);
+const composedTest = mergeTests(loggerFixture, mockingFixture, loginFixture, seedingFixture, domainFixture);
 
 // ── Additional fixtures built on top of the composition ───────────────────────
 
@@ -62,6 +64,8 @@ type ExtendedFixtures = {
   featureDataLoader: FeatureDataLoader;
   /** Per-test URN tracker; auto-flushed after each test (skipped on failure). */
   cleanup: ScopedCleanup;
+  /** Authenticated GMS APIRequestContext (bearer + JSON); disposed after the test. */
+  gmsRequest: APIRequestContext;
 };
 
 export const test = composedTest.extend<ExtendedFixtures>({
@@ -90,6 +94,20 @@ export const test = composedTest.extend<ExtendedFixtures>({
     // Preserve entities on failure so engineers can inspect the broken state.
     await scopedCleanup.flush(testInfo.status);
     await request.dispose();
+  },
+
+  // Pass absolute `${gmsUrl()}/...` URLs: on a deployed instance the baseURL ends in `/gms`,
+  // and a path starting with `/` drops that prefix and hits the frontend instead.
+  gmsRequest: async ({ playwright, gmsToken }, use) => {
+    const request = await playwright.request.newContext({
+      baseURL: gmsUrl(),
+      extraHTTPHeaders: { Authorization: `Bearer ${gmsToken}`, 'Content-Type': 'application/json' },
+    });
+    try {
+      await use(request);
+    } finally {
+      await request.dispose();
+    }
   },
 });
 

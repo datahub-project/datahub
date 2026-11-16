@@ -2,10 +2,12 @@ package com.linkedin.metadata.graph.elastic;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.graph.GraphFilters;
+import com.linkedin.metadata.graph.LineageCountResult;
 import com.linkedin.metadata.graph.LineageGraphFilters;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchResponse;
@@ -24,6 +26,13 @@ public interface GraphQueryDAO {
       int offset,
       @Nullable Integer count,
       int maxHops);
+
+  /** Count distinct one-hop neighbours of a set of entities without fetching edges. */
+  LineageCountResult getLineageCount(
+      @Nonnull OperationContext opContext,
+      @Nonnull Set<Urn> entityUrns,
+      @Nonnull LineageGraphFilters lineageGraphFilters,
+      int sampleSize);
 
   /** Get impact lineage for a given entity. */
   LineageResponse getImpactLineage(

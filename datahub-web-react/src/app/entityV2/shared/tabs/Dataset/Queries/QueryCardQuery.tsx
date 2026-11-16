@@ -1,7 +1,7 @@
-import { CodeBlock } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
+import { CodeBlock } from '@components/components/CodeBlock';
 import { CodeBlockContent } from '@components/components/CodeBlock/components';
 
 import { SQL_LANGUAGE } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/constants';

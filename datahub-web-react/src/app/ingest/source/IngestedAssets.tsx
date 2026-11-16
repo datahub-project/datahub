@@ -2,16 +2,16 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
     getTotalEntitiesIngested,
 } from '@app/ingest/source/utils';
 import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-import { formatNumber } from '@app/shared/formatNumber';
+import { Message } from '@app/sharedV2/Message';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 

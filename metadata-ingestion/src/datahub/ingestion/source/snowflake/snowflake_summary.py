@@ -5,8 +5,13 @@ from typing import Dict, Iterable, List, Optional
 from datahub.configuration.source_common import LowerCaseDatasetUrnConfigMixin
 from datahub.configuration.time_window_config import BaseTimeWindowConfig
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.api.decorators import SupportStatus, config_class, support_status
-from datahub.ingestion.api.source import Source, SourceReport
+from datahub.ingestion.api.decorators import (
+    SupportStatus,
+    capability,
+    config_class,
+    support_status,
+)
+from datahub.ingestion.api.source import Source, SourceCapability, SourceReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.snowflake.snowflake_config import (
     SnowflakeFilterConfig,
@@ -60,6 +65,10 @@ class SnowflakeSummaryReport(SourceReport, BaseTimeWindowReport):
 
 @config_class(SnowflakeSummaryConfig)
 @support_status(SupportStatus.GA)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
+)
 class SnowflakeSummarySource(Source):
     def __init__(self, ctx: PipelineContext, config: SnowflakeSummaryConfig):
         super().__init__(ctx)

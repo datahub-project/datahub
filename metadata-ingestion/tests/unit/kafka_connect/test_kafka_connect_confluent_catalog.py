@@ -323,7 +323,7 @@ class TestCatalogLineage:
     def test_unknown_source_with_all_catalog_topics_filtered_is_still_skipped(
         self,
     ) -> None:
-        # Catalog listed topics, but none are on the live cluster — no registry
+        # Catalog listed topics, but none are on the live cluster - no registry
         # handler either, so drop the connector rather than emit an empty flow.
         source = make_cloud_source(
             [{"name": "exotic_source", "topics": [{"name": "stale_topic"}]}]

@@ -1,4 +1,4 @@
-import { Button, Editor, Text, Tooltip } from '@components';
+import { Button, Text, Tooltip } from '@components';
 import { PencilSimpleLine } from '@phosphor-icons/react/dist/csr/PencilSimpleLine';
 import queryString from 'query-string';
 import React, { useEffect, useRef, useState } from 'react';
@@ -11,12 +11,14 @@ import EditDescriptionModal from '@app/entityV2/summary/documentation/EditDescri
 import { useDescriptionUtils } from '@app/entityV2/summary/documentation/useDescriptionUtils';
 import { useDocumentationPermission } from '@app/entityV2/summary/documentation/useDocumentationPermission';
 import RelatedSection from '@app/entityV2/summary/links/RelatedSection';
+import { Editor } from '@app/sharedV2/editor/Editor';
 
 const StyledEditor = styled(Editor)<{ $isEditing?: boolean }>`
     border: none;
     margin-top: 4px;
     &&& {
-        .remirror-editor.ProseMirror {
+        .remirror-editor.ProseMirror,
+        .datahub-editor-content {
             padding: 0;
             color: ${(props) => props.theme.colors.text};
         }

@@ -1,12 +1,16 @@
 import json
 import os
+import re
+import subprocess
 import time
+from pathlib import Path
 from typing import Any, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
 
 import pytest
 import time_machine
+import yaml
 from sqlalchemy import exc
 
 from datahub.ingestion.source.sql.oracle import (
@@ -20,7 +24,6 @@ from tests.integration.oracle.common import (  # type: ignore[import-untyped]
     OracleTestCaseBase,
 )
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import wait_for_port
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -30,6 +33,12 @@ VOLATILE_STAGING_TABLES = {
     "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.employee_backup,PROD)",
     "urn:li:dataset:(urn:li:dataPlatform:oracle,xepdb1.staging_schema.daily_revenue,PROD)",
 }
+
+# In these recipes a DML query entity can only come from V$SQL: view and
+# materialized view definitions are SELECTs.
+_DML_STATEMENT_PATTERN = re.compile(
+    r"^\s*(INSERT|UPDATE|DELETE|MERGE)\b", re.IGNORECASE
+)
 
 
 def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
@@ -41,20 +50,25 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     - Oracle cache flush timing
     - Memory pressure
     - Query execution timing
+    - The max_queries_to_extract cut: the connector keeps the newest
+      statements by FIRST_LOAD_TIME, which has one-second resolution, and
+      setup loads about that many, so runner speed decides which make it in
 
-    This function removes entities related to staging tables that are populated
-    by volatile INSERT queries, making tests deterministic regardless of cache state.
+    This function removes every DML query (for example the UPDATE inside
+    sales_schema.process_order, which setup calls), its lineage, and the
+    staging tables that only exist to receive setup INSERTs, making tests
+    deterministic regardless of cache state.
     """
     filtered = []
     volatile_query_urns = set()
 
-    # First pass: collect query URNs that reference volatile staging tables
+    # First pass: collect URNs of DML queries and of queries on staging tables
     for entity in metadata_json:
         if entity.get("entityType") == "query":
-            # Check if query references any volatile staging tables
             aspect_json = entity.get("aspect", {}).get("json", {})
             query_subjects = aspect_json.get("subjects", [])
-            if any(
+            statement = aspect_json.get("statement", {}).get("value", "")
+            if _DML_STATEMENT_PATTERN.match(statement) or any(
                 subject.get("entity") in VOLATILE_STAGING_TABLES
                 for subject in query_subjects
             ):
@@ -94,31 +108,91 @@ def filter_volatile_vsql_queries(metadata_json: List[dict]) -> List[dict]:
     return filtered
 
 
-ORACLE_PORT = 1521  # Oracle listener port
+# TCPS. 1521 is not published. The listener keeps it on 0.0.0.0 so the
+# instance can register.
+ORACLE_PORT = 2484
+
+
+def _wait_for_ready_file(ready_file: Path, timeout: float = 600) -> None:
+    deadline = time.monotonic() + timeout
+    while time.monotonic() < deadline:
+        if ready_file.is_file():
+            return
+        time.sleep(0.5)
+    detail = _setup_failure_detail(ready_file)
+    raise TimeoutError(
+        f"Oracle TCPS setup did not finish within {timeout:.0f}s; expected {ready_file}\n{detail}"
+    )
+
+
+def _setup_failure_detail(ready_file: Path) -> str:
+    parts: List[str] = []
+    log = ready_file.parent / "setup.log"
+    if log.is_file():
+        parts.append(log.read_text(errors="replace")[-4000:])
+    else:
+        parts.append("startup script wrote no setup.log")
+    try:
+        logs = subprocess.run(
+            ["docker", "logs", "--tail", "80", "testoracle"],
+            check=False,
+            capture_output=True,
+            text=True,
+            timeout=20,
+        )
+        blob = f"{logs.stdout or ''}{logs.stderr or ''}".strip()
+        if blob:
+            parts.append(blob[-4000:])
+    except (OSError, subprocess.TimeoutExpired) as exc:
+        parts.append(f"docker logs failed: {exc}")
+    return "\n".join(parts)
+
+
+def _oracle_tls_connect_args(port: int) -> dict:
+    return {
+        "dsn": (
+            "(DESCRIPTION=(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)"
+            f"(PORT={port}))(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+        ),
+        # ewallet.pem in this directory is the self-signed server cert the
+        # container exported. Hostname match is off: orapki does not put a
+        # SAN on that cert, and the wallet still pins which cert we trust.
+        "wallet_location": os.environ["ORACLE_WALLET"],
+        "ssl_server_dn_match": False,
+    }
 
 
 @pytest.fixture(scope="module")
 def oracle_runner(docker_compose_runner, pytestconfig, request):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/oracle"
+    # Compose interpolates ORACLE_TLS_DIR when it starts. The startup script
+    # runs as oracle and writes ewallet.pem plus a ready file into this tree.
+    tls_dir = test_resources_dir / ".tls"
+    wallet_dir = tls_dir / "wallet"
+    wallet_dir.mkdir(parents=True, exist_ok=True)
+    # The runner owns these directories. 0755 rejects the wallet export from
+    # the container uid.
+    tls_dir.chmod(0o777)
+    wallet_dir.chmod(0o777)
+    ready_file = tls_dir / "ready"
+    ready_file.unlink(missing_ok=True)
+    mp = pytest.MonkeyPatch()
+    mp.setenv("ORACLE_TLS_DIR", str(tls_dir))
+    mp.setenv("ORACLE_WALLET", str(wallet_dir))
+    request.addfinalizer(mp.undo)
     with docker_compose_runner(
         test_resources_dir / "docker-compose.yml", "oracle"
     ) as docker_services:
-        wait_for_port(
-            docker_services,
-            "testoracle",
-            ORACLE_PORT,
-            timeout=300,
-        )
+        # The ready file appears only after XEPDB1 is registered. 2484 itself
+        # opens earlier, at lsnrctl start. Cold XE creation plus the startup
+        # SQL needs longer than the old TCP wait.
+        _wait_for_ready_file(ready_file)
 
         # The compose file exposes the listener port ephemerally, so a leaked
         # container from a prior run can never hold onto the port a fresh run
         # needs. Recipe ymls in this directory pick it up via ${ORACLE_PORT}.
         oracle_port = docker_services.port_for("testoracle", ORACLE_PORT)
-        mp = pytest.MonkeyPatch()
         mp.setenv("ORACLE_PORT", str(oracle_port))
-        request.addfinalizer(mp.undo)
-
-        time.sleep(30)  # Extra time for setup scripts to complete
 
         yield oracle_port
 
@@ -141,7 +215,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     output_path = tmp_path / "oracle_mces.json"
     golden_path = (
         test_resources_dir
-        / f"golden_files/golden_mces_{config_file.replace('.yml', '.json')}"
+        / f"golden_files/golden_{config_file.replace('.yml', '.json')}"
     )
 
     # auditStamp.time comes from V$SQL LAST_ACTIVE_TIME, not Python's clock
@@ -158,7 +232,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
         output_filtered = filter_volatile_vsql_queries(output_data)
         golden_filtered = filter_volatile_vsql_queries(golden_data)
 
-        filtered_output_path = tmp_path / "oracle_mces_filtered.json"
+        filtered_output_path = tmp_path / "oracle_filtered.json"
         with open(filtered_output_path, "w") as f:
             json.dump(output_filtered, f, indent=4)
 
@@ -168,6 +242,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
 
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=filtered_output_path,
             golden_path=filtered_golden_path,
             ignore_paths=ignore_paths,
@@ -175,6 +250,7 @@ def test_oracle_ingest(oracle_runner, pytestconfig, tmp_path, mock_time, config_
     else:
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=output_path,
             golden_path=golden_path,
             ignore_paths=ignore_paths,
@@ -189,12 +265,46 @@ def test_oracle_test_connection(oracle_runner):
         "password": "example",
         "host_port": f"localhost:{oracle_runner}",
         "service_name": "XEPDB1",
+        "options": {"connect_args": _oracle_tls_connect_args(oracle_runner)},
     }
 
     report = OracleSource.test_connection(config_dict)
     assert report.basic_connectivity is not None
     assert report.basic_connectivity.capable
     assert report.basic_connectivity.failure_reason is None
+
+
+@pytest.mark.integration
+def test_oracle_connect_args_dsn_failover(oracle_runner):
+    """The documented HA pattern: a multi-address descriptor in
+    options.connect_args.dsn overrides host_port and fails over past an
+    unreachable first address."""
+    tls_args = _oracle_tls_connect_args(oracle_runner)
+    recipe = yaml.safe_load(
+        Path(SOURCE_FILES_PATH, "oracle_to_file_with_all_tables.yml").read_text()
+    )["source"]["config"]
+    config_dict = {
+        "username": recipe["username"],
+        "password": recipe["password"],
+        # Required by the config but unused: connect_args.dsn takes precedence.
+        "host_port": "unused:1521",
+        "options": {
+            "connect_args": {
+                **tls_args,
+                "dsn": (
+                    "(DESCRIPTION=(FAILOVER=on)(LOAD_BALANCE=off)(ADDRESS_LIST="
+                    # Nothing listens on port 1, so the driver must move on.
+                    "(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT=1))"
+                    f"(ADDRESS=(PROTOCOL=TCPS)(HOST=localhost)(PORT={oracle_runner})))"
+                    "(CONNECT_DATA=(SERVICE_NAME=XEPDB1)))"
+                ),
+            }
+        },
+    }
+
+    report = OracleSource.test_connection(config_dict)
+    assert report.basic_connectivity is not None
+    assert report.basic_connectivity.capable, report.basic_connectivity.failure_reason
 
 
 class OracleErrorHandlingMockData(OracleSourceMockDataBase):

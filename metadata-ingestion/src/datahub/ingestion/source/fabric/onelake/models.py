@@ -9,6 +9,9 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Literal, Optional
 
+# The Fabric item types OneLake ingests.
+FabricItemType = Literal["Lakehouse", "Warehouse"]
+
 
 @dataclass
 class FabricItem:
@@ -19,7 +22,7 @@ class FabricItem:
 
     id: str
     name: str
-    type: Literal["Lakehouse", "Warehouse"]  # Item type
+    type: FabricItemType
     workspace_id: str
     description: Optional[str] = None
     # TODO: Add support for shortcuts when available in API

@@ -1,5 +1,4 @@
 import React, { useCallback, useLayoutEffect, useRef } from 'react';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
 
 import {
     CodeBlockEditorFrame,
@@ -8,6 +7,7 @@ import {
     CodeBlockTextarea,
 } from '@components/components/CodeBlock/components';
 import { CODE_BLOCK_TAB_INDENT } from '@components/components/CodeBlock/defaults';
+import { SyntaxHighlighter } from '@components/components/CodeBlock/highlighter';
 import { PrismStyle } from '@components/components/CodeBlock/prismTheme';
 import {
     insertTextAtSelection,

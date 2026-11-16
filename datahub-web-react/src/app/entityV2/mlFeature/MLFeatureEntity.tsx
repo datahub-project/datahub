@@ -7,11 +7,11 @@ import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/mlFeature/preview/Preview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -32,6 +32,7 @@ import {
     SidebarTagsSection,
     StatusSection,
 } from '@app/entityV2/shared/profileChunks';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SidebarTitleActionType, getDataProduct, isOutputPort } from '@app/entityV2/shared/utils';
 
 import { useGetMlFeatureQuery } from '@graphql/mlFeature.generated';
@@ -44,6 +45,7 @@ const FeatureTableTab = lazyProfileComponent('FeatureTableTab', () =>
 );
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.RAISE_INCIDENT,
     EntityMenuItems.ANNOUNCE,
@@ -102,27 +104,32 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             tabs={[
                 {
                     name: i18next.t('entity.types:tab.featureTables'),
+                    path: EntityTabPath.FEATURE_TABLES,
                     component: FeatureTableTab,
                     icon: Infinity,
                 },
                 {
                     name: i18next.t('entity.types:tab.documentation'),
+                    path: EntityTabPath.DOCUMENTATION,
                     component: DocumentationTab,
                     icon: FileText,
                 },
                 {
                     name: i18next.t('entity.types:tab.lineage'),
+                    path: EntityTabPath.LINEAGE,
                     component: LineageTab,
                     icon: TreeStructure,
                     supportsFullsize: true,
                 },
                 {
                     name: i18next.t('entity.types:tab.properties'),
+                    path: EntityTabPath.PROPERTIES,
                     component: PropertiesTab,
                     icon: ListBullets,
                 },
                 {
                     name: i18next.t('entity.types:tab.incidents'),
+                    path: EntityTabPath.INCIDENTS,
                     icon: WarningCircle,
                     component: IncidentTab,
                     getCount: (_, mlFeature) => {
@@ -173,6 +180,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -182,6 +190,7 @@ export class MLFeatureEntity implements Entity<MlFeature> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

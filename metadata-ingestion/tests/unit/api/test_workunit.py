@@ -108,3 +108,28 @@ def test_get_aspects_of_type_mcpc():
     )
     wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
     assert wu.get_aspect_of_type(StatusClass) is None
+
+
+def test_get_json_patch_aspect():
+    patch = GenericAspectClass(
+        value=b"[]",
+        contentType=JSON_PATCH_CONTENT_TYPE,
+    )
+    mcpc = MetadataChangeProposalClass(
+        entityUrn="urn:li:dataset:asdf",
+        entityType="dataset",
+        changeType=ChangeTypeClass.PATCH,
+        aspectName=UpstreamLineageClass.ASPECT_NAME,
+        aspect=patch,
+    )
+    wu = MetadataWorkUnit(id="id", mcp_raw=mcpc)
+    assert wu.get_json_patch_aspect(UpstreamLineageClass) is patch
+    assert wu.get_json_patch_aspect(StatusClass) is None
+
+    mcpc.changeType = ChangeTypeClass.UPSERT
+    assert wu.get_json_patch_aspect(UpstreamLineageClass) is None
+
+    wu = MetadataChangeProposalWrapper(
+        entityUrn="urn:li:dataset:asdf", aspect=UpstreamLineageClass(upstreams=[])
+    ).as_workunit()
+    assert wu.get_json_patch_aspect(UpstreamLineageClass) is None

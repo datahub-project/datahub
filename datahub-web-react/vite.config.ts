@@ -4,12 +4,15 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, defineConfig, loadEnv } from 'vite';
+import { PluginOption, ProxyOptions, UserConfig, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
+import { configDefaults } from 'vitest/config';
 
 // Vite config is evaluated by Node before `@src` aliases exist.
 /* eslint-disable import-alias/import-alias */
+import { liteModePlugin } from './devtools/vite-preview-plugin/liteMode';
+import { authShellPreloadPlugin } from './vite-plugins/authShellPreloadPlugin';
 import { i18nLocaleBundlesPlugin } from './vite-plugins/i18nLocaleBundlesPlugin';
 import { precompressAssetsPlugin } from './vite-plugins/precompressAssetsPlugin';
 
@@ -48,6 +51,63 @@ export function stripDotSlashFromAssets() {
     };
 }
 
+// Records which JS files index.html loads before the app runs, and how many
+// catalog modules each of those files contains. A named vendor chunk is eager
+// as soon as the shell imports one module from it, so the file list — not a
+// filename glob — is the budget.
+export function eagerBudgetReport() {
+    const eagerFiles: string[] = [];
+    const moduleCounts = new Map<string, { phosphorModules: number; muiIconModules: number }>();
+    return {
+        name: 'eager-budget-report',
+        apply: 'build' as const,
+        // vite:build-html injects <script> tags inside its own generateBundle, and that
+        // hook runs after user plugins. Counting here and writing in closeBundle sees both.
+        generateBundle(
+            _options: unknown,
+            bundle: Record<string, { type: string; fileName: string; modules?: Record<string, unknown> }>,
+        ) {
+            Object.values(bundle).forEach((item) => {
+                if (item.type !== 'chunk') {
+                    return;
+                }
+                const moduleIds = Object.keys(item.modules || {});
+                moduleCounts.set(item.fileName, {
+                    phosphorModules: moduleIds.filter((id) => id.includes('phosphor-icons')).length,
+                    muiIconModules: moduleIds.filter((id) => id.includes('icons-material')).length,
+                });
+            });
+        },
+        transformIndexHtml: {
+            order: 'post' as const,
+            handler(html: string, ctx: { filename?: string; path?: string }) {
+                const filename = ctx.filename || ctx.path || '';
+                if (path.basename(filename) !== 'index.html') {
+                    return html;
+                }
+                const srcs = new Set<string>();
+                const add = (src: string) => srcs.add(src.replace(/^\.\//, '').replace(/^\//, ''));
+                Array.from(html.matchAll(/<script[^>]*\ssrc="([^"]+\.js)"/g)).forEach((match) => add(match[1]));
+                Array.from(html.matchAll(/<link[^>]*rel="modulepreload"[^>]*>/g)).forEach((match) => {
+                    const href = match[0].match(/href="([^"]+\.js)"/);
+                    if (href) add(href[1]);
+                });
+                eagerFiles.splice(0, eagerFiles.length, ...srcs);
+                return html;
+            },
+        },
+        closeBundle() {
+            const chunks = eagerFiles.map((file) => ({
+                file,
+                ...(moduleCounts.get(file) || { phosphorModules: 0, muiIconModules: 0 }),
+            }));
+            const outFile = path.resolve(__dirname, 'dist', 'eager-budget-report.json');
+            fs.mkdirSync(path.dirname(outFile), { recursive: true });
+            fs.writeFileSync(outFile, `${JSON.stringify({ chunks }, null, 2)}\n`);
+        },
+    };
+}
+
 // Fails fast with a clear message if lazy icon stubs haven't been generated.
 // Prevents silent fallback-to-AppWindow when running outside Gradle.
 function assertLazyIconsGenerated(): PluginOption {
@@ -78,13 +138,13 @@ function substituteBasePathForDev(): PluginOption {
         name: 'substitute-base-path-dev',
         apply: 'serve',
         transformIndexHtml(html) {
-            return html.replace('@basePath', '/');
+            return html.replace('@basePath', '/').replace('@sentryConfig', 'null');
         },
     };
 }
 
 // https://vitejs.dev/config/
-export default defineConfig(async ({ mode }) => {
+export default defineConfig(async ({ mode }): Promise<UserConfig> => {
     const { viteStaticCopy } = await import('vite-plugin-static-copy');
 
     // Via https://stackoverflow.com/a/66389044.
@@ -95,7 +155,7 @@ export default defineConfig(async ({ mode }) => {
     let antThemeConfig: any;
     if (process.env.ANT_THEME_CONFIG) {
         const themeConfigFile = `./src/conf/theme/${process.env.ANT_THEME_CONFIG}`;
-        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-var-requires
+        // eslint-disable-next-line global-require, import/no-dynamic-require, @typescript-eslint/no-require-imports
         antThemeConfig = require(themeConfigFile);
     }
 
@@ -122,14 +182,17 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
-    const proxyOptions = {
-        '/logIn': frontendProxy,
-        '/authenticate': frontendProxy,
-        '/api/v2/graphql': frontendProxy,
-        '/openapi/v1/tracking/track': frontendProxy,
-        '/openapi/v1/files': frontendProxy,
-        '/mfe/config': frontendProxy,
-    };
+    const proxyOptions: Record<string, ProxyOptions> =
+        process.env.PREVIEW_MODE === 'lite'
+            ? {}
+            : {
+                  '/logIn': frontendProxy,
+                  '/authenticate': frontendProxy,
+                  '/api/v2/graphql': frontendProxy,
+                  '/openapi/v1/tracking/track': frontendProxy,
+                  '/openapi/v1/files': frontendProxy,
+                  '/mfe/config': frontendProxy,
+              };
 
     const isHttps = process.env.REACT_APP_HTTPS === 'true';
     const localesDir = path.resolve(__dirname, 'src/i18n/locales');
@@ -148,6 +211,7 @@ export default defineConfig(async ({ mode }) => {
         appType: 'spa',
         base: './', // Always use root - runtime base path detection handles deployment paths
         plugins: [
+            liteModePlugin(),
             i18nLocaleBundlesPlugin(localesDir),
             substituteBasePathForDev(),
             assertLazyIconsGenerated(),
@@ -164,7 +228,10 @@ export default defineConfig(async ({ mode }) => {
             macrosPlugin(),
             viteStaticCopy({
                 targets: [
-                    // Self-host images by copying them to the build directory
+                    // Self-host images by copying them to the build directory.
+                    // Keep these in a subdirectory of assets/. ContentHashedAssetCacheFilter treats a
+                    // single filename directly under /assets/ as a Vite content hash and caches it for
+                    // a year. These URLs are stable and must stay revalidatable.
                     { src: path.resolve(__dirname, 'src/images/*'), dest: 'assets/platforms' },
                     // Also keep the theme json files in the build directory
                     { src: path.resolve(__dirname, 'src/conf/theme/*.json'), dest: 'assets/conf/theme' },
@@ -206,6 +273,8 @@ export default defineConfig(async ({ mode }) => {
                 gitService: 'github',
             }),
             stripDotSlashFromAssets(),
+            eagerBudgetReport(),
+            authShellPreloadPlugin(),
             // closeBundle order: 'post' — runs after vite-plugin-static-copy writes Monaco etc.
             precompressAssetsPlugin(),
         ],
@@ -225,26 +294,27 @@ export default defineConfig(async ({ mode }) => {
             target: 'esnext',
             minify: 'esbuild',
             reportCompressedSize: false,
-            // Limit number of worker threads to reduce CPU pressure
-            workers: 3, // default is number of CPU cores
             rollupOptions: {
                 output: {
                     // Emit source maps without inlined sourcesContent. The original source text is
-                    // ~70% of each map's bytes and pushes the largest 'source' map over Cloudflare
+                    // ~70% of each map's bytes and used to push the largest app map over Cloudflare
                     // Pages' 25 MiB (26,214,400 byte) per-file limit, which breaks the preview
                     // deploy Meticulous records against. The mappings + source paths that remain are
                     // what Meticulous needs to attribute coverage to source files; it fetches the
-                    // original files from the served build rather than reading inlined text. Keeps
-                    // every map well under the limit without splitting app code (static app-code
-                    // splits cut import cycles and cause "cannot access X before initialization"
-                    // TDZ crashes at load).
+                    // original files from the served build rather than reading inlined text.
+                    // Route-level React.lazy() splits app code into async chunks, which
+                    // also keeps individual maps smaller. Do not add static manualChunks splits of
+                    // src/ — those cut import cycles and cause "cannot access X before
+                    // initialization" TDZ crashes at load (OSS hit this and backed out).
                     sourcemapExcludeSources: true,
-                    // Locale splitting is handled by i18nLocaleBundlesPlugin's virtual dynamic
-                    // imports, so nothing is assigned here. The hook is kept as an extension
-                    // point for builds that layer on their own chunk assignments.
-                    manualChunks() {
-                        return undefined;
-                    },
+                    // No manualChunks. A named chunk is eager as soon as the shell
+                    // statically imports one module from it. The old vendor catch-all
+                    // pulled import()-only dependencies onto index.html. Naming the
+                    // MUI icon catalog did the same once shared React and MUI packages
+                    // landed in that chunk. Rollup's default splitting keeps those
+                    // graphs async. authShellPreloadPlugin modulepreloads the logged-in
+                    // provider graph when the actor cookie is set, so /login does not
+                    // download it.
                 },
             },
         },
@@ -253,7 +323,8 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
-            https: isHttps,
+            // Vite 6 types `https` as TLS options; an empty object enables HTTPS like `true` did.
+            https: isHttps ? {} : undefined,
         },
         css: {
             preprocessorOptions: {
@@ -266,6 +337,9 @@ export default defineConfig(async ({ mode }) => {
             },
         },
         test: {
+            // scripts/*.test.mjs uses node:test and is run from the frontend-build job.
+            // Vitest would otherwise collect it and fail with "No test suite found".
+            exclude: [...configDefaults.exclude, 'scripts/**', 'devtools/**'],
             globals: true,
             environment: 'jsdom',
             setupFiles: './src/setupTests.ts',
@@ -275,6 +349,13 @@ export default defineConfig(async ({ mode }) => {
             hookTimeout: 30000, // 30 seconds timeout for hooks
             teardownTimeout: 15000, // 15 seconds timeout for teardown
             ...(isCI ? {} : { maxWorkers: 2, minWorkers: 1 }),
+            server: {
+                deps: {
+                    // ESM package importing `react/jsx-runtime`, which React 17 lacks an `exports` entry for,
+                    // so Node's resolver fails. Let Vite resolve it instead. Remove once on React 18+.
+                    inline: ['react-diff-viewer-continued'],
+                },
+            },
             onConsoleLog(log) {
                 // Suppress noisy Apollo Client / GraphQL mock warnings that produce
                 // thousands of lines of output and make CI logs unreadable.

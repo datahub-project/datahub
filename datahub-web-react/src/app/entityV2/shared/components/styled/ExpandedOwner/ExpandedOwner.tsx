@@ -1,11 +1,11 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import analytics, { EntityActionType, EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getNameFromType } from '@app/entityV2/shared/containers/profile/sidebar/Ownership/ownershipUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
@@ -24,9 +24,10 @@ type Props = {
     owner: Owner;
     refetch?: () => Promise<any>;
     readOnly?: boolean;
+    hideHoverCard?: boolean;
 };
 
-export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) => {
+export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly, hideHoverCard }: Props) => {
     const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
     const { entityType } = useEntityData();
@@ -63,7 +64,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     },
                 },
             });
-            message.success({ content: t('owner.removedSuccess'), duration: 2 });
+            toast.success(t('owner.removedSuccess'), { duration: 2 });
             analytics.event({
                 type: EventType.EntityActionEvent,
                 actionType: EntityActionType.UpdateOwnership,
@@ -79,9 +80,9 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     3000,
                 );
         } catch (e: unknown) {
-            message.destroy();
+            toast.destroy();
             if (e instanceof Error) {
-                message.error({ content: t('owner.removeError', { message: e.message || '' }), duration: 3 });
+                toast.error(t('owner.removeError', { message: e.message || '' }), { duration: 3 });
             }
         }
         refetch?.();
@@ -102,6 +103,7 @@ export const ExpandedOwner = ({ entityUrn, owner, refetch, readOnly }: Props) =>
                     onClose={!readOnly ? onClose : undefined}
                     hideLink={readOnly}
                     propagationDetails={propagationDetails}
+                    hideHoverCard={hideHoverCard}
                 />
             </OwnerWrapper>
             <ConfirmationModal

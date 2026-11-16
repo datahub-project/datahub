@@ -7,7 +7,7 @@ import { useInitializeColumnLineageCards } from '@app/entityV2/shared/components
 import { useSearchContext } from '@app/search/context/SearchContext';
 import { MATCHES_CONTAINER_HEIGHT } from '@app/searchV2/SearchResultList';
 import { MatchContextContainer } from '@app/searchV2/matches/MatchContextContainer';
-import { PreviewSection } from '@app/shared/MatchesContext';
+import { PreviewSection } from '@app/sharedV2/MatchesContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Entity, EntityPath, EntityType, SearchResult } from '@types';

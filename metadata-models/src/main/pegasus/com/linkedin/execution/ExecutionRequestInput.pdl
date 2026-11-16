@@ -50,7 +50,14 @@ record ExecutionRequestInput {
    * Urn of the actor who created this execution request.
    */
   @Searchable = {
-    "fieldType": "URN"
+    "fieldType": "URN",
+    "v3": {
+      "searchLabel": "owners",
+      "hasValuesFieldName": "hasOwners",
+      "mappings": [
+        { "type": "URN" }
+      ]
+    }
   }
   actorUrn: optional Urn
 

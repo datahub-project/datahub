@@ -1,0 +1,44 @@
+"""
+An entity that can have incidents
+"""
+interface HasIncidents {
+  """
+  Incidents associated with the entity
+  """
+  incidents(
+    """
+    Optional incident state to filter by, defaults to any state.
+    """
+    state: IncidentState
+    """
+    Optional incident stage to filter by, defaults to any stage.
+    """
+    stage: IncidentStage
+    """
+    Optional incident priority to filter by, defaults to any priority.
+    """
+    priority: IncidentPriority
+    """
+    Optional assignee urns for an incident.
+    """
+    assigneeUrns: [String!]
+    """
+    Optional start offset, defaults to 0.
+    """
+    start: Int
+    """
+    Optional number of results to return, defaults to 20.
+    """
+    count: Int
+  ): EntityIncidentsResult
+}
+
+extend type Chart implements HasIncidents
+extend type Dashboard implements HasIncidents
+extend type DataFlow implements HasIncidents
+extend type DataJob implements HasIncidents
+extend type Dataset implements HasIncidents
+extend type MLFeature implements HasIncidents
+extend type MLFeatureTable implements HasIncidents
+extend type MLModel implements HasIncidents
+extend type SchemaFieldEntity implements HasIncidents

@@ -8,7 +8,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import { GroupList } from '@app/identity/group/GroupList';
 import { ServiceAccountList } from '@app/identity/serviceAccount';
 import { UserList } from '@app/identity/user/UserList';
-import { RoutedTabs } from '@app/shared/RoutedTabs';
+import { RoutedTabs } from '@app/sharedV2/RoutedTabs';
 
 const PageContainer = styled.div`
     padding-top: 20px;

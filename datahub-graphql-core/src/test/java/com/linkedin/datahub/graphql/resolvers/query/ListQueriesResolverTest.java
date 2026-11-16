@@ -25,6 +25,7 @@ import com.linkedin.datahub.graphql.generated.FilterOperator;
 import com.linkedin.datahub.graphql.generated.ListQueriesInput;
 import com.linkedin.datahub.graphql.generated.ListQueriesResult;
 import com.linkedin.datahub.graphql.generated.QuerySource;
+import com.linkedin.datahub.graphql.generated.SortQueriesInput;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.client.EntityClient;
@@ -32,6 +33,8 @@ import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
@@ -40,6 +43,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.query.QuerySubject;
 import com.linkedin.query.QuerySubjectArray;
 import com.linkedin.query.QuerySubjects;
@@ -57,6 +61,7 @@ import java.util.Set;
 import java.util.concurrent.CompletionException;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -133,6 +138,76 @@ public class ListQueriesResolverTest {
     assertEquals(resolver.get(mockEnv).get().getQueries().size(), 1);
     assertEquals(
         resolver.get(mockEnv).get().getQueries().get(0).getUrn(), TEST_QUERY_URN.toString());
+  }
+
+  @Test
+  public void testDefaultSortUsesV3SystemCreatedTimeWhenSearchV3Enabled() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    ArgumentCaptor<List<com.linkedin.metadata.query.filter.SortCriterion>> sortCaptor =
+        ArgumentCaptor.forClass(List.class);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(), any(), any(), any(), any(), any(), sortCaptor.capture(), anyInt()))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
+
+    EntityIndexConfiguration searchV3 =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient, searchV3);
+
+    QueryContext mockContext =
+        createContext(
+            queryViewPrivilegeAuthorizer(true), mockQuerySubjectsAspectRetriever(), false);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input")))
+        .thenReturn(new ListQueriesInput(0, 20, null, null, null, null, null));
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    assertEquals(
+        sortCaptor.getValue().get(0).getField(), MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+  }
+
+  @Test
+  public void testExplicitCreatedAtSortUsesV3SystemCreatedTime() throws Exception {
+    EntityClient mockClient = Mockito.mock(EntityClient.class);
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<com.linkedin.metadata.query.filter.SortCriterion>> sortCaptor =
+        ArgumentCaptor.forClass(List.class);
+    Mockito.when(
+            mockClient.scrollAcrossEntities(
+                any(), any(), any(), any(), any(), any(), sortCaptor.capture(), anyInt()))
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray()));
+
+    EntityIndexConfiguration searchV3 =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    ListQueriesResolver resolver = new ListQueriesResolver(mockClient, searchV3);
+
+    QueryContext mockContext =
+        createContext(
+            queryViewPrivilegeAuthorizer(true), mockQuerySubjectsAspectRetriever(), false);
+    com.linkedin.datahub.graphql.generated.SortCriterion createdAt =
+        new com.linkedin.datahub.graphql.generated.SortCriterion();
+    createdAt.setField(ListQueriesResolver.CREATED_AT_FIELD);
+    createdAt.setSortOrder(com.linkedin.datahub.graphql.generated.SortOrder.ASCENDING);
+    ListQueriesInput input = new ListQueriesInput(0, 20, null, null, null, null, null);
+    input.setSortInput(new SortQueriesInput(createdAt));
+
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    resolver.get(mockEnv).get();
+
+    assertEquals(
+        sortCaptor.getValue().get(0).getField(), MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+    assertEquals(sortCaptor.getValue().get(0).getOrder(), SortOrder.ASCENDING);
   }
 
   @Test

@@ -28,6 +28,15 @@ if (extra_pip_extras != "") {
 
 def pip_install_command = "VIRTUAL_ENV=${venv_name} ${venv_name}/bin/uv pip install -e ../../metadata-ingestion ${extra_pip_requirements}"
 
+// Airflow's published constraints pin anyio and click below acryl-datahub's
+// floors. Rewrite those two pins; leave the rest of the file intact.
+def relaxed_constraints = ""
+def relax_constraints_command = ""
+if (extra_pip_constraints != "") {
+    relaxed_constraints = "-c ${venv_name}/relaxed-constraints.txt"
+    relax_constraints_command = "${python_executable} scripts/relax_airflow_constraints.py ${extra_pip_constraints} --output ${venv_name}/relaxed-constraints.txt && "
+}
+
 task environmentSetup(type: Exec) {
   def sentinel_file = "${venv_name}/.venv_environment_sentinel"
   inputs.file file('setup.py')
@@ -45,7 +54,7 @@ task install(type: Exec, dependsOn: [environmentSetup, ':metadata-ingestion:code
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pip_install_command} -e .[ignore${extra_pip_extras}] ${extra_pip_constraints} &&" +
+    "${relax_constraints_command}${pip_install_command} -e .[ignore${extra_pip_extras}] ${relaxed_constraints} &&" +
     "touch ${sentinel_file}"
 }
 
@@ -66,7 +75,7 @@ task installTest(type: Exec, dependsOn: [installDev]) {
   outputs.file(sentinel_file)
   commandLine 'bash', '-c',
     venv_activate_command +
-    "${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${extra_pip_constraints} && " +
+    "${relax_constraints_command}${pip_install_command} -e .[integration-tests${extra_pip_extras}] ${relaxed_constraints} && " +
     "touch ${sentinel_file}"
 }
 

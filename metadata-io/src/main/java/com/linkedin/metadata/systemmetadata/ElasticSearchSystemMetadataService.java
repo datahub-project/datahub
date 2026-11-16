@@ -15,8 +15,9 @@ import com.linkedin.metadata.run.AspectRowSummary;
 import com.linkedin.metadata.run.IngestionRunSummary;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
-import com.linkedin.metadata.shared.ElasticSearchIndexed;
+import com.linkedin.metadata.shared.MigratableIndexed;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -37,6 +38,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.UnaryOperator;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,7 +58,7 @@ import org.opensearch.search.aggregations.metrics.ParsedMax;
 @Slf4j
 @RequiredArgsConstructor
 public class ElasticSearchSystemMetadataService
-    implements SystemMetadataService, ElasticSearchIndexed {
+    implements SystemMetadataService, MigratableIndexed {
 
   private final ESBulkProcessor _esBulkProcessor;
   private final IndexConvention _indexConvention;
@@ -193,6 +195,32 @@ public class ElasticSearchSystemMetadataService
   }
 
   @Override
+  public List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      @Nullable Integer size) {
+    final BoolQueryBuilder query =
+        QueryBuilders.boolQuery().filter(QueryBuilders.termQuery(FIELD_RUNID, runId));
+    // scroll sorts by (urn, aspect), one document per pair, so the last row is the cursor.
+    final String scrollId =
+        after == null
+            ? null
+            : new SearchAfterWrapper(new Object[] {after.getUrn(), after.getAspectName()}, null, 0L)
+                .toScrollId();
+    final SearchResponse response =
+        _esDAO.scroll(opContext, query, includeSoftDeleted, scrollId, null, null, size);
+    if (response == null) {
+      // scroll logs the failure and returns null. Read as an empty page, it would end a rollback
+      // early and report the run as rolled back with rows still left.
+      throw new IllegalStateException(
+          String.format("Could not read the rows of run %s from the system metadata index", runId));
+    }
+    return toAspectRowSummary(response);
+  }
+
+  @Override
   public List<AspectRowSummary> findByUrn(
       @Nonnull OperationContext opContext,
       String urn,
@@ -297,10 +325,22 @@ public class ElasticSearchSystemMetadataService
       @Nonnull final OperationContext opContext,
       Collection<Pair<Urn, StructuredPropertyDefinition>> properties)
       throws IOException {
+    return buildReindexConfigsFor(opContext, properties, _indexBuilder, UnaryOperator.identity());
+  }
+
+  @Override
+  public List<ReindexConfig> buildReindexConfigsFor(
+      @Nonnull final OperationContext opContext,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> properties,
+      @Nonnull final ESIndexBuilder targetBuilder,
+      @Nonnull final UnaryOperator<String> nameRewriter)
+      throws IOException {
     return List.of(
-        _indexBuilder.buildReindexState(
+        targetBuilder.buildReindexState(
             opContext,
-            _indexConvention.getIndexName(opContext, SearchComponent.SYSTEM_METADATA, INDEX_NAME),
+            nameRewriter.apply(
+                _indexConvention.getIndexName(
+                    opContext, SearchComponent.SYSTEM_METADATA, INDEX_NAME)),
             SystemMetadataMappingsBuilder.getMappings(),
             Collections.emptyMap()));
   }

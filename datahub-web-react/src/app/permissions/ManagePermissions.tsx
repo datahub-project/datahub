@@ -9,7 +9,7 @@ import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboar
 import { ManageDataAccessRoles } from '@app/permissions/dataAccessRoles/ManageDataAccessRoles';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
-import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
+import { AlchemyRoutedTabs } from '@app/sharedV2/AlchemyRoutedTabs';
 import { useAppConfig } from '@app/useAppConfig';
 
 const PageContainer = styled.div`

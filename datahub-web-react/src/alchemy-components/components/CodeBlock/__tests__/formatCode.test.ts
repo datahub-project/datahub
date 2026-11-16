@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import {
+    cacheSuccessfulImport,
     formatCode,
     isFormatCodeSuccess,
     resolveCodeLanguage,
@@ -18,6 +19,11 @@ describe('resolveCodeLanguage', () => {
         expect(resolveCodeLanguage('shell')).toBe('bash');
         expect(resolveCodeLanguage('jsonschema')).toBe('json');
     });
+
+    it('should not resolve inherited object keys as aliases', () => {
+        expect(resolveCodeLanguage('constructor')).toBe('constructor');
+        expect(resolveSqlFormatterLanguage('constructor')).toBeUndefined();
+    });
 });
 
 describe('resolveSqlFormatterLanguage', () => {
@@ -30,21 +36,39 @@ describe('resolveSqlFormatterLanguage', () => {
     });
 });
 
+describe('cacheSuccessfulImport', () => {
+    it('retries after a rejected load and then reuses the success', async () => {
+        let calls = 0;
+        const load = cacheSuccessfulImport(async () => {
+            calls += 1;
+            if (calls === 1) {
+                throw new Error('chunk');
+            }
+            return 'formatter';
+        });
+
+        await expect(load()).rejects.toThrow('chunk');
+        await expect(load()).resolves.toBe('formatter');
+        await expect(load()).resolves.toBe('formatter');
+        expect(calls).toBe(2);
+    });
+});
+
 describe('formatCode', () => {
-    it('should pretty-print JSON', () => {
-        const result = formatCode('{"a":1,"b":2}', 'json');
+    it('should pretty-print JSON', async () => {
+        const result = await formatCode('{"a":1,"b":2}', 'json');
         expect(isFormatCodeSuccess(result)).toBe(true);
         if (isFormatCodeSuccess(result)) {
             expect(result.formatted).toBe('{\n  "a": 1,\n  "b": 2\n}\n');
         }
     });
 
-    it('should reject invalid JSON', () => {
-        expect(formatCode('{', 'json')).toEqual({ error: 'invalid' });
+    it('should reject invalid JSON', async () => {
+        expect(await formatCode('{', 'json')).toEqual({ error: 'invalid' });
     });
 
-    it('should pretty-print SQL', () => {
-        const result = formatCode(
+    it('should pretty-print SQL', async () => {
+        const result = await formatCode(
             "SELECT    order_id,   SUM(amount) AS total_revenue   \nFROM analytics.orders\n\n\nWHERE status = 'completed'",
             'sql',
         );
@@ -56,8 +80,8 @@ describe('formatCode', () => {
         }
     });
 
-    it('should pretty-print Snowflake SQL using that dialect', () => {
-        const result = formatCode(
+    it('should pretty-print Snowflake SQL using that dialect', async () => {
+        const result = await formatCode(
             'select a from t qualify row_number() over (partition by a order by b desc) = 1',
             'snowflake',
         );
@@ -68,8 +92,8 @@ describe('formatCode', () => {
         }
     });
 
-    it('should pretty-print YAML', () => {
-        const result = formatCode(
+    it('should pretty-print YAML', async () => {
+        const result = await formatCode(
             `name:    orders_revenue
 type:   metric
 
@@ -87,12 +111,12 @@ tags: [finance,  prod]`,
         }
     });
 
-    it('should reject invalid YAML', () => {
-        expect(formatCode('name: [unterminated', 'yaml')).toEqual({ error: 'invalid' });
+    it('should reject invalid YAML', async () => {
+        expect(await formatCode('name: [unterminated', 'yaml')).toEqual({ error: 'invalid' });
     });
 
-    it('should pretty-print GraphQL SDL', () => {
-        const result = formatCode(
+    it('should pretty-print GraphQL SDL', async () => {
+        const result = await formatCode(
             'type Query { user(id: ID!): User }  type User { name:String  email: String }',
             'graphql',
         );
@@ -104,8 +128,8 @@ tags: [finance,  prod]`,
         }
     });
 
-    it('should pretty-print GraphQL when the language id is gql', () => {
-        const result = formatCode('{ user { name } }', 'gql');
+    it('should pretty-print GraphQL when the language id is gql', async () => {
+        const result = await formatCode('{ user { name } }', 'gql');
         expect(isFormatCodeSuccess(result)).toBe(true);
         if (isFormatCodeSuccess(result)) {
             expect(result.formatted).toContain('user {');
@@ -113,28 +137,42 @@ tags: [finance,  prod]`,
         }
     });
 
-    it('should reject invalid GraphQL', () => {
-        expect(formatCode('type Query {', 'graphql')).toEqual({ error: 'invalid' });
+    it('should reject invalid GraphQL', async () => {
+        expect(await formatCode('type Query {', 'graphql')).toEqual({ error: 'invalid' });
     });
 
-    it('should tidy trailing whitespace for other languages', () => {
-        const result = formatCode('function  foo()   {\n\n\n}', 'javascript');
+    it('should tidy trailing whitespace for other languages', async () => {
+        const result = await formatCode('function  foo()   {\n\n\n}', 'javascript');
         expect(isFormatCodeSuccess(result)).toBe(true);
         if (isFormatCodeSuccess(result)) {
             expect(result.formatted).toBe('function  foo()   {\n\n}\n');
         }
     });
 
-    it('should tidy protobuf without rewriting syntax', () => {
-        const result = formatCode('message User {  \n\n\n  string name = 1;  \n}', 'protobuf');
+    it('should tidy protobuf without rewriting syntax', async () => {
+        const result = await formatCode('message User {  \n\n\n  string name = 1;  \n}', 'protobuf');
         expect(isFormatCodeSuccess(result)).toBe(true);
         if (isFormatCodeSuccess(result)) {
             expect(result.formatted).toBe('message User {\n\n  string name = 1;\n}\n');
         }
     });
 
-    it('should leave empty input unchanged', () => {
-        expect(formatCode('', 'sql')).toEqual({ error: 'unchanged' });
-        expect(formatCode('   ', 'json')).toEqual({ error: 'unchanged' });
+    it('should leave empty input unchanged', async () => {
+        expect(await formatCode('', 'sql')).toEqual({ error: 'unchanged' });
+        expect(await formatCode('   ', 'json')).toEqual({ error: 'unchanged' });
+    });
+
+    it('should report the SQL formatter as unavailable when its chunk fails to load', async () => {
+        vi.resetModules();
+        vi.doMock('sql-formatter', () => {
+            throw new Error('chunk');
+        });
+        try {
+            const isolated = await import('@components/components/CodeBlock/formatCode');
+            expect(await isolated.formatCode('select 1', 'sql')).toEqual({ error: 'unavailable' });
+        } finally {
+            vi.doUnmock('sql-formatter');
+            vi.resetModules();
+        }
     });
 });

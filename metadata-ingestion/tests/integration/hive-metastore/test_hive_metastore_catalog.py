@@ -210,13 +210,6 @@ def test_catalog_api_namespace_isolation(loaded_hms3):
 # =============================================================================
 
 # Ignore paths for dynamic/timestamp-based fields
-IGNORE_PATHS: Sequence[str] = [
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['transient_lastDdlTime'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['numfiles'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['totalsize'\]",
-    r"root\[\d+\]\['proposedSnapshot'\]\['com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com.linkedin.pegasus2avro.dataset.DatasetProperties'\]\['customProperties'\]\['create_date'\]",
-]
-
 IGNORE_PATHS_V2: Sequence[str] = [
     "/customProperties/create_date",
     "/customProperties/transient_lastDdlTime",
@@ -240,7 +233,7 @@ def test_ingest_default_catalog(
     - URNs should NOT include catalog name (default behavior)
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_default_catalog_mces.json"
+    mce_out_file = "hive_metastore_hms3_default_catalog.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -271,8 +264,8 @@ def test_ingest_default_catalog(
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 
@@ -286,7 +279,7 @@ def test_ingest_spark_catalog(loaded_hms3, test_resources_dir, pytestconfig, tmp
     - URNs should NOT include catalog name
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_spark_catalog_mces.json"
+    mce_out_file = "hive_metastore_hms3_spark_catalog.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -318,8 +311,8 @@ def test_ingest_spark_catalog(loaded_hms3, test_resources_dir, pytestconfig, tmp
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 
@@ -335,7 +328,7 @@ def test_ingest_spark_catalog_with_catalog_ids(
     - URNs SHOULD include catalog name
     - URN format: urn:li:dataset:(urn:li:dataPlatform:hive,spark_catalog.test_db.users,PROD)
     """
-    mce_out_file = "hive_metastore_hms3_spark_catalog_with_ids_mces.json"
+    mce_out_file = "hive_metastore_hms3_spark_catalog_with_ids.json"
     events_file = tmp_path / mce_out_file
 
     config: Dict = {
@@ -367,8 +360,8 @@ def test_ingest_spark_catalog_with_catalog_ids(
         output_path=mce_out_file,
         golden_path=test_resources_dir
         / f"hms3/{mce_out_file.replace('.json', '_golden.json')}",
-        ignore_paths=IGNORE_PATHS,
         ignore_paths_v2=IGNORE_PATHS_V2,
+        fail_on_output_mces=True,
     )
 
 

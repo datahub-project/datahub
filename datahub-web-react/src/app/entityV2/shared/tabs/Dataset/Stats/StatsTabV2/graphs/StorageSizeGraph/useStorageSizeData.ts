@@ -10,7 +10,7 @@ import {
 import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import { Datum } from '@src/alchemy-components/components/LineChart/types';
 import { extractChartValuesFromTableProfiles } from '@src/app/entityV2/shared/utils';
-import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@src/app/sharedV2/time/timeUtils';
 import { useGetDataProfilesLazyQuery } from '@src/graphql/dataset.generated';
 
 export interface StorageSizeData extends Datum {

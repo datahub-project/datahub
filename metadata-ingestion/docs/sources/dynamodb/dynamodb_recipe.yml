@@ -8,6 +8,10 @@ source:
     # Number of items to sample from each table for schema inference (default: 100)
     # schema_sampling_size: 100
 
+    # Discover existing DynamoDB Export to S3 jobs and emit COPY lineage to S3.
+    # Does not start exports — only reads ListExports/DescribeExport metadata.
+    # include_s3_export_lineage: true
+
     # If there are items that have most representative fields of the table, users could use the
     # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.
     # For each `region.table`, the list of primary keys can be at most 100.

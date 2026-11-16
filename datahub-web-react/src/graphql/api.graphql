@@ -44,6 +44,12 @@ fragment apiSearchFields on Api {
         outputFields {
             ...apiSignatureFieldFields
         }
+        inputDatasets {
+            ...apiSignatureDatasetFields
+        }
+        outputDatasets {
+            ...apiSignatureDatasetFields
+        }
     }
     restProperties {
         method
@@ -81,4 +87,20 @@ fragment apiSignatureFieldFields on SchemaField {
     description
     nativeDataType
     type
+}
+
+fragment apiSignatureDatasetFields on Dataset {
+    urn
+    type
+    name
+    properties {
+        name
+        qualifiedName
+    }
+    platform {
+        ...platformFields
+    }
+    subTypes {
+        typeNames
+    }
 }

@@ -227,12 +227,9 @@ def test_every_sql_connector_can_now_enumerate_without_a_query():
     them; before these listings existed, their probe could enumerate nothing.
     """
     for source_type in ("db2", "vertica", "oracle", "teradata", "postgres", "mysql"):
-        commands = {
-            c
-            for c, _ in _iter_specs(
-                _sql_config_class(source_type).probe_provider_class()
-            )
-        }
+        provider_cls = _sql_config_class(source_type).probe_provider_class()
+        assert provider_cls is not None
+        commands = {c for c, _ in _iter_specs(provider_cls)}
         assert {"containers", "tables", "views"} <= commands, source_type
 
 

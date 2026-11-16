@@ -17,13 +17,17 @@ import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormPromptArray;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.structured.PrimitivePropertyValue;
+import com.linkedin.structured.PrimitivePropertyValueArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.nio.charset.StandardCharsets;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
@@ -317,6 +321,61 @@ public class FormServiceTest {
             .map(FormAssociation::getUrn)
             .collect(Collectors.toList()),
         List.of(otherForm));
+  }
+
+  @Test
+  public void testStructuredPropertyPromptPatchesOnlyThePromptedProperty() throws Exception {
+    final Urn entityUrn = datasetUrns(1).get(0);
+    final Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:testProperty");
+    final SystemEntityClient mockClient = mockEntityClient(List.of(entityUrn), Map.of());
+    final FormAssociation association =
+        new FormAssociation()
+            .setUrn(TEST_FORM_URN)
+            .setCompletedPrompts(new com.linkedin.common.FormPromptAssociationArray())
+            .setIncompletePrompts(new com.linkedin.common.FormPromptAssociationArray());
+    final Forms forms =
+        new Forms()
+            .setIncompleteForms(new FormAssociationArray(ImmutableList.of(association)))
+            .setCompletedForms(new FormAssociationArray());
+    when(mockClient.getV2(
+            eq(OP_CONTEXT),
+            eq(DATASET_ENTITY_NAME),
+            eq(entityUrn),
+            eq(ImmutableSet.of(FORMS_ASPECT_NAME))))
+        .thenReturn(entityResponse(entityUrn, FORMS_ASPECT_NAME, forms.data()));
+
+    new FormService(mockClient)
+        .submitStructuredPropertyPromptResponse(
+            OP_CONTEXT,
+            entityUrn,
+            propertyUrn,
+            new PrimitivePropertyValueArray(ImmutableList.of(PrimitivePropertyValue.create("a"))),
+            TEST_FORM_URN,
+            TEST_PROMPT_ID);
+
+    final ArgumentCaptor<MetadataChangeProposal> captor =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(mockClient, atLeastOnce()).ingestProposal(eq(OP_CONTEXT), captor.capture(), eq(false));
+    final MetadataChangeProposal mcp =
+        captor.getAllValues().stream()
+            .filter(proposal -> STRUCTURED_PROPERTIES_ASPECT_NAME.equals(proposal.getAspectName()))
+            .findFirst()
+            .orElseThrow(() -> new AssertionError("no structured properties were ingested"));
+
+    // Other properties already on the entity are neither read nor rewritten, so their values are
+    // not re-validated against their allowedValues.
+    assertEquals(mcp.getChangeType(), ChangeType.PATCH);
+    assertTrue(
+        mcp.getAspect()
+            .getValue()
+            .asString(StandardCharsets.UTF_8)
+            .contains(propertyUrn.toString()));
+    verify(mockClient, never())
+        .getV2(
+            eq(OP_CONTEXT),
+            anyString(),
+            eq(entityUrn),
+            eq(ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME)));
   }
 
   /**

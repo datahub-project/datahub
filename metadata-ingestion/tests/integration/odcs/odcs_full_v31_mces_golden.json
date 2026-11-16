@@ -20,7 +20,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "customers_full \u2014 customers",
-            "description": "Master table of customers.",
+            "description": "Master table of customers.\n\n**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
             "tags": []
         }
     },
@@ -1341,7 +1341,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "customers_full \u2014 orders",
-            "description": "Order events.",
+            "description": "Order events.\n\n**purpose**: Customer master records used by the CDP.\n\n**usage**: Joinable to orders and events on customer_id.\n\n**limitations**: Non-PII columns only available outside the data perimeter.",
             "tags": []
         }
     },

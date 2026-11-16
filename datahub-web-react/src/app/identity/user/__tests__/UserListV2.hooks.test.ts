@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import {
@@ -7,6 +7,7 @@ import {
     useUserListData,
     useUserListState,
 } from '@app/identity/user/UserListV2.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted(() => ({
     mockUseSearchUsersQuery: vi.fn(),
@@ -15,7 +16,7 @@ const { mockUseSearchUsersQuery, mockUseBatchAssignRoleMutation } = vi.hoisted((
 
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: () => ({
-        platformPrivileges: { managePolicies: true },
+        platformPrivileges: { manageUserCredentials: true },
     }),
 }));
 
@@ -68,7 +69,7 @@ describe('UserListV2.hooks', () => {
             expect(result.current.usersList).toEqual([]);
             expect(result.current.isViewingResetToken).toBe(false);
             expect(result.current.resetTokenUser).toBeNull();
-            expect(result.current.canManagePolicies).toBe(true);
+            expect(result.current.canManageUserCredentials).toBe(true);
         });
 
         it('should update query state', () => {

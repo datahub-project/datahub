@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_CREDENTIALS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
@@ -7,6 +9,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROFILE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.QUERY_SUBJECTS_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_ENTITY_NAME;
@@ -37,6 +40,10 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
@@ -72,6 +79,7 @@ import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.HardDeleteService;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
 import com.linkedin.metadata.entity.validation.ValidationException;
@@ -98,6 +106,9 @@ import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SearchUtil;
+import com.linkedin.metadata.utils.StrictHandling;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
@@ -143,9 +154,12 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.context.testng.AbstractTestNGSpringContextTests;
+import org.springframework.test.util.AopTestUtils;
+import org.springframework.test.util.ReflectionTestUtils;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import org.springframework.test.web.servlet.result.MockMvcResultMatchers;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -163,6 +177,7 @@ import org.testng.annotations.Test;
 @AutoConfigureWebMvc
 @AutoConfigureMockMvc
 public class EntityControllerTest extends AbstractTestNGSpringContextTests {
+
   private static final String TEST_QUERY_STATEMENT = "SELECT sensitive FROM restricted_table";
   private static final String TEST_VIEW_LOGIC = "SELECT sensitive FROM restricted_view_table";
 
@@ -185,6 +200,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
   @Captor private ArgumentCaptor<AspectsBatch> batchCaptor;
 
   @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
     reset(
@@ -195,6 +215,11 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         authorizerChain);
     AuthorizerChainTestSupport.stubAllowViaOneArgOnly(authorizerChain);
     when(testAspectRetriever.getEntityRegistry()).thenReturn(entityRegistry);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
   }
 
   @Test
@@ -373,6 +398,32 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
                 verify(mockEntityService)
                     .deleteAspect(
                         any(), eq(TEST_URN.toString()), eq(aspectName), anyMap(), eq(true)));
+  }
+
+  /** A whole-entity delete goes through the hard delete service, with the same response. */
+  @Test
+  public void testDeleteEntityDelegatesToTheHardDeleteService() throws Exception {
+    reset(authorizerChain, mockEntityService);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    Urn TEST_URN = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,5,PROD)");
+    HardDeleteService hardDeleteService = mock(HardDeleteService.class);
+    // The context is shared by every test here, so the controller gets its own field back.
+    Object controller = AopTestUtils.getUltimateTargetObject(entityController);
+    Object previous = ReflectionTestUtils.getField(controller, "hardDeleteService");
+    ReflectionTestUtils.setField(controller, "hardDeleteService", hardDeleteService);
+    try {
+      mockMvc
+          .perform(
+              MockMvcRequestBuilders.delete(
+                      String.format("/openapi/v3/entity/dataset/%s", TEST_URN))
+                  .accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().is2xxSuccessful());
+    } finally {
+      ReflectionTestUtils.setField(controller, "hardDeleteService", previous);
+    }
+
+    verify(hardDeleteService).deleteEntity(any(), eq(TEST_URN));
+    verify(mockEntityService, never()).deleteUrn(any(), any(Urn.class));
   }
 
   @Test
@@ -1144,6 +1195,164 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
         .andExpect(status().is2xxSuccessful())
         .andExpect(
             MockMvcResultMatchers.jsonPath("$.entities[0].urn").value(TEST_URNS.get(0).toString()));
+  }
+
+  @Test
+  public void testScrollEntitiesPassesTemplateAndReturnsRouteChain() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:list")
+                .param("includeExplain", "true")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"));
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:list");
+    assertTrue(flags.isIncludeExplain());
+  }
+
+  @Test
+  public void testEntityScrollReturnsTheRouteChainWithoutFacets() throws Exception {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(
+                testSearchResultMetadata()
+                    .setRouteChain(new StringArray("urn:li:searchTemplate:list")))
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urn))));
+
+    when(mockSearchService.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.get("/openapi/v3/entity/dataset")
+                .param("includeExplain", "true")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful())
+        .andExpect(
+            MockMvcResultMatchers.jsonPath("$.routeChain[0]").value("urn:li:searchTemplate:list"))
+        .andExpect(MockMvcResultMatchers.jsonPath("$.facets").isEmpty());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsANonUrnTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "not-a-urn")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsADatasetTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param(
+                    "searchTemplate",
+                    "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesRejectsABlankTemplate() throws Exception {
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+  }
+
+  @Test
+  public void testScrollEntitiesAcceptsSearchTemplate() throws Exception {
+    List<Urn> urns =
+        List.of(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)"));
+    ScrollResult expectedResult =
+        new ScrollResult()
+            .setNumEntities(1)
+            .setMetadata(testSearchResultMetadata())
+            .setEntities(new SearchEntityArray(List.of(new SearchEntity().setEntity(urns.get(0)))));
+
+    ArgumentCaptor<OperationContext> opContextCaptor =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(mockSearchService.scrollAcrossEntities(
+            opContextCaptor.capture(),
+            eq(List.of("dataset")),
+            anyString(),
+            nullable(Filter.class),
+            any(),
+            nullable(String.class),
+            nullable(String.class),
+            anyInt()))
+        .thenReturn(expectedResult);
+    when(mockEntityService.getEnvelopedVersionedAspects(
+            any(OperationContext.class), anyMap(), eq(false)))
+        .thenReturn(Map.of());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post("/openapi/v3/entity/scroll")
+                .content("{\"entities\":[\"dataset\"]}")
+                .param("searchTemplate", "urn:li:searchTemplate:search")
+                .contentType(MediaType.APPLICATION_JSON)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().is2xxSuccessful());
+
+    SearchFlags flags = opContextCaptor.getValue().getSearchContext().getSearchFlags();
+    assertEquals(flags.getSearchTemplate().toString(), "urn:li:searchTemplate:search");
   }
 
   @Test
@@ -2314,6 +2523,209 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
 
     verify(mockEntityService, times(0))
         .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+  }
+
+  @Test
+  public void testSingleAspectEndpointsRejectUnknownAspect() throws Exception {
+    // An aspect written by a newer version (e.g. before a rollback) is unknown here: every
+    // single-aspect endpoint must answer 400, not 500 and not a silent 200.
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+    String path =
+        "/openapi/v3/entity/dataset/urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.post(path + "/futureAspect")
+                .content("{\"value\":{\"x\":1}}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.patch(path + "/futureAspect")
+                .content("{\"patch\":[{\"op\":\"add\",\"path\":\"/x\",\"value\":1}]}")
+                .contentType(MediaType.APPLICATION_JSON)
+                .param("async", "false")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(path + "/futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(path)
+                // A known aspect next to the unknown one must not be deleted either.
+                .param("aspects", "status,futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isBadRequest());
+
+    verify(mockEntityService, never())
+        .ingestProposal(any(OperationContext.class), any(AspectsBatch.class), anyBoolean());
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), any(), anyMap(), anyBoolean());
+    verify(mockEntityService, never()).deleteUrn(any(), any());
+  }
+
+  @Test
+  public void testStrictHandlingDeleteOfUnknownAspectIsANoOp() throws Exception {
+    // Without tolerance an unknown aspect name is ignored and the request succeeds, as before.
+    UnknownDataHandlingsForTests.use(StrictHandling.INSTANCE);
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    "/openapi/v3/entity/dataset/"
+                        + "urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)/futureAspect")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), any(), anyMap(), anyBoolean());
+  }
+
+  @Test
+  public void testDeleteKnownAspectDeletesIt() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService);
+    String urn = "urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)";
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete("/openapi/v3/entity/dataset/" + urn + "/status")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockEntityService)
+        .deleteAspect(any(), eq(urn), eq(STATUS_ASPECT_NAME), anyMap(), eq(true));
+  }
+
+  @Test
+  public void testDeleteKnownTimeseriesAspectDeletesLatestValue() throws Exception {
+    reset(authorizerChain);
+    AuthorizerChainTestSupport.stubAllowViaOperationContextAuthorizer(authorizerChain);
+    reset(mockEntityService, mockTimeseriesAspectService);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,1,PROD)");
+    com.linkedin.metadata.aspect.EnvelopedAspect latest =
+        new com.linkedin.metadata.aspect.EnvelopedAspect()
+            .setAspect(
+                com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(
+                    new DatasetProfile().setTimestampMillis(1234L)));
+    when(mockTimeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(urn)), eq(Set.of(DATASET_PROFILE_ASPECT_NAME)), any()))
+        .thenReturn(Map.of(urn, Map.of(DATASET_PROFILE_ASPECT_NAME, latest)));
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    "/openapi/v3/entity/dataset/" + urn + "/" + DATASET_PROFILE_ASPECT_NAME)
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk());
+
+    verify(mockTimeseriesAspectService)
+        .deleteAspectValues(
+            any(), eq(DATASET_ENTITY_NAME), eq(DATASET_PROFILE_ASPECT_NAME), any(Filter.class));
+    verify(mockEntityService, never())
+        .deleteAspect(any(), anyString(), anyString(), anyMap(), anyBoolean());
+  }
+
+  /**
+   * Deleting an assertion's run history removes timeseries values without an aspect write the
+   * assertion validator sees, so the endpoint itself requires Edit Assertions on the assets the
+   * assertion checks, as deleting the assertion does.
+   */
+  @Test
+  public void testDeleteAssertionRunEventNeedsEditAssertionsOnTarget() throws Exception {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:run-history-delete");
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,run_history,PROD)");
+    reset(mockEntityService, mockTimeseriesAspectService);
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(assertionUrn)), eq(Set.of(ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                assertionUrn,
+                Map.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    new Aspect(
+                        new AssertionInfo()
+                            .setType(AssertionType.DATASET)
+                            .setEntityUrn(datasetUrn)
+                            .data()))));
+    // A live target; run history of an assertion whose target is gone may be deleted freely.
+    when(testAspectRetriever.entityExists(any(), eq(Set.of(datasetUrn))))
+        .thenReturn(Map.of(datasetUrn, true));
+    com.linkedin.metadata.aspect.EnvelopedAspect latest =
+        new com.linkedin.metadata.aspect.EnvelopedAspect()
+            .setAspect(
+                com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(
+                    new AssertionRunEvent()
+                        .setTimestampMillis(1234L)
+                        .setRunId("run")
+                        .setAssertionUrn(assertionUrn)
+                        .setAsserteeUrn(datasetUrn)
+                        .setStatus(AssertionRunStatus.COMPLETE)));
+    when(mockTimeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(assertionUrn)), eq(Set.of(ASSERTION_RUN_EVENT_ASPECT_NAME)), any()))
+        .thenReturn(Map.of(assertionUrn, Map.of(ASSERTION_RUN_EVENT_ASPECT_NAME, latest)));
+    String path =
+        "/openapi/v3/entity/assertion/" + assertionUrn + "/" + ASSERTION_RUN_EVENT_ASPECT_NAME;
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      // Delete Entity on the assertion, but no Edit Assertions or Edit Entity on the dataset.
+      stubAuthorizer(
+          request ->
+              !(request.getResourceSpec().isPresent()
+                  && datasetUrn.toString().equals(request.getResourceSpec().get().getEntity())
+                  && (PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType().equals(request.getPrivilege())
+                      || PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege()))));
+      mockMvc
+          .perform(MockMvcRequestBuilders.delete(path).accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+      verify(mockTimeseriesAspectService, never())
+          .deleteAspectValues(any(), anyString(), anyString(), any(Filter.class));
+
+      stubAuthorizer(request -> true);
+      mockMvc
+          .perform(MockMvcRequestBuilders.delete(path).accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isOk());
+      verify(mockTimeseriesAspectService)
+          .deleteAspectValues(
+              any(), eq("assertion"), eq(ASSERTION_RUN_EVENT_ASPECT_NAME), any(Filter.class));
+    }
+  }
+
+  private void stubAuthorizer(java.util.function.Predicate<AuthorizationRequest> allowed) {
+    reset(authorizerChain);
+    org.mockito.stubbing.Answer<AuthorizationResult> answer =
+        invocation -> {
+          AuthorizationRequest request = invocation.getArgument(0);
+          return new AuthorizationResult(
+              request,
+              allowed.test(request)
+                  ? AuthorizationResult.Type.ALLOW
+                  : AuthorizationResult.Type.DENY,
+              "");
+        };
+    when(authorizerChain.authorize(any(AuthorizationRequest.class))).thenAnswer(answer);
+    when(authorizerChain.authorize(
+            any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+        .thenAnswer(answer);
   }
 
   @Test

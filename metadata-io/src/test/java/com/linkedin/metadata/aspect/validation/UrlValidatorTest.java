@@ -6,6 +6,9 @@ import static org.testng.Assert.*;
 
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.common.Embed;
+import com.linkedin.common.InstitutionalMemory;
+import com.linkedin.common.InstitutionalMemoryMetadata;
+import com.linkedin.common.InstitutionalMemoryMetadataArray;
 import com.linkedin.common.url.Url;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -48,8 +51,8 @@ public class UrlValidatorTest {
                       CORP_GROUP_ENTITY_NAME, CORP_GROUP_EDITABLE_INFO_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(DATASET_ENTITY_NAME, EMBED_ASPECT_NAME),
                   new AspectPluginConfig.EntityAspectName(CHART_ENTITY_NAME, EMBED_ASPECT_NAME),
-                  new AspectPluginConfig.EntityAspectName(
-                      DASHBOARD_ENTITY_NAME, EMBED_ASPECT_NAME)))
+                  new AspectPluginConfig.EntityAspectName(DASHBOARD_ENTITY_NAME, EMBED_ASPECT_NAME),
+                  new AspectPluginConfig.EntityAspectName("*", INSTITUTIONAL_MEMORY_ASPECT_NAME)))
           .build();
 
   @Mock private RetrieverContext mockRetrieverContext;
@@ -624,5 +627,82 @@ public class UrlValidatorTest {
             .count(),
         1,
         "Extra deny hosts should be case-insensitive");
+  }
+
+  @Test
+  public void testInstitutionalMemoryJavascriptSchemeRejected() {
+    assertEquals(
+        validateInstitutionalMemory("javascript:alert(1)"),
+        1,
+        "javascript: institutional-memory links should be rejected");
+  }
+
+  @Test
+  public void testInstitutionalMemoryHttpsAccepted() {
+    assertEquals(
+        validateInstitutionalMemory("https://example.com/docs"),
+        0,
+        "HTTPS institutional-memory links should be accepted");
+  }
+
+  @Test
+  public void testInstitutionalMemoryPatchRejectsDisallowedScheme() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/elements/javascript:alert(1)/docs\","
+            + "\"value\":{\"url\":\"javascript:alert(1)\",\"description\":\"docs\"}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, INSTITUTIONAL_MEMORY_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        1,
+        "javascript: links set via PATCH should be rejected");
+  }
+
+  @Test
+  public void testInstitutionalMemoryPatchAcceptsHttps() {
+    String ops =
+        "[{\"op\":\"add\",\"path\":\"/elements/https:~1~1example.com~1docs/docs\","
+            + "\"value\":{\"url\":\"https://example.com/docs\",\"description\":\"docs\"}}]";
+    assertEquals(
+        validator
+            .validateProposed(
+                OperationFingerprint.EMPTY,
+                Set.of(TestPatchMCP.of(TEST_DATASET_URN, INSTITUTIONAL_MEMORY_ASPECT_NAME, ops)),
+                mockRetrieverContext,
+                null)
+            .count(),
+        0,
+        "HTTPS links set via PATCH should be accepted");
+  }
+
+  private long validateInstitutionalMemory(String url) {
+    InstitutionalMemoryMetadata element = new InstitutionalMemoryMetadata();
+    element.setUrl(new Url(url));
+    element.setDescription("docs");
+    InstitutionalMemoryMetadataArray elements = new InstitutionalMemoryMetadataArray();
+    elements.add(element);
+    InstitutionalMemory memory = new InstitutionalMemory();
+    memory.setElements(elements);
+    return validator
+        .validateProposed(
+            OperationFingerprint.EMPTY,
+            Set.of(
+                TestMCP.builder()
+                    .changeType(ChangeType.UPSERT)
+                    .urn(TEST_DATASET_URN)
+                    .entitySpec(entityRegistry.getEntitySpec(TEST_DATASET_URN.getEntityType()))
+                    .aspectSpec(
+                        entityRegistry
+                            .getEntitySpec(TEST_DATASET_URN.getEntityType())
+                            .getAspectSpec(INSTITUTIONAL_MEMORY_ASPECT_NAME))
+                    .recordTemplate(memory)
+                    .build()),
+            mockRetrieverContext,
+            null)
+        .count();
   }
 }

@@ -117,6 +117,7 @@
     "users.columns.name": "名稱",
     "users.columns.role": "角色",
     "users.columns.status": "狀態",
+    "users.copyUrn": "複製 URN",
     "users.deleteUser": "刪除使用者",
     "users.emptyTitle": "沒有使用者！",
     "users.groups.overflowTitle": "群組",
@@ -145,5 +146,6 @@
     "users.statusFilter.placeholder": "狀態",
     "users.statusFilter.suspended": "已停權",
     "users.statusInactive": "未啟用",
-    "users.statusNoUrn": "無 URN"
+    "users.statusNoUrn": "無 URN",
+    "users.urnCopied": "已將 URN 複製到剪貼簿"
 }

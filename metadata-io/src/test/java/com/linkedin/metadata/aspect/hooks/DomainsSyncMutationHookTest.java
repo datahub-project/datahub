@@ -304,6 +304,28 @@ public class DomainsSyncMutationHookTest {
     assertEquals(assocUrns, Set.of(DOMAIN_A, DOMAIN_B));
   }
 
+  /**
+   * A deleted domain's reference cleanup rewrites only {@code domains} (the field with the graph
+   * relationship) and copies {@code domainAssociations} through. The hook must drop the stale
+   * association so the asset does not keep the deleted domain.
+   */
+  @Test
+  public void testReferenceCleanupRemovingTheLastDomain_clearsItsAssociation() {
+    DomainAssociation assocA = new DomainAssociation();
+    assocA.setDomain(DOMAIN_A);
+    Domains previous = makeDomains(DOMAIN_A);
+    previous.setDomainAssociations(new DomainAssociationArray(List.of(assocA)));
+
+    Domains proposed = new Domains();
+    proposed.setDomains(new UrnArray());
+    proposed.setDomainAssociations(new DomainAssociationArray(List.of(assocA)));
+
+    applyHook(makeChangeMCP(proposed, previous));
+
+    assertTrue(proposed.getDomains().isEmpty());
+    assertTrue(proposed.getDomainAssociations().isEmpty());
+  }
+
   @Test
   public void testReadModifyWrite_onlyAssociationsChanged_syncsDomains() {
     // Previous has both fields in sync

@@ -1,0 +1,18 @@
+namespace com.linkedin.search.template
+
+/**
+ * A positive weight multiplied onto documents of one entity type. Each entry sets both
+ * {@code entityType} and {@code weight}. A weight of 1 is omitted when the query is
+ * rendered because it does not change order.
+ */
+record EntityTypeBoost {
+  /**
+   * Entity type name, such as {@code glossaryTerm}.
+   */
+  entityType: string
+
+  /**
+   * Positive multiplier for documents of {@code entityType}.
+   */
+  weight: double
+}

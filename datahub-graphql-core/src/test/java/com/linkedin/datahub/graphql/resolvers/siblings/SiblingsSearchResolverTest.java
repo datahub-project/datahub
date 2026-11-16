@@ -66,8 +66,7 @@ public class SiblingsSearchResolverTest {
                 nullable(String.class),
                 nullable(String.class),
                 any(),
-                nullable(Integer.class),
-                any()))
+                nullable(Integer.class)))
         .thenReturn(
             new ScrollResult()
                 .setEntities(new SearchEntityArray())
@@ -118,8 +117,7 @@ public class SiblingsSearchResolverTest {
             nullable(String.class),
             nullable(String.class),
             any(),
-            nullable(Integer.class),
-            any());
+            nullable(Integer.class));
     Mockito.verify(_loader, Mockito.never()).load(any());
   }
 
@@ -221,8 +219,7 @@ public class SiblingsSearchResolverTest {
             nullable(String.class),
             nullable(String.class),
             any(),
-            nullable(Integer.class),
-            any());
+            nullable(Integer.class));
     return names.getValue();
   }
 

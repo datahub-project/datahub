@@ -4,10 +4,9 @@ import React, { forwardRef, useCallback, useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useDebounce } from 'react-use';
 
+import { Icon } from '@components/components/Icon';
 import { StyledSearchBar } from '@components/components/SearchBar/components';
 import { SearchBarProps } from '@components/components/SearchBar/types';
-
-import { Icon } from '@src/alchemy-components';
 
 export const searchBarDefaults: SearchBarProps = {
     value: '',

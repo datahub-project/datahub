@@ -10,20 +10,25 @@ import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizationSession;
 import com.datahub.authorization.EntityFieldType;
 import com.datahub.authorization.FieldResolver;
 import com.datahub.authorization.ResolvedEntitySpec;
 import com.datahub.context.OperationFingerprint;
+import com.datahub.plugins.auth.authorization.Authorizer;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.domain.DomainAssociation;
+import com.linkedin.domain.DomainAssociationArray;
 import com.linkedin.domain.Domains;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
@@ -49,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
 import javax.annotation.Nonnull;
 import org.testng.annotations.Test;
 
@@ -57,6 +63,7 @@ public class DomainWriteAuthorizationUtilsTest {
   private static final Urn DATASET_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,db.table,PROD)");
   private static final Urn CHART_URN = UrnUtils.getUrn("urn:li:chart:(looker,chart.1)");
+  private static final Urn DATA_PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:auth-test");
   private static final Urn DOMAIN_X = UrnUtils.getUrn("urn:li:domain:engineering");
   private static final Urn DOMAIN_Y = UrnUtils.getUrn("urn:li:domain:marketing");
   private static final ObjectMapper OBJECT_MAPPER = new ObjectMapper();
@@ -201,6 +208,86 @@ public class DomainWriteAuthorizationUtilsTest {
     assertFalse(
         DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
             session, DATASET_URN, ApiOperation.CREATE, true, proposed));
+  }
+
+  @Test
+  public void testIsAuthorizedDataProductDomainsEstablish_needsManageOnEveryProposedDomain() {
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session,
+            DATA_PRODUCT_URN,
+            new Domains().setDomains(new UrnArray(List.of(DOMAIN_X, DOMAIN_Y)))));
+    // Nothing to establish, another entity type, or a proposed URN that is not a domain.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, new Domains()));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATASET_URN, domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            dataProductManagerSession(Set.of(DATASET_URN)),
+            DATA_PRODUCT_URN,
+            domains(DATASET_URN)));
+    // The generic entity write stays entity-agnostic: no data product shortcut in it.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.CREATE, true, domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedEntityWrite(
+            session, DATA_PRODUCT_URN, ApiOperation.UPDATE, true, domains(DOMAIN_X)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_dataProductFirstDomainsAllowedForDomainManager() {
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, null, domains(DOMAIN_X)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, new Domains(), domains(DOMAIN_X)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, null, domains(DOMAIN_Y)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_dataProductMoveIsNotAuthorizedByManageDataProducts() {
+    // Moving or clearing a placed product is an edit of that product, even for a manager of both
+    // domains; the GraphQL setDomain mutation requires the same.
+    AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X, DOMAIN_Y));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X), new Domains()));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_associationOnlyBeforeDomainsAreEvaluated() {
+    Domains associationBacked =
+        new Domains()
+            .setDomainAssociations(
+                new DomainAssociationArray(List.of(new DomainAssociation().setDomain(DOMAIN_X))));
+    assertTrue(DomainWriteAuthorizationUtils.hasDomainMembership(associationBacked));
+    // A writer allowed only in the proposed domain must not move an entity out of its current
+    // one, whether the current domain is listed in domains or only in domainAssociations.
+    OperationContext proposedDomainWriter = domainScopedWriterSession(DOMAIN_Y);
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            proposedDomainWriter, DATASET_URN, null, domains(DOMAIN_Y)));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            proposedDomainWriter, DATASET_URN, associationBacked, domains(DOMAIN_Y)));
   }
 
   @Test
@@ -412,7 +499,7 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
-  public void testSeedProposedDomainResourceSpec_mergesAndOverwritesDomain() {
+  public void testSeedProposedDomainResourceSpec_recordsDomainOverrideOnly() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     com.datahub.authorization.EntitySpec resourceSpec =
         new com.datahub.authorization.EntitySpec(
@@ -422,20 +509,101 @@ public class DomainWriteAuthorizationUtilsTest {
     existingResolvers.put(
         EntityFieldType.OWNER,
         FieldResolver.getResolverFromValues(Set.of("urn:li:corpuser:alice")));
-    existingResolvers.put(
-        EntityFieldType.DOMAIN, FieldResolver.getResolverFromValues(Set.of(DOMAIN_X.toString())));
-    opContext
-        .getAuthorizationContext()
-        .getSessionResourceSpecCache()
-        .put(resourceSpec, new ResolvedEntitySpec(resourceSpec, existingResolvers));
+    ResolvedEntitySpec existing = new ResolvedEntitySpec(resourceSpec, existingResolvers);
+    opContext.getAuthorizationContext().getSessionResourceSpecCache().put(resourceSpec, existing);
 
+    DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
+        opContext, resourceSpec, Set.of(DOMAIN_X.toString()));
     DomainWriteAuthorizationUtils.seedProposedDomainResourceSpec(
         opContext, resourceSpec, Set.of(DOMAIN_Y.toString()));
 
-    ResolvedEntitySpec merged =
-        opContext.getAuthorizationContext().getSessionResourceSpecCache().get(resourceSpec);
-    assertEquals(merged.getFieldValues(EntityFieldType.OWNER), Set.of("urn:li:corpuser:alice"));
-    assertEquals(merged.getFieldValues(EntityFieldType.DOMAIN), Set.of(DOMAIN_Y.toString()));
+    // The cached resolution is left alone; the latest proposed domains live in the override map.
+    assertSame(
+        opContext.getAuthorizationContext().getSessionResourceSpecCache().get(resourceSpec),
+        existing);
+    Map<EntityFieldType, FieldResolver> overrides =
+        opContext.getAuthorizationContext().getSessionResourceFieldOverrides().get(resourceSpec);
+    assertEquals(overrides.keySet(), Set.of(EntityFieldType.DOMAIN));
+    assertEquals(
+        overrides.get(EntityFieldType.DOMAIN).getFieldValuesFuture().join().getValues(),
+        Set.of(DOMAIN_Y.toString()));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_moveDeniedAfterEntityCheckInSameRequest() {
+    OperationContext session = domainXScopedWriterSession();
+    // The URN-level ingest check runs first in the same request and allows the edit.
+    assertEquals(
+        session
+            .authorize(
+                "EDIT_ENTITY",
+                new com.datahub.authorization.EntitySpec(
+                    DATASET_URN.getEntityType(), DATASET_URN.toString()))
+            .getType(),
+        AuthorizationResult.Type.ALLOW);
+
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATASET_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+  }
+
+  @Test
+  public void testIsAuthorizedDomainsEdit_moveDeniedWithoutRightsOnProposedDomain() {
+    OperationContext session = domainXScopedWriterSession();
+
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATASET_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+  }
+
+  /**
+   * A real session for a writer allowed Edit Entity only on entities in {@link #DOMAIN_X}, so the
+   * request-scoped authorization cache and domain overrides are exercised. The entity's stored
+   * domain is {@link #DOMAIN_X}.
+   */
+  private static OperationContext domainXScopedWriterSession() {
+    return domainScopedWriterSession(DOMAIN_X);
+  }
+
+  /** Like {@link #domainXScopedWriterSession()} for an arbitrary allowed (and stored) domain. */
+  private static OperationContext domainScopedWriterSession(Urn allowedDomain) {
+    AtomicReference<OperationContext> sessionRef = new AtomicReference<>();
+    Authorizer domainScopedAuthorizer =
+        new Authorizer() {
+          @Override
+          public AuthorizationResult authorize(AuthorizationRequest request) {
+            Map<EntityFieldType, FieldResolver> overrides =
+                sessionRef
+                    .get()
+                    .getAuthorizationContext()
+                    .getSessionResourceFieldOverrides()
+                    .get(request.getResourceSpec().orElseThrow());
+            Set<String> domains =
+                overrides == null
+                    ? Set.of(allowedDomain.toString())
+                    : overrides
+                        .get(EntityFieldType.DOMAIN)
+                        .getFieldValuesFuture()
+                        .join()
+                        .getValues();
+            boolean allowed =
+                "EDIT_ENTITY".equals(request.getPrivilege())
+                    && domains.contains(allowedDomain.toString());
+            return new AuthorizationResult(
+                request,
+                allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                null);
+          }
+        };
+    OperationContext session =
+        TestOperationContexts.userContextNoSearchAuthorization(
+            domainScopedAuthorizer, UrnUtils.getUrn("urn:li:corpuser:domainScopedWriter"));
+    sessionRef.set(session);
+    return session;
+  }
+
+  private static Domains domains(Urn domain) {
+    return new Domains().setDomains(new UrnArray(List.of(domain)));
   }
 
   @Nonnull
@@ -455,6 +623,28 @@ public class DomainWriteAuthorizationUtilsTest {
       Disjunctive<Conjunctive<PoliciesConfig.Privilege>> privileges,
       PoliciesConfig.Privilege privilege) {
     return privileges.stream().anyMatch(conjunct -> conjunct.contains(privilege));
+  }
+
+  /** Grants {@code MANAGE_DATA_PRODUCTS} on the given domains only, and nothing else. */
+  private static AuthorizationSession dataProductManagerSession(Set<Urn> managedDomains) {
+    Set<String> managed =
+        managedDomains.stream().map(Urn::toString).collect(java.util.stream.Collectors.toSet());
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              String privilege = invocation.getArgument(0);
+              com.datahub.authorization.EntitySpec resource = invocation.getArgument(1);
+              boolean allowed =
+                  PoliciesConfig.MANAGE_DATA_PRODUCTS_PRIVILEGE.getType().equals(privilege)
+                      && resource != null
+                      && managed.contains(resource.getEntity());
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
   }
 
   private static AuthorizationSession sessionAllowing(String privilegeType) {

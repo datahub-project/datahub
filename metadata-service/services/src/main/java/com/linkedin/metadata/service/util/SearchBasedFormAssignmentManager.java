@@ -44,7 +44,8 @@ public class SearchBasedFormAssignmentManager {
           Constants.ML_FEATURE_TABLE_ENTITY_NAME,
           Constants.ML_FEATURE_ENTITY_NAME,
           Constants.ML_PRIMARY_KEY_ENTITY_NAME,
-          Constants.DATA_PRODUCT_ENTITY_NAME);
+          Constants.DATA_PRODUCT_ENTITY_NAME,
+          Constants.APPLICATION_ENTITY_NAME);
 
   public static void apply(final FormAssignmentScrollRequest request) throws Throwable {
     final OperationContext opContext = request.getOpContext();

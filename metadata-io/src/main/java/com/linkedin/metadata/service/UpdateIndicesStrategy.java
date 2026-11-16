@@ -84,4 +84,15 @@ public interface UpdateIndicesStrategy {
    * @return true if enabled, false otherwise
    */
   boolean isEnabled();
+
+  /**
+   * True when a new index owned by this strategy is populated by a fill from primary storage rather
+   * than left empty for live writes to accumulate. A generation whose indices aggregate existing
+   * entities (V3 consolidates many types into one index) needs the fill; the per-entity V2 layout
+   * historically does not. The incremental upgrade step reads this to choose between creating an
+   * index empty and creating it as a fill target.
+   */
+  default boolean fillsNewIndicesFromPrimaryStorage() {
+    return false;
+  }
 }

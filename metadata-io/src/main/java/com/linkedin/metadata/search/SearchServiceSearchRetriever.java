@@ -40,7 +40,9 @@ public class SearchServiceSearchRetriever implements SearchRetriever {
     final SearchFlags finalSearchFlags =
         Optional.ofNullable(searchFlags).orElse(RETRIEVER_SEARCH_FLAGS);
     return searchService.scrollAcrossEntities(
-        systemOperationContext.withSearchFlags(flags -> finalSearchFlags),
+        systemOperationContext
+            .withSkipTemplateExecution(true)
+            .withSearchFlags(flags -> finalSearchFlags),
         entities,
         "*",
         filters,
