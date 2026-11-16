@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen } from '@testing-library/react';
+import { getDefaultNormalizer, render, screen } from '@testing-library/react';
 import React from 'react';
 
 import { UserBasicInfoContainer } from '@app/entityV2/user/UserBasicInfoContainer';
@@ -21,25 +21,31 @@ describe('UserBasicInfoContainer', () => {
                 <TestPageContainer>
                     <UserBasicInfoContainer
                         {...BASE_PROPS}
-                        team="Data Platform,Analytics"
+                        team="Data Platform, Analytics,"
                         manager={{ urn: 'urn:li:corpuser:jdoe', name: 'John Doe' }}
                     />
                 </TestPageContainer>
             </MockedProvider>,
         );
-        expect(screen.getByText('Data Platform, Analytics')).toBeInTheDocument();
+        // Exact whitespace: a department that already contains ", " must not gain a second space.
+        expect(
+            screen.getByText('Data Platform, Analytics', {
+                normalizer: getDefaultNormalizer({ trim: false, collapseWhitespace: false }),
+            }),
+        ).toBeInTheDocument();
         expect(screen.getByRole('link', { name: 'John Doe' })).toHaveAttribute('href', '/user/urn:li:corpuser:jdoe');
     });
 
-    it('hides the team and manager rows when they are not set', () => {
+    it('hides the team and manager rows when they are empty', () => {
         render(
             <MockedProvider>
                 <TestPageContainer>
-                    <UserBasicInfoContainer {...BASE_PROPS} team={undefined} manager={undefined} />
+                    <UserBasicInfoContainer {...BASE_PROPS} team=" , " manager={undefined} />
                 </TestPageContainer>
             </MockedProvider>,
         );
         expect(screen.getByText('jane@example.com')).toBeInTheDocument();
+        expect(screen.queryByText(/,/)).not.toBeInTheDocument();
         expect(screen.queryByRole('link')).not.toBeInTheDocument();
     });
 });

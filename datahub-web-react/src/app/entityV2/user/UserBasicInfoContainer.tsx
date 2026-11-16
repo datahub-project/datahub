@@ -41,7 +41,11 @@ export const UserBasicInfoContainer = ({ name, dataHubRoleName, email, role, sla
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
     // Teams are stored comma-joined (see UserProfile), the same format the edit modal splits on.
-    const teamText = team?.split(',').join(', ');
+    const teamText = team
+        ?.split(',')
+        .map((part) => part.trim())
+        .filter(Boolean)
+        .join(', ');
     return (
         <BasicDetailsContainer>
             <BasicDetails>
