@@ -886,7 +886,8 @@ def _owner_graph(
     error: Optional[Exception] = None,
     view_aspect: str = "present",
 ) -> MagicMock:
-    # The owner's schema is in DataHub, so Glue is only reached by the View/Table lookup.
+    # By default the owner's schema is in DataHub, so Glue is only reached by the View/Table
+    # lookup.
     # view_aspect: "present", "missing" or "error" for the owner's ViewProperties read.
     graph = MagicMock()
     graph.get_schema_metadata.return_value = _owner_schema()
@@ -1071,12 +1072,13 @@ def test_resource_link_stays_table_when_owner_is_table_or_unknown(
 
 
 @pytest.mark.parametrize(
-    "case", ["flag-off", "link-has-table-type", "link-has-storage-descriptor"]
+    "case",
+    ["flag-off", "link-has-table-type", "link-has-storage-descriptor", "not-a-link"],
 )
 def test_resource_link_type_not_looked_up(case: str) -> None:
     # A link that already carries a TableType or a StorageDescriptor (as tables under a
-    # database-level link do), or resolve_resource_link_schema=False, skips the owner View/Table
-    # lookup.
+    # database-level link do), a table that is not a link, or resolve_resource_link_schema=False
+    # skips the owner View/Table lookup.
     source = _resource_link_schema_source(resolve=case != "flag-off")
     graph = _owner_graph(sub_types=["View"])
     source.ctx.graph = graph
@@ -1085,6 +1087,8 @@ def test_resource_link_type_not_looked_up(case: str) -> None:
         link["TableType"] = "EXTERNAL_TABLE"
     if case == "link-has-storage-descriptor":
         link["StorageDescriptor"] = {"Columns": [{"Name": "txn_id", "Type": "bigint"}]}
+    if case == "not-a-link":
+        del link["TargetTable"]
 
     wus, _ = _link_wus(source, link=link)
 

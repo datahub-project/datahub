@@ -216,7 +216,8 @@ def _table_record(
     is_view = table_type == GlueSource._VIRTUAL_VIEW_TABLE_TYPE
     return {
         "name": table["Name"],
-        # The subtype _gen_table_wu gives it.
+        # From TableType alone; ingestion may type a bare resource link as View
+        # from its owner.
         "subtype": str(DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE),
         "table_type": table_type,
         CATALOG_ID_FACT: table.get("CatalogId") or "",
@@ -478,10 +479,10 @@ class GlueMetadataProbe(ProbeProviderBase):
         storage descriptor may be ingested as a View: with
         resolve_resource_link_schema on, ingestion takes its type from the
         owning table, which this command does not read. Each record also
-        carries the facts the recipe's
-        non-pattern rules read -- whether the table is itself a Lake Formation
-        resource link, and whether its database is one or belongs to another
-        catalog -- so judge this output with `probe filter --from-run`. Lake
+        carries the facts the recipe's non-pattern rules read -- whether the
+        table is itself a Lake Formation resource link, and whether its
+        database is one or belongs to another catalog -- so judge this output
+        with `probe filter --from-run`. Lake
         Formation hides tables this principal may not describe; they are
         absent here exactly as they are absent from ingestion. When the
         listing is denied outright, ingestion skips this database's tables
