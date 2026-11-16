@@ -770,3 +770,124 @@ def test_get_lineage_no_platform(client: DataHubClient) -> None:
             "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table1,PROD)",
         ],
     )
+
+
+def test_get_lineage_with_chart_parented_schema_field(client: DataHubClient) -> None:
+    """Column lineage reaching a chart-parented schema field must not fail.
+
+    Regression test for https://github.com/datahub-project/datahub/issues/18964
+    """
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:chart:(tableau,my_chart)",
+                        "type": "CHART",
+                        "platform": {"name": "tableau"},
+                        "properties": {
+                            "name": "my_chart",
+                            "description": "Chart downstream of a dataset column",
+                        },
+                    },
+                    "degree": 1,
+                    "paths": [
+                        {
+                            "path": [
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD),my_column)",
+                                },
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:chart:(tableau,my_chart),my_column)",
+                                },
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:dashboard:(looker,my_dashboard),my_column)",
+                                },
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:someNewEntity:abc,my_column)",
+                                },
+                            ]
+                        }
+                    ],
+                },
+            ],
+        }
+    }
+
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(
+            source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
+            source_column="my_column",
+            direction="downstream",
+        )
+
+    assert len(results) == 1
+    paths = results[0].paths
+    assert paths is not None
+    assert len(paths) == 4
+    assert paths[0].entity_name == "my_table"
+    assert paths[0].column_name == "my_column"
+    assert paths[1].entity_name == "my_chart"
+    assert paths[1].column_name == "my_column"
+    assert paths[2].entity_name == "my_dashboard"
+    assert paths[2].column_name == "my_column"
+    assert paths[3].entity_name == "abc"
+    assert paths[3].column_name == "my_column"
+
+
+def test_get_lineage_with_unparseable_schema_field_in_path(
+    client: DataHubClient,
+) -> None:
+    """One unparseable path entry must not discard the whole lineage result."""
+    mock_response = {
+        "scrollAcrossLineage": {
+            "nextScrollId": None,
+            "searchResults": [
+                {
+                    "entity": {
+                        "urn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,downstream_table,PROD)",
+                        "type": "DATASET",
+                        "platform": {"name": "snowflake"},
+                        "properties": {
+                            "name": "downstream_table",
+                            "description": "Downstream target table",
+                        },
+                    },
+                    "degree": 1,
+                    "paths": [
+                        {
+                            "path": [
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:chart:(tableau,),my_column)",
+                                },
+                                {
+                                    "type": "SCHEMA_FIELD",
+                                    "urn": "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD),my_column)",
+                                },
+                            ]
+                        }
+                    ],
+                },
+            ],
+        }
+    }
+
+    with patch.object(client._graph, "execute_graphql", return_value=mock_response):
+        results = client.lineage.get_lineage(
+            source_urn="urn:li:dataset:(urn:li:dataPlatform:snowflake,my_table,PROD)",
+            source_column="my_column",
+            direction="downstream",
+        )
+
+    assert len(results) == 1
+    paths = results[0].paths
+    assert paths is not None
+    assert len(paths) == 1
+    assert paths[0].entity_name == "my_table"
+    assert paths[0].column_name == "my_column"
