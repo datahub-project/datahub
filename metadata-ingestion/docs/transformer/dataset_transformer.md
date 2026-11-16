@@ -1777,31 +1777,25 @@ datahub_api:
 #### Advanced Use-Case: Patching Owners
 
 With the above capability, we can now build more powerful transformers that can check with the server-side state before issuing changes in metadata.
-e.g. Here is how the AddDatasetOwnership transformer can now support PATCH semantics by ensuring that it never deletes any owners that are stored on the server.
+e.g. If `AddCustomOwnershipConfig` also had a `semantics: TransformerSemantics` field, here is how the `transform_aspect()` of `AddCustomOwnership` could support PATCH semantics by ensuring that it never deletes any owners that are stored on the server.
 
 ```python
-def transform_one(self, mce: MetadataChangeEventClass) -> MetadataChangeEventClass:
-    if not isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-        return mce
-    owners_to_add = self.config.get_owners_to_add(mce.proposedSnapshot)
-    if owners_to_add:
-        ownership = builder.get_or_add_aspect(
-            mce,
-            OwnershipClass(
-                owners=[],
-            ),
-        )
-        ownership.owners.extend(owners_to_add)
+def transform_aspect(  # type: ignore
+    self, entity_urn: str, aspect_name: str, aspect: Optional[OwnershipClass]
+) -> Optional[OwnershipClass]:
+    ownership = aspect if aspect else OwnershipClass(owners=[])
+    ownership.owners.extend(self.owners)
 
-        if self.config.semantics == TransformerSemantics.PATCH:
-            assert self.ctx.graph
-            patch_ownership = AddDatasetOwnership.get_ownership_to_set(
-                self.ctx.graph, mce.proposedSnapshot.urn, ownership
-            )
-            builder.set_aspect(
-                mce, aspect=patch_ownership, aspect_type=OwnershipClass
-            )
-    return mce
+    if self.config.semantics == TransformerSemantics.PATCH:
+        assert self.ctx.graph
+        server_ownership = self.ctx.graph.get_ownership(entity_urn=entity_urn)
+        if server_ownership:
+            ownership.owners = server_ownership.owners + [
+                owner
+                for owner in ownership.owners
+                if owner not in server_ownership.owners
+            ]
+    return ownership
 ```
 
 ### Installing the package

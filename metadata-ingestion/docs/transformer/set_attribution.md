@@ -22,9 +22,7 @@ This transformer applies to every entity type. Aspects other than the three abov
 
 :::warning Sources that emit MCEs lose their other aspects
 
-If your source emits `MetadataChangeEvent`s (MCEs), which carry several aspects per entity in one snapshot, only the three aspects above are forwarded — anything else in that MCE, such as a description or custom properties, is dropped. Sources that emit `MetadataChangeProposal`s (MCPs), which carry a single aspect each, are unaffected. See [MetadataChangeProposal & MetadataChangeLog](/docs/advanced/mcp-mcl.md) for the distinction.
-
-If you are unsure which your source emits, run the pipeline into a `file` sink with and without this transformer and compare which aspects appear.
+For a `MetadataChangeEvent` (MCE), only the three aspects above are forwarded and its other aspects are dropped. To check what a source emits, run it into a `file` sink.
 :::
 
 ## Config Details

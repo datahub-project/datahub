@@ -1,7 +1,7 @@
 MCE Builder
 =======
 
-These classes and methods make it easier to construct MetadataChangeEvents.
+These functions make it easier to build URNs and aspects.
 
 .. automodule:: datahub.emitter.mce_builder
    :member-order: alphabetical

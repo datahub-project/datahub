@@ -17,33 +17,17 @@ Define a JSON File containing your user
 ```my-user.json
 [
     {
-        "auditHeader": null,
-        "proposedSnapshot": {
-            "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-                "urn": "urn:li:corpuser:aseem.bansal",
-                "aspects": [
-                    {
-                        "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-                            "active": true,
-                            "displayName": {
-                                "string": "Aseem Bansal"
-                            },
-                            "email": "aseem+examples@acryl.io",
-                            "title": {
-                                "string": "Software Engineer"
-                            },
-                            "managerUrn": null,
-                            "departmentId": null,
-                            "departmentName": null,
-                            "firstName": null,
-                            "lastName": null,
-                            "fullName": {
-                                "string": "Aseem Bansal"
-                            },
-                            "countryCode": null
-                        }
-                    }
-                ]
+        "entityType": "corpuser",
+        "entityUrn": "urn:li:corpuser:aseem.bansal",
+        "changeType": "UPSERT",
+        "aspectName": "corpUserInfo",
+        "aspect": {
+            "json": {
+                "active": true,
+                "displayName": "Aseem Bansal",
+                "email": "aseem+examples@acryl.io",
+                "title": "Software Engineer",
+                "fullName": "Aseem Bansal"
             }
         }
     }
