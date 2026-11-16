@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BIと分析",
-    "category.biTool": "BIツール",
     "category.contextDocumentSources": "コンテキストドキュメントソース",
-    "category.dataCollector": "データコレクター",
     "category.dataLake": "データレイク",
     "category.dataWarehouse": "データウェアハウス",
     "category.database": "データベース",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "その他",
     "category.mlPlatforms": "MLプラットフォーム",
     "category.orchestration": "オーケストレーション",
-    "category.queryEngine": "クエリエンジン",
     "sources.abs.description": "Azure Blob StorageからDataset、フォルダ、コンテナ、推測されたSchemaをインポートします。",
     "sources.aerospike.description": "Aerospikeからネームスペース、セット、推測されたSchemaをインポートします。",
     "sources.airbyte.description": "Airbyte（OSSおよびCloud）から接続、ソース、送信先、Lineageをインポートします。",

@@ -6,7 +6,7 @@
         "description": "Import monitors, custom rules, and alerts from Monte Carlo as DataHub assertions.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/montecarlo",
         "recipe": "source:\n  type: montecarlo\n  config:\n    api_id: ${MCD_ID}\n    api_token: ${MCD_TOKEN}\n    # api_endpoint: https://api.getmontecarlo.com/graphql\n\n    # Map each Monte Carlo warehouse/resource UUID to a DataHub platform so\n    # monitored-asset URNs match those emitted by your warehouse source.\n    connection_to_platform_map:\n      \"<mc-warehouse-uuid>\":\n        platform: snowflake\n        platform_instance: prod\n        env: PROD\n        # Snowflake lowercases dataset URNs by default; set true so MC\n        # assertion URNs attach to the same datasets. Set false only for a\n        # case-preserving Snowflake/Redshift deployment.\n        convert_urns_to_lowercase: true\n\n    # Fallbacks for warehouses NOT listed above (auto-mapped or via default_platform).\n    # default_platform: postgres\n    # target_platform_instance: prod\n    # target_env: PROD\n\n    auto_map_connection_types: true\n    include_assertions: true\n    include_alerts: true\n    alerts_lookback_days: 30\n    # Opt in to also create Incident entities (Incidents tab). Off by default —\n    # see the Limitations section (incidents stay ACTIVE with no RESOLVED signal).\n    # emit_incidents_on_failure: true\n\n    # Ingest monitor run history + measured metric values as SUCCESS run events.\n    # run_events_lookback_days: 7\n    # run_events_first: 5\n\n    # monitor_pattern:\n    #   allow: [\".*freshness.*\"]\n    # monitor_type_pattern:\n    #   deny: [\"VOLUME\"]\n    # domain_ids: [\"<mc-domain-uuid>\"]\n\n    # rate_limit_requests_per_second: 5\n    # rate_limit_burst: 10\n    # rate_limit_daily: 5000\n    # convert_urns_to_lowercase: true\n\n    # Opt in to soft-delete assertions that no longer exist in Monte Carlo.\n    # Leave disabled until you have confirmed the run is healthy end-to-end;\n    # a partial run with transient errors skips deletion automatically.\n    # stateful_ingestion:\n    #   enabled: true",
-        "category": "Observability",
+        "category": "Miscellaneous",
         "isPopular": false
     },
     {
@@ -36,7 +36,7 @@
         "description": "Import Dashboards, Charts, and lineage from Omni.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/omni",
         "recipe": "source:\n  type: omni\n  config:\n    base_url: https://your-org.omniapp.co/api\n    api_key: ${OMNI_API_KEY}\n    connection_to_platform:\n      conn_abc123: snowflake\n    stateful_ingestion:\n      enabled: true\n      remove_stale_metadata: true\n",
-        "category": "BI Tool",
+        "category": "BI & Analytics",
         "isPopular": false
     },
     {
@@ -324,7 +324,7 @@
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Hive.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive/",
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true",
-        "category": "Query Engine",
+        "category": "Data Lake",
         "isPopular": false
     },
     {
@@ -334,7 +334,7 @@
         "description": "Import Databases, Tables, Views, and storage lineage directly from a Hive Metastore.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive-metastore/",
         "recipe": "source:\n    type: hive-metastore\n    config:\n        # Coordinates (the metastore's backing database)\n        host_port: # Your metastore database host and port, e.g. localhost:3306\n        database: metastore # Your metastore database name\n        # scheme: postgresql+psycopg2 # Use this if the metastore database is PostgreSQL (default: mysql+pymysql)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your metastore database username\n        password: \"${HIVE_METASTORE_PASSWORD}\"\n\n        # Platform to emit tables under: hive (default), presto, or trino\n        mode: hive\n\n        # Lineage from tables to their storage locations (S3, HDFS, ...)\n        emit_storage_lineage: true\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Catalog",
+        "category": "Data Lake",
         "isPopular": false
     },
     {
@@ -394,7 +394,7 @@
         "description": "Import Tables, Databases, Schemas, and statistics from Presto.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/presto/",
         "recipe": "source:\n    type: presto\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Query Engine",
+        "category": "Data Lake",
         "isPopular": false
     },
     {
@@ -404,7 +404,7 @@
         "description": "Import Tables, Databases, Schemas, and statistics from Trino.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/trino/",
         "recipe": "source:\n    type: trino\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Query Engine",
+        "category": "Data Lake",
         "isPopular": false
     },
     {
@@ -453,7 +453,8 @@
         "displayName": "Apache Doris",
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Apache Doris.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/doris/",
-        "recipe": "source:\n    type: doris\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true"
+        "recipe": "source:\n    type: doris\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database"
     },
     {
         "urn": "urn:li:dataPlatform:mongodb",
@@ -542,7 +543,7 @@
         "description": "Import Schemas, Tables, Views, and lineage to S3 from Athena.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/athena/",
         "recipe": "source:\n  type: athena\n  config:\n    # AWS Keys (Optional - Required only if local aws credentials are not set)\n    username: aws_access_key_id\n    password: aws_secret_access_key\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\"\n    stateful_ingestion:\n      enabled: true",
-        "category": "Query Engine",
+        "category": "Data Lake",
         "isPopular": true
     },
     {
@@ -769,10 +770,10 @@
         "urn": "urn:li:dataPlatform:dataplex",
         "name": "dataplex",
         "displayName": "Google Cloud Knowledge Catalog (Dataplex)",
-        "description": "Google Cloud's intelligent data fabric for unified data management, governance, and analytics across data lakes and warehouses.",
+        "description": "Import Tables, Containers, glossary terms, and lineage from the Dataplex Universal Catalog.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dataplex",
         "recipe": "source:\n    type: dataplex\n    config:\n        project_ids:\n            - my-gcp-project\n        include_schema: true\n        include_lineage: true\n        include_glossaries: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Catalog",
+        "category": "Data Lake",
         "isPopular": false
     },
     {
@@ -782,7 +783,7 @@
         "description": "Import Open Data Contract Standard (ODCS) v3.x YAML files as logical datasets, with schema, ownership, tags, and quality assertions.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/odcs",
         "recipe": "source:\n    type: odcs\n    config:\n        # Path to an ODCS YAML file, a directory of them, or a glob pattern\n        path: /path/to/contracts\n        emit_assertions: true\n        emit_schema_assertion: true\n        emit_logical_parent: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Catalog",
+        "category": "Miscellaneous",
         "isPopular": false
     },
     {
@@ -802,7 +803,7 @@
         "description": "Import Views, Analytical Models, Local Tables and federated Remote Tables from SAP Datasphere, with table-level and column-level lineage.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sap-datasphere/",
         "recipe": "source:\n    type: sap-datasphere\n    config:\n        # Your SAP Datasphere tenant base URL\n        base_url: # https://<tenant>.<region>.hcs.cloud.sap\n        # Authentication — choose ONE:\n        # 1) raw bearer token\n        token: \"${SAP_DATASPHERE_TOKEN}\"\n        # 2) OAuth client-credentials / refresh-token (uncomment + set):\n        # client_id: \"${SAP_DATASPHERE_CLIENT_ID}\"\n        # client_secret: \"${SAP_DATASPHERE_CLIENT_SECRET}\"\n        # xsuaa_url: # https://<tenant>.authentication.<region>.hana.ondemand.com\n        stateful_ingestion:\n            enabled: true",
-        "category": "BI & Analytics",
+        "category": "Data Warehouse",
         "isPopular": false
     },
     {
@@ -823,7 +824,7 @@
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n    type: dremio\n    config:\n        dremio_cloud_region: US\n        port: 9047\n        tls: true\n        authentication_method: PAT\n        password: pass\n        env: PROD\n        ingest_owner: true\n",
-        "category": "Query Engine",
+        "category": "Data Lake",
         "isPopular": true
     },
     {
@@ -1058,7 +1059,8 @@
         "displayName": "RDF",
         "description": "Import glossary terms, term groups, and relationships from RDF/OWL ontologies (SKOS, Turtle, RDF/XML).",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/rdf",
-        "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary"
+        "recipe": "source:\n  type: rdf\n  config:\n    source: path/to/glossary.ttl\n    environment: PROD\n    export_only:\n      - glossary",
+        "category": "Miscellaneous"
     },
     {
         "urn": "urn:li:dataPlatform:snowplow",
@@ -1067,7 +1069,7 @@
         "description": "Import Schemas, Event Specifications, Tracking Plans, Pipelines, and Enrichments from Snowplow BDP.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/snowplow",
         "recipe": "source:\n  type: snowplow\n  config:\n    # BDP Console API connection\n    bdp_connection:\n      organization_id: \"YOUR_ORG_UUID\"\n      api_key_id: \"${SNOWPLOW_API_KEY_ID}\"\n      api_key: \"${SNOWPLOW_API_KEY}\"\n\n    # Optional: Filter schemas by Snowplow deployment environment (PROD, DEV)\n    # deployment_environment: PROD\n\n    # Optional: Filter pipelines by Snowplow pipeline label (commonly the env, e.g. prod)\n    # pipeline_label: prod\n\n    # Optional: Filter event specifications by status\n    # event_spec_statuses:\n    #   - published\n\n    # Optional: Filter schemas by vendor/name pattern\n    # schema_pattern:\n    #   allow:\n    #     - \"com\\\\.mycompany\\\\..*\"\n\n    stateful_ingestion:\n      enabled: true",
-        "category": "Data Collector",
+        "category": "ETL / ELT",
         "isPopular": false,
         "isNew": true
     },

@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI & Analytics",
-    "category.biTool": "BI-verktyg",
     "category.contextDocumentSources": "Kontextdokumentkällor",
-    "category.dataCollector": "Data Collector",
     "category.dataLake": "Data Lake",
     "category.dataWarehouse": "Data Warehouse",
     "category.database": "Databas",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "Övrigt",
     "category.mlPlatforms": "ML-plattformar",
     "category.orchestration": "Orkestrering",
-    "category.queryEngine": "Query Engine",
     "sources.abs.description": "Importera Datasets, Folders, containrar och härledda scheman från Azure Blob Storage.",
     "sources.aerospike.description": "Importera Namespaces, Sets och härledda scheman från Aerospike.",
     "sources.airbyte.description": "Importera Connections, Sources, Destinations och Lineage från Airbyte (OSS och Cloud).",

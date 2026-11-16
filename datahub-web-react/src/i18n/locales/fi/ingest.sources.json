@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI ja analytiikka",
-    "category.biTool": "BI-työkalu",
     "category.contextDocumentSources": "Kontekstidokumenttien lähteet",
-    "category.dataCollector": "Tiedonkerääjä",
     "category.dataLake": "Data Lake",
     "category.dataWarehouse": "Tietovarasto",
     "category.database": "Tietokanta",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "Sekalaiset",
     "category.mlPlatforms": "ML-alustat",
     "category.orchestration": "Orkestrointi",
-    "category.queryEngine": "Kyselymoottori",
     "sources.abs.description": "Tuo tietoaineistot, kansiot, säiliöt ja pääteltyt skeemat Azure Blob Storagesta.",
     "sources.aerospike.description": "Tuo nimiavaruudet, joukot ja pääteltyt skeemat Aerospikesta.",
     "sources.airbyte.description": "Tuo yhteydet, lähteet, kohteet ja lineage Airbytestä (OSS ja Cloud).",

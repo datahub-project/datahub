@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI и аналитика",
-    "category.biTool": "BI-инструмент",
     "category.contextDocumentSources": "Источники контекстных документов",
-    "category.dataCollector": "Сборщик данных",
     "category.dataLake": "Data Lake",
     "category.dataWarehouse": "Хранилище данных",
     "category.database": "База данных",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "Разное",
     "category.mlPlatforms": "ML-платформы",
     "category.orchestration": "Оркестрация",
-    "category.queryEngine": "Движок запросов",
     "sources.abs.description": "Импорт датасетов, папок, контейнеров и предполагаемых схем из Azure Blob Storage.",
     "sources.aerospike.description": "Импорт пространств имён, наборов и предполагаемых схем из Aerospike.",
     "sources.airbyte.description": "Импорт подключений, источников, назначений и lineage из Airbyte (OSS и Cloud).",

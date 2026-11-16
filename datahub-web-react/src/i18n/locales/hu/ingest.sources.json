@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI és analitika",
-    "category.biTool": "BI-eszköz",
     "category.contextDocumentSources": "Kontextusdokumentum-források",
-    "category.dataCollector": "Adatgyűjtő",
     "category.dataLake": "Data Lake",
     "category.dataWarehouse": "Data Warehouse",
     "category.database": "Adatbázis",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "Egyéb",
     "category.mlPlatforms": "ML-platformok",
     "category.orchestration": "Orkesztráció",
-    "category.queryEngine": "Lekérdezőmotor",
     "sources.abs.description": "Adathalmazok, Folders, konténerek és kikövetkeztetett sémák importálása az Azure Blob Storage-ból.",
     "sources.aerospike.description": "Namespaces, Sets és kikövetkeztetett sémák importálása az Aerospike-ból.",
     "sources.airbyte.description": "Connections, Sources, Destinations és Lineage importálása az Airbyte-ből (OSS és Cloud).",

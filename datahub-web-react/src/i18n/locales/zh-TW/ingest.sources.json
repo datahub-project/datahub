@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI 與分析",
-    "category.biTool": "BI 工具",
     "category.contextDocumentSources": "情境文件來源",
-    "category.dataCollector": "資料收集器",
     "category.dataLake": "資料湖",
     "category.dataWarehouse": "資料倉儲",
     "category.database": "資料庫",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "其他",
     "category.mlPlatforms": "ML 平台",
     "category.orchestration": "協作調度",
-    "category.queryEngine": "查詢引擎",
     "sources.abs.description": "從 Azure Blob Storage 匯入資料集、資料夾、容器與推斷出的結構描述。",
     "sources.aerospike.description": "從 Aerospike 匯入命名空間、集合與推斷出的結構描述。",
     "sources.airbyte.description": "從 Airbyte（OSS 與 Cloud）匯入連線、來源、目的地與資料血緣。",

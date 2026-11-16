@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI 与分析",
-    "category.biTool": "BI 工具",
     "category.contextDocumentSources": "上下文文档源",
-    "category.dataCollector": "数据采集器",
     "category.dataLake": "数据湖",
     "category.dataWarehouse": "数据仓库",
     "category.database": "数据库",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "其他",
     "category.mlPlatforms": "机器学习平台",
     "category.orchestration": "编排",
-    "category.queryEngine": "查询引擎",
     "sources.abs.description": "从 Azure Blob Storage 导入数据集、文件夹、容器和推断出的架构。",
     "sources.aerospike.description": "从 Aerospike 导入命名空间、集合和推断出的架构。",
     "sources.airbyte.description": "从 Airbyte（OSS 与 Cloud）导入连接、源、目标以及数据血缘。",

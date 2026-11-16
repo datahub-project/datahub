@@ -1,8 +1,6 @@
 {
     "category.biAndAnalytics": "BI & Analytics",
-    "category.biTool": "Strumento BI",
     "category.contextDocumentSources": "Origini documenti di contesto",
-    "category.dataCollector": "Data Collector",
     "category.dataLake": "Data Lake",
     "category.dataWarehouse": "Data Warehouse",
     "category.database": "Database",
@@ -10,7 +8,6 @@
     "category.miscellaneous": "Varie",
     "category.mlPlatforms": "Piattaforme ML",
     "category.orchestration": "Orchestrazione",
-    "category.queryEngine": "Query Engine",
     "sources.abs.description": "Importa Dataset, Folders, container e schemi dedotti da Azure Blob Storage.",
     "sources.aerospike.description": "Importa Namespaces, Sets e schemi dedotti da Aerospike.",
     "sources.airbyte.description": "Importa Connections, Sources, Destinations e Lineage da Airbyte (OSS e Cloud).",
