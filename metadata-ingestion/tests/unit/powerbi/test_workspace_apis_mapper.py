@@ -577,6 +577,32 @@ def test_calculated_table_reading_an_unknown_table_is_reported() -> None:
     assert _warnings(mapper) == ["Model.By_State.By State -> 'Archive'"]
 
 
+def test_calculated_table_lineage_is_not_withheld_when_scan_keeps_its_dax() -> None:
+    # The admin scan stores a calculated table's DAX in `expression`; the M
+    # parser finds nothing there, which must not withhold the DAX table edges.
+    mapper = _mapper()
+    policies = Table(name="Policies", full_name="Model.Policies")
+    dax = "FILTER('Policies', 'Policies'[State] = \"CA\")"
+    by_state = Table(
+        name="By State",
+        full_name="Model.By_State",
+        expression=dax,
+        calculated_expression=dax,
+    )
+    _dataset([policies, by_state])
+    with patch(
+        "datahub.ingestion.source.powerbi.powerbi.parser.get_upstream_tables",
+        return_value=[],
+    ):
+        aspect = _lineage_aspect(
+            mapper.extract_lineage(by_state, _urn(mapper, by_state), _workspace())
+        )
+
+    assert aspect is not None
+    assert [u.dataset for u in aspect.upstreams] == [_urn(mapper, policies)]
+    assert mapper._Mapper__reporter.model_internal_lineage_withheld == 0  # type: ignore[attr-defined]
+
+
 def test_dax_references_are_counted_once_per_reference() -> None:
     mapper = _dax_mapper()
     policies, kpis = _dax_model(mapper)

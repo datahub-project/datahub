@@ -773,12 +773,15 @@ class Mapper:
         if (
             (upstream or cll_lineage)
             and table.expression
+            and not table.calculated_expression
             and not any(lineage.upstreams for lineage in upstream_lineage)
         ):
             # The M source resolved to nothing this run (parse failure or an
             # unsupported source). An aspect with only the model-internal edges
             # would replace external lineage emitted by earlier runs, so keep
-            # the stored lineage.
+            # the stored lineage. A calculated table has no M source: the admin
+            # scan stores its DAX in `expression`, and its DAX table edges are
+            # its whole lineage.
             self.__reporter.model_internal_lineage_withheld += 1
             return mcps
 
