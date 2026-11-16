@@ -579,6 +579,34 @@ def test_extract_lineage_odbc_only_platform_takes_odbc_mapping_instance() -> Non
     ]
 
 
+@pytest.mark.parametrize(
+    "driver",
+    [
+        pytest.param("PostgreSQL Unicode", id="postgres"),
+        # "Amazon Redshift" matches its "AmazonRedshift" key once spaces are removed.
+        pytest.param("Amazon Redshift (x64)", id="redshift"),
+    ],
+)
+def test_extract_lineage_known_platform_does_not_follow_odbc_mapping(
+    driver: str,
+) -> None:
+    """Only ODBC-only platforms fall back to the Odbc entry. A platform with its
+    own dataset_type_mapping key is filtered by that key, even over ODBC."""
+    config = powerbi_config(
+        dataset_type_mapping={"Odbc": {"platform_instance": "odbc_inst"}},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(driver, _DATABASE_SCHEMA_TABLE)
+    )
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
+
+
 def test_fine_grained_lineage_is_omitted_when_column_lineage_is_disabled() -> None:
     config = powerbi_config(extract_column_level_lineage=False)
     workspace = make_workspace()

@@ -36,6 +36,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
 from datahub.utilities.file_backed_collections import FileBackedDict
+from tests.unit.powerbi.conftest import make_dataset, make_table, make_workspace
 
 
 def _mock_msal_cca(*args, **kwargs):
@@ -1963,6 +1964,43 @@ def test_get_workunits_internal_reports_each_unmatched_athena_override_as_info()
     assert "table=ordres" in str(unmatched[0].context)
     assert "table=orders" not in str(unmatched[0].context)
     assert title not in [w.title for w in source.reporter.warnings]
+
+
+def test_athena_override_matched_during_lineage_is_not_reported_as_unmatched():
+    """The parser must record matches on the source's own reporter; otherwise
+    every override would be reported as never matched."""
+    source = _make_source(
+        workspaces_to_return=[_make_scanned_workspace("WS-A")],
+        excluded_ids=set(),
+        extract_column_level_lineage=False,
+        athena_table_platform_override=[
+            {"database": "sales", "table": "orders", "platform": "mysql"},
+            {"database": "sales", "table": "ordres", "platform": "mysql"},
+        ],
+    )
+    workspace = make_workspace()
+    dataset = make_dataset(workspace=workspace)
+    table = make_table(
+        dataset=dataset,
+        expression=(
+            'let\n    Source = Odbc.DataSource("driver={Simba Amazon Athena ODBC '
+            'Driver};dsn=athena_prod", [HierarchicalNavigation=true]),\n'
+            '    Catalog = Source{[Name="AwsDataCatalog",Kind="Database"]}[Data],\n'
+            '    Db = Catalog{[Name="sales",Kind="Schema"]}[Data],\n'
+            '    Orders = Db{[Name="orders",Kind="Table"]}[Data]\n'
+            "in\n    Orders"
+        ),
+    )
+    dataset.tables.append(table)
+
+    source.mapper.extract_lineage(table, "urn:li:dataset:x", workspace)
+    list(source.get_workunits_internal())
+
+    title = "Athena table platform override never matched"
+    unmatched = [i for i in source.reporter.infos if i.title == title]
+    assert len(unmatched) == 1
+    assert "table=ordres" in str(unmatched[0].context)
+    assert "table=orders" not in str(unmatched[0].context)
 
 
 def test_get_workunits_internal_skips_unmatched_override_report_without_lineage():
