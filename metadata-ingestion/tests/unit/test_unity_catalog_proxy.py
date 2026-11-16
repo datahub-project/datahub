@@ -4,6 +4,9 @@ from datetime import datetime
 from unittest.mock import MagicMock, patch
 
 import pytest
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.errors import Unauthenticated
+from databricks.sdk.service.catalog import CatalogsAPI
 
 from datahub.ingestion.source.unity.proxy import (
     ExternalUpstream,
@@ -14,6 +17,23 @@ from datahub.ingestion.source.unity.proxy import (
 )
 from datahub.ingestion.source.unity.proxy_patch import _basic_proxy_auth_header
 from datahub.ingestion.source.unity.report import UnityCatalogReport
+
+
+def _catalogs_api_client() -> MagicMock:
+    """Low-level api client stub for the SDK's real (lazy) CatalogsAPI."""
+    api_client = MagicMock()
+    # CatalogsAPI.list reads these off the config before issuing the request.
+    api_client._cfg.host_type = None
+    api_client._cfg.workspace_id = None
+    return api_client
+
+
+def _workspace_client_with_real_catalogs_api(api_client: MagicMock) -> MagicMock:
+    workspace_client = MagicMock(spec=WorkspaceClient)
+    workspace_client.catalogs = CatalogsAPI(api_client)
+    workspace_client.config.host = "https://my-workspace.cloud.databricks.com"
+    workspace_client.config.warehouse_id = "my_warehouse_id"
+    return workspace_client
 
 
 class TestUnityCatalogProxy:
@@ -678,7 +698,8 @@ class TestUnityCatalogProxy:
         """Test check_basic_connectivity passes page size to catalogs.list()."""
         # Setup mock
         mock_client = mock_workspace_client.return_value
-        mock_client.catalogs.list.return_value = ["catalog1"]
+        # catalogs.list() is a generator in the SDK; mirror that laziness.
+        mock_client.catalogs.list.return_value = iter(["catalog1"])
         mock_client.config.warehouse_id = "test_warehouse"
 
         proxy = UnityCatalogApiProxy(
@@ -693,6 +714,31 @@ class TestUnityCatalogProxy:
         mock_client.catalogs.list.assert_called_once_with(
             include_browse=True, max_results=100
         )
+
+    def test_basic_connectivity_fails_with_invalid_token(self):
+        api_client = _catalogs_api_client()
+        api_client.do.side_effect = Unauthenticated(
+            "Invalid access token.", error_code="UNAUTHENTICATED"
+        )
+        proxy = UnityCatalogApiProxy(
+            workspace_client=_workspace_client_with_real_catalogs_api(api_client),
+            report=UnityCatalogReport(),
+        )
+
+        with pytest.raises(Unauthenticated):
+            proxy.check_basic_connectivity()
+        api_client.do.assert_called_once()
+
+    def test_basic_connectivity_succeeds_with_empty_metastore(self):
+        api_client = _catalogs_api_client()
+        api_client.do.return_value = {}
+        proxy = UnityCatalogApiProxy(
+            workspace_client=_workspace_client_with_real_catalogs_api(api_client),
+            report=UnityCatalogReport(),
+        )
+
+        assert proxy.check_basic_connectivity()
+        api_client.do.assert_called_once()
 
     @patch("datahub.ingestion.source.unity.proxy.WorkspaceClient")
     def test_catalogs_with_page_size(self, mock_workspace_client):

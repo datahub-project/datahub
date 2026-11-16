@@ -521,11 +521,22 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             return None
 
     def check_basic_connectivity(self) -> bool:
-        return bool(
-            self._workspace_client.catalogs.list(
-                include_browse=True, max_results=self.databricks_api_page_size
-            )
+        """Issue one catalogs.list() request to verify connectivity and auth.
+
+        ``catalogs.list()`` is a lazy generator in the Databricks SDK, so the
+        first page must be pulled to actually contact the API. Auth and network
+        errors propagate so callers can surface the real failure reason. An
+        empty metastore still counts as connected.
+        """
+        next(
+            iter(
+                self._workspace_client.catalogs.list(
+                    include_browse=True, max_results=self.databricks_api_page_size
+                )
+            ),
+            None,
         )
+        return True
 
     def assigned_metastore(self) -> Optional[Metastore]:
         response = self._workspace_client.metastores.summary()
