@@ -33,6 +33,11 @@ h6 {
     color: rgba(0, 0, 0, 0.85);
 }
 
+::selection {
+    color: #fff;
+    background: #533fd1;
+}
+
 a {
     color: #533fd1;
     text-decoration: none;
@@ -76,6 +81,22 @@ body {
     font-weight: 600;
 }
 
+// antd 4 forced borderless selects clear with !important; without it the themed select border, fill
+// and focus shadow in GlobalThemeStyles show on them
+.ant-select-borderless .ant-select-selector {
+    background-color: transparent !important;
+    border-color: transparent !important;
+    box-shadow: none !important;
+}
+
+// antd 4 menu items used a fixed 22px line (see the Dropdown token in antdTheme)
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title,
+.ant-dropdown-menu-submenu .ant-dropdown-menu .ant-dropdown-menu-item,
+.ant-dropdown-menu-submenu .ant-dropdown-menu .ant-dropdown-menu-submenu-title {
+    line-height: 22px;
+}
+
 // antd 5 fixes single selects at the control height; selects that render their own input (AutoComplete
 // search bars) need to grow with it as they did in antd 4
 .ant-select-single.ant-select-customize-input {
@@ -111,9 +132,23 @@ body {
     margin-top: 0;
     border-top: 1px solid #f0f0f0;
 }
+// antd 4 centered the close icon in a 54px square in the corner, with no hover background. The square
+// is sized on the inner element as in antd 4, so modals that resize it keep their own placement.
 .ant-modal .ant-modal-close {
-    top: 16px;
-    inset-inline-end: 16px;
+    top: 0;
+    inset-inline-end: 0;
+    width: auto;
+    height: auto;
+
+    &:hover {
+        background-color: transparent;
+    }
+}
+.ant-modal .ant-modal-close-x {
+    width: 54px;
+    height: 54px;
+    align-items: center;
+    font-size: 16px;
 }
 .ant-modal.ant-modal-confirm .ant-modal-body {
     padding: 32px 32px 24px;
@@ -132,11 +167,22 @@ body {
 }
 
 // antd 5 has no title-weight token: titles share fontWeightStrong with <strong>, which should stay 600
+// The descendant forms cover headings in markdown rendered inside Typography (e.g. the document editor)
 h1.ant-typography,
 h2.ant-typography,
 h3.ant-typography,
 h4.ant-typography,
-h5.ant-typography {
+h5.ant-typography,
+div.ant-typography-h1,
+div.ant-typography-h2,
+div.ant-typography-h3,
+div.ant-typography-h4,
+div.ant-typography-h5,
+.ant-typography h1,
+.ant-typography h2,
+.ant-typography h3,
+.ant-typography h4,
+.ant-typography h5 {
     font-weight: 700;
 }
 

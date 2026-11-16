@@ -49,10 +49,13 @@ export const PaginationContainer = styled.div`
         font-weight: 700;
     }
 
-    .ant-pagination-item-link {
+    /* Matches antd 5's three-class selector, which sets display: block and a 10px font (the carets are
+       1em) */
+    .ant-pagination .ant-pagination-item-link {
         display: flex;
         align-items: center;
         justify-content: center;
+        font-size: 12px;
     }
 
     /* Matches the prev/next selectors in GlobalThemeStyles so the borderless treatment

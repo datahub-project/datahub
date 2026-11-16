@@ -20,6 +20,8 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
         `
         ${props.$fullWidth && 'width: 100%;'}
         height: 40px;
+        /* antd 5 makes the inner input inherit its size from this wrapper */
+        font-size: 14px;
         border: 1px solid;
         border-color: ${props.theme.colors.border};
         box-shadow: ${props.theme.colors.shadowXs};
@@ -47,7 +49,6 @@ const StyledInput = styled(Input)<{ $isShowNavBarRedesign?: boolean; $minWidth?:
     & .ant-input {
         background-color: transparent;
         ${(props) => !props.$isShowNavBarRedesign && `color: ${props.theme.colors.textTertiary};`}
-        ${(props) => props.$isShowNavBarRedesign && 'font-size: 14px;'}
     }
 `;
 

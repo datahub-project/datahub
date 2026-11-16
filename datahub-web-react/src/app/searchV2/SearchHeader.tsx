@@ -116,12 +116,13 @@ const StyledButton = styled(Button)`
         display: flex;
         gap: 4px;
         align-items: center;
+    }
 
-        &:hover,
-        :active,
-        :focus {
-            color: ${(props) => props.theme.colors.textTertiary};
-        }
+    /* antd 5's link-button hover rule is five classes deep */
+    &&&&&:hover,
+    &&&&&:active,
+    &&&&&:focus {
+        color: ${(props) => props.theme.colors.textTertiary};
     }
 `;
 

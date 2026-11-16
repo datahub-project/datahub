@@ -11,7 +11,7 @@ const Wrapper = styled.div`
 `;
 
 const SkeletonRow = styled(Skeleton.Input)`
-    && {
+    &&& {
         width: 100%;
     }
 `;

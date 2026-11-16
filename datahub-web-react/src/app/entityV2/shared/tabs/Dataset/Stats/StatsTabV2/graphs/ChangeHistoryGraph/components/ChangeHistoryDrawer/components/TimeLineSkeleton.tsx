@@ -22,7 +22,7 @@ const ContentWrapper = styled.div`
 `;
 
 const SkeletonContentLine = styled(Skeleton.Button)`
-    .ant-skeleton-button {
+    && .ant-skeleton-button {
         height: 14px;
         width: 150px;
         margin: 0;
@@ -30,7 +30,7 @@ const SkeletonContentLine = styled(Skeleton.Button)`
 `;
 
 const SkeletonContentTimestampLine = styled(Skeleton.Button)`
-    .ant-skeleton-button {
+    && .ant-skeleton-button {
         height: 12px;
         width: 150px;
         margin: 0;

@@ -65,11 +65,14 @@ const FilterName = styled.div`
 `;
 
 const RemoveButton = styled(Button)`
-    padding: 0px;
-    margin: 0px;
-    width: 20px;
-    height: 20px;
-    margin-left: 0px;
+    /* antd 5 sizes icon-only buttons with two classes; && keeps these overrides ahead */
+    && {
+        padding: 0px;
+        margin: 0px;
+        width: 20px;
+        height: 20px;
+        margin-left: 0px;
+    }
 `;
 
 interface SelectedFilterProps {

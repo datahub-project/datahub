@@ -14,7 +14,7 @@ const HeaderContainer = styled.div`
 `;
 
 const PillSkeleton = styled(Skeleton.Button)`
-    .ant-skeleton-button {
+    && .ant-skeleton-button {
         height: 28px;
         width: 50px;
     }

@@ -7,7 +7,7 @@ const Container = styled.div`
 `;
 
 const CardSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         padding: 2px 12px 2px 0px;
         height: 32px;
         border-radius: 8px;

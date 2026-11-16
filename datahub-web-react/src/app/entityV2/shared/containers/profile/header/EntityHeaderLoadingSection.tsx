@@ -8,7 +8,7 @@ const Wrapper = styled(Space)`
 `;
 
 const NameSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         height: 20px;
         width: 240px;
         border-radius: 4px;

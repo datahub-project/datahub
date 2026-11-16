@@ -3,7 +3,7 @@ import * as React from 'react';
 import styled from 'styled-components';
 
 const TypeSkeleton = styled(Skeleton.Input)`
-    && {
+    &&& {
         width: 60px;
         height: 60px;
         border-radius: 8px;
