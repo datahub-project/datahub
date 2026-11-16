@@ -444,6 +444,10 @@ file_profiling = {
     "datasketches>=5.0.0,<6.0.0",
     # The profiler reads Avro files with fastavro.
     "fastavro>=1.2.0,<2.0.0",
+    # pyarrow resolves tz-aware timestamps (e.g. CSV values ending in "Z" infer as
+    # tz=UTC) through zoneinfo, which needs a tz database. Slim images have no system
+    # zoneinfo, so ship IANA data via tzdata. Same pin as databricks_common.
+    "tzdata>=2022.7,<2030",
     # cachetools is used by the profiling config
     *cachetools_lib,
 }
@@ -537,9 +541,11 @@ onnx_embeddings = {
 
 unstructured_lib = {
     # Unstructured.io core library for document partitioning with markdown support
-    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+)
-    "unstructured[md]==0.24.1",
-    # unstructured 0.24.x requires ingest >=1.4.0
+    # CVE-2026-71428: SSRF in partition(url=...) fixed in 0.24.0+ (requires Python 3.11+).
+    # 0.24.x capped filelock<4, holding resolved envs on the 3.x line affected by
+    # CVE-2026-112940; 0.27.x requires filelock>=4.2.1, which carries the fix.
+    "unstructured[md]==0.27.37",
+    # unstructured 0.27.x accepts ingest >=1.4.0,<2
     "unstructured-ingest==1.4.28",
     # JSONPath for custom property extraction
     "jsonpath-ng==1.7.0",
@@ -599,8 +605,9 @@ plugins: Dict[str, Set[str]] = {
     }
     | aws_common,
     "datahub-rest": rest_common,
-    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility; Docker/constraints enforce >=3.20.3 where needed.
-    "sync-file-emitter": {"filelock>=3.13.1,<4.0.0"},
+    # 3.13.1 minimum for Airflow 2.7.3+ constraint compatibility (and filelock 4.2.1+ needs Python 3.11+);
+    # Docker/constraints enforce >=4.2.1 where needed.
+    "sync-file-emitter": {"filelock>=3.13.1,<5.0.0"},
     # DataHub Lite defaults to the stdlib sqlite3 engine, so this extra only
     # pulls in the `datahub lite serve` stack. The optional duckdb engine lives
     # in its own extra below.
@@ -929,7 +936,11 @@ plugins: Dict[str, Set[str]] = {
     # path (richer metadata, run history support).
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
-    "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    # path_spec_common: QVD folder containers use the data lake sources'
+    # ContainerWUCreator, whose module imports PathSpec.
+    "qlik-sense": sqlglot_lib
+    | path_spec_common
+    | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
@@ -941,6 +952,7 @@ plugins: Dict[str, Set[str]] = {
     "sac": sac,
     "neo4j": {"pandas<3.0.0", "neo4j<7.0.0"},
     "vertexai": {"google-cloud-aiplatform>=1.80.0,<2.0.0"},
+    "hightouch": {"requests<3.0.0"} | usage_common | sqlglot_lib,
     "pinecone": {"pinecone-client>=3.0.0,<6.0.0"},
     # Debug/utility plugins
     "debug-recording": {
@@ -1108,6 +1120,7 @@ base_dev_requirements = {
             "druid",
             "elasticsearch",
             "feast",
+            "hightouch",
             "iceberg",
             "iceberg-catalog",
             "microstrategy",
@@ -1368,6 +1381,7 @@ entry_points = {
         "odcs = datahub.ingestion.source.odcs.odcs_source:ODCSSource",
         "vertexai = datahub.ingestion.source.vertexai.vertexai:VertexAISource",
         "hex = datahub.ingestion.source.hex.hex:HexSource",
+        "hightouch = datahub.ingestion.source.hightouch.hightouch:HightouchSource",
         "timescaledb = datahub.ingestion.source.sql.timescaledb:TimescaleDBSource",
         "omni = datahub.ingestion.source.omni.omni:OmniSource",
         "pinecone = datahub.ingestion.source.pinecone.pinecone_source:PineconeSource",

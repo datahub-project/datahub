@@ -1,6 +1,7 @@
 import { EditorComponent, Remirror, TableComponents, ThemeProvider, useRemirror } from '@remirror/react';
 import DOMPurify from 'dompurify';
 import React, { forwardRef, useEffect, useImperativeHandle, useMemo } from 'react';
+import { ErrorBoundary } from 'react-error-boundary';
 import { useMount } from 'react-use';
 import {
     BlockquoteExtension,
@@ -38,7 +39,6 @@ import { FileDragDropExtension } from '@components/components/Editor/extensions/
 import { htmlToMarkdown } from '@components/components/Editor/extensions/htmlToMarkdown';
 import { markdownToHtml } from '@components/components/Editor/extensions/markdownToHtml';
 import { DataHubMentionsExtension } from '@components/components/Editor/extensions/mentions/DataHubMentionsExtension';
-import { MentionsComponent } from '@components/components/Editor/extensions/mentions/MentionsComponent';
 import { CodeBlockToolbar } from '@components/components/Editor/toolbar/CodeBlockToolbar';
 import { FloatingToolbar } from '@components/components/Editor/toolbar/FloatingToolbar';
 import { TableCellMenu } from '@components/components/Editor/toolbar/TableCellMenu';
@@ -83,6 +83,10 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         belowToolbar,
         hideToolbar,
         compact,
+        mentionsComponent,
+        mentionsPicker: MentionsPicker,
+        mentionNodeView,
+        imageUploadEnabled,
     } = props;
     const styledTheme = useTheme();
     const editorTheme = useMemo(() => getEditorTheme(styledTheme), [styledTheme]);
@@ -97,7 +101,7 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
             new BulletListExtension({}),
             new CodeBlockExtension({ syntaxTheme }),
             new CodeExtension(),
-            new DataHubMentionsExtension({}),
+            new DataHubMentionsExtension({ mentionNodeView }),
             new DropCursorExtension({
                 color: styledTheme.colors.borderBrandFocused,
                 width: 2,
@@ -145,6 +149,8 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
         // eslint-disable-next-line react-hooks/exhaustive-deps
     }, [readOnly, content]);
 
+    const defaultMentionsPicker = MentionsPicker ? <MentionsPicker renderOutsideEditor={compact} /> : null;
+
     return (
         <EditorContainer
             className={className}
@@ -173,13 +179,20 @@ export const Editor = forwardRef((props: EditorProps, ref) => {
                                             styles={toolbarStyles}
                                             fixedBottom={fixedBottomToolbar}
                                             belowToolbar={belowToolbar}
+                                            imageUploadEnabled={imageUploadEnabled}
                                         />
                                         <CodeBlockToolbar />
                                         {!hideHighlightToolbar && <FloatingToolbar />}
                                         <TableComponents tableCellMenuProps={{ Component: TableCellMenu }} />
                                     </>
                                 )}
-                                <MentionsComponent renderOutsideEditor={compact} />
+                                {mentionsComponent ? (
+                                    // A custom picker that fails (e.g. its lazy chunk can't load) falls
+                                    // back to the default dropdown rather than taking the editor down.
+                                    <ErrorBoundary fallback={defaultMentionsPicker}>{mentionsComponent}</ErrorBoundary>
+                                ) : (
+                                    defaultMentionsPicker
+                                )}
                                 {onChange && <OnChangeMarkdown onChange={onChange} />}
                             </>
                         )}

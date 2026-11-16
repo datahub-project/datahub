@@ -1,0 +1,135 @@
+name: "GMS-lite Local Stack"
+
+# Boots the Docker-free local dev stack (`datahub-dev.sh start --local`) and drives it through the
+# worktree's CLI profile: GraphQL, a write that must reach search, warm restart and nuke.
+# Then boots Vite lite mode and checks data flows, native signup and browser login to the home page.
+
+on:
+  pull_request:
+    paths:
+      - "metadata-service/gms-lite/**"
+      - "metadata-service/opensearch-embedded/**"
+      - "metadata-service/war/**"
+      - "metadata-service/auth-config/**"
+      - "metadata-service/auth-filter/**"
+      - "metadata-service/configuration/**"
+      - "datahub-upgrade/**"
+      - "scripts/dev/datahub-dev.sh"
+      - "scripts/dev/datahub_dev.py"
+      - "scripts/dev/datahub_dev_local.py"
+      - "scripts/dev/tests/local_stack_e2e.sh"
+      - "scripts/dev/tests/local_frontend_e2e.sh"
+      - "datahub-web-react/devtools/**"
+      - "datahub-web-react/vite.config.*"
+      - "datahub-web-react/build.gradle"
+      - "datahub-web-react/package.json"
+      - "datahub-web-react/yarn.lock"
+      - "e2e-test/ui/playwright/**"
+      - "smoke-test/build.gradle"
+      - "smoke-test/conftest.py"
+      - "smoke-test/requirements.txt"
+      - "smoke-test/tests/e2e/conftest.py"
+      - "smoke-test/tests/e2e/utils.py"
+      - "smoke-test/utilities/**"
+      - "smoke-test/tests/e2e/search/test_search_projection.py"
+      - "smoke-test/tests/e2e/lineage/test_lineage_sdk.py"
+      - "smoke-test/tests/e2e/authorization/test_self_entity_auth.py"
+      - "smoke-test/tests/e2e/privileges/utils.py"
+      - "metadata-ingestion/src/datahub/cli/_profile_store.py"
+      - "metadata-ingestion/src/datahub/cli/config_utils.py"
+      - "metadata-ingestion/src/datahub/cli/profile_cli.py"
+      - ".github/workflows/gms-lite-local-stack.yml"
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  local-stack:
+    name: "Local stack lifecycle, data flows and Vite login"
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && !github.event.pull_request.head.repo.fork && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+
+      - name: Set up toolchain
+        uses: ./.github/actions/setup-toolchain
+        with:
+          node: true
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: ${{ runner.os }}-yarn-${{ hashFiles('datahub-web-react/yarn.lock') }}
+          restore-keys: ${{ runner.os }}-yarn-
+
+      - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0
+        with:
+          path: ~/.cache/yarn
+          key: playwright-${{ runner.os }}-yarn-${{ hashFiles('./e2e-test/ui/playwright/package.json', './e2e-test/ui/playwright/yarn.lock') }}
+          restore-keys: playwright-${{ runner.os }}-yarn-
+
+      - name: Build jars and the embedded OpenSearch node
+        run: |
+          ./gradlew \
+            :metadata-service:war:bootJar \
+            :datahub-upgrade:bootJar \
+            :metadata-service:opensearch-embedded:installDist \
+            -x test
+
+      - name: Configure fast APT mirror
+        if: ${{ vars.CI_USE_FAST_API_MIRROR == 'true' }}
+        uses: ./.github/actions/configure-fast-apt-mirror
+
+      - name: Install native dependencies for the CLI
+        run: ./metadata-ingestion/scripts/install_deps.sh
+
+      - name: Install CLI, smoke-test and frontend dependencies
+        run: ./gradlew :metadata-ingestion:installDev :smoke-test:installDev :datahub-web-react:yarnInstall
+
+      - name: Install Playwright dependencies
+        working-directory: e2e-test/ui/playwright
+        run: |
+          yarn install --frozen-lockfile
+          npx playwright install --with-deps chromium
+
+      - name: Start, use, restart and nuke the local stack
+        env:
+          DATAHUB_TELEMETRY_ENABLED: "false"
+        run: scripts/dev/tests/local_stack_e2e.sh
+
+      - name: Start the local stack with Vite lite mode
+        env:
+          DATAHUB_TELEMETRY_ENABLED: "false"
+        run: scripts/dev/datahub-dev.sh start --local --fresh --frontend
+
+      - name: Run search, lineage and self-service profile smoke tests
+        run: scripts/dev/tests/local_frontend_e2e.sh smoke
+
+      - name: Log in through Vite and render the home page in Chromium
+        run: scripts/dev/tests/local_frontend_e2e.sh browser
+
+      - name: Stop the shared OpenSearch node
+        if: always()
+        run: |
+          scripts/dev/datahub-dev.sh stop || true
+          python3 metadata-service/gms-lite/bin/_opensearch_manager.py \
+            stop --dir ~/.datahub/local/opensearch-3 || true
+
+      - name: Upload logs on failure
+        if: failure()
+        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        with:
+          name: gms-lite-local-stack-logs
+          path: |
+            ~/.datahub/local/stacks/*/launcher.log
+            ~/.datahub/local/stacks/*/frontend.log
+            ~/.datahub/local/stacks/*/logs/
+            ~/.datahub/local/opensearch-3/log
+            smoke-test/build/local-stack-smoke.xml
+            e2e-test/ui/playwright/test-results/
+          retention-days: 3

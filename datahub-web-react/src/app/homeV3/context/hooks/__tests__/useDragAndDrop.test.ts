@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
 import { useDragAndDrop } from '@app/homeV3/context/hooks/useDragAndDrop';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 

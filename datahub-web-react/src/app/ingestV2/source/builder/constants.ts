@@ -32,6 +32,7 @@ import glueLogo from '@images/gluelogo.png';
 import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
 import hexLogo from '@images/hex.png';
+import hightouchLogo from '@images/hightouchlogo.png';
 import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import informaticaLogo from '@images/informaticalogo.png';
@@ -209,6 +210,8 @@ export const VERTICA = 'vertica';
 const VERTICA_URN = `urn:li:dataPlatform:${VERTICA}`;
 const FIVETRAN = 'fivetran';
 const FIVETRAN_URN = `urn:li:dataPlatform:${FIVETRAN}`;
+const HIGHTOUCH = 'hightouch';
+const HIGHTOUCH_URN = `urn:li:dataPlatform:${HIGHTOUCH}`;
 export const CSV = 'csv-enricher';
 const CSV_URN = `urn:li:dataPlatform:${CSV}`;
 const SPARK = 'spark';
@@ -321,6 +324,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [DATAPROC_METASTORE_URN]: dataprocMetastoreLogo,
     [VERTICA_URN]: verticaLogo,
     [FIVETRAN_URN]: fivetranLogo,
+    [HIGHTOUCH_URN]: hightouchLogo,
     [CSV_URN]: csvLogo,
     [QLIK_SENSE_URN]: qlikLogo,
     [SIGMA_URN]: sigmaLogo,

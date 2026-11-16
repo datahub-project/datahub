@@ -26,8 +26,8 @@ import {
 } from '@app/entityV2/shared/tabs/Incident/constant';
 import { IncidentEditorProps } from '@app/entityV2/shared/tabs/Incident/types';
 import { getAssigneeWithURN, getLinkedAssetsData, validateForm } from '@app/entityV2/shared/tabs/Incident/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { Input } from '@src/alchemy-components';
-import { Editor } from '@src/alchemy-components/components/Editor/Editor';
 import { useUserContext } from '@src/app/context/useUserContext';
 import { IncidentStage, IncidentState, IncidentType } from '@src/types.generated';
 

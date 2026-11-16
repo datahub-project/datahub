@@ -17,6 +17,7 @@
 <p align="center">
   <a href="#quick-start"><b>Quickstart</b></a> ·
   <a href="https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-live-demo"><b>Live Demo</b></a> ·
+  <a href="https://tours.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=tours-top-links"><b>Product Tours</b></a> ·
   <a href="https://docs.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-docs"><b>Docs</b></a> ·
   <a href="https://datahub.com/slack/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=nav-slack"><b>Slack Community</b></a>
 </p>
@@ -30,7 +31,7 @@
 DataHub transforms enterprise data into trusted context, enabling intelligent decision making by humans and AI agents. The company was founded by the creators of the popular DataHub open source product that has more than 16,000 community members and 750+ contributors and is used by thousands of organizations. The company’s flagship product, DataHub Cloud, is the leading context management platform trusted by the Global 2000 to ensure that context is always relevant, reliable and continuously refreshed across the entire data estate.
 
 <p align="center">
-  <a href="https://demo.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=intro-tour-image">
+  <a href="https://tours.datahub.com/?utm_source=github&utm_medium=readme&utm_campaign=github_readme&utm_content=tours-hero">
     <img width="90%" src="https://raw.githubusercontent.com/datahub-project/static-assets/main/imgs/demos/datahub-product-tour.webp" alt="DataHub Product Tour" />
   </a>
 </p>

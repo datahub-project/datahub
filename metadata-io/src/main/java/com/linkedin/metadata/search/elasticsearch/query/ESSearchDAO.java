@@ -2173,18 +2173,14 @@ public class ESSearchDAO {
     } else {
       templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-      // Same sibling hiding as search, browse and autocomplete, so counts match the lists.
       query =
-          ESUtils.filterNonPrimarySiblings(
+          SearchRequestHandler.getFilterQuery(
+              opContext,
+              List.of(entityName),
               filter,
-              SearchRequestHandler.getFilterQuery(
-                  opContext,
-                  List.of(entityName),
-                  filter,
-                  entitySpec.getSearchableFieldTypes(),
-                  queryFilterRewriteChain,
-                  searchConfiguration.getEntityIndex()),
-              searchConfiguration.getSearch());
+              entitySpec.getSearchableFieldTypes(),
+              queryFilterRewriteChain,
+              searchConfiguration.getEntityIndex());
     }
     return new CountRequest(entityIndexName(opContext, entityName)).query(query);
   }
