@@ -51,10 +51,16 @@ case "$1" in
         ;;
     browser)
         cd e2e-test/ui/playwright
-        BASE_URL="$DATAHUB_FRONTEND_URL" \
-            DATAHUB_ADMIN_USERNAME="$ADMIN_USERNAME" DATAHUB_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+        export BASE_URL="$DATAHUB_FRONTEND_URL" \
+            DATAHUB_ADMIN_USERNAME="$ADMIN_USERNAME" DATAHUB_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+        login_test() {
             node_modules/.bin/playwright test --config=playwright.no-webserver.config.ts \
-            tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' \
-            --trace=on
+                tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' "$@"
+        }
+        # Vite compiles modules on first request, so the first login on a cold cache spends most of
+        # its time compiling (about 30s on CI runners, against the login helper's 30s wait). One
+        # untimed pass compiles them; the checked run then measures a warm dev server.
+        login_test --output=test-results/warmup >/dev/null 2>&1 || echo "warm-up login did not finish; running the check anyway"
+        login_test --trace=on
         ;;
 esac
