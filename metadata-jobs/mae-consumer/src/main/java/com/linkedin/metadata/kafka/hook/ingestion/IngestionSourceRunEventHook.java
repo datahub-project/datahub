@@ -236,7 +236,11 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
         .collect(Collectors.toSet());
   }
 
-  /** Each source's latest recorded event, read for the whole batch in one request. */
+  /**
+   * Each source's latest recorded event, read for the whole batch in one request. The read is
+   * strict: a source missing because its query failed would look like one with no history, and its
+   * new event would drop the outcomes carried forward from the previous one.
+   */
   @Nonnull
   private Map<Urn, DataHubIngestionSourceRunEvent> latestEvents(
       @Nonnull OperationContext operationContext, @Nonnull Set<Urn> sourceUrns) {
@@ -245,7 +249,7 @@ public class IngestionSourceRunEventHook implements MetadataChangeLogHook {
       return latest;
     }
     timeseriesAspectService
-        .getLatestTimeseriesAspectValues(
+        .getLatestTimeseriesAspectValuesStrict(
             operationContext, sourceUrns, Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME), null)
         .forEach(
             (sourceUrn, aspects) -> {

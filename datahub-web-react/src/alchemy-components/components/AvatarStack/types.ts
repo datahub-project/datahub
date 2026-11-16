@@ -1,3 +1,5 @@
+import type { ReactNode } from 'react';
+
 import { AvatarSizeOptions } from '@src/alchemy-components/theme/config';
 
 export enum AvatarType {
@@ -10,6 +12,7 @@ export interface AvatarItemProps {
     imageUrl?: string | null;
     urn?: string;
     type?: AvatarType;
+    icon?: ReactNode;
 }
 
 export type AvatarStackProps = {

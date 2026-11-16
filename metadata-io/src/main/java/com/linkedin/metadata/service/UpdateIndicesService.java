@@ -1,6 +1,7 @@
 package com.linkedin.metadata.service;
 
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -13,14 +14,21 @@ import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.entity.SearchIndicesService;
 import com.linkedin.metadata.entity.ebean.batch.MCLItemImpl;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
@@ -28,8 +36,12 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.Collection;
 import java.util.Collections;
+import java.util.IdentityHashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeoutException;
 import java.util.stream.Collectors;
@@ -41,6 +53,8 @@ import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
+  private static final UnknownDataGuard UNKNOWN_DATA =
+      UnknownDataGuard.forSite(UpdateIndicesService.class, "MCL");
 
   @VisibleForTesting @Getter private final UpdateGraphIndicesService updateGraphIndicesService;
   private final ElasticSearchService elasticSearchService;
@@ -58,6 +72,9 @@ public class UpdateIndicesService implements SearchIndicesService {
 
   private static final String DOCUMENT_TRANSFORM_FAILED_METRIC = "document_transform_failed";
   private static final String SEARCH_DIFF_MODE_SKIPPED_METRIC = "search_diff_no_changes_detected";
+  private static final String INVALID_MCL_SKIPPED_METRIC = "invalid_mcl_skipped";
+  private static final String PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC =
+      "mcl_previous_from_newer_version_omitted";
 
   public static final Set<ChangeType> UPDATE_CHANGE_TYPES =
       ImmutableSet.of(
@@ -95,52 +112,90 @@ public class UpdateIndicesService implements SearchIndicesService {
   @Override
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events);
+    final GroupedEvents grouped = groupForStrategies(opContext, events);
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = grouped.byUrn();
 
+    RuntimeException strategyFailure = null;
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
-        strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
+        try {
+          strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
+        } catch (RuntimeException e) {
+          log.error("Update indices strategy failed; continuing required side effects", e);
+          strategyFailure = accumulateStrategyFailure(strategyFailure, e);
+        }
       }
     }
 
-    // Record throttle writes after all strategies have processed, so no strategy's
-    // recordWrite can race with another strategy's shouldThrottle on the same event.
-    recordThrottleWrites(groupedEvents);
+    // A failed strategy may not have written its target index. Only advance shared throttle state
+    // when every strategy accepted the batch.
+    if (strategyFailure == null) {
+      recordThrottleWrites(groupedEvents);
+    }
 
-    // Process each group of events for the same URN together
-    for (List<MCLItem> urnEvents : groupedEvents.values()) {
-      // Process update events
-      List<MCLItem> updateEvents =
-          urnEvents.stream()
-              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
-              .collect(Collectors.toList());
+    // Graph and system-metadata writes are required side effects of the same unit of work. A
+    // synchronous failure here must not propagate straight out and bypass the deferred
+    // strategyFailure rethrow below, which would clobber a saved RetryableIndexingException — the
+    // MAE transports detect retryability by walking the thrown exception's cause chain, so losing a
+    // retryable would commit the offset past an unwritten V3 document. Accumulate instead, keeping
+    // any retryable failure as the primary cause.
+    try {
+      // Process each group of events for the same URN together
+      for (List<MCLItem> urnEvents : groupedEvents.values()) {
+        // Process update events
+        List<MCLItem> updateEvents =
+            urnEvents.stream()
+                .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
+                .collect(Collectors.toList());
 
-      if (!updateEvents.isEmpty()) {
-        // Update graph indices for each event individually for now
-        for (MCLItem event : updateEvents) {
-          updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+        if (!updateEvents.isEmpty()) {
+          // Update graph indices for each event individually for now
+          for (MCLItem event : updateEvents) {
+            updateGraph(opContext, event, grouped);
+          }
+
+          handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
         }
 
-        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
+        // Process delete events
+        List<MCLItem> deleteEvents =
+            urnEvents.stream()
+                .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+                .collect(Collectors.toList());
+
+        for (MCLItem deleteEvent : deleteEvents) {
+          Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
+          boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+
+          // graph update first
+          updateGraph(opContext, deleteEvent, grouped);
+
+          // system metadata is last for tracing
+          handleSystemMetadataDeleteChangeEvent(
+              opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
+        }
       }
+    } catch (RuntimeException sideEffectFailure) {
+      strategyFailure = accumulateStrategyFailure(strategyFailure, sideEffectFailure);
+    }
 
-      // Process delete events
-      List<MCLItem> deleteEvents =
-          urnEvents.stream()
-              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
-              .collect(Collectors.toList());
+    if (strategyFailure != null) {
+      throw strategyFailure;
+    }
+  }
 
-      for (MCLItem deleteEvent : deleteEvents) {
-        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
-
-        // graph update first
-        updateGraphIndicesService.handleChangeEvent(opContext, deleteEvent.getMetadataChangeLog());
-
-        // system metadata is last for tracing
-        handleSystemMetadataDeleteChangeEvent(
-            opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
-      }
+  /**
+   * Removes temporary V3 fill guards after the corresponding catch-up window has converged. A
+   * cleanup that does not finish throws, so catch-up stays incomplete and the next run retries.
+   */
+  public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    ESWriteDAO.DeleteByQueryResult result =
+        elasticSearchService.deleteV3Tombstones(opContext, indexName);
+    if (!result.isSuccess()) {
+      throw new IllegalStateException(
+          String.format(
+              "Removing V3 tombstones from %s did not finish (%d remaining): %s",
+              indexName, result.getRemainingDocuments(), result.getFailureReason()));
     }
   }
 
@@ -152,7 +207,7 @@ public class UpdateIndicesService implements SearchIndicesService {
    */
   public void fillSearchIndices(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
-    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events);
+    LinkedHashMap<Urn, List<MCLItem>> groupedEvents = groupForStrategies(opContext, events).byUrn();
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled() && strategy.fillsNewIndicesFromPrimaryStorage()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
@@ -161,23 +216,188 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
+   * Events grouped by URN in order, and the previous value of each event that was built without it
+   * because a newer version wrote that value (see {@link #buildValidMCLItem}), keyed by identity.
+   */
+  private record GroupedEvents(
+      @Nonnull LinkedHashMap<Urn, List<MCLItem>> byUrn,
+      @Nonnull Map<MCLItem, RecordTemplate> unvalidatedPrevious) {}
+
+  /**
    * Converts change logs to {@link MCLItem}s, expands MCL side effects, and groups by URN in order.
    * Cross-routing-key mixing is segregated upstream in the Kafka batch listener (see
    * MCLBatchKafkaListener.consumeBatch), so every call already arrives under a single routing
    * identity and grouping by URN alone is sufficient.
    */
   @Nonnull
-  private LinkedHashMap<Urn, List<MCLItem>> groupForStrategies(
+  private GroupedEvents groupForStrategies(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
+    // While unknown data is tolerated, skip MCLs with unknown entities/aspects (can happen after
+    // rollback when older build encounters rows written by the newer one).
+    EntityRegistry entityRegistry = opContext.getAspectRetriever().getEntityRegistry();
+    final Map<MCLItem, RecordTemplate> unvalidatedPrevious = new IdentityHashMap<>();
     List<MCLItem> mclItems =
         events.stream()
-            .map(event -> MCLItemImpl.builder().build(event, opContext.getAspectRetriever()))
+            .filter(
+                event -> {
+                  return handling()
+                      .admitEvent(
+                          UNKNOWN_DATA,
+                          entityRegistry,
+                          opContext.getMetricUtils(),
+                          event.getEntityUrn(),
+                          event.hasEntityType() ? event.getEntityType() : null,
+                          event.hasAspectName() ? event.getAspectName() : null);
+                })
+            .map(event -> buildValidMCLItem(opContext, event, unvalidatedPrevious))
+            .filter(Objects::nonNull)
             .collect(Collectors.toList());
     List<MCLItem> sideEffects =
         AspectsBatch.applyMCLSideEffects(mclItems, opContext.getRetrieverContext())
             .collect(Collectors.toList());
-    return UpdateIndicesUtil.groupEventsByUrn(
-        Stream.concat(mclItems.stream(), sideEffects.stream()));
+    return new GroupedEvents(
+        UpdateIndicesUtil.groupEventsByUrn(Stream.concat(mclItems.stream(), sideEffects.stream())),
+        unvalidatedPrevious);
+  }
+
+  private void updateGraph(
+      @Nonnull OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nonnull final GroupedEvents grouped) {
+    if (grouped.unvalidatedPrevious().containsKey(event)) {
+      updateGraphIndicesService.handleChangeEventWithUnvalidatedPrevious(
+          opContext, event.getMetadataChangeLog(), grouped.unvalidatedPrevious().get(event));
+    } else {
+      updateGraphIndicesService.handleChangeEvent(opContext, event.getMetadataChangeLog());
+    }
+  }
+
+  /**
+   * Builds an MCLItem. An event whose new value fails validation because a newer version wrote it
+   * (e.g. read after a rollback) is dropped on its own instead of failing the whole batch, and
+   * counted in {@link #INVALID_MCL_SKIPPED_METRIC}. An event whose new value is valid but whose
+   * previous value a newer version wrote (e.g. a change away from an enum value only that version
+   * defines) is built without the previous value, so its new value is still indexed. The item then
+   * carries that previous value, without its unknown references, for the search diff, and the value
+   * as read goes in {@code unvalidatedPrevious} for the graph update. Any other invalid payload
+   * fails as before.
+   */
+  @Nullable
+  private static MCLItem buildValidMCLItem(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MetadataChangeLog event,
+      @Nonnull final Map<MCLItem, RecordTemplate> unvalidatedPrevious) {
+    try {
+      return MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      // Checked first so strict handling does no deserialization and fails as before.
+      if (!handling().toleratesUnknownData()) {
+        throw e;
+      }
+      final EntityRegistry registry = opContext.getEntityRegistry();
+      final AspectSpec aspectSpec =
+          registry.findAspectSpec(event.getEntityType(), event.getAspectName()).orElse(null);
+      if (handling()
+          .isFromNewerVersion(
+              deserializeOrNull(event.hasAspect() ? event.getAspect() : null, aspectSpec),
+              event.getSystemMetadata(),
+              aspectSpec,
+              registry)) {
+        opContext
+            .getMetricUtils()
+            .ifPresent(m -> m.increment(UpdateIndicesService.class, INVALID_MCL_SKIPPED_METRIC, 1));
+        UNKNOWN_DATA.skippedBecause(
+            Optional.empty(),
+            "invalid:" + event.getEntityType() + "/" + event.getAspectName(),
+            "its payload from a newer version fails validation here: " + e.getMessage(),
+            event.getEntityUrn());
+        return null;
+      }
+      final RecordTemplate previous = deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (!event.hasPreviousAspectValue()
+          || !handling()
+              .isFromNewerVersion(
+                  previous, event.getPreviousSystemMetadata(), aspectSpec, registry)) {
+        throw e;
+      }
+      // Blame the previous value only when the new one is valid on its own, so an event whose new
+      // value is invalid for another reason still fails.
+      final MCLItemImpl withoutPrevious = buildWithoutPrevious(opContext, event);
+      if (withoutPrevious == null) {
+        throw e;
+      }
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              m ->
+                  m.increment(
+                      UpdateIndicesService.class, PREVIOUS_FROM_NEWER_VERSION_OMITTED_METRIC, 1));
+      UNKNOWN_DATA.invalid(
+          "previous:" + event.getEntityType() + "/" + event.getAspectName(),
+          event.getAspectName()
+              + "'s previous value, from a newer version (indexing the new value without it): "
+              + e.getMessage(),
+          event.getEntityUrn());
+      // The search diff needs the previous value too: an upsert nulls the fields only it had. It
+      // gets its own copy, stripped as a valid previous value is when the item is built, so its
+      // transform doesn't meet references to entity types this version doesn't know. The graph
+      // update strips its copy only for an upsert.
+      final RecordTemplate previousForSearch =
+          deserializeOrNull(event.getPreviousAspectValue(), aspectSpec);
+      if (previousForSearch != null) {
+        handling().stripUnknownReferences(previousForSearch, registry);
+      }
+      final MCLItem indexed = withoutPrevious.withPreviousRecordTemplate(previousForSearch);
+      unvalidatedPrevious.put(indexed, previous);
+      return indexed;
+    }
+  }
+
+  @Nullable
+  private static RecordTemplate deserializeOrNull(
+      @Nullable final GenericAspect value, @Nullable final AspectSpec aspectSpec) {
+    if (value == null || aspectSpec == null) {
+      return null;
+    }
+    try {
+      return GenericRecordUtils.deserializeAspect(
+          value.getValue(), value.getContentType(), aspectSpec);
+    } catch (RuntimeException deserializationFailure) {
+      // Unreadable payloads aren't attributed to a newer version.
+      return null;
+    }
+  }
+
+  @Nullable
+  private static MCLItemImpl buildWithoutPrevious(
+      @Nonnull final OperationContext opContext, @Nonnull final MetadataChangeLog event) {
+    final MetadataChangeLog withoutPrevious;
+    try {
+      withoutPrevious = event.copy();
+    } catch (CloneNotSupportedException e) {
+      return null;
+    }
+    withoutPrevious.removePreviousAspectValue();
+    withoutPrevious.removePreviousSystemMetadata();
+    try {
+      return MCLItemImpl.builder().build(withoutPrevious, opContext.getAspectRetriever());
+    } catch (RuntimeException invalid) {
+      return null;
+    }
+  }
+
+  private static RuntimeException accumulateStrategyFailure(
+      @Nullable RuntimeException currentFailure, @Nonnull RuntimeException newFailure) {
+    if (currentFailure == null) {
+      return newFailure;
+    }
+    if (newFailure instanceof RetryableIndexingException
+        && !(currentFailure instanceof RetryableIndexingException)) {
+      newFailure.addSuppressed(currentFailure);
+      return newFailure;
+    }
+    currentFailure.addSuppressed(newFailure);
+    return currentFailure;
   }
 
   /**
@@ -322,6 +542,33 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
+   * Flushes pending operations on every cluster's bulk processor and waits for every operation
+   * captured by the flush boundaries to receive a response or failure callback.
+   */
+  @Nonnull
+  public BulkProcessorFlushResult flushAndAwait() {
+    try {
+      BulkProcessorFlushResult result = BulkProcessorFlushResult.empty();
+      for (ESBulkProcessor bulkProcessor : elasticSearchService.getEsWriteDAO().bulkProcessors()) {
+        result = result.plus(bulkProcessor.flushAndAwait());
+      }
+      log.info("Bulk processor drain completed: {}", result);
+      return result;
+    } catch (Exception e) {
+      log.error("Failed to flush and await bulk processors", e);
+      throw new RuntimeException("Failed to flush and await bulk processors", e);
+    }
+  }
+
+  /** Drain every cluster's bulk processor. Load-indices checkpoints only after this returns. */
+  public void flushAndWait() {
+    BulkProcessorFlushResult result = flushAndAwait();
+    if (result.hasFailures()) {
+      throw new IllegalStateException("Bulk processor drain completed with failures: " + result);
+    }
+  }
+
+  /**
    * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer on every
    * cluster before the caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is
    * false or when the write path is unavailable (e.g. unit tests with a mocked search service).
@@ -350,18 +597,9 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
-  /**
-   * Flushes pending operations on every cluster's bulk processor and waits for each to reach a
-   * terminal outcome, whatever the ack-after-transfer setting. Fails when any tracked item ended in
-   * an unrecovered failure, so a caller that checkpoints what it has written can trust the
-   * checkpoint.
-   */
-  public void flushAndWait() {
-    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
-    if (writeDAO == null) {
-      return;
-    }
-    writeDAO.flushAndWait();
+  /** Whether a V3 update strategy is registered (i.e. V3 writes are active in this process). */
+  public boolean hasV3UpdateStrategy() {
+    return updateStrategies.stream().anyMatch(UpdateIndicesV3Strategy.class::isInstance);
   }
 
   /**
@@ -376,5 +614,23 @@ public class UpdateIndicesService implements SearchIndicesService {
         .flatMap(strategy -> strategy.getIndexMappings(opContext).stream())
         .map(MappingsBuilder.IndexMapping::getIndexName)
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Returns and resets the V3 write totals consumed by intermediate strategy drains, so run-level
+   * accounting (e.g. LoadIndices) can add them to the final flush result.
+   */
+  @Nonnull
+  public UpdateIndicesV3Strategy.DrainedWriteStats consumeDrainedV3WriteStats() {
+    long successfulV3Writes = 0;
+    long staleVersionRejected = 0;
+    for (UpdateIndicesStrategy strategy : updateStrategies) {
+      if (strategy instanceof UpdateIndicesV3Strategy v3Strategy) {
+        UpdateIndicesV3Strategy.DrainedWriteStats stats = v3Strategy.consumeDrainedWriteStats();
+        successfulV3Writes += stats.successfulV3Writes();
+        staleVersionRejected += stats.staleVersionRejected();
+      }
+    }
+    return new UpdateIndicesV3Strategy.DrainedWriteStats(successfulV3Writes, staleVersionRejected);
   }
 }

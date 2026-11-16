@@ -1,6 +1,4 @@
-import { Typography } from 'antd';
 import React from 'react';
-import styled, { useTheme } from 'styled-components';
 
 import { IconStyleType } from '@app/entityV2/Entity';
 import {
@@ -9,46 +7,39 @@ import {
     useEntityType,
     useIsEntitySelected,
 } from '@app/searchV2/sidebar/BrowseContext';
+import BrowseRowIcon from '@app/searchV2/sidebar/BrowseRowIcon';
 import EnvironmentNode from '@app/searchV2/sidebar/EnvironmentNode';
-import ExpandableNode from '@app/searchV2/sidebar/ExpandableNode';
 import PlatformNode from '@app/searchV2/sidebar/PlatformNode';
 import { useHasFilterField } from '@app/searchV2/sidebar/SidebarContext';
 import SidebarLoadingError from '@app/searchV2/sidebar/SidebarLoadingError';
 import useAggregationsQuery from '@app/searchV2/sidebar/useAggregationsQuery';
 import useSidebarAnalytics from '@app/searchV2/sidebar/useSidebarAnalytics';
-import { MAX_COUNT_VAL, ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/sharedV2/formatNumber';
+import { ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
+import HierarchicalBrowseTreeRow from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseTreeRow';
+import { TREE_ROW_ENTITY_ICON_SIZE } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/constants';
 import useToggle from '@app/sharedV2/useToggle';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-const Count = styled(Typography.Text)`
-    font-size: 12px;
-    color: ${(props) => props.color};
-    padding-left: 4px;
-`;
-
 const EntityNode = () => {
-    const theme = useTheme();
     const isSelected = useIsEntitySelected();
     const entityType = useEntityType();
     const entityAggregation = useEntityAggregation();
     const hasEnvironmentFilter = useHasFilterField(ORIGIN_FILTER_NAME);
     const { count } = entityAggregation || { count: 0 };
-    const countText = count === MAX_COUNT_VAL ? '10k+' : formatNumber(count);
     const registry = useEntityRegistry();
     const { trackToggleNodeEvent } = useSidebarAnalytics();
+    const collectionName = registry.getCollectionName(entityType);
 
-    const { isOpen, isClosing, toggle } = useToggle({
+    const { isOpen, toggle } = useToggle({
         initialValue: isSelected,
-        closeDelay: 250,
         onToggle: (isNowOpen: boolean) => trackToggleNodeEvent(isNowOpen, 'entity'),
     });
 
-    const onClickHeader = () => {
+    const onToggle = () => {
         if (count) toggle();
     };
 
-    const { loaded, error, environmentAggregations, platformAggregations, retry } = useAggregationsQuery({
+    const { error, environmentAggregations, platformAggregations, retry } = useAggregationsQuery({
         skip: !isOpen,
         facets: [ORIGIN_FILTER_NAME, PLATFORM_FILTER_NAME],
     });
@@ -56,31 +47,28 @@ const EntityNode = () => {
     const showEnvironments =
         environmentAggregations &&
         (environmentAggregations.length > 1 || (hasEnvironmentFilter && !!environmentAggregations.length));
-    const color = count > 0 ? theme.colors.text : theme.colors.textTertiary;
 
     return (
-        <ExpandableNode
-            isOpen={isOpen && !isClosing && loaded}
-            header={
-                <ExpandableNode.Header
-                    isOpen={isOpen}
-                    showBorder
-                    onClick={onClickHeader}
-                    style={{ paddingTop: '16px' }}
-                    data-testid={`browse-entity-${registry.getCollectionName(entityType)}`}
-                >
-                    <ExpandableNode.HeaderLeft>
-                        {registry.getIcon(entityType, 16, IconStyleType.HIGHLIGHT, color)}
-                        <ExpandableNode.Title color={color} size={16} padLeft>
-                            {registry.getCollectionName(entityType)}
-                        </ExpandableNode.Title>
-                        <Count color={color}>{countText}</Count>
-                    </ExpandableNode.HeaderLeft>
-                    <ExpandableNode.CircleButton isOpen={isOpen && !isClosing} color={color} />
-                </ExpandableNode.Header>
-            }
-            body={
-                <ExpandableNode.Body>
+        <>
+            <HierarchicalBrowseTreeRow
+                level={0}
+                isSelected={false}
+                hasChildren={count > 0}
+                isExpanded={isOpen}
+                count={count}
+                icon={
+                    <BrowseRowIcon>
+                        {registry.getIcon(entityType, TREE_ROW_ENTITY_ICON_SIZE, IconStyleType.ACCENT)}
+                    </BrowseRowIcon>
+                }
+                label={collectionName}
+                labelTitle={collectionName}
+                onSelect={onToggle}
+                onToggleExpand={onToggle}
+                data-testid={`browse-entity-${collectionName}`}
+            />
+            {isOpen && (
+                <>
                     {showEnvironments
                         ? environmentAggregations?.map((environmentAggregation) => (
                               <BrowseProvider
@@ -88,7 +76,7 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   environmentAggregation={environmentAggregation}
                               >
-                                  <EnvironmentNode />
+                                  <EnvironmentNode level={1} />
                               </BrowseProvider>
                           ))
                         : platformAggregations?.map((platformAggregation) => (
@@ -97,13 +85,13 @@ const EntityNode = () => {
                                   entityAggregation={entityAggregation}
                                   platformAggregation={platformAggregation}
                               >
-                                  <PlatformNode />
+                                  <PlatformNode level={1} />
                               </BrowseProvider>
                           ))}
                     {error && <SidebarLoadingError onClickRetry={retry} />}
-                </ExpandableNode.Body>
-            }
-        />
+                </>
+            )}
+        </>
     );
 };
 

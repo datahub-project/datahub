@@ -5,8 +5,8 @@ import i18next from 'i18next';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
-import FormField from '@app/ingestV2/source/builder/RecipeForm/FormField';
 import { ORACLE_INCLUDE_QUERY_USAGE, ORACLE_PROFILING_ENABLED } from '@app/ingestV2/source/builder/RecipeForm/oracle';
+import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 const NAMESPACE = 'ingestion.sourceBuilder';
@@ -17,12 +17,7 @@ function renderField(field: typeof ORACLE_PROFILING_ENABLED) {
         <MockedProvider mocks={[]} addTypename={false}>
             <TestPageContainer>
                 <Form onValuesChange={onValuesChange}>
-                    <FormField
-                        field={field}
-                        secrets={[]}
-                        refetchSecrets={() => undefined}
-                        updateFormValue={() => undefined}
-                    />
+                    <FormField field={field} updateFormValue={() => undefined} />
                 </Form>
             </TestPageContainer>
         </MockedProvider>,

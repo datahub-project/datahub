@@ -1,0 +1,120 @@
+name: PR Docs Impact Check
+
+# Flags PRs whose code changes likely need a docs update. Advisory only: it
+# never blocks a PR. Logic lives in .github/scripts/docs_impact_check.py.
+#
+# On/off switch: repo variable DOCS_CHECK_ENABLED. The workflow only runs when
+# it is set to "true"; set it to "false" to turn the check off.
+#
+# What it does when on:
+#   - PR opened / ready for review: if docs look clearly needed, add the
+#     docs-needed label and one general comment (community and internal wording).
+#   - New pushes on a docs-needed PR: if docs were added, update that comment.
+#   - PR merged without docs: open a Linear ticket (internal PRs: the author;
+#     community PRs: DevRel).
+#
+# Requires secrets:
+#   ANTHROPIC_FEDERATION_RULE_ID, ANTHROPIC_ORGANIZATION_ID,
+#   ANTHROPIC_SERVICE_ACCOUNT_ID, ANTHROPIC_WORKSPACE_ID
+#                             - Claude Workload Identity Federation (no static API key)
+#   INGESTION_LINEAR_KEY      - Linear API key (shared with pr-to-linear.yml)
+
+on:
+  pull_request_target:
+    types: [opened, reopened, ready_for_review, synchronize, closed]
+
+permissions:
+  contents: read
+  pull-requests: write
+  issues: write
+  id-token: write # Claude Workload Identity Federation
+
+concurrency:
+  group: docs-impact-check-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+env:
+  TEAM_MEMBERS: ${{ vars.DATAHUB_TEAM_MEMBERS }}
+  PR_NUMBER: ${{ github.event.pull_request.number }}
+
+jobs:
+  docs-check:
+    # Public repo only (mirrors stay inert), switched on, PRs into the default
+    # branch only (backports were already checked on master), and pushes only
+    # matter for PRs that were flagged.
+    if: >-
+      github.repository == 'datahub-project/datahub'
+      && vars.DOCS_CHECK_ENABLED == 'true'
+      && github.event.pull_request.base.ref == github.event.repository.default_branch
+      && (github.event.action != 'synchronize'
+          || contains(github.event.pull_request.labels.*.name, 'docs-needed'))
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    continue-on-error: true
+    steps:
+      # pull_request_target checks out the base branch by default. Never check
+      # out the PR head here: this job has access to secrets.
+      - uses: actions/checkout@de0fac2e4500dabe0009e67214ff5f5447ce83dd # v6.0.2
+        with:
+          persist-credentials: false
+          sparse-checkout: |
+            .github/scripts
+            .github/actions/claude-identity-token
+            docs
+            metadata-ingestion/docs
+
+      - name: Fetch Claude identity token
+        id: claude-identity
+        if: >-
+          contains(fromJSON('["opened", "reopened", "ready_for_review"]'), github.event.action)
+          && github.event.pull_request.draft == false
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
+      - name: Check docs impact
+        if: >-
+          contains(fromJSON('["opened", "reopened", "ready_for_review"]'), github.event.action)
+          && github.event.pull_request.draft == false
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity.outputs.token_file }}
+        run: |
+          python3 -m pip install --quiet anthropic==1.9.0
+          python3 .github/scripts/docs_impact_check.py check --pr "$PR_NUMBER"
+
+      - name: Update after new commits
+        if: github.event.action == 'synchronize'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: python3 .github/scripts/docs_impact_check.py sync --pr "$PR_NUMBER"
+
+      - name: Fetch Claude identity token
+        id: claude-identity-2
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        continue-on-error: true
+        uses: ./.github/actions/claude-identity-token
+
+      - name: Open docs follow-up on merge
+        if: github.event.action == 'closed' && github.event.pull_request.merged == true
+        env:
+          GH_TOKEN: ${{ github.token }}
+          # ANTHROPIC_API_KEY must stay unset: it outranks federation in the
+          # SDK's credential resolution and would silently shadow WIF.
+          ANTHROPIC_FEDERATION_RULE_ID: ${{ secrets.ANTHROPIC_FEDERATION_RULE_ID }}
+          ANTHROPIC_ORGANIZATION_ID: ${{ secrets.ANTHROPIC_ORGANIZATION_ID }}
+          ANTHROPIC_SERVICE_ACCOUNT_ID: ${{ secrets.ANTHROPIC_SERVICE_ACCOUNT_ID }}
+          ANTHROPIC_WORKSPACE_ID: ${{ secrets.ANTHROPIC_WORKSPACE_ID }}
+          ANTHROPIC_IDENTITY_TOKEN_FILE: ${{ steps.claude-identity-2.outputs.token_file }}
+          LINEAR_API_KEY: ${{ secrets.INGESTION_LINEAR_KEY }}
+          # Same OSS team and DevRel assignee pr-to-linear.yml uses as its fallback.
+          DOCS_LINEAR_TEAM_ID: ${{ vars.DOCS_LINEAR_TEAM_ID || '952ee4f2-e3eb-4580-98e3-67c2b73a5c51' }}
+          DOCS_LINEAR_ASSIGNEE_ID: ${{ vars.DOCS_LINEAR_ASSIGNEE_ID || '48f94188-01fa-4ab6-bcbd-153bf769198f' }}
+        run: |
+          python3 -m pip install --quiet anthropic==1.9.0
+          python3 .github/scripts/docs_impact_check.py merged --pr "$PR_NUMBER"

@@ -161,7 +161,7 @@ public class BackfillEntityIndicesStepTest {
         opContext,
         entityService,
         List.of(indexedService),
-        Set.of(),
+        Set::of,
         UPGRADE_VERSION,
         config,
         loader,

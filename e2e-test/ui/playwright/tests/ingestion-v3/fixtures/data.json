@@ -160,12 +160,92 @@
     }
   },
   {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-filter-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 filter source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-filter-cli-source",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 filter cli source\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"__datahub_cli_\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
     "entityType": "dataHubSecret",
     "entityUrn": "urn:li:dataHubSecret:playwright-v3-ingestion-secret",
     "changeType": "UPSERT",
     "aspectName": "dataHubSecretValue",
     "aspect": {
       "value": "{\"name\":\"playwright-v3-ingestion-secret\",\"value\":\"test-secret-value\"}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 last run older\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-v3-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-v3-last-run-older\"},\"requestedAt\":1700000000000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-v3-last-run-older",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"SUCCESS\",\"startTimeMs\":1700000000000,\"durationMs\":5000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubIngestionSource",
+    "entityUrn": "urn:li:dataHubIngestionSource:playwright-v3-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubIngestionSourceInfo",
+    "aspect": {
+      "value": "{\"name\":\"playwright v3 last run newer\",\"type\":\"demo-data\",\"config\":{\"recipe\":\"{\\\"source\\\":{\\\"type\\\":\\\"demo-data\\\",\\\"config\\\":{}}}\",\"executorId\":\"default\"}}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-v3-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestInput",
+    "aspect": {
+      "value": "{\"task\":\"RUN_INGEST\",\"args\":{},\"executorId\":\"default\",\"source\":{\"type\":\"INGESTION_SOURCE\",\"ingestionSource\":\"urn:li:dataHubIngestionSource:playwright-v3-last-run-newer\"},\"requestedAt\":1700000100000}",
+      "contentType": "application/json"
+    }
+  },
+  {
+    "entityType": "dataHubExecutionRequest",
+    "entityUrn": "urn:li:dataHubExecutionRequest:playwright-v3-last-run-newer",
+    "changeType": "UPSERT",
+    "aspectName": "dataHubExecutionRequestResult",
+    "aspect": {
+      "value": "{\"status\":\"FAILURE\",\"startTimeMs\":1700000100000,\"durationMs\":5000}",
       "contentType": "application/json"
     }
   }

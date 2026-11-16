@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import useMetricsSidebarPagination from '@app/metrics/hooks/useMetricsSidebarPagination';
 import {
     advanceMetricsSidebarPagination,
     mergeMetricsSidebarPaginationPage,
 } from '@app/metrics/utils/metricsSidebarPagination';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 type TestEntity = {
     urn: string;

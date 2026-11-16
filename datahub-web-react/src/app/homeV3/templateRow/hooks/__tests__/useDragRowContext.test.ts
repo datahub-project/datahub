@@ -1,8 +1,8 @@
 import { useDndContext } from '@dnd-kit/core';
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock @dnd-kit/core
 vi.mock('@dnd-kit/core', () => ({

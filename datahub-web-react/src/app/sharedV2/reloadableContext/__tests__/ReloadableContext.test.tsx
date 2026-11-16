@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { vi } from 'vitest';
 
 import { ReloadableProvider } from '@app/sharedV2/reloadableContext/ReloadableContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('ReloadableContext', () => {
     afterEach(() => {

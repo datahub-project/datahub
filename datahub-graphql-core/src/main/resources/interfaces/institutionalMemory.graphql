@@ -1,0 +1,36 @@
+"""
+An entity that can have links attached
+"""
+interface HasInstitutionalMemory {
+  """
+  References to internal resources related to the entity
+  """
+  institutionalMemory: InstitutionalMemory
+}
+
+extend type Api implements HasInstitutionalMemory
+extend type Application implements HasInstitutionalMemory
+extend type BusinessAttribute implements HasInstitutionalMemory
+extend type Chart implements HasInstitutionalMemory
+extend type Container implements HasInstitutionalMemory
+extend type Dashboard implements HasInstitutionalMemory
+extend type DataFlow implements HasInstitutionalMemory
+extend type DataJob implements HasInstitutionalMemory
+extend type DataPlatformInstance implements HasInstitutionalMemory
+extend type DataProduct implements HasInstitutionalMemory
+extend type Dataset implements HasInstitutionalMemory
+extend type Document implements HasInstitutionalMemory
+extend type Domain implements HasInstitutionalMemory
+extend type ERModelRelationship implements HasInstitutionalMemory
+extend type GlossaryNode implements HasInstitutionalMemory
+extend type GlossaryTerm implements HasInstitutionalMemory
+extend type MLFeature implements HasInstitutionalMemory
+extend type MLFeatureTable implements HasInstitutionalMemory
+extend type MLModel implements HasInstitutionalMemory
+extend type MLModelGroup implements HasInstitutionalMemory
+extend type MLPrimaryKey implements HasInstitutionalMemory
+extend type Metric implements HasInstitutionalMemory
+extend type Notebook implements HasInstitutionalMemory
+extend type Repository implements HasInstitutionalMemory
+extend type SemanticModel implements HasInstitutionalMemory
+extend type VersionedDataset implements HasInstitutionalMemory

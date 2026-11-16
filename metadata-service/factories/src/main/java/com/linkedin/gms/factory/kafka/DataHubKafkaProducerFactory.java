@@ -43,9 +43,9 @@ public class DataHubKafkaProducerFactory {
   }
 
   /**
-   * Mirror of KafkaTrackingProducer in Frontend code, uses less Spring dependent configuration
-   * because frontend doesn't use it. Ideally this would be shared code, but the Play framework
-   * injection and Spring injection don't really intermix
+   * Producer for DataHub usage events: the key is the actor urn and the value is a JSON string, so
+   * unlike {@link #createInstance} it does not use the schema registry. The frontend used to send
+   * these events through its own producer; they now go through GMS.
    */
   @Bean(name = "dataHubUsageProducer")
   protected Producer<String, String> createDUEProducer(

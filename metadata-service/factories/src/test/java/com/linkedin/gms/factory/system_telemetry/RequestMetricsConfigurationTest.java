@@ -7,6 +7,7 @@ import static org.mockito.Mockito.when;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.DataHubConfiguration;
 import com.linkedin.metadata.config.MetricsOptions;
+import io.datahubproject.test.wiring.WiringCoverage;
 import io.micrometer.core.instrument.Meter;
 import io.micrometer.core.instrument.MeterRegistry;
 import io.micrometer.core.instrument.Timer;
@@ -47,6 +48,7 @@ public class RequestMetricsConfigurationTest {
 
     contextRunner =
         new ApplicationContextRunner()
+            .withInitializer(WiringCoverage.initializer())
             .withUserConfiguration(RequestMetricsConfiguration.class)
             .withBean(ConfigurationProvider.class, () -> configurationProvider);
 

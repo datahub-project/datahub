@@ -12,6 +12,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.authentication.authenticator.AuthenticatorChain;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.FilterConfig;
@@ -131,6 +132,42 @@ public class AuthenticationExtractionFilterTest extends AbstractTestNGSpringCont
         capturedAuth[0].getActor().getId(),
         ANONYMOUS_ACTOR_ID,
         "Should have anonymous actor for expired token");
+  }
+
+  @Test
+  public void testAuthenticationUnavailableFlagsRequest()
+      throws ServletException, IOException, AuthenticationException {
+    FilterConfig mockFilterConfig = mock(FilterConfig.class);
+    when(mockFilterConfig.getInitParameterNames()).thenReturn(Collections.emptyEnumeration());
+    authenticationExtractionFilter.init(mockFilterConfig);
+
+    HttpServletRequest servletRequest = mock(HttpServletRequest.class);
+    HttpServletResponse servletResponse = mock(HttpServletResponse.class);
+    final Authentication[] capturedAuth = new Authentication[1];
+    FilterChain filterChain =
+        (req, resp) -> capturedAuth[0] = AuthenticationContext.getAuthentication();
+
+    when(servletRequest.getHeaderNames())
+        .thenReturn(Collections.enumeration(List.of(AUTHORIZATION_HEADER_NAME)));
+    when(servletRequest.getHeader(AUTHORIZATION_HEADER_NAME)).thenReturn("Bearer valid-token");
+    when(servletRequest.getServletPath()).thenReturn("/api/v2/graphql");
+
+    AuthenticatorChain mockAuthenticatorChain = mock(AuthenticatorChain.class);
+    when(mockAuthenticatorChain.authenticate(any(), anyBoolean()))
+        .thenThrow(
+            new AuthenticationUnavailableException(
+                "store down", new RuntimeException("pool exhausted")));
+    ReflectionTestUtils.setField(
+        authenticationExtractionFilter, "authenticatorChain", mockAuthenticatorChain);
+
+    authenticationExtractionFilter.doFilter(servletRequest, servletResponse, filterChain);
+
+    verify(servletRequest, times(1))
+        .setAttribute(
+            AuthenticationExtractionFilter.AUTHENTICATION_UNAVAILABLE_ATTRIBUTE, Boolean.TRUE);
+    assertNotNull(capturedAuth[0]);
+    assertEquals(capturedAuth[0].getActor().getId(), ANONYMOUS_ACTOR_ID);
+    verify(servletResponse, never()).sendError(anyInt(), anyString());
   }
 
   @Test

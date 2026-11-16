@@ -148,7 +148,6 @@
     "searchBar.noResults.clearFilters": "limpar filtros",
     "searchBar.noResults.clearFiltersAndView": "limpar filtros e view selecionada",
     "searchBar.noResults.clearView": "limpar view selecionada",
-    "searchBar.noResults.defaultMessage": "Tente ajustar sua pesquisa para encontrar o que procura",
     "searchBar.noResults.orClearSuggestion": ", ou <clickable>{{clearText}}</clickable>.",
     "searchBar.placeholder": "Encontre tabelas, dashboards, pessoas e mais",
     "searchBar.placeholderWithShortcut": "{{message}} ({{shortcut}})",

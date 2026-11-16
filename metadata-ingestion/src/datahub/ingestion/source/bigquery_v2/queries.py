@@ -170,6 +170,24 @@ order by
   table_suffix DESC
 """
 
+    # Per-table stats for the shards of collapsed sharded tables, which are summed per
+    # family in Python. The table filter keeps each query within the 1000-table limit
+    # of INFORMATION_SCHEMA.PARTITIONS.
+    partition_stats_for_tables = """
+SELECT
+  table_name,
+  sum(total_rows) as total_rows,
+  sum(total_logical_bytes) as total_logical_bytes,
+  sum(case when storage_tier = 'ACTIVE' then total_billable_bytes else 0 end) as active_billable_bytes,
+  sum(case when storage_tier = 'LONG_TERM' then total_billable_bytes else 0 end) as long_term_billable_bytes
+FROM
+  `{project_id}`.`{dataset_name}`.INFORMATION_SCHEMA.PARTITIONS
+WHERE
+  table_name in ({table_filter})
+GROUP BY
+  table_name
+"""
+
     # Views keep last_altered / row_count / size_bytes from the legacy __TABLES__ construct.
     views_for_dataset_with_legacy_stats: str = f"""
 SELECT

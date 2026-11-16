@@ -22,7 +22,7 @@ Examples showing how to ingest metadata from data sources into DataHub:
 
 ### 3. Advanced Features
 
-- **lineage_emission_dag.py**: Directly emit custom lineage using `DatahubEmitterOperator`
+- **lineage_emission_dag.py**: Directly emit custom lineage as an `UpstreamLineage` MCP using `DatahubEmitterOperator`
 - **graph_usage_sample_dag.py**: Use the `DataHubGraph` client from within a DAG
 
 ## Running the Examples

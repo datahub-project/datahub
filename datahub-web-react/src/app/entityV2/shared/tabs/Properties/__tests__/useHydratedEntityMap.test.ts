@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useHydratedEntityMap } from '@app/entityV2/shared/tabs/Properties/useHydratedEntityMap';
 import { useGetEntities } from '@src/app/sharedV2/useGetEntities';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { type Entity, EntityType } from '@types';
 

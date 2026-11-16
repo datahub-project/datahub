@@ -15,7 +15,7 @@ const meta = {
         layout: 'centered',
         badges: [BADGE.STABLE, 'readyForDesignReview'],
         docs: {
-            subtitle: 'Used to render text and paragraphs within an interface.',
+            subtitle: 'Box-and-whisker chart showing min, quartiles, median and max for each series.',
         },
     },
 
@@ -59,7 +59,7 @@ const meta = {
             },
         },
         renderTooltip: {
-            description: 'Rendering function to customize tolltip',
+            description: 'Rendering function to customize tooltip',
         },
         renderWhisker: {
             description: 'Rendering function to customize whisker',

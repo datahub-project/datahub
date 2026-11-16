@@ -55,6 +55,7 @@ public final class SearchTemplateWalk {
     @Nullable final RuntimeException error;
     final boolean skipped;
     @Nullable final String renderedQuery;
+    @Nullable final SearchTemplateCandidates candidates;
 
     private AttemptResult(
         @Nullable T page,
@@ -64,7 +65,8 @@ public final class SearchTemplateWalk {
         boolean shardFailed,
         @Nullable RuntimeException error,
         boolean skipped,
-        @Nullable String renderedQuery) {
+        @Nullable String renderedQuery,
+        @Nullable SearchTemplateCandidates candidates) {
       this.page = page;
       this.total = total;
       this.entities = entities;
@@ -73,6 +75,7 @@ public final class SearchTemplateWalk {
       this.error = error;
       this.skipped = skipped;
       this.renderedQuery = renderedQuery;
+      this.candidates = candidates;
     }
 
     @Nonnull
@@ -82,19 +85,20 @@ public final class SearchTemplateWalk {
         @Nonnull List<SearchEntity> entities,
         @Nonnull List<String> highlights,
         boolean shardFailed,
-        @Nullable String renderedQuery) {
+        @Nullable String renderedQuery,
+        @Nullable SearchTemplateCandidates candidates) {
       return new AttemptResult<>(
-          page, total, entities, highlights, shardFailed, null, false, renderedQuery);
+          page, total, entities, highlights, shardFailed, null, false, renderedQuery, candidates);
     }
 
     @Nonnull
     public static <T> AttemptResult<T> failed(@Nonnull RuntimeException error) {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, error, false, null);
+      return new AttemptResult<>(null, 0, List.of(), List.of(), false, error, false, null, null);
     }
 
     @Nonnull
     static <T> AttemptResult<T> skipped() {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, null, true, null);
+      return new AttemptResult<>(null, 0, List.of(), List.of(), false, null, true, null, null);
     }
 
     @Nullable
@@ -110,6 +114,11 @@ public final class SearchTemplateWalk {
     @Nullable
     public String renderedQuery() {
       return renderedQuery;
+    }
+
+    @Nullable
+    public SearchTemplateCandidates candidates() {
+      return candidates;
     }
 
     @Nullable

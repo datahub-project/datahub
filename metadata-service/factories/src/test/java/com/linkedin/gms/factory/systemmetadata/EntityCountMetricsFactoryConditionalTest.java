@@ -12,6 +12,7 @@ import com.linkedin.metadata.systemmetadata.metrics.EntityCountMetricsSinkCompos
 import com.linkedin.metadata.systemmetadata.metrics.MicrometerEntityCountMetricsSink;
 import com.linkedin.metadata.systemmetadata.metrics.RecordingEntityCountMetricsSink;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.wiring.WiringCoverage;
 import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
@@ -58,6 +59,7 @@ public class EntityCountMetricsFactoryConditionalTest {
 
     contextRunner =
         new ApplicationContextRunner()
+            .withInitializer(WiringCoverage.initializer())
             .withUserConfiguration(
                 EntityCountMetricsFactory.class, TestDependenciesConfiguration.class)
             .withBean(ConfigurationProvider.class, () -> configurationProvider)

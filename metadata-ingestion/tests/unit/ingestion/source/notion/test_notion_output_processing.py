@@ -17,6 +17,7 @@ import pytest
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.notion.notion_source import NotionSource
 from datahub.metadata.schema_classes import BrowsePathsV2Class
 from tests.unit.ingestion.source.notion.conftest import (
@@ -161,6 +162,32 @@ def test_process_output_malformed_file_honours_continue_on_failure(
     strict = _make_source(tmp_path, advanced={"continue_on_failure": False})
     with pytest.raises(ValueError):
         list(strict._process_unstructured_output(output_dir))
+
+
+def test_process_output_stops_on_server_wide_embedding_failure(
+    tmp_path: Path,
+) -> None:
+    """A server-wide embedding failure ends the run even with continue_on_failure,
+    instead of failing the same way for every remaining document."""
+    write_indexer_record(tmp_path, ROOT_ID, {"type": "workspace", "workspace": True})
+    write_indexer_record(tmp_path, CHILD_ID, {"type": "page_id", "page_id": ROOT_ID})
+    output_dir = tmp_path / "output"
+    write_output_file(output_dir, ROOT_ID, ["Engineering", LONG_TEXT])
+    write_output_file(output_dir, CHILD_ID, ["Backend", LONG_TEXT])
+    source = _make_source(tmp_path, advanced={"continue_on_failure": True})
+
+    with (
+        patch.object(
+            source,
+            "_create_document_entity",
+            side_effect=ServerEmbeddingRunError("embedding credits are exhausted"),
+        ) as create,
+        pytest.raises(ServerEmbeddingRunError),
+    ):
+        list(source._process_unstructured_output(output_dir))
+
+    assert create.call_count == 1
+    assert source.report.num_files_failed == 0
 
 
 def test_notion_timestamps_parsed_from_indexer_metadata(tmp_path: Path) -> None:

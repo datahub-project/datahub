@@ -3,6 +3,7 @@ import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { retryOnFail } from '@utils/retry';
 import { TIMEOUTS } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class SearchPage extends BasePage {
   readonly searchInput: Locator;
@@ -19,6 +20,8 @@ export class SearchPage extends BasePage {
   readonly clearButton: Locator;
   readonly autocompleteDropdown: Locator;
   readonly filterDropdownMenu: Locator;
+  private readonly visibleMoreFilterOptions: Locator;
+  private readonly graphql: GraphQLHelper;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -36,6 +39,8 @@ export class SearchPage extends BasePage {
     this.clearButton = page.getByTestId('button-clear');
     this.autocompleteDropdown = page.getByTestId('search-bar-dropdown');
     this.filterDropdownMenu = page.getByTestId('filter-dropdown');
+    this.visibleMoreFilterOptions = page.getByTestId(/^more-filter-/).filter({ visible: true });
+    this.graphql = new GraphQLHelper(page);
   }
 
   async navigateToHome(): Promise<void> {
@@ -80,20 +85,27 @@ export class SearchPage extends BasePage {
     }
   }
 
+  /**
+   * Submit `query` from the search bar and wait for its results request to finish. Waits on
+   * the request rather than the UI because the previous query's results stay on screen while
+   * the next one loads.
+   */
   async search(query: string): Promise<void> {
-    await this.searchInput.fill(query);
-    await this.searchInput.press('Enter');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(2000);
-  }
-
-  async searchAndWait(query: string, waitTime: number = 5000): Promise<void> {
     await this.searchInput.waitFor({ state: 'visible' });
+    const current = new URL(this.page.url());
+    // Resubmitting the query a results page already shows doesn't send a new request.
+    const alreadyShown = current.pathname.startsWith('/search') && current.searchParams.get('query') === query;
+    const loaded = alreadyShown
+      ? Promise.resolve()
+      : this.graphql.waitForGraphQLResponse(
+          'getSearchResultsForMultiple',
+          (variables) => (variables.input as { query?: string } | undefined)?.query?.trim() === query.trim(),
+        );
     await this.searchInput.fill(query);
     await this.searchInput.press('Enter');
-    await this.page.waitForLoadState('networkidle');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(waitTime);
+    await loaded;
+    // Facets render with the results; callers probe them with instant isVisible()/count() checks.
+    await expect(this.page.getByText(/of [\d,]+\+? results?/)).toBeVisible({ timeout: TIMEOUTS.LONG });
   }
 
   async expectResultsCount(pattern: RegExp): Promise<void> {
@@ -155,6 +167,12 @@ export class SearchPage extends BasePage {
     await this.page.getByText(filterType).click({ force: true });
   }
 
+  /** Open the "More Filters" menu and wait for its options to render. */
+  async openMoreFilters(): Promise<void> {
+    await this.moreFiltersDropdown.click();
+    await expect(this.visibleMoreFilterOptions).not.toHaveCount(0);
+  }
+
   /**
    * Returns true if a filter dropdown is available — either as a top-level
    * button or inside the "More Filters" menu. Use this to skip tests that
@@ -167,9 +185,7 @@ export class SearchPage extends BasePage {
     const moreFiltersBtn = this.moreFiltersDropdown;
     if (!(await moreFiltersBtn.isVisible())) return false;
 
-    await moreFiltersBtn.click();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(300);
+    await this.openMoreFilters();
     const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
     const found = await moreFilterOption.isVisible();
     await this.page.keyboard.press('Escape');
@@ -187,15 +203,12 @@ export class SearchPage extends BasePage {
       const moreFiltersBtn = this.moreFiltersDropdown;
       const moreFiltersVisible = await moreFiltersBtn.isVisible();
       if (moreFiltersVisible) {
-        await moreFiltersBtn.click();
-        // eslint-disable-next-line playwright/no-wait-for-timeout
-        await this.page.waitForTimeout(500);
+        await this.openMoreFilters();
         const moreFilterOption = this.page.getByTestId(`more-filter-${filterName}`);
         const moreFilterVisible = await moreFilterOption.isVisible();
         if (moreFilterVisible) {
           await moreFilterOption.click();
-          // eslint-disable-next-line playwright/no-wait-for-timeout
-          await this.page.waitForTimeout(500);
+          await this.waitForFilterOptions();
           // After clicking the more-filter option, select the option within
           // the sub-dropdown that appears. Fall through to the selection logic.
           await this.selectFilterValue(optionLabel);
@@ -209,12 +222,24 @@ export class SearchPage extends BasePage {
     }
 
     await filterDropdown.click({ force: true });
-
-    // Wait for the dropdown menu to appear
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(1000);
+    await this.waitForFilterOptions();
 
     await this.selectFilterValue(optionLabel);
+  }
+
+  /**
+   * Wait for an open filter dropdown to render its options; the facet query behind it can take a
+   * few seconds on a loaded backend.
+   */
+  private async waitForFilterOptions(): Promise<void> {
+    await this.filterDropdownMenu
+      .getByRole('checkbox')
+      .or(this.filterDropdownMenu.getByTestId('search-input'))
+      .first()
+      .waitFor({ state: 'attached', timeout: 10_000 })
+      .catch(() => {
+        // Some filter types render neither; selectFilterValue has its own fallbacks.
+      });
   }
 
   /**
@@ -253,8 +278,14 @@ export class SearchPage extends BasePage {
     const dropdownSearchInput = dropdownMenu.getByTestId('search-input').last();
     if (await dropdownSearchInput.isVisible()) {
       await dropdownSearchInput.fill(optionLabel);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await this.page.waitForTimeout(500);
+      // The narrowed list can arrive via a GraphQL call; give the option a chance to render.
+      await this.page
+        .getByRole('checkbox', { name: optionPattern })
+        .first()
+        .waitFor({ state: 'attached', timeout: 5000 })
+        .catch(() => {
+          // Not narrowed into a checkbox; the text-match fallback below gets a try.
+        });
 
       if (await tryCheckbox()) {
         await this.page.getByRole('button', { name: 'Update' }).click();

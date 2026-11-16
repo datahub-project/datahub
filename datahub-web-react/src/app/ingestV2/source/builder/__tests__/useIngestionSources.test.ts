@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import i18n from 'i18next';
 
 import { useIngestionSources } from '@app/ingestV2/source/builder/useIngestionSources';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useIngestionSources', () => {
     describe('displayName field', () => {

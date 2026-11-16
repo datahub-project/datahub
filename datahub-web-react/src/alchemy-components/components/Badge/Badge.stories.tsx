@@ -8,6 +8,7 @@ import { GridList } from '@components/.docs/mdx-components';
 import { Badge, badgeDefault } from '@components/components/Badge/Badge';
 import { omitKeys } from '@components/components/Badge/utils';
 import pillMeta from '@components/components/Pills/Pill.stories';
+import { ColorValues, PillVariantValues } from '@components/theme/config';
 
 const pillMetaArgTypes = omitKeys(pillMeta.argTypes, ['label']);
 const pillMetaArgs = omitKeys(pillMeta.args, ['label']);
@@ -55,6 +56,22 @@ const meta = {
             },
         },
         ...pillMetaArgTypes,
+        variant: {
+            description: 'The visual variant of the Badge pill.',
+            options: Object.values(PillVariantValues),
+            control: { type: 'select' },
+            table: {
+                defaultValue: { summary: PillVariantValues.filled },
+            },
+        },
+        color: {
+            description: 'The color of the Badge pill.',
+            options: Object.values(ColorValues).filter((color) => color !== ColorValues.black),
+            control: { type: 'select' },
+            table: {
+                defaultValue: { summary: ColorValues.gray },
+            },
+        },
     },
 
     // Define defaults

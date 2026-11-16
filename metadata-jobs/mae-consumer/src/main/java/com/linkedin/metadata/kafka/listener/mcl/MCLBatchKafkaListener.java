@@ -60,7 +60,16 @@ public class MCLBatchKafkaListener
 
   @Override
   protected boolean shouldSkipProcessing(MetadataChangeLog event) {
-    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop);
+    return MCLKafkaListener.shouldSkipMcl(event, aspectsToDrop, systemOperationContext);
+  }
+
+  @Override
+  protected void logSkipped(MetadataChangeLog event) {
+    if (MCLKafkaListener.isDroppedByConfig(event, aspectsToDrop)) {
+      super.logSkipped(event);
+    } else {
+      MCLKafkaListener.logSkippedAsUnknown(event);
+    }
   }
 
   @Override
@@ -171,8 +180,10 @@ public class MCLBatchKafkaListener
           MetadataChangeLog mcl = convertRecord(consumerRecord.value());
           if (!shouldSkipProcessing(mcl)) {
             mcls.add(mcl);
-          } else {
+          } else if (MCLKafkaListener.isDroppedByConfig(mcl, aspectsToDrop)) {
             log.info("Skipping MCL event: {}", mcl);
+          } else {
+            MCLKafkaListener.logSkippedAsUnknown(mcl);
           }
         } catch (IOException e) {
           log.error("Unrecoverable message deserialization error", e);

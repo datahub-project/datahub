@@ -789,6 +789,47 @@ public class V3SearchQueryBuilderTest {
         texts.toString());
   }
 
+  /** A quoted V2 keyword subfield of a URN label reads the full URN, not the unmapped name. */
+  @Test
+  public void testQuotedKeywordSuffixOnUrnLabelReadsFullUrn() {
+    String platform = "urn:li:dataPlatform:hive";
+    String instance = "urn:li:dataPlatformInstance:(urn:li:dataPlatform:snowflake,prod)";
+    V3SearchQueryBuilder queryBuilder = builder(null);
+
+    List<QueryStringQueryBuilder> platformClauses =
+        queryStrings(
+            queryBuilder.buildQuery(
+                OP_CONTEXT,
+                DATASET,
+                STRUCTURED_QUERY_PREFIX + "-platform.keyword:\"" + platform + "\"",
+                true));
+    assertTrue(
+        platformClauses.stream()
+            .anyMatch(clause -> clause.queryString().equals("platform_urn:\"" + platform + "\"")),
+        platformClauses.toString());
+    assertTrue(
+        platformClauses.stream()
+            .noneMatch(clause -> clause.queryString().contains("platform.keyword")),
+        platformClauses.toString());
+
+    List<QueryStringQueryBuilder> instanceClauses =
+        queryStrings(
+            queryBuilder.buildQuery(
+                OP_CONTEXT,
+                DATASET,
+                STRUCTURED_QUERY_PREFIX + "-platformInstance.keyword:\"" + instance + "\"",
+                true));
+    assertTrue(
+        instanceClauses.stream()
+            .anyMatch(
+                clause -> clause.queryString().equals("platformInstance_urn:\"" + instance + "\"")),
+        instanceClauses.toString());
+    assertTrue(
+        instanceClauses.stream()
+            .noneMatch(clause -> clause.queryString().contains("platformInstance.keyword")),
+        instanceClauses.toString());
+  }
+
   /** A keyword label is not a text-only field, so /q leaves the field name as written. */
   @Test
   public void testStructuredQueryKeywordLabelStaysOnKeywordField() {

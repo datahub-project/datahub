@@ -18,9 +18,12 @@ import { SemanticVersionStruct } from '@types';
 const SCHEMA_VIEW_TABULAR = 'tabular';
 const SCHEMA_VIEW_RAW = 'raw';
 
+// No divider or shadow under the toolbar: the schema table below draws its own bordered card.
 const StyledTabToolbar = styled(TabToolbar)`
     height: unset;
     padding: 8px 16px 16px 16px;
+    border-bottom: none;
+    box-shadow: none;
 `;
 
 const SchemaHeaderContainer = styled.div`

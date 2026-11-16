@@ -10,6 +10,7 @@ import { isPropagated } from '@app/entityV2/shared/propagation/utils';
 import AddTagTerm from '@app/sharedV2/tags/AddTagTerm';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import Tag from '@app/sharedV2/tags/tag/Tag';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import Term from '@app/sharedV2/tags/term/Term';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
@@ -163,13 +164,6 @@ export default function TagTermGroup({
     const [showAddModal, setShowAddModal] = useState(false);
     const [addModalType, setAddModalType] = useState(EntityType.Tag);
 
-    const tagsEmpty = !directTags?.tags?.length && !editableTags?.tags?.length && !uneditableTags?.tags?.length;
-
-    const termsEmpty =
-        !directGlossaryTerms?.terms?.length &&
-        !editableGlossaryTerms?.terms?.length &&
-        !uneditableGlossaryTerms?.terms?.length;
-
     // Maintain order of uneditable -> direct -> editable
     const orderedTerms: OrderedTerm[] = [
         ...(uneditableGlossaryTerms?.terms ?? []).map((term) => ({
@@ -190,7 +184,7 @@ export default function TagTermGroup({
             entitySubresource,
             managed: false,
         })),
-    ];
+    ].filter((item) => !isRemovedAssociation(item.term));
     const dedupedTerms = dedupeByUrn(
         orderedTerms,
         (item) => item.term.term.urn,
@@ -211,7 +205,7 @@ export default function TagTermGroup({
             managed: false,
         })),
         ...(editableTags?.tags ?? []).map((tag) => ({ tag, canRemove, entitySubresource, managed: false })),
-    ];
+    ].filter((item) => !isRemovedAssociation(item.tag));
     const dedupedTags = dedupeByUrn(
         orderedTags,
         (item) => item.tag.tag.urn,
@@ -221,6 +215,9 @@ export default function TagTermGroup({
     // Collapse to a single item (showOneAndCount) or cap at maxShow, otherwise render everything. Slicing here
     // keeps the "+N" overflow indicator out of the map and avoids walking the full list when collapsed.
     const visibleLimit = showOneAndCount ? 1 : maxShow;
+    const tagsEmpty = !dedupedTags.length;
+    const termsEmpty = !dedupedTerms.length;
+
     const visibleTerms = visibleLimit ? dedupedTerms.slice(0, visibleLimit) : dedupedTerms;
     const visibleTags = visibleLimit ? dedupedTags.slice(0, visibleLimit) : dedupedTags;
 

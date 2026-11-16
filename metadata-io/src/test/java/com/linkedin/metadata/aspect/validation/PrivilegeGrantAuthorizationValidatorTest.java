@@ -2,6 +2,7 @@ package com.linkedin.metadata.aspect.validation;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.GROUP_MEMBERSHIP_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.INVITE_TOKEN_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ROLE_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
@@ -15,6 +16,7 @@ import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authorization.AuthorizationResult;
@@ -34,6 +36,7 @@ import com.linkedin.data.template.StringMap;
 import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.identity.GroupMembership;
+import com.linkedin.identity.InviteToken;
 import com.linkedin.identity.RoleMembership;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.RetrieverContext;
@@ -64,6 +67,7 @@ public class PrivilegeGrantAuthorizationValidatorTest {
   private static final Urn OTHER_USER = UrnUtils.getUrn("urn:li:corpuser:other");
   private static final Urn GROUP = UrnUtils.getUrn("urn:li:corpGroup:privileged");
   private static final Urn ADMIN_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Admin");
+  private static final Urn INVITE_TOKEN = UrnUtils.getUrn("urn:li:inviteToken:test");
   private static final Urn OTHER_GROUP = UrnUtils.getUrn("urn:li:corpGroup:other");
   private static final String ANY_RESOURCE = "*";
 
@@ -387,15 +391,16 @@ public class PrivilegeGrantAuthorizationValidatorTest {
 
   // --- trusted internal writes ---
 
+  /** Client-supplied appSource=systemUpdate must not skip the privilege check. */
   @Test
-  public void testSystemUpdateSourceSkipped() {
+  public void testSystemUpdateSourceDoesNotSkipAuth() {
     final BatchItem item =
         upsert(OTHER_USER, ROLE_MEMBERSHIP_ASPECT_NAME, roles(ADMIN_ROLE), ACTOR);
     ((TestMCP) item)
         .setSystemMetadata(
             new SystemMetadata()
                 .setProperties(new StringMap(java.util.Map.of(APP_SOURCE, SYSTEM_UPDATE_SOURCE))));
-    assertTrue(validate(item).isEmpty());
+    assertAuthFailure(validate(item));
   }
 
   /** The invite-accept flow assigns roles as the system actor. */
@@ -504,6 +509,72 @@ public class PrivilegeGrantAuthorizationValidatorTest {
                 + ADMIN_ROLE
                 + "\"}]");
     assertAuthFailure(validate(item));
+  }
+
+  // --- inviteToken.role: same Manage Policies floor as roleMembership ---
+
+  @Test
+  public void testInviteTokenRoleGrantDeniedWithoutManagePolicies() {
+    assertAuthFailure(
+        validate(upsert(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(ADMIN_ROLE), ACTOR)));
+  }
+
+  @Test
+  public void testInviteTokenRoleGrantAllowedWithManagePolicies() {
+    grantPrivileges(MANAGE_POLICIES);
+    assertTrue(
+        validate(upsert(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(ADMIN_ROLE), ACTOR))
+            .isEmpty());
+  }
+
+  @Test
+  public void testInviteTokenWithoutRoleAllowedWithoutManagePolicies() {
+    assertTrue(
+        validate(upsert(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(null), ACTOR))
+            .isEmpty());
+  }
+
+  @Test
+  public void testInviteTokenSameRoleRewriteAllowedWithoutManagePolicies() {
+    existingAspect(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(ADMIN_ROLE));
+    assertTrue(
+        validate(upsert(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(ADMIN_ROLE), ACTOR))
+            .isEmpty());
+  }
+
+  @Test
+  public void testPatchInviteTokenRoleGrantDeniedWithoutManagePolicies() {
+    existingAspect(INVITE_TOKEN, INVITE_TOKEN_ASPECT_NAME, inviteToken(null));
+    when(operationContext.getAuditStamp()).thenReturn(new AuditStamp().setActor(ACTOR).setTime(0L));
+    final BatchItem item =
+        TestPatchMCP.of(
+            INVITE_TOKEN,
+            INVITE_TOKEN_ASPECT_NAME,
+            "[{\"op\":\"add\",\"path\":\"/role\",\"value\":\"" + ADMIN_ROLE + "\"}]");
+    final List<AspectValidationException> failures = validate(item);
+    assertAuthFailure(failures);
+    assertTrue(failures.get(0).getMessage().contains(ADMIN_ROLE.toString()));
+    assertFalse(failures.get(0).getMessage().contains("could not be resolved"));
+  }
+
+  @Test
+  public void testInviteTokenRoleGrantBySystemActorSkipped() {
+    assertTrue(
+        validate(
+                upsert(
+                    INVITE_TOKEN,
+                    INVITE_TOKEN_ASPECT_NAME,
+                    inviteToken(ADMIN_ROLE),
+                    UrnUtils.getUrn(SYSTEM_ACTOR)))
+            .isEmpty());
+  }
+
+  private static InviteToken inviteToken(Urn role) {
+    final InviteToken token = new InviteToken().setToken("encrypted-token");
+    if (role != null) {
+      token.setRole(role);
+    }
+    return token;
   }
 
   private BatchItem unresolvablePatch() {

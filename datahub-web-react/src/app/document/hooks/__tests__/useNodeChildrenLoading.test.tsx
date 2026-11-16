@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { DocumentTreeNode, DocumentTreeProvider, useDocumentTree } from '@app/document/DocumentTreeContext';
 import { useNodeChildrenLoading } from '@app/document/hooks/useNodeChildrenLoading';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
     <DocumentTreeProvider>{children}</DocumentTreeProvider>

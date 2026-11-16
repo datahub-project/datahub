@@ -1,9 +1,13 @@
 import React from 'react';
 
-import { AppConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
+import { AppConfig, FeatureFlagsConfig, PersonalSidebarSection, PoliciesConfig, SearchBarApi } from '@types';
 
-export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig'> & {
+/** Feature flags the frontend queries. Deprecated fields are left out. */
+export type FeatureFlags = Omit<FeatureFlagsConfig, 'showIngestionPageRedesign' | 'ingestionOnboardingRedesignV1'>;
+
+export type AppConfigWithoutPolicyPrivileges = Omit<AppConfig, 'policiesConfig' | 'featureFlags'> & {
     policiesConfig: Omit<PoliciesConfig, 'platformPrivileges' | 'resourcePrivileges'>;
+    featureFlags: FeatureFlags;
 };
 
 export const DEFAULT_APP_CONFIG = {
@@ -95,8 +99,6 @@ export const DEFAULT_APP_CONFIG = {
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,
-        showIngestionPageRedesign: false,
-        ingestionOnboardingRedesignV1: false,
         showLineageExpandMore: false,
         showLineageFilterNodes: false,
         showDefaultExternalLinks: true,
