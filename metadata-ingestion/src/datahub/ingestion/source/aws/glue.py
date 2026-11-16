@@ -737,6 +737,7 @@ class GlueSourceReport(StaleEntityRemovalSourceReport):
     num_resource_link_schema_from_datahub: int = 0
     num_resource_link_schema_from_glue: int = 0
     num_resource_link_schema_unresolved: int = 0
+    num_resource_link_typed_as_view: int = 0
     num_view_schema_from_view_definition: int = 0
     num_view_placeholder_schema_unresolved: int = 0
     num_view_columns_type_unresolved: int = 0
@@ -1274,7 +1275,9 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Optional[ViewPropertiesClass]:
         """View properties for a resource link listed without a ``TableType`` whose owning table
         is a view; None otherwise."""
-        if not self.source_config.resolve_resource_link_schema or "TableType" in table:
+        if not self.source_config.resolve_resource_link_schema or table.get(
+            "TableType"
+        ):
             return None
         target = table.get("TargetTable")
         if not target:
@@ -1296,7 +1299,7 @@ class GlueSource(StatefulIngestionSourceBase):
                         owner_urn, ViewPropertiesClass
                     )
             except Exception as e:
-                # A GMS/network error must not abort the run — fall back to Glue for an unread type.
+                # A GMS/network error must not abort the run — whatever wasn't read comes from Glue.
                 self.report.warning(
                     title="Failed to read resource-link owner type from DataHub",
                     message="Could not fetch the owning table's View/Table type or view "
@@ -1304,20 +1307,27 @@ class GlueSource(StatefulIngestionSourceBase):
                     context=owner_urn,
                     exc=e,
                 )
-        if owner_sub_types is not None:
-            if DatasetSubTypes.VIEW not in owner_sub_types.typeNames:
-                return None
-            return owner_view or ViewPropertiesClass(
-                materialized=False, viewLanguage="SQL", viewLogic=""
-            )
-
-        owner_table = self._resource_link_owner_table_from_glue(target)
-        if (
-            owner_table is None
-            or owner_table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE
+        if owner_sub_types is not None and (
+            DatasetSubTypes.VIEW not in owner_sub_types.typeNames
         ):
             return None
-        view_definition = self._get_view_definition(owner_table, table_name)
+        if owner_view is not None:
+            return owner_view
+
+        # Type unknown, or DataHub says View but has no definition: Glue has both. A View from
+        # DataHub stays a View even if Glue can't supply the SQL.
+        owner_table = self._resource_link_owner_table_from_glue(target)
+        owner_is_glue_view = (
+            owner_table is not None
+            and owner_table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
+        )
+        if owner_sub_types is None and not owner_is_glue_view:
+            return None
+        view_definition = (
+            self._get_view_definition(owner_table, table_name)
+            if owner_table is not None and owner_is_glue_view
+            else None
+        )
         return ViewPropertiesClass(
             materialized=False,
             viewLanguage="SQL",
@@ -2721,8 +2731,8 @@ class GlueSource(StatefulIngestionSourceBase):
         view_definition = (
             self._get_view_definition(table, full_table_name) if is_view else None
         )
-        # A resource link's view properties come from its owner and are not parsed for lineage:
-        # the link's lineage is its COPY edge to the owner.
+        # A resource link listed without a TableType takes its view properties from its owner, and
+        # they are not parsed for lineage: that link's lineage is its COPY edge to the owner.
         view_properties = (
             ViewPropertiesClass(
                 materialized=False,
@@ -2746,6 +2756,8 @@ class GlueSource(StatefulIngestionSourceBase):
 
         if view_properties:
             self.report.report_view_scanned()
+            if not is_view:
+                self.report.num_resource_link_typed_as_view += 1
             yield MetadataChangeProposalWrapper(
                 entityUrn=dataset_urn, aspect=view_properties
             ).as_workunit()

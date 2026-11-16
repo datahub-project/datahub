@@ -882,9 +882,12 @@ def _owner_get_table_response(table_type: str) -> Dict[str, Any]:
 
 
 def _owner_graph(
-    sub_types: Optional[List[str]] = None, error: Optional[Exception] = None
+    sub_types: Optional[List[str]] = None,
+    error: Optional[Exception] = None,
+    view_aspect: str = "present",
 ) -> MagicMock:
     # The owner's schema is in DataHub, so Glue is only reached by the View/Table lookup.
+    # view_aspect: "present", "missing" or "error" for the owner's ViewProperties read.
     graph = MagicMock()
     graph.get_schema_metadata.return_value = _owner_schema()
 
@@ -895,6 +898,10 @@ def _owner_graph(
             return None
         if aspect_type is models.SubTypesClass:
             return models.SubTypesClass(typeNames=sub_types)
+        if view_aspect == "error":
+            raise Exception("gms unavailable")
+        if view_aspect == "missing":
+            return None
         return models.ViewPropertiesClass(
             materialized=False, viewLanguage="SQL", viewLogic=OWNER_VIEW_SQL
         )
@@ -945,7 +952,8 @@ def _link_aspect(
         for wu in wus
         if wu.get_urn() == urn and wu.get_aspect_of_type(aspect_type) is not None
     ]
-    return aspects[-1] if aspects else None
+    assert len(aspects) <= 1
+    return aspects[0] if aspects else None
 
 
 def _warning_titles(source: GlueSource) -> List[Optional[str]]:
@@ -965,6 +973,36 @@ def test_resource_link_to_view_typed_as_view_from_datahub():
     assert _link_aspect(wus, models.ViewPropertiesClass).viewLogic == OWNER_VIEW_SQL
     add_view_definition.assert_not_called()
     assert not source.report.warnings
+    assert source.report.num_resource_link_typed_as_view == 1
+
+
+@pytest.mark.parametrize(
+    "view_aspect, owner_table_type, glue_denied, view_logic",
+    [
+        pytest.param(
+            "missing", "VIRTUAL_VIEW", False, OWNER_VIEW_SQL, id="sql-from-glue"
+        ),
+        pytest.param("error", "VIRTUAL_VIEW", False, OWNER_VIEW_SQL, id="gms-error"),
+        pytest.param("missing", None, True, "", id="glue-denied"),
+    ],
+)
+def test_resource_link_view_in_datahub_without_definition(
+    view_aspect: str,
+    owner_table_type: Optional[str],
+    glue_denied: bool,
+    view_logic: str,
+) -> None:
+    # DataHub says the owner is a View but its view definition is missing or unreadable: the SQL
+    # comes from Glue, and the link stays a View even when Glue can't supply it.
+    source = _resource_link_schema_source()
+    source.ctx.graph = _owner_graph(sub_types=["View"], view_aspect=view_aspect)
+
+    wus, _ = _link_wus(
+        source, owner_table_type=owner_table_type, glue_denied=glue_denied
+    )
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
+    assert _link_aspect(wus, models.ViewPropertiesClass).viewLogic == view_logic
 
 
 def test_resource_link_to_view_typed_as_view_from_glue():
@@ -1069,6 +1107,8 @@ def test_resource_link_glue_owner_cache_keyed_by_target():
             )
         wus = [wu for link in links for wu in source._gen_table_wu(link)]
         stubber.assert_no_pending_responses()
+    # No graph in this run: the DataHub lookup is skipped cleanly, not swallowed as a warning.
+    assert not source.report.warnings
 
     link_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.link-{},PROD)"
     assert _link_aspect(
