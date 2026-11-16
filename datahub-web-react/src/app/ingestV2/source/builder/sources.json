@@ -47,7 +47,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informatica",
         "recipe": "source:\n  type: informatica\n  config:\n    login_url: https://dm-us.informaticacloud.com\n    username: \"${IDMC_USERNAME}\"\n    password: \"${IDMC_PASSWORD}\"\n    extract_lineage: true\n    extract_ownership: true\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
         "category": "ETL / ELT",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:snaplogic",
@@ -76,7 +77,7 @@
         "description": "Import Metastores, Schemas, Tables, lineage, queries, and statistics from Databricks Unity Catalog.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/databricks/",
         "recipe": "source:\n    type: databricks\n    config:\n        # Coordinates\n        workspace_url: null\n        include_table_lineage: true\n        include_column_lineage: false\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": true
     },
     {
@@ -97,7 +98,7 @@
         "docsUrl": "https://docs.datahub.com/docs/quick-ingestion-guides/looker/overview#lookml",
         "recipe": "source:\n    type: lookml\n    config:\n        parse_table_names_from_sql: true\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
-        "isPopular": true
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:tableau",
@@ -146,7 +147,7 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dbt/#module-dbt-cloud",
         "recipe": "source:\n  type: dbt-cloud\n  config:\n    account_id: null\n    project_id: null\n    job_id: null\n    target_platform: null\n    stateful_ingestion:\n      enabled: true",
         "category": "ETL / ELT",
-        "isPopular": true
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:dbt",
@@ -215,7 +216,7 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/airbyte",
         "recipe": "source:\n  type: airbyte\n  config:\n    deployment_type: oss\n    host_port: http://localhost:8000\n    username: airbyte\n    password: password\n\n    extract_column_level_lineage: true\n    include_statuses: true\n    incremental_lineage: true",
         "category": "ETL / ELT",
-        "isPopular": false
+        "isPopular": true
     },
     {
         "urn": "urn:li:dataPlatform:kafka",
@@ -224,7 +225,7 @@
         "description": "Import streaming topics from Kafka.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/kafka/",
         "recipe": "source:\n    type: kafka\n    config:\n        connection:\n            consumer_config:\n                security.protocol: \"PLAINTEXT\"\n        stateful_ingestion:\n            enabled: false",
-        "category": "ETL / ELT",
+        "category": "Streaming",
         "isPopular": true
     },
     {
@@ -234,8 +235,9 @@
         "description": "Import Connectors and lineage between Kafka topics and connected systems from Kafka Connect.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/kafka-connect/",
         "recipe": "source:\n    type: kafka-connect\n    config:\n        # Coordinates\n        connect_uri: # Your Kafka Connect REST endpoint, e.g. http://localhost:8083\n\n        # Credentials (only if authentication is enabled)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # username: # Your Kafka Connect username\n        # password: \"${KAFKA_CONNECT_PASSWORD}\"\n\n        # Optional: map source/sink platforms to platform instances used by their own ingestion\n        # platform_instance_map:\n        #     mysql: mysql_platform_instance\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "ETL / ELT",
-        "isPopular": false
+        "category": "Streaming",
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:pulsar",
@@ -244,7 +246,7 @@
         "description": "Import Topics and schemas from Apache Pulsar, organized by tenant and namespace.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/pulsar/",
         "recipe": "source:\n    type: pulsar\n    config:\n        # Coordinates\n        web_service_url: # Your Pulsar web service URL, e.g. http://localhost:8080\n\n        # Credentials (only if authentication is enabled)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # token: \"${PULSAR_TOKEN}\"\n\n        # Optional: tenants to ingest (listing all tenants requires the superUser role)\n        # tenants:\n        #     - my_tenant\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "ETL / ELT",
+        "category": "Streaming",
         "isPopular": false
     },
     {
@@ -254,8 +256,9 @@
         "description": "Import Data Streams, Firehose streams, schemas, and lineage from Amazon Kinesis.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/kinesis/",
         "recipe": "source:\n    type: kinesis\n    config:\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        aws_config:\n            aws_region: # Your AWS region, e.g. us-east-1\n            # Omit the keys below to use the executor's IAM role\n            aws_access_key_id: # Your AWS access key ID\n            aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # Options\n        include_streams: true\n        include_firehose: true\n        include_table_lineage: true\n        extract_tags: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "ETL / ELT",
-        "isPopular": false
+        "category": "Streaming",
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:sns",
@@ -264,7 +267,7 @@
         "description": "Import Topics, tags, and subscription lineage from Amazon SNS.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sns",
         "recipe": "source:\n  type: sns\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance as the sqs recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
-        "category": "ETL / ELT",
+        "category": "Streaming",
         "isPopular": false
     },
     {
@@ -274,7 +277,7 @@
         "description": "Import Queues, tags, and dead-letter queue lineage from Amazon SQS.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sqs",
         "recipe": "source:\n  type: sqs\n  config:\n    aws_config:\n      aws_region: \"us-east-1\"\n    # Use the same env and platform_instance in the sns recipe so topic-to-queue lineage joins.\n    env: \"PROD\"\n    extract_tags: true\n    stateful_ingestion:\n      enabled: true\n",
-        "category": "ETL / ELT",
+        "category": "Streaming",
         "isPopular": false
     },
     {
@@ -285,7 +288,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/matillion-dpc",
         "recipe": "source:\n  type: matillion-dpc\n  config:\n    api_config:\n      client_id: \"${MATILLION_CLIENT_ID}\"\n      client_secret: \"${MATILLION_CLIENT_SECRET}\"\n      region: \"EU1\"  # EU1 or US1\n\n    env: \"PROD\"\n    extract_projects_to_containers: true\n    parse_sql_for_lineage: true\n    stateful_ingestion:\n      enabled: true",
         "category": "ETL / ELT",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:bigid",
@@ -304,8 +308,9 @@
         "description": "Import jobs, lineage, and run history from Flink.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/flink/",
         "recipe": "source:\n    type: flink\n    config:\n        connection:\n            rest_api_url: \"http://localhost:8081\"\n        stateful_ingestion:\n            enabled: true",
-        "category": "ETL / ELT",
-        "isPopular": false
+        "category": "Streaming",
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:nifi",
@@ -324,8 +329,9 @@
         "description": "Import Tables, Views, Databases, Schemas, and statistics from Hive.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive/",
         "recipe": "source: \n    type: hive\n    config:\n        # Coordinates\n        host_port: # Your Hive host and port, e.g. hive:10000\n        database: # Your Hive database name, e.g. SampleDatabase (Optional, if not specified, ingests from all databases)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Hive username, e.g. admin\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
-        "isPopular": false
+        "category": "Data Lake & Query Engines",
+        "isPopular": false,
+        "priority": 4
     },
     {
         "urn": "urn:li:dataPlatform:hive",
@@ -334,7 +340,7 @@
         "description": "Import Databases, Tables, Views, and storage lineage directly from a Hive Metastore.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive-metastore/",
         "recipe": "source:\n    type: hive-metastore\n    config:\n        # Coordinates (the metastore's backing database)\n        host_port: # Your metastore database host and port, e.g. localhost:3306\n        database: metastore # Your metastore database name\n        # scheme: postgresql+psycopg2 # Use this if the metastore database is PostgreSQL (default: mysql+pymysql)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your metastore database username\n        password: \"${HIVE_METASTORE_PASSWORD}\"\n\n        # Platform to emit tables under: hive (default), presto, or trino\n        mode: hive\n\n        # Lineage from tables to their storage locations (S3, HDFS, ...)\n        emit_storage_lineage: true\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -394,7 +400,7 @@
         "description": "Import Tables, Databases, Schemas, and statistics from Presto.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/presto/",
         "recipe": "source:\n    type: presto\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -404,8 +410,9 @@
         "description": "Import Tables, Databases, Schemas, and statistics from Trino.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/trino/",
         "recipe": "source:\n    type: trino\n    config:\n        # Coordinates\n        host_port: null\n        # The name of the catalog from getting the usage\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
-        "isPopular": false
+        "category": "Data Lake & Query Engines",
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:glue",
@@ -414,7 +421,7 @@
         "description": "Import Tables, Databases, Jobs, statistics, and lineage to S3 from AWS Glue.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/glue/",
         "recipe": "source:\n    type: glue\n    config:\n        env: PROD\n        extract_owners: true\n        extract_transforms: true\n",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": true
     },
     {
@@ -424,7 +431,7 @@
         "description": "Import Workspaces, Lakehouses, Warehouses, Schemas, Tables, and Views from Microsoft Fabric OneLake.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/fabric-onelake/",
         "recipe": "source:\n    type: fabric-onelake\n    config:\n        # Credentials (service principal)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            authentication_method: service_principal\n            client_id: # Your Azure application (client) ID\n            client_secret: \"${AZURE_CLIENT_SECRET}\"\n            tenant_id: # Your Azure tenant ID\n\n        # Options\n        extract_lakehouses: true\n        extract_warehouses: true\n        # Views require a SQL Analytics Endpoint; see the docs for sql_endpoint\n        extract_views: false\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -445,7 +452,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mariadb/",
         "recipe": "source:\n    type: mariadb\n    config:\n        # Coordinates\n        host_port: null\n        # The name\n        database: null\n        # Credentials\n        username: null\n        include_views: true\n        include_tables: true\n        profiling:\n            enabled: true\n            profile_table_level_only: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:doris",
@@ -464,7 +472,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mongodb/",
         "recipe": "source:\n    type: mongodb\n    config:\n        # Coordinates\n        connect_uri: # Your MongoDB connect URI, e.g. \"mongodb://localhost\"\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: \"${MONGO_USERNAME}\" # Your MongoDB username, e.g. admin\n        password: \"${MONGO_PASSWORD}\" # Your MongoDB password, e.g. password_01\n\n        # Options (recommended)\n        enableSchemaInference: True\n        useRandomSampling: True\n        maxSchemaSize: 300\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:dynamodb",
@@ -474,7 +483,8 @@
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n    type: dynamodb\n    config:\n        aws_access_key_id: \"${AWS_ACCESS_KEY_ID}\"\n        aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # If there are items that have most representative fields of the table, users could use the\n        # `include_table_item` option to provide a list of primary keys of the table in dynamodb format.\n        # For each `region.table`, the list of primary keys can be at most 100.\n        # We include these items in addition to the first 100 items in the table when we scan it.\n        # include_table_item:\n        #   region.table_name:\n        #     [\n        #       {\n        #         'partition_key_name': { 'attribute_type': 'attribute_value' },\n        #         'sort_key_name': { 'attribute_type': 'attribute_value' },\n        #       },\n        #     ]\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 4
     },
     {
         "urn": "urn:li:dataPlatform:aerospike",
@@ -504,7 +514,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/superset/",
         "recipe": "source:\n  type: superset\n  config:\n    # Coordinates\n    connect_uri: http://localhost:8088\n\n    # Credentials\n    username: user\n    password: pass\n    provider: ldap",
         "category": "BI & Analytics",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:redash",
@@ -543,8 +554,9 @@
         "description": "Import Schemas, Tables, Views, and lineage to S3 from Athena.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/athena/",
         "recipe": "source:\n  type: athena\n  config:\n    # AWS Keys (Optional - Required only if local aws credentials are not set)\n    username: aws_access_key_id\n    password: aws_secret_access_key\n    # Coordinates\n    aws_region: my_aws_region\n    work_group: primary\n\n    # Options\n    s3_staging_dir: \"s3://my_staging_athena_results_bucket/results/\"\n    stateful_ingestion:\n      enabled: true",
-        "category": "Data Lake",
-        "isPopular": true
+        "category": "Data Lake & Query Engines",
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:clickhouse",
@@ -554,7 +566,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/clickhouse/",
         "recipe": "source:\n  type: clickhouse\n  config:\n    # Coordinates\n    host_port: localhost:9000\n\n    # Credentials\n    username: user\n    password: pass\n\n    # Options\n    platform_instance: DatabaseNameToBeIngested\n\n    include_views: true # whether to include views, defaults to True\n    include_tables: true # whether to include views, defaults to True\n    stateful_ingestion:\n      enabled: true\n\nsink:\n  # sink configs\n\n#---------------------------------------------------------------------------\n# For the HTTP interface:\n#---------------------------------------------------------------------------\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:8443\n    protocol: https\n\n#---------------------------------------------------------------------------\n# For the Native interface:\n#---------------------------------------------------------------------------\n\nsource:\n  type: clickhouse\n  config:\n    host_port: localhost:9440\n    scheme: clickhouse+native\n    secure: True",
         "category": "Database",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:druid",
@@ -574,7 +587,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mode/",
         "recipe": "source:\n  type: mode\n  config:\n    # Coordinates\n    connect_uri: http://app.mode.com\n\n    # Credentials\n    token: token\n    password: pass\n\n    # Options\n    workspace: \"datahub\"\n    owner_username_instead_of_email: False\n    api_options:\n      retry_backoff_multiplier: 2\n      max_retry_interval: 10\n      max_attempts: 5",
         "category": "BI & Analytics",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 4
     },
     {
         "urn": "urn:li:dataPlatform:metabase",
@@ -604,7 +618,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/mlflow/",
         "recipe": "source:\n  type: mlflow\n  config:\n    tracking_uri: tracking_uri",
         "category": "ML Platforms",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:langfuse",
@@ -704,7 +719,7 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/fivetran/",
         "recipe": "source:\n    type: fivetran\n    config:\n        # Fivetran log connector destination server configurations\n        fivetran_log_config:\n            destination_platform: snowflake\n            snowflake_destination_config:\n                # Coordinates\n                account_id: snowflake_account_id\n                warehouse: warehouse_name\n                database: snowflake_db\n                log_schema: fivetran_log_schema\n\n                # Credentials\n                username: ${SNOWFLAKE_USER}\n                password: ${SNOWFLAKE_PASS}\n                role: snowflake_role\n\n        # Optional - filter for certain connector names instead of ingesting everything.\n        # connector_patterns:\n        #     allow:\n        #         - connector_name\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for source\n        # A mapping of Fivetran connector id to data platform instance\n        # sources_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for destination.\n        # A mapping of Fivetran destination id to data platform instance\n        # destination_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV",
         "category": "ETL / ELT",
-        "isPopular": false
+        "isPopular": true
     },
     {
         "urn": "urn:li:dataPlatform:azure-data-factory",
@@ -714,7 +729,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/azure-data-factory/",
         "recipe": "source:\n    type: azure-data-factory\n    config:\n        # Coordinates\n        subscription_id: # Your Azure subscription ID\n        # resource_group: # Optional: limit to one resource group\n\n        # Credentials (service principal)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            authentication_method: service_principal\n            client_id: # Your Azure application (client) ID\n            client_secret: \"${AZURE_CLIENT_SECRET}\"\n            tenant_id: # Your Azure tenant ID\n\n        # Options\n        include_lineage: true\n        include_execution_history: false\n        stateful_ingestion:\n            enabled: true",
         "category": "ETL / ELT",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:fabric-data-factory",
@@ -734,7 +750,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sigma/",
         "recipe": "source:\n    type: sigma\n    config:\n        # Coordinates\n        api_url: https://aws-api.sigmacomputing.com/v2\n        # Coordinates\n        client_id: CLIENT_ID\n        client_secret: CLIENT_SECRET\n\n        # Optional - filter for certain workspace names instead of ingesting everything.\n        # workspace_pattern:\n\n        #   allow:\n        #     - workspace_name\n        ingest_owner: true",
         "category": "BI & Analytics",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:qlik-sense",
@@ -744,7 +761,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/qlik-sense/",
         "recipe": "source:\n    type: qlik-sense\n    config:\n        # Qlik Cloud tenant hostname, without https://\n        tenant_hostname: example.us.qlikcloud.com\n        # Add the API key in the Secrets tab\n        api_key: '${QLIK_API_KEY}'\n\n        # Qlik Sense Enterprise on Windows: set on_prem instead of tenant_hostname and api_key.\n        # Certificate paths are files on the machine that runs ingestion.\n        # on_prem:\n        #     server: qlik.example.com\n        #     client_cert: /secrets/client.pem\n        #     client_key: /secrets/client_key.pem\n        #     root_cert: /secrets/root.pem\n\n        # Optional - only ingest certain spaces (Qlik Cloud) or streams (on-prem).\n        # space_pattern:\n        #     allow:\n        #         - space_name\n        ingest_owner: true\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:cockroachdb",
@@ -773,7 +791,7 @@
         "description": "Import Tables, Containers, glossary terms, and lineage from the Dataplex Universal Catalog.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/dataplex",
         "recipe": "source:\n    type: dataplex\n    config:\n        project_ids:\n            - my-gcp-project\n        include_schema: true\n        include_lineage: true\n        include_glossaries: true\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -824,8 +842,8 @@
         "description": "Import Spaces, Sources, Tables and statistics from Dremio.",
         "docsUrl": "https://docs.datahub.com/docs/metadata-ingestion/",
         "recipe": "source:\n    type: dremio\n    config:\n        dremio_cloud_region: US\n        port: 9047\n        tls: true\n        authentication_method: PAT\n        password: pass\n        env: PROD\n        ingest_owner: true\n",
-        "category": "Data Lake",
-        "isPopular": true
+        "category": "Data Lake & Query Engines",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:cassandra",
@@ -854,8 +872,8 @@
         "description": "Ingest databases and tables from any Iceberg catalog implementation",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/iceberg",
         "recipe": "source:\n type: \"iceberg\"\n config:\n   # each thread will open internet connections to fetch manifest files independently, \n   # this value needs to be adjusted with ulimit\n   processing_threads: 1 \n   # a single catalog definition with a form of a dictionary\n   catalog: \n     demo: # name of the catalog\n       type: \"rest\" # other types are available\n       uri: \"uri\"\n       s3.access-key-id: \"access-key\"\n       s3.secret-access-key: \"secret-access-key\"\n       s3.region: \"aws-region\"\n   profiling:\n     enabled: false\n",
-        "category": "Data Lake",
-        "isPopular": false
+        "category": "Data Lake & Query Engines",
+        "isPopular": true
     },
     {
         "urn": "urn:li:dataPlatform:neo4j",
@@ -885,7 +903,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/vertexai/",
         "recipe": "source:\n  type: vertexai\n  config:\n    project_id: # you GCP project ID \n     region: # region where your GCP project resides  \n   # Credentials\n        # Add GCP credentials",
         "category": "ML Platforms",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:hex",
@@ -926,7 +945,8 @@
         "recipe": "source:\n  type: notion\n  config:\n    api_key: null\n    page_ids: []\n    recursive: true\n    document_import_mode: EXTERNAL",
         "category": "Context Document Sources",
         "isPopular": false,
-        "isNew": true
+        "isNew": true,
+        "priority": 2
     },
     {
         "urn": "urn:li:dataPlatform:confluence",
@@ -937,7 +957,8 @@
         "recipe": "source:\n  type: confluence\n  config:\n    url: null\n    username: null\n    api_token: null\n    cloud: true\n    document_import_mode: EXTERNAL\n    stateful_ingestion:\n      enabled: true",
         "category": "Context Document Sources",
         "isPopular": false,
-        "isNew": true
+        "isNew": true,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:github",
@@ -969,7 +990,8 @@
         "recipe": "",
         "category": "Orchestration",
         "isPopular": false,
-        "isExternal": true
+        "isExternal": true,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:dagster",
@@ -1000,7 +1022,7 @@
         "description": "Import Datasets, Folders, S3 Buckets, and inferred schemas from S3.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/s3",
         "recipe": "source:\n  type: s3\n  config:\n    path_specs:\n      - include: \"s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*\"\n\n    aws_config:\n      aws_access_key_id: key_id\n      aws_secret_access_key: access_key\n      aws_region: us-east-2\n    env: \"PROD\"\n    profiling:\n      enabled: false",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": true
     },
     {
@@ -1010,7 +1032,7 @@
         "description": "Import Datasets, Folders, containers, and inferred schemas from Azure Blob Storage.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/abs/",
         "recipe": "source:\n    type: abs\n    config:\n        # Coordinates\n        path_specs:\n            - include: # Path to your files, e.g. https://myaccount.blob.core.windows.net/mycontainer/data/{table}/*.parquet\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        azure_config:\n            account_name: # Your storage account name\n            container_name: # Your container name\n            sas_token: \"${AZURE_SAS_TOKEN}\"\n\n        # Options\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -1020,7 +1042,7 @@
         "description": "Import Datasets, Folders, buckets, and inferred schemas from Google Cloud Storage.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/gcs/",
         "recipe": "source:\n    type: gcs\n    config:\n        # Coordinates\n        path_specs:\n            - include: # Path to your files, e.g. gs://my-bucket/data/{table}/*.parquet\n\n        # Credentials (HMAC keys)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            hmac_access_id: # Your HMAC access ID\n            hmac_access_secret: \"${GCS_HMAC_ACCESS_SECRET}\"\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
+        "category": "Data Lake & Query Engines",
         "isPopular": false
     },
     {
@@ -1030,8 +1052,9 @@
         "description": "Import Delta Tables, schemas, and version history from Delta Lake on S3 or Azure storage.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/delta-lake/",
         "recipe": "source:\n    type: delta-lake\n    config:\n        # Coordinates\n        base_path: # Path to a Delta table or a folder of tables, e.g. s3://my-bucket/delta/\n\n        # Credentials (S3)\n        # Add secret in Secrets Tab with relevant names for each variable\n        s3:\n            aws_config:\n                aws_region: # Your AWS region, e.g. us-east-1\n                # Omit the keys below to use the executor's IAM role\n                aws_access_key_id: # Your AWS access key ID\n                aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # For Azure storage (abfss://), use azure instead of s3:\n        # azure:\n        #     account_name: # Your storage account name\n        #     sas_token: \"${AZURE_SAS_TOKEN}\"\n\n        stateful_ingestion:\n            enabled: true",
-        "category": "Data Lake",
-        "isPopular": false
+        "category": "Data Lake & Query Engines",
+        "isPopular": false,
+        "priority": 3
     },
     {
         "urn": "urn:li:dataPlatform:sagemaker",
@@ -1041,7 +1064,8 @@
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/sagemaker",
         "recipe": "source:\n  type: sagemaker\n  config:\n    # Coordinates\n    aws_region: \"my-aws-region\"",
         "category": "ML Platforms",
-        "isPopular": false
+        "isPopular": false,
+        "priority": 1
     },
     {
         "urn": "urn:li:dataPlatform:feast",

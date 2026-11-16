@@ -11,16 +11,17 @@ export const MISCELLANEOUS_CATEGORY_NAME = 'Miscellaneous';
 export const CATEGORY_I18N_KEYS: Record<string, string> = {
     'BI & Analytics': 'category.biAndAnalytics',
     'Context Document Sources': 'category.contextDocumentSources',
-    'Data Lake': 'category.dataLake',
+    'Data Lake & Query Engines': 'category.dataLake',
     'Data Warehouse': 'category.dataWarehouse',
     Database: 'category.database',
     'ETL / ELT': 'category.etlElt',
     'ML Platforms': 'category.mlPlatforms',
     Miscellaneous: 'category.miscellaneous',
     Orchestration: 'category.orchestration',
+    Streaming: 'category.streaming',
 };
 const DATA_WAREHOUSE_CATEGORY_NAME = 'Data Warehouse';
-export const DATA_LAKE_CATEGORY_NAME = 'Data Lake';
+export const DATA_LAKE_CATEGORY_NAME = 'Data Lake & Query Engines';
 const BI_AND_ANALYTICS_CATEGORY_NAME = 'BI & Analytics';
 
 export const CUSTOM_SOURCE_NAME = 'custom';
