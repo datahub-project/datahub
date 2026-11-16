@@ -119,6 +119,11 @@ _VIEW_EXTERNAL_ID_PREFIX = "view:"
 # view itself, so it is named without the `2C` prefix and without the BW-specific
 # `query_name_template`, under its own platform rather than `bw`. For CDS view entities
 # `<name>` is the entity name; for older DDIC-based CDS views it is the SQL view name.
+# ABAP names are case-insensitive and SAC reports them upper-cased, while CDS sources
+# spell them in mixed case, so the name is lower-cased by default (see
+# `convert_urns_to_lowercase`) to give a stable URN any S/4HANA source can match.
+# A query without the prefix is an ordinary BW query modelled in the embedded BW, and
+# is resolved exactly like one on a `BW` connection.
 _S4HANA_TRANSIENT_QUERY_PREFIX = "2C"
 _S4HANA_PLATFORM = "s4hana"
 # Upstream platform used when the connection has no `connection_mapping` platform.
@@ -169,9 +174,9 @@ class ConnectionMappingConfig(EnvConfigMixin):
             "Whether to lower-case identifiers when constructing the upstream dataset "
             "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
             "used by the corresponding upstream connector recipe so the urns stitch. "
-            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
-            "upstreams preserve case as before. Defaults to True (matching the SAP "
-            "Datasphere connector default)."
+            "Applied to SAP Datasphere ('DWC') upstreams and to S/4HANA CDS view "
+            "upstreams; BW/HANA upstreams preserve case as before. Defaults to True "
+            "(matching the SAP Datasphere connector default)."
         ),
     )
 
@@ -705,36 +710,37 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             and model.external_id is not None
         ):
             upstream_dataset_name: Optional[str] = None
+            default_platform = _DEFAULT_UPSTREAM_PLATFORMS[model.system_type]
+            is_cds_view = False
 
-            if model.system_type == _BW_SYSTEM_TYPE and model.external_id.startswith(
-                _QUERY_EXTERNAL_ID_PREFIX
-            ):  # query:[][][query]
-                query = model.external_id[11:-1]
-                upstream_dataset_name = self.get_query_name(query)
-            elif (
-                model.system_type == _S4HANA_SYSTEM_TYPE
-                and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX)
-            ):  # query:[][][2C<cds view>]
-                query = model.external_id[11:-1]
-                upstream_dataset_name = query.removeprefix(
+            if model.system_type in (
+                _BW_SYSTEM_TYPE,
+                _S4HANA_SYSTEM_TYPE,
+            ) and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX):
+                query = model.external_id[11:-1]  # query:[][][query]
+                if model.system_type == _S4HANA_SYSTEM_TYPE and query.startswith(
                     _S4HANA_TRANSIENT_QUERY_PREFIX
-                )
+                ):
+                    upstream_dataset_name = query.removeprefix(
+                        _S4HANA_TRANSIENT_QUERY_PREFIX
+                    )
+                    is_cds_view = True
+                else:
+                    upstream_dataset_name = self.get_query_name(query)
+                    default_platform = _DEFAULT_UPSTREAM_PLATFORMS[_BW_SYSTEM_TYPE]
             elif (
                 model.system_type == _HANA_SYSTEM_TYPE
                 and model.external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX)
-            ):  # view:[schema][schema.namespace][view]
-                schema, namespace_with_schema, view = model.external_id.split("][", 2)
-                schema = schema[6:]
-                namespace: Optional[str] = None
-                if len(schema) < len(namespace_with_schema):
-                    namespace = namespace_with_schema[len(f"{schema}.") :]
-                view = view[:-1]
-                upstream_dataset_name = self.get_view_name(schema, namespace, view)
+            ):
+                upstream_dataset_name = self._get_hana_view_name(model.external_id)
 
             if upstream_dataset_name is not None:
-                default_platform = _DEFAULT_UPSTREAM_PLATFORMS[model.system_type]
-                if model.connection_id in self.config.connection_mapping:
-                    connection = self.config.connection_mapping[model.connection_id]
+                connection: Optional[ConnectionMappingConfig] = (
+                    self.config.connection_mapping.get(model.connection_id)
+                    if model.connection_id is not None
+                    else None
+                )
+                if connection is not None:
                     platform = connection.platform or default_platform
                     platform_instance = connection.platform_instance
                     env = connection.env
@@ -746,6 +752,11 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                     logger.info(
                         f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance"
                     )
+
+                if is_cds_view and (
+                    connection is None or connection.convert_urns_to_lowercase
+                ):
+                    upstream_dataset_name = upstream_dataset_name.lower()
 
                 upstream_dataset_urn = make_dataset_urn_with_platform_instance(
                     platform=platform,
@@ -1294,6 +1305,19 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         return parse_result
+
+    def _get_hana_view_name(self, external_id: str) -> Optional[str]:
+        # view:[schema][schema.namespace][view]
+        parts = external_id.split("][", 2)
+        if len(parts) != 3 or not external_id.endswith("]"):
+            # Malformed: report it as an unknown upstream rather than abort the run.
+            return None
+        schema, namespace_with_schema, view = parts
+        schema = schema[len(_VIEW_EXTERNAL_ID_PREFIX) + 1 :]
+        namespace: Optional[str] = None
+        if len(schema) < len(namespace_with_schema):
+            namespace = namespace_with_schema[len(f"{schema}.") :]
+        return self.get_view_name(schema, namespace, view[:-1])
 
     def get_query_name(self, query: str) -> str:
         if not self.config.query_name_template:
