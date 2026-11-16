@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
@@ -6,6 +5,7 @@ import { CREATED_PROPERTY, DOMAIN_PROPERTY, OWNERS_PROPERTY } from '@app/entityV
 import useInitialAssetProperties from '@app/entityV2/summary/properties/hooks/useInitialAssetProperties';
 import useAssetProperties from '@app/entityV2/summary/properties/hooks/usePropertiesFromAsset';
 import { PropertyType } from '@app/entityV2/summary/properties/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

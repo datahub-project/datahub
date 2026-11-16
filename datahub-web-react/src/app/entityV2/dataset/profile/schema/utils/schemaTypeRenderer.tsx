@@ -1,5 +1,5 @@
 import { Popover } from '@components';
-import React from 'react';
+import React, { useCallback } from 'react';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';
@@ -31,11 +31,11 @@ const InteriorTypeContent = ({ record }: InteriorTypeProps) => {
 };
 
 export default function useSchemaTypeRenderer() {
-    return (fieldPath: string, record: ExtendedSchemaFields): JSX.Element => {
+    return useCallback((record: ExtendedSchemaFields): JSX.Element => {
         return (
             <Popover content={<InteriorTypeContent record={record} />}>
                 <InteriorTypeContent record={record} />
             </Popover>
         );
-    };
+    }, []);
 }

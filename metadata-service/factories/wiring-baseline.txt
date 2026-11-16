@@ -42,7 +42,6 @@ com.linkedin.gms.factory.entityclient.RestliEntityClientFactory
 com.linkedin.gms.factory.ermodelrelation.ERModelRelationshipServiceFactory
 com.linkedin.gms.factory.event.ExternalEventsServiceFactory
 com.linkedin.gms.factory.event.KafkaExternalEventsPollHandlerConfiguration
-com.linkedin.gms.factory.event.MetadataQueueStoreFactory
 com.linkedin.gms.factory.event.PgQueueEbeanConfigFactory
 com.linkedin.gms.factory.event.PgQueueExternalEventsConfiguration
 com.linkedin.gms.factory.file.DataHubFileServiceFactory
