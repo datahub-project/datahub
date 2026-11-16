@@ -285,3 +285,14 @@ describe('read-only editor', () => {
         expect(await screen.findByTestId('editor-impl')).toBeInTheDocument();
     });
 });
+
+describe('read-only task lists', () => {
+    it('keeps a completed task checked and every task read-only', () => {
+        render(<>{readOnlyHtmlToReact(toReadOnlyHtml('- [x] Ship it\n- [ ] Test it'))}</>);
+
+        const [done, open] = screen.getAllByRole('checkbox') as HTMLInputElement[];
+        expect(done.checked).toBe(true);
+        expect(open.checked).toBe(false);
+        expect(done.disabled).toBe(true);
+    });
+});

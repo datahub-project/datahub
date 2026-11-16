@@ -34,6 +34,16 @@ const VOID_TAGS = new Set([
     'wbr',
 ]);
 
+// HTML boolean attributes are present with an empty value (`checked=""`). React reads an empty
+// string as false, so they are passed as booleans. A read-only checkbox has no change handler, so
+// `checked` becomes `defaultChecked`.
+const REACT_BOOLEAN_ATTR_NAMES: Record<string, string> = {
+    checked: 'defaultChecked',
+    disabled: 'disabled',
+    readonly: 'readOnly',
+    selected: 'defaultSelected',
+};
+
 const REACT_ATTR_NAMES: Record<string, string> = {
     class: 'className',
     for: 'htmlFor',
@@ -212,6 +222,10 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
     Array.from(element.attributes).forEach((attr) => {
         const name = urlAttributeName(attr);
         if (name.startsWith('on') || name === 'style') return;
+        if (name in REACT_BOOLEAN_ATTR_NAMES) {
+            props[REACT_BOOLEAN_ATTR_NAMES[name]] = true;
+            return;
+        }
         if (name === 'srcset') {
             const srcset = scrubSrcset(attr.value);
             if (srcset === null) return;
@@ -338,7 +352,7 @@ function nodeToReact(
                 key={key}
                 {...{ [DATAHUB_MENTION_ATTRS.urn]: mention.urn, [DATAHUB_MENTION_ATTRS.name]: mention.name }}
             >
-                <MentionView urn={mention.urn} name={mention.name} />
+                <MentionView urn={mention.urn} name={mention.name} readOnly />
             </span>
         );
     }

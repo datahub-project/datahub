@@ -1,5 +1,6 @@
 import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import type { EditorMentionViewProps } from '@components/components/Editor/types';
@@ -57,7 +58,7 @@ const InvalidEntityText = styled.span`
  * Renders a mention chip, in the editor and in read-only documentation, via alchemy {@link Pill}
  * (`squareFilled`) and the same {@link EntityIcon} treatment as the @-mention picker.
  */
-export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
+export const MentionView = ({ urn, name, readOnly }: EditorMentionViewProps) => {
     const { t } = useTranslation('entity.profile.editor');
 
     const registry = useEntityRegistry();
@@ -91,17 +92,22 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
     const entity = data.entity as Entity;
     const displayName = registry.getDisplayName(entity.type, entity);
 
+    const chip = (
+        <Pill
+            label={displayName}
+            color="gray"
+            size="sm"
+            variant="squareFilled"
+            clickable={!!readOnly}
+            customIconRenderer={() => renderIcon(entity)}
+        />
+    );
+
+    // In the editor a click places the cursor, so only read-only chips navigate.
     return (
         <HoverEntityTooltip entity={entity}>
             <ChipWrap>
-                <Pill
-                    label={displayName}
-                    color="gray"
-                    size="sm"
-                    variant="squareFilled"
-                    clickable={false}
-                    customIconRenderer={() => renderIcon(entity)}
-                />
+                {readOnly ? <Link to={registry.getEntityUrl(entity.type, entity.urn)}>{chip}</Link> : chip}
             </ChipWrap>
         </HoverEntityTooltip>
     );
