@@ -1,3 +1,4 @@
+import dataclasses
 import json
 import logging
 from dataclasses import dataclass, field
@@ -175,6 +176,12 @@ class DaxFieldReference:
 
     table: Optional[str]
     field: str
+    # A bare `[Field]` whose every occurrence sits inside a row-context
+    # iterator (SUMX, FILTER, ...): it may be a column of the iterated table
+    # rather than of the table that owns the expression. Not part of the
+    # reference's identity. Qualified because this class has a `field`
+    # attribute.
+    in_row_context: bool = dataclasses.field(default=False, compare=False)
 
 
 # Earlier name, kept for callers that still import it.
@@ -189,8 +196,8 @@ class DaxReferences:
     fields: List[DaxFieldReference] = field(default_factory=list)
     tables: List[str] = field(default_factory=list)
     # True when the expression calls an iterator or other table function
-    # (SUMX, FILTER, RELATEDTABLE, ...): inside it a bare `[Column]` belongs
-    # to the iterated table, not to the table that owns the expression.
+    # (SUMX, FILTER, RELATEDTABLE, ...); which bare `[Column]` references sit
+    # inside one is recorded on each reference (`in_row_context`).
     has_row_context_iterators: bool = False
 
 

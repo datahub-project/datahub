@@ -462,7 +462,7 @@ def test_bare_column_inside_an_iterator_is_not_this_tables_column() -> None:
             _column("Premium"),
             _calculated_column(
                 "Policy Premium",
-                [DaxFieldReference(None, "Premium")],
+                [DaxFieldReference(None, "Premium", in_row_context=True)],
                 has_row_context_iterators=True,
             ),
         ],
@@ -478,6 +478,40 @@ def test_bare_column_inside_an_iterator_is_not_this_tables_column() -> None:
     assert reporter.dax_references_unresolved == 0
 
 
+def test_own_column_read_outside_an_iterator_keeps_its_edge() -> None:
+    mapper = _dax_mapper()
+    policies = Table(
+        name="Policies", full_name="Model.Policies", columns=[_column("Premium")]
+    )
+    claims = Table(
+        name="Claims",
+        full_name="Model.Claims",
+        columns=[
+            _column("Status"),
+            _column("Premium"),
+            # IF([Status] = 1, SUMX(RELATEDTABLE(Policies), [Premium])): only
+            # [Premium] is inside the iterator; [Status] is this row's column.
+            _calculated_column(
+                "Open Premium",
+                [
+                    DaxFieldReference(None, "Status"),
+                    DaxFieldReference(None, "Premium", in_row_context=True),
+                ],
+                has_row_context_iterators=True,
+            ),
+        ],
+    )
+    _dataset([policies, claims])
+    aspect = _extract(mapper, claims)
+    assert aspect is not None
+    assert aspect.fineGrainedLineages is not None
+    assert aspect.fineGrainedLineages[0].upstreams == [
+        f"urn:li:schemaField:({_urn(mapper, claims)},Status)"
+    ]
+    reporter = mapper._Mapper__reporter  # type: ignore[attr-defined]
+    assert reporter.dax_references_unattributed == 1
+
+
 def test_bare_column_inside_a_measure_iterator_is_counted_not_warned() -> None:
     mapper = _dax_mapper()
     claims = Table(
@@ -491,7 +525,7 @@ def test_bare_column_inside_a_measure_iterator_is_counted_not_warned() -> None:
                 name="Paid",
                 expression="SUMX('Claims', [PaidAmount])",
                 isHidden=False,
-                references=[DaxFieldReference(None, "PaidAmount")],
+                references=[DaxFieldReference(None, "PaidAmount", in_row_context=True)],
                 has_row_context_iterators=True,
             )
         ],
