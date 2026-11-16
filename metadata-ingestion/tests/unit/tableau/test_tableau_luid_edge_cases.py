@@ -67,10 +67,6 @@ def _extract_dataset_custom_props(work_units: list) -> dict:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper):
             if isinstance(wu.metadata.aspect, DatasetPropertiesClass):
                 return wu.metadata.aspect.customProperties or {}
-        elif hasattr(wu.metadata, "proposedSnapshot"):
-            for aspect in wu.metadata.proposedSnapshot.aspects:
-                if isinstance(aspect, DatasetPropertiesClass):
-                    return aspect.customProperties or {}
     return {}
 
 

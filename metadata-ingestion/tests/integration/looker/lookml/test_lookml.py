@@ -10,6 +10,7 @@ import time_machine
 from deepdiff import DeepDiff
 from looker_sdk.sdk.api40.models import DBConnection
 
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.run.pipeline import Pipeline
@@ -30,11 +31,7 @@ from datahub.ingestion.source.looker.lookml_config import (
 )
 from datahub.ingestion.source.looker.lookml_refinement import LookerRefinementResolver
 from datahub.ingestion.source.looker.lookml_source import LookMLSource
-from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
-    UpstreamLineageClass,
-)
+from datahub.metadata.schema_classes import UpstreamLineageClass
 from datahub.sdk.entity import Entity
 from datahub.sql_parsing.schema_resolver import SchemaInfo, SchemaResolver
 from datahub.testing import mce_helpers
@@ -799,18 +796,16 @@ def test_hive_platform_drops_ids(pytestconfig, tmp_path, mock_time):
     # Expect 2 warnings: "Manifest File Missing" and "Skipped View File"
     assert pipeline.source.get_report().warnings.total_elements == 2
 
-    events = read_metadata_file(tmp_path / mce_out)
-    for mce in events:
-        if isinstance(mce, MetadataChangeEventClass):
-            if isinstance(mce.proposedSnapshot, DatasetSnapshotClass):
-                lineage_aspects = [
-                    a
-                    for a in mce.proposedSnapshot.aspects
-                    if isinstance(a, UpstreamLineageClass)
-                ]
-                for a in lineage_aspects:
-                    for upstream in a.upstreams:
-                        assert "hive." not in upstream.dataset
+    lineage_aspects = [
+        mcp.aspect
+        for mcp in read_metadata_file(tmp_path / mce_out)
+        if isinstance(mcp, MetadataChangeProposalWrapper)
+        and isinstance(mcp.aspect, UpstreamLineageClass)
+    ]
+    assert lineage_aspects
+    for a in lineage_aspects:
+        for upstream in a.upstreams:
+            assert "hive." not in upstream.dataset
 
 
 @time_machine.travel(FROZEN_TIME, tick=False)

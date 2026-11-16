@@ -19,41 +19,13 @@ FROZEN_TIME = "2026-03-05 10:00:00"
 
 
 def _extract_schema_meta_urns(records: list) -> set:
-    """Return dataset URNs that have a schemaMetadata aspect in either format.
-
-    The DataHub file sink serialises MetaChangeProposals (MCPs) in the modern format:
-      {"entityType": "dataset", "entityUrn": "...", "aspectName": "schemaMetadata", ...}
-
-    Older SQL-based sources (including the Postgres connector) still emit
-    MetaChangeEvents (MCEs) in the classic Pegasus/Avro format:
-      {"proposedSnapshot": {"com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot":
-          {"urn": "...", "aspects": [{"com.linkedin...SchemaMetadata": {...}}]}}}
-
-    This helper handles both so the stitching tests correctly verify schema ownership
-    regardless of which format the source connector uses.
-    """
-    urns: set = set()
-    for record in records:
-        # Modern MCP format
-        if (
-            record.get("entityType") == "dataset"
-            and record.get("aspectName") == "schemaMetadata"
-        ):
-            urns.add(record["entityUrn"])
-            continue
-        # Legacy MCE format
-        snapshot_wrapper = record.get("proposedSnapshot")
-        if not snapshot_wrapper:
-            continue
-        for type_key, snapshot_data in snapshot_wrapper.items():
-            if "DatasetSnapshot" not in type_key:
-                continue
-            urn = snapshot_data.get("urn", "")
-            for aspect in snapshot_data.get("aspects", []):
-                if any("SchemaMetadata" in k for k in aspect):
-                    urns.add(urn)
-                    break
-    return urns
+    """Return dataset URNs that have a schemaMetadata MCP."""
+    return {
+        record["entityUrn"]
+        for record in records
+        if record.get("entityType") == "dataset"
+        and record.get("aspectName") == "schemaMetadata"
+    }
 
 
 FLINK_REST_URL = "http://localhost:8082"
@@ -801,9 +773,6 @@ def test_postgres_flink_lineage_stitching(
         }
 
         # Postgres connector must emit schemaMetadata for the tables it owns.
-        # The DataHub Postgres source emits schemaMetadata in the legacy MCE format
-        # (proposedSnapshot/DatasetSnapshot), so _extract_schema_meta_urns handles both
-        # the modern MCP and legacy MCE formats transparently.
         assert pg_schema_urns, (
             f"[{label}] Postgres connector emitted no schemaMetadata — "
             "expected schema for at least one table."
