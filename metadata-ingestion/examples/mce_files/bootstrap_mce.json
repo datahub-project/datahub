@@ -112,6 +112,21 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "prod"
+                            },
+                            {
+                                "id": "kafka"
+                            },
+                            {
+                                "id": "SampleKafkaDataset"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
                         "customProperties": {
                             "prop1": "fakeprop",
@@ -251,6 +266,21 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/prod/hdfs/SampleHdfsDataset"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "prod"
+                            },
+                            {
+                                "id": "hdfs"
+                            },
+                            {
+                                "id": "SampleHdfsDataset"
+                            }
                         ]
                     }
                 },
@@ -2690,6 +2720,18 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "feast"
+                            },
+                            {
+                                "id": "test_feature_table_all_feature_dtypes"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},
                         "mlFeatures": [
@@ -2798,6 +2840,18 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "feast"
+                            },
+                            {
+                                "id": "test_feature_table_no_labels"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},
                         "mlFeatures": [
@@ -2888,6 +2942,18 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/feast/test_feature_table_single_feature"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "feast"
+                            },
+                            {
+                                "id": "test_feature_table_single_feature"
+                            }
                         ]
                     }
                 },
@@ -3071,6 +3137,18 @@
                     }
                 },
                 {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "feast"
+                            },
+                            {
+                                "id": "user_features"
+                            }
+                        ]
+                    }
+                },
+                {
                     "com.linkedin.pegasus2avro.ml.metadata.MLFeatureTableProperties": {
                         "customProperties": {},
                         "mlFeatures": [
@@ -3164,6 +3242,18 @@
                     "com.linkedin.pegasus2avro.common.BrowsePaths": {
                         "paths": [
                             "/feast/user_analytics"
+                        ]
+                    }
+                },
+                {
+                    "com.linkedin.pegasus2avro.common.BrowsePathsV2": {
+                        "path": [
+                            {
+                                "id": "feast"
+                            },
+                            {
+                                "id": "user_analytics"
+                            }
                         ]
                     }
                 },

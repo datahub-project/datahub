@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil.X_CONTENT_REGISTRY;
 import static com.linkedin.metadata.timeseries.elastic.indexbuilder.MappingsBuilder.URN_FIELD;
 import static com.linkedin.metadata.utils.SearchUtil.*;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.datahub.util.exception.ESQueryException;
 import com.fasterxml.jackson.core.JsonProcessingException;
@@ -59,6 +60,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateB
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFields;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLight;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
@@ -172,14 +174,20 @@ public class ESSearchDAO {
   // remote calls end by the same deadline, so a worker is free about when its search falls back;
   // the in-process providers ignore it and keep their worker until they finish. The queue is
   // bounded: when the workers and the queue are full, searches get the keyword ranking right away
-  private static final ExecutorService HYBRID_EXECUTOR =
-      new ThreadPoolExecutor(
-          8,
-          8,
-          0L,
-          TimeUnit.MILLISECONDS,
-          new ArrayBlockingQueue<>(16),
-          new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  private static final ExecutorService HYBRID_EXECUTOR = newHybridExecutor();
+
+  // A test that fills the pool builds its own from this, since the shared pool keeps the workers
+  // that earlier tests started
+  @VisibleForTesting
+  static ThreadPoolExecutor newHybridExecutor() {
+    return new ThreadPoolExecutor(
+        8,
+        8,
+        0L,
+        TimeUnit.MILLISECONDS,
+        new ArrayBlockingQueue<>(16),
+        new ThreadFactoryBuilder().setNameFormat("hybrid-rerank-%d").setDaemon(true).build());
+  }
 
   final boolean pointInTimeCreationEnabled;
   @Nonnull final ElasticSearchConfiguration searchConfiguration;
@@ -197,6 +205,7 @@ public class ESSearchDAO {
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
   private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,
@@ -857,7 +866,7 @@ public class ESSearchDAO {
           window.add(row.copy());
         }
         rerank =
-            HYBRID_EXECUTOR.submit(
+            hybridExecutor.submit(
                 Context.current()
                     .wrap(
                         () ->
@@ -981,6 +990,11 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridTimeoutMillis(long millis) {
     hybridTimeoutMillis = millis;
+  }
+
+  @VisibleForTesting
+  void setHybridExecutor(@Nonnull ExecutorService executor) {
+    hybridExecutor = executor;
   }
 
   private void countHybridTimeout(@Nonnull OperationContext opContext) {
@@ -1313,6 +1327,13 @@ public class ESSearchDAO {
       @Nullable String field,
       @Nullable Filter requestParams,
       @Nullable Integer limit) {
+    // An entity type this registry doesn't know (e.g. requested by a client built for a newer
+    // version after a rollback) is a bad request, not a query failure.
+    if (handling().toleratesUnknownEntityAspect()
+        && opContext.getEntityRegistry().findEntitySpec(entityName).isEmpty()) {
+      throw new IllegalArgumentException(
+          String.format("Unknown entity type for autocomplete: %s", entityName));
+    }
     if (EntitySearchIndexResolver.shouldReadV3(searchConfiguration.getEntityIndex())) {
       if (query.isBlank()) {
         return emptyAutocomplete(query);
@@ -1398,6 +1419,17 @@ public class ESSearchDAO {
     Map<String, Object> context = new HashMap<>();
     context.put(
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
+    // The whole-name prefix reads the default name only, and only when the entity's name opted
+    // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
+    // lowercase subfield exists only on the name.
+    if (isDefaultAutocompleteField(field)
+        && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    context.put(
+        SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
     context.put(SearchTemplateContextVariables.UNQUOTED, query);
     context.put(
         SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS,
@@ -1444,10 +1476,15 @@ public class ESSearchDAO {
     return shipped.getQuery();
   }
 
+  /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
+  private static boolean isDefaultAutocompleteField(@Nullable String field) {
+    return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
   @Nonnull
   private static String autocompletePrefixField(
       @Nonnull EntitySpec entitySpec, @Nullable String field) {
-    if (field == null || field.isBlank()) {
+    if (isDefaultAutocompleteField(field)) {
       return "name" + V3SearchFields.TEXT_SUFFIX;
     }
     SearchFieldResolver resolver = new SearchFieldResolver(List.of(entitySpec));
@@ -2087,7 +2124,10 @@ public class ESSearchDAO {
         urns.stream()
             .flatMap(
                 urn ->
-                    Optional.ofNullable(entityRegistry.getEntitySpec(urn.getEntityType()))
+                    // While unknown data is tolerated, urns of entity types this registry
+                    // doesn't know are left out; otherwise they fail as before.
+                    handling()
+                        .entitySpecForData(entityRegistry, urn.getEntityType())
                         .map(spec -> Map.entry(urn, spec))
                         .stream())
             .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
@@ -2223,6 +2263,14 @@ public class ESSearchDAO {
         : EntityFilter.toEntityFilter(opContext, filter);
   }
 
+  Filter transformFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull Collection<String> entityNames,
+      @Nullable Filter filter,
+      @Nonnull IndexConvention indexConvention) {
+    return transformFilter(opContext, filter, indexConvention);
+  }
+
   @Nonnull
   String[] entityIndexNames(
       @Nonnull OperationContext opContext, @Nonnull Collection<String> entityNames) {
@@ -2285,18 +2333,14 @@ public class ESSearchDAO {
     } else {
       templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-      // Same sibling hiding as search, browse and autocomplete, so counts match the lists.
       query =
-          ESUtils.filterNonPrimarySiblings(
+          SearchRequestHandler.getFilterQuery(
+              opContext,
+              List.of(entityName),
               filter,
-              SearchRequestHandler.getFilterQuery(
-                  opContext,
-                  List.of(entityName),
-                  filter,
-                  entitySpec.getSearchableFieldTypes(),
-                  queryFilterRewriteChain,
-                  searchConfiguration.getEntityIndex()),
-              searchConfiguration.getSearch());
+              entitySpec.getSearchableFieldTypes(),
+              queryFilterRewriteChain,
+              searchConfiguration.getEntityIndex());
     }
     return new CountRequest(entityIndexName(opContext, entityName)).query(query);
   }

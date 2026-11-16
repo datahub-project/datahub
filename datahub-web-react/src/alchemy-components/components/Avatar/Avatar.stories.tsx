@@ -27,9 +27,6 @@ const meta = {
     argTypes: {
         name: {
             description: 'Name of the user.',
-            table: {
-                defaultValue: { summary: `${avatarDefaults.name}` },
-            },
             control: 'text',
         },
         imageUrl: {

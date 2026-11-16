@@ -1,8 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import useGlossaryNodesAndTerms from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryNodesAndTerms';
 import useGlossaryNodesAndTermsByUrns from '@app/homeV3/modules/hierarchyViewModule/components/glossary/hooks/useGlossaryNodesAndTermsByUrns';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/homeV3/module/context/ModuleContext', () => ({
     useModuleContext: vi.fn(),

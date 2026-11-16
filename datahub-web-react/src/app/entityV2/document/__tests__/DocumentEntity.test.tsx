@@ -118,8 +118,8 @@ vi.mock('@app/document/hooks/useDocumentTreeMutations', async (importOriginal) =
 });
 
 // Mock the modal context
-vi.mock('@app/sharedV2/modals/ModalContext', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@app/sharedV2/modals/ModalContext')>();
+vi.mock('@components/components/Modal/ModalContext', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components/components/Modal/ModalContext')>();
     return {
         ...actual,
         useModalContext: () => ({

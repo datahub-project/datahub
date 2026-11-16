@@ -65,7 +65,6 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
         box-shadow: ${props.theme.colors.shadowNavbar};
-        margin: 5px;
     `}
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};

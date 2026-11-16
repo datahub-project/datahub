@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.policy;
 
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.DATAHUB_POLICY_KEY_ASPECT_NAME;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
@@ -9,12 +10,16 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.DataHubPolicy;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
+import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
 import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
+import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.policy.DataHubPolicyInfo;
 import graphql.execution.DataFetcherResult;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
@@ -52,15 +57,28 @@ public class DataHubPolicyType
 
     try {
       // Determine optimal aspects to fetch based on GraphQL field selections
+      // While unknown enum values are tolerated, the policy's info is always read, so a policy
+      // with a match condition this version doesn't know is left out whatever the query selects.
       Set<String> aspectsToResolve =
-          AspectUtils.getOptimizedAspects(
-              context, name(), ASPECTS_TO_FETCH, DATAHUB_POLICY_KEY_ASPECT_NAME);
+          handling().toleratesUnknownEnum()
+              ? AspectUtils.getOptimizedAspects(
+                  context,
+                  name(),
+                  ASPECTS_TO_FETCH,
+                  DATAHUB_POLICY_KEY_ASPECT_NAME,
+                  DATAHUB_POLICY_INFO_ASPECT_NAME)
+              : AspectUtils.getOptimizedAspects(
+                  context, name(), ASPECTS_TO_FETCH, DATAHUB_POLICY_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
-          _entityClient.batchGetV2(
-              context.getOperationContext(),
-              POLICY_ENTITY_NAME,
-              new HashSet<>(roleUrns),
-              aspectsToResolve);
+          new HashMap<>(
+              _entityClient.batchGetV2(
+                  context.getOperationContext(),
+                  POLICY_ENTITY_NAME,
+                  new HashSet<>(roleUrns),
+                  aspectsToResolve));
+      // PolicyMatchCriterion.condition is non-null: a policy with a condition this version
+      // doesn't know is returned as missing, as listPolicies leaves it out.
+      entities.values().removeIf(DataHubPolicyType::isUnrepresentable);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : roleUrns) {
@@ -86,5 +104,15 @@ public class DataHubPolicyType
     } catch (URISyntaxException e) {
       throw new RuntimeException(String.format("Failed to convert urn string %s into Urn", urnStr));
     }
+  }
+
+  /**
+   * Whether the response holds a policy GraphQL can't show (see {@link PolicyInfoPolicyMapper}).
+   */
+  private static boolean isUnrepresentable(@Nonnull final EntityResponse response) {
+    final EnvelopedAspect info = response.getAspects().get(DATAHUB_POLICY_INFO_ASPECT_NAME);
+    return info != null
+        && PolicyInfoPolicyMapper.isUnrepresentable(
+            new DataHubPolicyInfo(info.getValue().data()), response.getUrn());
   }
 }

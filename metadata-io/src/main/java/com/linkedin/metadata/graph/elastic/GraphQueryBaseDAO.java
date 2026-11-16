@@ -47,6 +47,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.instrumentation.annotations.WithSpan;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
@@ -85,6 +86,7 @@ import org.opensearch.search.SearchHit;
 import org.opensearch.search.aggregations.Aggregation;
 import org.opensearch.search.aggregations.AggregationBuilders;
 import org.opensearch.search.aggregations.Aggregations;
+import org.opensearch.search.aggregations.bucket.filter.Filter;
 import org.opensearch.search.aggregations.bucket.terms.Terms;
 import org.opensearch.search.aggregations.metrics.Cardinality;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -859,6 +861,7 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
   private static final String VIA_AGG = "via";
   private static final String SAMPLE_AGG = "sample";
   private static final String VIA_SAMPLE_AGG = "viaSample";
+  private static final String VIA_OUTSIDE_GROUP_AGG = "viaOutsideGroup";
   // Cardinality is exact below this many distinct values; counts on a card never get near it.
   private static final long LINEAGE_COUNT_PRECISION = 10_000L;
 
@@ -945,21 +948,28 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
                           .field(neighbourField)
                           .precisionThreshold(LINEAGE_COUNT_PRECISION))
                   .subAggregation(
-                      AggregationBuilders.cardinality(VIA_AGG)
-                          .field(EDGE_FIELD_VIA)
-                          .precisionThreshold(LINEAGE_COUNT_PRECISION))
-                  .subAggregation(
                       AggregationBuilders.terms(SAMPLE_AGG)
                           .field(neighbourField)
                           .size(Math.max(sampleSize, termsSize)))
                   // Via entities count as lineage just as the walk reports them, and a
                   // via entity can also be a direct neighbour (a job that consumes the
                   // dataset and is the via on its DownstreamOf edge): collect both sets so
-                  // the total counts each URN once.
+                  // the total counts each URN once. Group members are left out of the vias
+                  // here, as they are out of the neighbours, so the estimate never counts
+                  // them.
                   .subAggregation(
-                      AggregationBuilders.terms(VIA_SAMPLE_AGG)
-                          .field(EDGE_FIELD_VIA)
-                          .size(Math.max(sampleSize, termsSize))));
+                      AggregationBuilders.filter(
+                              VIA_OUTSIDE_GROUP_AGG,
+                              QueryBuilders.boolQuery()
+                                  .mustNot(QueryBuilders.termsQuery(EDGE_FIELD_VIA, groupUrns)))
+                          .subAggregation(
+                              AggregationBuilders.cardinality(VIA_AGG)
+                                  .field(EDGE_FIELD_VIA)
+                                  .precisionThreshold(LINEAGE_COUNT_PRECISION))
+                          .subAggregation(
+                              AggregationBuilders.terms(VIA_SAMPLE_AGG)
+                                  .field(EDGE_FIELD_VIA)
+                                  .size(Math.max(sampleSize, termsSize)))));
         });
     return source;
   }
@@ -968,7 +978,11 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
    * Distinct neighbours and via entities across both directions, as the walk reports them: one
    * entry per URN however many edges or roles reach it, and never a member of the group itself.
    * Exact while every terms aggregation fits in a page; otherwise the total falls back to the
-   * cardinality estimates, which can count a URN that is both neighbour and via twice.
+   * cardinality estimates. Those count a URN once per role and direction it appears in, so the
+   * repeats seen across all samples are subtracted; group members are excluded in the query. A URN
+   * outside the samples is still counted once per role and direction it appears in, so when many
+   * entities are both neighbours and vias (jobs, for example) a truncated total can be well above
+   * the true number, up to about double.
    */
   @VisibleForTesting
   LineageCountResult parseLineageCount(
@@ -978,36 +992,50 @@ public abstract class GraphQueryBaseDAO implements GraphQueryDAO {
     }
     Set<Urn> reached = new LinkedHashSet<>();
     long estimated = 0;
+    long sampled = 0;
     boolean truncated = false;
     for (Aggregation aggregation : response.getAggregations()) {
       if (!aggregation.getName().startsWith(COUNT_AGG_PREFIX)
-          || !(aggregation instanceof org.opensearch.search.aggregations.bucket.filter.Filter)) {
+          || !(aggregation instanceof Filter countFilter)) {
         continue;
       }
-      Aggregations sub =
-          ((org.opensearch.search.aggregations.bucket.filter.Filter) aggregation).getAggregations();
-      for (String cardinalityAgg : List.of(DISTINCT_AGG, VIA_AGG)) {
-        Cardinality cardinality = sub.get(cardinalityAgg);
+      Aggregations sub = countFilter.getAggregations();
+      Aggregations vias =
+          sub.get(VIA_OUTSIDE_GROUP_AGG) instanceof Filter viaFilter
+              ? viaFilter.getAggregations()
+              : null;
+      for (Cardinality cardinality :
+          Arrays.asList(
+              sub.<Cardinality>get(DISTINCT_AGG),
+              vias == null ? null : vias.<Cardinality>get(VIA_AGG))) {
         if (cardinality != null) {
           estimated += cardinality.getValue();
         }
       }
-      for (String termsAgg : List.of(SAMPLE_AGG, VIA_SAMPLE_AGG)) {
-        Terms terms = sub.get(termsAgg);
+      for (Terms terms :
+          Arrays.asList(
+              sub.<Terms>get(SAMPLE_AGG), vias == null ? null : vias.<Terms>get(VIA_SAMPLE_AGG))) {
         if (terms == null) {
           continue;
         }
         truncated |= terms.getSumOfOtherDocCounts() > 0;
         for (Terms.Bucket bucket : terms.getBuckets()) {
           try {
-            reached.add(Urn.createFromString(bucket.getKeyAsString()));
+            Urn urn = Urn.createFromString(bucket.getKeyAsString());
+            reached.add(urn);
+            sampled++;
           } catch (URISyntaxException e) {
             log.warn("Skipping unparseable lineage neighbour urn {}", bucket.getKeyAsString());
           }
         }
       }
     }
+    // Must run before the repeat correction below, or a sampled group member stays counted in
+    // `estimated`.
     reached.removeAll(groupUrns);
+    // The four cardinalities (neighbour and via, per direction) each count a URN seen in more than
+    // one role or direction, so remove the repeats the samples show.
+    estimated -= sampled - reached.size();
     long total = truncated ? Math.max(reached.size(), estimated) : reached.size();
     return new LineageCountResult(
         (int) Math.min(total, Integer.MAX_VALUE),

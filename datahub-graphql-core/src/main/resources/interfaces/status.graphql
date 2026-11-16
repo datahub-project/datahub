@@ -1,0 +1,37 @@
+"""
+An entity that can be soft deleted
+"""
+interface HasStatus {
+  """
+  The status of the entity
+  """
+  status: Status
+}
+
+extend type Api implements HasStatus
+extend type Application implements HasStatus
+extend type Assertion implements HasStatus
+extend type BusinessAttribute implements HasStatus
+extend type Chart implements HasStatus
+extend type Container implements HasStatus
+extend type Dashboard implements HasStatus
+extend type DataFlow implements HasStatus
+extend type DataJob implements HasStatus
+extend type DataPlatformInstance implements HasStatus
+extend type DataProcessInstance implements HasStatus
+extend type Dataset implements HasStatus
+extend type ERModelRelationship implements HasStatus
+extend type GlossaryTerm implements HasStatus
+extend type MLFeature implements HasStatus
+extend type MLFeatureTable implements HasStatus
+extend type MLModel implements HasStatus
+extend type MLModelGroup implements HasStatus
+extend type MLPrimaryKey implements HasStatus
+extend type Metric implements HasStatus
+extend type Notebook implements HasStatus
+extend type OwnershipTypeEntity implements HasStatus
+extend type Repository implements HasStatus
+extend type SchemaFieldEntity implements HasStatus
+extend type SemanticModel implements HasStatus
+extend type Tag implements HasStatus
+extend type VersionedDataset implements HasStatus

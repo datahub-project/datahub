@@ -3340,14 +3340,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
                         )
 
-                # Dashboard info aspect
-                # Use current ingestion time for audit stamps since dbt exposures
-                # don't have created/modified timestamps
-                current_timestamp = int(datetime.now().timestamp() * 1000)
-                audit_stamp = AuditStampClass(
-                    time=current_timestamp,
-                    actor=mce_builder.make_user_urn("dbt_ingestion"),
-                )
+                # dbt exposures have no created or modified time. Leave the
+                # schema default (time 0 / unknown actor) so an unchanged
+                # exposure does not allocate a new dashboardInfo version. A
+                # wall clock is not a real modification time.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=exposure_urn,
                     aspect=DashboardInfoClass(
@@ -3355,10 +3351,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         description=exposure.description or "",
                         customProperties=custom_properties,
                         externalUrl=exposure.url,
-                        lastModified=ChangeAuditStampsClass(
-                            created=audit_stamp,
-                            lastModified=audit_stamp,
-                        ),
+                        lastModified=ChangeAuditStampsClass(),
                         datasets=upstream_urns if upstream_urns else None,
                     ),
                 )

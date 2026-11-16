@@ -28,6 +28,7 @@ import com.linkedin.metadata.entity.ebean.EbeanAspectV2;
 import com.linkedin.metadata.entity.ebean.batch.AspectsBatchImpl;
 import com.linkedin.metadata.entity.ebean.batch.ChangeItemImpl;
 import com.linkedin.metadata.entity.restoreindices.RestoreIndicesArgs;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -35,6 +36,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
@@ -200,22 +202,8 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
                               .map(
                                   CriterionFilterAspectsBlockingStep
                                       ::prepareSystemAspectForBlockingIngest)
-                              .map(
-                                  prepared ->
-                                      ChangeItemImpl.builder()
-                                          .changeType(ChangeType.UPSERT)
-                                          .urn(prepared.getUrn())
-                                          .entitySpec(prepared.getEntitySpec())
-                                          .aspectName(prepared.getAspectName())
-                                          .aspectSpec(prepared.getAspectSpec())
-                                          .recordTemplate(prepared.getRecordTemplate())
-                                          .auditStamp(prepared.getAuditStamp())
-                                          .systemMetadata(
-                                              withAppSource(prepared.getSystemMetadata()))
-                                          .headers(
-                                              versionHeaders(
-                                                  prepared.getSystemMetadata().getVersion()))
-                                          .build(opContext.getAspectRetriever()))
+                              .map(prepared -> toChangeItem(opContext, prepared))
+                              .filter(Objects::nonNull)
                               .collect(Collectors.toList());
 
                       AspectsBatch aspectsBatch =
@@ -306,5 +294,43 @@ public class CriterionFilterAspectsBlockingStep implements UpgradeStep {
     map.put(APP_SOURCE, SYSTEM_UPDATE_SOURCE);
     result.setProperties(map);
     return result;
+  }
+
+  /**
+   * Builds the re-ingest item, or null when the stored value was written by a newer version (read
+   * after a rollback) and fails validation in this one. That row is left as it is instead of
+   * failing this blocking step. Any other invalid value fails the step as before.
+   */
+  @Nullable
+  @VisibleForTesting
+  ChangeItemImpl toChangeItem(
+      @Nonnull OperationContext opContext, @Nonnull final SystemAspect prepared) {
+    final SystemMetadata systemMetadata = prepared.getSystemMetadata();
+    try {
+      return ChangeItemImpl.builder()
+          .changeType(ChangeType.UPSERT)
+          .urn(prepared.getUrn())
+          .entitySpec(prepared.getEntitySpec())
+          .aspectName(prepared.getAspectName())
+          .aspectSpec(prepared.getAspectSpec())
+          .recordTemplate(prepared.getRecordTemplate())
+          .auditStamp(prepared.getAuditStamp())
+          .systemMetadata(withAppSource(systemMetadata))
+          .headers(versionHeaders(systemMetadata.getVersion()))
+          .build(opContext.getAspectRetriever());
+    } catch (ValidationException e) {
+      // Decided on the stored value when it was read, before references only a newer version
+      // understands were removed.
+      if (!prepared.isFromNewerVersion()) {
+        throw e;
+      }
+      log.warn(
+          "{}: skipping {}/{}, its stored value from a newer version fails validation here: {}",
+          id(),
+          prepared.getUrn(),
+          prepared.getAspectName(),
+          e.getMessage());
+      return null;
+    }
   }
 }

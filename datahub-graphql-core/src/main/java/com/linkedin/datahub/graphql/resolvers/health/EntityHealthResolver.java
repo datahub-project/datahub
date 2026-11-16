@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.health;
 
 import com.google.common.collect.ImmutableSet;
+import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -27,6 +28,7 @@ import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
@@ -218,7 +220,7 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   @Nullable
   private Health computeAssertionHealthForAsset(
       final String entityUrn, final QueryContext context) {
-    // Get active assertion urns
+    // Get related assertion urns
     final EntityRelationships relationships =
         _graphClient.getRelatedEntities(
             entityUrn,
@@ -229,11 +231,23 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
             context.getActorUrn());
 
     if (relationships.getTotal() > 0) {
-      // If there are assertions defined, then we should return a non-null health for this asset.
-      final Set<String> activeAssertionUrns =
+      final List<Urn> assertionUrns =
           relationships.getRelationships().stream()
-              .map(relationship -> relationship.getEntity().toString())
+              .map(EntityRelationship::getEntity)
+              .collect(Collectors.toList());
+
+      // Soft-deleted assertions still have stale run results in the timeseries index, so they
+      // must be excluded here the same way EntityAssertionsResolver excludes them from
+      // dataset.assertions.
+      final Set<String> activeAssertionUrns =
+          HealthComputationUtils.filterActiveAssertions(
+                  _entityClient, context.getOperationContext(), new HashSet<>(assertionUrns))
+              .stream()
+              .map(Urn::toString)
               .collect(Collectors.toSet());
+      if (activeAssertionUrns.isEmpty()) {
+        return null;
+      }
 
       final GenericTable assertionRunResults =
           getAssertionRunsTable(context.getOperationContext(), entityUrn);

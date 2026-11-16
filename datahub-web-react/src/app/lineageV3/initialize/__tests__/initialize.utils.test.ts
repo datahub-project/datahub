@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { describe, expect, it } from 'vitest';
 
 import {
@@ -12,6 +12,7 @@ import {
     createBoundingBoxMemberNode,
     useBoundingBoxMemberPagination,
 } from '@app/lineageV3/initialize/initialize.utils';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType, LineageDirection } from '@types';
 

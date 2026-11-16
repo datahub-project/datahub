@@ -1,8 +1,9 @@
 import { toast } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useRollbackExecution from '@app/ingestV2/executions/hooks/useRollbackExecution';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useRollbackIngestionMutation } from '@graphql/ingestion.generated';
 

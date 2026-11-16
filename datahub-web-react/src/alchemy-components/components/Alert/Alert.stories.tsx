@@ -28,7 +28,6 @@ const meta = {
             control: { type: 'select' },
             table: {
                 type: { summary: VARIANTS.join(' | ') },
-                defaultValue: { summary: 'info' },
             },
         },
         title: {
@@ -59,9 +58,9 @@ const meta = {
         },
         action: {
             description:
-                'Optional action button. Always rendered as a text button colored to match the alert variant — pass `{ label, onClick }`.',
+                'Optional action. `{ label, onClick }` renders a text button colored to match the variant; a ReactNode is rendered as-is.',
             control: false,
-            table: { type: { summary: 'AlertAction' } },
+            table: { type: { summary: 'AlertAction | ReactNode' } },
         },
         actionPlacement: {
             description:

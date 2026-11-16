@@ -268,6 +268,24 @@ SMOKE_DUMP_BATCH_PLAN=/tmp/plan-catalog-3.json BATCH_COUNT=3 PYTEST_XDIST_WORKER
 
 `--collect-only` is required if you do not want tests to run; collection still imports the suite and needs this venv, but it does not start DataHub. The plugin also clears collected items as a backstop. Compare shard counts by invoking the same command again with a different `BATCH_COUNT`. If the plugin is loaded and neither `SMOKE_DUMP_BATCH_PLAN` nor `--dump-batch-plan` is set, JSON is written to stdout.
 
+### Plan a smart-selected batch matrix
+
+Under active smart testing, CI plans the matrix with `--size-batches 9`. The
+plugin applies `SMOKE_SMART_TAGS` and picks the fewest batches (at most 9)
+whose predicted pytest time is under 8 minutes, or under the slowest single
+loadscope when that alone takes longer (a scope never splits across workers).
+It ignores `BATCH_COUNT`:
+
+```bash
+SMOKE_SMART_TAGS='{"feature-user": ["documentation"]}' PYTEST_XDIST_WORKERS=3 \
+  pytest $PLUGIN --collect-only \
+  --size-batches 9 --dump-batch-plan /tmp/plan.json
+
+# Collect what batch 0 of that plan runs
+SMOKE_BATCH_PLAN=/tmp/plan.json BATCH_NUMBER=0 \
+  pytest --collect-only -q
+```
+
 ## Test Organization
 
 - `test_e2e.py` - Main test suite (1387 lines)

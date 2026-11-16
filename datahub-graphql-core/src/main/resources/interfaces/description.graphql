@@ -1,0 +1,22 @@
+"""
+An entity with a top-level description field
+"""
+interface HasDescription {
+  """
+  The description of the entity
+  """
+  description: String
+}
+
+extend type AccessTokenMetadata implements HasDescription
+extend type DataHubPolicy implements HasDescription
+extend type DataHubRole implements HasDescription
+extend type DataHubView implements HasDescription
+extend type Incident implements HasDescription
+extend type MLFeature implements HasDescription
+extend type MLFeatureTable implements HasDescription
+extend type MLModel implements HasDescription
+extend type MLModelGroup implements HasDescription
+extend type MLPrimaryKey implements HasDescription
+extend type ServiceAccount implements HasDescription
+extend type Test implements HasDescription

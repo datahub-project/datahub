@@ -2035,13 +2035,13 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/NYC-weather.csv,PROD)",
                     "type": "COPY"
                 }
             }
@@ -2367,13 +2367,13 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
                     "type": "COPY"
                 }
             }
@@ -2595,13 +2595,13 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
                     "type": "COPY"
                 }
             }
@@ -2883,13 +2883,13 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
                     "type": "COPY"
                 }
             }
@@ -4323,13 +4323,13 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:unknown"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD)",
                     "type": "COPY"
                 }
             }
@@ -6363,7 +6363,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1697349614138,
@@ -6373,34 +6373,34 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.//warehouse,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD),id)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD),id)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD),name)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),name)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD),name)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),age)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD),age)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),age)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD),age)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),salary)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1~1warehouse,PROD),salary)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.s3.warehouse,PROD),salary)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.warehouse,PROD),salary)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -6422,7 +6422,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1697349614139,
@@ -6432,97 +6432,97 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/Dremio University/googleplaystore.csv,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),A)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),A)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),A)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),A)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),B)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),B)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),B)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),B)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),C)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),C)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),C)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),C)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),D)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),D)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),D)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),D)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),E)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),E)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),E)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),E)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),F)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),F)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),F)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),F)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),G)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),G)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),G)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),G)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),H)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),H)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),H)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),H)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),I)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),I)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),I)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),I)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),J)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),J)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),J)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),J)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),K)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),K)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),K)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),K)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),L)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),L)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),L)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),L)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),M)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),M)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.googleplaystore.csv,PROD),M)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1googleplaystore.csv,PROD),M)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -6544,7 +6544,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1697349614139,
@@ -6554,34 +6554,34 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/Dremio University/oracle-departments.xlsx,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),DEPARTMENT_ID)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),DEPARTMENT_ID)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_NAME)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),DEPARTMENT_NAME)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),DEPARTMENT_NAME)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),DEPARTMENT_NAME)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),MANAGER_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),MANAGER_ID)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),MANAGER_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),MANAGER_ID)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),LOCATION_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),LOCATION_ID)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.dremio university.oracle-departments.xlsx,PROD),LOCATION_ID)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1Dremio University~1oracle-departments.xlsx,PROD),LOCATION_ID)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -6603,7 +6603,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1697349614140,
@@ -6613,69 +6613,69 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/NYC-weather.csv,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/NYC-weather.csv,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),A)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),A)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),A)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),A)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),B)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),B)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),B)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),B)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),C)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),C)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),C)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),C)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),D)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),D)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),D)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),D)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),E)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),E)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),E)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),E)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),F)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),F)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),F)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),F)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),G)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),G)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),G)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),G)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),H)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),H)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),H)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),H)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),I)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1NYC-weather.csv,PROD),I)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.nyc-weather.csv,PROD),I)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1NYC-weather.csv,PROD),I)",
                 "value": {
                     "confidenceScore": 1.0
                 }
@@ -6697,7 +6697,7 @@
         "json": [
             {
                 "op": "add",
-                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD)",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD)",
                 "value": {
                     "auditStamp": {
                         "time": 1697349614141,
@@ -6707,69 +6707,69 @@
                         "time": 0,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
-                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples./samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com/tpcds_sf1000/catalog_page/1ab266d5-18eb-4780-711d-0fa337fa6c00/0_0_0.parquet,PROD)",
                     "type": "COPY"
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_sk)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_sk)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_id)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_id)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_id)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_start_date_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_start_date_sk)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_start_date_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_start_date_sk)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_end_date_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_end_date_sk)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_end_date_sk)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_end_date_sk)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_department)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_department)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_department)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_department)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_number)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_number)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_number)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_number)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_number)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_number)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_catalog_page_number)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_catalog_page_number)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_description)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_description)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_description)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_description)",
                 "value": {
                     "confidenceScore": 1.0
                 }
             },
             {
                 "op": "add",
-                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_type)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.~1samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_type)",
+                "path": "/fineGrainedLineages/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dremio,dremio.samples.samples.dremio.com.tpcds_sf1000.catalog_page.1ab266d5-18eb-4780-711d-0fa337fa6c00.0_0_0.parquet,PROD),cp_type)/NONE/urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,s3_test_samples.samples.dremio.com~1tpcds_sf1000~1catalog_page~11ab266d5-18eb-4780-711d-0fa337fa6c00~10_0_0.parquet,PROD),cp_type)",
                 "value": {
                     "confidenceScore": 1.0
                 }

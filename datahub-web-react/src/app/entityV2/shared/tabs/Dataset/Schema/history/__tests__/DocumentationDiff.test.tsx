@@ -6,8 +6,8 @@ import { vi } from 'vitest';
 import DocumentationDiff from '@app/entityV2/shared/tabs/Dataset/Schema/history/DocumentationDiff';
 import { ChangeCategoryType, ChangeEvent, ChangeOperationType, TimelineParameterEntry } from '@src/types.generated';
 
-// Mock react-diff-viewer to avoid its heavy rendering in unit tests
-vi.mock('react-diff-viewer', () => ({
+// Mock react-diff-viewer-continued to avoid its heavy rendering in unit tests
+vi.mock('react-diff-viewer-continued', () => ({
     default: ({ oldValue, newValue }: { oldValue: string; newValue: string }) => (
         <div data-testid="mock-diff-viewer" data-old={oldValue} data-new={newValue} />
     ),
@@ -26,6 +26,7 @@ vi.mock('@src/alchemy-components', () => ({
         green: { 1300: '#b4f0b4', 1000: '#22863a' },
         red: { 100: '#ffc9c9', 1000: '#c0392b' },
     },
+    Loader: () => null,
 }));
 
 const testTheme = {
@@ -101,17 +102,17 @@ describe('DocumentationDiff', () => {
         expect(screen.queryByTestId('documentation-diff-content')).not.toBeInTheDocument();
     });
 
-    it('passes old and new values to diff viewer for MODIFY', () => {
+    it('passes old and new values to diff viewer for MODIFY', async () => {
         const event = makeChangeEvent(ChangeOperationType.Modify, 'New text', 'Old text');
         render(<DocumentationDiff changeEvent={event} />, { wrapper: Wrapper });
 
         fireEvent.click(screen.getByText('showDiff'));
-        const viewer = screen.getByTestId('mock-diff-viewer');
+        const viewer = await screen.findByTestId('mock-diff-viewer');
         expect(viewer.getAttribute('data-old')).toBe('Old text');
         expect(viewer.getAttribute('data-new')).toBe('New text');
     });
 
-    it('strips code fences before diffing', () => {
+    it('strips code fences before diffing', async () => {
         const event = makeChangeEvent(
             ChangeOperationType.Modify,
             '```yaml\nname: test\n```',
@@ -120,19 +121,19 @@ describe('DocumentationDiff', () => {
         render(<DocumentationDiff changeEvent={event} />, { wrapper: Wrapper });
 
         fireEvent.click(screen.getByText('showDiff'));
-        const viewer = screen.getByTestId('mock-diff-viewer');
+        const viewer = await screen.findByTestId('mock-diff-viewer');
         expect(viewer.getAttribute('data-old')).toBe('name: old');
         expect(viewer.getAttribute('data-new')).toBe('name: test');
     });
 
-    it('uses inherited previous description for ADD in all-versions mode', () => {
+    it('uses inherited previous description for ADD in all-versions mode', async () => {
         const event = makeChangeEvent(ChangeOperationType.Add, 'New text');
         render(<DocumentationDiff changeEvent={event} inheritedPreviousDescription="Prior text" />, {
             wrapper: Wrapper,
         });
 
         fireEvent.click(screen.getByText('showDiff'));
-        const viewer = screen.getByTestId('mock-diff-viewer');
+        const viewer = await screen.findByTestId('mock-diff-viewer');
         expect(viewer.getAttribute('data-old')).toBe('Prior text');
         expect(viewer.getAttribute('data-new')).toBe('New text');
     });

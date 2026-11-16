@@ -33,7 +33,7 @@ test.describe('Metrics global search', () => {
   });
 
   test('finds semantic model by name and opens Metrics-wrapped detail', async ({ page }) => {
-    await searchPage.searchAndWait(NAMES.ORDERS_MODEL, 4000);
+    await searchPage.search(NAMES.ORDERS_MODEL);
     await searchPage.expectHasResults();
     await searchPage.openResultByUrn(SEMANTIC_MODEL_ORDERS_URN);
 
@@ -43,7 +43,7 @@ test.describe('Metrics global search', () => {
   });
 
   test('finds metric by name and opens Metrics-wrapped detail', async ({ page }) => {
-    await searchPage.searchAndWait(NAMES.TOTAL_REVENUE, 4000);
+    await searchPage.search(NAMES.TOTAL_REVENUE);
     await searchPage.expectHasResults();
     await searchPage.openResultByUrn(TOTAL_REVENUE_URN);
 
@@ -53,7 +53,7 @@ test.describe('Metrics global search', () => {
   });
 
   test('filters search results by Semantic Models and Metrics types', async ({ page }) => {
-    await searchPage.searchAndWait('PW ', 4000);
+    await searchPage.search('PW ');
     await searchPage.expectHasResults();
 
     const hasTypeFilter = await searchPage.isFilterAvailable('Type');
@@ -82,7 +82,7 @@ test.describe('Metrics global search', () => {
   });
 
   test('restores search state after opening a result and navigating back', async ({ page }) => {
-    await searchPage.searchAndWait(NAMES.TOTAL_REVENUE, 4000);
+    await searchPage.search(NAMES.TOTAL_REVENUE);
     await searchPage.expectHasResults();
     const searchUrl = page.url();
 

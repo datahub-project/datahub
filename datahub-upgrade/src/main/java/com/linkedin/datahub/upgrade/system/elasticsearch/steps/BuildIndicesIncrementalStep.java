@@ -405,7 +405,13 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             allConfigs.stream()
                 .filter(c -> !c.requiresReindex())
                 .filter(c -> !incrementallyBuiltIndices.contains(c.name()))
-                .filter(c -> c.requiresApplyMappings() || c.requiresApplySettings())
+                // buildIndex also adds the fields of definitions an otherwise unchanged index
+                // lacks.
+                .filter(
+                    c ->
+                        c.requiresApplyMappings()
+                            || c.requiresApplySettings()
+                            || c.hasNewStructuredProperty())
                 .collect(Collectors.toList());
 
         for (ReindexConfig config : configsNoReindex) {
@@ -648,7 +654,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         }
         // Empty is the steady state of an entity type nobody has ingested. Filled where it
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
-        // and the in-place apply pass below never reaches an index with a fill row.
+        // and the in-place apply pass below never reaches an index with a fill row. Unmapped
+        // structured property fields do not count against matchesTarget; startFill adds them
+        // before a fill in place.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
       } else if (IndexMigrationStamp.incomplete(config.currentMappings())) {
         // The alias holds documents written by a migration whose rows belong to an earlier deploy,
@@ -777,6 +785,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
+        // No fallback to the live structured property fields, unlike a _reindex destination: the
+        // fill writes every value from primary storage, so fields left out would leave values
+        // unsearchable. A rejection fails the step and leaves writes open.
         indexBuilder.createIndex(opContext, physicalIndex, config);
         indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
         fillTarget = physicalIndex;
@@ -784,6 +795,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       case IN_PLACE -> {
         physicalIndex = config.name();
         fillTarget = config.name();
+        // The index matches its target apart from structured property fields it may lack. They go
+        // in before the fill writes their values, and a rejected put fails the step, as creating
+        // an index with them does for the other fills.
+        indexBuilder.addUnmappedStructuredPropertyFields(opContext, config);
         indexBuilder.markMigrationIncomplete(opContext, config.name());
       }
       default -> throw new IllegalStateException("Unhandled fill " + fill);

@@ -81,6 +81,48 @@ pytestmark = pytest.mark.domain(Domain.CATALOG)
 
 Keep `@pytest.mark.dependency()` chains short (ideally ≤3).
 
+### Smart-testing tags
+
+PR test selection uses concept tags from `.github/smart-testing/taxonomy.yaml`,
+mirrored as enums in `smart_testing/taxonomy.py`. Tag a new module by adding
+an entry to `smart_testing/test_tags.yaml` (preferred), or with markers in
+source. Tests and tags for features only this repository has go in the
+optional overlays (`test_tags.overlay.yaml`, `taxonomy.overlay.yaml`), so the
+base files stay shared:
+
+```python
+from smart_testing.taxonomy import FeatureUser, TechnicalLayer
+
+pytestmark = [
+    pytest.mark.feature_user(FeatureUser.LINEAGE),
+    pytest.mark.technical_layer(TechnicalLayer.GRAPHQL),
+]
+```
+
+Selection happens per module on feature tags (`feature_user`, `feature_dev`,
+`compound`). Untagged modules always run. CI sets `SMOKE_SMART_TESTING`:
+
+- `off` (the default): nothing is loaded.
+- `shadow`: tags are applied and the would-be selection is recorded as the JUnit
+  property `smart_selected`, but nothing is skipped.
+- `active`: CI's `smoke_test_matrix` job selects modules and plans batches
+  (`TEST_STRATEGY=plan ./smoke.sh`), so the matrix has only as many batches as
+  the selection fills. Each batch job runs the scopes planned for it
+  (`SMOKE_BATCH_PLAN`). If the PR has no tags, the p0 tier runs. A PR with
+  no feature tags runs only the canary (always-run plus its changed tests)
+  when it changes fewer than 15 files, else the p0 tier. A PR that changes
+  the shared pytest harness (`change-type: pytest-plumbing`, set from the
+  paths in `taxonomy.yaml`: root conftests, `tests/e2e/utils.py`,
+  `utilities/`, `smart_testing/`, batch planning, runner scripts, weights
+  and dependencies) also runs `plumbing_sample` from `test_tags.yaml`. The
+  `run-all-tests` label runs the full suite with smart testing off.
+
+After adding, changing, or deleting tests, run `/datahub-test-taxonomy tag` to update
+`test_tags.yaml` for this branch's changes.
+
+An unknown tag is logged as an error during collection. To try it locally:
+`SMOKE_SMART_TESTING=active SMOKE_SMART_TAGS='{"feature-user": ["lineage"]}' pytest --collect-only -q`.
+
 ## Isolation
 
 Modules run in parallel against one GMS. Prefer these over a local `uuid` /
