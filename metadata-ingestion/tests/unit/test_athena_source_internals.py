@@ -2,7 +2,7 @@
 PyAthena boundary: engine wiring, view DDL reads, container keys, partition
 discovery from CREATE TABLE statements and the probe's failing report."""
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, List
 from unittest.mock import MagicMock, patch
 
@@ -239,6 +239,75 @@ def test_schema_container_is_emitted_as_database_container() -> None:
     assert single_aspect(workunits, ContainerPropertiesClass).name == "sales"
     # Databases have no parent container.
     assert not aspects_of_type(workunits, ContainerClass)
+
+
+def test_glue_catalog_database_container_includes_create_time() -> None:
+    source = _source(catalog_name="AwsDataCatalog")
+    cursor = MagicMock()
+    mock_glue = MagicMock()
+    dt = datetime(2023, 8, 30, 12, 0, 0, tzinfo=timezone.utc)
+    mock_glue.get_database.return_value = {
+        "Database": {
+            "Name": "sales",
+            "CreateTime": dt,
+        }
+    }
+    cursor.connection.session.client.return_value = mock_glue
+    source.cursor = cursor
+
+    workunits = list(source.gen_schema_containers(schema="sales", database="sales"))
+    props = single_aspect(workunits, ContainerPropertiesClass)
+    assert props.name == "sales"
+    assert props.created is not None
+    assert props.created.time == int(dt.timestamp() * 1000)
+    assert props.customProperties is not None
+    assert props.customProperties["create_time"] == str(dt)
+    mock_glue.get_database.assert_called_once_with(Name="sales")
+
+
+def test_database_container_omits_create_time_for_non_glue_catalog() -> None:
+    source = _source(catalog_name="my_hive_catalog")
+    cursor = MagicMock()
+    paginator = cursor.connection.client.get_paginator.return_value
+    paginator.paginate.return_value = [
+        {"DataCatalogsSummary": [{"CatalogName": "my_hive_catalog", "Type": "HIVE"}]}
+    ]
+    source.cursor = cursor
+
+    workunits = list(source.gen_schema_containers(schema="sales", database="sales"))
+    props = single_aspect(workunits, ContainerPropertiesClass)
+    assert props.name == "sales"
+    assert props.created is None
+    assert "create_time" not in (props.customProperties or {})
+
+
+def test_glue_api_error_records_warning_and_emits_container() -> None:
+    source = _source(catalog_name="AwsDataCatalog")
+    cursor = MagicMock()
+    mock_glue = MagicMock()
+    mock_glue.get_database.side_effect = Exception("AWS AccessDeniedException")
+    cursor.connection.session.client.return_value = mock_glue
+    source.cursor = cursor
+
+    workunits = list(source.gen_schema_containers(schema="sales", database="sales"))
+    props = single_aspect(workunits, ContainerPropertiesClass)
+    assert props.name == "sales"
+    assert props.created is None
+    assert "create_time" not in (props.customProperties or {})
+    assert any(
+        "Failed to fetch Glue database metadata" in str(w.message)
+        for w in source.report.warnings
+    )
+
+
+def test_get_schema_level_workunits_initializes_cursor() -> None:
+    source = _source(catalog_name="AwsDataCatalog")
+    inspector = MagicMock()
+    cursor = inspector.engine.raw_connection.return_value.cursor.return_value
+    assert source.cursor is None
+
+    list(source.get_schema_level_workunits(inspector, "sales", "sales"))
+    assert source.cursor is cursor
 
 
 def test_database_container_key_falls_back_to_schema_when_db_unset() -> None:

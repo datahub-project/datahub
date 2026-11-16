@@ -32,7 +32,10 @@ from sqlalchemy_bigquery import STRUCT
 
 from datahub.configuration.common import HiddenFromDocs
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
-from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
+from datahub.emitter.mce_builder import (
+    make_dataset_urn_with_platform_instance,
+    make_ts_millis,
+)
 from datahub.emitter.mcp_builder import ContainerKey, DatabaseKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
@@ -56,6 +59,7 @@ from datahub.ingestion.source.sql.athena_properties_extractor import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
+    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -756,6 +760,70 @@ class AthenaSource(SQLAlchemySource):
         location = self._get_upstream_location(schema, table, metadata)
         return description, custom_properties, location
 
+    @override
+    def get_schema_level_workunits(
+        self,
+        inspector: Inspector,
+        schema: str,
+        database: str,
+    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+        if not self.cursor:
+            self.cursor = cast(BaseCursor, inspector.engine.raw_connection().cursor())
+        yield from super().get_schema_level_workunits(inspector, schema, database)
+
+    def _get_glue_client(self) -> Optional[Any]:
+        if not self.cursor:
+            return None
+        try:
+            conn = getattr(self.cursor, "connection", None)
+            if conn is None:
+                return None
+            session = getattr(conn, "session", None)
+            if session is not None and hasattr(session, "client"):
+                return session.client("glue")
+            _session = getattr(conn, "_session", None)
+            if _session is not None and hasattr(_session, "client"):
+                return _session.client("glue")
+            if hasattr(conn, "client"):
+                client_attr = conn.client
+                if callable(client_attr):
+                    return client_attr("glue")
+            return None
+        except Exception as e:
+            logger.debug(f"Failed to obtain Glue client from cursor connection: {e}")
+            return None
+
+    def _get_database_create_time(self, database: str) -> Optional[datetime.datetime]:
+        if self.cursor is None:
+            return None
+        try:
+            if not self.is_glue_catalog:
+                return None
+        except Exception as e:
+            logger.debug(f"Failed to check if catalog is Glue catalog: {e}")
+            return None
+
+        glue_client = self._get_glue_client()
+        if not glue_client:
+            return None
+
+        try:
+            response = glue_client.get_database(Name=database)
+            db_dict = response.get("Database", {}) if isinstance(response, dict) else {}
+            create_time = db_dict.get("CreateTime")
+            if isinstance(create_time, datetime.datetime):
+                return create_time
+        except Exception as e:
+            logger.warning(
+                f"Failed to fetch Glue database metadata for {database}: {e}"
+            )
+            self.report.warning(
+                message="Failed to fetch Glue database metadata",
+                context=f"database={database}",
+                exc=e,
+            )
+        return None
+
     def gen_database_containers(
         self,
         database: str,
@@ -773,14 +841,26 @@ class AthenaSource(SQLAlchemySource):
         database_container_key = self.get_database_container_key(
             db_name=database, schema=schema
         )
+        db_name = database_container_key.database
+
+        created_ts: Optional[int] = None
+        props: Dict[str, str] = {}
+        if extra_properties:
+            props.update({k: str(v) for k, v in extra_properties.items()})
+
+        create_time = self._get_database_create_time(db_name)
+        if create_time is not None:
+            created_ts = make_ts_millis(create_time)
+            props["create_time"] = str(create_time)
 
         yield from gen_database_container(
-            database=database_container_key.database,
+            database=db_name,
             database_container_key=database_container_key,
             sub_types=[DatasetContainerSubTypes.DATABASE],
             domain_registry=self.domain_registry,
             domain_config=self.config.domain,
-            extra_properties=extra_properties,
+            created=created_ts,
+            extra_properties=props if props else None,
         )
 
     def get_database_container_key(self, db_name: str, schema: str) -> DatabaseKey:
