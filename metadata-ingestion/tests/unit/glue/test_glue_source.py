@@ -984,16 +984,17 @@ def test_resource_link_to_view_typed_as_view_from_datahub():
         ),
         pytest.param("error", "VIRTUAL_VIEW", False, OWNER_VIEW_SQL, id="gms-error"),
         pytest.param("missing", None, True, "", id="glue-denied"),
+        pytest.param("missing", "EXTERNAL_TABLE", False, None, id="glue-says-table"),
     ],
 )
 def test_resource_link_view_in_datahub_without_definition(
     view_aspect: str,
     owner_table_type: Optional[str],
     glue_denied: bool,
-    view_logic: str,
+    view_logic: Optional[str],
 ) -> None:
-    # DataHub says the owner is a View but its view definition is missing or unreadable: the SQL
-    # comes from Glue, and the link stays a View even when Glue can't supply it.
+    # DataHub says the owner is a View but its view definition is missing or unreadable, so Glue
+    # is asked: its answer wins, and the link stays a View only when Glue can't be read.
     source = _resource_link_schema_source()
     source.ctx.graph = _owner_graph(sub_types=["View"], view_aspect=view_aspect)
 
@@ -1001,8 +1002,13 @@ def test_resource_link_view_in_datahub_without_definition(
         source, owner_table_type=owner_table_type, glue_denied=glue_denied
     )
 
-    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
-    assert _link_aspect(wus, models.ViewPropertiesClass).viewLogic == view_logic
+    view_properties = _link_aspect(wus, models.ViewPropertiesClass)
+    if view_logic is None:
+        assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
+        assert view_properties is None
+    else:
+        assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
+        assert view_properties.viewLogic == view_logic
 
 
 def test_resource_link_to_view_typed_as_view_from_glue():
@@ -1066,8 +1072,8 @@ def test_resource_link_stays_table_when_owner_is_table_or_unknown(
 
 @pytest.mark.parametrize("case", ["flag-off", "link-has-table-type"])
 def test_resource_link_type_not_looked_up(case: str) -> None:
-    # A link that already carries a TableType, or resolve_resource_link_schema=False, keeps the
-    # existing behaviour: no owner lookup in DataHub or Glue.
+    # A link that already carries a TableType, or resolve_resource_link_schema=False, skips the
+    # owner View/Table lookup.
     source = _resource_link_schema_source(resolve=case != "flag-off")
     graph = _owner_graph(sub_types=["View"])
     source.ctx.graph = graph
@@ -1080,6 +1086,43 @@ def test_resource_link_type_not_looked_up(case: str) -> None:
     assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
     graph.get_aspect.assert_not_called()
     assert not source.report.warnings
+
+
+def test_resource_link_type_skipped_when_target_has_no_catalog():
+    # An owner URN can't be built without the target's catalog, so the type lookup must stop
+    # before reading DataHub or Glue.
+    source = _resource_link_schema_source()
+    graph = _owner_graph(sub_types=["View"])
+    source.ctx.graph = graph
+    link = dict(
+        resource_link_table_in_mixed_database,
+        TargetTable={"DatabaseName": "test-database", "Name": "transactions"},
+    )
+
+    wus, _ = _link_wus(source, link=link)
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
+    graph.get_aspect.assert_not_called()
+
+
+def test_resource_link_glue_failure_read_once_per_target():
+    # The owner is neither in DataHub nor readable from Glue: the schema and type lookups share
+    # one failed GetTable and one warning.
+    source = _resource_link_schema_source()
+    graph = _owner_graph()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+
+    wus, _ = _link_wus(source, glue_denied=True)
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
+    glue_warnings = [
+        w
+        for w in source.report.warnings
+        if w.title == "Failed to read resource-link owner table from Glue"
+    ]
+    assert len(glue_warnings) == 1
+    assert len(glue_warnings[0].context) == 1
 
 
 def test_resource_link_glue_owner_cache_keyed_by_target():
@@ -1143,6 +1186,10 @@ def test_resource_link_schema_skipped_when_owner_is_self():
 
     assert source._resource_link_schema(table, dataset_urn, "db.shared") is None
     graph.get_schema_metadata.assert_not_called()
+    assert (
+        source._resource_link_view_properties(table, dataset_urn, "db.shared") is None
+    )
+    graph.get_aspect.assert_not_called()
 
 
 def test_resource_link_schema_stamped_with_link_name_and_isolated():

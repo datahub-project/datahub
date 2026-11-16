@@ -1261,9 +1261,10 @@ class GlueSource(StatefulIngestionSourceBase):
             self.report.warning(
                 title="Failed to read resource-link owner table from Glue",
                 message="Could not fetch the owning table via cross-account glue:GetTable, so the "
-                "resource link's View/Table type, and its schema when not found in DataHub, cannot "
-                "be read from Glue. Grant glue:GetTable on the shared table to enable this.",
-                context=f"{target.get('DatabaseName')}.{target.get('Name')}",
+                "resource link's View/Table type and view definition, and its schema when not "
+                "found in DataHub, cannot be read from Glue. Grant glue:GetTable on the shared "
+                "table to enable this.",
+                context=f"{key[0]}:{key[1]}.{key[2]}",
                 exc=e,
             )
         owner_table = response["Table"] if response else None
@@ -1314,18 +1315,17 @@ class GlueSource(StatefulIngestionSourceBase):
         if owner_view is not None:
             return owner_view
 
-        # Type unknown, or DataHub says View but has no definition: Glue has both. A View from
-        # DataHub stays a View even if Glue can't supply the SQL.
+        # Type unknown, or DataHub says View but has no definition: Glue has both, and its live
+        # answer wins. A View from DataHub stays a View only if Glue can't be read.
         owner_table = self._resource_link_owner_table_from_glue(target)
-        owner_is_glue_view = (
-            owner_table is not None
-            and owner_table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
-        )
-        if owner_sub_types is None and not owner_is_glue_view:
+        if owner_table is not None:
+            if owner_table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE:
+                return None
+        elif owner_sub_types is None:
             return None
         view_definition = (
             self._get_view_definition(owner_table, table_name)
-            if owner_table is not None and owner_is_glue_view
+            if owner_table is not None
             else None
         )
         return ViewPropertiesClass(
