@@ -1,5 +1,9 @@
-from typing import Any, Dict, Optional
+import base64
+import hashlib
+import re
+from typing import Any, Dict, List, Optional, Tuple
 from unittest.mock import patch
+from urllib.parse import quote
 
 import pytest
 
@@ -572,6 +576,12 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
+    # No app stores into the test datasets, whatever kind of dataset they are.
+    request_mock.register_uri(
+        "GET",
+        re.compile(r".*/lineage-graphs/nodes/.*level=TABLE$"),
+        json={"graph": {"nodes": {}, "edges": []}},
+    )
     for url in api_vs_response:
         if api_vs_response[url].get("response_list"):
             request_mock.register_uri(
@@ -1170,4 +1180,130 @@ def test_platform_instance_ingest(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/{golden_file}",
+    )
+
+
+APP_QRI = "qri:app:sense://f0714ca7-7093-49e4-8b58-47bb38563647"
+CSV_QRI = "qri:qdf:space://Ebw1EudUywmUi8p2bM7COr5OATHzuYxvT0BIrCc2irU#cfl7k2dSDQT8_iAQ36wboHaodaoJTC9bE-sc7ZPM6q4"
+GBQ_QRI = "qri:db:gbq://DU8iuDBF_ZFeSt2FN0x_P7ypp18VBc7gYNFAgDFVoY8#Nkh5KRvqTwByLVl5up594IBQ2QA99-6N16Ux_O4qUBs"
+MATCHES_TABLE = f"{APP_QRI}#FcJ-H2TvmAyI--l6fn0VQGPtHf8kB2rj7sj0_ysRHgc"
+TEST_TABLE = f"{APP_QRI}#Rrg6-1CeRbo4ews9o--QUP3tOXhm5moLizGY6_wCxJE"
+API_URL = "https://iq37k6byr9lgam8.us.qlikcloud.com/api/v1"
+
+
+def _field_qri(table_qri: str, name: str) -> str:
+    # Qlik names a field node by the base64url SHA-256 of the field's name.
+    digest = hashlib.sha256(name.encode("utf-8")).digest()
+    return f"{table_qri}#{base64.urlsafe_b64encode(digest).decode().rstrip('=')}"
+
+
+def _expand(node: str, level: str, root: str = APP_QRI) -> str:
+    return (
+        f"{API_URL}/lineage-graphs/nodes/{quote(root, safe='')}/actions/expand"
+        f"?node={quote(node, safe='')}&level={level}"
+    )
+
+
+def _graph(nodes: Dict[str, str], edges: List[Tuple[str, str]]) -> dict:
+    return {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "graph": {
+                "nodes": {qri: {"label": label} for qri, label in nodes.items()},
+                "edges": [
+                    {"source": source, "target": target} for source, target in edges
+                ],
+            }
+        },
+    }
+
+
+def lineage_graph_app_response(*args, **kwargs):
+    """The fixture app read as a script-built app: it has no load model, so its
+    tables, their sources and their fields come from Qlik's lineage graph, its
+    load script and its data model."""
+    request = {key: value for key, value in kwargs["request"].items() if key != "id"}
+    method = request.get("method")
+    if method == "GetObject" and request.get("params") == ["LoadModel"]:
+        return {"qReturn": {"qType": None, "qHandle": None}}
+    if method == "GetScript":
+        return {
+            "qScript": "IPL_Matches_2022:\n"
+            "LOAD * FROM [lib://DataFiles/IPL_Matches_2022.csv] (txt);\n"
+            "test_table:\nLOAD * INLINE [name\nx];\n"
+            "STORE test_table INTO [lib://DataFiles/test_tabl.qvd] (qvd);\n"
+        }
+    if method == "GetTablesAndKeys":
+        return {
+            "qtr": [
+                {
+                    "qName": "IPL_Matches_2022",
+                    "qFields": [
+                        {"qName": "City", "qTags": ["$text"]},
+                        {"qName": "Season", "qTags": ["$numeric", "$integer"]},
+                    ],
+                },
+                {
+                    "qName": "test_table",
+                    "qFields": [{"qName": "name", "qTags": ["$text"]}],
+                },
+            ]
+        }
+    return mock_websocket_response(*args, **kwargs)
+
+
+@pytest.mark.integration
+def test_lineage_graph_ingest(
+    pytestconfig, tmp_path, requests_mock, mock_websocket_send_request
+):
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/qlik_sense"
+    stored = f"{GBQ_QRI}#Out"
+    register_mock_api(
+        request_mock=requests_mock,
+        override_data={
+            # The app's tables: one loads the CSV dataset, one is inline.
+            _expand(APP_QRI, "TABLE"): _graph(
+                {MATCHES_TABLE: "IPL_Matches_2022", TEST_TABLE: "test_table"},
+                [(f"{CSV_QRI}#Matches", MATCHES_TABLE)],
+            ),
+            _expand(MATCHES_TABLE, "FIELD"): _graph(
+                {_field_qri(MATCHES_TABLE, "City"): "City"},
+                [
+                    (
+                        _field_qri(f"{CSV_QRI}#Matches", "City"),
+                        _field_qri(MATCHES_TABLE, "City"),
+                    )
+                ],
+            ),
+            _expand(TEST_TABLE, "FIELD"): _graph({}, []),
+            # The second dataset is stored from the inline table.
+            _expand(GBQ_QRI, "TABLE", root=GBQ_QRI): _graph(
+                {stored: "Out"}, [(TEST_TABLE, stored)]
+            ),
+            _expand(stored, "FIELD", root=GBQ_QRI): _graph(
+                {_field_qri(stored, "name"): "name"},
+                [(_field_qri(TEST_TABLE, "name"), _field_qri(stored, "name"))],
+            ),
+        },
+    )
+    mock_websocket_send_request.side_effect = lineage_graph_app_response
+    output_path: str = f"{tmp_path}/qlik_sense_lineage_graph_mces.json"
+    try:
+        pipeline = Pipeline.create(
+            {
+                "run_id": "qlik-sense-test",
+                "source": {"type": "qlik-sense", "config": default_config()},
+                "sink": {"type": "file", "config": {"filename": output_path}},
+            }
+        )
+        pipeline.run()
+        pipeline.raise_from_status()
+    finally:
+        mock_websocket_send_request.side_effect = mock_websocket_response
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=test_resources_dir / "golden_test_lineage_graph_ingest.json",
     )

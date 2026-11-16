@@ -2,7 +2,6 @@ import { Button, Menu, Pill, Table, Text, Tooltip, toast } from '@components';
 import { DotsThreeVertical } from '@phosphor-icons/react/dist/csr/DotsThreeVertical';
 import { Table as TableIcon } from '@phosphor-icons/react/dist/csr/Table';
 import React, { useRef, useState } from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import { useTheme } from 'styled-components';
@@ -27,6 +26,7 @@ import {
     getValueTypeLabel,
 } from '@app/govern/structuredProperties/utils';
 import ActorPill from '@app/sharedV2/owners/ActorPill';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 import analytics, { EventType } from '@src/app/analytics';
 import { useUserContext } from '@src/app/context/useUserContext';

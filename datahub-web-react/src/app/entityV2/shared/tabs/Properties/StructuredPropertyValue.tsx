@@ -1,7 +1,6 @@
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
@@ -9,6 +8,7 @@ import EntityIcon from '@app/entityV2/shared/components/styled/EntityIcon';
 import CompactMarkdownViewer from '@app/entityV2/shared/tabs/Documentation/components/CompactMarkdownViewer';
 import { ValueColumnData } from '@app/entityV2/shared/tabs/Properties/types';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Tooltip } from '@src/alchemy-components';
 import { getSchemaFieldParentLink } from '@src/app/entityV2/schemaField/utils';
