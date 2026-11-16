@@ -11,7 +11,6 @@ import type { DataHubLogger } from '../utils/logger';
 import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class GlossaryPage extends BasePage {
-
   // ── Navigation ──────────────────────────────────────────────────────────────
   readonly sidebarContainer: Locator;
   readonly activeTabPanel: Locator;
@@ -78,7 +77,6 @@ export class GlossaryPage extends BasePage {
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
     this.graphqlHelper = new GraphQLHelper(page);
-
 
     this.sidebarContainer = page.getByTestId('glossary-browser-sidebar');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design active tab panel CSS class; no semantic role for the active tabpanel
