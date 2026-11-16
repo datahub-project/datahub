@@ -165,3 +165,14 @@ def test_permanent_http_errors_are_not_retried(status: int) -> None:
     resolver(UserRef(account_id="557058:aaaa"))
 
     client.get_user_details_by_accountid.assert_called_once()
+
+
+def test_profile_email_search_also_tries_the_lowercased_email() -> None:
+    graph = _graph(set(), ["urn:li:corpuser:adoe"])
+    matcher = DataHubUserMatcher(graph, ConfluenceSourceReport())
+
+    assert matcher.urn_for(ConfluenceUser(email="Alex@Example.com")) == (
+        "urn:li:corpuser:adoe"
+    )
+    (rule,) = graph.get_urns_by_filter.call_args.kwargs["extraFilters"]
+    assert rule["values"] == ["Alex@Example.com", "alex@example.com"]

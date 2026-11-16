@@ -79,7 +79,10 @@ class DataHubUserMatcher:
                             {
                                 "field": CORPUSER_EMAIL_FIELD,
                                 "condition": "EQUAL",
-                                "values": [user.email],
+                                # EQUAL on a keyword field is case-sensitive.
+                                "values": list(
+                                    dict.fromkeys([user.email, user.email.lower()])
+                                ),
                             }
                         ],
                     ),

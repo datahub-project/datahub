@@ -218,3 +218,15 @@ def test_emoticons_become_emoji() -> None:
     )
 
     assert storage_to_markdown(html) == "\U0001f642 \U0001f44d :custom:"
+
+
+def test_cloud_emoticons_with_shortname_fallbacks_become_emoji() -> None:
+    html = (
+        '<p><ac:emoticon ac:name="cross" ac:emoji-shortname=":cross_mark:" '
+        'ac:emoji-id="atlassian-cross_mark" ac:emoji-fallback=":cross_mark:" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="1f600" ac:emoji-fallback="\U0001f600" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="custom-123" '
+        'ac:emoji-fallback=":party_parrot:" /></p>'
+    )
+
+    assert storage_to_markdown(html) == "❌ \U0001f600 ⭐"

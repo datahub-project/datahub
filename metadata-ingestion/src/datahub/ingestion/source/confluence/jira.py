@@ -1,17 +1,17 @@
 import re
-from typing import Callable, Dict, Optional
+from typing import Callable, Dict, Optional, Set
 
 from bs4 import BeautifulSoup, Tag
 
-from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.client import ConfluenceClient
+from datahub.ingestion.source.confluence.constants import (
     JIRA_BROWSE_PATH,
     JIRA_ISSUE_KEY_PATTERN,
 )
-from datahub.ingestion.source.confluence.confluence_html import JiraIssueRef
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
+from datahub.ingestion.source.confluence.storage_format import JiraIssueRef
 
 _ISSUE_KEY = re.compile(JIRA_ISSUE_KEY_PATTERN)
 
@@ -37,7 +37,8 @@ class ConfluenceJiraLinker:
         self.report = report
         self._listed_servers: Optional[Dict[str, str]] = None
         self._base_urls: Dict[str, str] = {}
-        self._failed_pages: Dict[str, int] = {}
+        # Pages per server whose rendered view had no link for an issue key.
+        self._failed_pages: Dict[str, Set[str]] = {}
         self._rendered_links: Dict[str, Dict[str, str]] = {}
 
     def for_page(self, page_id: str) -> Callable[[JiraIssueRef], Optional[str]]:
@@ -79,21 +80,27 @@ class ConfluenceJiraLinker:
         return self._listed_servers
 
     def _learn_base_url(self, server: str, page_id: str, key: str) -> Optional[str]:
-        if self._failed_pages.get(server, 0) >= MAX_PAGES_PER_JIRA_SERVER:
+        failed = self._failed_pages.setdefault(server, set())
+        # Once a server is given up on, no new pages are fetched for it, but a
+        # page already fetched is still read.
+        if (
+            page_id not in self._rendered_links
+            and len(failed) >= MAX_PAGES_PER_JIRA_SERVER
+        ):
             return None
         href = self._rendered_issue_links(page_id).get(key)
         if href is None:
-            failures = self._failed_pages.get(server, 0) + 1
-            self._failed_pages[server] = failures
-            if failures == MAX_PAGES_PER_JIRA_SERVER:
-                self.report.warning(
-                    title="Could not find Jira server URL",
-                    message="Issue keys from this Jira server are ingested "
-                    "without links. Confluence did not render links to its "
-                    "issues, which happens when the Jira server is unreachable "
-                    "from Confluence or the API user cannot see the issues.",
-                    context=server or "default Jira server",
-                )
+            if page_id not in failed:
+                failed.add(page_id)
+                if len(failed) == MAX_PAGES_PER_JIRA_SERVER:
+                    self.report.warning(
+                        title="Could not find Jira server URL",
+                        message="Issue keys from this Jira server are ingested "
+                        "without links. Confluence did not render links to its "
+                        "issues, which happens when the Jira server is unreachable "
+                        "from Confluence or the API user cannot see the issues.",
+                        context=server or "default Jira server",
+                    )
             return None
         base = href.split(JIRA_BROWSE_PATH, 1)[0]
         self._base_urls[server] = base

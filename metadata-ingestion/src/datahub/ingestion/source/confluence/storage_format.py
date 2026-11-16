@@ -105,6 +105,10 @@ def _child(tag: Tag, name: str) -> Optional[Tag]:
     return found if isinstance(found, Tag) else None
 
 
+def _is_shortname(text: str) -> bool:
+    return len(text) > 2 and text.startswith(":") and text.endswith(":")
+
+
 def _emoji_from_id(emoji_id: str) -> str:
     """Cloud stores an emoji's code points as hex joined by "-" (1f44d, or
     1f468-200d-1f4bb for a sequence). Custom emoji have other ids."""
@@ -339,11 +343,16 @@ class _StorageRewriter:
         self._replace_with_text(image, f"[Image: {label}]" if label else "")
 
     def _emoticon_text(self, emoticon: Tag) -> str:
+        # Cloud stores the emoji itself as the fallback for Unicode emoji, but a
+        # :shortname: for Atlassian emoticons (id "atlassian-cross_mark"), so a
+        # shortname fallback is only used when nothing better is found.
         fallback = _attr(emoticon, StorageAttr.EMOJI_FALLBACK)
-        if fallback:
+        if fallback and not _is_shortname(fallback):
             return fallback
-        emoji = _emoji_from_id(_attr(emoticon, StorageAttr.EMOJI_ID))
-        if emoji:
-            return emoji
         name = _attr(emoticon, StorageAttr.NAME)
-        return EMOTICON_NAMES.get(name) or (f":{name}:" if name else "")
+        return (
+            _emoji_from_id(_attr(emoticon, StorageAttr.EMOJI_ID))
+            or EMOTICON_NAMES.get(name)
+            or fallback
+            or (f":{name}:" if name else "")
+        )
