@@ -2389,7 +2389,43 @@ class OdbcLineage(AbstractLineage):
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
+        result = self._prefix_databricks_metastore(
+            result, platform_pair, platform_detail
+        )
         return self._post_process_athena(result, platform_pair, platform_detail, dsn)
+
+    def _prefix_databricks_metastore(
+        self,
+        lineage: Lineage,
+        platform_pair: DataPlatformPair,
+        platform_detail: PlatformDetail,
+    ) -> Lineage:
+        """Prefix a configured metastore to catalog.schema.table names, as ODBC
+        navigation and Databricks.Catalogs do, so SQL and navigation emit the same
+        URN. Names without a catalog are left alone."""
+        if platform_pair.datahub_data_platform_name != DATABRICKS_PLATFORM or (
+            not isinstance(platform_detail, DataBricksPlatformDetail)
+        ):
+            return lineage
+        metastore = platform_detail.metastore
+        platform_instance = platform_detail.platform_instance
+
+        def prefix_metastore(urn: str) -> str:
+            try:
+                parsed = DatasetUrn.from_string(urn)
+            except InvalidUrnError:
+                return urn
+            split_name = self._split_platform_instance_prefix(
+                parsed.name, platform_instance
+            )
+            if len(split_name.table_name.split(".")) != 3:
+                return urn
+            name = f"{metastore}.{split_name.table_name}"
+            if split_name.instance_prefix:
+                name = f"{split_name.instance_prefix}.{name}"
+            return str(DatasetUrn(platform=parsed.platform, name=name, env=parsed.env))
+
+        return self._transform_lineage_urns(lineage, prefix_metastore)
 
     def _post_process_athena(
         self,

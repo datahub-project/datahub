@@ -606,6 +606,52 @@ def test_odbc_navigation_warns_and_skips(
 
 
 @pytest.mark.parametrize(
+    "sql, expected_name",
+    [
+        pytest.param(
+            "SELECT * FROM main.sales.orders",
+            "dbx.my_ms.main.sales.orders",
+            id="catalog-schema-table",
+        ),
+        # Without a catalog there is nothing to put the metastore in front of.
+        pytest.param("SELECT * FROM sales.orders", "dbx.sales.orders", id="no-catalog"),
+    ],
+)
+def test_odbc_query_databricks_prefixes_metastore(sql: str, expected_name: str) -> None:
+    """Odbc.Query must emit the same Databricks URN as ODBC navigation, which
+    prefixes a configured metastore like Databricks.Catalogs."""
+    expression = (
+        'let\n    Source = Odbc.Query("driver={Simba Spark ODBC Driver};'
+        f'host=adb-1.azuredatabricks.net;dsn=spark_dsn", "{sql}")\nin\n    Source'
+    )
+    table = powerbi_data_classes.Table(
+        columns=[], measures=[], expression=expression, name="t", full_name="t"
+    )
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {
+            "server_to_platform_instance": {
+                "adb-1.azuredatabricks.net": {
+                    "platform_instance": "dbx",
+                    "metastore": "my_ms",
+                }
+            }
+        }
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        PowerBiDashboardSourceReport(),
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert [u.urn for u in combine_upstreams_from_lineage(lineages)] == [
+        f"urn:li:dataset:(urn:li:dataPlatform:databricks,{expected_name},PROD)"
+    ]
+
+
+@pytest.mark.parametrize(
     "sql, expected_urns",
     [
         pytest.param(
