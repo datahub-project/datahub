@@ -71,12 +71,13 @@ Some sources use the default `SourceReport` class, but others inherit and extend
 
 ### 3. Implement the source itself
 
-The core for the source is the `get_workunits_internal` method, which produces a stream of metadata events (typically MCP objects) wrapped up in a MetadataWorkUnit.
-The [file source](./src/datahub/ingestion/source/file.py) is a good and simple example.
+The core for the source is the `get_workunits_internal` method, which produces a stream of MetadataWorkUnits.
+Build one `MetadataChangeProposalWrapper` per aspect and call `.as_workunit()` on it, or use the
+[SDK entity classes](./src/datahub/sdk/) and their `as_workunits()`.
 
-The MetadataChangeEventClass is defined in the metadata models which are generated
+The aspect classes are defined in the metadata models which are generated
 under `metadata-ingestion/src/datahub/metadata/schema_classes.py`. There are also
-some [convenience methods](./src/datahub/emitter/mce_builder.py) for commonly used operations.
+some [convenience methods](./src/datahub/emitter/mce_builder.py) for building URNs.
 
 ### 4. Set up the dependencies
 
