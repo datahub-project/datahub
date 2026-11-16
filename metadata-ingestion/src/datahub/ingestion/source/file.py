@@ -199,6 +199,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
     This plugin pulls metadata from a previously generated file.
     The [metadata file sink](../../../../metadata-ingestion/sink_docs/metadata-file.md) can produce such files, and a number of
     samples are included in the [examples/mce_files](../../../../metadata-ingestion/examples/mce_files) directory.
+    MetadataChangeEvents in the file are deprecated; they are read as one MCP per aspect.
     """
 
     def __init__(self, ctx: PipelineContext, config: FileSourceConfig):
@@ -237,6 +238,7 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
         self,
     ) -> Iterable[MetadataWorkUnit]:
         for f in self.get_filenames():
+            warned_mce = False
             for i, obj in self.iterate_generic_file(f):
                 id = f"{f.path}:{i}"
                 if isinstance(
@@ -254,7 +256,16 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                     else:
                         yield MetadataWorkUnit(id, mcp_raw=obj)
                 else:
-                    yield MetadataWorkUnit(id, mce=obj)
+                    if not warned_mce:
+                        warned_mce = True
+                        self.report.warning(
+                            title="MetadataChangeEvents are deprecated",
+                            message="The file contains MetadataChangeEvents. They are converted to MCPs; "
+                            "reading MetadataChangeEvents will be removed in a future release. "
+                            "Rewrite the file as MCPs.",
+                            context=f.path,
+                        )
+                    yield from MetadataWorkUnit(id, mce=obj).decompose_mce_into_mcps()
             self.report.total_num_files += 1
             self.report.append_total_bytes_on_disk(f.size)
 
