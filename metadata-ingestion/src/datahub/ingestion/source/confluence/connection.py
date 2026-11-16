@@ -5,14 +5,14 @@ from datahub.ingestion.api.source import (
     SourceCapability,
     TestConnectionReport,
 )
-from datahub.ingestion.source.confluence.confluence_client import (
+from datahub.ingestion.source.confluence.client import (
     ConfluenceClient,
     create_atlassian_client,
 )
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
 

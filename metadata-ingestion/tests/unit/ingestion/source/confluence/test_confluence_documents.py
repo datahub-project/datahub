@@ -1,9 +1,9 @@
 from typing import Any, Dict, Set
 
-from datahub.ingestion.source.confluence.confluence_documents import (
+from datahub.ingestion.source.confluence.documents import (
     ConfluenceDocumentBuilder,
 )
-from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
+from datahub.ingestion.source.confluence.models import ConfluencePage
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DocumentInfoClass,

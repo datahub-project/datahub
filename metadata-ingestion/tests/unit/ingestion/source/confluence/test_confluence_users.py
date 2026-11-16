@@ -4,12 +4,12 @@ import pytest
 from atlassian.errors import ApiNotFoundError
 from requests import HTTPError
 
-from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
-from datahub.ingestion.source.confluence.confluence_html import UserRef
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.client import ConfluenceClient
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
-from datahub.ingestion.source.confluence.confluence_users import (
+from datahub.ingestion.source.confluence.storage_format import UserRef
+from datahub.ingestion.source.confluence.users import (
     MAX_USER_LOOKUP_ATTEMPTS,
     ConfluenceUserResolver,
 )

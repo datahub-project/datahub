@@ -1,16 +1,16 @@
 import logging
 from typing import Iterator, List, Set
 
-from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.client import ConfluenceClient
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.constants import (
     PAGE_PAGE_SIZE,
     SPACE_PAGE_SIZE,
 )
-from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.models import ConfluencePage
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
 

@@ -3,7 +3,7 @@ from datetime import datetime, timezone
 import pytest
 from pydantic import ValidationError
 
-from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
+from datahub.ingestion.source.confluence.models import ConfluencePage
 
 
 def test_page_flattens_the_content_api_payload() -> None:

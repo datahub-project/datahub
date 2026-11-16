@@ -4,7 +4,7 @@ from typing import Any, Dict, List, Optional
 from dateutil import parser as date_parser
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.constants import (
     FOLDER_CONTENT_TYPE,
 )
 

@@ -2,7 +2,7 @@ from typing import Dict, Iterable, List, Optional, Set
 
 from pydantic import BaseModel, Field
 
-from datahub.ingestion.source.confluence.confluence_models import (
+from datahub.ingestion.source.confluence.models import (
     ConfluenceAncestor,
     ConfluencePage,
     ConfluenceSpaceRef,

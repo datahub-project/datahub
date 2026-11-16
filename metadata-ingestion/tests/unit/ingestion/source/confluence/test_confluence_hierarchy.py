@@ -1,9 +1,9 @@
-from datahub.ingestion.source.confluence.confluence_hierarchy import (
+from datahub.ingestion.source.confluence.hierarchy import (
     build_browse_path,
     collect_folder_nodes,
     document_urn,
 )
-from datahub.ingestion.source.confluence.confluence_models import (
+from datahub.ingestion.source.confluence.models import (
     ConfluenceAncestor,
     ConfluencePage,
     ConfluenceSpaceRef,

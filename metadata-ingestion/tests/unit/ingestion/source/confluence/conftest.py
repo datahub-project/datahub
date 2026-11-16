@@ -14,18 +14,18 @@ import pytest
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport, TestConnectionReport
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
-from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
+from datahub.ingestion.source.confluence.models import ConfluencePage
+from datahub.ingestion.source.confluence.source import ConfluenceSource
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
 )
 from datahub.metadata.schema_classes import DocumentInfoClass
 from tests.unit.conftest import aspects_by_urn, aspects_of_type
 
-CONFLUENCE_CLIENT = "datahub.ingestion.source.confluence.confluence_client.Confluence"
+CONFLUENCE_CLIENT = "datahub.ingestion.source.confluence.client.Confluence"
 CLOUD_URL = "https://test.atlassian.net/wiki"
 
 

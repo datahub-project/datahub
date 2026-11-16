@@ -3,23 +3,23 @@ from typing import Any, Iterator, List, Optional
 from atlassian import Confluence
 from pydantic import ValidationError
 
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.constants import (
     PAGE_CONTENT_TYPE,
     PAGE_EXPAND,
 )
-from datahub.ingestion.source.confluence.confluence_html import UserRef
-from datahub.ingestion.source.confluence.confluence_models import (
+from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
     ConfluenceUser,
     PageBatch,
     SpaceBatch,
 )
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
+from datahub.ingestion.source.confluence.storage_format import UserRef
 
 
 def create_atlassian_client(config: ConfluenceSourceConfig) -> Confluence:

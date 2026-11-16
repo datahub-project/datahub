@@ -9,15 +9,15 @@ import pytest
 
 from datahub.ingestion.api.source import CapabilityReport
 from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
-from datahub.ingestion.source.confluence.confluence_models import (
+from datahub.ingestion.source.confluence.hierarchy import FolderNode
+from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
     ConfluenceSpaceRef,
 )
-from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
+from datahub.ingestion.source.confluence.source import ConfluenceSource
 from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,

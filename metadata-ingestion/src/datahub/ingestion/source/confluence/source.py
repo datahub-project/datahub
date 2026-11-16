@@ -19,29 +19,29 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
-from datahub.ingestion.source.confluence.confluence_client import (
+from datahub.ingestion.source.confluence.client import (
     ConfluenceClient,
     create_atlassian_client,
 )
-from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
-from datahub.ingestion.source.confluence.confluence_connection import (
+from datahub.ingestion.source.confluence.config import ConfluenceSourceConfig
+from datahub.ingestion.source.confluence.connection import (
     run_connection_test,
 )
-from datahub.ingestion.source.confluence.confluence_crawler import ConfluenceCrawler
-from datahub.ingestion.source.confluence.confluence_documents import (
+from datahub.ingestion.source.confluence.crawler import ConfluenceCrawler
+from datahub.ingestion.source.confluence.documents import (
     ConfluenceDocumentBuilder,
 )
-from datahub.ingestion.source.confluence.confluence_hierarchy import (
+from datahub.ingestion.source.confluence.hierarchy import (
     FolderNode,
     collect_folder_nodes,
 )
-from datahub.ingestion.source.confluence.confluence_html import (
+from datahub.ingestion.source.confluence.models import ConfluencePage
+from datahub.ingestion.source.confluence.report import ConfluenceSourceReport
+from datahub.ingestion.source.confluence.storage_format import (
     storage_to_markdown,
     strip_html_tags,
 )
-from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
-from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
-from datahub.ingestion.source.confluence.confluence_users import ConfluenceUserResolver
+from datahub.ingestion.source.confluence.users import ConfluenceUserResolver
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )

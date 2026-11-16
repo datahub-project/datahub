@@ -9,20 +9,20 @@ from datahub.emitter.mce_builder import (
     make_dataplatform_instance_urn,
 )
 from datahub.ingestion.source.common.subtypes import DocumentSubTypes
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.constants import (
     EXTRACTION_ALGO_VERSION,
 )
-from datahub.ingestion.source.confluence.confluence_hierarchy import (
+from datahub.ingestion.source.confluence.hierarchy import (
     PLATFORM,
     FolderNode,
     build_browse_path,
     document_id,
     document_urn,
 )
-from datahub.ingestion.source.confluence.confluence_models import (
+from datahub.ingestion.source.confluence.models import (
     ConfluenceAncestor,
     ConfluencePage,
     ConfluenceSpaceRef,

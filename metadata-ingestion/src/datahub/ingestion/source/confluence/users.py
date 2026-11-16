@@ -3,11 +3,11 @@ from typing import Dict, Optional
 from atlassian.errors import ApiNotFoundError, ApiPermissionError
 from requests import HTTPError
 
-from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
-from datahub.ingestion.source.confluence.confluence_html import UserRef
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.client import ConfluenceClient
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
+from datahub.ingestion.source.confluence.storage_format import UserRef
 
 # A timeout or rate limit on the user API is retried on the user's next
 # mention, up to this many lookups, before the user is given up on for the run.
