@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=athena_operator",
+            "externalUrl": "http://airflow.example.com/dags/athena_operator",
             "name": "athena_operator",
             "env": "PROD"
         }

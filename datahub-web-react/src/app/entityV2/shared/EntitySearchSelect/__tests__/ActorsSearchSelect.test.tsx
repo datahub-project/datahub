@@ -154,6 +154,7 @@ describe('ActorsSearchSelect', () => {
                     disconnect: vi.fn(),
                     root: null,
                     rootMargin: '',
+                    scrollMargin: '',
                     thresholds: [],
                     takeRecords: () => [],
                 };

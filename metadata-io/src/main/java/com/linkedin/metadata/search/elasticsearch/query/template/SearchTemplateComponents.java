@@ -6,6 +6,10 @@ import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.StageMatchedFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryIntent;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.understanding.QueryUnderstanding;
+import com.linkedin.metadata.search.rescore.RescoreMembership;
 import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import java.util.ArrayList;
@@ -55,7 +59,7 @@ public final class SearchTemplateComponents {
           "Search template component requires name, version, and mode");
     }
     Map<String, String> config = config(component);
-    SearchTemplateComponent implementation = registry.require(name, version);
+    SearchTemplateComponent implementation = registry.require(name, version, mode);
     implementation.validate(mode, config);
     if (mode == SearchTemplateComponentMode.OWN_RUNG && mixesQuerySections(properties)) {
       throw new SearchTemplateException(
@@ -91,18 +95,35 @@ public final class SearchTemplateComponents {
         + canonical(config(component));
   }
 
+  /**
+   * Stage 2 and Stage 3 do not run for scroll, an empty page, a non-relevance sort, a page that
+   * starts at or past the base window, or a normalized query classified as identity. Identity is a
+   * normalized query that starts with {@code urn:li:}, {@code s3://}, {@code gs://}, or {@code
+   * hdfs://}, including a quoted URN after the quotes are removed.
+   */
   public static boolean skip(
       boolean scroll,
       @Nullable Integer size,
       @Nullable List<SortCriterion> sort,
       int from,
-      int window) {
-    return scroll || (size != null && size == 0) || !relevanceSort(sort) || from >= window;
+      int window,
+      @Nullable String normalizedQuery) {
+    return scroll
+        || (size != null && size == 0)
+        || !relevanceSort(sort)
+        || from >= window
+        || identity(normalizedQuery);
+  }
+
+  private static boolean identity(@Nullable String normalizedQuery) {
+    return normalizedQuery != null
+        && QueryUnderstanding.understand(normalizedQuery) == QueryIntent.IDENTITY;
   }
 
   /**
-   * POST_PROCESS reorder. The engine total and facets stay on {@code page}. Output hits must be a
-   * duplicate-free subset of the fetched hits. Pages past the window are not passed here.
+   * POST_PROCESS reorder. Facets stay on {@code page}. {@code numEntities} includes supplementary
+   * hits the merge added to the engine total. Output hits must be a duplicate-free subset of the
+   * merged candidates. Pages past the window are not passed here.
    */
   public static void applyPostProcess(
       @Nonnull SearchTemplateComponentRegistry registry,
@@ -113,18 +134,56 @@ public final class SearchTemplateComponents {
     if (empty(spec) || spec.getMode() != SearchTemplateComponentMode.POST_PROCESS) {
       return;
     }
-    SearchTemplateComponent implementation = registry.require(spec.getName(), spec.getVersion());
-    int window = implementation.plan(request, request.getConfig());
-    if (skip(request.isScroll(), request.getSize(), request.getSort(), request.getFrom(), window)) {
+    SearchTemplateComponent implementation =
+        registry.require(spec.getName(), spec.getVersion(), spec.getMode());
+    if (!(implementation instanceof PostProcessComponent post)) {
+      throw new SearchTemplateException(
+          "Search template component "
+              + spec.getName()
+              + ":"
+              + spec.getVersion()
+              + " is not a post-process component");
+    }
+    SearchTemplateRankingInput rankingInput = request.getRanking();
+    int window =
+        implementation.plan(
+            request, request.getConfig(), rankingInput == null ? null : rankingInput.ranking());
+    String normalized = rankingInput == null ? request.getQuery() : rankingInput.normalizedQuery();
+    if (skip(
+        request.isScroll(),
+        request.getSize(),
+        request.getSort(),
+        request.getFrom(),
+        window,
+        normalized)) {
       return;
     }
-    SearchTemplateComponentPage ranked = implementation.execute(request);
-    List<SearchEntity> input = request.getHits();
-    List<SearchEntity> ordered = enforceSubset(input, ranked.hits());
+    List<SearchEntity> mainWindow = new ArrayList<>(request.getHits());
+    List<SearchEntity> rescored = post.rescore(request, mainWindow);
+    SearchResult working = new SearchResult();
+    working.setEntities(new SearchEntityArray(rescored));
+    working.setNumEntities(page.getNumEntities());
+    if (request.getRanking() != null) {
+      request.getRanking().candidates().merge().merge(working);
+    }
+    List<SearchEntity> merged =
+        working.getEntities() == null ? List.of() : new ArrayList<>(working.getEntities());
+    // Match tier classifies the fields it declared. That scan is not the response highlight report,
+    // which still runs on the page cut from this window.
+    if (post.runsMatchTier(request.getConfig())) {
+      StageMatchedFields.fill(merged, post.matchTierFieldSources(request.getConfig()));
+    }
+    List<SearchEntity> processed = post.postProcess(request, merged);
+    List<SearchEntity> guarded = enforceSubset(merged, processed);
+    working.setEntities(new SearchEntityArray(guarded));
+    RescoreMembership.reconcile(working, mainWindow);
+    List<SearchEntity> ordered =
+        working.getEntities() == null ? List.of() : new ArrayList<>(working.getEntities());
     int start = Math.min(Math.max(request.getFrom(), 0), ordered.size());
     int requested = request.getSize() == null ? ordered.size() - start : request.getSize();
     int end = Math.min(start + Math.max(requested, 0), ordered.size());
     page.setEntities(new SearchEntityArray(ordered.subList(start, end)));
+    page.setNumEntities(working.getNumEntities());
     page.setFrom(request.getFrom());
     if (request.getSize() != null) {
       page.setPageSize(request.getSize());
@@ -150,7 +209,8 @@ public final class SearchTemplateComponents {
         entities,
         raw.highlights(),
         raw.shardFailed,
-        raw.renderedQuery());
+        raw.renderedQuery(),
+        raw.candidates());
   }
 
   @Nonnull

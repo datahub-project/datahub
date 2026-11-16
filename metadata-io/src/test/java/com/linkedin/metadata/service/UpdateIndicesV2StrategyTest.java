@@ -10,9 +10,12 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.UrnArray;
@@ -30,6 +33,7 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -50,6 +54,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -1760,5 +1765,222 @@ public class UpdateIndicesV2StrategyTest {
     org.testng.Assert.assertEquals(
         UpdateIndicesV2Strategy.sha256Hex("h\u00e9llo \uD83D\uDE80\r\nworld"),
         "f319ae6318b99bf8c83d79fe08bdcbc42928dc83c0d9e23145440c83141321a9");
+  }
+
+  @Test
+  public void testRestateWithoutPreviousNullsMappedStructuredPropertiesTheAspectOmits()
+      throws Exception {
+    IndexConvention indexConvention = v2IndexConvention();
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), eq("datasetindex_v2")))
+        .thenReturn(Optional.of(Set.of("structuredProperties.kept", "structuredProperties.gone")));
+    ObjectNode document = structuredPropertyDocument();
+    stubTransform(document);
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, null, indexConvention)
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    JsonNode written = writtenV2Document();
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertTrue(written.get("structuredProperties.gone").isNull());
+    assertEquals(written.get("name").asText(), "table");
+    assertFalse(written.has("structuredProperties"));
+  }
+
+  @Test
+  public void testRestateNullsVersionedLeavesAndKeepsTheOnesTheAspectSets() throws Exception {
+    Map<String, Object> mapping =
+        Map.of(
+            "properties",
+            Map.of(
+                "structuredProperties",
+                Map.of(
+                    "properties",
+                    Map.of(
+                        "_versioned",
+                        Map.of(
+                            "properties",
+                            Map.of(
+                                "hello",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of(
+                                            "properties",
+                                            Map.of("string", Map.of("type", "keyword"))))),
+                                "gone",
+                                Map.of(
+                                    "properties",
+                                    Map.of(
+                                        "00000000000001",
+                                        Map.of(
+                                            "properties",
+                                            Map.of("string", Map.of("type", "keyword")))))))))));
+    StructuredPropertyMappingCache cache =
+        new StructuredPropertyMappingCache(true, 300, (opContext, indexName) -> mapping);
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("structuredProperties._versioned.hello.00000000000001.string", "yes");
+    document.put("name", "table");
+    stubTransform(document);
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, null, v2IndexConvention())
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    JsonNode written = writtenV2Document();
+    assertEquals(
+        written.get("structuredProperties._versioned.hello.00000000000001.string").asText(), "yes");
+    assertTrue(written.get("structuredProperties._versioned.gone.00000000000001.string").isNull());
+    assertFalse(written.has("structuredProperties._versioned"));
+    assertEquals(written.get("name").asText(), "table");
+  }
+
+  @Test
+  public void testRestateNullsTheUnionOfTheV2AndSemanticMappings() throws Exception {
+    IndexConvention indexConvention = v2IndexConvention();
+    SemanticSearchConfiguration semanticConfig = enabledSemanticConfig();
+    when(elasticSearchService.indexExists(any(), eq("datasetindex_v2_semantic"))).thenReturn(true);
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), eq("datasetindex_v2")))
+        .thenReturn(Optional.of(Set.of("structuredProperties.gone")));
+    when(cache.fields(any(), eq("datasetindex_v2_semantic")))
+        .thenReturn(Optional.of(Set.of("structuredProperties.semantic_only")));
+    stubTransform(structuredPropertyDocument());
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, semanticConfig, indexConvention)
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    JsonNode v2 = writtenV2Document();
+    JsonNode semantic = writtenSemanticDocument();
+    assertTrue(v2.get("structuredProperties.gone").isNull());
+    assertTrue(v2.get("structuredProperties.semantic_only").isNull());
+    assertEquals(v2.get("structuredProperties.kept").asText(), "yes");
+    assertEquals(semantic, v2);
+  }
+
+  @Test
+  public void testUpsertWithPreviousDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    StringMap properties = new StringMap();
+    properties.put("FORCE_INDEXING", "true");
+    when(mockSystemMetadata.getProperties()).thenReturn(properties);
+    stubTransform(structuredPropertyDocument());
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.UPSERT);
+
+    strategyWithCatalog(cache, null, v2IndexConvention())
+        .updateSearchIndicesForEvent(operationContext, mockEvent, mockPreviousAspect);
+
+    JsonNode written = writtenV2Document();
+    assertEquals(written.get("structuredProperties.kept").asText(), "yes");
+    assertFalse(written.has("structuredProperties.gone"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testRestateWithTheFlagOffDoesNotNullFromTheMappingCatalog() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(false);
+    stubTransform(structuredPropertyDocument());
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, null, v2IndexConvention())
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    assertFalse(writtenV2Document().has("structuredProperties.gone"));
+    verify(cache, never()).fields(any(), anyString());
+  }
+
+  @Test
+  public void testMappingReadFailureLeavesTheRestateWriteUnchanged() throws Exception {
+    StructuredPropertyMappingCache cache = mock(StructuredPropertyMappingCache.class);
+    when(cache.isEnabled()).thenReturn(true);
+    when(cache.fields(any(), anyString())).thenReturn(Optional.empty());
+    stubTransform(structuredPropertyDocument());
+    when(mockAspectSpec.getName()).thenReturn(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+    when(mockEvent.getChangeType()).thenReturn(ChangeType.RESTATE);
+
+    strategyWithCatalog(cache, null, v2IndexConvention())
+        .updateSearchIndicesForEvent(operationContext, mockEvent, null);
+
+    assertFalse(writtenV2Document().has("structuredProperties.gone"));
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), anyString(), anyString());
+  }
+
+  private static ObjectNode structuredPropertyDocument() {
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.put("structuredProperties.kept", "yes");
+    document.put("name", "table");
+    return document;
+  }
+
+  private void stubTransform(ObjectNode document) throws Exception {
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            any(RecordTemplate.class),
+            any(AspectSpec.class),
+            eq(false),
+            any(AuditStamp.class)))
+        .thenReturn(Optional.of(document));
+  }
+
+  private IndexConvention v2IndexConvention() {
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexName(any(), eq("dataset"))).thenReturn("datasetindex_v2");
+    when(indexConvention.getEntityIndexNameSemantic(any(), eq("dataset")))
+        .thenReturn("datasetindex_v2_semantic");
+    return indexConvention;
+  }
+
+  private SemanticSearchConfiguration enabledSemanticConfig() {
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    return semanticConfig;
+  }
+
+  private UpdateIndicesV2Strategy strategyWithCatalog(
+      StructuredPropertyMappingCache cache,
+      SemanticSearchConfiguration semanticConfig,
+      IndexConvention indexConvention) {
+    return new UpdateIndicesV2Strategy(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        "MD5",
+        semanticConfig,
+        indexConvention,
+        true,
+        mockMappingsBuilder,
+        null,
+        cache);
+  }
+
+  private JsonNode writtenV2Document() throws Exception {
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocument(eq(operationContext), eq("dataset"), document.capture(), anyString());
+    return operationContext.getObjectMapper().readTree(document.getValue());
+  }
+
+  private JsonNode writtenSemanticDocument() throws Exception {
+    ArgumentCaptor<String> document = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext), eq("datasetindex_v2_semantic"), document.capture(), anyString());
+    return operationContext.getObjectMapper().readTree(document.getValue());
   }
 }

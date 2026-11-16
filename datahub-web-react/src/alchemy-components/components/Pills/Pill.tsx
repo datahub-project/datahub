@@ -69,6 +69,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             onPillClick,
             customStyle,
             customIconRenderer,
+            customRightIconRenderer,
             showLabel,
             className,
             dataTestId,
@@ -81,6 +82,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             onBlur,
             onPointerEnter,
             onPointerLeave,
+            ...rest
         },
         ref,
     ) => {
@@ -139,10 +141,37 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
         };
 
         const hasLeftIcon = Boolean(customIconRenderer || leftIcon);
-        const hasRightIcon = Boolean((rightIcons && rightIcons.length > 0) || rightIcon);
+        const hasRightIcon = Boolean((rightIcons && rightIcons.length > 0) || rightIcon || customRightIconRenderer);
+
+        const renderTrailingIcons = () => {
+            if (rightIcons && rightIcons.length > 0) {
+                return rightIcons.map((r) =>
+                    renderIcon(
+                        r.icon,
+                        r.onClick,
+                        r.ariaLabel,
+                        r.testId,
+                        r.testId ?? r.ariaLabel ?? r.icon.displayName ?? r.icon.name,
+                    ),
+                );
+            }
+            return rightIcon ? renderIcon(rightIcon, onClickRightIcon) : null;
+        };
+
+        const renderRightContent = () => {
+            const trailing = renderTrailingIcons();
+            if (!customRightIconRenderer) return trailing;
+            return (
+                <>
+                    {customRightIconRenderer()}
+                    {trailing}
+                </>
+            );
+        };
 
         return (
             <PillContainer
+                {...pickDomAttributes(rest)}
                 ref={ref}
                 variant={variant}
                 color={color}
@@ -170,18 +199,14 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             >
                 {customIconRenderer ? customIconRenderer() : leftIcon && renderIcon(leftIcon, onClickLeftIcon)}
                 <PillText style={customStyle}>{label}</PillText>
-                {rightIcons && rightIcons.length > 0
-                    ? rightIcons.map((r) =>
-                          renderIcon(
-                              r.icon,
-                              r.onClick,
-                              r.ariaLabel,
-                              r.testId,
-                              r.testId ?? r.ariaLabel ?? r.icon.displayName ?? r.icon.name,
-                          ),
-                      )
-                    : rightIcon && renderIcon(rightIcon, onClickRightIcon)}
+                {renderRightContent()}
             </PillContainer>
         );
     },
 );
+
+function pickDomAttributes(props: object): Record<string, unknown> {
+    return Object.fromEntries(
+        Object.entries(props).filter(([key]) => key.startsWith('data-') || key.startsWith('aria-')),
+    );
+}

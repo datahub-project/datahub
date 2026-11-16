@@ -140,7 +140,7 @@ abstract class SearchTemplateFixture {
       """
       {
         "functions": [
-          { "filter": { "term": { "hasActiveIncidents": { "value": true } } }, "weight": 2.0 }
+          { "filter": { "exists": { "field": "activeIncidents_urn" } }, "weight": 2.0 }
         ],
         "score_mode": "multiply",
         "boost_mode": "replace"
@@ -283,6 +283,7 @@ abstract class SearchTemplateFixture {
                 new ArrayList<>(page.getEntities()),
                 List.of(),
                 false,
+                null,
                 null);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);

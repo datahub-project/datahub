@@ -1,5 +1,11 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
+import com.fasterxml.jackson.core.JsonParser;
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Documentation;
@@ -27,6 +33,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.DocumentationMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.InstitutionalMemoryMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.OwnershipMapper;
 import com.linkedin.datahub.graphql.types.common.mappers.util.SystemMetadataUtils;
+import com.linkedin.datahub.graphql.types.common.mappers.util.UnknownEnumValues;
 import com.linkedin.datahub.graphql.types.domain.DomainAssociationMapper;
 import com.linkedin.datahub.graphql.types.glossary.mappers.GlossaryTermsMapper;
 import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
@@ -38,12 +45,16 @@ import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
 import com.linkedin.metadata.Constants;
 import com.linkedin.structured.StructuredProperties;
+import java.io.IOException;
 import javax.annotation.Nullable;
 
 /** Maps GMS EntityResponse representing a Document to a GraphQL Document object. */
 public class DocumentMapper {
 
   private static final String DATAHUB_DATA_PLATFORM_URN = "urn:li:dataPlatform:datahub";
+  private static final ObjectMapper OKF_YAML_MAPPER =
+      new ObjectMapper(new YAMLFactory().enable(JsonParser.Feature.STRICT_DUPLICATE_DETECTION));
+  private static final ObjectMapper OKF_JSON_MAPPER = new ObjectMapper();
 
   public static Document map(@Nullable QueryContext context, final EntityResponse entityResponse) {
     final Document result = new Document();
@@ -97,6 +108,14 @@ public class DocumentMapper {
       result.setSettings(
           mapDocumentSettings(
               new com.linkedin.knowledge.DocumentSettings(envelopedSettings.getValue().data())));
+    }
+
+    final EnvelopedAspect envelopedOkfProperties =
+        aspects.get(Constants.OKF_PROPERTIES_ASPECT_NAME);
+    if (envelopedOkfProperties != null) {
+      result.setOkfProperties(
+          mapOkfProperties(
+              new com.linkedin.okf.OkfProperties(envelopedOkfProperties.getValue().data())));
     }
 
     // Map SubTypes aspect to subType field (get first type if available)
@@ -270,6 +289,10 @@ public class DocumentMapper {
                             null, asset.getAsset()));
                     return assetInfo;
                   })
+              // Skip assets of entity types the registry doesn't know (e.g. after a rollback).
+              .filter(
+                  assetInfo ->
+                      assetInfo.getAsset() != null || !handling().toleratesUnknownEntityAspect())
               .collect(java.util.stream.Collectors.toList()));
     }
 
@@ -314,8 +337,12 @@ public class DocumentMapper {
         new com.linkedin.datahub.graphql.generated.DocumentStatus();
 
     // Map state
+    // A state only a newer version knows never shows as published.
     result.setState(
-        com.linkedin.datahub.graphql.generated.DocumentState.valueOf(status.getState().name()));
+        UnknownEnumValues.map(
+            com.linkedin.datahub.graphql.generated.DocumentState.class,
+            status.getState(),
+            com.linkedin.datahub.graphql.generated.DocumentState.UNPUBLISHED));
 
     return result;
   }
@@ -327,9 +354,12 @@ public class DocumentMapper {
         new com.linkedin.datahub.graphql.generated.DocumentSource();
 
     // Map the PDL enum to the GraphQL enum
+    // A source type only a newer version knows shows as EXTERNAL, keeping its external url and id.
     result.setSourceType(
-        com.linkedin.datahub.graphql.generated.DocumentSourceType.valueOf(
-            source.getSourceType().name()));
+        UnknownEnumValues.map(
+            com.linkedin.datahub.graphql.generated.DocumentSourceType.class,
+            source.getSourceType(),
+            com.linkedin.datahub.graphql.generated.DocumentSourceType.EXTERNAL));
 
     if (source.hasExternalUrl()) {
       result.setExternalUrl(source.getExternalUrl());
@@ -350,6 +380,104 @@ public class DocumentMapper {
 
     result.setShowInGlobalContext(settings.isShowInGlobalContext());
 
+    return result;
+  }
+
+  @Nullable
+  private static com.linkedin.datahub.graphql.generated.OkfProperties mapOkfProperties(
+      final com.linkedin.okf.OkfProperties properties) {
+    if (!properties.hasRaw()) {
+      return null;
+    }
+    final com.linkedin.datahub.graphql.generated.OkfProperties result =
+        new com.linkedin.datahub.graphql.generated.OkfProperties();
+    if (properties.hasBundle()) {
+      result.setBundle(mapOkfBundle(properties.getBundle()));
+    }
+    if (properties.hasConceptId()) {
+      result.setConceptId(properties.getConceptId());
+    }
+    if (properties.hasDeclaredId()) {
+      result.setDeclaredId(properties.getDeclaredId());
+    }
+    if (properties.hasType()) {
+      result.setType(properties.getType());
+    }
+    if (properties.hasDescription()) {
+      result.setDescription(properties.getDescription());
+    }
+    if (properties.hasStatus()) {
+      result.setStatus(properties.getStatus());
+    }
+    if (properties.hasStaleAfter()) {
+      result.setStaleAfter(properties.getStaleAfter());
+    }
+    if (properties.hasGenerated()) {
+      result.setGenerated(mapOkfStamp(properties.getGenerated()));
+    }
+    if (properties.hasVerified()) {
+      result.setVerified(
+          properties.getVerified().stream()
+              .map(DocumentMapper::mapOkfStamp)
+              .collect(java.util.stream.Collectors.toList()));
+    }
+    result.setRaw(properties.getRaw());
+    result.setFrontmatter(parseOkfFrontmatter(properties.getRaw()));
+    if (properties.hasRevision()) {
+      result.setRevision(mapOkfRevision(properties.getRevision()));
+    }
+    return result;
+  }
+
+  @Nullable
+  private static String parseOkfFrontmatter(final String raw) {
+    try {
+      // Read a tree so YAML dates stay strings instead of becoming Java timestamps.
+      final JsonNode values = OKF_YAML_MAPPER.readTree(raw);
+      return values != null && values.isObject()
+          ? OKF_JSON_MAPPER.writeValueAsString(values)
+          : null;
+    } catch (IOException e) {
+      return null;
+    }
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfRevision mapOkfRevision(
+      final com.linkedin.okf.OkfRevision revision) {
+    final com.linkedin.datahub.graphql.generated.OkfRevision result =
+        new com.linkedin.datahub.graphql.generated.OkfRevision();
+    if (revision.hasRef()) {
+      result.setRef(revision.getRef());
+    }
+    if (revision.hasCommit()) {
+      result.setCommit(revision.getCommit());
+    }
+    if (revision.hasBlobSha()) {
+      result.setBlobSha(revision.getBlobSha());
+    }
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfBundle mapOkfBundle(
+      final com.linkedin.okf.OkfBundle bundle) {
+    final com.linkedin.datahub.graphql.generated.OkfBundle result =
+        new com.linkedin.datahub.graphql.generated.OkfBundle();
+    result.setLocation(bundle.getLocation());
+    result.setRootPath(bundle.getRootPath());
+    if (bundle.hasOkfVersion()) {
+      result.setOkfVersion(bundle.getOkfVersion());
+    }
+    return result;
+  }
+
+  private static com.linkedin.datahub.graphql.generated.OkfStamp mapOkfStamp(
+      final com.linkedin.okf.OkfStamp stamp) {
+    final com.linkedin.datahub.graphql.generated.OkfStamp result =
+        new com.linkedin.datahub.graphql.generated.OkfStamp();
+    result.setBy(stamp.getBy());
+    if (stamp.hasAt()) {
+      result.setAt(stamp.getAt());
+    }
     return result;
   }
 }

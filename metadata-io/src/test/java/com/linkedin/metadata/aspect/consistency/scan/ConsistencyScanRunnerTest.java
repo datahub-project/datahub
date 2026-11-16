@@ -14,6 +14,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.concurrent.atomic.AtomicInteger;
 import java.util.concurrent.atomic.AtomicReference;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.testng.annotations.BeforeMethod;
@@ -346,5 +347,94 @@ public class ConsistencyScanRunnerTest {
     assertEquals(result.getTotalEstimate().longValue(), 0L);
     assertTrue(result.getFinalProgress().isFinished());
     verify(consistencyService, times(1)).checkBatch(eq(opContext), any(), isNull());
+  }
+
+  @Test
+  public void testZeroEntityScrollContinuesWithoutCountingTowardTheLimit() {
+    when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
+        .thenReturn(Optional.of(100L));
+    when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), isNull()))
+        .thenReturn(
+            CheckResult.builder()
+                .entitiesScanned(0)
+                .issuesFound(1)
+                .issues(List.of())
+                .scrollId("spidx:more")
+                .build(),
+            CheckResult.builder()
+                .entitiesScanned(0)
+                .issuesFound(2)
+                .issues(List.of())
+                .scrollId(null)
+                .build(),
+            CheckResult.builder()
+                .entitiesScanned(50)
+                .issuesFound(9)
+                .issues(List.of())
+                .scrollId("should-not-run")
+                .build());
+
+    AtomicInteger batches = new AtomicInteger();
+    ConsistencyScanResult result =
+        runner.run(
+            opContext,
+            ConsistencyScanRequest.builder()
+                .entityType("dataset")
+                .limit(10)
+                .onBatch(
+                    r -> {
+                      batches.incrementAndGet();
+                      return BatchHandleResult.none();
+                    })
+                .build());
+
+    assertEquals(batches.get(), 2);
+    assertEquals(result.getEntitiesScanned(), 0);
+    assertEquals(result.getIssuesFound(), 3);
+    ArgumentCaptor<CheckBatchRequest> requests = ArgumentCaptor.forClass(CheckBatchRequest.class);
+    verify(consistencyService, times(2)).checkBatch(eq(opContext), requests.capture(), isNull());
+    assertNull(requests.getAllValues().get(0).getScrollId());
+    assertEquals(requests.getAllValues().get(1).getScrollId(), "spidx:more");
+  }
+
+  @Test
+  public void testEntityLimitStillDrainsCheckOwnedScroll() {
+    when(consistencyService.countMatching(eq(opContext), any(CheckBatchRequest.class)))
+        .thenReturn(Optional.of(1000L));
+    when(consistencyService.isCheckOwnedScroll("spidx:more")).thenReturn(true);
+    when(consistencyService.checkBatch(eq(opContext), any(CheckBatchRequest.class), isNull()))
+        .thenReturn(
+            CheckResult.builder()
+                .entitiesScanned(10)
+                .issuesFound(0)
+                .issues(List.of())
+                .scrollId("spidx:more")
+                .build(),
+            CheckResult.builder()
+                .entitiesScanned(0)
+                .issuesFound(2)
+                .issues(List.of())
+                .scrollId(null)
+                .build(),
+            CheckResult.builder()
+                .entitiesScanned(10)
+                .issuesFound(9)
+                .issues(List.of())
+                .scrollId("more")
+                .build());
+
+    ConsistencyScanResult result =
+        runner.run(
+            opContext,
+            ConsistencyScanRequest.builder().entityType("dataset").batchSize(25).limit(10).build());
+
+    assertEquals(result.getEntitiesScanned(), 10);
+    assertEquals(result.getIssuesFound(), 2);
+    ArgumentCaptor<CheckBatchRequest> requests = ArgumentCaptor.forClass(CheckBatchRequest.class);
+    verify(consistencyService, times(2)).checkBatch(eq(opContext), requests.capture(), isNull());
+    assertNull(requests.getAllValues().get(0).getScrollId());
+    assertEquals(requests.getAllValues().get(0).getBatchSize(), 10);
+    assertEquals(requests.getAllValues().get(1).getScrollId(), "spidx:more");
+    assertEquals(requests.getAllValues().get(1).getBatchSize(), 25);
   }
 }

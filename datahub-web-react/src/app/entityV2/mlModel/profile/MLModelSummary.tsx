@@ -7,7 +7,7 @@ import styled from 'styled-components';
 
 import { ColorValues } from '@components/theme/config';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
 import { notEmpty } from '@app/entityV2/shared/utils';
 import { TimestampPopover } from '@app/sharedV2/TimestampPopover';

@@ -1,9 +1,9 @@
 import React, { useMemo } from 'react';
 
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 
 import EntityRegistry from '@app/entityV2/EntityRegistry';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
 
 import { CorpGroup, CorpUser, DataHubPolicy, DataHubRole, EntityType, Maybe } from '@types';
 

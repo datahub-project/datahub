@@ -287,7 +287,7 @@ class ExternalTableReference:
 
             return cls(
                 path=d["path"],
-                has_permission=d.get("has_permission") or True,
+                has_permission=bool(d.get("has_permission", True)),
                 name=d.get("securable_name"),
                 type=securable_type,
                 storage_location=d.get("storage_location"),

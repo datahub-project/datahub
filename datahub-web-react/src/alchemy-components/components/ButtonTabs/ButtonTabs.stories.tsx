@@ -80,9 +80,6 @@ export const WithPanels: Story = {
 
 export const ChromeOnly: Story = {
     name: 'TabButtons only (text)',
-    args: {
-        tabs: PANEL_TABS,
-    },
     render: function Render() {
         const tabs: TabButtonItem[] = [
             { key: 'ansi', label: 'ANSI SQL' },
@@ -95,9 +92,6 @@ export const ChromeOnly: Story = {
 
 export const LineageTabs: Story = {
     name: 'TabButtons lineage (icon + text)',
-    args: {
-        tabs: PANEL_TABS,
-    },
     render: function Render() {
         const tabs: TabButtonItem[] = [
             {
@@ -128,9 +122,6 @@ export const LineageTabs: Story = {
 
 export const IconOnlyTabs: Story = {
     name: 'TabButtons icon-only (schema raw/table)',
-    args: {
-        tabs: PANEL_TABS,
-    },
     render: function Render() {
         const tabs: TabButtonItem[] = [
             {
@@ -159,9 +150,6 @@ export const IconOnlyTabs: Story = {
 
 export const TextHugged: Story = {
     name: 'TabButtons text hugged',
-    args: {
-        tabs: PANEL_TABS,
-    },
     render: function Render() {
         const tabs: TabButtonItem[] = [
             { key: 'ansi', label: 'ANSI SQL' },

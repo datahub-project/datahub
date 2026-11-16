@@ -20,6 +20,7 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIn
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.EmptyPostProcessComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
@@ -42,6 +43,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
@@ -195,7 +197,18 @@ public class ElasticSearchServiceFactory {
   @Bean
   protected SearchTemplateComponentRegistry searchTemplateComponentRegistry(
       final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
-    return new SearchTemplateComponentRegistry(searchTemplateComponents.getIfAvailable(List::of));
+    List<SearchTemplateComponent> components =
+        new ArrayList<>(searchTemplateComponents.getIfAvailable(List::of));
+    boolean registered =
+        components.stream()
+            .anyMatch(
+                component ->
+                    EmptyPostProcessComponent.NAME.equals(component.name())
+                        && component.version() == EmptyPostProcessComponent.VERSION);
+    if (!registered) {
+      components.add(new EmptyPostProcessComponent());
+    }
+    return new SearchTemplateComponentRegistry(components);
   }
 
   @Bean

@@ -6,7 +6,7 @@ import ViewMoreDropdown from '@app/entityV2/shared/externalUrl/components/VeiwMo
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
 import useExternalLinks from '@app/entityV2/shared/externalUrl/useExternalLinks';
 import usePlatrofmLinks from '@app/entityV2/shared/externalUrl/usePlatformLinks';
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import OverflowList from '@src/app/sharedV2/OverflowList';
 
 const Links = styled.div<{ $shouldTakeAllAvailableSpace?: boolean }>`

@@ -7,6 +7,7 @@ import { ChildrenLoaderProvider } from '@app/homeV3/modules/hierarchyViewModule/
 import useChildrenGlossaryLoader from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useChildrenGlossarysLoader';
 import useParentValuesToLoadChildren from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/hooks/useParentValues';
 import { ChildrenLoaderMetadata } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/types';
+import { getTotalChildren } from '@app/homeV3/modules/hierarchyViewModule/childrenLoader/utils';
 import { useHierarchyFormContext } from '@app/homeV3/modules/hierarchyViewModule/components/form/HierarchyFormContext';
 import { FORM_FIELD_GLOSSARY_ASSETS } from '@app/homeV3/modules/hierarchyViewModule/components/form/constants';
 import GlossaryTreeNodeRenderer from '@app/homeV3/modules/hierarchyViewModule/components/glossary/GlossaryTreeNodeRenderer';
@@ -42,7 +43,7 @@ export default function GlossarySelectableTreeView() {
             tree.update(newNodes, parentDomainUrn);
             tree.updateNode(parentDomainUrn, {
                 isChildrenLoading: false,
-                totalChildren: (metadata.totalNumberOfChildren ?? 0) + (metadata.totalNumberOfRelatedEntities ?? 0),
+                totalChildren: getTotalChildren(metadata),
             });
         },
         [tree, removeParentValue],

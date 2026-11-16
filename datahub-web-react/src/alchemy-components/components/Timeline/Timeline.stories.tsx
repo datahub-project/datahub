@@ -68,3 +68,5 @@ export const sandbox: Story = {
         return <Timeline {...props} />;
     },
 };
+
+export const example: Story = {};

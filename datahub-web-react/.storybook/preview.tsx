@@ -3,7 +3,7 @@ import { DocsContainer } from '@storybook/blocks';
 import { ConfigProvider } from 'antd';
 // FYI: import of antd styles required to show components based on it correctly
 import 'antd/dist/antd.css';
-import React, { useEffect } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider, createGlobalStyle } from 'styled-components';
 
@@ -11,6 +11,7 @@ import { LOCALE_MAP } from '../src/app/i18n/constants';
 import { isSupportedLanguage } from '../src/app/i18n/utils';
 import GlobalThemeStyles from '../src/app/theme/GlobalThemeStyles';
 import themes from '../src/conf/theme/themes';
+import { CustomThemeContext } from '../src/customThemeContext';
 import dayjs from '../src/utils/dayjs';
 import DocTemplate from './DocTemplate.mdx';
 import { darkDocsTheme, lightDocsTheme } from './docsThemes';
@@ -114,16 +115,21 @@ function PreviewTheme({
     children: React.ReactNode;
 }) {
     const activeTheme = resolveTheme(themeId);
+    // Alchemy `Icon` and `Text` resolve semantic color names (e.g. `icon`) through this context, as the
+    // app's `CustomThemeProvider` supplies it; without it those colors fall back to black.
+    const customTheme = useMemo(() => ({ theme: activeTheme, updateTheme: () => null }), [activeTheme]);
     return (
-        <ThemeProvider theme={activeTheme}>
-            {injectGlobalStyles && (
-                <>
-                    <GlobalThemeStyles />
-                    <ThemedPreviewStyles $bg={activeTheme.colors.bg} $text={activeTheme.colors.text} />
-                </>
-            )}
-            {children}
-        </ThemeProvider>
+        <CustomThemeContext.Provider value={customTheme}>
+            <ThemeProvider theme={activeTheme}>
+                {injectGlobalStyles && (
+                    <>
+                        <GlobalThemeStyles />
+                        <ThemedPreviewStyles $bg={activeTheme.colors.bg} $text={activeTheme.colors.text} />
+                    </>
+                )}
+                {children}
+            </ThemeProvider>
+        </CustomThemeContext.Provider>
     );
 }
 

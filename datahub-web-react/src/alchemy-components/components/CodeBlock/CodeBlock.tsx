@@ -16,6 +16,7 @@ import {
     CodeBlockContent,
     CodeBlockEmptyBody,
     CodeBlockErrorMessage,
+    CodeBlockFooter,
     CodeBlockHeader,
     CodeBlockIssueList,
     CodeBlockRoot,
@@ -472,7 +473,11 @@ export function CodeBlock({
                         <span>{truncatedMessage ?? t('codeBlock.truncated')}</span>
                     </TruncatedBanner>
                 )}
-                {emptyBody ? null : footer}
+                {!emptyBody && footer ? (
+                    <CodeBlockFooter data-testid={getCodeBlockTestId(dataTestId, 'footer', 'code-block-footer')}>
+                        {footer}
+                    </CodeBlockFooter>
+                ) : null}
             </CodeBlockContainer>
             {status.displayError ? (
                 <CodeBlockErrorMessage data-testid={getCodeBlockTestId(dataTestId, 'error', 'code-block-error')}>

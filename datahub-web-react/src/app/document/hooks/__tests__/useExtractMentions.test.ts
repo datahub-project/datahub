@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it } from 'vitest';
 
 import { useExtractMentions } from '@app/document/hooks/useExtractMentions';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useExtractMentions', () => {
     it('should extract document URNs from markdown links', () => {

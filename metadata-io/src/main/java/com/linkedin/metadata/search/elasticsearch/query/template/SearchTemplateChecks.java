@@ -34,6 +34,8 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         null,
         null,
         null,
@@ -51,6 +53,8 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         context,
         retriever,
         entitySpecs,
@@ -62,6 +66,8 @@ public final class SearchTemplateChecks {
       int maxLeafClauses,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs) {
@@ -70,6 +76,8 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         maxRoutes,
         maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
         context,
         retriever,
         entitySpecs,
@@ -81,6 +89,30 @@ public final class SearchTemplateChecks {
       int maxLeafClauses,
       int maxRoutes,
       int maxRoutePatternLength,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    checkMerged(
+        merged,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  public static void checkMerged(
+      @Nonnull MergedSearchTemplate merged,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
@@ -143,6 +175,9 @@ public final class SearchTemplateChecks {
     if (merged.getBoostMode() != null) {
       composed.setBoostMode(merged.getBoostMode());
     }
+    if (merged.getSearchType() != null) {
+      composed.setSearchType(merged.getSearchType());
+    }
     if (merged.getFieldFactors() != null) {
       composed.setFieldFactors(merged.getFieldFactors());
     }
@@ -167,6 +202,7 @@ public final class SearchTemplateChecks {
         && !SearchTemplateLoader.emptyHighlights(merged.getHighlightFields())) {
       composed.setHighlightFields(merged.getHighlightFields());
     }
+    composed.setMatchedFields(merged.isMatchedFields());
     if (!merged.getParameters().isEmpty()) {
       composed.setParameters(new StringMap(merged.getParameters()));
     }
@@ -175,6 +211,8 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         maxRoutes,
         maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
         context,
         retriever,
         entitySpecs,
@@ -185,6 +223,8 @@ public final class SearchTemplateChecks {
     check(
         properties,
         maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
         null,
@@ -202,6 +242,8 @@ public final class SearchTemplateChecks {
     check(
         properties,
         maxLeafClauses,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
         Integer.MAX_VALUE,
         Integer.MAX_VALUE,
         context,
@@ -215,6 +257,8 @@ public final class SearchTemplateChecks {
       int maxLeafClauses,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs) {
@@ -223,6 +267,8 @@ public final class SearchTemplateChecks {
         maxLeafClauses,
         maxRoutes,
         maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
         context,
         retriever,
         entitySpecs,
@@ -238,12 +284,38 @@ public final class SearchTemplateChecks {
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
+    check(
+        properties,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        Integer.MAX_VALUE,
+        Integer.MAX_VALUE,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  public static void check(
+      @Nonnull SearchTemplateProperties properties,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     try {
       checkProperties(
           properties,
           maxLeafClauses,
           maxRoutes,
           maxRoutePatternLength,
+          maxRankingSignals,
+          maxRankingWindow,
           context,
           retriever,
           entitySpecs,
@@ -260,12 +332,22 @@ public final class SearchTemplateChecks {
       int maxLeafClauses,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplatePolicyChecks.check(
-        properties, maxRoutes, maxRoutePatternLength, context, retriever, entitySpecs, registry);
+        properties,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
     Map<String, String> fragments = rewriteFragments(properties, context, retriever);
     String query =
         rewrite(section(properties.hasQuery() ? properties.getQuery() : null), context, retriever);

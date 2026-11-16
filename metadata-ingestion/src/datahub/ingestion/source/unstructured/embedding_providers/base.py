@@ -6,10 +6,11 @@ chain) or hit raw HTTP endpoints with ``requests`` — the latter mirrors the
 wire-level contract used by the Java GMS embedding providers.
 """
 
+import enum
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, Optional
 
 import requests
 from requests.adapters import HTTPAdapter
@@ -61,15 +62,33 @@ class EmbeddingResult:
     embeddings: list[list[float]]
 
 
+class EmbeddingTask(enum.Enum):
+    """What the text is for. Asymmetric models (Cohere v3, Gemini) embed a search
+    query differently from the documents it searches, as GMS does at query time."""
+
+    DOCUMENT = "document"
+    QUERY = "query"
+
+
 class EmbeddingProvider(ABC):
     """Provider interface for generating text embeddings."""
 
     #: Stable identifier used in log messages and aspect ``modelVersion`` strings,
     #: e.g. ``"bedrock/cohere.embed-english-v3"``. Set by subclasses.
     model_id: str
+    # Optional recipe/server override needed to reproduce serialized aspect sizing.
+    model_embedding_key: Optional[str] = None
+
+    @property
+    def semantic_model_version(self) -> str:
+        return self.model_id
+
+    def close(self) -> None:
+        """Release any owned transport resources."""
+        return None
 
     @abstractmethod
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         """Generate embeddings for the given input texts."""
 
 

@@ -83,6 +83,28 @@ public class SearchTemplateGoldenTest {
             SearchTemplateFixtures.NAME_AND_VALUE,
             SearchTemplateFixtures.NAME_VALUE_QUERY,
             dataset);
+    // The directory is the shipped template. Another render of that template is another file.
+    Map<String, String> rendered = new LinkedHashMap<>();
+    rendered.put("fulltext/dataset.json", fulltext);
+    rendered.put("fulltext/field-edits.json", fieldEdits);
+    rendered.put("fulltext/name-and-value.json", nameAndValue);
+    rendered.put("structured/dataset.json", structured);
+    rendered.put("light/dataset.json", render("urn:li:searchTemplate:light", "orders", dataset));
+    rendered.put(
+        "exact/dataset.json", render("urn:li:searchTemplate:exact", "\"orders\"", dataset));
+    rendered.put(
+        "structuredExact/dataset.json",
+        render("urn:li:searchTemplate:structuredExact", "\"orders\"", dataset));
+    rendered.put(
+        "identity/dataset.json",
+        render(
+            "urn:li:searchTemplate:identity",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
+            dataset));
+    rendered.put("list/dataset.json", render("urn:li:searchTemplate:list", "*", dataset));
+    rendered.put("listUrn/dataset.json", render("urn:li:searchTemplate:listUrn", "*", dataset));
+    rendered.put(
+        "autocomplete/dataset.json", render("urn:li:searchTemplate:autocomplete", "ord", dataset));
     assertDatasetFulltext(fulltext);
     assertFieldEdits(fieldEdits);
     assertNameAndValue(nameAndValue);
@@ -92,16 +114,15 @@ public class SearchTemplateGoldenTest {
     ObjectNode fieldManifest = manifest();
     ArrayNode queried = fieldManifest.putArray("templateFieldRoots");
     Set<String> roots = new TreeSet<>();
-    for (String query : List.of(fulltext, structured, fieldEdits, nameAndValue)) {
+    for (String query : rendered.values()) {
       Set<String> fields = new LinkedHashSet<>();
       collectReferencedFields(SearchTemplateFixtures.JSON.readTree(query), fields);
       fields.forEach(field -> roots.add(fieldRoot(field)));
     }
     roots.forEach(queried::add);
-    compare("dataset-fulltext.json", canonicalize(fulltext));
-    compare("dataset-structured.json", canonicalize(structured));
-    compare("dataset-field-edits.json", canonicalize(fieldEdits));
-    compare("dataset-name-and-value.json", canonicalize(nameAndValue));
+    for (Map.Entry<String, String> entry : rendered.entrySet()) {
+      compare(entry.getKey(), canonicalize(entry.getValue()));
+    }
     compare("field-manifest.json", canonicalize(fieldManifest.toString()));
   }
 
@@ -175,8 +196,10 @@ public class SearchTemplateGoldenTest {
     assertTrue(split.contains("\"query\" : \"orders2017\""), split);
     String exactName = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset);
     JsonNode exactQuery = SearchTemplateFixtures.JSON.readTree(exactName);
-    assertTrue(hasTermValue(exactQuery, "name.keyword", "orders"));
-    assertTrue(hasTermValue(exactQuery, "qualifiedName.keyword", "orders"));
+    assertTrue(hasTermValue(exactQuery, "name", "orders"));
+    assertTrue(hasTermValue(exactQuery, "qualifiedName", "orders"));
+    assertFalse(exactName.contains("name.keyword"), exactName);
+    assertFalse(exactName.contains("qualifiedName.keyword"), exactName);
     assertFalse(exactName.contains("_entityName"), exactName);
     assertFalse(exactName.contains("constant_score"), exactName);
     String fqn = render(SEARCH_TEMPLATE_FULLTEXT_URN, "my_db.analytics.orders", dataset);
@@ -192,7 +215,8 @@ public class SearchTemplateGoldenTest {
             "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
             dataset);
     assertTrue(identity.contains("\"boost\" : 100.0"), identity);
-    assertTrue(identity.contains("id.keyword"), identity);
+    assertTrue(identity.contains("\"id\""), identity);
+    assertFalse(identity.contains("id.keyword"), identity);
     assertIdentityFields(identity);
   }
 
@@ -396,7 +420,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertDatasetFulltext(String query) throws Exception {
     SearchTemplateFixtures.Property certification = harness.property("certification.status");
-    assertTrue(query.contains(certification.fieldPath() + ".keyword"), certification.fieldPath());
+    assertTrue(query.contains(certification.fieldPath()), certification.fieldPath());
+    assertFalse(query.contains(certification.fieldPath() + ".keyword"), query);
     assertFalse(query.contains(harness.property("hidden.label").fieldPath()));
     assertFalse(query.contains(harness.property("notes.internal").fieldPath()));
     assertFalse(query.contains(harness.property("chart.only").fieldPath()));
@@ -408,7 +433,8 @@ public class SearchTemplateGoldenTest {
   private void assertFieldEdits(String query) throws Exception {
     SearchTemplateFixtures.Property hidden = harness.property("hidden.label");
     SearchTemplateFixtures.Property contract = harness.property("contract.id");
-    assertTrue(query.contains(hidden.fieldPath() + ".keyword"));
+    assertTrue(query.contains(hidden.fieldPath()));
+    assertFalse(query.contains(hidden.fieldPath() + ".keyword"));
     assertFalse(query.contains(harness.property("certification.status").fieldPath()));
     assertTrue(query.contains(contract.fieldPath()));
     assertTrue(contract.fieldPath().contains("_versioned"));
@@ -427,7 +453,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertNameAndValue(String query) {
     assertTrue(query.contains("\"tie_breaker\" : 0.0"));
-    assertTrue(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+    assertTrue(query.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
     assertTrue(query.contains("\"gold\""));
     assertTrue(query.contains("\"boost\" : 8.0"));
     assertTrue(query.contains("\"boost\" : 3.0"));
@@ -780,9 +807,10 @@ public class SearchTemplateGoldenTest {
 
   private static void compare(String name, String actual) throws Exception {
     String expected = readGolden(name);
+    Path path = goldenDir().resolve(name);
     if ("1".equals(System.getenv("UPDATE_SEARCH_TEMPLATE_GOLDEN"))) {
-      Files.createDirectories(goldenDir());
-      Files.writeString(goldenDir().resolve(name), actual);
+      Files.createDirectories(path.getParent());
+      Files.writeString(path, actual);
       return;
     }
     if (expected == null) {
@@ -982,10 +1010,10 @@ public class SearchTemplateGoldenTest {
   }
 
   private static Path goldenDir() {
-    Path module = Path.of("metadata-io/src/test/resources/search/template");
+    Path module = Path.of("metadata-io/src/test/resources/search/template/golden");
     if (Files.isDirectory(module) || Files.isDirectory(module.getParent())) {
       return module;
     }
-    return Path.of("src/test/resources/search/template");
+    return Path.of("src/test/resources/search/template/golden");
   }
 }

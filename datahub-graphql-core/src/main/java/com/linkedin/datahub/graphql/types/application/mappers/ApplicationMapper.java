@@ -131,5 +131,13 @@ public class ApplicationMapper implements ModelMapper<EntityResponse, Applicatio
             applicationProperties.getCustomProperties(), UrnUtils.getUrn(application.getUrn())));
 
     application.setProperties(properties);
+
+    // Parent application (ApplicationPartOf) — stub hydrated by the DataLoader.
+    if (applicationProperties.hasParentApplication()) {
+      final Application parentStub = new Application();
+      parentStub.setUrn(applicationProperties.getParentApplication().toString());
+      parentStub.setType(EntityType.APPLICATION);
+      application.setParentApplication(parentStub);
+    }
   }
 }

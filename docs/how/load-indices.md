@@ -289,10 +289,10 @@ LoadIndices can be executed via:
 
 ### 🧭 Run Mode
 
-| Parameter              | Description                                                                                                                                                                                            | Example                        |
-| ---------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ | ------------------------------ |
-| `v3BackfillMode`       | How the run is marked for the Search V3 writer: `baseline` (default) is an initial population whose events may carry an entity's complete stored state; `catchup` is a replay over a window of changes | `-a v3BackfillMode=catchup`    |
-| `skipConversionErrors` | When `true`, an aspect that fails conversion is counted and skipped instead of failing the run. Off by default so a corrupt aspect is not silently left out                                            | `-a skipConversionErrors=true` |
+| Parameter              | Description                                                                                                                                                                                                                                              | Example                        |
+| ---------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------ |
+| `v3BackfillMode`       | How the run is marked for the Search V3 writer: `baseline` (default) replaces documents in the live alias from SQL state; `catchup` is a replay over a window of changes. The upgrade's internal fill writes to a named target index and is create-only. | `-a v3BackfillMode=catchup`    |
+| `skipConversionErrors` | When `true`, an aspect that fails conversion is counted and skipped instead of failing the run. Off by default so a corrupt aspect is not silently left out                                                                                              | `-a skipConversionErrors=true` |
 
 ### ⚙️ System Configuration
 

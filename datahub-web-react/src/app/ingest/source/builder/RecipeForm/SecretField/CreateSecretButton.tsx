@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import styled from 'styled-components/macro';
 
 import { SecretBuilderModal } from '@app/ingest/secret/SecretBuilderModal';
-import { SecretBuilderState } from '@app/ingest/secret/types';
+import { SecretBuilderState } from '@app/ingestV2/secret/types';
 
 import { useCreateSecretMutation } from '@graphql/ingestion.generated';
 

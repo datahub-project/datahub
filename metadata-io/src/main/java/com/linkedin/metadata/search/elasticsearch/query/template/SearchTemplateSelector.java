@@ -1,16 +1,11 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
-import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
-
-import com.datahub.authorization.AuthorizationResult;
-import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchQueryBuilder;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
-import io.datahubproject.metadata.exception.ActorAccessException;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
@@ -63,18 +58,6 @@ public class SearchTemplateSelector {
     String engineKey = SearchTemplateDialects.engineKey(engineType);
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
     if (flags != null && flags.getSearchTemplate() != null) {
-      boolean systemActor =
-          opContext.getSessionActorContext().isSystemAuth()
-              || SYSTEM_ACTOR.equals(opContext.getSessionActorContext().getActorUrn().toString());
-      AuthorizationResult authorization =
-          systemActor
-              ? null
-              : opContext.authorize(
-                  PoliciesConfig.MANAGE_SYSTEM_OPERATIONS_PRIVILEGE.getType(), null);
-      if (!systemActor && authorization.getType() != AuthorizationResult.Type.ALLOW) {
-        throw new ActorAccessException(
-            "Selecting a search template requires MANAGE_SYSTEM_OPERATIONS");
-      }
       ResolvedSearchTemplate resolved =
           walk(opContext, query, requestDialect, flags.getSearchTemplate().toString());
       resolved.setEngineSlot(SearchTemplateMetrics.SLOT_CALLER);

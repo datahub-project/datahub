@@ -1,0 +1,14 @@
+"""
+An entity that can have documentation
+"""
+interface HasDocumentation {
+  """
+  Documentation of the entity from various sources
+  """
+  documentation: Documentation
+}
+
+extend type Document implements HasDocumentation
+extend type Metric implements HasDocumentation
+extend type SchemaFieldEntity implements HasDocumentation
+extend type SemanticModel implements HasDocumentation

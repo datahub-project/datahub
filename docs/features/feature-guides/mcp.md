@@ -526,16 +526,36 @@ Run the [open-source MCP server](https://github.com/acryldata/mcp-server-datahub
    ```
 
 2. The URL of your DataHub instance's GMS endpoint, e.g. `http://localhost:8080` or `https://<tenant>.acryl.io`
-3. A [personal access token](../../authentication/personal-access-tokens.md)
+3. A [personal access token](../../authentication/personal-access-tokens.md), if your instance has Metadata Service Authentication enabled
+
+:::note
+On a stock `datahub docker quickstart`, [Metadata Service Authentication is disabled by default](../../authentication/introducing-metadata-service-authentication.md), so no token is required — a locally run MCP server connects to `http://localhost:8080` with `DATAHUB_GMS_URL` alone. A token is needed when `METADATA_SERVICE_AUTH_ENABLED` is `true` on `datahub-gms`, and always for DataHub Cloud.
+:::
 
 ### Connecting & Authenticating
 
 The self-hosted server authenticates via environment variables:
 
 - `DATAHUB_GMS_URL` — your DataHub GMS endpoint
-- `DATAHUB_GMS_TOKEN` — your personal access token
+- `DATAHUB_GMS_TOKEN` — your personal access token; omit it if Metadata Service Authentication is disabled on your instance
 
 These are passed to the `mcp-server-datahub` process at startup (see configuration examples below).
+
+The configuration examples below all set `DATAHUB_GMS_TOKEN`, since that is what DataHub Cloud and any auth-enabled instance need. If your instance has Metadata Service Authentication disabled, delete the `DATAHUB_GMS_TOKEN` line from whichever example you copy and leave `DATAHUB_GMS_URL` on its own — the server starts unauthenticated. In the JSON examples, remember to drop the now-trailing comma after the `DATAHUB_GMS_URL` value, or the config will fail to parse. This applies to local setups only: a [shared HTTP deployment](#shared-http-deployment) always requires Metadata Service Authentication and a per-user token.
+
+### Verify from the Terminal
+
+Before adding the server to an MCP client, call a read-only tool directly to check the DataHub connection. Replace the example URN and environment variables with values from your instance.
+
+```bash
+uvx --from 'fastmcp-slim[server]' fastmcp call \
+  --command "env DATAHUB_GMS_URL=<your-datahub-url> DATAHUB_GMS_TOKEN=<your-datahub-token> uvx mcp-server-datahub@latest" \
+  --target get_lineage \
+  --input-json '{"urn":"urn:li:dataset:(urn:li:dataPlatform:snowflake,my_database.my_schema.my_table,PROD)","upstream":false,"max_hops":1,"max_results":10}' \
+  --json
+```
+
+The response should contain a `structured_content` object with a `downstreams` result. Any `downstreams` result, even `"total": 0`, means the server connected successfully. Authentication and connection failures surface as an error or timeout instead.
 
 ### Configure
 

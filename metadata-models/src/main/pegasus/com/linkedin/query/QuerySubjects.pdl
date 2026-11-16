@@ -5,7 +5,8 @@ namespace com.linkedin.query
  * being queried.
  */
 @Aspect = {
-  "name": "querySubjects"
+  "name": "querySubjects",
+  "schemaVersion": 2
 }
 record QuerySubjects {
   /**

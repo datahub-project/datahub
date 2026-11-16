@@ -104,6 +104,8 @@ public final class SearchTemplateFixtures {
     templates.setMaxRoutes(32);
     templates.setMaxRoutePatternLength(256);
     templates.setMaxRouteHops(5);
+    templates.setMaxRankingSignals(32);
+    templates.setMaxRankingWindow(1000);
   }
 
   public record Property(

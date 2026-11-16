@@ -6,7 +6,8 @@ import com.linkedin.common.Urn
  * Key for a Semantic Model
  */
 @Aspect = {
-  "name": "semanticModelKey"
+  "name": "semanticModelKey",
+  "schemaVersion": 2
 }
 record SemanticModelKey {
   /**
@@ -38,7 +39,10 @@ record SemanticModelKey {
    */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": false,
+      "searchLabel": "location",
+      "copyToOther": true,
+      "boostScore": 1.0
     },
     "fieldType": "TEXT_PARTIAL",
     "addToFilters": true,
@@ -49,5 +53,20 @@ record SemanticModelKey {
   /**
    * Unique identifier for the semantic model within its platform and path.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   id: string
 }

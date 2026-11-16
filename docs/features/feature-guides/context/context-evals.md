@@ -9,8 +9,8 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 <FeatureAvailability saasOnly />
 
-:::caution Public Beta
-Context Evals are part of the DataHub Cloud **Context** add-on and are in Public Beta. Details on this page may change as the feature evolves.
+:::info Context add-on
+Context Evals are part of the DataHub Cloud **Context** add-on.
 :::
 
 Context Evals measure whether an agent can answer your real business questions correctly using the context in DataHub. Each eval pairs a question with the answer an expert would give. DataHub runs your evals on a schedule, and an AI judge scores every response. When an eval fails, it usually points to a gap in your context: fix the gap, and the next run passes.

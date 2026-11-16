@@ -39,6 +39,8 @@ type Props = {
     sort?: SortCriterion;
     entityTypes?: EntityType[];
     searchFlags?: SearchFlags;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
 };
 
 export const EmbeddedListSearchModal = ({
@@ -59,6 +61,8 @@ export const EmbeddedListSearchModal = ({
     sort,
     entityTypes,
     searchFlags,
+    isViewAllMode,
+    handleViewAllClickWarning,
 }: Props) => {
     const { t: tc } = useTranslation('common.actions');
     // Component state
@@ -114,6 +118,8 @@ export const EmbeddedListSearchModal = ({
                     sort={sort}
                     entityTypes={entityTypes}
                     searchFlags={searchFlags}
+                    isViewAllMode={isViewAllMode}
+                    handleViewAllClickWarning={handleViewAllClickWarning}
                 />
             </SearchContainer>
         </Modal>

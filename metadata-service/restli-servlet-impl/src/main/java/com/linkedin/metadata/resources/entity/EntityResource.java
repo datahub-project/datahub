@@ -15,6 +15,7 @@ import static com.linkedin.metadata.search.utils.SearchUtils.*;
 import static com.linkedin.metadata.authorization.EntityAuthorizationUtils.isAPIAuthorizedEntityUrns;
 import static com.linkedin.metadata.utils.PegasusUtils.*;
 import static com.linkedin.metadata.utils.SystemMetadataUtils.generateSystemMetadataIfEmpty;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.codahale.metrics.MetricRegistry;
 import com.datahub.authentication.Authentication;
@@ -41,6 +42,7 @@ import com.linkedin.data.template.LongMap;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.entity.Entity;
 import com.linkedin.entity.FilterExistingUrnsRequest;
+import com.linkedin.metadata.authorization.AssertionAuthorizationUtils;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.browse.BrowseResult;
 import com.linkedin.metadata.browse.BrowseResultEntity;
@@ -544,6 +546,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
     List<SortCriterion> sortCriterionList = getSortCriteria(sortCriteria, sortCriterion);
 
     log.debug("GET SEARCH RESULTS ACROSS ENTITIES for {} with query {}", entityList, input);
+    if (onlyUnknownEntityTypes(entities, entityList)) {
+      // Every requested type is unknown to the registry (e.g. named by a client built for a newer
+      // version, after a rollback). An empty list would otherwise mean "search every type".
+      return RestliUtils.toTask(
+          opContext,
+          () -> searchService.emptySearchResult(start, count),
+          "searchAcrossEntities");
+    }
     return RestliUtils.toTask(
         () -> {
           SearchResult result = searchService.searchAcrossEntities(opContext, entityList, input, filter, sortCriterionList, start, count);
@@ -643,6 +653,13 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         entityList,
         input,
         scrollId);
+    if (onlyUnknownEntityTypes(entities, entityList)) {
+      // See searchAcrossEntities: never widen a request for unknown types to every type.
+      return RestliUtils.toTask(
+          opContext,
+          () -> searchService.emptyScrollResult(count),
+          "scrollAcrossEntities");
+    }
 
     return RestliUtils.toTask(opContext,
         () -> {
@@ -1135,6 +1152,14 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
               (aspectName == null) ? timeseriesAspectNames : ImmutableList.of(aspectName);
 
           if (aspectName == null) {
+            // An assertion's run history needs the same privilege as deleting the assertion, so
+            // refuse before anything is deleted rather than delete the assertion and keep its runs.
+            if (!timeseriesAspectsToDelete.isEmpty()
+                && !AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(
+                    timeseriesDeleteContext(urn), List.of(urn))) {
+              throw new RestLiServiceException(
+                  HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
+            }
             // The timeseries values go with the entity only when the actor may delete them;
             // otherwise the entity is deleted and the request refused, as deleteTimeseriesAspects
             // refuses it.
@@ -1191,10 +1216,7 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
 
     final OperationContext opContext = timeseriesDeleteContext(urn);
 
-    if (!isAPIAuthorizedUrns(
-            opContext,
-            TIMESERIES, DELETE,
-            List.of(urn))) {
+    if (!isTimeseriesDeleteAuthorized(urn)) {
       throw new RestLiServiceException(
           HttpStatus.S_403_FORBIDDEN, "User is unauthorized to delete entity " + urn);
     }
@@ -1203,9 +1225,20 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
         opContext, urn, aspectsToDelete, startTimeMillis, endTimeMillis);
   }
 
-  /** Whether the actor may delete the timeseries values of {@code urn}. */
+  /**
+   * Whether the actor may delete the timeseries values of {@code urn}. For an assertion this
+   * matches the OpenAPI aspect delete: Delete Entity on the assertion or Edit Assertions on the
+   * assets it checks, and in either case Edit Assertions on those assets, as deleting the
+   * assertion needs.
+   */
   private boolean isTimeseriesDeleteAuthorized(@Nonnull Urn urn) {
-    return isAPIAuthorizedUrns(timeseriesDeleteContext(urn), TIMESERIES, DELETE, List.of(urn));
+    final OperationContext opContext = timeseriesDeleteContext(urn);
+    final boolean authorized =
+        AssertionAuthorizationUtils.isAssertionEntity(urn)
+            ? isAPIAuthorizedEntityUrns(opContext, DELETE, List.of(urn))
+            : isAPIAuthorizedUrns(opContext, TIMESERIES, DELETE, List.of(urn));
+    return authorized
+        && AssertionAuthorizationUtils.isAuthorizedToDeleteRunHistory(opContext, List.of(urn));
   }
 
   private OperationContext timeseriesDeleteContext(@Nonnull Urn urn) {
@@ -1499,5 +1532,17 @@ public class EntityResource extends CollectionResourceTaskTemplate<String, Entit
                 .map(Urn::toString)
                 .toArray(String[]::new),
         MetricRegistry.name(this.getClass(), "filterExistingUrns"));
+  }
+
+  /**
+   * True when the caller named entity types but none of them is in the registry. Always false when
+   * unknown data is not tolerated, which keeps the search across every type.
+   */
+  private static boolean onlyUnknownEntityTypes(
+      @Nullable final String[] requested, @Nonnull final List<String> known) {
+    return handling().toleratesUnknownEntityAspect()
+        && requested != null
+        && requested.length > 0
+        && known.isEmpty();
   }
 }

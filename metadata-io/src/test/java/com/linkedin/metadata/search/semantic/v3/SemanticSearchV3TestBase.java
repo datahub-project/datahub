@@ -163,7 +163,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
           "DataHub refuses V3 semantic reads on OpenSearch before 3.5, where they are not"
               + " validated; this test builds the service directly");
     }
-    // V3 root fields carry the .keyword subfields V2 filters read
+    // A domains filter reads the full URN field
     SearchResult byDomain =
         service.search(
             opContext, List.of("document"), "query", filter("domains", DOMAIN_URN), null, 0, 10);
@@ -181,14 +181,13 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
                 .extraRootProperties("document"));
     properties.put("urn", Map.of("type", "keyword"));
     properties.put("_entityType", Map.of("type", "keyword"));
-    // A URN field at the root and under _aspects, with the .keyword subfield V3 root fields carry
-    // (this index has no analyzers, so the analyzed subfields are left out)
-    Map<String, Object> domains =
-        Map.of("type", "keyword", "fields", Map.of("keyword", Map.of("type", "keyword")));
+    // The full URN is domains_urn. The root domains field is the parsed name.
+    Map<String, Object> keyword = Map.of("type", "keyword");
     properties.put(
         "_aspects",
-        Map.of("properties", Map.of("domains", Map.of("properties", Map.of("domains", domains)))));
-    properties.put("domains", domains);
+        Map.of("properties", Map.of("domains", Map.of("properties", Map.of("domains", keyword)))));
+    properties.put("domains", keyword);
+    properties.put("domains_urn", keyword);
     Map<String, Object> indexSettings = new HashMap<>();
     indexSettings.put("number_of_shards", 1);
     indexSettings.put("number_of_replicas", 0);
@@ -218,6 +217,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         Map.of(MODEL_KEY, Map.of("chunks", List.of(chunk))));
     if (domain != null) {
       document.put("domains", List.of(domain));
+      document.put("domains_urn", List.of(domain));
       document.put("_aspects", Map.of("domains", Map.of("domains", List.of(domain))));
     }
     lowLevel("PUT", "/" + index + "/_doc/" + urn.hashCode(), document);
