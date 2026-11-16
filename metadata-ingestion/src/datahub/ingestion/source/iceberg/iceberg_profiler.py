@@ -1,7 +1,9 @@
 import logging
+from datetime import timezone
 from typing import Any, Callable, Dict, Iterable, Optional, cast
 
 from pyiceberg.conversions import from_bytes
+from pyiceberg.manifest import DataFileContent
 from pyiceberg.schema import Schema
 from pyiceberg.table import Table
 from pyiceberg.types import (
@@ -13,12 +15,15 @@ from pyiceberg.types import (
     IntegerType,
     LongType,
     PrimitiveType,
+    TimestampNanoType,
     TimestampType,
+    TimestamptzNanoType,
     TimestamptzType,
     TimeType,
 )
 from pyiceberg.utils.datetime import (
     days_to_date,
+    nanos_to_timestamp,
     to_human_time,
     to_human_timestamp,
     to_human_timestamptz,
@@ -80,7 +85,7 @@ class IcebergProfiler:
                     agg_value = aggregated_values.get(field_id)
                     aggregated_values[field_id] = (
                         aggregator(agg_value, value_decoded)
-                        if agg_value
+                        if agg_value is not None
                         else value_decoded
                     )
 
@@ -120,11 +125,13 @@ class IcebergProfiler:
                 # Table has no data, cannot profile, or we can't get current_snapshot.
                 return
 
-            row_count = (
-                int(current_snapshot.summary.additional_properties["total-records"])
+            # Snapshot totals count records in data files, which may include deleted rows.
+            total_records = (
+                current_snapshot.summary.additional_properties.get("total-records")
                 if current_snapshot.summary
-                else 0
+                else None
             )
+            row_count = int(total_records) if total_records is not None else None
             size_in_bytes: Optional[int] = None
             if current_snapshot.summary:
                 size_in_bytes_str = current_snapshot.summary.additional_properties.get(
@@ -158,6 +165,10 @@ class IcebergProfiler:
                 for manifest in current_snapshot.manifests(table.io):
                     for manifest_entry in manifest.fetch_manifest_entry(table.io):
                         data_file = manifest_entry.data_file
+                        # Delete-file statistics describe deleted rows, not table columns.
+                        if data_file.content != DataFileContent.DATA:
+                            continue
+                        total_count += data_file.record_count
                         if self.config.include_field_null_count:
                             null_counts = self._aggregate_counts(
                                 null_counts, data_file.null_value_counts
@@ -176,7 +187,8 @@ class IcebergProfiler:
                                 max_bounds,
                                 data_file.upper_bounds,
                             )
-                        total_count += data_file.record_count
+                if row_count is None:
+                    row_count = total_count
             except Exception as e:
                 self.report.warning(
                     title="Error when profiling a table",
@@ -184,6 +196,7 @@ class IcebergProfiler:
                     context=dataset_name,
                     exc=e,
                 )
+            dataset_profile.rowCount = row_count
             if row_count:
                 # Iterating through fieldPaths introduces unwanted stats for list element fields...
                 for field_path, field_id in table.schema()._name_to_id.items():
@@ -230,8 +243,16 @@ class IcebergProfiler:
         try:
             if isinstance(value_type, TimestampType):
                 return to_human_timestamp(value)
-            if isinstance(value_type, TimestamptzType):
+            elif isinstance(value_type, TimestamptzType):
                 return to_human_timestamptz(value)
+            elif isinstance(value_type, TimestampNanoType):
+                # Python datetimes cap at microsecond precision, so nanosecond bounds are
+                # truncated when rendered.
+                return nanos_to_timestamp(value).isoformat()
+            elif isinstance(value_type, TimestamptzNanoType):
+                return (
+                    nanos_to_timestamp(value).replace(tzinfo=timezone.utc).isoformat()
+                )
             elif isinstance(value_type, DateType):
                 return days_to_date(value).strftime("%Y-%m-%d")
             elif isinstance(value_type, TimeType):
@@ -263,7 +284,9 @@ class IcebergProfiler:
                 FloatType,
                 IntegerType,
                 LongType,
+                TimestampNanoType,
                 TimestampType,
+                TimestamptzNanoType,
                 TimestamptzType,
                 TimeType,
             ),

@@ -2,6 +2,7 @@ import json
 import logging
 import threading
 import uuid
+from datetime import date, datetime, time
 from typing import Any, Dict, Iterable, List, Optional, Tuple
 
 from dateutil import parser as dateutil_parser
@@ -31,9 +32,12 @@ from pyiceberg.types import (
     NestedField,
     StringType,
     StructType,
+    TimestampNanoType,
     TimestampType,
+    TimestamptzNanoType,
     TimestamptzType,
     TimeType,
+    UnknownType,
     UUIDType,
 )
 
@@ -670,6 +674,16 @@ class IcebergSource(StatefulIngestionSourceBase):
         return None
 
 
+def _render_default(value: object) -> str:
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, bytes):
+        return value.hex()
+    if isinstance(value, bool):
+        return str(value).lower()
+    return str(value)
+
+
 class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
     """Implementation of a visitor to build an Avro schema as a dictionary from an Iceberg schema."""
 
@@ -694,10 +708,24 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
 
     def field(self, field: NestedField, field_result: Dict[str, Any]) -> Dict[str, Any]:
         field_result["_nullable"] = not field.required
+        descriptions = [field.doc] if field.doc else []
+        # Render Iceberg defaults directly in the description: their values need not match
+        # the Avro representation used only to convert the field's type.
+        if (
+            field.initial_default is not None
+            and field.initial_default != field.write_default
+        ):
+            descriptions.append(
+                f"Initial default value: {_render_default(field.initial_default)}"
+            )
+        if field.write_default is not None:
+            descriptions.append(
+                f"Field default value: {_render_default(field.write_default)}"
+            )
         return {
             "name": field.name,
             "type": field_result,
-            "doc": field.doc,
+            "doc": "\n".join(descriptions) or None,
         }
 
     def list(
@@ -860,40 +888,26 @@ class ToAvroSchemaIcebergVisitor(SchemaVisitorPerPrimitiveType[Dict[str, Any]]):
             "native_data_type": str(binary_type),
         }
 
-    def visit_timestamp_ns(self, timestamp_ns_type: Any) -> Dict[str, Any]:
-        # Handle nanosecond precision timestamps
-        # Avro supports 2 types of timestamp:
-        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
-        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+    def visit_timestamp_ns(
+        self, timestamp_ns_type: TimestampNanoType
+    ) -> Dict[str, Any]:
+        # Avro has no nanosecond logical type; retain Iceberg precision in native_data_type.
         return {
             "type": "long",
             "logicalType": "timestamp-micros",
-            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
-            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
-            # "logicalType": "timestamp-micros"
-            # if timestamp_ns_type.adjust_to_utc
-            # else "local-timestamp-micros",
             "native_data_type": str(timestamp_ns_type),
         }
 
-    def visit_timestamptz_ns(self, timestamptz_ns_type: Any) -> Dict[str, Any]:
-        # Handle nanosecond precision timestamps with timezone
-        # Avro supports 2 types of timestamp:
-        #  - Timestamp: independent of a particular timezone or calendar (TZ information is lost)
-        #  - Local Timestamp: represents a timestamp in a local timezone, regardless of what specific time zone is considered local
+    def visit_timestamptz_ns(
+        self, timestamptz_ns_type: TimestamptzNanoType
+    ) -> Dict[str, Any]:
         return {
             "type": "long",
             "logicalType": "timestamp-micros",
-            # Commented out since Avro's Python implementation (1.11.0) does not support local-timestamp-micros, even though it exists in the spec.
-            # See bug report: https://issues.apache.org/jira/browse/AVRO-3476 and PR https://github.com/apache/avro/pull/1634
-            # "logicalType": "timestamp-micros"
-            # if timestamptz_ns_type.adjust_to_utc
-            # else "local-timestamp-micros",
             "native_data_type": str(timestamptz_ns_type),
         }
 
-    def visit_unknown(self, unknown_type: Any) -> Dict[str, Any]:
-        # Handle unknown types
+    def visit_unknown(self, unknown_type: UnknownType) -> Dict[str, Any]:
         return {
             "type": "string",
             "native_data_type": str(unknown_type),
