@@ -2628,13 +2628,13 @@ class OdbcLineage(AbstractLineage):
             current_platform = str(parsed.platform)
 
             # Parse database and table from URN name, ignoring any embedded
-            # platform_instance prefix. Athena has no schema level, so the real
-            # qualified name must be exactly 2 parts (database.table); skip the
-            # override if the format is unexpected (e.g. unstripped catalog prefix).
+            # platform_instance prefix. Athena has no schema level, so the name is
+            # database.table. Split on the first dot only: Glue database names
+            # cannot contain dots, but federated table names can (e.g. orders.v2).
             table_name = self._split_platform_instance_prefix(
                 parsed.name, platform_instance
             ).table_name
-            name_parts = table_name.split(".")
+            name_parts = table_name.split(".", 1)
             if len(name_parts) != 2:
                 return urn
             urn_database, urn_table = name_parts

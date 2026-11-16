@@ -454,6 +454,18 @@ _ODBC_NAV_SUCCESS_CASES = [
         id="athena-dotted-table-keeps-database",
     ),
     pytest.param(
+        _ODBC_ATHENA_NAV_DOTTED_TABLE,
+        "orders.v2",
+        "default.orders.v2",
+        {
+            "athena_table_platform_override": [
+                {"database": "default", "table": "orders.v2", "platform": "mysql"}
+            ]
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:mysql,default.orders.v2,PROD)",
+        id="athena-dotted-table-override-applies",
+    ),
+    pytest.param(
         _ODBC_ATHENA_QUERY_CATALOG_TABLE,
         "orders",
         "mydb.orders",
