@@ -16,9 +16,9 @@ import { Routes } from '@app/Routes';
 import { hideLineageInSearchCardsRef, showSeparateSiblingsRef } from '@app/appConfig/UpdateGlobalFlags';
 import { injectGlobalSearchVariables } from '@app/appConfig/injectedOperationVariables';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
-import { FilesUploadingDownloadingLatencyTracker } from '@app/shared/FilesUploadingDownloadingLatencyTracker';
-import { SuspenseGlobal } from '@app/shared/SuspenseGlobal';
-import { ErrorCodes } from '@app/shared/constants';
+import { FilesUploadingDownloadingLatencyTracker } from '@app/sharedV2/FilesUploadingDownloadingLatencyTracker';
+import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
+import { ErrorCodes } from '@app/sharedV2/constants';
 import { loadIsDarkMode } from '@app/theme/useIsDarkMode';
 import { PageRoutes } from '@conf/Global';
 import CustomThemeProvider from '@src/CustomThemeProvider';
@@ -99,6 +99,10 @@ const client = new ApolloClient({
                         },
                     },
                 },
+            },
+            // Ingestion can assign the same id to models on different paths.
+            SemanticModel: {
+                keyFields: ['urn'],
             },
             // ProductUpdate.id is a release version, not a unique cache identity across locales.
             ProductUpdate: {

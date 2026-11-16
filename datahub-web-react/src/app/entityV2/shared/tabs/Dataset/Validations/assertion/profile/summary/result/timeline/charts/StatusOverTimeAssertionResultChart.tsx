@@ -19,7 +19,7 @@ import {
     getFillColor,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/charts/utils';
 import { getTimeRangeDisplay } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/result/timeline/utils';
-import { LinkWrapper } from '@app/shared/LinkWrapper';
+import { LinkWrapper } from '@app/sharedV2/LinkWrapper';
 
 type Props = {
     data: AssertionResultChartData;

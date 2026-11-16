@@ -24,6 +24,7 @@ import type { Locator } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { LineageV3Page } from '../../pages/lineage-v3.page';
 import { TIMEOUTS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'lineage-cll' });
 
@@ -99,16 +100,20 @@ test.describe('column-level lineage highlighting', () => {
       lineagePage.getColumnEdge(MODEL_URN, 'metric', MART_URN, 'metric'),
     ];
 
-    test('hovering a column draws arrows to and from the dbt model', async ({ page }) => {
-      await openLineageAndExpandColumns(RAW_URN, [MODEL_URN, MART_URN]);
+    test(
+      'hovering a column draws arrows to and from the dbt model',
+      { tag: [TestTag.P0, DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(RAW_URN, [MODEL_URN, MART_URN]);
 
-      await lineagePage.hoverColumn(RAW_URN, 'metric');
-      await checkArrowsDrawn(dbtPathEdges());
+        await lineagePage.hoverColumn(RAW_URN, 'metric');
+        await checkArrowsDrawn(dbtPathEdges());
 
-      await lineagePage.unhoverColumn(RAW_URN, 'metric');
-      await page.mouse.move(0, 0);
-      await checkArrowsCleared(dbtPathEdges());
-    });
+        await lineagePage.unhoverColumn(RAW_URN, 'metric');
+        await page.mouse.move(0, 0);
+        await checkArrowsCleared(dbtPathEdges());
+      },
+    );
 
     test('selecting a column draws persistent arrows to and from the dbt model', async ({ page }) => {
       await openLineageAndExpandColumns(RAW_URN, [MODEL_URN, MART_URN]);
@@ -214,18 +219,20 @@ test.describe('column-level lineage highlighting', () => {
       lineagePage.getOperationToColumnEdge(QUERY_URN, FINAL_URN, 'total'),
     ];
 
-    test('hovering a column draws arrows to and from the correct entities, through the query node', async ({
-      page,
-    }) => {
-      await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
+    test(
+      'hovering a column draws arrows to and from the correct entities, through the query node',
+      { tag: [TestTag.P0, DomainTag.Catalog] },
+      async ({ page }) => {
+        await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);
 
-      await lineagePage.hoverColumn(STAGING_URN, 'amount');
-      await checkArrowsDrawn(queryPathEdges());
+        await lineagePage.hoverColumn(STAGING_URN, 'amount');
+        await checkArrowsDrawn(queryPathEdges());
 
-      await lineagePage.unhoverColumn(STAGING_URN, 'amount');
-      await page.mouse.move(0, 0);
-      await checkArrowsCleared(queryPathEdges());
-    });
+        await lineagePage.unhoverColumn(STAGING_URN, 'amount');
+        await page.mouse.move(0, 0);
+        await checkArrowsCleared(queryPathEdges());
+      },
+    );
 
     test('hover arrows come back on every hover, not just the first', async ({ page }) => {
       await openLineageAndExpandColumns(STAGING_URN, [SOURCE_URN, QUERY_URN, FINAL_URN]);

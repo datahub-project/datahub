@@ -1,0 +1,40 @@
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
+
+import { Entity, FormPrompt, PropertyValue, SchemaField, StructuredPropertiesEntry } from '@types';
+
+export function getInitialValues(prompt: FormPrompt, entityData: GenericEntityProperties | null, field?: SchemaField) {
+    const structuredProperty = prompt.structuredPropertyParams?.structuredProperty;
+    let structuredPropertyAssignment: StructuredPropertiesEntry | undefined;
+    if (field) {
+        structuredPropertyAssignment = field?.schemaFieldEntity?.structuredProperties?.properties?.find(
+            (propAssignment) => propAssignment.structuredProperty.urn === structuredProperty?.urn,
+        );
+    } else {
+        structuredPropertyAssignment = entityData?.structuredProperties?.properties?.find(
+            (propAssignment) => propAssignment.structuredProperty.urn === structuredProperty?.urn,
+        );
+    }
+    const values = structuredPropertyAssignment?.values?.map((value) =>
+        getStructuredPropertyValue(value as PropertyValue),
+    );
+
+    // Values written before allowedValues were set on the property have no option to render, so they
+    // would be submitted unseen with the user's answer and the server would reject the whole response.
+    const allowedValues = structuredProperty?.definition?.allowedValues;
+    if (!values || !allowedValues?.length) return values;
+    const allowed = allowedValues.map((allowedValue) => getStructuredPropertyValue(allowedValue.value));
+    return values.filter((value) => value !== null && allowed.includes(value));
+}
+
+export function getInitialEntitiesForUrnPrompt(
+    structuredPropertyUrn: string,
+    entityData: GenericEntityProperties | null,
+    selectedValues: any[],
+) {
+    const structuredPropertyEntry = entityData?.structuredProperties?.properties?.find(
+        (p) => p.structuredProperty.urn === structuredPropertyUrn,
+    );
+    const entities = structuredPropertyEntry?.valueEntities?.filter((e) => selectedValues.includes(e?.urn));
+    return entities ? (entities as Entity[]) : [];
+}

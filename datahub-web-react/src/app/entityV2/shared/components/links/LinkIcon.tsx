@@ -9,7 +9,7 @@ import {
     isFileUrl,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
 
-import { useIsDocumentationFileUploadV1Enabled } from '@app/shared/hooks/useIsDocumentationFileUploadV1Enabled';
+import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
 const Container = styled.div`
     display: inline-block;

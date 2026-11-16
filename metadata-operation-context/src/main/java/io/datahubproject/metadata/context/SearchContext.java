@@ -71,6 +71,12 @@ public class SearchContext implements ContextInterface {
    */
   @EqualsAndHashCode.Exclude @Nullable private final SearchClusterAccess searchClusterAccess;
 
+  /**
+   * Process-wide template runtime. Excluded from equals and cache keys: it selects how a request is
+   * built, not the stored result. Null on {@link #EMPTY} and when templates are off.
+   */
+  @EqualsAndHashCode.Exclude @Nullable private final SearchTemplateRuntime searchTemplateRuntime;
+
   @Nonnull private final SearchFlags searchFlags;
   @Nonnull private final LineageFlags lineageFlags;
   @Nullable private final Map<String, Set<SearchableAnnotation.FieldType>> searchableFieldTypes;
@@ -89,6 +95,12 @@ public class SearchContext implements ContextInterface {
   @Nullable private final List<String> prioritizedSourceEntityTypes;
 
   @Nullable private final List<String> prioritizedDatahubEntityTypes;
+
+  /**
+   * Fields on caller-supplied optional filter branches. System filters deliberately do not appear
+   * here, even when their Elasticsearch representation is an OR.
+   */
+  @Nullable private final Set<String> callerOptionalFilterFields;
 
   /**
    * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
@@ -138,7 +150,13 @@ public class SearchContext implements ContextInterface {
     String templateKey =
         resolvedSearchTemplate == null ? "" : resolvedSearchTemplate.cacheKeyComponent();
     return Optional.of(
-        Stream.of(keySearchFlags().toString(), keyLineageFlags(), templateKey)
+        Stream.of(
+                keySearchFlags().toString(),
+                keyLineageFlags(),
+                templateKey,
+                Optional.ofNullable(callerOptionalFilterFields).orElse(Set.of()).stream()
+                    .sorted()
+                    .collect(Collectors.joining(",")))
             .mapToInt(String::hashCode)
             .sum());
   }
@@ -223,6 +241,7 @@ public class SearchContext implements ContextInterface {
       return new SearchContext(
           this.indexConvention,
           this.searchClusterAccess,
+          this.searchTemplateRuntime,
           this.searchFlags,
           this.lineageFlags,
           this.searchableFieldTypes,
@@ -232,6 +251,7 @@ public class SearchContext implements ContextInterface {
           this.defaultBrowseEntityNames,
           this.prioritizedSourceEntityTypes,
           this.prioritizedDatahubEntityTypes,
+          this.callerOptionalFilterFields,
           this.searchSurface,
           this.resolvedSearchTemplate,
           this.skipTemplateExecution);

@@ -111,7 +111,7 @@ sink:
 ```
 
 <details>
-  <summary>View All Recipe Configuartion Options</summary>
+  <summary>View All Recipe Configuration Options</summary>
   
   | Field | Required | Default | Description |
   | --- | :-: | :-: | --- |
@@ -138,7 +138,7 @@ sink:
 ```
 
 <details>
-  <summary>View All Recipe Configuartion Options</summary>
+  <summary>View All Recipe Configuration Options</summary>
   
   | Field | Required | Default | Description |
   | --- | :-: | :-: | --- |

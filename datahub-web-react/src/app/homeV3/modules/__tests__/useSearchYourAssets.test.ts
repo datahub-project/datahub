@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { useHistory } from 'react-router';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -6,6 +5,7 @@ import { useUserContext } from '@app/context/useUserContext';
 import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
 import useSearchYourAssets from '@app/homeV3/modules/useSearchYourAssets';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock dependencies
 vi.mock('react-router', () => ({

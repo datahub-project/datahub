@@ -1,0 +1,162 @@
+{
+  "function_score" : {
+    "boost" : 1.0,
+    "boost_mode" : "multiply",
+    "functions" : [ {
+      "filter" : {
+        "match_all" : {
+          "boost" : 1.0
+        }
+      },
+      "weight" : 1.0
+    }, {
+      "filter" : {
+        "term" : {
+          "deprecated" : {
+            "boost" : 1.0,
+            "value" : "true"
+          }
+        }
+      },
+      "weight" : 0.5
+    } ],
+    "max_boost" : 3.4028235E38,
+    "query" : {
+      "bool" : {
+        "adjust_pure_negative" : true,
+        "boost" : 1.0,
+        "minimum_should_match" : "1",
+        "should" : [ {
+          "bool" : {
+            "adjust_pure_negative" : true,
+            "boost" : 1.0,
+            "minimum_should_match" : "1",
+            "should" : [ {
+              "term" : {
+                "urn" : {
+                  "_name" : "matchedField:urn",
+                  "boost" : 100.0,
+                  "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+                }
+              }
+            }, {
+              "term" : {
+                "urn.lowercase" : {
+                  "_name" : "matchedField:urn",
+                  "boost" : 50.0,
+                  "value" : "urn:li:dataset:(urn:li:dataplatform:hive,analytics.orders,prod)"
+                }
+              }
+            }, {
+              "term" : {
+                "urn_name.lowercase" : {
+                  "boost" : 40.0,
+                  "value" : "analytics.orders"
+                }
+              }
+            }, {
+              "match_phrase" : {
+                "qualifiedName.text" : {
+                  "boost" : 30.0,
+                  "query" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
+                  "slop" : 0,
+                  "zero_terms_query" : "NONE"
+                }
+              }
+            }, {
+              "term" : {
+                "name" : {
+                  "_name" : "matchedField:name",
+                  "boost" : 20.0,
+                  "case_insensitive" : true,
+                  "value" : "analytics.orders"
+                }
+              }
+            }, {
+              "term" : {
+                "id" : {
+                  "_name" : "matchedField:id",
+                  "boost" : 10.0,
+                  "case_insensitive" : true,
+                  "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+                }
+              }
+            }, {
+              "simple_query_string" : {
+                "analyze_wildcard" : false,
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "default_operator" : "and",
+                "fields" : [ "id.stemmed^0.4", "text.stemmed^0.2", "glossaryTerms.stemmed^0.1", "other.stemmed^0.1", "description.stemmed^0.2", "tags.stemmed^0.1", "name.text^4.0", "qualifiedName.text^4.0", "qualifiedName.stemmed^2.0", "id.text^0.8", "tags.text^0.2", "description.text^0.4", "name.stemmed^2.0", "glossaryTerms.text^0.2", "other.text^0.2", "text.text^0.4" ],
+                "flags" : -1,
+                "fuzzy_max_expansions" : 50,
+                "fuzzy_prefix_length" : 0,
+                "fuzzy_transpositions" : true,
+                "query" : "urn:li:dataset:\\(urn:li:dataPlatform:hive,analytics.orders,PROD\\)"
+              }
+            } ]
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_stemmed_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties._versioned.contract_id.00000000000001.string.stemmed^1.0", "structuredProperties.certification_status.stemmed^0.6", "structuredProperties.owner_ref__urn_name.stemmed^0.3", "structuredProperties.summary_notes.stemmed^0.4" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+          }
+        }, {
+          "simple_query_string" : {
+            "analyze_wildcard" : false,
+            "analyzer" : "v3_text_search",
+            "auto_generate_synonyms_phrase_query" : true,
+            "boost" : 1.0,
+            "default_operator" : "or",
+            "fields" : [ "structuredProperties.certification_status.text^1.2", "structuredProperties.summary_notes.text^0.8", "structuredProperties.owner_ref__urn_name.text^0.6", "structuredProperties._versioned.contract_id.00000000000001.string.text^2.0" ],
+            "flags" : -1,
+            "fuzzy_max_expansions" : 50,
+            "fuzzy_prefix_length" : 0,
+            "fuzzy_transpositions" : true,
+            "lenient" : true,
+            "query" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+          }
+        }, {
+          "term" : {
+            "structuredProperties._versioned.contract_id.00000000000001.string" : {
+              "boost" : 2.0,
+              "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.certification_status" : {
+              "boost" : 1.2,
+              "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.owner_ref" : {
+              "boost" : 0.6,
+              "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+            }
+          }
+        }, {
+          "term" : {
+            "structuredProperties.summary_notes" : {
+              "boost" : 0.8,
+              "value" : "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)"
+            }
+          }
+        } ]
+      }
+    },
+    "score_mode" : "multiply"
+  }
+}

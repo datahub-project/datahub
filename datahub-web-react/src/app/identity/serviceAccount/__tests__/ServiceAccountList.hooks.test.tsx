@@ -1,7 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { toast } from '@components';
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +11,7 @@ import {
     useServiceAccountRoleAssignment,
     useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { ListServiceAccountsDocument } from '@graphql/auth.generated';
 import { BatchAssignRoleDocument } from '@graphql/mutations.generated';
@@ -57,7 +57,7 @@ vi.mock('@app/context/useUserContext', () => ({
 }));
 
 // Mock scrollToTop
-vi.mock('@app/shared/searchUtils', () => ({
+vi.mock('@app/sharedV2/searchUtils', () => ({
     scrollToTop: vi.fn(),
 }));
 
@@ -165,7 +165,7 @@ describe('useServiceAccountListState', () => {
     });
 
     it('should debounce query and reset page to 1 when query changes', async () => {
-        const { result, waitForNextUpdate } = renderHook(() => useServiceAccountListState());
+        const { result } = renderHook(() => useServiceAccountListState());
 
         // Set page to 2 first
         act(() => {
@@ -179,10 +179,13 @@ describe('useServiceAccountListState', () => {
         });
 
         // Wait for debounce (300ms) and page reset
-        await waitForNextUpdate({ timeout: 500 });
-
-        expect(result.current.debouncedQuery).toBe('test');
-        expect(result.current.page).toBe(1);
+        await waitFor(
+            () => {
+                expect(result.current.debouncedQuery).toBe('test');
+                expect(result.current.page).toBe(1);
+            },
+            { timeout: 500 },
+        );
     });
 });
 

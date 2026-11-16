@@ -45,6 +45,9 @@ record FreshnessAssertionInfo {
     */
     @Searchable = {
       "/type": {
+        "v3": {
+          "queryByDefault": true
+        },
         "fieldName": "scheduleType"
       }
     }

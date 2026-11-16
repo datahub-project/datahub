@@ -3,9 +3,9 @@ import { useTranslation } from 'react-i18next';
 import { useTheme } from 'styled-components';
 import styled from 'styled-components/macro';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 import EmptyQueriesSection from '@app/entityV2/shared/tabs/Dataset/Queries/EmptyQueriesSection';
 import QueriesListSection from '@app/entityV2/shared/tabs/Dataset/Queries/QueriesListSection';
 import {
@@ -18,8 +18,8 @@ import useDownstreamQueries from '@app/entityV2/shared/tabs/Dataset/Queries/useD
 import { useHighlightedQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useHighlightedQueries';
 import { usePopularQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/usePopularQueries';
 import { useRecentQueries } from '@app/entityV2/shared/tabs/Dataset/Queries/useRecentQueries';
-import Loading from '@app/shared/Loading';
-import usePrevious from '@app/shared/usePrevious';
+import Loading from '@app/sharedV2/Loading';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 

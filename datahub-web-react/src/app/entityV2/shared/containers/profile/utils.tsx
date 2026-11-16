@@ -4,9 +4,8 @@ import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { useGlossaryEntityData } from '@app/entityV2/shared/GlossaryEntityContext';
-import { GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, GLOSSARY_ENTITY_TYPES } from '@app/entityV2/shared/constants';
 import { ENTITY_TAB_NAME_REGEX_PATTERN } from '@app/entityV2/shared/containers/profile/entityData';
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import SidebarPopularityHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
@@ -15,7 +14,13 @@ import {
     getBarsStatusFromPopularityTier,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { useExtraSidebarTabs } from '@app/entityV2/shared/containers/profile/useExtraSidebarTabs';
-import { EntitySidebarSection, EntitySidebarTab, EntityTab, TabContextType } from '@app/entityV2/shared/types';
+import {
+    EntitySidebarSection,
+    EntitySidebarTab,
+    EntityTab,
+    GenericEntityProperties,
+    TabContextType,
+} from '@app/entityV2/shared/types';
 import {
     ENTITY_PROFILE_DOMAINS_ID,
     ENTITY_PROFILE_GLOSSARY_TERMS_ID,
@@ -37,7 +42,7 @@ import {
     ENTITY_SIDEBAR_V2_LINEAGE_TAB_ID,
     ENTITY_SIDEBAR_V2_PROPERTIES_ID,
 } from '@app/onboarding/configV2/EntityProfileOnboardingConfig';
-import usePrevious from '@app/shared/usePrevious';
+import usePrevious from '@app/sharedV2/usePrevious';
 
 import { EntityType } from '@types';
 
@@ -149,10 +154,11 @@ const getFinalSidebarTabs = (
 
     let finalTabs = sidebarTabsWithDefaults;
 
-    // Add a default "About" tab if only the legacy sections were provided.
+    // Add a default "Summary" tab if only the legacy sections were provided.
     if ((sidebarSections || [])?.length > 0) {
         finalTabs = [
             {
+                key: EntitySidebarTabKey.SUMMARY,
                 name: t('profile.defaultSummaryTabLabel'),
                 icon: BookOpen,
                 component: EntitySidebarSectionsTab,

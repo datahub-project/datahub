@@ -15,14 +15,13 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { getGovernanceTabName, getQualityTabName } from '@app/entityV2/dataset/constants';
 import { Preview } from '@app/entityV2/dataset/preview/Preview';
 import { useGetColumnTabCount } from '@app/entityV2/dataset/profile/useGetColumnTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -51,7 +50,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDatasetLastUpdatedMs,
@@ -62,11 +61,12 @@ import { useShowDatasetSummaryPage } from '@app/entityV2/summary/useShowDatasetS
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedFieldPathsRenderer } from '@app/searchV2/matches/matchedFieldPathsRenderer';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useAppConfig } from '@app/useAppConfig';
+import { FeatureFlags } from '@src/appConfigContext';
 
 import { GetDatasetQuery, useGetDatasetQuery, useUpdateDatasetMutation } from '@graphql/dataset.generated';
-import { Dataset, DatasetProperties, EntityType, FeatureFlagsConfig, SearchResult } from '@types';
+import { Dataset, DatasetProperties, EntityType, SearchResult } from '@types';
 
 const OperationsTab = lazyProfileComponent('OperationsTab', () =>
     import('@app/entityV2/dataset/profile/OperationsTab').then((module) => ({
@@ -114,7 +114,7 @@ const ViewDefinitionTab = lazyProfileComponent(
     () => import('@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab'),
 );
 const GovernanceTab = lazyProfileComponent('GovernanceTab', () =>
-    import('@src/app/entity/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
+    import('@src/app/entityV2/shared/tabs/Dataset/Governance/GovernanceTab').then((module) => ({
         default: module.GovernanceTab,
     })),
 );
@@ -375,6 +375,7 @@ export class DatasetEntity implements Entity<Dataset> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -384,6 +385,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
         },
         {
+            key: EntitySidebarTabKey.COLUMNS,
             name: i18next.t('common.labels:columns'),
             component: SchemaTab,
             description: i18next.t('entity.types:sidebar.columnsDescription'),
@@ -393,6 +395,7 @@ export class DatasetEntity implements Entity<Dataset> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
@@ -400,7 +403,7 @@ export class DatasetEntity implements Entity<Dataset> {
         },
     ];
 
-    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlagsConfig): boolean {
+    #shouldMergeInLineage(dataset?: Dataset | null, flags?: FeatureFlags): boolean {
         // Lineage query must include platform and typeNames on dataset and its sibling
         return (
             !!flags?.hideDbtSourceInLineage &&
@@ -409,10 +412,7 @@ export class DatasetEntity implements Entity<Dataset> {
         );
     }
 
-    getOverridePropertiesFromEntity = (
-        dataset?: Dataset | null,
-        flags?: FeatureFlagsConfig,
-    ): GenericEntityProperties => {
+    getOverridePropertiesFromEntity = (dataset?: Dataset | null, flags?: FeatureFlags): GenericEntityProperties => {
         // if dataset has subTypes filled out, pick the most specific subtype and return it
         const subTypes = dataset?.subTypes;
 
@@ -560,7 +560,7 @@ export class DatasetEntity implements Entity<Dataset> {
         return data.platform.properties?.logoUrl || undefined;
     };
 
-    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlagsConfig) => {
+    getGenericEntityProperties = (data: Dataset, flags?: FeatureFlags) => {
         return getDataForEntityType({
             data,
             entityType: this.type,

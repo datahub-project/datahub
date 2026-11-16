@@ -938,7 +938,6 @@ class BigQueryUsageExtractor:
             logger.debug(
                 f"Sql parsing failed on this query on view: {query}. Usage won't be added."
             )
-            logger.debug(result.debug_info)
             return []
 
         parsed_table_refs = []

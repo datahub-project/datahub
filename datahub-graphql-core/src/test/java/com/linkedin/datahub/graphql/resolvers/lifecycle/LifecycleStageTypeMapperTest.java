@@ -50,6 +50,7 @@ public class LifecycleStageTypeMapperTest {
     assertEquals(result.getUrn(), URN);
     assertEquals(result.getName(), "Draft");
     assertEquals(result.getDescription(), "A draft stage");
+    assertTrue(result.getUserAssignable());
     assertTrue(result.getHideInSearch());
     assertEquals(result.getEntityTypes(), List.of("dataset", "document"));
     assertNull(result.getAllowedPreviousStages());
@@ -110,5 +111,15 @@ public class LifecycleStageTypeMapperTest {
     LifecycleStageType result = LifecycleStageTypeMapper.map(URN, info);
 
     assertEquals(result.getHideInSearch(), false);
+  }
+
+  @Test
+  public void testSystemManagedStageMapping() {
+    LifecycleStageTypeInfo info = makeInfo("Unconfigured", true);
+    info.getSettings().setUserAssignable(false);
+
+    LifecycleStageType result = LifecycleStageTypeMapper.map(URN, info);
+
+    assertEquals(result.getUserAssignable(), false);
   }
 }

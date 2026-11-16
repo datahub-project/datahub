@@ -1,0 +1,36 @@
+"""
+An entity that can report whether it exists
+"""
+interface HasExists {
+  """
+  Whether or not this entity exists on DataHub
+  """
+  exists: Boolean
+}
+
+extend type Api implements HasExists
+extend type Application implements HasExists
+extend type Chart implements HasExists
+extend type Container implements HasExists
+extend type CorpGroup implements HasExists
+extend type CorpUser implements HasExists
+extend type Dashboard implements HasExists
+extend type DataFlow implements HasExists
+extend type DataHubPageModule implements HasExists
+extend type DataJob implements HasExists
+extend type DataProcessInstance implements HasExists
+extend type DataProduct implements HasExists
+extend type Dataset implements HasExists
+extend type Document implements HasExists
+extend type GlossaryNode implements HasExists
+extend type GlossaryTerm implements HasExists
+extend type MLFeature implements HasExists
+extend type MLFeatureTable implements HasExists
+extend type MLModel implements HasExists
+extend type MLModelGroup implements HasExists
+extend type MLPrimaryKey implements HasExists
+extend type Metric implements HasExists
+extend type Notebook implements HasExists
+extend type Repository implements HasExists
+extend type SemanticModel implements HasExists
+extend type StructuredPropertyEntity implements HasExists

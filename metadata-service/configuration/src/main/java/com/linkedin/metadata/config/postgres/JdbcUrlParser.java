@@ -90,6 +90,9 @@ public class JdbcUrlParser {
     if (trimmed.isEmpty()) {
       return jdbcUrl;
     }
+    if (!isPostgresJdbcUrl(jdbcUrl)) {
+      return jdbcUrl;
+    }
     JdbcInfo info = parseJdbcUrl(jdbcUrl);
     if (info.databaseType != DatabaseType.POSTGRES) {
       return jdbcUrl;
@@ -121,6 +124,15 @@ public class JdbcUrlParser {
       return upsertQueryParameter(jdbcUrl, "currentSchema", normalized);
     }
     return jdbcUrl;
+  }
+
+  /** Supported PostgreSQL JDBC schemes, including Cloud SQL and the AWS wrapper. */
+  private static boolean isPostgresJdbcUrl(String jdbcUrl) {
+    String normalized = jdbcUrl.toLowerCase(Locale.ROOT);
+    return normalized.startsWith("jdbc:postgresql:")
+        || normalized.startsWith("jdbc:google-cloud-sql-postgresql:")
+        || normalized.startsWith("jdbc:aws-wrapper:postgresql:")
+        || normalized.startsWith("jdbc:aws-wrapper:google-cloud-sql-postgresql:");
   }
 
   /** First entry of a PgJDBC {@code currentSchema} search-path list. */

@@ -45,6 +45,7 @@ dependencies {
     runtimeOnly externalDependency.logbackClassic
 
     // Spring Boot 4.0: Cassandra/Elasticsearch auto-configs moved to separate modules (needed for tests)
+    testImplementation testFixtures(project(':metadata-utils'))
     testImplementation externalDependency.springBootCassandra
     testImplementation externalDependency.springBootElasticsearch
     // Spring Boot 4.0: Jackson 2 bridge — provides ObjectMapper bean via Jackson2AutoConfiguration

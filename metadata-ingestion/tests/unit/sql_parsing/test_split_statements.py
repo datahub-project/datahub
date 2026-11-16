@@ -1215,12 +1215,21 @@ def test_new_exec_boundary_is_tsql_only() -> None:
             "DECLARE @rc INT\nEXEC @rc = dbo.child @a",
             ["DECLARE @rc INT", "EXEC @rc = dbo.child @a"],
         ),
+        # Temp procedure: session-scoped, so the name resolves to no known dataJob.
+        (
+            "INSERT INTO t SELECT 1 FROM u\nEXEC #tmp_proc @a",
+            ["INSERT INTO t SELECT 1 FROM u", "EXEC #tmp_proc @a"],
+        ),
+        (
+            "INSERT INTO t SELECT 1 FROM u\nEXEC ##global_proc @a",
+            ["INSERT INTO t SELECT 1 FROM u", "EXEC ##global_proc @a"],
+        ),
     ],
 )
 def test_new_tsql_execute_without_a_call_target_still_opens_a_statement(
     sql: str, expected: List[str]
 ) -> None:
-    # None of these three resolves to a callee, so none produces an edge of its own.
+    # None of these resolves to a callee, so none produces an edge of its own.
     # They still have to open a statement: left unsplit they absorb the statement
     # before them, which costs that statement its lineage as well.
     assert [c.strip() for c in split_statements(sql, dialect="tsql")] == expected
@@ -1564,3 +1573,52 @@ def test_new_tsql_privilege_verb_in_a_string_does_not_suppress_the_opener() -> N
             assert [c.strip() for c in split_statements(sql, dialect="tsql")] == [
                 sql
             ], sql
+
+
+@pytest.mark.parametrize(
+    "dialect, sql, expected",
+    [
+        pytest.param(
+            # Oracle tokenizes this START as BEGIN.
+            "oracle",
+            "INSERT INTO my_schema.out_t SELECT id FROM my_schema.emp "
+            "START WITH mgr IN (SELECT boss_id FROM my_schema.roots) "
+            "CONNECT BY PRIOR id = mgr\nSELECT 1 FROM dual",
+            [
+                "INSERT INTO my_schema.out_t SELECT id FROM my_schema.emp "
+                "START WITH mgr IN (SELECT boss_id FROM my_schema.roots) "
+                "CONNECT BY PRIOR id = mgr",
+                "SELECT 1 FROM dual",
+            ],
+            id="oracle_connect_by",
+        ),
+        pytest.param(
+            "snowflake",
+            "INSERT INTO out_t SELECT id FROM emp "
+            "START WITH mgr IN (SELECT boss_id FROM roots) CONNECT BY PRIOR id = mgr",
+            [
+                "INSERT INTO out_t SELECT id FROM emp "
+                "START WITH mgr IN (SELECT boss_id FROM roots) CONNECT BY PRIOR id = mgr"
+            ],
+            id="snowflake_connect_by",
+        ),
+        pytest.param(
+            "tsql",
+            "CREATE SEQUENCE dbo.seq_orders START WITH 1 INCREMENT BY 1\nSELECT 1",
+            ["CREATE SEQUENCE dbo.seq_orders START WITH 1 INCREMENT BY 1", "SELECT 1"],
+            id="create_sequence",
+        ),
+        pytest.param(
+            # Here `start` is a column alias, and the WITH opens a new statement.
+            "snowflake",
+            "SELECT 1 AS start\nWITH x AS (SELECT 1) SELECT * FROM x",
+            ["SELECT 1 AS start", "WITH x AS (SELECT 1) SELECT * FROM x"],
+            id="alias_named_start",
+        ),
+    ],
+)
+def test_start_with_is_not_a_boundary(
+    dialect: str, sql: str, expected: List[str]
+) -> None:
+    # sqlglot 30.22 tokenizes START WITH as two tokens, not one START_WITH.
+    assert list(split_statements(sql, dialect=dialect)) == expected

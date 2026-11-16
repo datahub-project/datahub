@@ -1,10 +1,13 @@
 {
     "accessManagement.accessAlreadyGranted": "Acceso ya concedido",
     "accessManagement.accessGrantedTooltip": "Ya tiene acceso a este rol",
+    "accessManagement.accessNotGranted": "Acceso no concedido",
+    "accessManagement.accessNotGrantedTooltip": "No hay ningún enlace de solicitud configurado para este rol",
     "accessManagement.columnAccess": "Acceso",
     "accessManagement.columnAccessType": "Tipo de acceso",
     "accessManagement.columnRoleName": "Nombre del rol",
     "accessManagement.granted": "Concedido",
+    "accessManagement.notGranted": "No concedido",
     "accessManagement.request": "Solicitar",
     "accessManagement.requestAccess": "Solicitar acceso",
     "accessManagement.tableAriaLabel": "Tabla de roles de gestión de acceso"

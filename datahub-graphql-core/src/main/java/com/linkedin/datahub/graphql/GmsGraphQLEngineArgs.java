@@ -14,6 +14,7 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.client.UsageStatsJavaClient;
 import com.linkedin.metadata.config.*;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.telemetry.TelemetryConfiguration;
 import com.linkedin.metadata.connection.ConnectionService;
@@ -118,5 +119,6 @@ public class GmsGraphQLEngineArgs {
   SemanticSearchService semanticSearchService;
   SemanticSearchConfiguration semanticSearchConfiguration;
   boolean entityIndexV3Enabled;
+  EntityIndexConfiguration entityIndexConfiguration;
   // any fork specific args should go below this line
 }

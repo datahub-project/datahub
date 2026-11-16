@@ -20,10 +20,12 @@ import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIn
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.EmptyPostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -41,6 +43,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.AbstractExecutorService;
 import java.util.concurrent.ExecutorService;
@@ -106,9 +109,7 @@ public class ElasticSearchServiceFactory {
       final EntityDocumentIdHasher entityDocumentIdHasher,
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
-      final SearchClusterRegistry searchClusterRegistry,
-      @Nullable final SearchTemplateCoordinator searchTemplateCoordinator) {
-    SearchTemplates.installProcessWide(searchTemplateCoordinator);
+      final SearchClusterRegistry searchClusterRegistry) {
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -194,12 +195,29 @@ public class ElasticSearchServiceFactory {
   }
 
   @Bean
+  protected SearchTemplateComponentRegistry searchTemplateComponentRegistry(
+      final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
+    List<SearchTemplateComponent> components =
+        new ArrayList<>(searchTemplateComponents.getIfAvailable(List::of));
+    boolean registered =
+        components.stream()
+            .anyMatch(
+                component ->
+                    EmptyPostProcessComponent.NAME.equals(component.name())
+                        && component.version() == EmptyPostProcessComponent.VERSION);
+    if (!registered) {
+      components.add(new EmptyPostProcessComponent());
+    }
+    return new SearchTemplateComponentRegistry(components);
+  }
+
+  @Bean
   @Nullable
   protected SearchTemplateCoordinator searchTemplateCoordinator(
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
-      @Qualifier("searchTemplateLadderExecutor")
-          final ExecutorService searchTemplateLadderExecutor) {
+      @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
+      final SearchTemplateComponentRegistry searchTemplateComponentRegistry) {
     if (searchTemplateLoader == null) {
       return null;
     }
@@ -209,7 +227,8 @@ public class ElasticSearchServiceFactory {
         elasticSearchConfiguration,
         customSearchConfiguration,
         searchTemplateLoader,
-        searchTemplateLadderExecutor);
+        searchTemplateLadderExecutor,
+        searchTemplateComponentRegistry);
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")

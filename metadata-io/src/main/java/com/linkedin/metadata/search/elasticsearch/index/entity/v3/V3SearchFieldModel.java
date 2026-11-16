@@ -43,8 +43,16 @@ public final class V3SearchFieldModel {
             labels.putIfAbsent(path, label);
           }
         });
-    storedParsedNameLabels = Collections.unmodifiableMap(labels);
     fullTextFields = immutable(V3SearchFields.fullTextFields(entitySpecs));
+    fullTextFields.forEach(
+        (label, paths) -> {
+          for (String path : paths) {
+            if (path.startsWith("_aspects.")) {
+              labels.putIfAbsent(path, label);
+            }
+          }
+        });
+    storedParsedNameLabels = Collections.unmodifiableMap(labels);
     analyzerSubfields = immutableSets(V3SearchFields.analyzerSubfields(entitySpecs));
     rootSourceFieldSpecs = immutable(V3SearchFields.rootSourceFieldSpecs(entitySpecs));
     entityNameFallbacks = Set.copyOf(V3SearchFields.entityNameFallbacks(entitySpecs));
@@ -63,6 +71,16 @@ public final class V3SearchFieldModel {
       @Nonnull final EntityRegistry entityRegistry,
       @Nonnull final Collection<EntitySpec> entitySpecs) {
     return of(V3SearchFields.indexGroupSpecs(entityRegistry, entitySpecs));
+  }
+
+  /**
+   * The model of every registry entity that declares a searchable field. Search reads this model
+   * because every V3 index carries that shared mapping.
+   */
+  @Nonnull
+  public static V3SearchFieldModel forSearchableEntities(
+      @Nonnull final EntityRegistry entityRegistry) {
+    return of(V3SearchFields.searchableEntitySpecs(entityRegistry));
   }
 
   /** {@link V3SearchFields#storedParsedNameFields}. */

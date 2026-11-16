@@ -21,6 +21,7 @@ record GlossaryTermAssociation {
     "systemModifiedAtFieldName": "termsModifiedAt",
     "boostScore": 0.5,
     "v3": {
+      "queryByDefault": true,
       "includeSystemModifiedAt": false,
       "searchLabel": "glossaryTerms",
       "mappings": [

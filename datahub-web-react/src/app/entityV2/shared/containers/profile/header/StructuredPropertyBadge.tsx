@@ -4,9 +4,9 @@ import styled from 'styled-components';
 
 import { filterForAssetBadge } from '@app/entityV2/shared/containers/profile/header/utils';
 import { mapStructuredPropertyToPropertyRow } from '@app/entityV2/shared/tabs/Properties/useStructuredProperties';
+import { getStructuredPropertyValue } from '@app/entityV2/shared/utils';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { Pill, Text, Tooltip } from '@src/alchemy-components';
-import { getStructuredPropertyValue } from '@src/app/entity/shared/utils';
 import { getDisplayName } from '@src/app/govern/structuredProperties/utils';
 import { StructuredProperties } from '@src/types.generated';
 

@@ -7,13 +7,15 @@ import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.HighlightCarry;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchedFields;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.SearchHighlightSelection.FieldSources;
+import com.linkedin.metadata.search.elasticsearch.query.request.v3.StageMatchedFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateJson;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMatchReport;
-import com.linkedin.metadata.search.elasticsearch.query.template.StructuredPropertySubfields;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.utils.ESUtils;
 import io.datahubproject.metadata.context.OperationContext;
@@ -98,7 +100,7 @@ public final class SearchTemplateRequestApplier {
       searchSourceBuilder.sort(new ScoreSortBuilder().order(SortOrder.DESC));
       searchSourceBuilder.sort(new FieldSortBuilder("urn").order(SortOrder.ASC));
     } else {
-      sort(searchSourceBuilder, sortCriteria, template);
+      sort(opContext, searchSourceBuilder, sortCriteria, template);
     }
     if (!countOnly && !scroll && Boolean.TRUE.equals(searchFlags.isGetSuggestions())) {
       ESUtils.buildNameSuggestions(searchSourceBuilder, input, "name");
@@ -152,6 +154,7 @@ public final class SearchTemplateRequestApplier {
   }
 
   private void sort(
+      @Nonnull OperationContext opContext,
       @Nonnull SearchSourceBuilder searchSourceBuilder,
       @Nullable List<SortCriterion> sortCriteria,
       @Nullable RenderedSearchTemplate template) {
@@ -171,7 +174,13 @@ public final class SearchTemplateRequestApplier {
       }
       return;
     }
-    ESUtils.buildSortOrder(searchSourceBuilder, sortCriteria, entitySpecs, v3SearchFieldResolver);
+    ESUtils.buildSortOrder(
+        searchSourceBuilder,
+        sortCriteria,
+        entitySpecs,
+        v3SearchFieldResolver,
+        opContext,
+        opContext.getAspectRetriever());
   }
 
   /**
@@ -187,10 +196,60 @@ public final class SearchTemplateRequestApplier {
     String query = template.originalQuery() == null ? "" : template.originalQuery();
     MatchedFields matcher = new MatchedFields(query, v3MinWordLength);
     // A query with no words, such as *, matches no field value
-    List<String> sources =
-        matcher.hasQueryWords() ? matchedFieldSources(opContext, template) : List.of();
-    Map<String, String> labels = V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels();
-    return hit -> matchFields(hit, template, query, matcher, sources, labels);
+    FieldSources queriedFields =
+        matcher.hasQueryWords() && template.matchedFields()
+            ? queriedFieldSources(opContext, template)
+            : FieldSources.NONE;
+    FieldSources highlightFields =
+        matcher.hasQueryWords() ? highlightFieldSources(opContext, template) : FieldSources.NONE;
+    Set<String> callerOptionalFilterFields =
+        opContext.getSearchContext().getCallerOptionalFilterFields() == null
+            ? Set.of()
+            : opContext.getSearchContext().getCallerOptionalFilterFields();
+    boolean explain = explains(opContext);
+    boolean deferred = HighlightCarry.isDeferred();
+    Map<String, String> labels =
+        deferred ? V3SearchFieldModel.of(entitySpecs).storedParsedNameLabels() : Map.of();
+    return hit -> {
+      if (!deferred) {
+        return matchFields(
+            hit,
+            template,
+            query,
+            matcher,
+            queriedFields,
+            highlightFields,
+            callerOptionalFilterFields,
+            explain);
+      }
+      Map<String, Object> source = hit.getSourceAsMap();
+      Object urn = source == null ? null : source.get("urn");
+      if (source != null && urn != null) {
+        Map<String, Object> fetched = source;
+        String[] matchedQueries =
+            hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
+        HighlightCarry.stash(
+            urn.toString(),
+            requested ->
+                matchFields(
+                    fetched,
+                    matchedQueries,
+                    template,
+                    query,
+                    matcher,
+                    queriedFields,
+                    highlightFields,
+                    callerOptionalFilterFields,
+                    requested));
+        StageMatchedFields.stash(urn.toString(), fetched, matcher, labels);
+      }
+      return SearchHitMatches.EMPTY;
+    };
+  }
+
+  private static boolean explains(@Nonnull OperationContext opContext) {
+    SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+    return flags != null && Boolean.TRUE.equals(flags.isIncludeExplain());
   }
 
   @Nonnull
@@ -199,38 +258,116 @@ public final class SearchTemplateRequestApplier {
       @Nonnull RenderedSearchTemplate template,
       @Nonnull String query,
       @Nonnull MatchedFields matcher,
-      @Nonnull List<String> sources,
-      @Nonnull Map<String, String> labels) {
-    Map<String, Object> source = hit.getSourceAsMap();
-    Map<String, Set<String>> matched = new LinkedHashMap<>();
-    List<MatchEvidence> ordinary = List.of();
-    if (source != null && !sources.isEmpty()) {
-      for (MatchedField field : matcher.find(source, sources, labels)) {
-        matched
-            .computeIfAbsent(field.getName(), ignored -> new LinkedHashSet<>())
-            .add(field.getValue());
-      }
-      ordinary = matcher.explain(source, sources, labels);
-    }
+      @Nonnull FieldSources queriedFields,
+      @Nonnull FieldSources highlightFields,
+      @Nonnull Set<String> callerOptionalFilterFields,
+      boolean explain) {
     String[] matchedQueries =
         hit.getMatchedQueries() != null ? hit.getMatchedQueries() : new String[0];
-    for (String queryName : matchedQueries) {
-      matched.putIfAbsent(queryName, Set.of(""));
+    return matchFields(
+        hit.getSourceAsMap(),
+        matchedQueries,
+        template,
+        query,
+        matcher,
+        queriedFields,
+        highlightFields,
+        callerOptionalFilterFields,
+        explain);
+  }
+
+  @Nonnull
+  private static SearchHitMatches matchFields(
+      @Nullable Map<String, Object> source,
+      @Nonnull String[] matchedQueries,
+      @Nonnull RenderedSearchTemplate template,
+      @Nonnull String query,
+      @Nonnull MatchedFields matcher,
+      @Nonnull FieldSources queriedFields,
+      @Nonnull FieldSources highlightFields,
+      @Nonnull Set<String> callerOptionalFilterFields,
+      boolean explain) {
+    Map<String, Set<String>> matched = new LinkedHashMap<>();
+    List<MatchEvidence> ordinary = new ArrayList<>();
+    if (source != null) {
+      scanFields(source, matcher, queriedFields, matched, ordinary, explain);
+      scanFields(source, matcher, highlightFields, matched, ordinary, explain);
+    }
+    if (template.matchedFields()) {
+      for (String queryName : matchedQueries) {
+        if ((queryName.startsWith(SearchTemplateMatchReport.MATCHED_FIELD_PREFIX)
+                || callerOptionalFilterFields.contains(queryName))
+            && !SearchTemplateMatchReport.labelAlreadyMatched(matched, queryName)) {
+          matched.put(queryName, Set.of(""));
+        }
+      }
     }
     Set<String> covered =
         template.namedClauses().values().stream()
             .map(RenderedSearchTemplate.NamedClause::path)
             .collect(Collectors.toCollection(LinkedHashSet::new));
-    List<MatchEvidence> explain = new ArrayList<>();
+    List<MatchEvidence> explained = new ArrayList<>();
     for (MatchEvidence evidence : ordinary) {
       if (!covers(evidence.field(), covered)) {
-        explain.add(evidence);
+        explained.add(evidence);
       }
     }
-    explain.addAll(
-        SearchTemplateMatchReport.explain(matched, source, query, template.namedClauses()));
+    if (explain) {
+      explained.addAll(
+          SearchTemplateMatchReport.explain(matched, source, query, template.namedClauses()));
+    }
     return new SearchHitMatches(
-        SearchTemplateMatchReport.fields(matched, source, query, template.namedClauses()), explain);
+        SearchTemplateMatchReport.fields(matched, source, query, template.namedClauses()),
+        explained);
+  }
+
+  /**
+   * Scans label keys first, then stored paths already fetched for labels that are not stored on the
+   * label. {@link #addFirst} keeps one value per field, so a label hit does not hide a different
+   * label's stored source and does not report the same label twice.
+   */
+  private static void scanFields(
+      @Nonnull Map<String, Object> source,
+      @Nonnull MatchedFields matcher,
+      @Nonnull FieldSources fields,
+      @Nonnull Map<String, Set<String>> matched,
+      @Nonnull List<MatchEvidence> ordinary,
+      boolean explain) {
+    if (!fields.labelKeys().isEmpty()) {
+      addFirst(matched, ordinary, matcher.matches(source, fields.labelKeys(), Map.of(), explain));
+    }
+    if (!fields.fallbackPaths().isEmpty()) {
+      addFirst(
+          matched,
+          ordinary,
+          matcher.matches(source, fields.fallbackPaths(), fields.fallbackLabels(), explain));
+    }
+    if (!fields.direct().isEmpty()) {
+      addFirst(matched, ordinary, matcher.matches(source, fields.direct(), Map.of(), explain));
+    }
+  }
+
+  /** One reported value per field name, in the order the scan found them. */
+  private static void addFirst(
+      @Nonnull Map<String, Set<String>> matched,
+      @Nonnull List<MatchEvidence> ordinary,
+      @Nonnull SearchHitMatches scanned) {
+    Set<String> added = new LinkedHashSet<>();
+    Set<String> reported = new LinkedHashSet<>();
+    for (MatchedField field : scanned.matched()) {
+      if (added.add(field.getName()) && !matched.containsKey(field.getName())) {
+        matched
+            .computeIfAbsent(field.getName(), ignored -> new LinkedHashSet<>())
+            .add(field.getValue());
+        reported.add(field.getName());
+      }
+    }
+    Set<String> explained = new LinkedHashSet<>();
+    for (MatchEvidence evidence : scanned.explain()) {
+      if (reported.contains(evidence.field()) && explained.add(evidence.field())) {
+        ordinary.add(evidence);
+      }
+    }
   }
 
   private static boolean covers(@Nonnull String name, @Nonnull Set<String> paths) {
@@ -245,27 +382,46 @@ public final class SearchTemplateRequestApplier {
   @Nonnull
   private List<String> matchedFieldSources(
       @Nonnull OperationContext opContext, @Nullable RenderedSearchTemplate template) {
-    if (template == null || v3SearchQueryBuilder == null) {
+    if (template == null) {
       return List.of();
     }
-    Map<String, List<String>> searched =
-        v3SearchQueryBuilder.searchedFields(opContext, entitySpecs);
-    Set<String> selected =
-        template.queriedFields().stream()
-            .map(SearchTemplateRequestApplier::baseQueryField)
-            .collect(Collectors.toCollection(LinkedHashSet::new));
-    Set<String> sources = new LinkedHashSet<>();
-    selected.forEach(
-        field -> {
-          if (searched.containsKey(field)) {
-            sources.addAll(searched.get(field));
-          } else if (field.startsWith(V3SearchFields.STRUCTURED_PROPERTIES + ".")) {
-            sources.add(field);
-          }
-        });
-    sources.addAll(v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs));
-    sources.add("urn");
-    return new ArrayList<>(sources);
+    // The scan ignores a query with no words, such as *. Do not fetch paths it will not read.
+    // Highlighting off still fetches queried paths when the query has words: that source is how a
+    // part match is reported.
+    String query = template.originalQuery() == null ? "" : template.originalQuery();
+    if (!new MatchedFields(query, v3MinWordLength).hasQueryWords()) {
+      return List.of();
+    }
+    LinkedHashSet<String> sources =
+        new LinkedHashSet<>(queriedFieldSources(opContext, template).fetchPaths());
+    sources.addAll(highlightFieldSources(opContext, template).fetchPaths());
+    return List.copyOf(sources);
+  }
+
+  @Nonnull
+  private FieldSources queriedFieldSources(
+      @Nonnull OperationContext opContext, @Nonnull RenderedSearchTemplate template) {
+    if (v3SearchQueryBuilder == null || !template.matchedFields()) {
+      return FieldSources.NONE;
+    }
+    return SearchHighlightSelection.fields(
+        template.queriedFields(),
+        template.queriedFieldSources(),
+        template.queriedFields(),
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs));
+  }
+
+  @Nonnull
+  private FieldSources highlightFieldSources(
+      @Nonnull OperationContext opContext, @Nonnull RenderedSearchTemplate template) {
+    if (v3SearchQueryBuilder == null || template.highlights().isEmpty()) {
+      return FieldSources.NONE;
+    }
+    return SearchHighlightSelection.fields(
+        template.highlights(),
+        template.queriedFieldSources(),
+        template.queriedFields(),
+        v3SearchQueryBuilder.copiedStructuredPropertyFields(opContext, entitySpecs));
   }
 
   /** No sort, or only descending {@code _score} / {@code score}, keeps rescore. */
@@ -280,15 +436,5 @@ public final class SearchTemplateRequestApplier {
               return ("_score".equals(field) || "score".equals(field))
                   && criterion.getOrder() != com.linkedin.metadata.query.filter.SortOrder.ASCENDING;
             });
-  }
-
-  @Nonnull
-  private static String baseQueryField(@Nonnull String field) {
-    String base = field;
-    int boost = base.lastIndexOf('^');
-    if (boost > 0) {
-      base = base.substring(0, boost);
-    }
-    return StructuredPropertySubfields.strip(base);
   }
 }

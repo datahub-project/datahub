@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.API_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.API_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.API_SIGNATURE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.DATA_PRODUCTS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DOMAINS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
@@ -66,7 +67,8 @@ public class ApiType
           STATUS_ASPECT_NAME,
           STRUCTURED_PROPERTIES_ASPECT_NAME,
           VERSION_PROPERTIES_ASPECT_NAME,
-          DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+          DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+          DATA_PRODUCTS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 

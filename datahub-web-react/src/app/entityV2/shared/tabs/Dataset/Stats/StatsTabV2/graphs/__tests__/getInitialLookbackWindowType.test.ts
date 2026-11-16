@@ -9,7 +9,7 @@ import {
     latestProfileTimeWithField,
     resolveHasRecentUsage,
 } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/getInitialLookbackWindowType';
-import { getFixedLookbackWindow } from '@src/app/shared/time/timeUtils';
+import { getFixedLookbackWindow } from '@src/app/sharedV2/time/timeUtils';
 import { TimeRange } from '@src/types.generated';
 
 const DAY_MS = 24 * 60 * 60 * 1000;

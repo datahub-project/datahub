@@ -11,7 +11,7 @@ import { render } from '@utils/test-utils/customRender';
 import { EntityType, PolicyMatchCondition, PolicyType, ResourceFilter } from '@types';
 
 // Mock DomainNavigator completely since it uses GraphQL
-vi.mock('@app/domain/nestedDomains/domainNavigator/DomainNavigator', () => ({
+vi.mock('@app/domainV2/nestedDomains/domainNavigator/DomainNavigator', () => ({
     default: () => <div data-testid="mocked-domain-navigator">Domain Navigator</div>,
 }));
 
@@ -30,12 +30,11 @@ vi.mock('@app/useEntityRegistry', async () => {
             getDisplayName: mockGetDisplayName,
             getEntityName: vi.fn().mockReturnValue('Tag'),
         }),
-        useEntityRegistryV2: actual.useEntityRegistryV2,
     };
 });
 
 // Mock recommendation hooks
-vi.mock('@app/shared/recommendation', () => ({
+vi.mock('@app/sharedV2/recommendation', () => ({
     useGetRecommendations: () => ({ recommendedData: [] }),
 }));
 

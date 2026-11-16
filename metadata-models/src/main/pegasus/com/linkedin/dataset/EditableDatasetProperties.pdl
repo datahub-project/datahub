@@ -20,6 +20,7 @@ record EditableDatasetProperties includes ChangeAuditStamps {
     "sanitizeRichText": true,
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -38,7 +39,9 @@ record EditableDatasetProperties includes ChangeAuditStamps {
     "fieldName": "editedName",
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },

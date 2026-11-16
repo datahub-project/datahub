@@ -595,6 +595,7 @@ class MSSQLQuery:
             WITH mapped AS (
                 SELECT
                     n.event_time,
+                    n.session_id,
                     n.user_name,
                     n.database_name,
                     n.is_rpc,
@@ -638,23 +639,38 @@ class MSSQLQuery:
                     AND is_prepare_only = 0
                     {exclude_clause}
             ),
+            -- Statements that reference a #temp table also keep their session,
+            -- so the parser sees a temp table's producer and its readers in one
+            -- session and resolves lineage to the real source. Everything else
+            -- stays grouped across sessions, which keeps the row count low.
+            sessioned AS (
+                SELECT
+                    *,
+                    CASE WHEN stmt_key LIKE N'%#%' THEN session_id END AS temp_session_id,
+                    DATEADD({bucket_unit}, DATEDIFF({bucket_unit}, 0, event_time), 0)
+                        AS bucket_start
+                FROM filtered
+            ),
             grouped AS (
                 SELECT
                     database_name,
                     HASHBYTES('SHA2_256', stmt_key) AS statement_hash,
                     MAX(stmt_key) AS statement,
                     user_name,
+                    temp_session_id,
+                    bucket_start,
                     MAX(event_time) AS last_event_time,
                     COUNT(*) AS bucket_execution_count,
                     MAX(is_truncated) AS is_truncated,
                     MAX(is_unmapped) AS is_unmapped,
                     SUM(is_wrapper) AS wrapped_execution_count
-                FROM filtered
+                FROM sessioned
                 GROUP BY
                     database_name,
                     HASHBYTES('SHA2_256', stmt_key),
                     user_name,
-                    DATEADD({bucket_unit}, DATEDIFF({bucket_unit}, 0, event_time), 0)
+                    temp_session_id,
+                    bucket_start
             ),
             totals AS (
                 SELECT
@@ -680,7 +696,18 @@ class MSSQLQuery:
             )
             SELECT
                 CONVERT(VARCHAR(64), statement_hash, 2) AS query_id,
-                CONVERT(VARCHAR(64), statement_hash, 2) AS session_key,
+                -- The parser session must span the whole connection, so it
+                -- leaves out the usage bucket and the current database (a
+                -- connection can cross buckets or run USE). Session ids are
+                -- reused by later connections; the login keeps another login's
+                -- connection apart. The audit's connection_id would be exact,
+                -- but SQL Server 2017/2019 audits don't return it.
+                CASE
+                    WHEN temp_session_id IS NULL THEN CONVERT(VARCHAR(64), statement_hash, 2)
+                    ELSE CONCAT(
+                        N'session:', temp_session_id, N':', COALESCE(user_name, N'')
+                    )
+                END AS session_key,
                 statement AS query_text,
                 execution_count,
                 -- Duration is only recorded by Azure audits and XE; it is used

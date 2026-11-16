@@ -14,7 +14,9 @@ record EntityTypeInfo {
       "queryByDefault": true,
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "qualifiedName",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
@@ -31,7 +33,9 @@ record EntityTypeInfo {
       "fieldType": "WORD_GRAM",
       "boostScore": 10.0,
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "name",
+        "lowercase": true,
         "mappings": [
           { "type": "KEYWORD" },
           { "subfield": "text", "type": "TEXT" },
@@ -48,6 +52,7 @@ record EntityTypeInfo {
       "fieldType": "TEXT",
       "hasValuesFieldName": "hasDescription",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "description",
         "mappings": [
           { "type": "KEYWORD", "index": false, "docValues": false },

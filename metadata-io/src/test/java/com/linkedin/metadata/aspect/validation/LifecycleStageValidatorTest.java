@@ -203,7 +203,7 @@ public class LifecycleStageValidatorTest {
   }
 
   @Test
-  public void testEmptyEntityTypesAppliesToAll() {
+  public void testEmptyEntityTypesAppliesToNone() {
     LifecycleStageTypeInfo info = makeStageInfo(List.of());
     stubStage(STAGE_URN, info);
 
@@ -219,10 +219,8 @@ public class LifecycleStageValidatorTest {
                 null)
             .count();
 
-    // Empty entityTypes list means "applies to no types" per the PDL doc,
-    // but the validator treats it as "applies to all" since empty != explicit restriction.
-    // The real enforcement of "empty = disabled" is at the hideInSearch/search layer.
-    assertEquals(errors, 0, "Stage with empty entityTypes should pass (empty != restricted)");
+    // Empty entityTypes means "applies to no types" (disabled stage), per the model contract.
+    assertEquals(errors, 1, "Stage with empty entityTypes should fail for any entity type");
   }
 
   /** A stage set via patch is validated from the patch's own value at the request stage. */

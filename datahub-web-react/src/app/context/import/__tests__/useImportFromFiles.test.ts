@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import '@app/context/import/__tests__/testSetup';
 import { extractTextFromFile } from '@app/context/import/fileImportUtils';
 import { useImportFromFiles } from '@app/context/import/hooks/useImportFromFiles';
 import { ImportUseCase } from '@app/context/import/import.types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { DocumentImportUseCase } from '@types';
 

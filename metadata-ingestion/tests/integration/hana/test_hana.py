@@ -62,6 +62,7 @@ def test_hana_ingest(
         # Verify the output.
         mce_helpers.check_golden_file(
             pytestconfig,
+            fail_on_output_mces=True,
             output_path=tmp_path / "hana_mces.json",
-            golden_path=test_resources_dir / "hana_mces_golden.json",
+            golden_path=test_resources_dir / "hana_golden.json",
         )

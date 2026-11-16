@@ -4,7 +4,7 @@ import { PencilSimple } from '@phosphor-icons/react/dist/csr/PencilSimple';
 import { User } from '@phosphor-icons/react/dist/csr/User';
 import React from 'react';
 
-import { capitalizeFirstLetter } from '@app/shared/textUtil';
+import { capitalizeFirstLetter } from '@app/sharedV2/textUtil';
 
 export const getRoleNameFromUrn = (roleUrn: string) => {
     return capitalizeFirstLetter(roleUrn.replace('urn:li:dataHubRole:', ''));

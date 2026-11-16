@@ -3,7 +3,6 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
-import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.entity.AspectUtils.buildMetadataChangeProposal;
 
 import com.datahub.authentication.Authentication;
@@ -32,6 +31,7 @@ import com.linkedin.form.FormInfo;
 import com.linkedin.form.FormPrompt;
 import com.linkedin.form.FormType;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.aspect.patch.builder.StructuredPropertiesPatchBuilder;
 import com.linkedin.metadata.authorization.OwnershipUtils;
 import com.linkedin.metadata.entity.AspectUtils;
 import com.linkedin.metadata.key.FormKey;
@@ -44,9 +44,6 @@ import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.schema.SchemaField;
 import com.linkedin.schema.SchemaMetadata;
 import com.linkedin.structured.PrimitivePropertyValueArray;
-import com.linkedin.structured.StructuredProperties;
-import com.linkedin.structured.StructuredPropertyValueAssignment;
-import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
@@ -326,48 +323,19 @@ public class FormService extends BaseService {
       @Nonnull final Urn structuredPropertyUrn,
       @Nonnull final PrimitivePropertyValueArray values)
       throws Exception {
-    final EntityResponse response =
-        entityClient.getV2(
-            opContext,
-            entityUrn.getEntityType(),
-            entityUrn,
-            ImmutableSet.of(STRUCTURED_PROPERTIES_ASPECT_NAME));
-
-    StructuredProperties structuredProperties = new StructuredProperties();
-    structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray());
-    if (response != null && response.getAspects().containsKey(STRUCTURED_PROPERTIES_ASPECT_NAME)) {
-      structuredProperties =
-          new StructuredProperties(
-              response.getAspects().get(STRUCTURED_PROPERTIES_ASPECT_NAME).getValue().data());
-    }
-
-    // Since we upsert assignments for this structuredProperty,
-    // remove anything from this structured property and add to this list
-    List<StructuredPropertyValueAssignment> filteredAssignments =
-        structuredProperties.getProperties().stream()
-            .filter(assignment -> !assignment.getPropertyUrn().equals(structuredPropertyUrn))
-            .collect(Collectors.toList());
-
-    StructuredPropertyValueAssignment assignment = new StructuredPropertyValueAssignment();
-    assignment.setValues(values);
-    assignment.setPropertyUrn(structuredPropertyUrn);
-    assignment.setCreated(
+    final AuditStamp lastModified =
         new AuditStamp()
             .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
-    assignment.setLastModified(
-        new AuditStamp()
-            .setActor(UrnUtils.getUrn(opContext.getSessionAuthentication().getActor().toUrnStr()))
-            .setTime(System.currentTimeMillis()));
-    filteredAssignments.add(assignment);
+            .setTime(System.currentTimeMillis());
 
-    StructuredPropertyValueAssignmentArray assignments =
-        new StructuredPropertyValueAssignmentArray(filteredAssignments);
-    structuredProperties.setProperties(assignments);
-
+    // Patch only the prompted property. Upserting the whole aspect re-validates every property on
+    // the entity, so a value that predates another property's allowedValues would reject a
+    // response that never touched that property.
     final MetadataChangeProposal structuredPropertiesProposal =
-        AspectUtils.buildMetadataChangeProposal(
-            entityUrn, STRUCTURED_PROPERTIES_ASPECT_NAME, structuredProperties);
+        new StructuredPropertiesPatchBuilder()
+            .urn(entityUrn)
+            .setProperty(structuredPropertyUrn, values, lastModified)
+            .build();
     try {
       this.entityClient.ingestProposal(opContext, structuredPropertiesProposal, false);
     } catch (Exception e) {

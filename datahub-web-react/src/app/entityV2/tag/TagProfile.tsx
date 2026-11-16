@@ -3,9 +3,10 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import CompactTagProfile from '@app/entityV2/tag/CompactTagProfile';
-import CompactContext from '@app/shared/CompactContext';
-import { Message } from '@app/shared/Message';
-import TagStyleEntity from '@app/shared/TagStyleEntity';
+import TagActionsDropdown from '@app/entityV2/tag/TagActionsDropdown';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { Message } from '@app/sharedV2/Message';
+import TagStyleEntity from '@app/sharedV2/TagStyleEntity';
 
 import { useGetTagQuery } from '@graphql/tag.generated';
 
@@ -38,7 +39,7 @@ export default function TagProfile({ urn }: Props) {
     return (
         <PageContainer>
             {loading && <LoadingMessage type="loading" content={tf('loading')} />}
-            <TagStyleEntity urn={urn} />
+            <TagStyleEntity urn={urn} renderActions={(tagData) => <TagActionsDropdown urn={urn} tagData={tagData} />} />
         </PageContainer>
     );
 }

@@ -10,11 +10,13 @@ import java.nio.file.Paths;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Base class for {@link AuthenticatorPluginConfigProvider} and {@link
  * AuthorizerPluginConfigProvider}.
  */
+@Slf4j
 public abstract class AuthPluginConfigProvider implements PluginConfigProvider<AuthPluginConfig> {
   public abstract PluginType getType();
 
@@ -25,11 +27,23 @@ public abstract class AuthPluginConfigProvider implements PluginConfigProvider<A
       List<com.datahub.plugins.configuration.PluginConfig> pluginConfigConfigs) {
     // Filter out AuthPlugin
     Stream<PluginConfig> authPluginHolder =
-        pluginConfigConfigs.stream().filter(pluginHolder -> pluginHolder.getType() == getType());
+        pluginConfigConfigs.stream()
+            .filter(pluginHolder -> pluginHolder.getType() == getType())
+            // Drop disabled plugins before formPluginJar checks that the jar exists, so a disabled
+            // plugin whose jar is not mounted does not fail GMS startup.
+            .filter(this::isNotDisabled);
     // Create AuthPlugin type instances
     List<AuthPluginConfig> authPlugins =
         authPluginHolder.map(this::createAuthPluginConfig).collect(Collectors.toList());
     return authPlugins;
+  }
+
+  private boolean isNotDisabled(PluginConfig pluginConfig) {
+    if (Boolean.FALSE.equals(pluginConfig.getEnabled())) {
+      log.info("{} plugin {} is not enabled", getType(), pluginConfig.getName());
+      return false;
+    }
+    return true;
   }
 
   public Path formPluginJar(PluginConfig pluginConfig, AuthParam authConfig) {

@@ -11,7 +11,7 @@ import {
 import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
 import { PageTitle, SearchBar } from '@src/alchemy-components';
-import { toLocalDateString } from '@src/app/shared/time/timeUtils';
+import { toLocalDateString } from '@src/app/sharedV2/time/timeUtils';
 
 const ColumnStatsContainer = styled.div`
     display: flex;

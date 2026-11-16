@@ -1,10 +1,25 @@
 package com.linkedin.metadata.search.client;
 
 import static com.linkedin.metadata.search.client.CachingEntitySearchService.*;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.*;
 
 import com.github.benmanes.caffeine.cache.Cache;
 import com.github.benmanes.caffeine.cache.Caffeine;
+import com.google.common.collect.ImmutableList;
+import com.hazelcast.config.ClassFilter;
+import com.hazelcast.config.Config;
+import com.hazelcast.config.JavaSerializationFilterConfig;
+import com.hazelcast.config.JoinConfig;
+import com.hazelcast.core.Hazelcast;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.IMap;
+import com.hazelcast.nio.serialization.HazelcastSerializationException;
 import com.linkedin.common.urn.Urn;
 import java.net.URISyntaxException;
 import java.util.Arrays;
@@ -12,6 +27,7 @@ import java.util.Collection;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.UUID;
 import java.util.concurrent.Callable;
 import java.util.concurrent.TimeUnit;
 import org.javatuples.Octet;
@@ -347,5 +363,89 @@ public class CacheEvictionServiceTest {
     service.invalidateAll(); // should be no op though
     service.invalidate("anycache"); // should be no op
     service.evict(List.of(Urn.createFromString("urn:li:container:bar")));
+  }
+
+  @Test
+  void testUnreadableKeysClearThatCacheAndEvictionContinues() throws URISyntaxException {
+    IMap<Object, Object> unreadable = mock(IMap.class);
+    when(unreadable.keySet())
+        .thenThrow(new HazelcastSerializationException("Resolving class is not allowed"));
+    org.springframework.cache.Cache searchCache = mock(org.springframework.cache.Cache.class);
+    when(searchCache.getNativeCache()).thenReturn(unreadable);
+
+    Octet<Object, List<String>, String, String, Object, String, List<String>, Integer> scrollKey =
+        Octet.with(
+            null, List.of("container"), "*", "urn:li:container:foo", null, null, List.of(), 10);
+    Cache<Object, Object> scrollNative = Caffeine.newBuilder().build();
+    scrollNative.put(scrollKey, "result");
+    org.springframework.cache.Cache scrollCache = mock(org.springframework.cache.Cache.class);
+    when(scrollCache.getNativeCache()).thenReturn(scrollNative);
+
+    CacheManager manager = mock(CacheManager.class);
+    when(manager.getCacheNames())
+        .thenReturn(
+            List.of(
+                ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME, ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME));
+    when(manager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME)).thenReturn(searchCache);
+    when(manager.getCache(ENTITY_SEARCH_SERVICE_SCROLL_CACHE_NAME)).thenReturn(scrollCache);
+
+    new CacheEvictionService(manager, true, true)
+        .evict(List.of(Urn.createFromString("urn:li:container:foo")));
+
+    verify(searchCache).invalidate();
+    verify(scrollCache).evict(scrollKey);
+    verify(scrollCache, never()).invalidate();
+  }
+
+  @Test
+  void testUnreadableHazelcastKeyIsSkippedWithoutClearingTheCache() throws URISyntaxException {
+    String clusterName = "cache-eviction-test-" + UUID.randomUUID();
+    Config config = new Config().setClusterName(clusterName).setInstanceName(clusterName);
+    JoinConfig join = config.getNetworkConfig().getJoin();
+    join.getMulticastConfig().setEnabled(false);
+    join.getTcpIpConfig().setEnabled(false);
+    join.getAutoDetectionConfig().setEnabled(false);
+    // Same shape as GMS: Guava is blocked, so a key holding a Guava list cannot be read back.
+    config
+        .getSerializationConfig()
+        .setJavaSerializationFilterConfig(
+            new JavaSerializationFilterConfig()
+                .setWhitelist(new ClassFilter().addPrefixes("org.javatuples."))
+                .setBlacklist(new ClassFilter().addPrefixes("com.google.common.")));
+    HazelcastInstance instance = Hazelcast.newHazelcastInstance(config);
+    try {
+      IMap<Object, Object> map = instance.getMap(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
+      String filter = "urn:li:container:foo";
+      // Written by an older GMS that passed the caller's Guava list straight into the key.
+      Object unreadableKey =
+          Septet.with(null, ImmutableList.of("container"), "*", filter, null, List.of(), null);
+      Object readableKey =
+          Septet.with(
+              null,
+              new java.util.ArrayList<>(List.of("container")),
+              "*",
+              filter,
+              null,
+              List.of(),
+              1);
+      map.put(unreadableKey, "old");
+      map.put(readableKey, "new");
+
+      org.springframework.cache.Cache cache = mock(org.springframework.cache.Cache.class);
+      when(cache.getNativeCache()).thenReturn(map);
+      doAnswer(invocation -> map.remove(invocation.getArgument(0))).when(cache).evict(any());
+      CacheManager manager = mock(CacheManager.class);
+      when(manager.getCacheNames()).thenReturn(List.of(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME));
+      when(manager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME)).thenReturn(cache);
+
+      new CacheEvictionService(manager, true, true)
+          .evict(List.of(Urn.createFromString("urn:li:container:foo")));
+
+      verify(cache).evict(readableKey);
+      verify(cache, never()).invalidate();
+      assertEquals(map.size(), 1, "only the unreadable key should remain");
+    } finally {
+      instance.shutdown();
+    }
   }
 }

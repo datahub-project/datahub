@@ -27,6 +27,7 @@ import {
   STANDALONE_EVENT_COUNT_URN,
   TOTAL_REVENUE_URN,
 } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'metrics' });
 
@@ -74,17 +75,21 @@ test.describe('Metrics lineage topologies', () => {
     await lineagePage.checkEdgeExists(ORDERS_CHART_URN, ORDERS_DASHBOARD_URN);
   });
 
-  test('model-backed metric shows logical and physical upstream path', async () => {
-    await loadLineageGraph('metric', TOTAL_REVENUE_URN);
+  test(
+    'model-backed metric shows logical and physical upstream path',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      await loadLineageGraph('metric', TOTAL_REVENUE_URN);
 
-    await lineagePage.checkNodeExists(TOTAL_REVENUE_URN);
-    await lineagePage.checkNodeExists(ORDERS_LOGICAL_URN);
-    await lineagePage.checkEdgeExists(ORDERS_LOGICAL_URN, TOTAL_REVENUE_URN);
+      await lineagePage.checkNodeExists(TOTAL_REVENUE_URN);
+      await lineagePage.checkNodeExists(ORDERS_LOGICAL_URN);
+      await lineagePage.checkEdgeExists(ORDERS_LOGICAL_URN, TOTAL_REVENUE_URN);
 
-    await lineagePage.expandOne(ORDERS_LOGICAL_URN);
-    await lineagePage.checkNodeExists(PHYS_ORDERS_URN);
-    await lineagePage.checkEdgeExists(PHYS_ORDERS_URN, ORDERS_LOGICAL_URN);
-  });
+      await lineagePage.expandOne(ORDERS_LOGICAL_URN);
+      await lineagePage.checkNodeExists(PHYS_ORDERS_URN);
+      await lineagePage.checkEdgeExists(PHYS_ORDERS_URN, ORDERS_LOGICAL_URN);
+    },
+  );
 
   test('derived metric shows base metric lineage', async () => {
     await loadLineageGraph('metric', DOUBLE_REVENUE_URN);

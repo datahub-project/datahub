@@ -4,15 +4,15 @@ import styled from 'styled-components';
 
 import { AvatarType } from '@components/components/AvatarStack/types';
 
-import { IconStyleType } from '@app/entity/Entity';
+import { IconStyleType } from '@app/entityV2/Entity';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import useGetBrowseV2LabelOverride from '@app/searchV2/filters/useGetBrowseV2LabelOverride';
 import { BROWSE_PATH_V2_FILTER_NAME, ENTITY_FILTER_NAME, MAX_COUNT_VAL } from '@app/searchV2/utils/constants';
-import { formatNumber } from '@app/shared/formatNumber';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {

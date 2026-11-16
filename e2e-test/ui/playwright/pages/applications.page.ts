@@ -11,6 +11,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS, LOAD_STATES } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 export class ApplicationsPage extends BasePage {
   // ── Manage Applications Page ─────────────────────────────────────────
@@ -34,6 +35,8 @@ export class ApplicationsPage extends BasePage {
   readonly noApplicationText: Locator;
   readonly removeConfirmYesButton: Locator;
   readonly removeIcon: Locator;
+
+  private readonly graphql: GraphQLHelper;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -59,6 +62,8 @@ export class ApplicationsPage extends BasePage {
     this.noApplicationText = page.getByText('No application yet');
     this.removeConfirmYesButton = page.getByRole('button', { name: /yes/i });
     this.removeIcon = page.getByTestId('remove-icon');
+
+    this.graphql = new GraphQLHelper(page);
   }
 
   // ════════════════════════════════════════════════════════════════════
@@ -119,12 +124,17 @@ export class ApplicationsPage extends BasePage {
   }
 
   async searchApplication(query: string): Promise<void> {
+    // The list searches after a debounce, so wait for the result for this query rather than
+    // returning while the previous results are still shown. The query needs at least 3
+    // characters and must not have been searched already on this page load: shorter queries
+    // are sent as '' and repeats are served from the Apollo cache, so no request would arrive.
+    const searched = this.graphql.waitForGraphQLResponse('getSearchResultsForMultiple', (variables) => {
+      const input = variables.input as { query?: string } | undefined;
+      return input?.query === query;
+    });
     await this.searchInput.fill('');
     await this.searchInput.type(query);
-    // Wait for search debounce + network
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
-    await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    expect((await searched).errors).toBeUndefined();
   }
 
   async verifyNoSearchResults(): Promise<void> {
@@ -145,22 +155,29 @@ export class ApplicationsPage extends BasePage {
   }
 
   async clickCreateButton(): Promise<void> {
+    const created = this.graphql.waitForGraphQLResponse('createApplication');
     await this.createButtonModal.click();
-    // Wait for modal to close and success message
+    expect((await created).errors).toBeUndefined();
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // Wait for refetch to complete
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.OPERATION);
+  }
+
+  // The list is search-backed and lags writes, so reload until the index reflects the change.
+  // The table (or the empty state) only renders once the search has loaded, which anchors the
+  // absence check in verifyApplicationNotInTable.
+  private async expectTableAfterReload(assertion: () => Promise<void>): Promise<void> {
+    await expect(async () => {
+      await this.page.reload();
+      await expect(this.applicationsTable.or(this.emptyStateText)).toBeVisible();
+      await assertion();
+    }).toPass({ timeout: TIMEOUTS.EXTRA_LONG });
   }
 
   async verifyApplicationInTable(name: string): Promise<void> {
-    const appRow = this.getApplicationRow(name);
-    await expect(appRow).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+    await this.expectTableAfterReload(() => expect(this.getApplicationRow(name)).toBeVisible());
   }
 
   async verifyApplicationNotInTable(name: string): Promise<void> {
-    const appRow = this.getApplicationRow(name);
-    await expect(appRow).toBeHidden();
+    await this.expectTableAfterReload(() => expect(this.getApplicationRow(name)).toBeHidden());
   }
 
   async clickApplicationActions(name: string): Promise<void> {
@@ -178,10 +195,10 @@ export class ApplicationsPage extends BasePage {
   }
 
   async confirmDeletion(): Promise<void> {
+    const deleted = this.graphql.waitForGraphQLResponse('deleteApplication');
     await this.deleteConfirmButton.click();
+    expect(await deleted).toMatchObject({ data: { deleteApplication: true } });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async deleteApplication(name: string): Promise<void> {
@@ -203,10 +220,7 @@ export class ApplicationsPage extends BasePage {
   }
 
   async verifyAssetInList(assetName: string): Promise<void> {
-    // Wait for GraphQL search query to complete and render assets
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.MEDIUM);
 
     const assetElement = this.getAssetElement(assetName);
     await expect(assetElement).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
@@ -262,8 +276,6 @@ export class ApplicationsPage extends BasePage {
   async clickSelectApplicationDropdown(): Promise<void> {
     const selectTrigger = this.page.getByTestId('application-select-base');
     await selectTrigger.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS); // Wait for modal to fully stabilize
     await selectTrigger.click({ timeout: TIMEOUTS.MEDIUM });
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
   }
@@ -273,20 +285,20 @@ export class ApplicationsPage extends BasePage {
     const searchInput = this.page.getByTestId('application-select-dropdown').getByTestId('dropdown-search-input');
 
     await searchInput.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
 
+    // The modal re-queries applications after a debounce; wait for that result so the option
+    // we click next is not swapped out by a loading state mid-click.
+    const searched = this.graphql.waitForGraphQLResponse('getApplicationsList', (variables) => {
+      const input = variables.input as { query?: string } | undefined;
+      return input?.query === appName.trim();
+    });
     await searchInput.fill(appName);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
+    await searched;
   }
 
   async selectApplicationFromDropdown(appName: string): Promise<void> {
     const option = this.getDropdownOption(appName);
     await option.click();
-    // Small wait for dropdown to close
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
   async clickAddButton(): Promise<void> {

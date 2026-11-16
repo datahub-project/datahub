@@ -7,7 +7,7 @@ import { ModalButton } from '@components/components/Modal/Modal';
 
 import OwnersSection from '@app/domainV2/OwnersSection';
 import { createOwnerInputs } from '@app/entityV2/shared/utils/selectorUtils';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import TagDetailsSection from '@app/tags/CreateNewTagModal/TagDetailsSection';
 
 import {

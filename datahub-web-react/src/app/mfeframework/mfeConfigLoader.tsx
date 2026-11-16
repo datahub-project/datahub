@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { Route, Switch } from 'react-router';
 
 import { DEFAULT_LOAD_TIMEOUT_MS, MFEBaseConfigurablePage } from '@app/mfeframework/MFEConfigurableContainer';
-import { NoPageFound } from '@app/shared/NoPageFound';
+import { NoPageFound } from '@app/sharedV2/NoPageFound';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 interface MFEFlags {

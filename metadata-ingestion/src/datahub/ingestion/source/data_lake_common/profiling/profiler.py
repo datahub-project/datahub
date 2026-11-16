@@ -1,3 +1,4 @@
+import io
 import logging
 import os
 from typing import (
@@ -34,6 +35,7 @@ from datahub.ingestion.source.azure.abs_utils import (
     get_container_relative_path,
     is_abs_uri,
 )
+from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
 from datahub.ingestion.source.data_lake_common.profiling.accumulators import (
     ColumnStats,
     TableAccumulator,
@@ -45,6 +47,10 @@ from datahub.ingestion.source.data_lake_common.profiling.readers import (
     read_csv,
     read_json,
     read_parquet,
+)
+from datahub.ingestion.source.data_lake_common.zip_utils import (
+    is_zip_path,
+    read_first_supported_zip_entry,
 )
 from datahub.metadata.schema_classes import (
     DatasetFieldProfileClass,
@@ -301,7 +307,10 @@ class FileProfiler:
         return field_profile
 
     def get_table_profile(
-        self, table_data: TableDataLike, dataset_urn: str
+        self,
+        table_data: TableDataLike,
+        dataset_urn: str,
+        path_spec: Optional[PathSpec] = None,
     ) -> Iterable[MetadataWorkUnit]:
         config = self.profiling_config
         extension = os.path.splitext(table_data.full_path)[1]
@@ -332,7 +341,29 @@ class FileProfiler:
             for path in paths:
                 try:
                     with self._open_file(path) as file_obj:
-                        source = self._read_source(file_obj, extension)
+                        read_stream: IO[bytes] = file_obj
+                        read_extension = extension
+                        if (
+                            path_spec is not None
+                            and path_spec.enable_compression
+                            and is_zip_path(path)
+                        ):
+                            entry = read_first_supported_zip_entry(
+                                file_obj,
+                                context=path,
+                                report=self.report,
+                                file_types=path_spec.file_types,
+                                max_entry_size=path_spec.max_zip_entry_size,
+                            )
+                            if entry is None:
+                                # Profiling the table's other files would emit a
+                                # profile that silently omits this one.
+                                table_read_failed = True
+                                break
+                            read_stream = io.BytesIO(entry.data)
+                            read_extension = entry.suffix
+
+                        source = self._read_source(read_stream, read_extension)
                         if source is None:
                             self.report.warning(
                                 title="Skipped file with unsupported extension during profiling",

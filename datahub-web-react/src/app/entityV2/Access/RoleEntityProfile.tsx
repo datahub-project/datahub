@@ -5,7 +5,7 @@ import { useParams } from 'react-router';
 import styled from 'styled-components';
 
 import { decodeUrn } from '@app/entityV2/shared/utils';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 
 import { useGetExternalRoleQuery } from '@graphql/accessrole.generated';
 

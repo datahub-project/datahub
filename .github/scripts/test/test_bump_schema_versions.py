@@ -1567,6 +1567,59 @@ def test_get_base_pdl_changes_failure_exits(monkeypatch):
         bsv.get_base_pdl_changes("deadbeef", "refs/remotes/origin/acryl-main")
 
 
+def _git_run(responses):
+    """Return a subprocess.run stand-in keyed by the git subcommand."""
+
+    def run(cmd, **_kwargs):
+        key = tuple(cmd[:3])
+        if key not in responses:
+            raise AssertionError(f"unexpected git command: {cmd}")
+        responses[key]["cmds"].append(cmd)
+        return responses[key]["proc"]
+
+    return run
+
+
+def test_changed_pdl_during_merge_compares_to_head(monkeypatch):
+    # An in-progress merge must not treat files that only arrived from the
+    # other branch as changes this branch made. Diff HEAD, not the worktree.
+    responses = {
+        ("git", "rev-parse", "-q"): {
+            "proc": _make_proc(0, "mergehead\n"),
+            "cmds": [],
+        },
+        ("git", "diff", "--name-only"): {
+            "proc": _make_proc(0, "branch-edited.pdl\n"),
+            "cmds": [],
+        },
+    }
+    monkeypatch.setattr(subprocess, "run", _git_run(responses))
+
+    assert bsv.get_changed_pdl_files("base-sha") == ["branch-edited.pdl"]
+    diff_cmd = responses[("git", "diff", "--name-only")]["cmds"][0]
+    assert diff_cmd[diff_cmd.index("--") - 1] == "HEAD"
+    assert diff_cmd[diff_cmd.index("--") - 2] == "base-sha"
+
+
+def test_changed_pdl_outside_merge_compares_to_worktree(monkeypatch):
+    responses = {
+        ("git", "rev-parse", "-q"): {
+            "proc": _make_proc(1, ""),
+            "cmds": [],
+        },
+        ("git", "diff", "--name-only"): {
+            "proc": _make_proc(0, "uncommitted.pdl\n"),
+            "cmds": [],
+        },
+    }
+    monkeypatch.setattr(subprocess, "run", _git_run(responses))
+
+    assert bsv.get_changed_pdl_files("base-sha") == ["uncommitted.pdl"]
+    diff_cmd = responses[("git", "diff", "--name-only")]["cmds"][0]
+    assert "HEAD" not in diff_cmd
+    assert diff_cmd[diff_cmd.index("--") - 1] == "base-sha"
+
+
 # ---------------------------------------------------------------------------
 # Version bump scenarios (via main())
 #

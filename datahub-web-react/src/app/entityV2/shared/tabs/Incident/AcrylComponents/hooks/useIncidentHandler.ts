@@ -4,11 +4,11 @@ import omit from 'lodash/omit';
 import { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { IncidentAction } from '@app/entityV2/shared/tabs/Incident/constant';
 import { PAGE_SIZE, updateActiveIncidentInCache } from '@app/entityV2/shared/tabs/Incident/incidentUtils';
 import analytics, { EntityActionType, EventType } from '@src/app/analytics';
-import handleGraphQLError from '@src/app/shared/handleGraphQLError';
+import handleGraphQLError from '@src/app/sharedV2/handleGraphQLError';
 import { useRaiseIncidentMutation, useUpsertIncidentMutation } from '@src/graphql/mutations.generated';
 import { EntityType, IncidentSourceType, IncidentState } from '@src/types.generated';
 

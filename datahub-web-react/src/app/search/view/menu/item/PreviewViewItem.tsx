@@ -1,0 +1,24 @@
+import { Eye } from '@phosphor-icons/react/dist/csr/Eye';
+import React from 'react';
+import { useTranslation } from 'react-i18next';
+
+import { MenuItemStyle } from '@app/entityV2/view/menu/item/styledComponent';
+import { IconItemTitle } from '@app/search/view/menu/item/IconItemTitle';
+
+type Props = {
+    key: string;
+    onClick: () => void;
+};
+
+/**
+ * Preview View Menu Item
+ */
+export const PreviewViewItem = ({ key, onClick }: Props) => {
+    const { t } = useTranslation('entity.views');
+    const { t: tc } = useTranslation('common.actions');
+    return (
+        <MenuItemStyle key={key} onClick={onClick}>
+            <IconItemTitle tip={t('menu.previewTooltip')} title={tc('preview')} icon={<Eye />} />
+        </MenuItemStyle>
+    );
+};

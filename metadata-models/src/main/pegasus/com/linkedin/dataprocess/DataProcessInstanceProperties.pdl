@@ -24,7 +24,9 @@ record DataProcessInstanceProperties includes CustomProperties, ExternalReferenc
     "enableAutocomplete": true,
     "boostScore": 10.0,
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },

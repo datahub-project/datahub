@@ -20,7 +20,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 customers",
-            "description": "One row per registered AcmeStore shopper.",
+            "description": "One row per registered AcmeStore shopper.\n\n**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
             "tags": []
         }
     },
@@ -420,7 +420,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 orders",
-            "description": "One row per checkout completion.",
+            "description": "One row per checkout completion.\n\n**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
             "tags": []
         }
     },
@@ -858,7 +858,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 products",
-            "description": "AcmeStore catalog rows.",
+            "description": "AcmeStore catalog rows.\n\n**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
             "tags": []
         }
     },
@@ -1248,7 +1248,7 @@
                 "odcs.tenant": "acme"
             },
             "name": "AcmeStore Retail \u2014 inventory",
-            "description": "Per-SKU on-hand inventory snapshot.",
+            "description": "Per-SKU on-hand inventory snapshot.\n\n**purpose**: AcmeStore retail operational tables for the storefront data product.\n\n**usage**: Joinable across customers / orders / products / inventory by their natural keys.\n\n**limitations**: Operational copy; not a star schema. Refresh latency ~15 min.",
             "tags": []
         }
     },

@@ -22,6 +22,7 @@ record EditableSchemaFieldInfo {
     "sanitizeRichText": true,
     "hasValuesFieldName": "hasDescription",
     "v3": {
+      "queryByDefault": true,
       "searchLabel": "description",
       "mappings": [
         { "type": "KEYWORD", "index": false, "docValues": false },
@@ -48,6 +49,7 @@ record EditableSchemaFieldInfo {
       "boostScore": 0.5,
       "hasValuesFieldName": "hasTags",
       "v3": {
+        "queryByDefault": true,
         "searchLabel": "tags",
         "mappings": [
           { "type": "URN" }
@@ -89,6 +91,7 @@ record EditableSchemaFieldInfo {
       "systemModifiedAtFieldName": "schemaFieldTermsModifiedAt",
       "hasValuesFieldName": "hasGlossaryTerms",
       "v3": {
+        "queryByDefault": true,
         "includeSystemModifiedAt": false,
         "searchLabel": "glossaryTerms",
         "mappings": [

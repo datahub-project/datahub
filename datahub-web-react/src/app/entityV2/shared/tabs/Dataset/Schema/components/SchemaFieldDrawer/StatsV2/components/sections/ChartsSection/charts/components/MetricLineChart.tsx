@@ -17,7 +17,7 @@ import {
 } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
 import { AggregationFunction } from '@src/app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/utils';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 
 export interface MetricLineChartProps {
     metric: string;

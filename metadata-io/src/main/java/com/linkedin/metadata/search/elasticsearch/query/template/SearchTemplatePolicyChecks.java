@@ -3,6 +3,11 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingFormulaCheck;
+import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingSignalRules;
+import com.linkedin.search.template.RankingSignal;
 import com.linkedin.search.template.SearchFieldBoost;
 import com.linkedin.search.template.SearchFieldBoostArray;
 import com.linkedin.search.template.SearchFieldOverrides;
@@ -20,6 +25,7 @@ import java.util.LinkedHashSet;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /** Structural limits on a template before its body is rendered. */
 public final class SearchTemplatePolicyChecks {
@@ -29,9 +35,12 @@ public final class SearchTemplatePolicyChecks {
       @Nonnull SearchTemplateProperties properties,
       int maxRoutes,
       int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
       @Nullable OperationFingerprint context,
       @Nullable AspectRetriever retriever,
-      @Nullable java.util.Collection<EntitySpec> entitySpecs) {
+      @Nullable java.util.Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateCapabilities.requireDeclared(properties);
     rejectCombined(properties);
     rejectRouterBody(properties);
@@ -50,12 +59,21 @@ public final class SearchTemplatePolicyChecks {
         && properties.getStructuredPropertyQuery() != null) {
       checkStructuredPropertyQuery(properties.getStructuredPropertyQuery());
     }
+    SearchTemplateScoreDefaults.checkFieldValueScores(
+        properties.hasFieldValueScores() ? properties.getFieldValueScores() : null);
+    SearchTemplateScoreDefaults.checkFieldFactors(
+        properties.hasFieldFactors() ? properties.getFieldFactors() : null);
+    SearchTemplateScoreDefaults.checkTermWeights(
+        properties.hasTermWeights() ? properties.getTermWeights() : null);
+    SearchTemplateScoreDefaults.checkEntityBoosts(
+        properties.hasEntityTypeBoosts() ? properties.getEntityTypeBoosts() : null);
     if (properties.hasNormalization() && properties.getNormalization() != null) {
       checkNormalization(properties.getNormalization());
     }
     if (properties.hasRanking() && properties.getRanking() != null) {
-      checkRanking(properties.getRanking());
+      checkRanking(properties, maxRankingSignals, maxRankingWindow, entitySpecs);
     }
+    SearchTemplateComponents.checkWrite(properties, registry);
     if (properties.hasRetrieval() && properties.getRetrieval() != null) {
       checkRetrieval(properties.getRetrieval());
     }
@@ -153,18 +171,137 @@ public final class SearchTemplatePolicyChecks {
     }
   }
 
-  public static void checkRanking(@Nonnull SearchTemplateRanking ranking) {
-    if (SearchTemplateLoader.emptyRanking(ranking)) {
+  public static void checkRanking(
+      @Nonnull SearchTemplateProperties properties,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable Collection<EntitySpec> entitySpecs) {
+    SearchTemplateRanking ranking = properties.getRanking();
+    if (ranking == null || SearchTemplateLoader.emptyRanking(ranking)) {
       return;
     }
-    if (ranking.hasPreset() && ranking.getPreset() != null && !ranking.getPreset().isBlank()) {
+    if (StringUtils.isNotBlank(ranking.getPreset())) {
       requireClosed("ranking preset", ranking.getPreset(), SearchTemplateCapabilities.PRESETS);
     }
-    if (ranking.hasWindowSizer()
-        && ranking.getWindowSizer() != null
-        && !ranking.getWindowSizer().isBlank()) {
+    if (StringUtils.isNotBlank(ranking.getWindowSizer())) {
       requireClosed(
           "ranking windowSizer", ranking.getWindowSizer(), SearchTemplateCapabilities.SIZERS);
+    }
+    boolean reference = reference(ranking);
+    boolean signals = signals(ranking);
+    boolean patches = patches(ranking);
+    boolean formula = formula(ranking);
+    // add and remove patch a reference. They are not inline ranking fields.
+    if (reference && inline(ranking)) {
+      throw new SearchTemplateException("Search template ranking is a reference or it is inline");
+    }
+    if (ranking.hasSignals() && patches) {
+      throw new SearchTemplateException(
+          "Search template ranking signals cannot be combined with add or remove");
+    }
+    if (signals && StringUtils.isNotBlank(ranking.getPreset())) {
+      throw new SearchTemplateException("Search template ranking signals require preset unset");
+    }
+    if (SearchTemplateCapabilities.Preset.NONE.is(ranking.getPreset())
+        && (signals || reference || patches)) {
+      throw new SearchTemplateException(
+          "Search template ranking preset none does not take signals");
+    }
+    if (ranking.hasSignals()
+        && ranking.getSignals() != null
+        && ranking.getSignals().isEmpty()
+        && SearchTemplateCapabilities.WindowSizer.TOKEN_CURVE.is(ranking.getWindowSizer())) {
+      throw new SearchTemplateException("Search template ranking tokenCurve requires signals");
+    }
+    RankingSignalRules.checkWindow(
+        ranking.hasWindow() ? ranking.getWindow() : null, maxRankingWindow);
+    SearchFieldResolver resolver =
+        entitySpecs == null ? null : V3SearchFieldModel.of(entitySpecs).resolver();
+    if (signals) {
+      RankingSignalRules.checkSignals(
+          ranking.getSignals(), resolver, entitySpecs, maxRankingSignals);
+    }
+    if (ranking.hasAdd() && ranking.getAdd() != null && !ranking.getAdd().isEmpty()) {
+      RankingSignalRules.checkSignals(ranking.getAdd(), resolver, entitySpecs, maxRankingSignals);
+    }
+    if (ranking.hasRemove() && ranking.getRemove() != null) {
+      for (String name : ranking.getRemove()) {
+        if (name == null || name.isBlank()) {
+          throw new SearchTemplateException("Search template ranking remove name is not valid");
+        }
+      }
+    }
+    if (reference || signals) {
+      requireCapability(properties, "rankingSignals");
+      rejectEngineRescore(properties);
+      requireKeyword(properties);
+    }
+    if (formula) {
+      requireCapability(properties, "rankingFormula");
+      Set<String> names = new LinkedHashSet<>();
+      if (signals) {
+        for (RankingSignal signal : ranking.getSignals()) {
+          names.add(signal.getName());
+        }
+      }
+      RankingFormulaCheck.check(ranking.getFormula(), names);
+    }
+  }
+
+  private static boolean reference(SearchTemplateRanking ranking) {
+    return StringUtils.isNotBlank(ranking.getTemplate());
+  }
+
+  private static boolean signals(SearchTemplateRanking ranking) {
+    return ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
+  }
+
+  private static boolean patches(SearchTemplateRanking ranking) {
+    boolean add = ranking.hasAdd() && ranking.getAdd() != null && !ranking.getAdd().isEmpty();
+    boolean remove =
+        ranking.hasRemove() && ranking.getRemove() != null && !ranking.getRemove().isEmpty();
+    return add || remove;
+  }
+
+  private static boolean formula(SearchTemplateRanking ranking) {
+    return StringUtils.isNotBlank(ranking.getFormula());
+  }
+
+  private static boolean inline(SearchTemplateRanking ranking) {
+    boolean preset = StringUtils.isNotBlank(ranking.getPreset());
+    boolean window = ranking.hasWindow() && ranking.getWindow() != null;
+    boolean sizer = StringUtils.isNotBlank(ranking.getWindowSizer());
+    boolean parameters =
+        ranking.hasParameters()
+            && ranking.getParameters() != null
+            && !ranking.getParameters().isEmpty();
+    return preset || window || sizer || signals(ranking) || formula(ranking) || parameters;
+  }
+
+  private static void requireCapability(SearchTemplateProperties properties, String name) {
+    if (!properties.hasCapabilities()
+        || properties.getCapabilities() == null
+        || !properties.getCapabilities().contains(name)) {
+      throw new SearchTemplateException("Search template capability is required: " + name);
+    }
+  }
+
+  private static void rejectEngineRescore(SearchTemplateProperties properties) {
+    if (StringUtils.isNotBlank(properties.getRescore())) {
+      throw new SearchTemplateException(
+          "Search template rescore is not combined with ranking signals");
+    }
+  }
+
+  private static void requireKeyword(SearchTemplateProperties properties) {
+    if (StringUtils.isNotBlank(properties.getKnn())) {
+      throw new SearchTemplateException("Search template ranking requires keyword retrieval");
+    }
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
+    if (retrieval != null
+        && StringUtils.isNotBlank(retrieval.getMode())
+        && !"keyword".equals(retrieval.getMode())) {
+      throw new SearchTemplateException("Search template ranking requires keyword retrieval");
     }
   }
 
@@ -283,6 +420,21 @@ public final class SearchTemplatePolicyChecks {
         || (properties.hasStructuredPropertyQuery()
             && !SearchTemplateLoader.emptyStructuredPropertyQuery(
                 properties.getStructuredPropertyQuery()))
+        || (properties.hasFieldValueScores()
+            && properties.getFieldValueScores() != null
+            && !properties.getFieldValueScores().isEmpty())
+        || (properties.hasFieldFactors()
+            && properties.getFieldFactors() != null
+            && !properties.getFieldFactors().isEmpty())
+        || (properties.hasTermWeights()
+            && properties.getTermWeights() != null
+            && !properties.getTermWeights().isEmpty())
+        || properties.hasScoreMode()
+        || properties.hasBoostMode()
+        || (properties.hasEntityTypeBoosts()
+            && properties.getEntityTypeBoosts() != null
+            && !properties.getEntityTypeBoosts().isEmpty())
+        || (properties.hasComponent() && !SearchTemplateComponents.empty(properties.getComponent()))
         || (properties.hasBoosts()
             && properties.getBoosts() != null
             && !properties.getBoosts().isEmpty())

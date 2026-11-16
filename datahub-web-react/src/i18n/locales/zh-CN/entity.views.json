@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "搜索视图…",
     "viewSelect.searchPlaceholderLegacy": "搜索",
     "viewSelect.selectYourView": "选择你的视图",
+    "viewSelect.buttonLabel": "视图",
+    "viewSelect.clearView": "清除视图",
     "viewType.privateDescription": "<bold>私有</bold> - 仅你可见。",
     "viewType.publicDescription": "<bold>公开</bold> - 所有人可见。"
 }

@@ -1,18 +1,18 @@
 import { toast } from '@components';
 import { Lightning } from '@phosphor-icons/react/dist/csr/Lightning';
 import React, { useState } from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { getGlossaryTermColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
-import { StopPropagation } from '@app/shared/StopPropagation';
+import { StopPropagation } from '@app/sharedV2/StopPropagation';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTermMutation } from '@graphql/mutations.generated';

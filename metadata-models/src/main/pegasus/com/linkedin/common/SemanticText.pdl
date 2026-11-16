@@ -26,6 +26,9 @@ record SemanticText {
    * content.
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldName": "semanticText",
     "fieldType": "TEXT"
   }

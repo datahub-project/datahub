@@ -4,15 +4,15 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { RelatedTermTypes, getRelatedTermTypeLabel } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import EmptyContent from '@app/homeV3/module/components/EmptyContent';
 import EntityItem from '@app/homeV3/module/components/EntityItem';
 import LargeModule from '@app/homeV3/module/components/LargeModule';
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
 import { ModuleProps } from '@app/homeV3/module/types';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetRelatedTermsQuery } from '@graphql/glossary.generated';
 import { DataHubPageModuleType } from '@types';
@@ -45,7 +45,7 @@ function getRelationshipsForType(
 
 export default function RelatedTermsModule(props: ModuleProps) {
     const { t } = useTranslation('modules');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const history = useHistory();
     const { entityType, urn } = useEntityData();
     const { isReloading, onReloadingFinished } = useModuleContext();

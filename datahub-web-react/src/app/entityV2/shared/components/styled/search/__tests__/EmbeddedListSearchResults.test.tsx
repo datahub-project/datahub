@@ -1,5 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -13,16 +13,39 @@ vi.mock('@app/entityV2/shared/components/styled/search/EntitySearchResults', () 
     EntitySearchResults: () => null,
 }));
 
+const { navigateToSearchUrl } = vi.hoisted(() => ({ navigateToSearchUrl: vi.fn() }));
+vi.mock('@app/searchV2/utils/navigateToSearchUrl', () => ({ navigateToSearchUrl }));
+
 const VIEW = { urn: 'urn:li:dataHubView:store-databases', name: 'Store databases' } as DataHubView;
 const RESPONSE = { start: 0, count: 10, total: 12, searchResults: [] } as unknown as SearchResults;
 
-function renderResults(props: { applyView?: boolean; view?: DataHubView }) {
+const HDFS_URN = 'urn:li:dataPlatform:hdfs';
+const INGESTED_RESPONSE = {
+    start: 0,
+    count: 10,
+    total: 1,
+    searchResults: [
+        {
+            entity: { urn: 'urn:li:dataset:1', type: 'DATASET', platform: { urn: HDFS_URN, name: 'hdfs' } },
+            matchedFields: [],
+        },
+    ],
+    facets: [{ field: 'platform', aggregations: [{ value: HDFS_URN, count: 1 }] }],
+} as unknown as SearchResults;
+
+function renderResults(props: {
+    applyView?: boolean;
+    view?: DataHubView;
+    searchResponse?: SearchResults;
+    isViewAllMode?: boolean;
+    handleViewAllClickWarning?: () => void;
+}) {
     render(
         <MockedProvider mocks={[]}>
             <TestPageContainer>
                 <EmbeddedListSearchResults
                     page={1}
-                    searchResponse={RESPONSE}
+                    searchResponse={props.searchResponse ?? RESPONSE}
                     filters={[]}
                     selectedFilters={[]}
                     loading={false}
@@ -41,6 +64,8 @@ function renderResults(props: { applyView?: boolean; view?: DataHubView }) {
                     defaultViewUrn={props.view?.urn}
                     defaultViewCount={8}
                     allSearchCount={12}
+                    isViewAllMode={props.isViewAllMode}
+                    handleViewAllClickWarning={props.handleViewAllClickWarning}
                 />
             </TestPageContainer>
         </MockedProvider>,
@@ -65,6 +90,27 @@ describe('EmbeddedListSearchResults view row', () => {
         );
         expect(screen.getByText(/Only showing entities in the/)).toHaveTextContent(
             'Only showing entities in the Store databases view.',
+        );
+    });
+});
+
+describe('EmbeddedListSearchResults view-all warning', () => {
+    it('shows no warning outside view-all mode', () => {
+        renderResults({ searchResponse: INGESTED_RESPONSE });
+
+        expect(screen.queryByText('Results may be incomplete.')).not.toBeInTheDocument();
+    });
+
+    it('links to a search of all assets on the platform', () => {
+        const handleViewAllClickWarning = vi.fn();
+        renderResults({ searchResponse: INGESTED_RESPONSE, isViewAllMode: true, handleViewAllClickWarning });
+
+        expect(screen.getByText(/Results may be incomplete\./)).toBeInTheDocument();
+        fireEvent.click(screen.getByRole('button', { name: 'Search all ingested hdfs assets' }));
+
+        expect(handleViewAllClickWarning).toHaveBeenCalled();
+        expect(navigateToSearchUrl).toHaveBeenCalledWith(
+            expect.objectContaining({ filters: [{ field: 'platform', values: [HDFS_URN] }] }),
         );
     });
 });

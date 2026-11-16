@@ -2,6 +2,8 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
@@ -12,6 +14,10 @@ import static org.testng.Assert.expectThrows;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
+import com.linkedin.data.schema.DataSchema;
+import com.linkedin.data.schema.PathSpec;
+import com.linkedin.data.schema.StringDataSchema;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.metadata.TestEntitySpecBuilder;
@@ -22,6 +28,8 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.StructuredPropertyQueryConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
@@ -48,17 +56,19 @@ import com.linkedin.search.template.StructuredPropertyQuery;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.ForkJoinPool;
 import org.opensearch.action.search.SearchRequest;
 import org.opensearch.index.query.BoolQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.opensearch.search.sort.FieldSortBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -87,12 +97,13 @@ public class SearchTemplateRenderTest {
     harness.setup();
     harness.installCatalog();
     dataset = harness.registry.getEntitySpec("dataset");
-    SearchTemplates.install(new SearchTemplateCoordinator(harness.elastic(), null, harness.loader));
-  }
-
-  @AfterMethod
-  public void clear() {
-    SearchTemplates.install(null);
+    harness.useRuntime(
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty()));
   }
 
   @Test
@@ -179,7 +190,8 @@ public class SearchTemplateRenderTest {
     assertTrue(should.contains("from-should"));
     assertTrue(mustNot.contains("from-must-not"));
     assertTrue(bool.get("filter").toString().contains("\"removed\""));
-    assertTrue(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+    assertTrue(should.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(should.contains(harness.property("certification.status").fieldPath() + ".keyword"));
   }
 
   @Test
@@ -223,7 +235,8 @@ public class SearchTemplateRenderTest {
     exactValue(addTemplate);
     harness.store("urn:li:searchTemplate:add", addTemplate);
     String withAdd = render("urn:li:searchTemplate:add", "orders", true);
-    assertTrue(withAdd.contains(harness.property("hidden.label").fieldPath() + ".keyword"));
+    assertTrue(withAdd.contains(harness.property("hidden.label").fieldPath()));
+    assertFalse(withAdd.contains(harness.property("hidden.label").fieldPath() + ".keyword"));
     assertTrue(withAdd.contains("\"boost\" : 6.0"));
 
     SearchFieldBoost only = new SearchFieldBoost();
@@ -236,7 +249,8 @@ public class SearchTemplateRenderTest {
     exactValue(replaceTemplate);
     harness.store("urn:li:searchTemplate:replace", replaceTemplate);
     String replaced = render("urn:li:searchTemplate:replace", "orders", true);
-    assertTrue(
+    assertTrue(replaced.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(
         replaced.contains(harness.property("certification.status").fieldPath() + ".keyword"));
     assertFalse(replaced.contains(harness.property("summary.notes").fieldPath()));
     assertFalse(replaced.contains(harness.property("owner.ref").fieldPath()));
@@ -296,7 +310,12 @@ public class SearchTemplateRenderTest {
     knn.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
     harness.store(SEARCH_TEMPLATE_FULLTEXT_URN, knn);
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext scrolled = coordinator.bind(harness.opContext, "customer orders", true);
     assertNotNull(scrolled.getSearchContext().getResolvedSearchTemplate());
     assertFalse(scrolled.getSearchContext().getResolvedSearchTemplate().isKnnApplied());
@@ -316,7 +335,12 @@ public class SearchTemplateRenderTest {
     SearchTemplateChecks.check(properties, 1024);
     harness.store(SEARCH_TEMPLATE_FULLTEXT_URN, properties);
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext bound = coordinator.bind(harness.opContext, "customer orders");
     assertNotNull(bound.getSearchContext().getResolvedSearchTemplate());
     assertTrue(
@@ -337,7 +361,7 @@ public class SearchTemplateRenderTest {
   public void testFilledHoleJoinsFulltextDisMaxAtTheFragmentBoost() throws Exception {
     harness.installShippedTemplates();
     String certification = "urn:li:structuredProperty:certification.status";
-    String path = harness.property("certification.status").fieldPath() + ".keyword";
+    String path = harness.property("certification.status").fieldPath();
     SearchTemplateProperties child = template("Business name", null);
     child.setParent(UrnUtils.getUrn(SEARCH_TEMPLATE_FULLTEXT_URN));
     child.setQueryFragments(
@@ -550,7 +574,11 @@ public class SearchTemplateRenderTest {
     assertTrue(mixed.contains(harness.property("certification.status").fieldPath() + ".text^9"));
     assertTrue(mixed.contains("\"boost\" : 9.0"));
     assertTrue(mixed.contains("\"boost\" : 8.0"));
-    assertTrue(mixed.contains("\"_name\" : \"nameAndValue\""));
+    assertTrue(
+        mixed.contains(
+            "\"_name\" : \""
+                + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                + "\""));
     assertFalse(mixed.contains("\"boost\" : 900.0"));
 
     SearchTemplateProperties number = template("Number stays typed", "{ \"match_all\": {} }");
@@ -575,17 +603,20 @@ public class SearchTemplateRenderTest {
     BoolQueryBuilder unique = QueryBuilders.boolQuery();
     unique.should(
         QueryBuilders.termQuery(path + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     unique.should(
         QueryBuilders.termQuery(path + ".keyword", "gold")
-            .queryName(SearchTemplateMatchReport.NAME_AND_VALUE));
+            .queryName(
+                SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)));
     Map<String, RenderedSearchTemplate.NamedClause> namedClauses =
         SearchTemplateMatchReport.namedClauses(unique, indexedProperties());
 
     Map<String, Set<String>> matched = new LinkedHashMap<>();
     matched.put(path, Set.of("Gold"));
-    matched.put(SearchTemplateMatchReport.EXACT, Set.of(""));
-    matched.put(SearchTemplateMatchReport.NAME_AND_VALUE, Set.of("gold"));
+    matched.put(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT), Set.of(""));
+    matched.put(
+        SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE),
+        Set.of("gold"));
     matched.put("name", Set.of("orders"));
     Map<String, Object> properties = new LinkedHashMap<>();
     properties.put(path.substring(path.indexOf('.') + 1), "Gold");
@@ -627,13 +658,13 @@ public class SearchTemplateRenderTest {
     BoolQueryBuilder reused = QueryBuilders.boolQuery();
     reused.should(
         QueryBuilders.termQuery(path + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     reused.should(
         QueryBuilders.termQuery(summary + ".keyword", "Gold")
-            .queryName(SearchTemplateMatchReport.EXACT));
+            .queryName(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT)));
     namedClauses = SearchTemplateMatchReport.namedClauses(reused, indexedProperties());
     Map<String, Set<String>> again = new LinkedHashMap<>();
-    again.put(SearchTemplateMatchReport.EXACT, Set.of("Gold"));
+    again.put(SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.EXACT), Set.of("Gold"));
     again.put(path, Set.of("Gold"));
     List<MatchedField> unset =
         SearchTemplateMatchReport.fields(again, Map.of(), "Gold", namedClauses);
@@ -652,12 +683,12 @@ public class SearchTemplateRenderTest {
     List<MatchEvidence> exactName =
         new MatchedFields("Gold", 3).explain(Map.of("name", "Gold"), List.of("name"), Map.of());
     assertEquals(exactName.get(0).mode(), MatchEvidence.EXACT);
-    assertEquals(exactName.get(0).subfield(), "name.keyword");
+    assertEquals(exactName.get(0).subfield(), "name");
     assertEquals(exactName.get(0).query(), "Gold");
     List<MatchEvidence> prefix =
         new MatchedFields("Go", 2).explain(Map.of("name", "Gold"), List.of("name"), Map.of());
     assertEquals(prefix.get(0).mode(), MatchEvidence.PREFIX);
-    assertEquals(prefix.get(0).subfield(), "name.keyword");
+    assertEquals(prefix.get(0).subfield(), "name");
     assertEquals(prefix.get(0).query(), "Go");
   }
 
@@ -765,10 +796,20 @@ public class SearchTemplateRenderTest {
     String hidden = harness.property("hidden.label").fieldPath();
     if (classpathBridge) {
       assertFalse(query.contains(hidden), query);
-      assertFalse(query.contains("\"_name\" : \"nameAndValue\""), query);
+      assertFalse(
+          query.contains(
+              "\"_name\" : \""
+                  + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                  + "\""),
+          query);
     } else {
       assertTrue(query.contains(hidden), query);
-      assertTrue(query.contains("\"_name\" : \"nameAndValue\""), query);
+      assertTrue(
+          query.contains(
+              "\"_name\" : \""
+                  + SearchTemplateMatchReport.queryName(SearchTemplateMatchReport.NAME_AND_VALUE)
+                  + "\""),
+          query);
     }
   }
 
@@ -779,6 +820,117 @@ public class SearchTemplateRenderTest {
     assertEquals(multiMatchOperator(fqn, "my_db.analytics.orders"), "AND", fqn);
     String dotted = render("urn:li:searchTemplate:light", "sales.orders", true);
     assertEquals(multiMatchOperator(dotted, "sales.orders"), "OR", dotted);
+    assertFalse(dotted.contains("\"boost\" : 50.0"), dotted);
+  }
+
+  @Test
+  public void testLightQueryDoesNotScoreANamePrefix() throws Exception {
+    harness.installShippedTemplates();
+    String rendered = render("urn:li:searchTemplate:light", "sample", true);
+    assertFalse(rendered.contains("constant_score"), rendered);
+    assertFalse(rendered.contains("name.lowercase"), rendered);
+  }
+
+  @Test
+  public void testSpacelessDottedTiersUseSegmentBoundaries() throws Exception {
+    harness.installShippedTemplates();
+    String light = render("urn:li:searchTemplate:light", "analytics.pet_details", true);
+    assertSpacelessDottedTiers(light);
+    String spaced = render("urn:li:searchTemplate:light", "high speed aircraft .", true);
+    assertFalse(spaced.contains("constant_score"), spaced);
+    assertFalse(spaced.contains("\"boost\" : 16.0"), spaced);
+    assertFalse(spaced.contains("\"boost\" : 32.0"), spaced);
+    String fulltext = render(SEARCH_TEMPLATE_FULLTEXT_URN, "analytics.pet_details", true);
+    assertSpacelessDottedTiers(fulltext);
+    assertFalse(fulltext.contains("\"boost\" : 50.0"), fulltext);
+    Set<String> deep =
+        wildcardValues(
+            SearchTemplateFixtures.JSON.readTree(
+                render("urn:li:searchTemplate:light", "my_db.analytics.orders", true)));
+    assertTrue(deep.contains("my_db.analytics.*"), deep.toString());
+    assertTrue(deep.contains("*.my_db.analytics"), deep.toString());
+    assertTrue(deep.contains("*.my_db.analytics.*"), deep.toString());
+    assertFalse(deep.contains("analytics.*"), deep.toString());
+    assertFalse(deep.contains("my_db.*"), deep.toString());
+  }
+
+  private static void assertSpacelessDottedTiers(String rendered) throws Exception {
+    JsonNode query = SearchTemplateFixtures.JSON.readTree(rendered);
+    List<JsonNode> constants = new ArrayList<>();
+    collect(query, "constant_score", constants);
+    assertTrue(constants.isEmpty(), rendered);
+    assertFalse(rendered.contains("\"boost\" : 16.0"), rendered);
+    assertFalse(rendered.contains("\"boost\" : 32.0"), rendered);
+    assertTrue(hasFieldedQuery(query, "qualifiedName.text", "analytics.pet_details"), rendered);
+    assertTrue(hasFieldedQuery(query, "name.text", "pet_details"), rendered);
+    assertTrue(wildcardValues(query).contains("analytics.pet_details.*"), rendered);
+    assertTrue(wildcardValues(query).contains("*.analytics.pet_details"), rendered);
+    assertTrue(wildcardValues(query).contains("*.analytics.pet_details.*"), rendered);
+    assertTrue(wildcardValues(query).contains("analytics.*"), rendered);
+    assertTrue(wildcardValues(query).contains("*.analytics"), rendered);
+    assertTrue(wildcardValues(query).contains("*.analytics.*"), rendered);
+    assertFalse(wildcardValues(query).contains("*analytics.*"), rendered);
+    List<JsonNode> wildcards = new ArrayList<>();
+    collect(query, "wildcard", wildcards);
+    for (JsonNode wildcard : wildcards) {
+      assertFalse(wildcard.toString().contains("case_insensitive"), wildcard.toString());
+    }
+  }
+
+  @Test
+  public void testSpacelessDottedWildcardFoldsCaseOnTheKeywordRoot() throws Exception {
+    harness.installShippedTemplates();
+    String rendered = render("urn:li:searchTemplate:light", "Analytics.Pet_Details", true);
+    JsonNode query = SearchTemplateFixtures.JSON.readTree(rendered);
+    List<JsonNode> wildcards = new ArrayList<>();
+    collect(query, "wildcard", wildcards);
+    assertFalse(wildcards.isEmpty(), rendered);
+    for (JsonNode wildcard : wildcards) {
+      assertFalse(wildcard.toString().contains("case_insensitive"), wildcard.toString());
+    }
+    assertTrue(rendered.contains("case_insensitive"), rendered);
+    Set<String> values = wildcardValues(query);
+    assertTrue(values.contains("Analytics.Pet_Details.*"), values.toString());
+    assertTrue(values.contains("analytics.pet_details.*"), values.toString());
+    assertTrue(values.contains("*.Analytics"), values.toString());
+    assertTrue(values.contains("*.analytics"), values.toString());
+  }
+
+  private static boolean hasFieldedQuery(JsonNode root, String field, String value) {
+    List<JsonNode> queries = new ArrayList<>();
+    collect(root, "simple_query_string", queries);
+    for (JsonNode query : queries) {
+      if (!value.equals(query.path("query").asText())) {
+        continue;
+      }
+      for (JsonNode listed : query.path("fields")) {
+        String name = listed.asText();
+        int caret = name.lastIndexOf('^');
+        if (field.equals(caret > 0 ? name.substring(0, caret) : name)) {
+          return true;
+        }
+      }
+    }
+    return false;
+  }
+
+  private static Set<String> wildcardValues(JsonNode node) {
+    List<JsonNode> wildcards = new ArrayList<>();
+    collect(node, "wildcard", wildcards);
+    Set<String> values = new LinkedHashSet<>();
+    for (JsonNode wildcard : wildcards) {
+      wildcard.forEach(
+          clause -> {
+            JsonNode value = clause.get("value");
+            if (value == null) {
+              value = clause.get("wildcard");
+            }
+            if (value != null && value.isTextual()) {
+              values.add(value.asText());
+            }
+          });
+    }
+    return values;
   }
 
   @Test
@@ -819,6 +971,39 @@ public class SearchTemplateRenderTest {
       }
     }
     assertTrue(name, rendered);
+  }
+
+  @Test
+  public void testWholeNamePrefixRequiresLowercaseSubfield() {
+    String withLowercase = render("urn:li:searchTemplate:autocomplete", "orders", true);
+    assertTrue(withLowercase.contains("name.lowercase"), withLowercase);
+
+    String withoutLowercase =
+        render("urn:li:searchTemplate:autocomplete", "orders", List.of(nameWithoutLowercaseSpec()));
+    assertFalse(withoutLowercase.contains("name.lowercase"), withoutLowercase);
+  }
+
+  /** A name field that did not opt into {@code v3.lowercase}. */
+  private static EntitySpec nameWithoutLowercaseSpec() {
+    DataMap v3 = new DataMap();
+    v3.put("searchLabel", "name");
+    v3.put("queryByDefault", true);
+    DataMap annotation = new DataMap();
+    annotation.put("fieldType", "TEXT");
+    annotation.put("fieldName", "name");
+    annotation.put("v3", v3);
+    SearchableAnnotation parsed =
+        SearchableAnnotation.fromPegasusAnnotationObject(
+            annotation, "name", DataSchema.Type.STRING, "test");
+    SearchableFieldSpec name =
+        new SearchableFieldSpec(new PathSpec("name"), parsed, new StringDataSchema());
+    EntitySpec spec = mock(EntitySpec.class);
+    when(spec.getName()).thenReturn("customentity");
+    when(spec.getSearchGroup()).thenReturn(null);
+    when(spec.getAspectSpecs()).thenReturn(Collections.emptyList());
+    when(spec.getSearchableFieldSpecs()).thenReturn(List.of(name));
+    when(spec.getSearchScoreFieldSpecs()).thenReturn(Collections.emptyList());
+    return spec;
   }
 
   private String render(String urn, String query, boolean datasetSpec) {

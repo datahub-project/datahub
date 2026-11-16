@@ -6,7 +6,7 @@ import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
-import { getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
+import { canResetUserPassword, getUserStatusColor, getUserStatusText } from '@app/identity/user/UserListV2.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Avatar, Button, Pill, ResizablePills, Text } from '@src/alchemy-components';
 import { Menu } from '@src/alchemy-components/components/Menu';
@@ -128,7 +128,7 @@ type GroupsCellProps = {
 
 type UserActionsMenuProps = {
     user: UserListItem;
-    canManagePolicies: boolean;
+    canManageUserCredentials: boolean;
     onResetPassword: (user: UserListItem) => void;
     onDelete: (urn: string) => void;
 };
@@ -232,7 +232,12 @@ export const UserGroupsCell = ({ user }: GroupsCellProps) => {
 };
 
 // User actions menu component
-export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDelete }: UserActionsMenuProps) => {
+export const UserActionsMenu = ({
+    user,
+    canManageUserCredentials,
+    onResetPassword,
+    onDelete,
+}: UserActionsMenuProps) => {
     const { t } = useTranslation('entity.identity');
     const { onDeleteEntity, DeleteConfirmationModal } = useDeleteEntity(
         user.urn,
@@ -244,7 +249,7 @@ export const UserActionsMenu = ({ user, canManagePolicies, onResetPassword, onDe
     );
 
     const menuItems: ItemType[] = [
-        canManagePolicies
+        canResetUserPassword(user, canManageUserCredentials)
             ? {
                   type: 'item' as const,
                   key: 'reset',

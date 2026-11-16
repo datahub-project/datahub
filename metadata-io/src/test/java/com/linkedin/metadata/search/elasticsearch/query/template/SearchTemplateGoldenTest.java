@@ -43,8 +43,8 @@ import java.util.Map;
 import java.util.Set;
 import java.util.TreeMap;
 import java.util.TreeSet;
+import java.util.concurrent.ForkJoinPool;
 import org.opensearch.index.query.QueryBuilder;
-import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -69,11 +69,6 @@ public class SearchTemplateGoldenTest {
     harness.installShippedTemplates();
   }
 
-  @AfterMethod
-  public void clearCatalog() {
-    SearchTemplates.install(null);
-  }
-
   @Test
   public void testRenderedQueriesAndFieldManifest() throws Exception {
     EntitySpec dataset = harness.registry.getEntitySpec("dataset");
@@ -88,6 +83,28 @@ public class SearchTemplateGoldenTest {
             SearchTemplateFixtures.NAME_AND_VALUE,
             SearchTemplateFixtures.NAME_VALUE_QUERY,
             dataset);
+    // The directory is the shipped template. Another render of that template is another file.
+    Map<String, String> rendered = new LinkedHashMap<>();
+    rendered.put("fulltext/dataset.json", fulltext);
+    rendered.put("fulltext/field-edits.json", fieldEdits);
+    rendered.put("fulltext/name-and-value.json", nameAndValue);
+    rendered.put("structured/dataset.json", structured);
+    rendered.put("light/dataset.json", render("urn:li:searchTemplate:light", "orders", dataset));
+    rendered.put(
+        "exact/dataset.json", render("urn:li:searchTemplate:exact", "\"orders\"", dataset));
+    rendered.put(
+        "structuredExact/dataset.json",
+        render("urn:li:searchTemplate:structuredExact", "\"orders\"", dataset));
+    rendered.put(
+        "identity/dataset.json",
+        render(
+            "urn:li:searchTemplate:identity",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
+            dataset));
+    rendered.put("list/dataset.json", render("urn:li:searchTemplate:list", "*", dataset));
+    rendered.put("listUrn/dataset.json", render("urn:li:searchTemplate:listUrn", "*", dataset));
+    rendered.put(
+        "autocomplete/dataset.json", render("urn:li:searchTemplate:autocomplete", "ord", dataset));
     assertDatasetFulltext(fulltext);
     assertFieldEdits(fieldEdits);
     assertNameAndValue(nameAndValue);
@@ -97,16 +114,15 @@ public class SearchTemplateGoldenTest {
     ObjectNode fieldManifest = manifest();
     ArrayNode queried = fieldManifest.putArray("templateFieldRoots");
     Set<String> roots = new TreeSet<>();
-    for (String query : List.of(fulltext, structured, fieldEdits, nameAndValue)) {
+    for (String query : rendered.values()) {
       Set<String> fields = new LinkedHashSet<>();
       collectReferencedFields(SearchTemplateFixtures.JSON.readTree(query), fields);
       fields.forEach(field -> roots.add(fieldRoot(field)));
     }
     roots.forEach(queried::add);
-    compare("dataset-fulltext.json", canonicalize(fulltext));
-    compare("dataset-structured.json", canonicalize(structured));
-    compare("dataset-field-edits.json", canonicalize(fieldEdits));
-    compare("dataset-name-and-value.json", canonicalize(nameAndValue));
+    for (Map.Entry<String, String> entry : rendered.entrySet()) {
+      compare(entry.getKey(), canonicalize(entry.getValue()));
+    }
     compare("field-manifest.json", canonicalize(fieldManifest.toString()));
   }
 
@@ -146,10 +162,7 @@ public class SearchTemplateGoldenTest {
         prefixBoosts(
             render(
                 SEARCH_TEMPLATE_FULLTEXT_URN, "orders", harness.registry.getEntitySpec("chart")));
-    assertTrue(chart.containsKey("name.text"), chart.toString());
-    assertTrue(
-        chart.keySet().stream().noneMatch(field -> field.startsWith("qualifiedName.")),
-        chart.toString());
+    assertEquals(chart.keySet(), prefixes.keySet(), chart.toString());
 
     ExactMatchConfiguration exact = new ExactMatchConfiguration();
     exact.setWithPrefix(false);
@@ -181,9 +194,17 @@ public class SearchTemplateGoldenTest {
     String split = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders2017", dataset);
     assertTrue(split.contains("\"query\" : \"orders~1 2017\""), split);
     assertTrue(split.contains("\"query\" : \"orders2017\""), split);
+    String exactName = render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset);
+    JsonNode exactQuery = SearchTemplateFixtures.JSON.readTree(exactName);
+    assertTrue(hasTermValue(exactQuery, "name", "orders"));
+    assertTrue(hasTermValue(exactQuery, "qualifiedName", "orders"));
+    assertFalse(exactName.contains("name.keyword"), exactName);
+    assertFalse(exactName.contains("qualifiedName.keyword"), exactName);
+    assertFalse(exactName.contains("_entityName"), exactName);
+    assertFalse(exactName.contains("constant_score"), exactName);
     String fqn = render(SEARCH_TEMPLATE_FULLTEXT_URN, "my_db.analytics.orders", dataset);
-    assertTrue(fqn.contains("\"boost\" : 50.0"), fqn);
     assertTrue(fqn.contains("qualifiedName.text"), fqn);
+    assertFalse(fqn.contains("\"boost\" : 50.0"), fqn);
     assertFalse(fqn.contains("_search."), fqn);
     String phrase =
         render(SEARCH_TEMPLATE_FULLTEXT_URN, "quarterly customer revenue report", dataset);
@@ -194,7 +215,8 @@ public class SearchTemplateGoldenTest {
             "urn:li:dataset:(urn:li:dataPlatform:hive,analytics.orders,PROD)",
             dataset);
     assertTrue(identity.contains("\"boost\" : 100.0"), identity);
-    assertTrue(identity.contains("id.keyword"), identity);
+    assertTrue(identity.contains("\"id\""), identity);
+    assertFalse(identity.contains("id.keyword"), identity);
     assertIdentityFields(identity);
   }
 
@@ -248,7 +270,12 @@ public class SearchTemplateGoldenTest {
                     "fulltext",
                     new HashMap<>(Map.of("default", "urn:li:searchTemplate:searchLight")))));
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     OperationContext interactive =
         coordinator.bind(
             harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES),
@@ -285,7 +312,12 @@ public class SearchTemplateGoldenTest {
   @Test
   public void testEngineSlotsAndFixtures() throws Exception {
     SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(harness.elastic(), null, harness.loader);
+        new SearchTemplateCoordinator(
+            harness.elastic(),
+            null,
+            harness.loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty());
     ObjectNode root = SearchTemplateFixtures.JSON.createObjectNode();
     ObjectNode shipped = root.putObject("shipped");
     for (SearchClientShim.SearchEngineType engine :
@@ -388,7 +420,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertDatasetFulltext(String query) throws Exception {
     SearchTemplateFixtures.Property certification = harness.property("certification.status");
-    assertTrue(query.contains(certification.fieldPath() + ".keyword"), certification.fieldPath());
+    assertTrue(query.contains(certification.fieldPath()), certification.fieldPath());
+    assertFalse(query.contains(certification.fieldPath() + ".keyword"), query);
     assertFalse(query.contains(harness.property("hidden.label").fieldPath()));
     assertFalse(query.contains(harness.property("notes.internal").fieldPath()));
     assertFalse(query.contains(harness.property("chart.only").fieldPath()));
@@ -400,7 +433,8 @@ public class SearchTemplateGoldenTest {
   private void assertFieldEdits(String query) throws Exception {
     SearchTemplateFixtures.Property hidden = harness.property("hidden.label");
     SearchTemplateFixtures.Property contract = harness.property("contract.id");
-    assertTrue(query.contains(hidden.fieldPath() + ".keyword"));
+    assertTrue(query.contains(hidden.fieldPath()));
+    assertFalse(query.contains(hidden.fieldPath() + ".keyword"));
     assertFalse(query.contains(harness.property("certification.status").fieldPath()));
     assertTrue(query.contains(contract.fieldPath()));
     assertTrue(contract.fieldPath().contains("_versioned"));
@@ -419,7 +453,8 @@ public class SearchTemplateGoldenTest {
 
   private void assertNameAndValue(String query) {
     assertTrue(query.contains("\"tie_breaker\" : 0.0"));
-    assertTrue(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
+    assertTrue(query.contains(harness.property("certification.status").fieldPath()));
+    assertFalse(query.contains(harness.property("certification.status").fieldPath() + ".keyword"));
     assertTrue(query.contains("\"gold\""));
     assertTrue(query.contains("\"boost\" : 8.0"));
     assertTrue(query.contains("\"boost\" : 3.0"));
@@ -772,9 +807,10 @@ public class SearchTemplateGoldenTest {
 
   private static void compare(String name, String actual) throws Exception {
     String expected = readGolden(name);
+    Path path = goldenDir().resolve(name);
     if ("1".equals(System.getenv("UPDATE_SEARCH_TEMPLATE_GOLDEN"))) {
-      Files.createDirectories(goldenDir());
-      Files.writeString(goldenDir().resolve(name), actual);
+      Files.createDirectories(path.getParent());
+      Files.writeString(path, actual);
       return;
     }
     if (expected == null) {
@@ -814,11 +850,170 @@ public class SearchTemplateGoldenTest {
     return Files.readString(path);
   }
 
+  /**
+   * Where a one-token dataset query puts each isolated field. Lineage fulltext is the fulltext
+   * body.
+   */
+  @Test
+  public void testDefaultQueryFieldPlacement() throws Exception {
+    EntitySpec dataset = harness.registry.getEntitySpec("dataset");
+    Map<String, String> bodies = new LinkedHashMap<>();
+    bodies.put("light", render("urn:li:searchTemplate:light", "orders", dataset));
+    bodies.put("fulltext", render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset));
+    bodies.put("exact", render("urn:li:searchTemplate:exact", "orders", dataset));
+    bodies.put("structured", render("urn:li:searchTemplate:structured", "orders", dataset));
+    bodies.put("lineage", render(SEARCH_TEMPLATE_FULLTEXT_URN, "orders", dataset));
+    Map<String, Map<String, String>> actual = new LinkedHashMap<>();
+    for (Map.Entry<String, String> entry : bodies.entrySet()) {
+      actual.put(entry.getKey(), placeFields(entry.getValue()));
+    }
+    assertEquals(
+        actual.get("lineage"), actual.get("fulltext"), "lineage fulltext is the fulltext body");
+    assertEquals(actual, expectedFieldPlacement());
+  }
+
+  private static Map<String, Map<String, String>> expectedFieldPlacement() {
+    Map<String, Map<String, String>> expected = new LinkedHashMap<>();
+    expected.put(
+        "light",
+        Map.of(
+            "name_1", "absent",
+            "description_1", "absent",
+            "tags", "absent",
+            "glossaryTerms", "absent",
+            "other", "absent",
+            ".stemmed", "field list"));
+    Map<String, String> fulltext =
+        Map.of(
+            "name_1", "absent",
+            "description_1", "absent",
+            "tags", "field list",
+            "glossaryTerms", "field list",
+            "other", "field list",
+            ".stemmed", "dedicated and field list");
+    expected.put("fulltext", fulltext);
+    expected.put(
+        "exact",
+        Map.of(
+            "name_1", "absent",
+            "description_1", "absent",
+            "tags", "absent",
+            "glossaryTerms", "absent",
+            "other", "absent",
+            ".stemmed", "absent"));
+    expected.put(
+        "structured",
+        Map.of(
+            "name_1", "absent",
+            "description_1", "absent",
+            "tags", "field list",
+            "glossaryTerms", "field list",
+            "other", "field list",
+            ".stemmed", "field list"));
+    expected.put("lineage", fulltext);
+    return expected;
+  }
+
+  private static Map<String, String> placeFields(String rendered) throws Exception {
+    Set<String> listed = new LinkedHashSet<>();
+    Set<String> dedicated = new LinkedHashSet<>();
+    collectPlacement(SearchTemplateFixtures.JSON.readTree(rendered), listed, dedicated);
+    Map<String, String> placed = new LinkedHashMap<>();
+    for (String field :
+        List.of("name_1", "description_1", "tags", "glossaryTerms", "other", ".stemmed")) {
+      placed.put(field, placement(field, listed, dedicated));
+    }
+    return placed;
+  }
+
+  private static void collectPlacement(JsonNode node, Set<String> listed, Set<String> dedicated) {
+    if (node == null || node.isNull()) {
+      return;
+    }
+    if (node.isObject()) {
+      for (String clause : List.of("simple_query_string", "multi_match", "query_string")) {
+        JsonNode body = node.get(clause);
+        if (body != null && body.get("fields") != null && body.get("fields").isArray()) {
+          body.get("fields").forEach(field -> listed.add(stripBoost(field.asText())));
+        }
+      }
+      for (String clause :
+          List.of("term", "match", "match_phrase", "match_phrase_prefix", "prefix")) {
+        JsonNode body = node.get(clause);
+        if (body != null && body.isObject()) {
+          body.fieldNames()
+              .forEachRemaining(
+                  name -> {
+                    if (!name.equals("boost")
+                        && !name.equals("_name")
+                        && !name.equals("query")
+                        && !name.equals("value")) {
+                      dedicated.add(name);
+                    }
+                  });
+        }
+      }
+      node.fields()
+          .forEachRemaining(entry -> collectPlacement(entry.getValue(), listed, dedicated));
+    } else if (node.isArray()) {
+      node.forEach(child -> collectPlacement(child, listed, dedicated));
+    }
+  }
+
+  private static String placement(String kind, Set<String> listed, Set<String> dedicated) {
+    boolean inList = listed.stream().anyMatch(field -> fieldMatches(kind, field));
+    boolean ownClause = dedicated.stream().anyMatch(field -> fieldMatches(kind, field));
+    if (ownClause && inList) {
+      return "dedicated and field list";
+    }
+    if (ownClause) {
+      return "dedicated";
+    }
+    if (inList) {
+      return "field list";
+    }
+    return "absent";
+  }
+
+  private static boolean fieldMatches(String kind, String field) {
+    return switch (kind) {
+      case "name_1" -> field.equals("name_1") || field.startsWith("name_1.");
+      case "description_1" -> field.equals("description_1") || field.startsWith("description_1.");
+      case "tags" -> field.equals("tags") || field.startsWith("tags.");
+      case "glossaryTerms" -> field.equals("glossaryTerms") || field.startsWith("glossaryTerms.");
+      case "other" -> field.equals("other") || field.startsWith("other.");
+      case ".stemmed" -> stemmedTextField(field);
+      default -> false;
+    };
+  }
+
+  private static boolean stemmedTextField(String field) {
+    if (!field.endsWith(".stemmed")) {
+      return false;
+    }
+    String root = field.substring(0, field.length() - ".stemmed".length());
+    return Set.of(
+            "name",
+            "qualifiedName",
+            "description",
+            "other",
+            "tags",
+            "glossaryTerms",
+            "name_1",
+            "description_1")
+        .contains(root);
+  }
+
+  private static String stripBoost(String field) {
+    int caret = field.indexOf('^');
+    return caret < 0 ? field : field.substring(0, caret);
+  }
+
   private static Path goldenDir() {
-    Path module = Path.of("metadata-io/src/test/resources/search/template");
+    Path module = Path.of("metadata-io/src/test/resources/search/template/golden");
     if (Files.isDirectory(module) || Files.isDirectory(module.getParent())) {
       return module;
     }
-    return Path.of("src/test/resources/search/template");
+    return Path.of("src/test/resources/search/template/golden");
   }
 }

@@ -165,6 +165,7 @@ dependencies {
   compileOnlyApi externalDependency.djlApi
   compileOnlyApi externalDependency.djlHuggingFaceTokenizers
   // Provider unit tests exercise the real ONNX/DJL libraries.
+  testImplementation testFixtures(project(':metadata-utils'))
   testImplementation externalDependency.onnxRuntime
   testImplementation externalDependency.djlApi
   testImplementation externalDependency.djlHuggingFaceTokenizers
@@ -185,6 +186,8 @@ dependencies {
   implementation externalDependency.opentelemetrySdkTrace
   implementation externalDependency.opentelemetrySdkMetrics
   implementation externalDependency.resilience4j
+  // exp4j for mathematical expression evaluation in template ranking formulas
+  implementation 'net.objecthunter:exp4j:0.4.8'
   // Newer Spring libraries require JDK17 classes, allow for JDK11
   compileOnly externalDependency.springBootAutoconfigureJdk11
   implementation(externalDependency.mixpanel) {
@@ -283,48 +286,15 @@ test {
 }
 
 // Gradle 9 no longer wires testClassesDirs/classpath conventions onto custom Test tasks; without
-// this every suite task below silently runs zero tests (NO-SOURCE), and the global
-// failOnNoDiscoveredTests=false in the root build masks it as a green build.
-//
-// testMysql, testOther, testEs8 and testCassandraNeo4j are deliberately left unwired for now:
-// resurrecting them surfaces pre-existing failures that accumulated while the suites were dead.
-// They keep the same no-op behavior as before this change and must be re-enabled in a follow-up
-// once those tests are fixed. The container-free shim unit tests the es8 suite used to carry now
-// run in the OpenSearch suites (see testng-opensearch.xml).
-def deliberatelyUnwiredSuites = ['testMysql', 'testOther', 'testEs8', 'testCassandraNeo4j']
+// this every suite task below silently runs zero tests (NO-SOURCE). The root build.gradle's
+// dead-suite guard fails the build if that recurs, or if a suite discovers zero tests.
 tasks.withType(Test).configureEach {
-  if (!(name in deliberatelyUnwiredSuites)) {
-    testClassesDirs = sourceSets.test.output.classesDirs
-    classpath = sourceSets.test.runtimeClasspath
-    // Re-tighten the guard the root build.gradle relaxes globally: a wired suite that executes
-    // but discovers zero tests (bad suite XML path, filter excluding everything) must fail, not
-    // pass. Note this does NOT cover the convention-loss failure mode above (an unwired task is
-    // NO-SOURCE and skips before discovery), which is what the task-graph check below is for.
-    failOnNoDiscoveredTests = true
-    filter {
-      // Boots its own ES 8 container; the rest of its packages are container-free unit tests
-      // that now run in the OpenSearch suites (see testng-opensearch.xml).
-      excludeTestsMatching 'Es8SemanticSearchIT'
-    }
-  }
-}
-
-// Guard against the Gradle-9 dead-suite bug recurring: convention loss leaves testClassesDirs
-// empty, which makes the task NO-SOURCE (skipped before test discovery), so
-// failOnNoDiscoveredTests never evaluates and the suite goes green running nothing. Catch it at
-// task-graph time instead: any metadata-io Test task about to run with no test classes fails the
-// build, except the suites deliberately left unwired above.
-gradle.taskGraph.whenReady { graph ->
-  graph.allTasks.each { t ->
-    if (t instanceof Test
-        && t.project.path == project.path
-        && !(t.name in deliberatelyUnwiredSuites)
-        && t.testClassesDirs.isEmpty()) {
-      throw new GradleException(
-          "${t.path} has empty testClassesDirs and would silently run zero tests. " +
-          "See the Gradle-9 wiring block in metadata-io/build.gradle.")
-    }
-  }
+  testClassesDirs = sourceSets.test.output.classesDirs
+  classpath = sourceSets.test.runtimeClasspath
+  // Es8SemanticSearchIT (group es8-semantic) boots its own ES 8 container. Where it runs is set in
+  // the suite XMLs, not here: a filter { excludeTestsMatching } on this block did not stop the
+  // suite files from running it (it ran in testOpenSearch and twice in testEs8). Only the
+  // es8-semantic-search-it block of testng-es8.xml runs that group.
 }
 
 task testCassandraNeo4j(type: Test) {
@@ -480,35 +450,6 @@ task testSqlOpt(type: Test) {
 
   group = 'verification'
   description = 'Runs only the testng-sql-opt.xml test suite'
-}
-
-// Gradle 9 no longer wires testClassesDirs/classpath conventions onto custom Test tasks; without
-// this every suite task above silently runs zero tests (NO-SOURCE), and the global
-// failOnNoDiscoveredTests=false in the root build masks it as a green build.
-tasks.withType(Test).configureEach {
-  testClassesDirs = sourceSets.test.output.classesDirs
-  classpath = sourceSets.test.runtimeClasspath
-  // Re-tighten the guard the root build.gradle relaxes globally: a wired suite that executes
-  // but discovers zero tests (bad suite XML path, filter excluding everything) must fail, not
-  // pass. Note this does NOT cover the convention-loss failure mode above (an unwired task is
-  // NO-SOURCE and skips before discovery), which is what the task-graph check below is for.
-  failOnNoDiscoveredTests = true
-}
-
-// Guard against the Gradle-9 dead-suite bug recurring: convention loss leaves testClassesDirs
-// empty, which makes the task NO-SOURCE (skipped before test discovery), so
-// failOnNoDiscoveredTests never evaluates and the suite goes green running nothing. Catch it at
-// task-graph time instead.
-gradle.taskGraph.whenReady { graph ->
-  graph.allTasks.each { t ->
-    if (t instanceof Test
-        && t.project.path == project.path
-        && t.testClassesDirs.isEmpty()) {
-      throw new GradleException(
-          "${t.path} has empty testClassesDirs and would silently run zero tests. " +
-          "See the Gradle-9 wiring block in metadata-io/build.gradle.")
-    }
-  }
 }
 
 // Per-suite coverage: a matrix leg (metadata-io.yml) runs ONE suite task, so each must emit its

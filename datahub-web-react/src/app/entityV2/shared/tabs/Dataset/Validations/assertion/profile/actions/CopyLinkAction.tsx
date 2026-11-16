@@ -7,7 +7,7 @@ import {
     ENTITY_HEADER_ACTION_ICON_WEIGHT,
 } from '@app/entityV2/shared/EntityDropdown/styledComponents';
 import { useAssertionURNCopyLink } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/hooks';
-import { ActionItem } from '@app/shared/actions/ActionItem';
+import { ActionItem } from '@app/sharedV2/actions/ActionItem';
 
 import { Assertion } from '@types';
 

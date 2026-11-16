@@ -14,7 +14,7 @@
     "allowedPlatforms.anyPlaceholder": "Todas las plataformas",
     "allowedPlatforms.anyTooltip": "Esta propiedad estará disponible en activos de cualquier plataforma de datos",
     "allowedPlatforms.title": "Plataformas permitidas",
-    "allowedPlatforms.tooltip": "Opcionalmente, restrinja esta propiedad a activos de plataformas de datos específicas (p. ej., Glue, Redshift). Si se deja vacío, la propiedad se aplica a todas las plataformas.",
+    "allowedPlatforms.tooltip": "Opcionalmente, restrinja esta propiedad a activos de plataformas de datos específicas (p. ej. Glue, Redshift). Si está vacío, la propiedad se aplica a todas las plataformas.",
     "allowedValues.addTooltip": "Añadir un nuevo valor a la lista de valores permitidos",
     "allowedValues.anyValueAllowed": "Se permitirá cualquier valor de tipo <type>{{valueType}}</type>",
     "allowedValues.descriptionPlaceholder": "Proporcione una descripción",

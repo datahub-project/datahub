@@ -6,8 +6,8 @@ import styled from 'styled-components';
 import EmptyDomainDescription from '@app/domainV2/EmptyDomainDescription';
 import EmptyDomainsSection from '@app/domainV2/EmptyDomainsSection';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import Loading from '@app/shared/Loading';
-import { Message } from '@app/shared/Message';
+import Loading from '@app/sharedV2/Loading';
+import { Message } from '@app/sharedV2/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';

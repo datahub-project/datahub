@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { MockedFunction, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useEntityHasSummaryTab } from '@app/entityV2/summary/useEntityHasSummaryTab';
 import { useAppConfig } from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

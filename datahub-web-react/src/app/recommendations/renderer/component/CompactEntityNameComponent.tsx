@@ -4,8 +4,8 @@ import React from 'react';
 import styled from 'styled-components/macro';
 
 import { PreviewContextProps } from '@app/entityV2/shared/PreviewContext';
-import { decodeSchemaField } from '@app/lineage/utils/columnLineageUtils';
-import { downgradeV2FieldPath } from '@app/lineageV3/utils/lineageUtils';
+import { decodeSchemaField } from '@app/lineageV3/utils/columnLineageUtils';
+import { downgradeV2FieldPath } from '@app/lineageV3/utils/downgradeV2FieldPath';
 import { EntityPreviewTag } from '@app/recommendations/renderer/component/EntityPreviewTag';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';

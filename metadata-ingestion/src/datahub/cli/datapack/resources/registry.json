@@ -25,7 +25,7 @@
     },
     "search-quality": {
       "name": "search-quality",
-      "description": "Search quality corpus: Cranfield datasets, the long-tail catalog, and catalog and semantic probes. Judgments are not ingested.",
+      "description": "Search quality corpus: Cranfield datasets, the longtail-ecommerce catalog, and catalog and semantic probes. Judgments are not ingested.",
       "url": "https://raw.githubusercontent.com/datahub-project/datahub/master/metadata-io/src/test/resources/datapacks/search-quality/index.json",
       "size_hint": "~9 MB",
       "tags": ["search", "testing"],

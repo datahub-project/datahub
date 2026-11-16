@@ -15,6 +15,7 @@ UPSTREAM_REPO="bitol-io/open-data-contract-standard"
 KNOWN_VERSIONS=(
   "v3.0.2 odcs-json-schema-v3.0.2.json odcs-v3.0.2.json"
   "v3.1.0 odcs-json-schema-v3.1.0.json odcs-v3.1.0.json"
+  "v3.2.0 odcs-json-schema-v3.2.0.json odcs-v3.2.0.json"
 )
 
 # Resolve the schema directory relative to this script's location, so the
@@ -40,6 +41,11 @@ else
 fi
 
 requested_tag="${1:-}"
+
+# Downloads land in one per-run directory removed on EXIT: under `set -e` a
+# failed download exits the script without returning from refresh_one.
+WORK_DIR="$(mktemp -d)"
+trap 'rm -rf "${WORK_DIR}"' EXIT
 
 # Lookup the expected hash for a vendored filename from CHECKSUMS.sha256.
 # Returns empty string if the filename is not present.
@@ -67,9 +73,7 @@ download_at_ref() {
 refresh_one() {
   local tag="$1" upstream_name="$2" vendored_name="$3"
   local vendored_path="${SCHEMA_DIR}/${vendored_name}"
-  local tmp_file
-  tmp_file="$(mktemp -t "odcs-${tag}.XXXXXX.json")"
-  trap 'rm -f "${tmp_file}"' RETURN
+  local tmp_file="${WORK_DIR}/${vendored_name}"
 
   echo "==> ${vendored_name}: downloading ${UPSTREAM_REPO}@${tag}/schema/${upstream_name}"
   download_at_ref "${tag}" "schema/${upstream_name}" "${tmp_file}"

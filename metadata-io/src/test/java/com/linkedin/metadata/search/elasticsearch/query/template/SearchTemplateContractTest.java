@@ -63,13 +63,18 @@ public class SearchTemplateContractTest {
 
   @Test
   public void testShippedTemplatesDeclareVersionOneAndSystemIds() {
+    Set<String> loaded = new LinkedHashSet<>();
     for (String urn : SearchTemplateBootstrap.urns()) {
       String id = UrnUtils.getUrn(urn).getEntityKey().get(0);
-      assertTrue(SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
+      loaded.add(id);
       SearchTemplateProperties shipped = SearchTemplateBootstrap.get(urn);
       assertEquals(shipped.getApiVersion().intValue(), SearchTemplateCapabilities.API_VERSION);
       assertFalse(shipped.hasCapabilities());
       collectTags(section(shipped)).forEach(this::assertDeclaredName);
+      assertTrue(!shipped.isEditable() || SEARCH_TEMPLATE_SYSTEM_IDS.contains(id), urn);
+    }
+    for (String reserved : SEARCH_TEMPLATE_SYSTEM_IDS) {
+      assertTrue(loaded.contains(reserved), reserved);
     }
   }
 
@@ -142,12 +147,16 @@ public class SearchTemplateContractTest {
     assertTrue(versionError.getMessage().contains("apiVersion 2"));
     expectThrows(
         SearchTemplateException.class,
-        () -> SearchTemplateCapabilities.requireSupported(version, false));
+        () ->
+            SearchTemplateCapabilities.requireSupported(
+                version, false, SearchTemplateComponentRegistry.empty()));
 
     MergedSearchTemplate capability = merged().capabilities(List.of("merge")).build();
     expectThrows(
         SearchTemplateException.class,
-        () -> SearchTemplateCapabilities.requireSupported(capability, false, true));
+        () ->
+            SearchTemplateCapabilities.requireSupported(
+                capability, false, true, SearchTemplateComponentRegistry.empty()));
   }
 
   @Test

@@ -46,6 +46,7 @@ _"Tag all columns containing email addresses with the PII glossary term across o
 | Claude (Code, Desktop & Cowork) | [Guide](./claude.md)                    |
 | ChatGPT & Codex                 | [Guide](./plugins.md#chatgpt-and-codex) |
 | Cursor                          | [Guide](./cursor.md)                    |
+| GitHub Copilot                  | [Guide](./github-copilot.md)            |
 | Google Gemini CLI               | [Guide](./gemini-cli.md)                |
 | Snowflake Cortex Code           | [Guide](./snowflake-cortex-code.md)     |
 
@@ -100,7 +101,7 @@ Agents discover these automatically via MCP. See the [MCP Server Guide](../../fe
 | `search_documents` / `grep_documents`          | Search knowledge base articles and docs                                |
 | `add_tags` / `remove_tags`                     | Manage tags                                                            |
 | `update_description`                           | Set or update descriptions                                             |
-| `add_glossary_terms` / `remove_glossary_terms` | Link to glossary terms                                                 |
+| `add_terms` / `remove_terms`                   | Link to glossary terms                                                 |
 | `set_domains` / `add_owners` / `save_document` | Manage domains, ownership, and documents                               |
 
 **Need help?** [DataHub Slack](https://datahub.com/slack/) · [GitHub Issues](https://github.com/datahub-project/datahub/issues) · DataHub Cloud: support@acryl.io

@@ -1,8 +1,8 @@
 import type { ReactNode } from 'react';
 
-import { NestedSelectOption } from '@src/alchemy-components/components/Select/Nested/types';
+import { EntityNestedSelectOption } from '@app/sharedV2/select/select.types';
 import { SelectOption } from '@src/alchemy-components/components/Select/types';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 
 import { Entity, EntityType, OwnerEntityType, OwnershipType } from '@types';
 
@@ -87,7 +87,7 @@ export const deduplicateEntities = ({
  */
 export const entitiesToSelectOptions = (
     entities: Entity[],
-    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
+    entityRegistry: ReturnType<typeof useEntityRegistry>,
 ): SelectOption[] => {
     return entities.map((entity) => ({
         value: entity.urn,
@@ -105,14 +105,14 @@ export interface EntityLoadingPlaceholder {
 }
 
 /**
- * Convert entities to NestedSelectOption format with fallback labels
+ * Convert entities to EntityNestedSelectOption format with fallback labels
  */
 export const entitiesToNestedSelectOptions = (
     entityUrns: string[],
     entityCache: Map<string, Entity>,
-    entityRegistry: ReturnType<typeof useEntityRegistryV2>,
+    entityRegistry: ReturnType<typeof useEntityRegistry>,
     loadingPlaceholder?: EntityLoadingPlaceholder,
-): NestedSelectOption[] => {
+): EntityNestedSelectOption[] => {
     return entityUrns.map((urn: string) => {
         const entity = entityCache.get(urn);
         if (entity) {
@@ -177,12 +177,12 @@ export const mergeSelectedIntoOptions = <T extends { value: string }>(options: T
 };
 
 /**
- * Specialized version for NestedSelectOption merging
+ * Specialized version for EntityNestedSelectOption merging
  */
 export const mergeSelectedNestedOptions = (
-    options: NestedSelectOption[],
-    selectedOptions: NestedSelectOption[],
-): NestedSelectOption[] => {
+    options: EntityNestedSelectOption[],
+    selectedOptions: EntityNestedSelectOption[],
+): EntityNestedSelectOption[] => {
     const optionUrns = new Set(options.map((option) => option.value));
     const selectedNotInOptions = selectedOptions.filter((selected) => !optionUrns.has(selected.value));
 

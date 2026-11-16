@@ -7,6 +7,7 @@ import time
 from typing import (
     AbstractSet,
     Any,
+    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -23,6 +24,7 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk import WorkspaceClient
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -74,6 +76,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -85,8 +93,12 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
-from datahub.ingestion.source.unity.connection import create_workspace_client
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.genie import GenieSpaceExtractor
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -158,6 +170,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
+    AiAgentUrn,
     MlModelGroupUrn,
     MlModelUrn,
     StructuredPropertyUrn,
@@ -170,6 +183,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -393,6 +407,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - schemas
     - tables and column lineage
     - model and model versions
+    - Genie agents (opt-in)
     """
 
     config: UnityCatalogSourceConfig
@@ -426,10 +441,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             keep_platform_instance_case=True,
         )
 
-        self.init_hive_metastore_proxy()
+        workspace_client = create_workspace_client(self.config)
+        self.init_hive_metastore_proxy(workspace_client)
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            create_workspace_client(self.config),
+            workspace_client,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
@@ -534,13 +550,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             _ExternalSchemaKey, Optional[SchemaResolver]
         ] = {}
 
-    def init_hive_metastore_proxy(self):
+    def init_hive_metastore_proxy(self, workspace_client: WorkspaceClient) -> None:
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
             try:
+                # The SQLAlchemy URL carries no credentials; auth and the warehouse
+                # route come from the workspace client. User connect_args win so
+                # recipes that set them explicitly keep working.
+                options = {
+                    **self.config.options,
+                    "connect_args": {
+                        **get_sql_connection_params(workspace_client),
+                        **self.config.options.get("connect_args", {}),
+                    },
+                }
                 self.hive_metastore_proxy = HiveMetastoreProxy(
                     self.config.get_sql_alchemy_url(HIVE_METASTORE),
-                    self.config.options,
+                    options,
                     self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
@@ -773,6 +799,39 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
+    def _preserve_genie_agent_urn(self, urn: str) -> None:
+        # A warned space is not emitted, so stale removal would soft-delete it.
+        # Copy the URN forward only when a previous run ingested it. A space
+        # that has never been ingested is not tracked.
+        self._carry_forward_checkpoint_urns(lambda previous: previous == urn)
+
+    def _preserve_all_genie_agent_urns(self) -> None:
+        # Genie is the only aiAgent producer in this source, so after a listing
+        # failure every previously ingested agent is kept and stale removal for
+        # the other entity types still runs.
+        self._carry_forward_checkpoint_urns(
+            lambda previous: guess_entity_type(previous) == AiAgentUrn.ENTITY_TYPE
+        )
+
+    def _carry_forward_checkpoint_urns(self, keep: Callable[[str], bool]) -> None:
+        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
+        # The current checkpoint is None without reading state when stale
+        # removal is off, so check it before loading the last checkpoint.
+        current_checkpoint = self.state_provider.get_current_checkpoint(job_id)
+        if current_checkpoint is None:
+            return
+        current_state = current_checkpoint.state
+        if not isinstance(current_state, GenericCheckpointState):
+            return
+        last_checkpoint = self.state_provider.get_last_checkpoint(
+            job_id, GenericCheckpointState
+        )
+        if last_checkpoint is None:
+            return
+        for urn in last_checkpoint.state.urns:
+            if keep(urn):
+                current_state.add_checkpoint_urn(type=AiAgentUrn.ENTITY_TYPE, urn=urn)
+
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
@@ -785,6 +844,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
+        if self.config.include_genie_spaces:
+            with self.report.new_stage("Ingest Genie agents"):
+                yield from GenieSpaceExtractor(
+                    config=self.config,
+                    client=self.unity_catalog_api_proxy.genie,
+                    report=self.report,
+                    table_urn_builder=self.gen_dataset_urn,
+                    platform_instance=self.platform_instance_name,
+                    metastore=metastore.id if metastore else None,
+                    preserve_urn=self._preserve_genie_agent_urn,
+                    preserve_all_urns=self._preserve_all_genie_agent_urns,
+                ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
 
@@ -1576,13 +1647,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
         return resolver, schema_info
 
-    def _external_schema_info(
-        self, catalog: Catalog, external_urn: str
-    ) -> Optional[SchemaInfo]:
-        """External dataset's {field path: native type}, or None if unresolvable.
-        Thin wrapper over _external_schema_lookup for the column-lineage path."""
-        return self._external_schema_lookup(catalog, external_urn)[1]
-
     def _external_schema_resolver(
         self, key: _ExternalSchemaKey
     ) -> Optional[SchemaResolver]:
@@ -1712,7 +1776,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and schema_metadata.fields
         ):
             return None
-        schema_info = self._external_schema_info(catalog, external_urn)
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
         if not schema_info:
             # Unity Catalog gave us columns but the external source's schema isn't
             # resolvable (not ingested, or wrong platform_instance/env) — the COPY
@@ -1730,8 +1794,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_urn=external_urn,
             downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
             upstream_field_paths=list(schema_info.keys()),
+            upstream_original_field_paths=(
+                resolver.get_original_field_paths(external_urn) if resolver else None
+            ),
         )
-        return cll or None
+        self.report.num_federation_cll_edges_emitted += len(cll.lineages)
+        self.report.num_federation_cll_edges_original_path += cll.num_original_path
+        self.report.num_federation_cll_downstream_unmatched += len(
+            cll.unmatched_downstream_paths
+        )
+        for path in cll.unmatched_downstream_paths:
+            self.report.federation_cll_downstream_unmatched_sample.append(
+                make_schema_field_urn(dataset_urn, path)
+            )
+        return cll.lineages or None
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (

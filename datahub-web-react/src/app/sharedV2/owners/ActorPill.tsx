@@ -7,9 +7,9 @@ import styled from 'styled-components';
 import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, OwnerType } from '@types';
 
@@ -43,10 +43,19 @@ interface Props {
     hideLink?: boolean;
     propagationDetails?: AttributionDetails;
     onClick?: () => void;
+    hideHoverCard?: boolean;
 }
 
-export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails, onClick }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+export default function ActorPill({
+    actor,
+    isProposed,
+    onClose,
+    hideLink,
+    propagationDetails,
+    onClick,
+    hideHoverCard,
+}: Props) {
+    const entityRegistry = useEntityRegistry();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = (actor && 'editableProperties' in actor && actor.editableProperties?.pictureLink) || undefined;
     const linkProps = useEmbeddedProfileLinkProps();
@@ -56,7 +65,12 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
     const avatarType = actor.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
-        <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
+        <HoverEntityTooltip
+            entity={actor}
+            canOpen={!hideHoverCard}
+            showArrow={false}
+            previewContext={{ propagationDetails }}
+        >
             <Link
                 to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                 data-testid={`owner-${actor.urn}`}

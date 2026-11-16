@@ -2,7 +2,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import { Popover, zIndices } from '@src/alchemy-components';
-import useMeasureIfTrancated from '@src/app/shared/useMeasureIfTruncated';
+import useMeasureIfTrancated from '@src/app/sharedV2/useMeasureIfTruncated';
 
 const LabelWrapper = styled.div`
     max-width: 300px;

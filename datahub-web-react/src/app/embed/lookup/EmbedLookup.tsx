@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import LookupFoundMultiple from '@app/embed/lookup/LookupFoundMultiple';
 import LookupNotFound from '@app/embed/lookup/LookupNotFound';
 import useGetEntityByUrl from '@app/embed/lookup/useGetEntityByUrl';
-import { ErrorSection } from '@app/shared/error/ErrorSection';
+import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
 
 const PageContainer = styled.div`
     display: flex;

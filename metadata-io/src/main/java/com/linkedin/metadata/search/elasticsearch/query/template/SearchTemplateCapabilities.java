@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
@@ -9,9 +10,10 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
- * Sections this process can run. OSS advertises keyword retrieval and engine rescore. A stored
+ * Sections this process can run. Keyword retrieval and engine rescore are supported. A stored
  * section outside that set fails the search after parent merge. {@link #API_VERSION} is the
  * template and Mustache-context contract. {@link #SUPPORTED} is the capability names a template may
  * declare.
@@ -34,15 +36,67 @@ public final class SearchTemplateCapabilities {
               "ladder",
               "aggregations",
               "structuredPropertyQuery",
+              "fieldValueScores",
+              "fieldFactors",
+              "termWeights",
+              "entityTypeBoosts",
               "normalization",
               "fieldOverrides",
               "highlights",
               "sort",
               "boosts",
-              "queryFragments"));
+              "queryFragments",
+              "component",
+              "rankingSignals",
+              "rankingFormula"));
 
-  public static final Set<String> PRESETS = Set.of("none", "usage", "usageAndMatchTier");
-  public static final Set<String> SIZERS = Set.of("fixed", "tokenCurve");
+  /** Stored ranking preset. The wire value is what a template writes. */
+  public enum Preset {
+    NONE("none"),
+    USAGE("usage"),
+    USAGE_AND_MATCH_TIER("usageAndMatchTier");
+
+    private final String wire;
+
+    Preset(String wire) {
+      this.wire = wire;
+    }
+
+    @Nonnull
+    public String wire() {
+      return wire;
+    }
+
+    public boolean is(@Nullable String value) {
+      return wire.equals(value);
+    }
+  }
+
+  /** How a ranking window is chosen. The wire value is what a template writes. */
+  public enum WindowSizer {
+    FIXED("fixed"),
+    TOKEN_CURVE("tokenCurve");
+
+    private final String wire;
+
+    WindowSizer(String wire) {
+      this.wire = wire;
+    }
+
+    @Nonnull
+    public String wire() {
+      return wire;
+    }
+
+    public boolean is(@Nullable String value) {
+      return wire.equals(value);
+    }
+  }
+
+  public static final Set<String> PRESETS =
+      Set.of(Preset.NONE.wire(), Preset.USAGE.wire(), Preset.USAGE_AND_MATCH_TIER.wire());
+  public static final Set<String> SIZERS =
+      Set.of(WindowSizer.FIXED.wire(), WindowSizer.TOKEN_CURVE.wire());
   public static final Set<String> FUSIONS =
       Set.of("interleave", "weightedBlend", "fillFreeSlots", "keywordPreferred");
   public static final Set<String> FACETS = Set.of("firstMember", "patchFromMembers", "candidates");
@@ -92,8 +146,10 @@ public final class SearchTemplateCapabilities {
   }
 
   public static void requireSupported(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank) {
-    requireSupported(template, documentRerank, false);
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    requireSupported(template, documentRerank, false, registry);
   }
 
   /**
@@ -101,11 +157,20 @@ public final class SearchTemplateCapabilities {
    * is advertised only when the request includes the Document entity.
    */
   public static void requireSupported(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank, boolean scroll) {
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      boolean scroll,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     requireContract(template);
-    String code = rejectionCode(template, documentRerank, scroll);
+    String code = rejectionCode(template, documentRerank, scroll, registry);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
+    }
+    com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
+    if (!SearchTemplateComponents.empty(component)) {
+      registry
+          .require(component.getName(), component.getVersion(), component.getMode())
+          .validate(component.getMode(), SearchTemplateComponents.config(component));
     }
   }
 
@@ -116,15 +181,36 @@ public final class SearchTemplateCapabilities {
    */
   @Nullable
   public static String rejectionCode(
-      @Nonnull MergedSearchTemplate template, boolean documentRerank, boolean scroll) {
+      @Nonnull MergedSearchTemplate template,
+      boolean documentRerank,
+      boolean scroll,
+      @Nonnull SearchTemplateComponentRegistry registry) {
+    com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
+    if (!SearchTemplateComponents.empty(component)) {
+      String name = component.hasName() ? component.getName() : null;
+      Integer version = component.hasVersion() ? component.getVersion() : null;
+      if (name == null
+          || name.isBlank()
+          || version == null
+          || !component.hasMode()
+          || component.getMode() == null
+          || registry.find(name, version).isEmpty()) {
+        return "component";
+      }
+      if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG && scroll) {
+        return "componentScroll";
+      }
+    }
     SearchTemplateRanking ranking = template.getRanking();
     if (ranking != null) {
+      boolean signals =
+          ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
       String preset = ranking.hasPreset() ? ranking.getPreset() : null;
-      if (preset != null && !preset.isBlank() && !"none".equals(preset)) {
+      if (!signals && StringUtils.isNotBlank(preset) && !Preset.NONE.is(preset)) {
         return "rankingPreset";
       }
       String sizer = ranking.hasWindowSizer() ? ranking.getWindowSizer() : null;
-      if (sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
+      if (!signals && StringUtils.isNotBlank(sizer) && !WindowSizer.FIXED.is(sizer)) {
         return "rankingWindow";
       }
     }
@@ -158,6 +244,8 @@ public final class SearchTemplateCapabilities {
     SearchTemplateRanking ranking = template.getRanking();
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     return switch (code) {
+      case "component" -> "component";
+      case "componentScroll" -> "component scroll";
       case "rankingPreset" -> "ranking preset " + ranking.getPreset();
       case "rankingWindow" -> "ranking windowSizer " + ranking.getWindowSizer();
       case "knn" -> "knn";

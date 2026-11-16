@@ -13,7 +13,7 @@ import {
     toDocumentGroupingEntityData,
 } from '@app/document/utils/documentSidebarGrouping';
 import { DocumentSidebarSortValue } from '@app/document/utils/documentSidebarSort';
-import Loading from '@app/shared/Loading';
+import Loading from '@app/sharedV2/Loading';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetDocumentQuery } from '@graphql/document.generated';

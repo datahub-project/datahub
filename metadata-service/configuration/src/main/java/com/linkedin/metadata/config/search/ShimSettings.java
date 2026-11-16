@@ -26,6 +26,12 @@ public class ShimSettings {
   /** Takes precedence over {@link #engineType} when true, matching existing behavior. */
   private Boolean autoDetectEngine;
 
+  /**
+   * Engine version to assume (e.g. "2.19.0") instead of reading it from {@code GET /}. Set it where
+   * the search user lacks cluster:monitor/main; blank means probe the cluster.
+   */
+  private String engineVersion;
+
   public boolean isAutoDetectEnabled() {
     // Unset means auto-detect, so a newly added cluster works without pinning a version.
     return autoDetectEngine == null || autoDetectEngine;

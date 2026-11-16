@@ -19,6 +19,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import lombok.Getter;
 import lombok.SneakyThrows;
 import lombok.extern.slf4j.Slf4j;
@@ -27,7 +28,7 @@ import lombok.extern.slf4j.Slf4j;
 public class ReindexDebugStep implements UpgradeStep {
 
   private final List<ElasticSearchIndexed> services;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
   @Getter public ReindexDebugArgs args;
   // ours, entity
   private ElasticSearchIndexed service;
@@ -55,7 +56,7 @@ public class ReindexDebugStep implements UpgradeStep {
   @SneakyThrows
   public ReindexDebugStep(
       List<ElasticSearchIndexed> services,
-      Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+      Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties) {
     this.services = services;
     this.structuredProperties = structuredProperties;
     // pick ours
@@ -104,7 +105,8 @@ public class ReindexDebugStep implements UpgradeStep {
       throws IOException, IllegalAccessException {
     // datahubpolicyindex_v2 has some docs upon starting quickdebug...
     //  String targetIndex = "datahubpolicyindex_v2";
-    List<ReindexConfig> configs = service.buildReindexConfigs(opContext, structuredProperties);
+    List<ReindexConfig> configs =
+        service.buildReindexConfigs(opContext, structuredProperties.get());
     config = null; // Reset config to null
     for (ReindexConfig cfg : configs) {
       String cfgname = cfg.name();

@@ -119,6 +119,20 @@ public class QueryUtilsTest {
   }
 
   @Test
+  public void testNewListsFilterDropsEntriesWithEmptyValues() {
+    // An empty list means "no constraint on this field"; keeping it would build a terms query
+    // with no values, which matches nothing.
+    Map<String, List<String>> params = new HashMap<>();
+    params.put("field1", Collections.emptyList());
+    params.put("field2", Arrays.asList("a"));
+    Filter filter = QueryUtils.newListsFilter(params);
+
+    ConjunctiveCriterion cc = filter.getOr().get(0);
+    Assert.assertEquals(cc.getAnd().size(), 1, "Expected the empty-valued entry to be dropped");
+    Assert.assertEquals(cc.getAnd().get(0).getField(), "field2");
+  }
+
+  @Test
   public void testNewFilterWithFieldAndValue() {
     Filter filter = QueryUtils.newFilter("field3", "value3");
 

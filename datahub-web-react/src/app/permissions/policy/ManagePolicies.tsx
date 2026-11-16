@@ -22,7 +22,6 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps, AvatarType } from '@components/components/AvatarStack/types';
 import { ItemType } from '@components/components/Menu/types';
 import { AlignmentOptions } from '@components/theme/config';
@@ -35,9 +34,10 @@ import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
 import { DEFAULT_PAGE_SIZE, EMPTY_POLICY } from '@app/permissions/policy/policyUtils';
 import { usePolicy } from '@app/permissions/policy/usePolicy';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { scrollToTop } from '@app/shared/searchUtils';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetPolicyPrivilegesQuery } from '@graphql/app.generated';

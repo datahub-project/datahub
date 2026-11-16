@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetDomains } from '@app/homeV2/content/tabs/discovery/sections/domains/useGetDomains';
 import { useHomeRecommendations } from '@app/homeV2/useHomeRecommendations';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useListRecommendationsQuery } from '@graphql/recommendations.generated';
 import { EntityType } from '@types';

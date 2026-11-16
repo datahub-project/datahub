@@ -12,7 +12,10 @@ from datahub.ingestion.api.source_helpers import (
     auto_workunit,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
+from datahub.ingestion.source.unity.config import (
+    INFORMATION_SCHEMA,
+    UnityCatalogSourceConfig,
+)
 from datahub.ingestion.source.unity.hive_metastore_proxy import HIVE_METASTORE
 from datahub.ingestion.source.unity.identifier_helper import split_databricks_identifier
 from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
@@ -65,13 +68,12 @@ _STATEMENT_TYPE_TO_QUERY_TYPE = {
 }
 
 _SYSTEM_CATALOG = "system"
-_INFORMATION_SCHEMA = "information_schema"
 
 
 def _is_system_table(catalog: str, schema: str) -> bool:
     # The system catalog and each catalog's information_schema hold Databricks
     # metadata views, which are datasets only when a recipe ingests them.
-    return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == _INFORMATION_SCHEMA
+    return catalog.lower() == _SYSTEM_CATALOG or schema.lower() == INFORMATION_SCHEMA
 
 
 class _LineageNameKind(Enum):
@@ -600,6 +602,12 @@ class UnityCatalogUsageExtractor:
                     for urn in lineage.upstreams + lineage.targets
                 )
             ):
+                # table_lineage omits hive_metastore tables, so a statement joining
+                # an ingested Unity Catalog table to one still needs the SQL text.
+                if covers_hive_metastore and not query.is_query_text_redacted:
+                    lineage = (
+                        self._with_hive_metastore_tables(query, lineage) or lineage
+                    )
                 self._add_preparsed_queries(aggregator, query, lineage)
                 return
 

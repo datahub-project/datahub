@@ -9,7 +9,7 @@
             "customProperties": {
                 "schema_inferred_from": "s3://my-test-bucket/folder_a/folder_aa/folder_aaa/food_parquet/part2.parquet"
             },
-            "externalUrl": "https://us-east-1.console.aws.amazon.com/s3/buckets/my-test-bucket?prefix=folder_a/folder_aa/folder_aaa/food_parquet",
+            "externalUrl": "https://s3.console.aws.amazon.com/s3/buckets/my-test-bucket?region=us-east-1&prefix=folder_a/folder_aa/folder_aaa/food_parquet/",
             "name": "food_parquet",
             "description": "",
             "tags": []

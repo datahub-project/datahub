@@ -27,7 +27,7 @@ from datahub.ingestion.source.odcs.odcs_models import (
 _SCHEMA_DIR = (
     pathlib.Path(__file__).parents[3] / "src/datahub/ingestion/source/odcs/odcs_schema"
 )
-_SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json")
+_SCHEMA_FILES = ("odcs-v3.0.2.json", "odcs-v3.1.0.json", "odcs-v3.2.0.json")
 
 
 def _model_keys(model_cls: Type[BaseModel]) -> Set[str]:
@@ -59,7 +59,7 @@ def _spec_keys(node: Any, defs: Dict[str, Any]) -> Set[str]:
 
 
 def _level_keys() -> Dict[str, Set[str]]:
-    """Union of spec keys per object level across both vendored schemas."""
+    """Union of spec keys per object level across all vendored schemas."""
     union: Dict[str, Set[str]] = {}
     for filename in _SCHEMA_FILES:
         spec = json.loads((_SCHEMA_DIR / filename).read_text())

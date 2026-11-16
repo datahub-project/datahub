@@ -1,3 +1,5 @@
+import i18next from 'i18next';
+
 import {
     AZURE_AUTHORITY_URL,
     AZURE_CLIENT_ID,
@@ -124,6 +126,16 @@ import {
     DORIS_USERNAME,
 } from '@app/ingest/source/builder/RecipeForm/doris';
 import {
+    HIGHTOUCH_API_KEY,
+    HIGHTOUCH_EMIT_MODELS,
+    HIGHTOUCH_INCLUDE_SYNC_RUNS,
+    HIGHTOUCH_MAX_SYNC_RUNS,
+    HIGHTOUCH_MODEL_ALLOW,
+    HIGHTOUCH_MODEL_DENY,
+    HIGHTOUCH_SYNC_ALLOW,
+    HIGHTOUCH_SYNC_DENY,
+} from '@app/ingest/source/builder/RecipeForm/hightouch';
+import {
     HIVE_DATABASE,
     HIVE_HOST_PORT,
     HIVE_PASSWORD,
@@ -199,14 +211,18 @@ import {
     MICROSTRATEGY_BASE_URL,
     MICROSTRATEGY_DASHBOARD_ALLOW,
     MICROSTRATEGY_DASHBOARD_DENY,
+    MICROSTRATEGY_DATASET_FIELD_ORDER,
     MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+    MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES,
     MICROSTRATEGY_EXTRACT_CHARTS,
     MICROSTRATEGY_EXTRACT_CUBES,
     MICROSTRATEGY_EXTRACT_DASHBOARDS,
     MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
+    MICROSTRATEGY_EXTRACT_DERIVED_METRICS,
     MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
     MICROSTRATEGY_EXTRACT_LINEAGE,
     MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+    MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE,
     MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
     MICROSTRATEGY_EXTRACT_REPORTS,
     MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
@@ -216,7 +232,10 @@ import {
     MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
     MICROSTRATEGY_FOLDER_ALLOW,
     MICROSTRATEGY_FOLDER_DENY,
+    MICROSTRATEGY_FOLDER_PATH_ALLOW,
+    MICROSTRATEGY_FOLDER_PATH_DENY,
     MICROSTRATEGY_INCLUDE_HIDDEN,
+    MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS,
     MICROSTRATEGY_INGEST_OWNER,
     MICROSTRATEGY_PASSWORD,
     MICROSTRATEGY_PLATFORM_INSTANCE,
@@ -226,6 +245,7 @@ import {
     MICROSTRATEGY_REPORT_DENY,
     MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
     MICROSTRATEGY_USERNAME,
+    MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES,
     MICROSTRATEGY_VERIFY_SSL,
 } from '@app/ingest/source/builder/RecipeForm/microstrategy';
 import {
@@ -396,14 +416,15 @@ import {
     SQLMESH,
     VERTICA,
 } from '@app/ingest/source/builder/constants';
-import { BIGQUERY } from '@app/ingest/source/conf/bigquery/bigquery';
-import { HIVE } from '@app/ingest/source/conf/hive/hive';
-import { KAFKA } from '@app/ingest/source/conf/kafka/kafka';
-import { LOOKER } from '@app/ingest/source/conf/looker/looker';
-import { POSTGRES } from '@app/ingest/source/conf/postgres/postgres';
-import { REDSHIFT } from '@app/ingest/source/conf/redshift/redshift';
-import { SNOWFLAKE } from '@app/ingest/source/conf/snowflake/snowflake';
-import { TABLEAU } from '@app/ingest/source/conf/tableau/tableau';
+import { BIGQUERY } from '@app/ingestV2/source/conf/bigquery/bigquery';
+import { HIGHTOUCH } from '@app/ingestV2/source/conf/hightouch/hightouch';
+import { HIVE } from '@app/ingestV2/source/conf/hive/hive';
+import { KAFKA } from '@app/ingestV2/source/conf/kafka/kafka';
+import { LOOKER } from '@app/ingestV2/source/conf/looker/looker';
+import { POSTGRES } from '@app/ingestV2/source/conf/postgres/postgres';
+import { REDSHIFT } from '@app/ingestV2/source/conf/redshift/redshift';
+import { SNOWFLAKE } from '@app/ingestV2/source/conf/snowflake/snowflake';
+import { TABLEAU } from '@app/ingestV2/source/conf/tableau/tableau';
 
 export enum RecipeSections {
     Connection = 0,
@@ -809,6 +830,8 @@ export const RECIPE_FIELDS: RecipeFields = {
             MICROSTRATEGY_PROJECT_DENY,
             MICROSTRATEGY_FOLDER_ALLOW,
             MICROSTRATEGY_FOLDER_DENY,
+            MICROSTRATEGY_FOLDER_PATH_ALLOW,
+            MICROSTRATEGY_FOLDER_PATH_DENY,
             MICROSTRATEGY_DASHBOARD_ALLOW,
             MICROSTRATEGY_DASHBOARD_DENY,
             MICROSTRATEGY_REPORT_ALLOW,
@@ -822,16 +845,22 @@ export const RECIPE_FIELDS: RecipeFields = {
             MICROSTRATEGY_EXTRACT_INDEPENDENT_REPORTS,
             MICROSTRATEGY_EXTRACT_LINEAGE,
             MICROSTRATEGY_EXTRACT_VISUALIZATION_DETAILS,
+            MICROSTRATEGY_EXTRACT_DERIVED_METRICS,
             MICROSTRATEGY_EXTRACT_SOURCE_WAREHOUSES,
             MICROSTRATEGY_EXTRACT_DASHBOARD_DEPENDENCIES,
             MICROSTRATEGY_EXTRACT_METRIC_EXPRESSIONS,
+            MICROSTRATEGY_EXTRACT_METRIC_FORMULA_LINEAGE,
             MICROSTRATEGY_EXTRACT_MODEL_LINEAGE,
             MICROSTRATEGY_EXTRACT_WAREHOUSE_LINEAGE,
             MICROSTRATEGY_EXTRACT_REPORT_SQL_LINEAGE,
             MICROSTRATEGY_EXTRACT_USAGE_STATISTICS,
             MICROSTRATEGY_EMIT_DASHBOARD_DATASET_EDGES,
+            MICROSTRATEGY_EMIT_DOCUMENT_DATASET_EDGES,
             MICROSTRATEGY_TAG_MEASURES_AND_DIMENSIONS,
             MICROSTRATEGY_INGEST_OWNER,
+            MICROSTRATEGY_USE_PREDEFINED_FOLDER_NAMES,
+            MICROSTRATEGY_INCLUDE_PERSONAL_FOLDERS,
+            MICROSTRATEGY_DATASET_FIELD_ORDER,
             MICROSTRATEGY_INCLUDE_HIDDEN,
             MICROSTRATEGY_VERIFY_SSL,
             STATEFUL_INGESTION_ENABLED,
@@ -922,6 +951,19 @@ export const RECIPE_FIELDS: RecipeFields = {
             FOLDER_DENY,
         ],
         advancedFields: [STATEFUL_INGESTION_ENABLED],
+    },
+    [HIGHTOUCH]: {
+        fields: [HIGHTOUCH_API_KEY],
+        filterFields: [HIGHTOUCH_SYNC_ALLOW, HIGHTOUCH_SYNC_DENY, HIGHTOUCH_MODEL_ALLOW, HIGHTOUCH_MODEL_DENY],
+        advancedFields: [
+            HIGHTOUCH_EMIT_MODELS,
+            HIGHTOUCH_INCLUDE_SYNC_RUNS,
+            HIGHTOUCH_MAX_SYNC_RUNS,
+            STATEFUL_INGESTION_ENABLED,
+        ],
+        get filterSectionTooltip() {
+            return i18next.t('ingestion.sourceBuilder:hightouch.filterSection.tooltip');
+        },
     },
     [NOTION]: {
         fields: [NOTION_API_KEY, NOTION_PAGE_IDS],

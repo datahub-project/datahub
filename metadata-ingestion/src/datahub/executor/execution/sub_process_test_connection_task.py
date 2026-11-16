@@ -35,6 +35,7 @@ from datahub.executor.execution.runner import (
 from datahub.executor.execution.sub_process_task_common import (
     SubProcessRecipeTaskArgs,
     SubProcessTaskUtil,
+    check_credential_redirects,
     resolve_wrapper_script,
 )
 from datahub.executor.execution.task import Task, TaskError
@@ -80,6 +81,7 @@ class SubProcessTestConnectionTask(Task):
         recipe, secret_values = SubProcessTaskUtil._resolve_recipe(
             validated_args.recipe, execution_ctx=ctx, executor_ctx=self.ctx
         )
+        check_credential_redirects(recipe, validated_args, secret_values)
         plugin: str = SubProcessTaskUtil._get_plugin_from_recipe(recipe)
 
         # 2. Prepare or resolve venv

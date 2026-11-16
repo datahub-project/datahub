@@ -6,14 +6,13 @@ import { SquaresFour } from '@phosphor-icons/react/dist/csr/SquaresFour';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { Preview } from '@app/entityV2/glossaryTerm/preview/Preview';
-import { RelatedTermTypes } from '@app/entityV2/glossaryTerm/profile/RelatedTermTypes';
 import useGlossaryRelatedAssetsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedAssetsTabCount';
+import useGlossaryRelatedTermsTabCount from '@app/entityV2/glossaryTerm/profile/useGlossaryRelatedTermsTabCount';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
-import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { EntityActionItem } from '@app/entityV2/shared/entity/EntityActions';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
@@ -33,9 +32,9 @@ import {
     StatusSection,
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSummaryPage';
-import { FetchedEntity } from '@app/lineage/types';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 import { GetGlossaryTermQuery, useGetGlossaryTermQuery } from '@graphql/glossaryTerm.generated';
 import { EntityType, GlossaryTerm, SearchResult } from '@types';
@@ -55,6 +54,8 @@ const headerDropdownItems = new Set([
     EntityMenuItems.MOVE,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
+    EntityMenuItems.LIFECYCLE_STAGE,
+    EntityMenuItems.NEW_VERSION,
     EntityMenuItems.CLONE,
     EntityMenuItems.DELETE,
     EntityMenuItems.ANNOUNCE,
@@ -193,12 +194,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
             {
                 name: i18next.t('entity.types:glossaryTerm.relatedTermsTab'),
                 path: EntityTabPath.RELATED_TERMS,
-                getCount: (entityData, _, loading) => {
-                    const totalRelatedTerms = Object.keys(RelatedTermTypes).reduce((acc, curr) => {
-                        return acc + (entityData?.[curr]?.total || 0);
-                    }, 0);
-                    return !loading ? totalRelatedTerms : undefined;
-                },
+                getCount: useGlossaryRelatedTermsTabCount,
                 component: GlossayRelatedTerms,
                 icon: () => <BookmarkSimple style={{ marginRight: 6 }} />,
             },
@@ -213,6 +209,7 @@ export class GlossaryTermEntity implements Entity<GlossaryTerm> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),

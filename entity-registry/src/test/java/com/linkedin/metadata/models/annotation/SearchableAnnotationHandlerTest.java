@@ -19,6 +19,7 @@ public class SearchableAnnotationHandlerTest {
   public void testDegreePatchMergesOntoTheAnnotationAlreadyInEffect() {
     DataMap baseV3 = new DataMap();
     baseV3.put("searchLabel", "glossaryTerms");
+    baseV3.put("queryByDefault", true);
     baseV3.put("includeSystemModifiedAt", false);
     DataMap base = new DataMap();
     base.put("fieldName", "editedFieldGlossaryTerms");

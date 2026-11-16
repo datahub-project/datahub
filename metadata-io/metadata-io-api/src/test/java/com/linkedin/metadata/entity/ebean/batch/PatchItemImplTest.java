@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOSSARY_TERMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
+import static com.linkedin.metadata.aspect.validation.ConditionalWriteValidator.HTTP_HEADER_IF_VERSION_MATCH;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.*;
 
@@ -26,6 +27,7 @@ import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,6 +39,7 @@ import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import org.testng.annotations.Test;
 
 public class PatchItemImplTest {
@@ -638,6 +641,62 @@ public class PatchItemImplTest {
         "auditStamp must be present — injected by the registered template default");
     assertFalse(patched.getTerms().isEmpty(), "The added term must be present");
     assertEquals(patched.getTerms().get(0).getUrn().toString(), "urn:li:glossaryTerm:CustomerData");
+  }
+
+  /**
+   * A generic patch must keep the source MCP's headers and system metadata, as a template patch
+   * does. Otherwise a conditional header such as If-Version-Match never reaches the pre-commit
+   * validators and the write goes through unconditionally.
+   */
+  @Test
+  public void testGenericPatchKeepsHeadersAndSystemMetadata() {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp("add");
+    patchOp.setPath("/description");
+    patchOp.setValue("Test description");
+    GenericJsonPatch genericJsonPatch =
+        GenericJsonPatch.builder().patch(List.of(patchOp)).forceGenericPatch(true).build();
+
+    MetadataChangeProposal mcp =
+        conditionalPatchMcp(GenericRecordUtils.serializePatch(genericJsonPatch, objectMapper));
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+    assertNotNull(patchItem.getGenericJsonPatch());
+
+    ChangeItemImpl result = patchItem.applyPatch(new DatasetProperties(), aspectRetriever);
+
+    assertEquals(
+        ((DatasetProperties) result.getRecordTemplate()).getDescription(), "Test description");
+    assertEquals(result.getHeader(HTTP_HEADER_IF_VERSION_MATCH), Optional.of("999"));
+    assertEquals(result.getSystemMetadata().getRunId(), "conditional-patch-run");
+  }
+
+  @Test
+  public void testTemplatePatchKeepsHeadersAndSystemMetadata() {
+    MetadataChangeProposal mcp =
+        conditionalPatchMcp(
+            GenericRecordUtils.serializePatch(
+                patchOf(
+                    "[{\"op\":\"add\",\"path\":\"/description\",\"value\":\"Test description\"}]")));
+    PatchItemImpl patchItem = PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
+
+    ChangeItemImpl result = patchItem.applyPatch(new DatasetProperties(), aspectRetriever);
+
+    assertEquals(
+        ((DatasetProperties) result.getRecordTemplate()).getDescription(), "Test description");
+    assertEquals(result.getHeader(HTTP_HEADER_IF_VERSION_MATCH), Optional.of("999"));
+    assertEquals(result.getSystemMetadata().getRunId(), "conditional-patch-run");
+  }
+
+  private MetadataChangeProposal conditionalPatchMcp(GenericAspect patchAspect) {
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    mcp.setEntityUrn(urn);
+    mcp.setEntityType(DATASET_ENTITY_NAME);
+    mcp.setAspectName(DATASET_PROPERTIES_ASPECT_NAME);
+    mcp.setChangeType(ChangeType.PATCH);
+    mcp.setAspect(patchAspect);
+    mcp.setHeaders(new StringMap(Map.of(HTTP_HEADER_IF_VERSION_MATCH, "999")));
+    mcp.setSystemMetadata(new SystemMetadata().setRunId("conditional-patch-run"));
+    return mcp;
   }
 
   // ---------------------------------------------------------------------------

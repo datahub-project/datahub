@@ -5,6 +5,7 @@ from typing import TYPE_CHECKING, Dict, List, Optional, Sequence, Tuple, Union
 
 from datahub.emitter.aspect import ASPECT_MAP, JSON_CONTENT_TYPE
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.emitter.transform_operation import cap_transform_operation
 from datahub.errors import DataHubDeprecationWarning
 from datahub.metadata.schema_classes import (
     ChangeTypeClass,
@@ -25,7 +26,14 @@ _ENTITY_TYPE_UNSET = "ENTITY_TYPE_UNSET"
 
 
 def _make_generic_aspect(codegen_obj: DictWrapper) -> GenericAspectClass:
-    serialized = json.dumps(pre_json_transform(codegen_obj.to_obj()))
+    obj = codegen_obj.to_obj()
+    # Cut the to_obj() copy so the caller's aspect keeps its full text.
+    for fine_grained in obj.get("fineGrainedLineages") or []:
+        if fine_grained.get("transformOperation"):
+            fine_grained["transformOperation"] = cap_transform_operation(
+                fine_grained["transformOperation"]
+            )
+    serialized = json.dumps(pre_json_transform(obj))
     return GenericAspectClass(
         value=serialized.encode(),
         contentType=JSON_CONTENT_TYPE,

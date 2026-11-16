@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { describe, expect, it, vi } from 'vitest';
 
 import '@app/context/import/__tests__/testSetup';
 import { ImportSourceType } from '@app/context/import/import.types';
 import { useImportDocumentsModalButtons } from '@app/context/import/useImportDocumentsModalButtons';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 describe('useImportDocumentsModalButtons', () => {
     const handlers = {

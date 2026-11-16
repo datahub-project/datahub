@@ -9,6 +9,7 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim.SearchEngineType;
 import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import java.util.HashMap;
+import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
@@ -61,19 +62,33 @@ public final class SemanticEmbeddingMappings {
     return indexName.equals(suffix) || indexName.endsWith("_" + suffix);
   }
 
-  public static boolean isSemanticEnabledV3Index(
-      @Nullable SemanticSearchConfiguration semanticConfig, @Nullable String indexName) {
-    if (semanticConfig == null
-        || !semanticConfig.isEnabled()
-        || semanticConfig.getEnabledEntities() == null
-        || indexName == null) {
+  /**
+   * True when semantic search is on for at least one entity and a model is configured. The V3
+   * mapping is one document applied to every index, so that entity's vector field is on every
+   * index, including entities that do not store vectors.
+   */
+  public static boolean enabledForAnyEntity(@Nullable SemanticSearchConfiguration semanticConfig) {
+    if (semanticConfig == null || !semanticConfig.isEnabled()) {
+      return false;
+    }
+    Set<String> enabledEntities = semanticConfig.getEnabledEntities();
+    if (enabledEntities == null || enabledEntities.isEmpty()) {
       return false;
     }
     Map<String, ModelEmbeddingConfig> models = semanticConfig.getModels();
-    if (models == null || models.isEmpty()) {
+    return models != null && !models.isEmpty();
+  }
+
+  public static boolean isSemanticEnabledV3Index(
+      @Nullable SemanticSearchConfiguration semanticConfig, @Nullable String indexName) {
+    if (semanticConfig == null || indexName == null || !enabledForAnyEntity(semanticConfig)) {
       return false;
     }
-    for (String entityName : semanticConfig.getEnabledEntities()) {
+    Set<String> enabledEntities = semanticConfig.getEnabledEntities();
+    if (enabledEntities == null) {
+      return false;
+    }
+    for (String entityName : enabledEntities) {
       if (isV3IndexForEntity(indexName, entityName)) {
         return true;
       }
@@ -170,20 +185,31 @@ public final class SemanticEmbeddingMappings {
    * for both engines, the configured value may be in either vocabulary — this method normalises it
    * for the target engine in both directions.
    */
+  static String canonicalSpaceType(@Nonnull String spaceType) {
+    String canonical = spaceType.trim().toLowerCase(Locale.ROOT);
+    return switch (canonical) {
+      case "cosinesimil", "cosine", "l2", "l2_norm", "innerproduct", "dotproduct", "dot_product" ->
+          canonical;
+      default ->
+          throw new IllegalArgumentException("Unsupported semantic space type '" + spaceType + "'");
+    };
+  }
+
   static String translateSpaceType(@Nonnull String spaceType, @Nonnull SearchEngineType engine) {
+    String canonical = canonicalSpaceType(spaceType);
     if (usesEs8VectorMappings(engine)) {
-      return switch (spaceType) {
+      return switch (canonical) {
         case "cosinesimil" -> "cosine";
         case "l2" -> "l2_norm";
         case "innerproduct", "dotproduct" -> "dot_product";
-        default -> spaceType;
+        default -> canonical;
       };
     }
-    return switch (spaceType) {
+    return switch (canonical) {
       case "cosine" -> "cosinesimil";
       case "l2_norm" -> "l2";
-      case "dot_product" -> "innerproduct";
-      default -> spaceType;
+      case "dot_product", "dotproduct" -> "innerproduct";
+      default -> canonical;
     };
   }
 }

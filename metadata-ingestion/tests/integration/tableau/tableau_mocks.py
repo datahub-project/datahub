@@ -233,20 +233,23 @@ def mock_sdk_client(
     mock_client.sites = mock.Mock()
     mock_client.groups = mock.Mock()
 
-    mock_client.projects.get.side_effect = side_effect_project_data
-    mock_client.groups.get.side_effect = side_effect_group_data
-    mock_client.sites.get.side_effect = side_effect_site_data
+    # Endpoints read through TSC.Pager get an explicitly assigned `get`. Pager checks
+    # its Endpoint protocol with isinstance, which on Python 3.12+ does not see a
+    # Mock's auto-created attributes, so Pager would call the endpoint mock itself.
+    mock_client.projects.get = mock.Mock(side_effect=side_effect_project_data)
+    mock_client.groups.get = mock.Mock(side_effect=side_effect_group_data)
+    mock_client.sites.get = mock.Mock(side_effect=side_effect_site_data)
     mock_client.sites.get_by_id.side_effect = side_effect_site_get_by_id
 
     mock_client.datasources = mock.Mock()
-    mock_client.datasources.get.side_effect = datasources_side_effect
+    mock_client.datasources.get = mock.Mock(side_effect=datasources_side_effect)
     mock_client.datasources.get_by_id.side_effect = side_effect_datasource_get_by_id
 
     mock_client.workbooks = mock.Mock()
-    mock_client.workbooks.get.side_effect = side_effect_workbook_data
+    mock_client.workbooks.get = mock.Mock(side_effect=side_effect_workbook_data)
     mock_client.workbooks.get_by_id.side_effect = side_effect_workbook_get_by_id
 
-    mock_client.views.get.side_effect = side_effect_usage_stat
+    mock_client.views.get = mock.Mock(side_effect=side_effect_usage_stat)
     mock_client.auth.sign_in.return_value = None
     mock_client.auth.sign_out.side_effect = sign_out_side_effect
 

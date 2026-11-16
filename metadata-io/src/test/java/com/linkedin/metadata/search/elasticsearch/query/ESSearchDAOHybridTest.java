@@ -30,9 +30,9 @@ import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplates;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -51,8 +51,10 @@ import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
+import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.Future;
 import java.util.concurrent.Semaphore;
+import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.concurrent.atomic.AtomicLong;
@@ -67,6 +69,7 @@ import org.opensearch.core.common.bytes.BytesArray;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -79,6 +82,7 @@ public class ESSearchDAOHybridTest {
   private HybridSearchResultReranker reranker;
   private OperationContext opContext;
   private MetricUtils metrics;
+  private ThreadPoolExecutor hybridExecutor;
   private ESSearchDAO dao;
 
   @BeforeMethod
@@ -114,6 +118,16 @@ public class ESSearchDAOHybridTest {
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
             reranker);
+    // Each test gets its own pool. The shared one keeps the workers earlier tests started, idle,
+    // and a burst of searches can fill its queue before they take tasks, so a test that fills the
+    // pool would see more rejections than the pool's capacity allows
+    hybridExecutor = ESSearchDAO.newHybridExecutor();
+    dao.setHybridExecutor(hybridExecutor);
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void tearDown() {
+    hybridExecutor.shutdownNow();
   }
 
   @Test
@@ -176,7 +190,14 @@ public class ESSearchDAOHybridTest {
     harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = harness.elastic();
     elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
-    SearchTemplates.install(new SearchTemplateCoordinator(elastic, null, harness.loader));
+    harness.opContext =
+        harness.opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
     try {
       OperationContext searching =
           TestOperationContexts.withFixedSearchClient(harness.opContext, client)
@@ -205,7 +226,7 @@ public class ESSearchDAOHybridTest {
       verify(reranker, never())
           .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
     } finally {
-      SearchTemplates.install(null);
+      harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
     }
   }
 
@@ -606,6 +627,10 @@ public class ESSearchDAOHybridTest {
       }
       verify(metrics, timeout(30_000).atLeast(3))
           .increment(ESSearchDAO.class, "hybridReadRejected", 1);
+      assertEquals(
+          hybridExecutor.getQueue().remainingCapacity(),
+          0,
+          "the burst should leave the pool's queue full");
       // The executor stays full, so each of these is rejected in turn; if rejections counted,
       // three in a row would pause hybrid read and the last one would be skipped
       for (int i = 0; i < 4; i++) {

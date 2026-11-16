@@ -29,6 +29,14 @@ public class EntityIndexVersionConfiguration {
    */
   private boolean semanticReadEnabled;
 
+  @Builder.Default
+  private SearchGroupIndexSettingsConfiguration defaultSettings =
+      new SearchGroupIndexSettingsConfiguration();
+
+  @Builder.Default
+  private java.util.Map<String, SearchGroupIndexSettingsConfiguration> groups =
+      new java.util.HashMap<>();
+
   /**
    * When true, full-text keyword search on V3 reranks the rows of entity types that have vectors
    * (documents by default) by combined keyword and vector score, among the positions those rows

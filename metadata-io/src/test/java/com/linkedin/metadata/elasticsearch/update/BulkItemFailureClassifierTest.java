@@ -4,6 +4,9 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.elasticsearch.update.BulkItemFailureClassifier;
+import org.opensearch.action.DocWriteRequest;
+import org.opensearch.action.index.IndexRequest;
+import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.core.rest.RestStatus;
 import org.testng.annotations.Test;
 
@@ -39,5 +42,19 @@ public class BulkItemFailureClassifierTest {
             RestStatus.BAD_REQUEST, "document_missing_exception"));
     assertFalse(
         BulkItemFailureClassifier.isRetriableFailure(RestStatus.BAD_REQUEST, "mapper_parsing"));
+  }
+
+  @Test
+  public void testCreateConflictIsOnlyAConflictOnACreate() {
+    IndexRequest create = new IndexRequest("i").id("d").opType(DocWriteRequest.OpType.CREATE);
+    assertTrue(
+        BulkItemFailureClassifier.isCreateConflict(
+            create, RestStatus.CONFLICT, "version_conflict_engine_exception"));
+    assertFalse(
+        BulkItemFailureClassifier.isCreateConflict(
+            new UpdateRequest("i", "d"), RestStatus.CONFLICT, "version_conflict_engine_exception"));
+    assertFalse(
+        BulkItemFailureClassifier.isCreateConflict(
+            create, RestStatus.TOO_MANY_REQUESTS, "rejected"));
   }
 }

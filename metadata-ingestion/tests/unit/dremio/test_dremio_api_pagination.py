@@ -37,15 +37,12 @@ class TestDremioAPIPagination:
         return api
 
     def test_fetch_results_iter_missing_rows_key(self, dremio_api):
-        """Test internal streaming method handling missing 'rows' key"""
-        # Mock get_job_result to return response without 'rows' key
+        # Ending quietly would look like a short last page and truncate the
+        # caller's result, e.g. the dataset fetch, without any failure.
         dremio_api.get_job_result = Mock(return_value={"message": "No data available"})
 
-        result_iterator = dremio_api._fetch_results_iter("test-job-id")
-        results = list(result_iterator)
-
-        # Should return empty iterator when no rows key is present
-        assert results == []
+        with pytest.raises(DremioAPIException, match="'rows'"):
+            list(dremio_api._fetch_results_iter("test-job-id"))
 
     def test_fetch_results_iter_with_error(self, dremio_api):
         """Test internal streaming method handling error response"""

@@ -14,6 +14,8 @@ record EditableSchemaMetadata includes ChangeAuditStamps {
   /**
    * Client provided a list of fields from document schema. Descriptions, tags and glossary
    * terms on these columns are one step from the entity, so they index as degree 1.
+   * The field annotation opts those values into an unqualified query. This path sets
+   * v3.queryByDefault false so the column copy stays out.
    */
   @Searchable = {
     "/*/description": {
