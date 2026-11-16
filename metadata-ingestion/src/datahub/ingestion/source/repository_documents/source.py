@@ -181,6 +181,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
+        self._last_checkpoint_urns: Optional[Set[str]] = None
         self._soft_deleted_cache: Optional[Set[str]] = None
         self._okf_bundles: Dict[str, OkfBundleClass] = {}
         self._okf_index_contents: Dict[str, Optional[str]] = {}
@@ -251,16 +252,16 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         )
         if tree_truncated:
             self.report.tree_truncated = True
-            # Reported as a failure, not a warning: StaleEntityRemovalHandler skips
-            # soft-deletion when the source has failures. Files missing from a
-            # partial listing must not be treated as deleted from the repository.
-            self.report.failure(
+            # Files missing from a partial listing must not be treated as deleted
+            # from the repository.
+            self._keep_previous_documents()
+            self.report.warning(
                 title=f"{self.platform}-tree-truncated",
                 message=(
                     f"{self.platform_display_name} returned a truncated tree; "
-                    "only a subset of files will be imported and stale document "
-                    "removal is skipped for this run. Narrow path_prefix or split "
-                    "across multiple ingestion sources."
+                    "only a subset of files will be imported and documents "
+                    "imported by earlier runs are kept. Narrow path_prefix or "
+                    "split across multiple ingestion sources."
                 ),
                 context=f"repository={owner_repo}, branch={branch}",
             )
@@ -272,11 +273,13 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             total_matches = len(files)
             files = files[: self.config.max_files]
             self.report.files_truncated_by_limit = True
+            self._keep_previous_documents()
             self.report.warning(
                 title=f"{self.platform}-files-truncated",
                 message=(
                     "Found more matching files than max_files allows; "
-                    "only the first batch will be imported."
+                    "only the first batch will be imported and documents "
+                    "imported by earlier runs are kept."
                 ),
                 context=f"repository={owner_repo}, branch={branch}, "
                 f"total_matches={total_matches}, max_files={self.config.max_files}",
@@ -455,11 +458,25 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             api_error = self.client.last_api_error
             if api_error:
                 # A failed request says nothing about the file, so keep the
-                # previous import rather than let stale removal delete it.
-                _, document_urn = self._resolve_document_identity(
-                    source_id, owner_repo, file_path
+                # previous import rather than let stale removal delete it. Without
+                # a graph match, fall back to the canonical URN only if the last
+                # run imported it: a file never imported has nothing to keep.
+                canonical_urn = (
+                    f"{_DOCUMENT_URN_PREFIX}{normalize_document_id(source_id)}"
                 )
-                self._register_document_for_stale_removal(document_urn)
+                existing_urn = self._find_existing_document_urn(
+                    source_id,
+                    owner_repo,
+                    file_path,
+                    canonical_urn,
+                    is_directory=False,
+                ) or (
+                    canonical_urn
+                    if canonical_urn in self._previous_document_urns()
+                    else None
+                )
+                if existing_urn:
+                    self._register_document_for_stale_removal(existing_urn)
             self.report.warning(
                 title=f"{self.platform}-file-not-read",
                 message=(
@@ -871,6 +888,30 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
 
     def _register_document_for_stale_removal(self, document_urn: str) -> None:
         self.stale_entity_removal_handler.add_entity_to_state("document", document_urn)
+
+    def _previous_document_urns(self) -> Set[str]:
+        if self._last_checkpoint_urns is None:
+            handler = self.stale_entity_removal_handler
+            last_checkpoint = (
+                self.state_provider.get_last_checkpoint(
+                    handler.job_id, GenericCheckpointState
+                )
+                if handler.is_checkpointing_enabled()
+                else None
+            )
+            self._last_checkpoint_urns = (
+                set(last_checkpoint.state.urns) if last_checkpoint else set()
+            )
+        return self._last_checkpoint_urns
+
+    def _keep_previous_documents(self) -> None:
+        """Carry the last run's documents into this run's state.
+
+        Used when the file listing is partial, so stale removal cannot tell a
+        deleted file from one that was not listed.
+        """
+        for urn in self._previous_document_urns():
+            self.stale_entity_removal_handler.add_entity_to_state("", urn)
 
     def _register_hierarchy(
         self, source_id: str, title: str, parent_source_id: Optional[str]

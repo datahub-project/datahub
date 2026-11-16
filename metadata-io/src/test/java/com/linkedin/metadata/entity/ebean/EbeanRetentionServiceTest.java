@@ -119,6 +119,41 @@ public class EbeanRetentionServiceTest {
   }
 
   @Test
+  public void testKeysetPagination_PageBoundaryInsideOneUrn() {
+    for (String aspect : List.of("globalTags", "ownership", "status")) {
+      insertAspect("urn:li:corpuser:a", aspect, 0);
+      insertAspect("urn:li:corpuser:a", aspect, 1);
+    }
+    insertAspect("urn:li:corpuser:b", "status", 0);
+    insertAspect("urn:li:corpuser:b", "status", 1);
+
+    List<String> seen = new ArrayList<>();
+    String lastUrn = "";
+    String lastAspect = "";
+    List<EbeanAspectV2> page;
+    do {
+      page =
+          retentionService.getPagedAspectsByKeyset(
+              opContext, null, null, null, lastUrn, lastAspect, 2, null);
+      for (EbeanAspectV2 row : page) {
+        seen.add(row.getUrn() + "/" + row.getAspect());
+      }
+      if (!page.isEmpty()) {
+        lastUrn = page.get(page.size() - 1).getUrn();
+        lastAspect = page.get(page.size() - 1).getAspect();
+      }
+    } while (page.size() == 2);
+
+    assertEquals(
+        seen,
+        List.of(
+            "urn:li:corpuser:a/globalTags",
+            "urn:li:corpuser:a/ownership",
+            "urn:li:corpuser:a/status",
+            "urn:li:corpuser:b/status"));
+  }
+
+  @Test
   public void testKeysetPagination_EntityAndAspectFilters() {
     insertAspect("urn:li:corpuser:a", "status", 0);
     insertAspect("urn:li:corpuser:a", "status", 1);

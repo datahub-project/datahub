@@ -1,6 +1,5 @@
 // Create a new component called SearchResultItem.js
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
@@ -9,6 +8,7 @@ import { IconStyleType } from '@app/entityV2/Entity';
 import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
+import Highlight from '@app/sharedV2/text/Highlight';
 
 import { Domain, Entity, EntityType } from '@types';
 
