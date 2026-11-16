@@ -2764,19 +2764,23 @@ class OdbcLineage(AbstractLineage):
             if schema is None and data_platform == HIVE_PLATFORM:
                 schema = config_database
             if schema is None:
-                mapping_example = (
-                    "<database>.<schema>"
-                    if data_platform == ORACLE_PLATFORM
-                    else "<schema>"
-                )
-                self.reporter.warning(
-                    title="Cannot build two-tier ODBC table name",
-                    message=(
+                if data_platform == ORACLE_PLATFORM:
+                    message: LiteralString = (
                         "ODBC navigation exposed no schema level, and no mapping "
                         "supplied one; skipping lineage. Add "
-                        f"'dsn_to_database_schema: {{<dsn>: {mapping_example}}}' "
+                        "'dsn_to_database_schema: {<dsn>: <database>.<schema>}' "
                         "to your PowerBI recipe."
-                    ),
+                    )
+                else:
+                    message = (
+                        "ODBC navigation exposed no schema level, and no mapping "
+                        "supplied one; skipping lineage. Add "
+                        "'dsn_to_database_schema: {<dsn>: <schema>}' "
+                        "to your PowerBI recipe."
+                    )
+                self.reporter.warning(
+                    title="Cannot build two-tier ODBC table name",
+                    message=message,
                     context=context,
                 )
                 return None
