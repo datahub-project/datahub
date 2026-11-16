@@ -18,9 +18,10 @@ the one you are on and the one you are moving to, not just the target.
 ### Default document permissions
 
 Every user can now create documents, including users with no role, such as Readers and new SSO
-users. The user who creates a document becomes its owner, and owners can always edit and delete
-their own documents. Before this change, only Admins and Editors could create documents, and owner
-edit access came from a policy that you could change or remove.
+users ([PR #21289](https://github.com/datahub-project/datahub/pull/21289)). The user who creates a
+document becomes its owner, and owners can always edit and delete their own documents. Before this
+change, only Admins and Editors could create documents, and owner edit access came from a policy
+that you could change or remove.
 
 Three system policies grant this access: **All Users - Create Documents**, **Document Owners - Edit
 Documents**, and the existing **Document Owners - Delete Documents**. You cannot edit or deactivate
