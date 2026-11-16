@@ -146,5 +146,19 @@
         "description": "Seeded tag for the catalog matrix specs; key differs from name on purpose"
       }
     }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:pw_matrix_term_key",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "PW Matrix Term",
+        "definition": "Seeded term for the catalog matrix specs; key differs from name on purpose",
+        "termSource": "INTERNAL"
+      }
+    }
   }
 ]
