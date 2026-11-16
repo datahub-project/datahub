@@ -66,6 +66,7 @@
             "firstName": "Foo",
             "lastName": "Bar",
             "fullName": "Foo Bar",
+            "countryCode": "US",
             "system": false
         }
     },
@@ -160,6 +161,7 @@
             "firstName": "John",
             "lastName": "Green",
             "fullName": "John Green",
+            "countryCode": "GB",
             "system": false
         }
     },
@@ -248,12 +250,13 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "active": true,
+            "active": false,
             "displayName": "Adam Hall",
             "email": "adamhall@acryl.io",
             "firstName": "Adam",
             "lastName": "Hall",
             "fullName": "Adam Hall",
+            "countryCode": "ES",
             "system": false
         }
     },
@@ -270,7 +273,7 @@
     "aspectName": "corpUserStatus",
     "aspect": {
         "json": {
-            "status": "ACTIVE",
+            "status": "SUSPENDED",
             "lastModified": {
                 "time": 1629795600000,
                 "actor": "urn:li:corpuser:datahub"
@@ -348,6 +351,7 @@
             "firstName": "John",
             "lastName": "Green",
             "fullName": "John Green",
+            "countryCode": "GB",
             "system": false
         }
     },
@@ -436,12 +440,13 @@
     "aspect": {
         "json": {
             "customProperties": {},
-            "active": true,
+            "active": false,
             "displayName": "Adam Hall",
             "email": "adamhall@acryl.io",
             "firstName": "Adam",
             "lastName": "Hall",
             "fullName": "Adam Hall",
+            "countryCode": "ES",
             "system": false
         }
     },
@@ -458,7 +463,7 @@
     "aspectName": "corpUserStatus",
     "aspect": {
         "json": {
-            "status": "ACTIVE",
+            "status": "SUSPENDED",
             "lastModified": {
                 "time": 1629795600000,
                 "actor": "urn:li:corpuser:datahub"

@@ -57,6 +57,21 @@ from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
 
+# Graph user properties read when mapping users. See
+# https://learn.microsoft.com/en-us/graph/api/resources/user for which ones
+# Graph omits unless they are requested with $select.
+_USER_SELECT_PROPERTIES = (
+    "id",
+    "userPrincipalName",
+    "displayName",
+    "givenName",
+    "surname",
+    "mail",
+    "jobTitle",
+    "accountEnabled",
+    "usageLocation",
+)
+
 
 class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     """Config to create a token and connect to Azure AD instance"""
@@ -435,12 +450,25 @@ class AzureADSource(StatefulIngestionSourceBase):
     def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/groups")
 
+    def _user_select_query(self) -> str:
+        # $select replaces Graph's default property set, so it must list every
+        # property the mapping reads. accountEnabled and usageLocation are only
+        # returned when selected. Group members are selected the same way;
+        # nested groups among them only need `id`, which is included.
+        properties = dict.fromkeys(
+            [
+                *_USER_SELECT_PROPERTIES,
+                self.config.azure_ad_response_to_username_attr,
+            ]
+        )
+        return "$select=" + ",".join(properties)
+
     def _get_azure_ad_users(self) -> Iterable[List]:
-        yield from self._get_azure_ad_data(kind="/users")
+        yield from self._get_azure_ad_data(kind=f"/users?{self._user_select_query()}")
 
     def _get_azure_ad_group_members(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
-        kind = f"/groups/{group_id}/members"
+        kind = f"/groups/{group_id}/members?{self._user_select_query()}"
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
@@ -624,7 +652,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             fullName=full_name,
             email=azure_ad_user.get("mail"),
             title=azure_ad_user.get("jobTitle", None),
-            countryCode=azure_ad_user.get("mobilePhone", None),
+            countryCode=azure_ad_user.get("usageLocation", None),
         )
 
     def _extract_regex_match_from_dict_value(
