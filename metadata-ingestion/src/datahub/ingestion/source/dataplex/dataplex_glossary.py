@@ -573,7 +573,7 @@ class DataplexGlossaryProcessor:
             the complete list of all its linked terms.
 
         Without phase separation, emitting one MCP per (asset, term) pair would
-        cause each MCE to overwrite the previous one, leaving an asset with only
+        cause each MCP to overwrite the previous one, leaving an asset with only
         its last-processed term.
         """
         entry_name_to_urn = self._ctx.entry_name_to_urn

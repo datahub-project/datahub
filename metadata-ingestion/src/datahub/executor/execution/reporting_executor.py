@@ -138,8 +138,7 @@ class ReportingExecutor(DefaultExecutor):
                     should_emit_cancellation = True
 
             if should_emit_cancellation:
-                # No task found. Simply emit a cancelled MCE. The start time is unclear.
-                # Build & emit the cancellation mcp
+                # No task found. Simply emit a cancelled MCP. The start time is unclear.
                 cancellation_mcp = self._build_empty_cancel_mcp(exec_id=exec_id)
                 self._datahub_graph.emit_mcp(cancellation_mcp, async_flag=False)
 
