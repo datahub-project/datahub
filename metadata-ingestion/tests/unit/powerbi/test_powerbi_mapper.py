@@ -556,6 +556,29 @@ def test_extract_lineage_skips_odbc_only_platform_when_odbc_is_not_mapped() -> N
     )
 
 
+def test_extract_lineage_odbc_only_platform_takes_odbc_mapping_instance() -> None:
+    """An ODBC-only platform follows the Odbc dataset_type_mapping entry for the
+    filter, so it must take that entry's platform_instance too."""
+    config = powerbi_config(
+        dataset_type_mapping={"Odbc": {"platform_instance": "odbc_inst"}},
+        extract_column_level_lineage=False,
+    )
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(
+            "ODBC Driver 17 for SQL Server", _DATABASE_SCHEMA_TABLE
+        )
+    )
+
+    mcps = mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace)
+
+    lineage = _aspects(mcps, UpstreamLineageClass)
+    assert [u.dataset for item in lineage for u in item.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,odbc_inst.salesdb.dbo.orders,PROD)"
+    ]
+
+
 def test_fine_grained_lineage_is_omitted_when_column_lineage_is_disabled() -> None:
     config = powerbi_config(extract_column_level_lineage=False)
     workspace = make_workspace()
