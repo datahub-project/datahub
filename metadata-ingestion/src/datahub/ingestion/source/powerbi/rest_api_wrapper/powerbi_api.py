@@ -1856,6 +1856,7 @@ class PowerBiAPI:
     @staticmethod
     def _overlay_measure(measure: Measure, parsed: ParsedMeasure) -> None:
         measure.references = parsed.references
+        measure.has_row_context_iterators = parsed.has_row_context_iterators
         if not measure.description:
             measure.description = parsed.description
         measure.model_properties = parsed.model_properties

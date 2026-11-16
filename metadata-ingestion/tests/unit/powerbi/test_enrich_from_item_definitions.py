@@ -20,6 +20,8 @@ from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
 )
 from datahub.ingestion.source.powerbi.powerbi import Mapper, PowerBiDashboardSource
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    DaxFieldReference,
+    Measure,
     Page,
     PowerBIDataset,
     Report,
@@ -34,6 +36,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import (
     PowerBiAPI,
     registry_key,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import ParsedMeasure
 from datahub.metadata.schema_classes import InputFieldsClass
 
 WORKSPACE_ID = "64ED5CAD-7C10-4684-8180-826122881108"
@@ -569,6 +572,25 @@ def test_definition_measure_absent_from_scan_is_reported_and_not_added() -> None
         "table=Policies, fields=['Average Premium', 'StateCode']" in context
         for context in warning.context
     )
+
+
+def test_measure_overlay_carries_row_context_iterator_flag() -> None:
+    measure = Measure(name="Weighted", expression="", isHidden=False)
+    parsed = ParsedMeasure(
+        name="Weighted",
+        expression="SUMX('Policies', [Premium] * [Rate])",
+        is_hidden=False,
+        description=None,
+        references=[DaxFieldReference(table=None, field="Premium")],
+        has_row_context_iterators=True,
+    )
+
+    PowerBiAPI._overlay_measure(measure, parsed)
+
+    # The DAX resolver relies on this flag to treat the bare `[Premium]` as
+    # belonging to the iterated table instead of an unresolved reference.
+    assert measure.has_row_context_iterators
+    assert measure.references == parsed.references
 
 
 # --- report definitions in admin_scan mode -----------------------------------
