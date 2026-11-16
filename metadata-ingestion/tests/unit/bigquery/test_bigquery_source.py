@@ -1,7 +1,8 @@
 import logging
+import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -35,6 +36,8 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
+    _LIST_TABLES_PAGE_SIZE,
+    BigqueryColumn,
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
@@ -42,6 +45,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     BigqueryTableSnapshot,
     BigqueryView,
     ExternalTableOptions,
+    ShardedTableStats,
     get_projects,
 )
 from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
@@ -77,6 +81,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.utilities.file_backed_collections import FileBackedDict
+from tests.unit.bigquery.query_result_fakes import FakeResultPage
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -572,6 +578,13 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
+def _query_result(items: list[Any]) -> MagicMock:
+    rows = MagicMock()
+    rows.total_rows = len(items)
+    rows.pages = [FakeResultPage(items)]
+    return rows
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -619,11 +632,11 @@ def test_get_datasets_for_project_id_with_timestamps(
     def mock_query(query, location=None, job_retry=None):
         mock_job = MagicMock()
         if location == "US":
-            mock_job.result.return_value = [mock_row_dataset1]
+            mock_job.result.return_value = _query_result([mock_row_dataset1])
         elif location == "EU":
-            mock_job.result.return_value = [mock_row_dataset2]
+            mock_job.result.return_value = _query_result([mock_row_dataset2])
         else:
-            mock_job.result.return_value = []
+            mock_job.result.return_value = _query_result([])
         return mock_job
 
     mock_bq_client.query.side_effect = mock_query
@@ -1410,6 +1423,148 @@ def test_get_views_and_snapshots_legacy_tables_selection(
 
     executed_query = query_mock.call_args[0][0]
     assert ("__TABLES__" in executed_query) is use_legacy_table_stats
+
+
+def test_list_tables_uses_large_page_size() -> None:
+    # tables.list is paginated; passing an explicit large page size avoids hundreds of
+    # round trips on datasets with many (e.g. date-sharded) tables.
+    client = MagicMock()
+    client.list_tables.return_value = []
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=client,
+        projects_client=MagicMock(),
+    )
+
+    list(schema_api.list_tables("test-dataset", "test-project"))
+
+    client.list_tables.assert_called_once()
+    assert client.list_tables.call_args.kwargs["page_size"] == _LIST_TABLES_PAGE_SIZE
+
+
+def _column_row(table_name: str, column_name: str, ordinal_position: int) -> Row:
+    values = {
+        "table_catalog": "p",
+        "table_schema": "ds",
+        "table_name": table_name,
+        "column_name": column_name,
+        "ordinal_position": ordinal_position,
+        "field_path": column_name,
+        "policy_tags": None,
+        "is_nullable": "YES",
+        "data_type": "STRING",
+        "comment": None,
+        "is_hidden": "NO",
+        "is_partitioning_column": "NO",
+        "clustering_ordinal_position": None,
+    }
+    return Row(tuple(values.values()), {k: i for i, k in enumerate(values)})
+
+
+def _spy_file_backed_dict() -> Tuple[MagicMock, List[FileBackedDict]]:
+    # Wraps FileBackedDict so tests can assert close() ran (and the temp sqlite
+    # file was released) without reaching into its internals.
+    created: List[FileBackedDict] = []
+
+    def _factory(*args: Any, **kwargs: Any) -> FileBackedDict:
+        inst: FileBackedDict = FileBackedDict(*args, **kwargs)
+        inst.close = MagicMock(wraps=inst.close)  # type: ignore[method-assign]
+        created.append(inst)
+        return inst
+
+    return MagicMock(side_effect=_factory), created
+
+
+def test_get_columns_for_dataset_closes_file_backed_dict_on_query_failure() -> None:
+    # If the column query itself fails we return None, and the file-backed dict's
+    # temp sqlite file must be closed rather than leaked.
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    schema_api.get_query_result = MagicMock(side_effect=Exception("query boom"))  # type: ignore[method-assign]
+
+    spy, created = _spy_file_backed_dict()
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema.FileBackedDict", spy
+    ):
+        result = schema_api.get_columns_for_dataset(
+            project_id="p",
+            dataset_name="ds",
+            column_limit=10,
+            report=BigQueryV2Report(),
+        )
+
+    assert result is None
+    assert len(created) == 1
+    created[0].close.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_get_columns_for_dataset_closes_file_backed_dict_on_stream_failure() -> None:
+    # A failure while streaming rows (after the dict is allocated) must also close
+    # the temp sqlite file and propagate, since the caller only closes on success.
+    def _raising_rows() -> Iterator[Row]:
+        yield _column_row("t1", "a", 1)
+        raise RuntimeError("stream boom")
+
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    schema_api.get_query_result = MagicMock(return_value=_raising_rows())  # type: ignore[method-assign]
+
+    spy, created = _spy_file_backed_dict()
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema.FileBackedDict", spy
+    ):
+        with pytest.raises(RuntimeError):
+            schema_api.get_columns_for_dataset(
+                project_id="p",
+                dataset_name="ds",
+                column_limit=10,
+                report=BigQueryV2Report(),
+            )
+
+    assert len(created) == 1
+    created[0].close.assert_called_once()  # type: ignore[attr-defined]
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_process_schema_closes_columns_when_processing_raises(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    # _process_schema owns the file-backed column dict and must close it even when a
+    # downstream step (here get_tables_for_dataset) raises.
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "include_schema_metadata": True}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
+        tablename="bigquery_columns", cache_max_size=1
+    )
+    columns.close = MagicMock(wraps=columns.close)  # type: ignore[method-assign]
+    schema_gen.schema_api.get_columns_for_dataset = MagicMock(return_value=columns)  # type: ignore[method-assign]
+    schema_gen.get_tables_for_dataset = MagicMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("table boom")
+    )
+
+    with pytest.raises(RuntimeError):
+        list(
+            schema_gen._process_schema(
+                project_id="test-project",
+                bigquery_dataset=BigqueryDataset(name="ds"),
+                db_tables={},
+                db_views={},
+                db_snapshots={},
+            )
+        )
+
+    columns.close.assert_called_once()  # type: ignore[attr-defined]
 
 
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:
@@ -2931,3 +3086,226 @@ def test_probe_qualifies_tables_through_the_project_ids_field():
     # get_identifier shim cannot build `project.dataset.table`; the Qualifier
     # on `project_ids` declares it.
     assert declares_qualifier(BigQueryV2Config.model_construct())
+
+
+def _list_item(table_id: str, table_type: str = "TABLE") -> TableListItem:
+    return TableListItem(
+        {
+            "tableReference": {
+                "projectId": "test-project",
+                "datasetId": "test-dataset",
+                "tableId": table_id,
+            },
+            "type": table_type,
+        }
+    )
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_records_shard_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("events_20250101"),
+        _list_item("events_20250102"),
+        _list_item("events20250103"),
+        _list_item("single_20250101"),
+        # Copies of a real table are skipped, so they form no family.
+        _list_item("orders"),
+        _list_item("orders_20250101"),
+        _list_item("orders_20250102"),
+        _list_item("customers"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == [
+        "customers",
+        "events20250103",
+        "orders",
+        "single_20250101",
+    ]
+    assert shard_families == {
+        "events20250103": ["events_20250101", "events_20250102", "events20250103"]
+    }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_get_core_table_details_skips_sharded_view_families(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    # PARTITIONS has no rows for views, so recording the family would only cost a
+    # query; the latest view shard is still kept as a table.
+    client_mock = MagicMock()
+    get_bq_client_mock.return_value = client_mock
+    client_mock.list_tables.return_value = [
+        _list_item("daily_20250101", "VIEW"),
+        _list_item("daily_20250102", "VIEW"),
+    ]
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+
+    shard_families: Dict[str, List[str]] = {}
+    tables = source.bq_schema_extractor.get_core_table_details(
+        "test-dataset", "test-project", "_", shard_families=shard_families
+    )
+
+    assert sorted(tables) == ["daily_20250102"]
+    assert shard_families == {}
+
+
+def _partition_row(
+    table_name: str, rows: int, logical: int, active: int, long_term: int
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        table_name=table_name,
+        total_rows=rows,
+        total_logical_bytes=logical,
+        active_billable_bytes=active,
+        long_term_billable_bytes=long_term,
+    )
+
+
+def test_get_sharded_table_stats_sums_each_family_in_bounded_queries() -> None:
+    # PARTITIONS rejects a query that reads more than 1000 tables, so a long shard
+    # history must be summed over several filtered queries.
+    events = [f"events_{20200101 + i}" for i in range(1001)]
+    families = {events[-1]: events, "logs_20250102": ["logs_20250101", "logs_20250102"]}
+    queries: List[str] = []
+
+    def run(query: str) -> List[SimpleNamespace]:
+        queries.append(query)
+        return [
+            _partition_row(name, 10, 100, 60, 40)
+            for name in sorted(n for shards in families.values() for n in shards)
+            if f"'{name}'" in query
+        ]
+
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    with patch.object(schema_api, "get_query_result", side_effect=run):
+        totals = schema_api.get_sharded_table_stats(
+            "test-project", "test-dataset", families
+        )
+
+    assert len(queries) == 2
+    assert all(len(re.findall(r"'(?:events|logs)_\d+'", q)) <= 1000 for q in queries)
+    assert totals == {
+        events[-1]: ShardedTableStats(10010, 100100, 60060, 40040),
+        "logs_20250102": ShardedTableStats(20, 200, 120, 80),
+    }
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+@pytest.mark.parametrize("fails", [False, True])
+def test_table_batch_attaches_shard_totals_or_warns(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock, fails: bool
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+    latest = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    plain = BigqueryTable(
+        name="customers",
+        comment=None,
+        created=None,
+        last_altered=None,
+        size_in_bytes=None,
+        rows_count=None,
+    )
+    totals = ShardedTableStats(rows_count=30, size_in_bytes=300)
+
+    with (
+        patch.object(
+            schema_gen.schema_api,
+            "get_tables_for_dataset",
+            return_value=iter([latest, plain]),
+        ),
+        patch.object(
+            schema_gen.schema_api,
+            "get_sharded_table_stats",
+            side_effect=RuntimeError("boom") if fails else None,
+            return_value={"events_20250102": totals},
+        ) as stats_mock,
+    ):
+        tables = list(
+            schema_gen._get_table_batch(
+                "test-project",
+                "test-dataset",
+                {"events_20250102": MagicMock(), "customers": MagicMock()},
+                True,
+                {
+                    "events_20250102": ["events_20250101", "events_20250102"],
+                    "other_20250102": ["other_20250101", "other_20250102"],
+                },
+            )
+        )
+
+    # Only families in this batch are queried.
+    assert stats_mock.call_args.args[2] == {
+        "events_20250102": ["events_20250101", "events_20250102"]
+    }
+    assert latest.sharded_table_stats == (None if fails else totals)
+    assert plain.sharded_table_stats is None
+    assert len(tables) == 2
+    assert bool(source.report.warnings) is fails
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_gen_table_dataset_workunits_reports_shard_totals(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    config = BigQueryV2Config.model_validate({"project_id": "test-project"})
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    table = BigqueryTable(
+        name="events_20250102",
+        comment=None,
+        created=None,
+        last_altered=None,
+        rows_count=10,
+        size_in_bytes=100,
+        active_billable_bytes=60,
+        long_term_billable_bytes=40,
+        sharded_table_stats=ShardedTableStats(
+            rows_count=30,
+            size_in_bytes=300,
+            active_billable_bytes=180,
+            long_term_billable_bytes=120,
+        ),
+    )
+
+    mcps = list(
+        source.bq_schema_extractor.gen_table_dataset_workunits(
+            table, [], "test-project", "test-dataset"
+        )
+    )
+
+    properties = next(
+        mcp.metadata.aspect  # type: ignore
+        for mcp in mcps
+        if isinstance(mcp.metadata.aspect, DatasetPropertiesClass)  # type: ignore
+    )
+    assert properties.customProperties["size_in_bytes"] == "300"
+    assert properties.customProperties["billable_bytes_active"] == "180"
+    assert properties.customProperties["billable_bytes_long_term"] == "120"

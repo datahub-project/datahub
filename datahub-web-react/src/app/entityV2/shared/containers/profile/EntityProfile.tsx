@@ -53,6 +53,7 @@ import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import TabFullsizeContext from '@app/sharedV2/TabFullsizedContext';
 import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
 import useEntityState from '@src/app/entityV2/shared/useEntityState';
@@ -165,7 +166,8 @@ const HeaderContent = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const Body = styled.div<{ $isShowNavBarRedesign?: boolean }>`
-    padding: ${(props) => (props.$isShowNavBarRedesign ? '8px 0 0 0' : '12px 16px 12px 16px')};
+    /* Redesign: page gap between the header card and the content card below it. */
+    padding: ${(props) => (props.$isShowNavBarRedesign ? `${PAGE_GAP_PX}px 0 0 0` : '12px 16px 12px 16px')};
     height: 100%;
     overflow: hidden;
     display: flex;
@@ -452,7 +454,6 @@ export const EntityProfile = <T, U>({
                                         width={width}
                                         contextType={TabContextType.PROFILE_SIDEBAR}
                                         headerDropdownItems={headerDropdownItems}
-                                        flushOuterMargin={isShowNavBarRedesign}
                                         $isShowNavBarRedesign={isShowNavBarRedesign}
                                     />
                                 )}

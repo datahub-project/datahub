@@ -12,6 +12,7 @@ import com.linkedin.metadata.dao.throttle.ThrottleType;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.util.Pair;
+import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Comparator;
@@ -47,7 +48,7 @@ import org.springframework.util.backoff.ExponentialBackOff;
  */
 @Slf4j
 @Builder(toBuilder = true)
-public class KafkaThrottleSensor implements ThrottleSensor {
+public class KafkaThrottleSensor implements ThrottleSensor, AutoCloseable {
   private static final Set<ThrottleType> SUPPORTED_THROTTLE_TYPES =
       Set.of(MCL_VERSIONED_LAG, MCL_TIMESERIES_LAG);
   @Nonnull private final EntityRegistry entityRegistry;
@@ -59,6 +60,9 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   private final MetricUtils metricUtils;
 
   /** A list of throttle event listeners to execute when throttling occurs and ceases */
+  /** How long close() waits for a refresh in flight, and then for the admin client, to finish */
+  @Builder.Default @Nonnull private final Duration shutdownTimeout = Duration.ofSeconds(5);
+
   @Builder.Default @Nonnull
   private final List<Function<ThrottleEvent, ThrottleControl>> throttleCallbacks =
       new ArrayList<>();
@@ -66,6 +70,12 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   private final ScheduledExecutorService scheduler = Executors.newScheduledThreadPool(1);
   private final Map<ThrottleType, Long> medianLag = new ConcurrentHashMap<>();
   private final Map<ThrottleType, BackOffExecution> backoffMap = new ConcurrentHashMap<>();
+
+  /** Topics whose last refresh found no committed offsets, so their log line is written once. */
+  private final Set<ThrottleType> topicsWithoutOffsets = ConcurrentHashMap.newKeySet();
+
+  /** Last lag computed from committed offsets, per topic, for the log line when they vanish. */
+  private final Map<ThrottleType, Long> lastLagWithOffsets = new ConcurrentHashMap<>();
 
   @Override
   public KafkaThrottleSensor addCallback(Function<ThrottleEvent, ThrottleControl> callback) {
@@ -79,11 +89,15 @@ public class KafkaThrottleSensor implements ThrottleSensor {
         && config.getUpdateIntervalMs() > 0) {
       scheduler.scheduleAtFixedRate(
           () -> {
-            refresh();
             try {
+              refresh();
               throttle();
             } catch (InterruptedException e) {
               throw new RuntimeException(e);
+            } catch (RuntimeException e) {
+              // An exception escaping this task would cancel it and stop lag refreshes for the
+              // life of the process, so log it and try again at the next interval.
+              log.error("MCL lag refresh or throttle failed; retrying at the next interval.", e);
             }
           },
           config.getUpdateIntervalMs(),
@@ -102,6 +116,25 @@ public class KafkaThrottleSensor implements ThrottleSensor {
   @VisibleForTesting
   public void stop() {
     scheduler.shutdown();
+  }
+
+  /**
+   * Stops the lag refresh and closes the admin client this sensor owns. Spring calls this when the
+   * context closes.
+   */
+  @Override
+  public void close() {
+    // shutdownNow interrupts a throttle() sleeping through a backoff. Wait for a refresh already
+    // in flight so it is not still using the admin client when it closes.
+    scheduler.shutdownNow();
+    try {
+      if (!scheduler.awaitTermination(shutdownTimeout.toMillis(), TimeUnit.MILLISECONDS)) {
+        log.warn("MCL lag refresh did not stop within {}.", shutdownTimeout);
+      }
+    } catch (InterruptedException e) {
+      Thread.currentThread().interrupt();
+    }
+    kafkaAdmin.close(shutdownTimeout);
   }
 
   /**
@@ -232,6 +265,16 @@ public class KafkaThrottleSensor implements ThrottleSensor {
                     mclConsumerOffsets.entrySet().stream()
                         .filter(entry -> entry.getKey().topic().equals(topicName))
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+                if (topicOffsets.isEmpty()) {
+                  logOnceWithoutOffsets(mclType, topicName);
+                  return Map.entry(mclType, 0L);
+                }
+                if (topicsWithoutOffsets.remove(mclType)) {
+                  log.info(
+                      "Consumer group {} has committed offsets on MCL topic {}; measuring its lag.",
+                      mclConsumerGroupId,
+                      topicName);
+                }
                 List<Double> offsetValues =
                     topicOffsets.values().stream()
                         .map(OffsetAndMetadata::offset)
@@ -245,12 +288,58 @@ public class KafkaThrottleSensor implements ThrottleSensor {
                         .map(Long::doubleValue)
                         .collect(Collectors.toList());
                 long endOffsetMedian = getMedian(topicEndOffsetValues).longValue();
-                return Map.entry(mclType, Math.max(0, endOffsetMedian - offsetMedian));
+                long lag = Math.max(0, endOffsetMedian - offsetMedian);
+                lastLagWithOffsets.put(mclType, lag);
+                return Map.entry(mclType, lag);
               })
           .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-    } catch (ExecutionException | InterruptedException e) {
+    } catch (InterruptedException e) {
+      // close() interrupts a refresh in flight; this is shutdown, not a failure
+      Thread.currentThread().interrupt();
+      return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
+    } catch (ExecutionException e) {
       log.error("Error fetching consumer group offsets.", e);
       return Map.of(MCL_VERSIONED_LAG, 0L, MCL_TIMESERIES_LAG, 0L);
+    }
+  }
+
+  /**
+   * A topic with no committed offsets reports zero lag, which turns lag throttling off for it. That
+   * covers a fresh install or a topic the group hasn't consumed yet, and also a group whose offsets
+   * were removed: expired after the group had no members for {@code offsets.retention.minutes}, or
+   * after it stopped consuming the topic, or deleted by an admin.
+   *
+   * <p>Zero is reported even when a lag was seen before, rather than keeping that last value.
+   * Nothing refreshes a kept value until the group commits on the topic again, so a group that
+   * stopped consuming the topic would throttle writers for good. When consumers come back they
+   * start from {@code auto.offset.reset} (earliest by default) and commit, and the next refresh
+   * measures the real backlog and throttles again.
+   *
+   * <p>Logged once per transition. It is a WARN only when this process saw offsets on the topic
+   * before and throttles it, the case where throttling silently stops; a fresh install or a topic
+   * whose throttling is off gets an INFO. What was seen lives in memory only, so a pod that starts
+   * after the offsets are gone logs the INFO.
+   */
+  private void logOnceWithoutOffsets(ThrottleType mclType, String topicName) {
+    if (!topicsWithoutOffsets.add(mclType)) {
+      return;
+    }
+    Long lastLag = lastLagWithOffsets.get(mclType);
+    if (lastLag != null && getThrottleConfig(mclType).isEnabled()) {
+      log.warn(
+          "Consumer group {} no longer has committed offsets on MCL topic {}; its last median lag"
+              + " was {} messages. Reporting zero lag, so writers are not throttled for this topic"
+              + " until the group commits on it again. Check that the MCL consumers are running:"
+              + " offsets expire after the group has no members for offsets.retention.minutes.",
+          mclConsumerGroupId,
+          topicName,
+          lastLag);
+    } else {
+      log.info(
+          "Consumer group {} has no committed offsets on MCL topic {}; reporting zero lag until it"
+              + " commits.",
+          mclConsumerGroupId,
+          topicName);
     }
   }
 

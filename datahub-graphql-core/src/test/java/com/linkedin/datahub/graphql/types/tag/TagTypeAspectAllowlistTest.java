@@ -9,6 +9,7 @@ import static org.testng.Assert.*;
 import com.google.common.collect.ImmutableMap;
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.Deprecation;
+import com.linkedin.common.Status;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.AspectLoadContext;
@@ -28,14 +29,14 @@ import org.testng.annotations.Test;
 
 /**
  * Guards the TagType fallback aspect allowlist: when optimization falls back to ASPECTS_TO_FETCH,
- * deprecation (read by TagMapper) must be included alongside tagProperties.
+ * deprecation and status (read by TagMapper) must be included alongside tagProperties.
  */
 public class TagTypeAspectAllowlistTest {
 
   private static final String TAG_URN = "urn:li:tag:allowlist-tag";
 
   @Test
-  public void testFallbackAllowlistIncludesDeprecationAndTagProperties() throws Exception {
+  public void testFallbackAllowlistIncludesDeprecationStatusAndTagProperties() throws Exception {
     EntityClient client = mock(EntityClient.class);
     QueryContext context = mock(QueryContext.class);
     when(context.getAspectLoadContext("Tag")).thenReturn(AspectLoadContext.fetchAll());
@@ -63,7 +64,11 @@ public class TagTypeAspectAllowlistTest {
                                 TAG_PROPERTIES_ASPECT_NAME,
                                 new EnvelopedAspect().setValue(new Aspect(props.data())),
                                 DEPRECATION_ASPECT_NAME,
-                                new EnvelopedAspect().setValue(new Aspect(deprecation.data())))))));
+                                new EnvelopedAspect().setValue(new Aspect(deprecation.data())),
+                                STATUS_ASPECT_NAME,
+                                new EnvelopedAspect()
+                                    .setValue(
+                                        new Aspect(new Status().setRemoved(true).data())))))));
 
     TagType type = new TagType(client);
     List<DataFetcherResult<Tag>> results = type.batchLoad(List.of(TAG_URN), context);
@@ -75,10 +80,12 @@ public class TagTypeAspectAllowlistTest {
     assertTrue(fetched.contains(TAG_PROPERTIES_ASPECT_NAME));
     assertTrue(fetched.contains(DEPRECATION_ASPECT_NAME));
     assertTrue(fetched.contains(OWNERSHIP_ASPECT_NAME));
+    assertTrue(fetched.contains(STATUS_ASPECT_NAME));
 
     Tag tag = results.get(0).getData();
     assertEquals(tag.getDescription(), "desc");
     assertNotNull(tag.getDeprecation());
     assertTrue(tag.getDeprecation().getDeprecated());
+    assertTrue(tag.getStatus().getRemoved());
   }
 }

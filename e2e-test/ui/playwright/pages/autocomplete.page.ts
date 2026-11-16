@@ -55,8 +55,6 @@ export class AutocompletePage extends BasePage {
     this.logger?.step('typeInSearchBar', { query });
     await this.searchInput.click();
     await this.searchInput.type(query);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   async clearSearchInput(): Promise<void> {

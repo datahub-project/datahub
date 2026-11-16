@@ -2,6 +2,7 @@ import { MockedProvider } from '@apollo/client/testing';
 import { render, screen } from '@testing-library/react';
 import React from 'react';
 
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
@@ -110,6 +111,41 @@ describe('TagTermGroup deduplication and ordering', () => {
             } as GlossaryTerms,
         });
         expect(renderedUrns()).toEqual(['urn:li:glossaryTerm:x', 'urn:li:glossaryTerm:y']);
+    });
+});
+
+// Soft-deleting a tag/term sets Status.removed on the entity but leaves the stale association on the
+// asset; TagTermGroup must drop those so removed labels don't linger on the asset detail page.
+describe('TagTermGroup soft-delete filtering', () => {
+    const removedTag = (urn: string) => ({ tag: { urn, type: EntityType.Tag, status: { removed: true } } });
+    const removedTerm = (urn: string) => ({
+        term: { urn, type: EntityType.GlossaryTerm, status: { removed: true } },
+    });
+
+    it('hides tags whose target tag is soft-deleted', () => {
+        renderGroup({
+            editableTags: { tags: [tag('urn:li:tag:live'), removedTag('urn:li:tag:gone')] } as GlobalTags,
+        });
+        expect(renderedUrns()).toEqual(['urn:li:tag:live']);
+    });
+
+    it('hides glossary terms whose target term is soft-deleted', () => {
+        renderGroup({
+            editableGlossaryTerms: {
+                terms: [term('urn:li:glossaryTerm:live'), removedTerm('urn:li:glossaryTerm:gone')],
+            } as GlossaryTerms,
+        });
+        expect(renderedUrns()).toEqual(['urn:li:glossaryTerm:live']);
+    });
+
+    it('shows the empty-state message when every attached tag is soft-deleted', () => {
+        renderGroup({
+            editableTags: { tags: [removedTag('urn:li:tag:gone')] } as GlobalTags,
+            canAddTag: true,
+            showEmptyMessage: true,
+        });
+        expect(renderedUrns()).toEqual([]);
+        expect(screen.getByText(`${EMPTY_MESSAGES.tags.title}.`)).toBeInTheDocument();
     });
 });
 

@@ -31,6 +31,9 @@ class UnityCatalogReport(SQLSourceReport):
     hive_metastore_catalog_found: Optional[bool] = None
 
     num_column_lineage_skipped_column_count: int = 0
+    # Upstream tables outside the run whose columns came back empty, so column
+    # lineage keeps the names the lineage reports.
+    num_column_lineage_upstream_without_columns: int = 0
     num_external_upstreams_lacking_permissions: int = 0
     num_external_upstreams_unsupported: int = 0
     num_external_upstreams_partition_stripped: int = 0
@@ -85,6 +88,14 @@ class UnityCatalogReport(SQLSourceReport):
     num_federation_columns_backfilled: int = 0
     num_federation_columns_backfill_failed: int = 0
     num_federation_cll_skipped: int = 0
+    num_federation_cll_edges_emitted: int = 0
+    # Edges whose upstream uses the external dataset's original (e.g. v2) field path.
+    num_federation_cll_edges_original_path: int = 0
+    # Mirror columns with no matching external column, so no column edge.
+    num_federation_cll_downstream_unmatched: int = 0
+    federation_cll_downstream_unmatched_sample: LossyList[str] = field(
+        default_factory=LossyList
+    )
     num_federation_external_schema_fetch_failed: int = 0
     num_federation_property_defs_failed: int = 0
     num_ml_models_missing_name: int = 0

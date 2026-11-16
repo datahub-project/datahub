@@ -6,6 +6,8 @@
 version: 2
 updates:
   - package-ecosystem: "github-actions" # See documentation for possible values
-    directory: "/" # Location of package manifests
+    directories: # Workflows at "/", plus every composite action's action.yml
+      - "/"
+      - "/.github/actions/*"
     schedule:
       interval: "weekly"

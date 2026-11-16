@@ -325,13 +325,14 @@ public final class StructuredQueryRouting {
       // A group such as name:(foo OR structuredProperties.bar:baz) is one query_string. Lenient
       // when it names a property, so that field is not evaluated strictly.
       boolean lenient = isPropertyField(field) || mentionsPropertyField(text);
+      String clauseText = lenient ? text : quotedExactField(text, field, fieldResolver);
       if (!lenient && !isQuotedFieldValue(text)) {
         QueryBuilder contained = containQuery(text, field, shared, fieldResolver);
         if (contained != null) {
           return withBoost(contained, weight);
         }
       }
-      return withBoost(clause(text, lenient ? properties : shared, lenient, true), weight);
+      return withBoost(clause(clauseText, lenient ? properties : shared, lenient, true), weight);
     }
   }
 
@@ -341,7 +342,8 @@ public final class StructuredQueryRouting {
    * {@code fieldPaths}, searches the keyword path. A label written as itself, such as {@code name}
    * or {@code tags}, stays as written. {@code v3.lowercase} reads {@code <field>.lowercase}.
    * Without that subfield a simple value is a case-insensitive term, and a single wildcard is
-   * queried as written and in lowercase. A quoted value is exact and is not rewritten.
+   * queried as written and in lowercase. A quoted value stays an exact query. Its field name is
+   * still resolved when that name is not the stored path.
    */
   @Nullable
   private static QueryBuilder containQuery(
@@ -464,6 +466,29 @@ public final class StructuredQueryRouting {
         .fieldName(path)
         .boost(SearchFieldConfig.DEFAULT_BOOST)
         .build();
+  }
+
+  /**
+   * A quoted value stays an exact query. A name the index does not store as written, such as the V2
+   * subfield {@code platform.keyword}, is replaced with the path an exact query reads. The logical
+   * field itself, such as {@code platform} or {@code name}, is left as written.
+   */
+  @Nonnull
+  private static String quotedExactField(
+      @Nonnull String text, @Nonnull String field, @Nullable SearchFieldResolver fieldResolver) {
+    if (!isQuotedFieldValue(text)
+        || fieldResolver == null
+        || !fieldResolver.contains(field)
+        || !fieldResolver.supports(field, Intent.EXACT)) {
+      return text;
+    }
+    SearchFieldResolver.Field resolved = fieldResolver.resolve(field, Intent.EXACT);
+    String exact = fieldResolver.exactPath(field, Intent.EXACT);
+    if (field.equals(exact) || field.equals(resolved.getPath())) {
+      return text;
+    }
+    int colon = text.indexOf(':');
+    return exact + text.substring(colon);
   }
 
   /** A quoted value ({@code description:"data warehouse"}) stays on exact intent. */

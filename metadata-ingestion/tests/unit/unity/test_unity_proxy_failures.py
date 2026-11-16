@@ -3,11 +3,11 @@ APIs misbehave, instead of aborting ingestion. The WorkspaceClient and the
 databricks-sql ``connect`` are the mocked boundaries."""
 
 from datetime import datetime, timezone
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, List
 from unittest.mock import MagicMock, patch
 
 import pytest
-from databricks.sdk.service.catalog import ColumnInfo, TableInfo, TableType
+from databricks.sdk.service.catalog import ColumnInfo, TableInfo
 
 from datahub.ingestion.source.unity.config import LineageDataSource
 from datahub.ingestion.source.unity.proxy import (
@@ -15,51 +15,12 @@ from datahub.ingestion.source.unity.proxy import (
     UnityCatalogApiProxy,
 )
 from datahub.ingestion.source.unity.proxy_types import (
-    Catalog,
     CustomCatalogType,
     ExternalTableReference,
-    Schema,
-    Table,
 )
-from tests.unit.unity.conftest import warning_messages
+from tests.unit.unity.conftest import unity_schema, unity_table, warning_messages
 
 ProxyBuilder = Callable[..., UnityCatalogApiProxy]
-
-
-def _schema(catalog_type: Optional[CustomCatalogType] = None) -> Schema:
-    catalog = Catalog(
-        id="main",
-        name="main",
-        comment=None,
-        metastore=None,
-        owner=None,
-        type=catalog_type,
-    )
-    return Schema(
-        id="main.sales", name="sales", catalog=catalog, comment=None, owner=None
-    )
-
-
-def _table(catalog_type: Optional[CustomCatalogType] = None) -> Table:
-    return Table(
-        id="main.sales.orders",
-        name="orders",
-        comment=None,
-        schema=_schema(catalog_type),
-        columns=[],
-        storage_location=None,
-        data_source_format=None,
-        table_type=TableType.MANAGED,
-        owner=None,
-        generation=None,
-        created_at=None,
-        created_by=None,
-        updated_at=None,
-        updated_by=None,
-        table_id=None,
-        view_definition=None,
-        properties={},
-    )
 
 
 def test_constraint_lookup_failure_is_a_warning_with_no_constraints(
@@ -68,7 +29,7 @@ def test_constraint_lookup_failure_is_a_warning_with_no_constraints(
     workspace_client.tables.get.side_effect = RuntimeError("PERMISSION_DENIED")
     proxy = api_proxy(workspace_client)
 
-    assert proxy.get_table_constraints(_table()) == []
+    assert proxy.get_table_constraints(unity_table()) == []
     assert warning_messages(proxy.report) == {"Unable to fetch table constraints"}
 
 
@@ -78,7 +39,7 @@ def test_hive_metastore_tables_skip_constraint_and_lineage_apis(
     """Unity's constraint and lineage APIs reject hive_metastore tables, so the
     proxy must not even call them for that catalog."""
     proxy = api_proxy(workspace_client)
-    table = _table(CustomCatalogType.HIVE_METASTORE_CATALOG)
+    table = unity_table(CustomCatalogType.HIVE_METASTORE_CATALOG)
 
     assert proxy.get_table_constraints(table) == []
     proxy.table_lineage(table, include_entity_lineage=False)
@@ -93,7 +54,7 @@ def test_lineage_api_errors_leave_the_table_without_lineage(
 ) -> None:
     workspace_client.api_client.do.side_effect = RuntimeError("503 Service Unavailable")
     proxy = api_proxy(workspace_client)
-    table = _table()
+    table = unity_table()
 
     proxy.table_lineage(table, include_entity_lineage=True)
     proxy.get_column_lineage(table, ["id"], max_workers=1)
@@ -127,7 +88,7 @@ def test_system_table_column_lineage_is_folded_into_table_upstreams(
     proxy = api_proxy(
         workspace_client, lineage_data_source=LineageDataSource.SYSTEM_TABLES
     )
-    table = _table()
+    table = unity_table()
 
     with patch("datahub.ingestion.source.unity.proxy.connect", return_value=connection):
         proxy.get_column_lineage(table, ["id", "amount"])
@@ -185,7 +146,7 @@ def test_unparseable_table_is_reported_and_the_rest_still_listed(
     ]
     proxy = api_proxy(workspace_client)
 
-    tables = {t.name: t for t in proxy.tables(_schema())}
+    tables = {t.name: t for t in proxy.tables(unity_schema())}
 
     assert set(tables) == {"legacy", "orders"}
     assert tables["legacy"].generation is None

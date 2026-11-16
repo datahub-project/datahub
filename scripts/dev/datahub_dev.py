@@ -31,20 +31,24 @@ Remote runner (set DATAHUB_RUNNER or 'runner' in ~/.datahub/dev/config.json):
 """
 
 import argparse
+import copy
 import dataclasses
 import datetime
+import fcntl
 import hashlib
 import json
 import os
 import re
+import shlex
 import socket
 import subprocess
 import sys
 import time
 import urllib.error
 import urllib.request
+from contextlib import contextmanager
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Set, Tuple
+from typing import Any, Dict, Iterator, List, Mapping, Optional, Set, Tuple
 
 
 # ---------------------------------------------------------------------------
@@ -183,17 +187,26 @@ PORT_BASE: Dict[str, int] = {
 SLOT_OFFSET: int = 1000
 
 
+class RegistryError(RuntimeError):
+    """The registry must be repaired before any command can update it."""
+
+
 def _load_registry() -> Dict[str, Any]:
     """Read ~/.datahub/dev/instances.json; return empty structure if absent."""
     if not INSTANCES_FILE.exists():
         return {"version": 1, "instances": {}}
     try:
         data = json.loads(INSTANCES_FILE.read_text())
-        if "instances" not in data:
-            data["instances"] = {}
+        if not isinstance(data, dict) or not isinstance(
+            data.get("instances", {}), dict
+        ):
+            raise RegistryError(f"Invalid instance registry: {INSTANCES_FILE}")
+        data.setdefault("instances", {})
         return data
-    except (json.JSONDecodeError, OSError):
-        return {"version": 1, "instances": {}}
+    except (json.JSONDecodeError, OSError) as error:
+        raise RegistryError(
+            f"Cannot read instance registry {INSTANCES_FILE}: {error}"
+        ) from error
 
 
 def _save_registry(data: Dict[str, Any]) -> None:
@@ -202,6 +215,19 @@ def _save_registry(data: Dict[str, Any]) -> None:
     tmp = INSTANCES_FILE.with_suffix(".tmp")
     tmp.write_text(json.dumps(data, indent=2) + "\n")
     tmp.rename(INSTANCES_FILE)
+
+
+@contextmanager
+def _registry_transaction() -> Iterator[Dict[str, Any]]:
+    """Serialize registry updates across local, Docker and remote commands."""
+    DATAHUB_DEV_DIR.mkdir(parents=True, exist_ok=True)
+    with (DATAHUB_DEV_DIR / "instances.lock").open("a") as lock:
+        fcntl.flock(lock, fcntl.LOCK_EX)
+        registry = _load_registry()
+        original = copy.deepcopy(registry)
+        yield registry
+        if registry != original:
+            _save_registry(registry)
 
 
 def _load_dev_config() -> Dict[str, Any]:
@@ -243,7 +269,12 @@ def _is_port_free(port: int) -> bool:
             return True
 
 
-def _pick_slot(registry: Dict[str, Any], remote: bool = False) -> int:
+def _pick_slot(
+    registry: Dict[str, Any],
+    remote: bool = False,
+    local_stack: bool = False,
+    processes: int = 1,
+) -> int:
     """Return the lowest available slot for a local or remote instance.
 
     Local slots:  0 … max_local_instances-1   (ports 8080, 18080, …)
@@ -262,8 +293,28 @@ def _pick_slot(registry: Dict[str, Any], remote: bool = False) -> int:
         for k, v in registry.get("instances", {}).items()
         if k != WORKTREE_ID and isinstance(v.get("slot"), int)
     }
+    claimed_ports = {
+        port
+        for key, entry in registry.get("instances", {}).items()
+        if key != WORKTREE_ID
+        for port in entry.get("ports", {}).values()
+    }
     for slot in range(slot_start, slot_end):
-        if slot not in used_slots:
+        candidate = _compute_ports(slot)
+        if local_stack:
+            import datahub_dev_local as local
+
+            candidate = local.local_ports(slot)
+            candidate.update(
+                {f"gms-{i}": candidate["gms"] + i for i in range(processes)}
+            )
+        if slot not in used_slots and not claimed_ports.intersection(
+            candidate.values()
+        ):
+            if local_stack and any(
+                not _is_port_free(port) for port in candidate.values()
+            ):
+                continue
             return slot
 
     kind = "remote" if remote else "local"
@@ -283,7 +334,6 @@ def _register_remote_instance(runner: str, slot: int) -> Dict[str, Any]:
     (slot-offset).  Docker on the remote machine always runs on PORT_BASE
     defaults — the slot offset is only used for local port-forwarding.
     """
-    registry = _load_registry()
     local_ports = _compute_ports(slot)  # slot-offset → used as tunnel local ports
     instance: Dict[str, Any] = {
         "worktree_path": str(REPO_ROOT),
@@ -294,8 +344,8 @@ def _register_remote_instance(runner: str, slot: int) -> Dict[str, Any]:
         "ports": local_ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    registry["instances"][WORKTREE_ID] = instance
-    _save_registry(registry)
+    with _registry_transaction() as registry:
+        registry["instances"][WORKTREE_ID] = instance
     return instance
 
 
@@ -315,8 +365,6 @@ def _compute_tunnel_pairs(local_ports: Dict[str, int]) -> List[str]:
 
 def _register_instance(slot: int, ports: Dict[str, int]) -> Dict[str, Any]:
     """Add or update this worktree's LOCAL instance entry in the registry."""
-    # Re-read to catch concurrent writes before committing.
-    registry = _load_registry()
     instance: Dict[str, Any] = {
         "worktree_path": str(REPO_ROOT),
         "project_name": COMPOSE_PROJECT,
@@ -325,8 +373,8 @@ def _register_instance(slot: int, ports: Dict[str, int]) -> Dict[str, Any]:
         "ports": ports,
         "created_at": datetime.datetime.utcnow().isoformat() + "Z",
     }
-    registry["instances"][WORKTREE_ID] = instance
-    _save_registry(registry)
+    with _registry_transaction() as registry:
+        registry["instances"][WORKTREE_ID] = instance
     return instance
 
 
@@ -378,14 +426,24 @@ def _write_ports_to_env_file(ports: Dict[str, int]) -> None:
 def _gms_url() -> str:
     """Return the GMS base URL for this worktree, reading the instance registry."""
     inst = _get_instance()
-    port = inst["ports"].get("DATAHUB_MAPPED_GMS_PORT", 8080) if inst else 8080
+    port = (
+        inst["ports"].get("gms", inst["ports"].get("DATAHUB_MAPPED_GMS_PORT", 8080))
+        if inst
+        else 8080
+    )
     return os.environ.get("DATAHUB_GMS_URL", f"http://localhost:{port}")
 
 
 def _frontend_url() -> str:
     """Return the frontend base URL for this worktree, reading the instance registry."""
     inst = _get_instance()
-    port = inst["ports"].get("DATAHUB_MAPPED_FRONTEND_PORT", 9002) if inst else 9002
+    port = (
+        inst["ports"].get(
+            "frontend", inst["ports"].get("DATAHUB_MAPPED_FRONTEND_PORT", 9002)
+        )
+        if inst
+        else 9002
+    )
     return os.environ.get("DATAHUB_FRONTEND_URL", f"http://localhost:{port}")
 
 
@@ -467,7 +525,10 @@ def _log(msg: str) -> None:
     print(msg, file=sys.stderr)
 
 
-CONFIG: DevToolingConfig = _load_config()
+CONFIG: DevToolingConfig
+# CLI configuration reads the registry and must run inside main's error handler.
+if __name__ != "__main__":
+    CONFIG = _load_config()
 
 
 def _rebuild_config_services() -> None:
@@ -688,7 +749,9 @@ def _suggest_recovery(
     if all_down:
         return "All services are down. Try: python3 scripts/dev/datahub_dev.py nuke --keep-data"
     if any_crash_loop:
-        return "Services are crash-looping. Try: python3 scripts/dev/datahub_dev.py reset"
+        return (
+            "Services are crash-looping. Try: python3 scripts/dev/datahub_dev.py reset"
+        )
     if any_bad_exit:
         return "Some services have exited with errors. Try: python3 scripts/dev/datahub_dev.py reset"
     if not gms_ok:
@@ -703,6 +766,17 @@ def _suggest_recovery(
 
 def cmd_status(args: argparse.Namespace) -> int:
     """Check environment status and output structured JSON."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this local registry entry is unmanaged; refusing lifecycle changes or data access"
+            )
+            return 1
+        return local.cmd_status_local(WORKTREE_ID, instance["ports"])
+
     containers = _run_docker_compose_ps()
     services = _get_container_info(containers)
 
@@ -748,6 +822,20 @@ def cmd_status(args: argparse.Namespace) -> int:
 
 def cmd_wait(args: argparse.Namespace) -> int:
     """Block until the DataHub stack is ready or timeout."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to inspect an unmanaged local instance")
+            return 1
+        deadline = time.monotonic() + args.timeout
+        while time.monotonic() < deadline:
+            if local.cmd_status_local(WORKTREE_ID, instance["ports"], quiet=True) == 0:
+                return local.cmd_status_local(WORKTREE_ID, instance["ports"])
+            time.sleep(POLL_INTERVAL)
+        return local.cmd_status_local(WORKTREE_ID, instance["ports"])
+
     timeout = args.timeout
     start = time.time()
     _log(f"Waiting up to {timeout}s for DataHub to become ready...")
@@ -840,6 +928,22 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
     all in a single Gradle invocation so the task graph correctly detects
     which ``dockerPrepare`` tasks were not up-to-date.
     """
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to rebuild an unmanaged local instance")
+            return 1
+        result = _run(
+            ["./gradlew", ":metadata-service:war:bootJar", "-x", "test"],
+            capture=False,
+            timeout=args.timeout,
+        )
+        if result.returncode:
+            return result.returncode
+        return _restart_local_stack(instance)
+
     if args.module:
         module_names = CONFIG.rebuild_module_aliases
         if args.module not in module_names:
@@ -908,6 +1012,39 @@ def cmd_rebuild(args: argparse.Namespace) -> int:
 # ---------------------------------------------------------------------------
 
 
+def _smoke_test_env() -> Dict[str, str]:
+    """Environment for smoke tests against this worktree's instance.
+
+    Replicates set-test-env-vars.sh. An inherited DATAHUB_PROFILE is dropped: the CLI
+    ranks it above DATAHUB_GMS_URL, so CLI and SDK calls inside the tests would
+    otherwise go to that profile's server instead of this worktree's instance.
+    """
+    env = _dev_env()
+    env.pop("DATAHUB_PROFILE", None)
+    gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
+    instance_gms_url = _gms_url()
+    if gms_base_path == "/" or not gms_base_path:
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            f"{instance_gms_url}/schema-registry/api",
+        )
+        env.setdefault("DATAHUB_GMS_URL", instance_gms_url)
+    else:
+        env.setdefault(
+            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
+            f"{instance_gms_url}{gms_base_path}/schema-registry/api",
+        )
+        env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
+
+    env.setdefault("ADMIN_USERNAME", "datahub")
+    env.setdefault("ADMIN_PASSWORD", "datahub")
+
+    # Disable telemetry during tests
+    env["DATAHUB_TELEMETRY_ENABLED"] = "false"
+
+    return env
+
+
 def cmd_test(args: argparse.Namespace) -> int:
     """Run targeted smoke tests."""
     test_path = args.path
@@ -943,28 +1080,7 @@ def cmd_test(args: argparse.Namespace) -> int:
             _log("Failed to set up smoke-test venv.")
             return 1
 
-    # Set up environment variables (replicate set-test-env-vars.sh)
-    env = _dev_env()
-    gms_base_path = env.get("DATAHUB_GMS_BASE_PATH", "")
-    instance_gms_url = _gms_url()
-    if gms_base_path == "/" or not gms_base_path:
-        env.setdefault(
-            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
-            f"{instance_gms_url}/schema-registry/api",
-        )
-        env.setdefault("DATAHUB_GMS_URL", instance_gms_url)
-    else:
-        env.setdefault(
-            "DATAHUB_KAFKA_SCHEMA_REGISTRY_URL",
-            f"{instance_gms_url}{gms_base_path}/schema-registry/api",
-        )
-        env.setdefault("DATAHUB_GMS_URL", f"{instance_gms_url}{gms_base_path}")
-
-    env.setdefault("ADMIN_USERNAME", "datahub")
-    env.setdefault("ADMIN_PASSWORD", "datahub")
-
-    # Disable telemetry during tests
-    env["DATAHUB_TELEMETRY_ENABLED"] = "false"
+    env = _smoke_test_env()
 
     # Build pytest command
     pytest_cmd = [
@@ -1083,6 +1199,17 @@ def cmd_env_set(args: argparse.Namespace) -> int:
     tool spawns already has DATAHUB_LOCAL_COMMON_ENV pointing at that file,
     so Gradle / docker compose will pick the value up automatically.
     """
+    instance = _get_instance()
+    env_file = DEV_ENV_FILE
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to access unmanaged local environment")
+            return 1
+        env_file = _local_env_file()
+        env_file.parent.mkdir(parents=True, exist_ok=True)
+
     key_value = args.assignment
     if "=" not in key_value:
         _log("Usage: datahub-dev env set KEY=VALUE")
@@ -1097,11 +1224,11 @@ def cmd_env_set(args: argparse.Namespace) -> int:
         _log(f"ERROR: Invalid key '{key}'. Keys must match [A-Za-z_][A-Za-z0-9_]*")
         return 1
 
-    if not DEV_ENV_FILE.exists():
-        DEV_ENV_FILE.touch()
+    if not env_file.exists():
+        env_file.touch()
 
     # Read existing content
-    existing_lines = DEV_ENV_FILE.read_text().splitlines()
+    existing_lines = env_file.read_text().splitlines()
 
     # Update or add the key
     found = False
@@ -1116,24 +1243,39 @@ def cmd_env_set(args: argparse.Namespace) -> int:
     if not found:
         new_lines.append(f"{key}={value}")
 
-    DEV_ENV_FILE.write_text("\n".join(new_lines) + "\n")
+    env_file.write_text("\n".join(new_lines) + "\n")
 
-    _log(f"Set {key}={value} in {DEV_ENV_FILE}")
+    _log(f"Set {key}={value} in {env_file}")
     _log("Run: scripts/dev/datahub-dev.sh env restart  (to apply)")
     return 0
 
 
 def cmd_env_list(args: argparse.Namespace) -> int:
     """List env vars and whether a restart is needed to apply them."""
+    instance = _get_instance()
+    env_file = DEV_ENV_FILE
+    sentinel = DEV_ENV_SENTINEL
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log("ERROR: refusing to access unmanaged local environment")
+            return 1
+        env_file = _local_env_file()
+        sentinel = env_file.parent / "env.applied"
+        env_file.parent.mkdir(parents=True, exist_ok=True)
+
     vars_dict: Dict[str, str] = {}
-    if DEV_ENV_FILE.exists():
-        lines = [line for line in DEV_ENV_FILE.read_text().splitlines() if line.strip()]
+    if env_file.exists():
+        lines = [line for line in env_file.read_text().splitlines() if line.strip()]
         vars_dict = dict(line.split("=", 1) for line in lines if "=" in line)
 
     # pending_restart: true if env file is newer than the sentinel (or sentinel absent)
-    if DEV_ENV_SENTINEL.exists() and DEV_ENV_FILE.exists():
+    if sentinel.exists() and env_file.exists():
         pending_restart = (
-            DEV_ENV_FILE.stat().st_mtime > DEV_ENV_SENTINEL.stat().st_mtime
+            env_file.read_text() != sentinel.read_text()
+            if instance and instance.get("mode") == "local"
+            else env_file.stat().st_mtime > sentinel.stat().st_mtime
         )
     elif not vars_dict:
         pending_restart = False  # nothing set, nothing pending
@@ -1143,7 +1285,7 @@ def cmd_env_list(args: argparse.Namespace) -> int:
     print(
         json.dumps(
             {
-                "file": str(DEV_ENV_FILE.relative_to(REPO_ROOT)),
+                "file": str(env_file),
                 "pending_restart": pending_restart,
                 "vars": vars_dict,
             },
@@ -1155,6 +1297,17 @@ def cmd_env_list(args: argparse.Namespace) -> int:
 
 def cmd_env_restart(args: argparse.Namespace) -> int:
     """Restart containers to pick up new environment variables."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this local registry entry is unmanaged; refusing lifecycle changes or data access"
+            )
+            return 1
+        return _restart_local_stack(instance)
+
     _log("Restarting containers with new environment via Gradle reloadEnv...")
     result = _run(
         [
@@ -1254,6 +1407,17 @@ def cmd_env_clean(args: argparse.Namespace) -> int:
 
 def cmd_stop(args: argparse.Namespace) -> int:
     """Stop all DataHub services without restarting."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this local registry entry is unmanaged; refusing lifecycle changes or data access"
+            )
+            return 1
+        return local.cmd_stop_local(WORKTREE_ID)
+
     _log("Stopping DataHub services...")
     result = _run(
         ["docker", "compose", "-p", COMPOSE_PROJECT, "down"],
@@ -1274,6 +1438,17 @@ def cmd_stop(args: argparse.Namespace) -> int:
 
 def cmd_reset(args: argparse.Namespace) -> int:
     """Soft reset: restart services without losing data."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this local registry entry is unmanaged; refusing lifecycle changes or data access"
+            )
+            return 1
+        return _restart_local_stack(instance)
+
     _log("Performing soft reset (no data loss)...")
 
     # Step 1: Stop all DataHub services
@@ -1305,6 +1480,20 @@ def cmd_reset(args: argparse.Namespace) -> int:
 
 def cmd_nuke(args: argparse.Namespace) -> int:
     """Hard reset: remove containers (and optionally volumes) and restart from scratch."""
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this local registry entry is unmanaged; refusing lifecycle changes or data access"
+            )
+            return 1
+        rc = local.cmd_nuke_local(WORKTREE_ID, instance["ports"], args.keep_data)
+        if rc == 0 and not args.keep_data:
+            _remove_local_registry_entry(instance)
+        return rc
+
     keep_data = args.keep_data
 
     if keep_data:
@@ -1708,8 +1897,126 @@ def _cmd_start_remote(args: argparse.Namespace) -> int:
     return 0
 
 
+def _local_env_file() -> Path:
+    import datahub_dev_local as local
+
+    return local.local_data_dir(WORKTREE_ID) / "env-overrides.env"
+
+
+def _remove_local_registry_entry(expected: Mapping[str, object]) -> None:
+    with _registry_transaction() as registry:
+        if registry["instances"].get(WORKTREE_ID) == expected:
+            del registry["instances"][WORKTREE_ID]
+
+
+def _restart_local_stack(instance: Mapping[str, object]) -> int:
+    import datahub_dev_local as local
+
+    if local.cmd_stop_local(WORKTREE_ID):
+        return 1
+    return _cmd_start_local(argparse.Namespace(local=True))
+
+
+def _cmd_start_local(args: argparse.Namespace) -> int:
+    import datahub_dev_local as local
+
+    with _registry_transaction() as registry:
+        instance = registry["instances"].get(WORKTREE_ID)
+        if instance is not None and not local.is_owned_entry(instance):
+            _log(
+                "ERROR: this worktree has an unmanaged or Docker registry entry; use a different worktree"
+            )
+            return 1
+        recorded = instance.get("local_options", {}) if instance else {}
+        options = {
+            "processes": getattr(args, "processes", None)
+            or recorded.get("processes", 1),
+            "no_frontend": not args.frontend
+            if getattr(args, "frontend", None) is not None
+            else recorded.get("no_frontend", False),
+            "no_auth": not args.auth
+            if getattr(args, "auth", None) is not None
+            else recorded.get("no_auth", False),
+        }
+        processes = options["processes"]
+        if not 1 <= processes < SLOT_OFFSET or getattr(args, "processes", None) == 0:
+            _log("ERROR: --processes must be between 1 and 999")
+            return 1
+        if instance and local.stack_running(WORKTREE_ID, instance["ports"]):
+            if options != recorded or getattr(args, "fresh", False):
+                _log(
+                    "ERROR: local stack is running or starting; stop it before changing options"
+                )
+                return 1
+        if instance is None:
+            try:
+                slot = _pick_slot(registry, local_stack=True, processes=processes)
+            except RuntimeError as error:
+                _log(f"ERROR: {error}")
+                return 1
+            instance = {
+                "worktree_path": str(REPO_ROOT),
+                "mode": "local",
+                "local_owner": local.OWNER,
+                "opensearch_dir": str(local.SHARED_OPENSEARCH_DIR),
+                "slot": slot,
+                "ports": local.local_ports(slot),
+                "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
+            }
+        claimed_ports = {
+            port
+            for key, entry in registry["instances"].items()
+            if key != WORKTREE_ID
+            for port in entry.get("ports", {}).values()
+        }
+        gms_ports = set(
+            range(instance["ports"]["gms"], instance["ports"]["gms"] + processes)
+        )
+        if max(gms_ports) > 65535 or claimed_ports.intersection(gms_ports):
+            _log("ERROR: requested GMS ports overlap another instance or exceed 65535")
+            return 1
+        if instance.get("local_options") != options:
+            instance = {**instance, "local_options": options}
+            # Reserve every GMS port, including additional processes, against Docker slots.
+            instance["ports"] = {
+                **local.local_ports(instance["slot"]),
+                **{
+                    f"gms-{i}": local.local_ports(instance["slot"])["gms"] + i
+                    for i in range(processes)
+                },
+            }
+        try:
+            # A refused data directory must not leave a registry reservation behind.
+            local.write_instance_record(WORKTREE_ID, instance)
+        except (OSError, RuntimeError, ValueError) as error:
+            _log(f"ERROR: {error}")
+            return 1
+        registry["instances"][WORKTREE_ID] = instance
+    result = local.cmd_start_local(
+        slot=instance["slot"],
+        ports=instance["ports"],
+        worktree_id=WORKTREE_ID,
+        repo_root=REPO_ROOT,
+        processes=processes,
+        no_auth=options["no_auth"],
+        no_frontend=options["no_frontend"],
+        skip_build=getattr(args, "skip_build", False),
+        fresh=getattr(args, "fresh", False),
+        registry_instances=registry["instances"],
+        timeout=getattr(args, "timeout", DEFAULT_TIMEOUT),
+    )
+
+    if result or options["no_frontend"]:
+        return result
+    return local.launch_frontend(WORKTREE_ID, instance["ports"], REPO_ROOT)
+
+
 def cmd_start(args: argparse.Namespace) -> int:
     """Start (or restart) DataHub via quickstartDebug, then wait for readiness."""
+    instance = _get_instance()
+    if getattr(args, "local", False) or (instance and instance.get("mode") == "local"):
+        return _cmd_start_local(args)
+
     # Proxy to remote machine when a runner is configured.
     if RUNNER:
         return _cmd_start_remote(args)
@@ -1908,7 +2215,16 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
         project = inst.get("project_name", f"dh-{wt_id}")
         kind = inst.get("type", "local")
 
-        if kind == "remote":
+        if inst.get("mode") == "local":
+            import datahub_dev_local as local
+
+            kind = "local"
+            running = (
+                local.stack_running(wt_id, inst.get("ports"))
+                if local.is_owned_entry(inst)
+                else None
+            )
+        elif kind == "remote":
             # Ask the remote whether it's healthy rather than querying local docker.
             runner_path = inst.get("runner", "")
             running: Optional[bool] = None
@@ -1935,8 +2251,12 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
                     except json.JSONDecodeError:
                         continue
 
-        gms_port = inst.get("ports", {}).get("DATAHUB_MAPPED_GMS_PORT")
-        fe_port = inst.get("ports", {}).get("DATAHUB_MAPPED_FRONTEND_PORT")
+        gms_port = inst.get("ports", {}).get(
+            "gms", inst.get("ports", {}).get("DATAHUB_MAPPED_GMS_PORT")
+        )
+        fe_port = inst.get("ports", {}).get(
+            "frontend", inst.get("ports", {}).get("DATAHUB_MAPPED_FRONTEND_PORT")
+        )
         rows.append(
             {
                 "id": wt_id,
@@ -1960,23 +2280,37 @@ def _cmd_instances_list(args: argparse.Namespace) -> int:
 
 
 def _cmd_instances_clean(args: argparse.Namespace) -> int:
-    """Remove registry entries for worktrees that no longer exist on disk."""
-    registry = _load_registry()
-    instances = registry.get("instances", {})
+    """Reclaim missing worktrees, preserving local stacks we do not own."""
+    import datahub_dev_local as local
+
+    with _registry_transaction() as registry:
+        candidates = {
+            worktree_id: entry
+            for worktree_id, entry in registry["instances"].items()
+            if entry.get("worktree_path")
+            and not Path(entry["worktree_path"]).exists()
+            and (entry.get("mode") != "local" or local.is_owned_entry(entry))
+        }
+    # Local cleanup may need to start the shared search node. Keep reservations
+    # visible while it runs without blocking unrelated registry writers.
+    reclaimed = local.reclaim_stale(candidates)
     to_remove = [
-        wt_id
-        for wt_id, inst in instances.items()
-        if inst.get("worktree_path") and not Path(inst["worktree_path"]).exists()
-    ]
-    if not to_remove:
+        key for key, entry in candidates.items() if entry.get("mode") != "local"
+    ] + reclaimed
+    removed = 0
+    with _registry_transaction() as registry:
+        for worktree_id in to_remove:
+            expected = candidates[worktree_id]
+            if registry["instances"].get(worktree_id) == expected:
+                del registry["instances"][worktree_id]
+                _log(
+                    f"Removed stale instance {worktree_id} ({expected.get('worktree_path', '?')})"
+                )
+                removed += 1
+    if removed:
+        _log(f"Cleaned {removed} stale instance(s).")
+    else:
         _log("No stale instances found.")
-        return 0
-    for wt_id in to_remove:
-        inst = instances.pop(wt_id)
-        _log(f"Removed stale instance {wt_id} ({inst.get('worktree_path', '?')})")
-    registry["instances"] = instances
-    _save_registry(registry)
-    _log(f"Cleaned {len(to_remove)} stale instance(s).")
     return 0
 
 
@@ -1990,7 +2324,25 @@ def cmd_shell_env(args: argparse.Namespace) -> int:
 
     Usage: eval $(datahub-dev.sh shell-env)
     """
+    instance = _get_instance()
+    if instance and instance.get("mode") == "local":
+        import datahub_dev_local as local
+
+        if not local.is_owned_entry(instance):
+            print("# Unmanaged local instance; no environment exported")
+            return 1
+        print(f"export DATAHUB_PROFILE={local.profile_name(WORKTREE_ID)}")
+        print(
+            f"export DATAHUB_GMS_URL={shlex.quote('http://localhost:' + str(instance['ports']['gms']))}"
+        )
+        # Named profiles own the credential; remove a stale legacy environment token.
+        print("unset DATAHUB_GMS_TOKEN")
+        return 0
+
     gms = _gms_url()
+    # The CLI ranks DATAHUB_PROFILE above DATAHUB_GMS_URL; clear it so this shell
+    # targets the worktree instance rather than a previously selected profile.
+    print("unset DATAHUB_PROFILE")
     print(f"export DATAHUB_GMS_URL={gms}")
 
     # Propagate token if present in the dev env file.
@@ -2058,6 +2410,39 @@ def build_parser() -> argparse.ArgumentParser:
     # start
     start_p = subparsers.add_parser(
         "start", help="Start DataHub (quickstartDebug) and wait for readiness"
+    )
+    start_p.add_argument(
+        "--frontend",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable Vite in local mode (default: recorded value)",
+    )
+    start_p.add_argument(
+        "--local",
+        action="store_true",
+        help="Run GMS locally on H2 and shared OpenSearch 3, without Docker",
+    )
+    start_p.add_argument(
+        "--processes",
+        type=int,
+        default=None,
+        help="Number of isolated GMS instances in local mode (default: 1)",
+    )
+    start_p.add_argument(
+        "--fresh",
+        action="store_true",
+        help="Clear this local stack's H2 and search data before starting",
+    )
+    start_p.add_argument(
+        "--auth",
+        action=argparse.BooleanOptionalAction,
+        default=None,
+        help="Enable or disable authentication in local mode (default: recorded value)",
+    )
+    start_p.add_argument(
+        "--skip-build",
+        action="store_true",
+        help="Reuse built GMS, upgrade and OpenSearch artifacts",
     )
     start_p.add_argument(
         "--ai",
@@ -2214,7 +2599,7 @@ def build_parser() -> argparse.ArgumentParser:
     return parser
 
 
-def main() -> int:
+def _main() -> int:
     parser = build_parser()
     args = parser.parse_args()
 
@@ -2277,6 +2662,20 @@ def main() -> int:
 
     parser.print_help()
     return 1
+
+
+def main() -> int:
+    global CONFIG
+    try:
+        CONFIG = _load_config()
+        return _main()
+    except RegistryError as error:
+        _log(f"ERROR: {error}")
+        _log(
+            f"Repair {INSTANCES_FILE}, or move it aside after backing it up "
+            "and inspecting existing instances, then retry."
+        )
+        return 1
 
 
 if __name__ == "__main__":

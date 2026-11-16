@@ -2,10 +2,9 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
-
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
 import { ShowMoreSection } from '@app/entityV2/shared/sidebarSection/ShowMoreSection';
+import AvatarPillWithLinkAndHover from '@app/sharedV2/avatar/AvatarPillWithLinkAndHover';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, EntityRelationship } from '@types';

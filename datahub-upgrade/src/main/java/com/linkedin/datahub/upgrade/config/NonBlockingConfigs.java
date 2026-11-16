@@ -30,6 +30,7 @@ import com.linkedin.datahub.upgrade.system.restoreindices.glossary.RestoreGlossa
 import com.linkedin.datahub.upgrade.system.retention.IngestRetentionPolicies;
 import com.linkedin.datahub.upgrade.system.schemafield.GenerateSchemaFieldsFromSchemaMetadata;
 import com.linkedin.datahub.upgrade.system.schemafield.MigrateSchemaFieldDocIds;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.metadata.aspect.consistency.ConsistencyService;
@@ -54,9 +55,14 @@ import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 @Configuration
 @Conditional(SystemUpdateCondition.NonBlockingSystemUpdateCondition.class)
+// kafkaSetupNonBlocking steps build admin clients, which under MSK IAM need the shared AWS
+// credentials.
+@Import(AwsClientFactory.class)
 public class NonBlockingConfigs {
 
   @Bean
@@ -321,6 +327,7 @@ public class NonBlockingConfigs {
 
   @Bean
   @Conditional(KafkaMessagingEnabledCondition.class)
+  @DependsOn("defaultAwsCredentialsProvider")
   public NonBlockingSystemUpgrade kafkaSetupNonBlocking(
       final ConfigurationProvider configurationProvider, KafkaProperties properties) {
     return new KafkaNonBlockingSetup(opContext, configurationProvider.getKafka(), properties);

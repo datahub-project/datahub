@@ -5,14 +5,12 @@ from __future__ import annotations
 import logging
 from typing import Union
 
+from datahub.emitter.kafka_emitter import _AggregatingKafkaCallback
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import RecordEnvelope, WorkUnit
 from datahub.ingestion.api.sink import Sink, SinkReport, WriteCallback
-from datahub.ingestion.sink.datahub_kafka import (
-    _AggregatingKafkaCallback,
-    _KafkaCallback,
-)
+from datahub.ingestion.sink.datahub_kafka import _KafkaCallback
 from datahub.metadata.com.linkedin.pegasus2avro.mxe import (
     MetadataChangeEvent,
     MetadataChangeProposal,
@@ -73,7 +71,7 @@ class DatahubPgQueueSink(Sink[PgQueueSinkConfig, SinkReport]):
                     return
 
                 agg_callback = _AggregatingKafkaCallback(
-                    total=len(mcps), inner=queue_callback
+                    total=len(mcps), inner=queue_callback.kafka_callback
                 )
                 self.emitter.emit_batch(mcps, callback=agg_callback.kafka_callback)
             else:

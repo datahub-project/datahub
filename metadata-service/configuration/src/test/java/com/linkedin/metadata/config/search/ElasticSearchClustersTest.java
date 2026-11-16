@@ -2,6 +2,8 @@ package com.linkedin.metadata.config.search;
 
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -267,5 +269,89 @@ public class ElasticSearchClustersTest {
             .engineType("OPENSEARCH_2")
             .build()
             .isAutoDetectEnabled());
+  }
+
+  private static Map<String, SearchClusterSettings> primaryAndSecondary() {
+    Map<String, SearchClusterSettings> map = new LinkedHashMap<>();
+    map.put("primary", SearchClusterSettings.builder().uri("http://search:9200").build());
+    map.put("secondary", SearchClusterSettings.builder().uri("http://search2:9200").build());
+    return map;
+  }
+
+  private static ClusterMigrationConfiguration graphMigration(String targetCluster, String mode) {
+    return ClusterMigrationConfiguration.builder()
+        .graph(
+            FamilyMigrationSettings.builder()
+                .targetCluster(targetCluster)
+                .copy(CopySettings.builder().enabled(true).mode(mode).build())
+                .build())
+        .build();
+  }
+
+  @Test
+  public void testNoFamilyMigrationByDefault() {
+    ElasticSearchConfiguration config = base().host("search").port(9200).build();
+
+    for (SearchComponent component : ClusterMigrationConfiguration.MIGRATABLE_FAMILIES) {
+      assertNull(config.activeMigrationFor(component));
+    }
+  }
+
+  @Test
+  public void testFamilyMigrationResolvesItsTargetAndLeavesOtherFamiliesAlone() {
+    ElasticSearchConfiguration config =
+        base()
+            .clusters(primaryAndSecondary())
+            .clusterMigration(graphMigration("secondary", null))
+            .build();
+
+    FamilyMigrationSettings graph = config.activeMigrationFor(SearchComponent.GRAPH);
+    assertNotNull(graph);
+    assertEquals(graph.getTargetCluster(), "secondary");
+    assertTrue(graph.isCopyEnabled());
+    assertEquals(graph.getCopy().copyMode(), CopyMode.IN_PROCESS);
+    assertNull(config.activeMigrationFor(SearchComponent.TIMESERIES));
+    // The serving cluster is untouched: componentCluster still answers "who serves".
+    assertEquals(config.getCluster(SearchComponent.GRAPH).getUri(), "http://search:9200");
+  }
+
+  @Test
+  public void testFamilyMigrationToUnconfiguredClusterFailsStartup() {
+    Map<String, SearchClusterSettings> map = primaryAndSecondary();
+    map.put("secondary", SearchClusterSettings.builder().uri("").build());
+
+    ElasticSearchConfiguration config =
+        base().clusters(map).clusterMigration(graphMigration("secondary", null)).build();
+
+    assertThrows(IllegalStateException.class, config::normalizeClusters);
+  }
+
+  @Test
+  public void testFamilyMigrationToTheServingClusterFailsStartup() {
+    ElasticSearchConfiguration config =
+        base()
+            .clusters(primaryAndSecondary())
+            .clusterMigration(graphMigration("primary", null))
+            .build();
+
+    assertThrows(IllegalStateException.class, config::normalizeClusters);
+  }
+
+  @Test
+  public void testFamilyMigrationRejectsUnknownCopyMode() {
+    ElasticSearchConfiguration config =
+        base()
+            .clusters(primaryAndSecondary())
+            .clusterMigration(graphMigration("secondary", "bogus"))
+            .build();
+
+    assertThrows(IllegalArgumentException.class, config::normalizeClusters);
+  }
+
+  @Test
+  public void testCopyModeParsesConfigValuesCaseInsensitively() {
+    assertEquals(CopyMode.fromConfig("remoteReindex"), CopyMode.REMOTE_REINDEX);
+    assertEquals(CopyMode.fromConfig("EXTERNAL"), CopyMode.EXTERNAL);
+    assertEquals(CopyMode.fromConfig(" inprocess "), CopyMode.IN_PROCESS);
   }
 }

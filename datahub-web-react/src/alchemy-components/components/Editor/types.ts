@@ -3,6 +3,17 @@
 // a section does not trigger an autosave or mark the document as dirty.
 export const DETAILS_TOGGLE_META = 'detailsToggle';
 
+export type EditorMentionsPickerProps = {
+    /** When true, renders the dropdown outside the editor to avoid overflow clipping */
+    renderOutsideEditor?: boolean;
+};
+
+/** A stored mention. Free of Remirror types, so the read-only view can render it too. */
+export type EditorMentionViewProps = {
+    urn: string;
+    name: string;
+};
+
 export type FileUploadSource = 'drag-and-drop' | 'button';
 
 export enum FileUploadFailureType {
@@ -54,4 +65,19 @@ export type EditorProps = {
     hideToolbar?: boolean;
     /** Enable compact mode with smaller min-height and adjusted padding */
     compact?: boolean;
+    /**
+     * Replaces the default @-mentions dropdown. Rendered inside the Remirror context, so it can
+     * drive the `datahubMention` autocomplete itself.
+     */
+    mentionsComponent?: React.ReactNode;
+    /**
+     * The default @-mentions picker, also the fallback when `mentionsComponent` fails. Rendered inside
+     * the Remirror context, so it can drive the `datahubMention` autocomplete. Without it typing @
+     * opens no picker.
+     */
+    mentionsPicker?: React.ComponentType<EditorMentionsPickerProps>;
+    /** Renders a mention, both while editing and in read-only mode. Without it a mention renders as `@name`. */
+    mentionView?: React.ComponentType<EditorMentionViewProps>;
+    /** Lets the toolbar's image button upload files when `uploadFileProps.onFileUpload` is set. */
+    imageUploadEnabled?: boolean;
 };

@@ -1,11 +1,11 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import { useAppConfig } from '@src/app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetPresignedUploadUrlDocument } from '@graphql/app.generated';
 import { UploadDownloadScenario } from '@types';

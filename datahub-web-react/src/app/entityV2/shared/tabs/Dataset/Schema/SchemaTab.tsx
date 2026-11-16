@@ -51,6 +51,8 @@ const SchemaTableContainer = styled.div`
     height: 100%;
     box-sizing: border-box;
     overflow: hidden;
+    // Same inset as the schema header above, so the table sits as a card inside the tab.
+    padding: 0 16px 16px 16px;
 `;
 
 const SchemaScrollArea = styled.div`
@@ -159,6 +161,8 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
         skip: !urn || hideSemanticVersions,
     });
 
+    // The edited primary key is not versioned, so older schema versions show only their source key.
+    const editedPrimaryKeys = isLatestVersion ? entityWithSchema?.editablePrimaryKeys?.primaryKeys : undefined;
     let editMode = true;
     if (!isLatestVersion) {
         schemaMetadata = versionedSchema;
@@ -270,6 +274,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                     rows={rows}
                     schemaMetadata={schemaMetadata}
                     editableSchemaMetadata={editableSchemaMetadata}
+                    editedPrimaryKeys={editedPrimaryKeys}
                     expandedDrawerFieldPath={expandedDrawerFieldPath}
                     setExpandedDrawerFieldPath={setExpandedDrawerFieldPath}
                     openTimelineDrawer={openTimelineDrawer}
@@ -353,6 +358,7 @@ export const SchemaTab = ({ renderType, properties }: { renderType: TabRenderTyp
                                     schemaMetadata={schemaMetadata}
                                     rows={rows}
                                     editableSchemaMetadata={editableSchemaMetadata}
+                                    editedPrimaryKeys={editedPrimaryKeys}
                                     usageStats={usageStats}
                                     expandedRowsFromFilter={expandedRowsFromFilter}
                                     filterText={filterText}

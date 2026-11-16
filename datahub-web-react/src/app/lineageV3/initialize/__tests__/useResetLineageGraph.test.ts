@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { LineageEntity, NodeContext } from '@app/lineageV3/common';
 import useResetLineageGraph from '@app/lineageV3/initialize/useResetLineageGraph';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType, LineageDirection } from '@types';
 

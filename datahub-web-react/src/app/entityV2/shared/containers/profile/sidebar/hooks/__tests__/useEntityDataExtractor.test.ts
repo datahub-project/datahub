@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { useEntityDataExtractor } from '@app/entityV2/shared/containers/profile/sidebar/hooks/useEntityDataExtractor';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 const mockUseEntityData = vi.hoisted(() => vi.fn());
 

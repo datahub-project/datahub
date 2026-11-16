@@ -165,6 +165,61 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test
+  public void testNamingANewProductIsNotARename() {
+    // The product does not exist: this write creates it. The domains aspect is written in a later
+    // proposal, so the rename check could not resolve the domain and would deny a domain-scoped
+    // MANAGE_DATA_PRODUCTS actor.
+    mockNoProduct(false);
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("New data product");
+    stubRenameDenied();
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isEmpty());
+    authUtilsMockedStatic.verify(
+        () ->
+            EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                any(), any(Set.class), any(Map.class), any(Map.class)),
+        Mockito.never());
+  }
+
+  @Test
+  public void testNamingAnExistingProductWithoutPropertiesIsARename() {
+    // The product already exists through other aspects (domains, ownership, ...): giving it a
+    // name is checked, whatever order the aspects were written in.
+    mockNoProduct(true);
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("Named later");
+    stubRenameDenied();
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isPresent());
+  }
+
+  @Test
+  public void testSettingNameOnExistingAspectWithoutNameIsARename() {
+    mockCurrentProperties(new DataProductProperties());
+    DataProductProperties proposed = new DataProductProperties();
+    proposed.setName("First name");
+    stubRenameDenied();
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isPresent());
+  }
+
+  @Test
+  public void testCreationStillChecksAssetMembership() {
+    mockNoProduct(false);
+    DataProductProperties proposed = propertiesWithAssets(MEMBER_DATASET_URN);
+    proposed.setName("New data product");
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToManageDataProductMembership(
+                    eq(mockAuthSession), any(Map.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
+
+    Assert.assertTrue(validate(upsertItem(proposed)).findAny().isPresent());
+  }
+
+  @Test
   public void testAssetsDeltaTriggersAuthorizationCheck() {
     DataProductProperties current = propertiesWithAssets(MEMBER_DATASET_URN);
     DataProductProperties proposed = propertiesWithAssets(OTHER_DATASET_URN);
@@ -253,6 +308,21 @@ public class DataProductMembershipAuthorizationValidatorTest {
   }
 
   @Test(dataProvider = "patchItemBuilders")
+  public void testPatchSettingNameOnExistingAspectWithoutNameIsDeniedWithoutPrivilege(
+      boolean alternateValidation) {
+    mockCurrentProperties(new DataProductProperties());
+    stubRenameDenied();
+
+    Assert.assertTrue(
+        validate(
+                patchItem(
+                    alternateValidation,
+                    "{\"op\":\"add\",\"path\":\"/name\",\"value\":\"First name\"}"))
+            .findAny()
+            .isPresent());
+  }
+
+  @Test(dataProvider = "patchItemBuilders")
   public void testPatchRenameIsDeniedWithoutPrivilege(boolean alternateValidation) {
     DataProductProperties current = new DataProductProperties();
     current.setName("Original name");
@@ -271,6 +341,24 @@ public class DataProductMembershipAuthorizationValidatorTest {
                     "{\"op\":\"add\",\"path\":\"/name\",\"value\":\"Updated name\"}"))
             .findAny()
             .isPresent());
+  }
+
+  /** No persisted dataProductProperties; the product itself may or may not exist. */
+  private void mockNoProduct(boolean entityExists) {
+    when(mockAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(DATA_PRODUCT_URN)), eq(Set.of(DATA_PRODUCT_PROPERTIES_ASPECT_NAME))))
+        .thenReturn(Map.of());
+    when(mockAspectRetriever.entityExists(any(), eq(Set.of(DATA_PRODUCT_URN))))
+        .thenReturn(Map.of(DATA_PRODUCT_URN, entityExists));
+  }
+
+  private void stubRenameDenied() {
+    authUtilsMockedStatic
+        .when(
+            () ->
+                EntityAspectAuthorizationUtils.filterUnauthorizedToRenameDataProduct(
+                    eq(mockAuthSession), any(Set.class), any(Map.class), any(Map.class)))
+        .thenReturn(Set.of(DATA_PRODUCT_URN));
   }
 
   private void mockCurrentProperties(DataProductProperties current) {

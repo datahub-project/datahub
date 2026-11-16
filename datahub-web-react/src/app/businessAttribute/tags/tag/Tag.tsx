@@ -1,6 +1,5 @@
 import { Modal, message } from 'antd';
 import React, { useState } from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
@@ -8,6 +7,7 @@ import { HoverEntityTooltip } from '@app/recommendations/renderer/component/Hove
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
 import { StyledTag } from '@app/sharedV2/tags/tag/StyledTag';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveTagMutation } from '@graphql/mutations.generated';

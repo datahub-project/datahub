@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { Mock, beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useGetAssetsYouOwn } from '@app/homeV2/reference/sections/assets/useGetAssetsYouOwn';
 import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
 import { CorpUser, EntityType } from '@types';

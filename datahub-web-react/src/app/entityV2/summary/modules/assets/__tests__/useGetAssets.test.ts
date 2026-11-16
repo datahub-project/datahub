@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { afterEach, describe, expect, it, vi } from 'vitest';
 
 import { useEntityData } from '@app/entityV2/shared/EntityContext';
@@ -14,6 +13,7 @@ import {
 import { useGetDataProductAssets } from '@app/entityV2/summary/modules/assets/useGetDataProductAssets';
 import { useGetDomainAssets } from '@app/entityV2/summary/modules/assets/useGetDomainAssets';
 import { useGetTermAssets } from '@app/entityV2/summary/modules/assets/useGetTermAssets';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

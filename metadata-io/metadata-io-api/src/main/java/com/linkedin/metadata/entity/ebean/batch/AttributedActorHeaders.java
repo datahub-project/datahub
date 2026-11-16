@@ -38,7 +38,8 @@ public final class AttributedActorHeaders {
     mcp.getHeaders().put(ATTRIBUTED_ACTOR, actorUrn);
   }
 
-  private static void strip(@Nonnull MetadataChangeProposal mcp) {
+  /** Drops a client-supplied attributed actor so it cannot survive when the caller is unknown. */
+  public static void strip(@Nonnull MetadataChangeProposal mcp) {
     if (!mcp.hasHeaders()) {
       return;
     }

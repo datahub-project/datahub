@@ -132,6 +132,9 @@ public final class SearchTemplateMustache {
     context.put(SearchTemplateContextVariables.FUZZY_MAX_EXPANSIONS, 10);
     context.put(SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS, 50);
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, "name.text");
+    context.put(
+        SearchTemplateContextVariables.PREFIX_KEYWORD,
+        SearchTemplateFields.lowercaseKeywordPath("name"));
     context.put(SearchTemplateContextVariables.STRUCTURED_QUERY, "{\"match_all\":{}}");
     context.put(SearchTemplateContextVariables.BROAD_QUERY, "orders");
     context.put(SearchTemplateContextVariables.LIGHT_QUERY_TEXT, "orders");

@@ -7,6 +7,7 @@ import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
 import { useBatchSetApplicationMutation } from '@graphql/application.generated';
@@ -32,11 +33,10 @@ export const entityHasCapability = (
 ): boolean => capabilities.has(capabilityToCheck);
 
 export const getHighlightedTag = (tags?: GlobalTags) => {
-    if (tags && tags.tags?.length) {
-        if (tags?.tags[0].tag.properties) return tags?.tags[0]?.tag?.properties?.name;
-        return tags?.tags[0]?.tag?.name;
-    }
-    return '';
+    const first = tags?.tags?.find((association) => !isRemovedAssociation(association));
+    if (!first) return '';
+    if (first.tag.properties) return first.tag.properties.name;
+    return first.tag.name;
 };
 
 export const isNullOrUndefined = (value: any) => {

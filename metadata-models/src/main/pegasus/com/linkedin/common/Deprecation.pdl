@@ -31,16 +31,9 @@ record Deprecation {
   @Searchable = {
     "fieldType": "TEXT",
     "queryByDefault": false,
-    "hasValuesFieldName": "hasDescription",
     "sanitizeRichText": true,
     "v3": {
-      "queryByDefault": true,
-      "searchLabel": "description",
-      "mappings": [
-        { "type": "KEYWORD", "index": false, "docValues": false },
-        { "subfield": "text", "type": "TEXT" },
-        { "subfield": "stemmed", "type": "STEMMED" }
-      ]
+      "queryByDefault": true
     }
   }
   note: string

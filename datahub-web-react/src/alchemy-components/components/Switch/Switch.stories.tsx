@@ -1,10 +1,14 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Star } from '@phosphor-icons/react/dist/csr/Star';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { Switch, switchDefaults } from '@components/components/Switch/Switch';
+
+const ICON_OPTIONS = { None: undefined, Plus, Star, Globe };
 
 const meta = {
     title: 'Forms / Switch',
@@ -41,9 +45,9 @@ const meta = {
             },
         },
         icon: {
-            description: 'The icon to display in the Switch Slider.',
-            type: 'string',
-            options: ['Info', 'Star', 'Globe'],
+            description: 'The Phosphor icon component to display in the Switch Slider.',
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             table: {
                 defaultValue: { summary: 'undefined' },
             },
@@ -53,7 +57,7 @@ const meta = {
         },
         colorScheme: {
             description: 'The color of the Switch.',
-            options: ['violet', 'green', 'red', 'blue', 'gray'],
+            options: ['primary', 'violet', 'green', 'red', 'blue', 'gray'],
             table: {
                 defaultValue: { summary: switchDefaults.colorScheme },
             },
@@ -62,7 +66,7 @@ const meta = {
             },
         },
         size: {
-            description: 'The size of the Button.',
+            description: 'The size of the Switch.',
             options: ['sm', 'md', 'lg', 'xl'],
             table: {
                 defaultValue: { summary: switchDefaults.size },
@@ -143,7 +147,8 @@ export const sizes = () => (
 
 export const colors = () => (
     <GridList isVertical>
-        <Switch label="Default" isChecked colorScheme="violet" />
+        <Switch label="Default" isChecked />
+        <Switch label="Violet" isChecked colorScheme="violet" />
         <Switch label="Green" isChecked colorScheme="green" />
         <Switch label="Red" isChecked colorScheme="red" />
         <Switch label="Blue" isChecked colorScheme="blue" />
