@@ -5,6 +5,14 @@ import sources from '@app/ingestV2/source/builder/sources.json';
 // LookML intentionally shows the Looker logo.
 const INTENTIONAL_LOGO_OVERRIDES = new Set(['lookml']);
 
+describe('sources.json', () => {
+    // The source picker keys its cards by name; several tiles share a platform URN.
+    it('has unique tile names', () => {
+        const names = sources.map((source) => source.name);
+        expect(names.filter((name, index) => names.indexOf(name) !== index)).toEqual([]);
+    });
+});
+
 describe('SOURCE_TO_PLATFORM_URN', () => {
     it('resolves every tile name to the platform URN of its tile', () => {
         const mismatches = sources
