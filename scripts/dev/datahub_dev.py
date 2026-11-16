@@ -831,17 +831,8 @@ def cmd_wait(args: argparse.Namespace) -> int:
             return 1
         deadline = time.monotonic() + args.timeout
         while time.monotonic() < deadline:
-            try:
-                stack = json.loads(
-                    (local.local_data_dir(WORKTREE_ID) / "stack.json").read_text()
-                )
-                if all(
-                    local._http_ok(f"{url}/health")
-                    for url in stack["instances"].values()
-                ):
-                    return local.cmd_status_local(WORKTREE_ID, instance["ports"])
-            except (OSError, ValueError, KeyError):
-                pass
+            if local.cmd_status_local(WORKTREE_ID, instance["ports"], quiet=True) == 0:
+                return local.cmd_status_local(WORKTREE_ID, instance["ports"])
             time.sleep(POLL_INTERVAL)
         return local.cmd_status_local(WORKTREE_ID, instance["ports"])
 

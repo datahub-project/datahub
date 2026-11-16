@@ -335,14 +335,21 @@ export function registerAuthStubs(middlewares: Connect.Server, users?: UserDirec
             return;
         }
 
-        const cookies = parseCookies(req.headers.cookie);
-        if (cookies.actor) {
-            res.writeHead(200, { 'Content-Type': 'text/plain' });
-            res.end('Authenticated');
-        } else {
-            res.writeHead(302, { Location: '/login' });
-            res.end();
+        let redirectPath = new URL(req.url || '/', 'http://localhost').searchParams.get('redirect_uri') ?? '/';
+        // Play keeps /logOut as the target (there is no base path in lite mode), and rejects
+        // schemes, authorities and invalid URI characters before using the native login page.
+        if (
+            /^\/\//.test(redirectPath.trim()) ||
+            /^[a-z][a-z\d+.-]*:/i.test(redirectPath) ||
+            /[\s\\]/.test(redirectPath)
+        ) {
+            redirectPath = '/';
         }
+        const cookies = parseCookies(req.headers.cookie);
+        res.writeHead(302, {
+            Location: cookies.actor ? redirectPath : `/login?redirect_uri=${encodeURIComponent(redirectPath)}`,
+        });
+        res.end();
     }) as Connect.NextHandleFunction);
 
     // GET /admin — Play's health endpoint; the smoke-test healthcheck asserts 200 on it.

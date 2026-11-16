@@ -587,25 +587,32 @@ def launch_frontend(
             return 0
         time.sleep(1)
     _log(f"ERROR: frontend did not become ready within {timeout}s; see {log_file}")
-    cmd_stop_local(worktree_id)
+    cmd_stop_local(worktree_id, names={"frontend"})
+    _log(
+        "GMS left running; retry with 'datahub-dev.sh start --local' "
+        "or shut down with 'datahub-dev.sh stop'."
+    )
     return 1
 
 
-def cmd_stop_local(worktree_id: str) -> int:
-    """Stop the recorded launcher and frontend only after proving ownership."""
+def cmd_stop_local(worktree_id: str, *, names: set[str] | None = None) -> int:
+    """Stop all or selected recorded processes only after proving ownership."""
     _require_owned(worktree_id)
     data_dir = local_data_dir(worktree_id)
     pids_file = data_dir / "pids.json"
     pids = _load_pids(pids_file)
+    selected = {
+        name: pid for name, pid in pids.items() if names is None or name in names
+    }
 
-    if not pids:
+    if not selected:
         _log("No local stack PIDs found; nothing to stop.")
         return 0
 
     # A saved PID may have exited long ago and been reused by an unrelated process;
     # signalling its process group would hit that process. Only signal our own.
     owned: dict[str, int] = {}
-    for name, pid in pids.items():
+    for name, pid in selected.items():
         if _owned_by(pid, data_dir):
             owned[name] = pid
         else:
@@ -640,17 +647,25 @@ def cmd_stop_local(worktree_id: str) -> int:
         except (ProcessLookupError, PermissionError):
             pass
 
-    if any(_owned_by(pid, data_dir, unknown=True) for pid in pids.values()):
+    if any(_owned_by(pid, data_dir, unknown=True) for pid in selected.values()):
         _log(
             "ERROR: process ownership is unknown or it did not stop; PID file retained"
         )
         return 1
-    pids_file.unlink(missing_ok=True)
-    _log("Local stack stopped.")
+    remaining = {name: pid for name, pid in pids.items() if name not in selected}
+    if remaining:
+        _save_pids(pids_file, remaining)
+    else:
+        pids_file.unlink(missing_ok=True)
+    _log(
+        "Local stack stopped." if names is None else "Selected local processes stopped."
+    )
     return 0
 
 
-def cmd_status_local(worktree_id: str, ports: dict[str, int]) -> int:
+def cmd_status_local(
+    worktree_id: str, ports: dict[str, int], *, quiet: bool = False
+) -> int:
     data_dir = local_data_dir(worktree_id)
     services: dict[str, dict[str, object]] = {}
     stack: dict[str, object] = {}
@@ -662,7 +677,6 @@ def cmd_status_local(worktree_id: str, ports: dict[str, int]) -> int:
     assert isinstance(urls, dict)
     for name, url in urls.items():
         services[name] = {"url": url, "healthy": _http_ok(f"{url}/health")}
-    ready = bool(services) and all(service["healthy"] for service in services.values())
     record = read_instance_record(worktree_id) or {}
     options = cast(dict[str, object], record.get("local_options", {}))
     if not options.get("no_frontend", False):
@@ -674,6 +688,9 @@ def cmd_status_local(worktree_id: str, ports: dict[str, int]) -> int:
             "healthy": bool(frontend_pid and _owned_by(frontend_pid, data_dir))
             and _http_ok(f"{frontend_url}/health"),
         }
+    ready = bool(services) and all(service["healthy"] for service in services.values())
+    if quiet:
+        return 0 if ready else 1
     manager = opensearch_manager()
     status = manager.status()
     if status["healthy"]:
