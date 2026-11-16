@@ -1,0 +1,8 @@
+relationship 00000011-1111-4222-8333-000000000011
+	fromColumn: Claims.PolicyId
+	toColumn: Policies.PolicyId
+
+relationship 00000016-1111-4222-8333-000000000016
+	isActive: false
+	fromColumn: Policies.EffectiveDate
+	toColumn: 'Claims By State'.State

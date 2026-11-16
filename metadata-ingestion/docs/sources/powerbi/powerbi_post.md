@@ -60,6 +60,36 @@ PowerBI ingestion uses two metadata paths per workspace:
 
 When the fallback engages, the ingestion report includes a **Report Scan Fallback Active** entry per workspace so you can correlate that workspace's slower ingestion with the missing scan output.
 
+#### Workspace APIs mode
+
+`metadata_api_mode: workspace_apis` replaces the admin scan with workspace-scoped calls (see the prerequisites above for the permissions it needs):
+
+| Metadata                               | `admin_scan` (default)                              | `workspace_apis`                                                                                     |
+| -------------------------------------- | --------------------------------------------------- | ---------------------------------------------------------------------------------------------------- |
+| Datasets, tables, columns, measures    | Scanner API (`datasetSchema`, `datasetExpressions`) | `GET /groups/{id}/datasets` plus the semantic model's TMDL definition (`getDefinition`)              |
+| Table and column lineage               | M expressions from the scan                         | M expressions from TMDL partitions, through the same parser, so upstream URNs are identical          |
+| DirectLake lineage                     | Scan `relations` and Fabric artifact lists          | Fabric item listing; the lakehouse SQL endpoint referenced by the model is resolved to its lakehouse |
+| Table, column and measure descriptions | Dataset description only                            | TMDL `///` doc comments on tables, columns and measures                                              |
+| Ownership                              | Per-item users from the scan                        | Workspace role assignments (`GET /groups/{id}/users`)                                                |
+| Paginated report to dataset binding    | `/reports/{id}/datasources`                         | The report's `.rdl` definition, falling back to `/reports/{id}/datasources`                          |
+| Endorsements, apps, `modified_since`   | Supported                                           | Not available; the options are rejected                                                              |
+
+`getDefinition` is a long-running operation: the connector polls it and gives up after `scan_timeout` seconds per item, reporting the item under **Fabric Item Definition Not Fetched**. The report also carries `fabric_definitions_fetched`, `fabric_definitions_failed`, `fabric_lro_timeouts`, `tmdl_tables_parsed` and related counters.
+
+Call volume is roughly one Power BI listing per workspace plus one `getDefinition` per semantic model (and per report when `extract_report_field_usage` is enabled), instead of one scan per `scan_batch_size` workspaces. Fabric throttles at 500 calls per minute per principal; throttled calls are retried.
+
+##### Enrichment from item definitions
+
+These options are off by default and, except for `extract_refresh_history`, require `workspace_apis` mode:
+
+- `extract_model_relationships`: semantic-model relationships become foreign-key constraints on the `from` table's schema, pointing at the `to` table and column. Inactive relationships are included and marked `(inactive)` in the constraint name.
+- `extract_report_field_usage`: each report's definition is read to find the columns and measures its visuals use. Every report page chart gets an `inputFields` aspect pointing at those schema fields, and the `visualCount` and `visualTypes` custom properties. Fields that reference tables outside the report's dataset are counted under `report_field_references_unresolved`.
+- `extract_refresh_history`: the dataset's most recent refresh (`GET /groups/{id}/datasets/{id}/refreshes`) is emitted as an `Operation` aspect (`customOperationType: REFRESH`) on each of its tables when the refresh completed. Works in both modes and needs only the `Viewer` role.
+
+In `workspace_apis` mode the connector also emits lineage inside a semantic model: DAX calculated tables depend on the model tables they read, and, when `extract_column_level_lineage` is enabled, each measure gets fine-grained lineage from the columns of _other_ model tables its DAX references. References to columns of the measure's own table and to other measures (`[Total Premium]`) are not emitted as edges; the measure's DAX is kept in its schema-field description instead.
+
+Permission problems are reported as failures rather than warnings: a `401`/`403` from `getDefinition` or from the dataset listing removes that model's tables and lineage from the run, which would otherwise be soft-deleted by stale-entity removal on a green run.
+
 #### Lineage
 
 This source extracts table lineage for tables present in PowerBI Datasets. Lets consider a PowerBI Dataset `SALES_REPORT` and a PostgreSQL database is configured as data-source in `SALES_REPORT` dataset.
@@ -323,7 +353,7 @@ Personal workspaces are named after their owner. Unless `workspace_type_filter` 
 
 ### Limitations
 
-- Some metadata and lineage fields are only available through admin APIs or specific tenant settings.
+- Some metadata and lineage fields are only available through admin APIs or specific tenant settings. In `workspace_apis` mode endorsements, apps, `modified_since` and per-item owners are not available, and the service principal needs the `Contributor` role rather than read-only access.
 - Lineage quality depends on available model metadata and supported query/source patterns.
 - Large tenants with many workspaces can require longer extraction windows.
 

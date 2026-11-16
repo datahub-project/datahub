@@ -118,6 +118,92 @@ class TestPowerBiConfig:
             config = PowerBiDashboardSourceConfig.model_validate(config_dict)
             assert config == expected_config_or_exception
 
+    def test_certificate_path_auth_valid(self):
+        config = PowerBiDashboardSourceConfig.model_validate(
+            {
+                "tenant_id": "fake",
+                "client_id": "foo",
+                "certificate_path": "/path/to/cert.pem",
+            }
+        )
+        assert config.client_secret is None
+        assert config.certificate_path == "/path/to/cert.pem"
+
+    def test_certificate_data_auth_valid(self):
+        config = PowerBiDashboardSourceConfig.model_validate(
+            {
+                "tenant_id": "fake",
+                "client_id": "foo",
+                # Escaped newlines (as stored in single-line secrets) must be
+                # normalized to real newlines at parse time.
+                "certificate_data": r"-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----",
+                "certificate_password": "passphrase",
+            }
+        )
+        assert config.certificate_data is not None
+        assert (
+            config.certificate_data.get_secret_value()
+            == "-----BEGIN PRIVATE KEY-----\nabc\n-----END PRIVATE KEY-----"
+        )
+
+    def test_no_auth_method_invalid(self):
+        with pytest.raises(ValueError, match="No authentication method configured"):
+            PowerBiDashboardSourceConfig.model_validate(
+                {"tenant_id": "fake", "client_id": "foo"}
+            )
+
+    def test_secret_and_certificate_invalid(self):
+        with pytest.raises(ValueError, match="only one authentication method"):
+            PowerBiDashboardSourceConfig.model_validate(
+                {
+                    **self.base_config,
+                    "certificate_path": "/path/to/cert.pem",
+                }
+            )
+
+    def test_certificate_path_and_data_invalid(self):
+        with pytest.raises(
+            ValueError, match="only one of `certificate_path` or `certificate_data`"
+        ):
+            PowerBiDashboardSourceConfig.model_validate(
+                {
+                    "tenant_id": "fake",
+                    "client_id": "foo",
+                    "certificate_path": "/path/to/cert.pem",
+                    "certificate_data": "-----BEGIN PRIVATE KEY-----\n...",
+                }
+            )
+
+    def test_empty_client_secret_treated_as_unset(self):
+        # An unset secret variable resolves to "" — must give the actionable
+        # config error, not an opaque MSAL failure at runtime.
+        with pytest.raises(ValueError, match="No authentication method configured"):
+            PowerBiDashboardSourceConfig.model_validate(
+                {"tenant_id": "fake", "client_id": "foo", "client_secret": ""}
+            )
+
+    def test_empty_client_secret_with_certificate_valid(self):
+        config = PowerBiDashboardSourceConfig.model_validate(
+            {
+                "tenant_id": "fake",
+                "client_id": "foo",
+                "client_secret": "",
+                "certificate_path": "/path/to/cert.pem",
+            }
+        )
+        assert config.client_secret is None
+
+    def test_certificate_password_without_certificate_invalid(self):
+        with pytest.raises(
+            ValueError, match="`certificate_password` is set but no certificate"
+        ):
+            PowerBiDashboardSourceConfig.model_validate(
+                {
+                    **self.base_config,
+                    "certificate_password": "passphrase",
+                }
+            )
+
     def test_map_data_platform_postgresql_conversion(self):
         """Test that PostgreSql is converted to PostgreSQL."""
         config_dict = {

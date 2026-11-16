@@ -9,6 +9,7 @@ from datetime import datetime
 from typing import Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
+from dateutil import parser as date_parser
 
 import datahub.emitter.mce_builder as builder
 import datahub.ingestion.source.powerbi.m_query.data_classes
@@ -52,6 +53,7 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiAppUrlPattern,
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
+    PowerBiMetadataApiMode,
     PowerBIPlatformDetail,
     SupportedDataPlatform,
 )
@@ -67,7 +69,13 @@ from datahub.ingestion.source.powerbi.powerbi_selection import (
     WorkspaceFacts,
     workspace_verdict,
 )
+from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
+    FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT,
+)
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
+    dax_table_references,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     auto_stale_entity_removal,
@@ -100,7 +108,12 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     EdgeClass,
+    ForeignKeyConstraintClass,
     GlobalTagsClass,
+    InputFieldClass,
+    InputFieldsClass,
+    OperationClass,
+    OperationTypeClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -173,10 +186,94 @@ class Mapper:
             ),
         )
 
+    def make_dataset_urn_for_table(self, table: powerbi_data_classes.Table) -> str:
+        return self.assets_urn_to_lowercase(
+            builder.make_dataset_urn_with_platform_instance(
+                platform=self.__config.platform_name,
+                name=table.full_name,
+                platform_instance=self.__config.platform_instance,
+                env=self.__config.env,
+            )
+        )
+
+    def _foreign_keys_for_table(
+        self, table: powerbi_data_classes.Table, ds_urn: str
+    ) -> List[ForeignKeyConstraintClass]:
+        """Semantic-model relationships whose `from` side is this table."""
+        if not self.__config.extract_model_relationships or table.dataset is None:
+            return []
+        tables_by_name = {t.name: t for t in table.dataset.tables}
+        constraints: List[ForeignKeyConstraintClass] = []
+        for relationship in table.dataset.relationships:
+            if relationship.from_table != table.name:
+                continue
+            to_table = tables_by_name.get(relationship.to_table)
+            if to_table is None:
+                self._skip_relationship(
+                    relationship, table, f"unknown table {relationship.to_table}"
+                )
+                continue
+            # A key to a field the schema does not expose would be a dangling
+            # schemaField URN; renamed columns are the common cause.
+            if not any(c.name == relationship.from_column for c in table.columns or []):
+                self._skip_relationship(
+                    relationship,
+                    table,
+                    f"unknown column {relationship.from_table}.{relationship.from_column}",
+                )
+                continue
+            if not any(
+                c.name == relationship.to_column for c in to_table.columns or []
+            ):
+                self._skip_relationship(
+                    relationship,
+                    table,
+                    f"unknown column {relationship.to_table}.{relationship.to_column}",
+                )
+                continue
+            to_urn = self.make_dataset_urn_for_table(to_table)
+            name = (
+                f"{relationship.from_table}.{relationship.from_column} -> "
+                f"{relationship.to_table}.{relationship.to_column}"
+            )
+            if not relationship.is_active:
+                name = f"{name} (inactive)"
+            # ForeignKeyConstraint semantics: sourceFields live on this dataset,
+            # foreignFields on the referenced (foreign) dataset.
+            constraints.append(
+                ForeignKeyConstraintClass(
+                    name=name,
+                    sourceFields=[
+                        builder.make_schema_field_urn(ds_urn, relationship.from_column)
+                    ],
+                    foreignFields=[
+                        builder.make_schema_field_urn(to_urn, relationship.to_column)
+                    ],
+                    foreignDataset=to_urn,
+                )
+            )
+        return constraints
+
+    def _skip_relationship(
+        self,
+        relationship: powerbi_data_classes.Relationship,
+        table: powerbi_data_classes.Table,
+        reason: str,
+    ) -> None:
+        self.__reporter.relationships_unresolved += 1
+        self.__reporter.warning(
+            title="Relationship Not Mapped",
+            message="A semantic-model relationship references a table or column that is not in the model's schema; no foreign key is emitted for it.",
+            context=f"table={table.full_name}, relationship={relationship.name}, {reason}",
+        )
+
     def extract_dataset_schema(
         self, table: powerbi_data_classes.Table, ds_urn: str
     ) -> List[MetadataChangeProposalWrapper]:
         schema_metadata = self.to_datahub_schema(table)
+        foreign_keys = self._foreign_keys_for_table(table, ds_urn)
+        if foreign_keys:
+            schema_metadata.foreignKeys = foreign_keys
         schema_mcp = MetadataChangeProposalWrapper(
             entityUrn=ds_urn,
             aspect=schema_metadata,
@@ -187,7 +284,12 @@ class Mapper:
         self,
         lineage: datahub.ingestion.source.powerbi.m_query.data_classes.Lineage,
         dataset_urn: str,
+        upstream_urns: Optional[Set[str]] = None,
     ) -> List[FineGrainedLineage]:
+        """`upstream_urns`, when given, are the (already lowercased, if
+        configured) table URNs kept as coarse upstreams; column references to
+        any other table are dropped so column lineage never points at a table
+        the dataset_type_mapping filtered out."""
         fine_grained_lineages: List[FineGrainedLineage] = []
 
         if (
@@ -222,7 +324,13 @@ class Mapper:
                 )
                 for column_ref in cll_info.upstreams
                 if column_ref.column
+                and (
+                    upstream_urns is None
+                    or self.lineage_urn_to_lowercase(column_ref.table) in upstream_urns
+                )
             ]
+            if not upstreams:
+                continue
 
             fine_grained_lineages.append(
                 FineGrainedLineage(
@@ -297,7 +405,7 @@ class Mapper:
         # (from relations.dependentOnArtifactId) so lineage URNs match the OneLake connector;
         # we do not model SQLAnalyticsEndpoint as an entity (if we do, align with OneLake connector).
         # Lineage to an SQLAnalyticsEndpoint id is not emitted; we require at least one resolved physical id.
-        if artifact.artifact_type == "SQLAnalyticsEndpoint":
+        if artifact.artifact_type == FABRIC_ARTIFACT_SQL_ANALYTICS_ENDPOINT:
             item_ids = artifact.physical_item_ids if artifact.physical_item_ids else []
             if not item_ids:
                 logger.warning(
@@ -355,7 +463,9 @@ class Mapper:
 
         # Check for DirectLake storage mode first - use Fabric lineage path
         if table.storage_mode == Constant.DIRECT_LAKE:
-            return self.extract_directlake_lineage(table, ds_urn, workspace)
+            return self._directlake_lineage_with_model_internal(
+                table, ds_urn, workspace
+            )
 
         # Existing M-Query parsing logic for other storage modes (Import, DirectQuery, etc.)
         # table.dataset should always be set, but we check it just in case.
@@ -384,6 +494,7 @@ class Mapper:
         )
 
         for lineage in upstream_lineage:
+            mapped_upstreams = 0
             for upstream_dpt in lineage.upstreams:
                 platform_name = (
                     upstream_dpt.data_platform_pair.powerbi_data_platform_name
@@ -400,14 +511,21 @@ class Mapper:
                 )
 
                 upstream.append(upstream_table_class)
+                mapped_upstreams += 1
 
-                # Add column level lineage if any
+            # Column lineage belongs to the Lineage object, not to each of its
+            # upstream tables; adding it inside the loop above duplicated every
+            # fine-grained edge once per upstream table.
+            if mapped_upstreams > 0:
                 cll_lineage.extend(
                     self.make_fine_grained_lineage_class(
                         lineage=lineage,
                         dataset_urn=ds_urn,
+                        upstream_urns={u.dataset for u in upstream},
                     )
                 )
+
+        self._add_model_internal_lineage(table, ds_urn, upstream, cll_lineage)
 
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
@@ -424,6 +542,154 @@ class Mapper:
             mcps.append(mcp)
 
         return mcps
+
+    def _directlake_lineage_with_model_internal(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        workspace: powerbi_data_classes.Workspace,
+    ) -> List[MetadataChangeProposalWrapper]:
+        """DirectLake OneLake lineage merged with the model-internal edges
+        (calculated-table and measure references) of the same table."""
+        mcps = self.extract_directlake_lineage(table, ds_urn, workspace)
+        existing: Optional[UpstreamLineageClass] = next(
+            (
+                mcp.aspect
+                for mcp in mcps
+                if isinstance(mcp.aspect, UpstreamLineageClass)
+            ),
+            None,
+        )
+        upstreams: List[UpstreamClass] = (
+            existing.upstreams if existing is not None else []
+        )
+        cll_lineage: List[FineGrainedLineage] = []
+        self._add_model_internal_lineage(table, ds_urn, upstreams, cll_lineage)
+        if existing is not None:
+            existing.fineGrainedLineages = cll_lineage or None
+        elif upstreams:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=ds_urn,
+                    aspect=UpstreamLineageClass(
+                        upstreams=upstreams, fineGrainedLineages=cll_lineage or None
+                    ),
+                )
+            )
+        return mcps
+
+    def _add_model_internal_lineage(
+        self,
+        table: powerbi_data_classes.Table,
+        ds_urn: str,
+        upstream: List[UpstreamClass],
+        cll_lineage: List[FineGrainedLineage],
+    ) -> None:
+        """Lineage between tables of the same semantic model, available only
+        from TMDL definitions: a calculated table reads other model tables,
+        and a measure reads columns (possibly on other tables). Both become
+        same-platform edges; measure -> column edges are fine-grained."""
+        dataset = table.dataset
+        if dataset is None:
+            return
+        tables_by_name = {t.name: t for t in dataset.tables}
+        known_upstreams = {u.dataset for u in upstream}
+
+        def add_table_upstream(table_name: str) -> Optional[str]:
+            other = tables_by_name.get(table_name)
+            if other is None or other.name == table.name:
+                return None
+            other_urn = self.make_dataset_urn_for_table(other)
+            if other_urn not in known_upstreams:
+                known_upstreams.add(other_urn)
+                upstream.append(
+                    UpstreamClass(other_urn, DatasetLineageTypeClass.TRANSFORMED)
+                )
+            return other_urn
+
+        if table.calculated_expression:
+            for table_name in dax_table_references(table.calculated_expression):
+                add_table_upstream(table_name)
+
+        if self.__config.extract_column_level_lineage is False or not table.measures:
+            return
+        for measure in table.measures:
+            upstream_fields: List[str] = []
+            for reference in measure.references:
+                if reference.table is None or reference.table == table.name:
+                    # Bare [Measure] references are carried by that measure's
+                    # own edges, and a same-table column reference would be a
+                    # self-edge on this dataset; the DAX is already in the
+                    # measure's field description.
+                    continue
+                referenced_table = tables_by_name.get(reference.table)
+                if referenced_table is None:
+                    continue
+                exposed_fields = {c.name for c in referenced_table.columns or []} | {
+                    m.name for m in referenced_table.measures or []
+                }
+                if reference.field not in exposed_fields:
+                    # No edge to a field the referenced table does not expose
+                    # (renamed column, or a false match inside a DAX literal).
+                    self.__reporter.measure_references_unresolved += 1
+                    continue
+                referenced_urn = add_table_upstream(reference.table)
+                if referenced_urn is None:
+                    continue
+                upstream_fields.append(
+                    builder.make_schema_field_urn(referenced_urn, reference.field)
+                )
+            if upstream_fields:
+                cll_lineage.append(
+                    FineGrainedLineage(
+                        downstreamType=FineGrainedLineageDownstreamType.FIELD,
+                        downstreams=[
+                            builder.make_schema_field_urn(ds_urn, measure.name)
+                        ],
+                        upstreamType=FineGrainedLineageUpstreamType.FIELD_SET,
+                        upstreams=upstream_fields,
+                    )
+                )
+
+    def _refresh_operation_mcp(
+        self, dataset: powerbi_data_classes.PowerBIDataset, ds_urn: str
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        refresh = dataset.last_refresh
+        if (
+            not self.__config.extract_refresh_history
+            or refresh is None
+            or refresh.status != Constant.REFRESH_STATUS_COMPLETED
+            or not refresh.end_time
+        ):
+            return None
+        try:
+            end_ms = int(date_parser.isoparse(refresh.end_time).timestamp() * 1000)
+        except (ValueError, OverflowError):
+            self.__reporter.refresh_history_unparseable += 1
+            logger.debug(
+                "Unparseable refresh endTime %r for %s", refresh.end_time, ds_urn
+            )
+            return None
+        custom_properties = {
+            key: value
+            for key, value in (
+                (Constant.REFRESH_TYPE, refresh.refresh_type),
+                (Constant.STATUS, refresh.status),
+                (Constant.REQUEST_ID, refresh.request_id),
+                (Constant.START_TIME, refresh.start_time),
+            )
+            if value
+        }
+        return MetadataChangeProposalWrapper(
+            entityUrn=ds_urn,
+            aspect=OperationClass(
+                timestampMillis=end_ms,
+                lastUpdatedTimestamp=end_ms,
+                operationType=OperationTypeClass.CUSTOM,
+                customOperationType=Constant.CUSTOM_OPERATION_REFRESH,
+                customProperties=custom_properties,
+            ),
+        )
 
     def create_datahub_owner_urn(self, user: str) -> str:
         """
@@ -523,14 +789,7 @@ class Mapper:
 
         for table in dataset.tables:
             # Create a URN for dataset
-            ds_urn = self.assets_urn_to_lowercase(
-                builder.make_dataset_urn_with_platform_instance(
-                    platform=self.__config.platform_name,
-                    name=table.full_name,
-                    platform_instance=self.__config.platform_instance,
-                    env=self.__config.env,
-                )
-            )
+            ds_urn = self.make_dataset_urn_for_table(table)
 
             logger.debug(f"dataset_urn={ds_urn}")
             # Create datasetProperties mcp
@@ -553,7 +812,9 @@ class Mapper:
                 dataset_mcps.extend([view_prop_mcp])
             ds_properties = DatasetPropertiesClass(
                 name=table.name,
-                description=dataset.description,
+                # TMDL `///` table doc comments are more specific than the
+                # dataset description; the scan API never supplies them.
+                description=table.description or dataset.description,
                 externalUrl=dataset.webUrl,
                 customProperties={
                     "datasetId": dataset.id,
@@ -635,6 +896,10 @@ class Mapper:
 
             if self.__config.extract_lineage is True:
                 dataset_mcps.extend(self.extract_lineage(table, ds_urn, workspace))
+
+            operation_mcp = self._refresh_operation_mcp(dataset, ds_urn)
+            if operation_mcp is not None:
+                dataset_mcps.append(operation_mcp)
 
             self.append_container_mcp(
                 dataset_mcps,
@@ -1342,6 +1607,66 @@ class Mapper:
         # Return set of work_unit
         return deduplicate_list(work_units, lambda wu: wu.id)
 
+    def _page_input_fields_mcp(
+        self,
+        page: powerbi_data_classes.Page,
+        report: powerbi_data_classes.Report,
+        chart_urn: str,
+    ) -> Optional[MetadataChangeProposalWrapper]:
+        """Model columns and measures the page's visuals read, as inputFields
+        pointing at the semantic-model tables' schema fields."""
+        if not page.field_references or report.dataset is None:
+            return None
+        tables_by_name = {t.name: t for t in report.dataset.tables}
+        fields: List[InputFieldClass] = []
+        for reference in page.field_references:
+            table = tables_by_name.get(reference.table)
+            if table is None:
+                self.__reporter.report_field_references_unresolved += 1
+                logger.debug(
+                    "Visual field %s[%s] on page %s not found in dataset %s",
+                    reference.table,
+                    reference.field,
+                    page.name,
+                    report.dataset.id,
+                )
+                continue
+            model_fields: List[
+                Union[powerbi_data_classes.Column, powerbi_data_classes.Measure]
+            ] = [*(table.columns or []), *(table.measures or [])]
+            schema_field = next(
+                (
+                    model_field
+                    for model_field in model_fields
+                    if model_field.name == reference.field
+                ),
+                None,
+            )
+            if schema_field is None:
+                self.__reporter.report_field_references_unresolved += 1
+                logger.debug(
+                    "Visual field %s[%s] on page %s not found in table schema",
+                    reference.table,
+                    reference.field,
+                    page.name,
+                )
+                continue
+            field_urn = builder.make_schema_field_urn(
+                self.make_dataset_urn_for_table(table), reference.field
+            )
+            fields.append(
+                InputFieldClass(
+                    schemaFieldUrn=field_urn,
+                    schemaField=self.to_datahub_schema_field(schema_field),
+                )
+            )
+            self.__reporter.report_field_references_resolved += 1
+        if not fields:
+            return None
+        return MetadataChangeProposalWrapper(
+            entityUrn=chart_urn, aspect=InputFieldsClass(fields=fields)
+        )
+
     def pages_to_chart(
         self,
         pages: List[powerbi_data_classes.Page],
@@ -1375,6 +1700,12 @@ class Mapper:
                 [x for x in ds_mcps if x.entityType == Constant.DATASET]
             )
 
+            custom_properties = {Constant.ORDER: str(page.order)}
+            if page.visual_count is not None:
+                custom_properties[Constant.VISUAL_COUNT] = str(page.visual_count)
+            if page.visual_types:
+                custom_properties[Constant.VISUAL_TYPES] = ", ".join(page.visual_types)
+
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
             chart_info_instance = ChartInfoClass(
@@ -1382,13 +1713,15 @@ class Mapper:
                 description=page.displayName or "",
                 lastModified=ChangeAuditStamps(),
                 inputs=ds_input,
-                customProperties={Constant.ORDER: str(page.order)},
+                customProperties=custom_properties,
             )
 
             info_mcp = MetadataChangeProposalWrapper(
                 entityUrn=chart_urn,
                 aspect=chart_info_instance,
             )
+
+            input_fields_mcp = self._page_input_fields_mcp(page, report, chart_urn)
 
             # removed status mcp
             status_mcp = MetadataChangeProposalWrapper(
@@ -1434,6 +1767,8 @@ class Mapper:
                 browse_path_mcp,
                 data_platform_instance_mcp,
             ]
+            if input_fields_mcp is not None:
+                list_of_mcps.append(input_fields_mcp)
 
             self.append_container_mcp(
                 list_of_mcps,
@@ -1679,13 +2014,13 @@ class Mapper:
     ],
 )
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
-@capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
 @capability(SourceCapability.TAGS, "Enabled by default")
 @capability(
     SourceCapability.OWNERSHIP,
-    "Disabled by default, configured using `extract_ownership`",
+    "Disabled by default, configured using `extract_ownership`. In "
+    "`metadata_api_mode: workspace_apis` owners come from workspace roles.",
 )
 @capability(
     SourceCapability.LINEAGE_COARSE,
@@ -1698,6 +2033,10 @@ class Mapper:
 @capability(
     SourceCapability.DATA_PROFILING,
     "Optionally enabled via configuration profiling.enabled",
+)
+@capability(
+    SourceCapability.OPERATION_CAPTURE,
+    "Optionally enabled via `extract_refresh_history`: the latest dataset refresh as an Operation aspect",
 )
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
 @capability(
@@ -2078,24 +2417,44 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     f"Fetching initial metadata for workspaces: {[w.format_name_for_logger() for w in batch_workspaces]}"
                 )
                 try:
-                    excluded_workspace_ids.update(
-                        self.powerbi_client.fill_metadata_from_scan_result(
-                            batch_workspaces
+                    if (
+                        self.source_config.metadata_api_mode
+                        == PowerBiMetadataApiMode.WORKSPACE_APIS
+                    ):
+                        excluded_workspace_ids.update(
+                            self.powerbi_client.fill_metadata_from_definitions(
+                                batch_workspaces
+                            )
                         )
-                    )
+                    else:
+                        excluded_workspace_ids.update(
+                            self.powerbi_client.fill_metadata_from_scan_result(
+                                batch_workspaces
+                            )
+                        )
                 except Exception as e:
                     # Phase 1 must not abort the whole ingestion: an unhandled
                     # exception here would mean zero workunits emitted from any
-                    # batch. Record one "Incomplete Scan Metadata" warning per
-                    # affected workspace (reporter.warning includes the traceback
-                    # via exc=) so the gap is discoverable in the source report,
-                    # then fall through to Phase 2 with empty scan_result.
+                    # batch. Record one "Incomplete Scan Metadata" entry per
+                    # affected workspace (the traceback rides along via exc=)
+                    # so the gap is discoverable in the source report, then
+                    # fall through to Phase 2 with empty scan_result. In
+                    # workspace_apis mode the per-workspace endpoints are the
+                    # only source of datasets, so this is a failure: a green
+                    # run would let stale-entity removal soft-delete the tables.
+                    report_phase1 = (
+                        self.reporter.failure
+                        if self.source_config.metadata_api_mode
+                        == PowerBiMetadataApiMode.WORKSPACE_APIS
+                        else self.reporter.warning
+                    )
                     for ws in batch_workspaces:
-                        self.reporter.warning(
+                        report_phase1(
                             title="Incomplete Scan Metadata",
                             message=(
-                                "Phase 1 scan batch failed; this workspace "
-                                "will be ingested with empty scan metadata."
+                                "Phase 1 (scan or definition fetch) failed for "
+                                "this batch; the workspace will be ingested "
+                                "without datasets, schema or lineage."
                             ),
                             context=f"workspace={ws.name} id={ws.id}",
                             exc=e,
@@ -2104,6 +2463,12 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                 # write them back or the mutations are lost on cache eviction.
                 for ws in batch_workspaces:
                     workspaces[ws.id] = ws
+
+            if (
+                self.source_config.metadata_api_mode
+                == PowerBiMetadataApiMode.WORKSPACE_APIS
+            ):
+                self.powerbi_client.report_if_no_definitions_fetched()
 
             # Phase 2: fetch the rest of the metadata per workspace. We skip
             # workspaces the scan excluded (inactive or wrong type) to avoid
@@ -2118,9 +2483,11 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                         workspace=workspace
                     )
                 except Exception as e:
-                    self.reporter.warning(
+                    # A skipped workspace emits nothing, so a green run would
+                    # soft-delete all of its entities under stale-entity removal.
+                    self.reporter.failure(
                         title="Failed to Fetch Workspace Metadata",
-                        message="Phase 2 metadata fetch failed for this workspace; it will be skipped.",
+                        message="Phase 2 metadata fetch failed for this workspace; it is skipped.",
                         context=f"workspace={workspace.name} id={workspace.id}",
                         exc=e,
                     )
