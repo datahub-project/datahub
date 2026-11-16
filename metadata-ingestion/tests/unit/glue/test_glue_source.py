@@ -994,7 +994,7 @@ def test_resource_link_view_in_datahub_without_definition(
     view_logic: Optional[str],
 ) -> None:
     # DataHub says the owner is a View but its view definition is missing or unreadable, so Glue
-    # is asked: its answer wins, and the link stays a View only when Glue can't be read.
+    # is asked and its answer wins; if Glue can't be read, the link stays a View with empty SQL.
     source = _resource_link_schema_source()
     source.ctx.graph = _owner_graph(sub_types=["View"], view_aspect=view_aspect)
 
@@ -1070,16 +1070,21 @@ def test_resource_link_stays_table_when_owner_is_table_or_unknown(
     )
 
 
-@pytest.mark.parametrize("case", ["flag-off", "link-has-table-type"])
+@pytest.mark.parametrize(
+    "case", ["flag-off", "link-has-table-type", "link-has-columns"]
+)
 def test_resource_link_type_not_looked_up(case: str) -> None:
-    # A link that already carries a TableType, or resolve_resource_link_schema=False, skips the
-    # owner View/Table lookup.
+    # A link that already carries a TableType or its own columns (as tables under a
+    # database-level link do), or resolve_resource_link_schema=False, skips the owner View/Table
+    # lookup.
     source = _resource_link_schema_source(resolve=case != "flag-off")
     graph = _owner_graph(sub_types=["View"])
     source.ctx.graph = graph
     link = dict(resource_link_table_in_mixed_database)
     if case == "link-has-table-type":
         link["TableType"] = "EXTERNAL_TABLE"
+    if case == "link-has-columns":
+        link["StorageDescriptor"] = {"Columns": [{"Name": "txn_id", "Type": "bigint"}]}
 
     wus, _ = _link_wus(source, link=link)
 

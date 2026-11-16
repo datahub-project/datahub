@@ -1274,10 +1274,14 @@ class GlueSource(StatefulIngestionSourceBase):
     def _resource_link_view_properties(
         self, table: Dict, dataset_urn: str, table_name: str
     ) -> Optional[ViewPropertiesClass]:
-        """View properties for a resource link listed without a ``TableType`` whose owning table
-        is a view; None otherwise."""
-        if not self.source_config.resolve_resource_link_schema or table.get(
-            "TableType"
+        """View properties for a resource link listed as a bare pointer (no ``TableType`` or
+        columns) whose owning table is a view; None otherwise."""
+        # A row with its own columns is the owner's table itself (e.g. under a database-level
+        # link); without a TableType it is not a view, so there is nothing to look up.
+        if (
+            not self.source_config.resolve_resource_link_schema
+            or table.get("TableType")
+            or table.get("StorageDescriptor")
         ):
             return None
         target = table.get("TargetTable")
@@ -1315,8 +1319,8 @@ class GlueSource(StatefulIngestionSourceBase):
         if owner_view is not None:
             return owner_view
 
-        # Type unknown, or DataHub says View but has no definition: Glue has both, and its live
-        # answer wins. A View from DataHub stays a View only if Glue can't be read.
+        # Type unknown, or DataHub says View but has no definition: ask Glue, whose live answer
+        # wins. If Glue can't be read, a View from DataHub is kept with empty SQL.
         owner_table = self._resource_link_owner_table_from_glue(target)
         if owner_table is not None:
             if owner_table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE:
