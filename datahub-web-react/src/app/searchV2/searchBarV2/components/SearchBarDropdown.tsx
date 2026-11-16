@@ -14,12 +14,15 @@ const DropdownContainer = styled.div`
     background: ${(props) => props.theme.colors.bg};
 `;
 
-// antd's Select (rc-select 14) renders each option row with aria-selected but no role, and gives group
-// headings in its screen-reader list role="presentation" plus aria-selected. Both are invalid ARIA, and
-// neither can be changed through the options, so they're corrected on the rendered menu.
+// antd's Select (rc-select 14) keeps the accessible listbox in a hidden copy of the list, and the
+// visible rows are only for the pointer. It still puts aria-selected on those visible rows, which have
+// no role, and on group headings in the hidden list, which are role="presentation". Both are invalid
+// ARIA and neither can be changed through the options, so it's removed from the rendered menu. The
+// hidden listbox's own options keep it.
 function fixSelectOptionAria(root: HTMLElement) {
-    root.querySelectorAll('.ant-select-item-option:not([role])').forEach((el) => el.setAttribute('role', 'option'));
-    root.querySelectorAll('[role="presentation"][aria-selected]').forEach((el) => el.removeAttribute('aria-selected'));
+    root.querySelectorAll('.ant-select-item-option[aria-selected], [role="presentation"][aria-selected]').forEach(
+        (el) => el.removeAttribute('aria-selected'),
+    );
 }
 
 interface Props {

@@ -9,21 +9,26 @@ import themeV2 from '@conf/theme/themeV2';
 // The markup antd's Select renders: a screen-reader list with a group heading, and visible option rows.
 // Injected as HTML because it is the invalid ARIA under test.
 const ANTD_SELECT_MARKUP = `
-    <div role="listbox"><div role="presentation" aria-selected="false" data-testid="a11y-heading"></div></div>
+    <div role="listbox">
+        <div role="presentation" aria-selected="false" data-testid="a11y-heading"></div>
+        <div role="option" aria-selected="false" data-testid="a11y-option">orders</div>
+    </div>
     <div class="ant-select-item ant-select-item-option" aria-selected="false" data-testid="option-row">orders</div>
 `;
 const menu = <div dangerouslySetInnerHTML={{ __html: ANTD_SELECT_MARKUP }} />;
 
 describe('SearchBarDropdown', () => {
-    it('corrects the ARIA antd puts on select options', async () => {
+    it('removes the invalid aria-selected antd puts on visible rows and headings', async () => {
         render(
             <ThemeProvider theme={themeV2}>
                 <SearchBarDropdown menu={menu} query="" />
             </ThemeProvider>,
         );
 
-        await waitFor(() => expect(screen.getByTestId('option-row')).toHaveAttribute('role', 'option'));
-        expect(screen.getByTestId('option-row')).toHaveAttribute('aria-selected', 'false');
+        await waitFor(() => expect(screen.getByTestId('option-row')).not.toHaveAttribute('aria-selected'));
+        // The visible row stays roleless: an option outside a listbox is its own violation.
+        expect(screen.getByTestId('option-row')).not.toHaveAttribute('role');
         expect(screen.getByTestId('a11y-heading')).not.toHaveAttribute('aria-selected');
+        expect(screen.getByTestId('a11y-option')).toHaveAttribute('aria-selected', 'false');
     });
 });
