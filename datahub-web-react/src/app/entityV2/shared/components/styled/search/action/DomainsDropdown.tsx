@@ -11,12 +11,12 @@ import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 
 type Props = {
     urns: Array<string>;
-    disabled: boolean;
+    disabledReason?: string;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DomainsDropdown({ urns, disabled = false, refetch }: Props) {
+export default function DomainsDropdown({ urns, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isUnsetModalVisible, setIsUnsetModalVisible] = useState(false);
@@ -66,7 +66,7 @@ export default function DomainsDropdown({ urns, disabled = false, refetch }: Pro
                         },
                     },
                 ]}
-                disabled={disabled}
+                disabledReason={disabledReason}
             />
             {isEditModalVisible && (
                 <SetDomainModal

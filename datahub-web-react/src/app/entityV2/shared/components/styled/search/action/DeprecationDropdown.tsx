@@ -12,12 +12,12 @@ import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated'
 
 type Props = {
     urns: Array<string>;
-    disabled: boolean;
+    disabledReason?: string;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DeprecationDropdown({ urns, disabled = false, refetch }: Props) {
+export default function DeprecationDropdown({ urns, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -72,7 +72,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                         },
                     },
                 ]}
-                disabled={disabled}
+                disabledReason={disabledReason}
             />
             {isEditModalVisible && (
                 <UpdateDeprecationModal

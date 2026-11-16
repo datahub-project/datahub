@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Aggiungi Termini",
     "searchActions.glossaryTerms.name": "Termini",
     "searchActions.glossaryTerms.removeTitle": "Rimuovi Termini",
+    "searchActions.noSelection": "Seleziona almeno un asset per usare questa azione.",
     "searchActions.notSupported": "Questa azione non è supportata per i tipi selezionati.",
     "searchActions.owners.addTitle": "Aggiungi proprietari",
     "searchActions.owners.removeTitle": "Rimuovi proprietari",

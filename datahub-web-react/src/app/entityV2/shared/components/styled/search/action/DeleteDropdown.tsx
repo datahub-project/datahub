@@ -10,12 +10,12 @@ import { useBatchUpdateSoftDeletedMutation } from '@graphql/mutations.generated'
 
 type Props = {
     urns: Array<string>;
-    disabled: boolean;
+    disabledReason?: string;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DeleteDropdown({ urns, disabled = false, refetch }: Props) {
+export default function DeleteDropdown({ urns, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const { t: tc } = useTranslation('common.actions');
     const [batchUpdateSoftDeletedMutation] = useBatchUpdateSoftDeletedMutation();
@@ -58,7 +58,7 @@ export default function DeleteDropdown({ urns, disabled = false, refetch }: Prop
                         },
                     },
                 ]}
-                disabled={disabled}
+                disabledReason={disabledReason}
             />
             <ConfirmationModal
                 isOpen={showConfirmModal}

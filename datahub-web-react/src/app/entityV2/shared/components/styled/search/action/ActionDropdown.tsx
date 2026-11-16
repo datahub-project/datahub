@@ -1,7 +1,6 @@
 import { Menu, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import React, { useMemo } from 'react';
-import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ItemType } from '@components/components/Menu/types';
@@ -32,11 +31,11 @@ type Action = {
 type Props = {
     name: string;
     actions: Array<Action>;
-    disabled?: boolean;
+    disabledReason?: string;
 };
 
-export default function ActionDropdown({ name, actions, disabled }: Props) {
-    const { t } = useTranslation('entity.shared.components');
+export default function ActionDropdown({ name, actions, disabledReason }: Props) {
+    const disabled = !!disabledReason;
 
     const items: ItemType[] = useMemo(
         () =>
@@ -50,9 +49,9 @@ export default function ActionDropdown({ name, actions, disabled }: Props) {
     );
 
     return (
-        <Tooltip title={disabled ? t('searchActions.notSupported') : ''}>
+        <Tooltip title={disabledReason ?? ''}>
             <Menu items={items} disabled={disabled} trigger={['click']}>
-                <DropdownWrapper disabled={!!disabled}>
+                <DropdownWrapper disabled={disabled}>
                     {name}
                     <DownArrow />
                 </DropdownWrapper>

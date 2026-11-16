@@ -96,6 +96,7 @@
     "searchActions.glossaryTerms.addTitle": "Fogalomtári kifejezések hozzáadása",
     "searchActions.glossaryTerms.name": "Fogalomtári kifejezések",
     "searchActions.glossaryTerms.removeTitle": "Fogalomtári kifejezések eltávolítása",
+    "searchActions.noSelection": "A művelet használatához jelöljön ki legalább egy eszközt.",
     "searchActions.notSupported": "Ez a művelet nem támogatott a kijelölt típusok esetében.",
     "searchActions.owners.addTitle": "Tulajdonosok hozzáadása",
     "searchActions.owners.removeTitle": "Tulajdonosok eltávolítása",

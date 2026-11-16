@@ -93,6 +93,7 @@
     "searchActions.glossaryTerms.addTitle": "Glossary Termを追加",
     "searchActions.glossaryTerms.name": "Glossary Term",
     "searchActions.glossaryTerms.removeTitle": "Glossary Termを外す",
+    "searchActions.noSelection": "このアクションを使用するには、少なくとも1つのAssetを選択してください。",
     "searchActions.notSupported": "このアクションは選択したタイプではサポートされていません。",
     "searchActions.owners.addTitle": "Ownerを追加",
     "searchActions.owners.removeTitle": "Ownerの割り当てを解除",

@@ -93,6 +93,7 @@
     "searchActions.glossaryTerms.addTitle": "新增詞彙",
     "searchActions.glossaryTerms.name": "詞彙",
     "searchActions.glossaryTerms.removeTitle": "移除詞彙",
+    "searchActions.noSelection": "請至少選取一項資料資產以使用此動作。",
     "searchActions.notSupported": "所選類型不支援此動作。",
     "searchActions.owners.addTitle": "新增擁有者",
     "searchActions.owners.removeTitle": "移除擁有者",

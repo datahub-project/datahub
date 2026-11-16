@@ -1,4 +1,5 @@
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import DataProductsDropdown from '@app/entityV2/shared/components/styled/search/action/DataProductsDropdown';
@@ -44,6 +45,7 @@ export const SearchSelectActions = ({
     visibleActionGroups = new Set(DEFAULT_ACTION_GROUPS),
     refetch,
 }: Props) => {
+    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     /**
@@ -62,75 +64,60 @@ export const SearchSelectActions = ({
         );
     };
 
+    const getDisabledReason = (type: EntityCapabilityType): string | undefined => {
+        if (selectedEntityUrns.length === 0) return t('searchActions.noSelection');
+        if (!isEntityCapabilitySupported(type, selectedEntityTypes)) return t('searchActions.notSupported');
+        return undefined;
+    };
+
     return (
         <>
             {visibleActionGroups.has(SelectActionGroups.CHANGE_OWNERS) && (
                 <OwnersDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.OWNERS, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.OWNERS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (
                 <GlossaryTermDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.GLOSSARY_TERMS, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.GLOSSARY_TERMS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_TAGS) && (
                 <TagsDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.TAGS, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.TAGS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DOMAINS) && (
                 <DomainDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DOMAINS, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.DOMAINS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (
                 <DeprecationDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DEPRECATION, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.DEPRECATION)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.DELETE) && (
                 <DeleteDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.SOFT_DELETE, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.SOFT_DELETE)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DATA_PRODUCTS) && (
                 <DataProductsDropdown
                     urns={selectedEntityUrns}
-                    disabled={
-                        selectedEntityUrns.length === 0 ||
-                        !isEntityCapabilitySupported(EntityCapabilityType.DATA_PRODUCTS, selectedEntityTypes)
-                    }
+                    disabledReason={getDisabledReason(EntityCapabilityType.DATA_PRODUCTS)}
                     refetch={refetch}
                 />
             )}

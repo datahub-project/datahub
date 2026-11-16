@@ -7,12 +7,12 @@ import { OperationType } from '@app/sharedV2/tags/useBatchTagTermMutation';
 
 type Props = {
     urns: Array<string>;
-    disabled: boolean;
+    disabledReason?: string;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function GlossaryTermsDropdown({ urns, disabled = false, refetch }: Props) {
+export default function GlossaryTermsDropdown({ urns, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [operationType, setOperationType] = useState(OperationType.ADD);
@@ -37,7 +37,7 @@ export default function GlossaryTermsDropdown({ urns, disabled = false, refetch 
                         },
                     },
                 ]}
-                disabled={disabled}
+                disabledReason={disabledReason}
             />
             {isEditModalVisible && (
                 <AddTermsModal

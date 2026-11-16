@@ -102,6 +102,7 @@
     "searchActions.glossaryTerms.addTitle": "Добавить термины",
     "searchActions.glossaryTerms.name": "Термины",
     "searchActions.glossaryTerms.removeTitle": "Удалить термины",
+    "searchActions.noSelection": "Выберите хотя бы один ассет, чтобы использовать это действие.",
     "searchActions.notSupported": "Это действие не поддерживается для выбранных типов.",
     "searchActions.owners.addTitle": "Добавить владельцев",
     "searchActions.owners.removeTitle": "Удалить владельцев",
