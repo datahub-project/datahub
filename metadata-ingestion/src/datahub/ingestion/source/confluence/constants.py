@@ -67,6 +67,8 @@ class MacroParam(StrEnum):
     LANGUAGE = "language"
     TITLE = "title"
     KEY = "key"
+    SERVER = "server"
+    SERVER_ID = "serverId"
 
 
 TASK_STATUS_COMPLETE = "complete"
@@ -158,4 +160,13 @@ FOLDER_CONTENT_TYPE = "folder"
 # Bump when page text extraction changes (conversion, macro handling,
 # normalization) so every page is re-extracted and re-embedded on the next run
 # even if its Confluence body is unchanged.
-EXTRACTION_ALGO_VERSION = "3"
+EXTRACTION_ALGO_VERSION = "4"
+
+# The rendered page, which Confluence produces with Jira macros already turned
+# into links on the right Jira server.
+VIEW_EXPAND = "body.view"
+JIRA_BROWSE_PATH = "/browse/"
+JIRA_ISSUE_KEY_PATTERN = r"/browse/([A-Za-z][A-Za-z0-9_]*-\d+)"
+
+# Searchable field of CorpUserInfo used to match Confluence users to DataHub users.
+CORPUSER_EMAIL_FIELD = "email"

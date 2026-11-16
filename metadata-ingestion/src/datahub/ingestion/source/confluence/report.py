@@ -38,6 +38,10 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     # User mentions, resolved to display names through the user API
     mentions_resolved: int = 0
     mentions_unresolved: int = 0
+    # Mentions written as links to an existing DataHub user
+    mentions_linked: int = 0
+    jira_links_resolved: int = 0
+    jira_links_unresolved: int = 0
 
     # Embedding statistics (from chunking source)
     num_documents_with_embeddings: int = 0

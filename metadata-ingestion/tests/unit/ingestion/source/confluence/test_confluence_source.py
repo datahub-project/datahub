@@ -1376,3 +1376,26 @@ def test_failed_conversion_falls_back_to_plain_text_and_warns() -> None:
 
     assert text == "Page 100\n\nHello world"
     assert len(source.report.warnings) == 1
+
+
+def test_mentions_link_to_existing_datahub_users() -> None:
+    client = MagicMock()
+    client.get_user_details_by_accountid.return_value = {
+        "displayName": "Alex Doe",
+        "email": "alex@example.com",
+    }
+    body = (
+        '<p>Owner <ac:link><ri:user ri:account-id="557058:aaaa"/></ac:link>. '
+        "Enough content to pass every filter.</p>"
+    )
+    serve_space(client, [make_page("100", body=body)])
+    graph = MagicMock()
+    graph.exists.side_effect = lambda urn: urn == "urn:li:corpuser:alex@example.com"
+    source = make_source(
+        client=client, ctx=PipelineContext(run_id="test-run", graph=graph)
+    )
+
+    (info,) = document_infos(source.get_workunits_internal()).values()
+
+    assert info.contents is not None
+    assert "[@Alex Doe](urn:li:corpuser:alex@example.com)" in info.contents.text

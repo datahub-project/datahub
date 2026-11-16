@@ -17,6 +17,10 @@ class ConfluenceUser(BaseModel):
     display_name: Optional[str] = Field(default=None, alias="displayName")
     # Cloud returns publicName for users whose display name is hidden.
     public_name: Optional[str] = Field(default=None, alias="publicName")
+    # Cloud only returns the email when the user's profile allows it.
+    email: Optional[str] = None
+    # Data Center and Server only.
+    username: Optional[str] = None
 
     @property
     def name(self) -> Optional[str]:

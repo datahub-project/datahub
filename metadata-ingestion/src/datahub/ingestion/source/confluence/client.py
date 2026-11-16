@@ -9,6 +9,7 @@ from datahub.ingestion.source.confluence.config import (
 from datahub.ingestion.source.confluence.constants import (
     PAGE_CONTENT_TYPE,
     PAGE_EXPAND,
+    VIEW_EXPAND,
 )
 from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
@@ -90,6 +91,11 @@ class ConfluenceClient:
         raw = self.api.get_page_by_id(page_id, expand=PAGE_EXPAND)
         pages = self._parse_pages([raw]) if raw else []
         return pages[0] if pages else None
+
+    def get_page_view(self, page_id: str) -> str:
+        """The page rendered as HTML, as Confluence shows it."""
+        raw = self.api.get_page_by_id(page_id, expand=VIEW_EXPAND) or {}
+        return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
 
     def iter_child_pages(self, page_id: str) -> Iterator[ConfluencePage]:
         """Direct child pages, with the same expand as every other listing, so

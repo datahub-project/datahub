@@ -92,6 +92,11 @@ The API credentials must have:
 - For Data Center: User must have "View" permissions on spaces
 - To show @mentions as names, the user needs permission to view user profiles ("Browse users and groups" on Cloud, "Can use" with user browsing on Data Center). Without it, mentions are ingested as `@user`.
 
+#### Mentions and Jira links
+
+- **@mentions** become DataHub user mentions when the mentioned person already exists in DataHub. The connector matches a DataHub user whose urn is the person's email, then a user whose profile has that email, then (on Data Center) a user whose urn is their username. Matching needs a DataHub connection (the `datahub-rest` sink or `datahub_api`), and Confluence Cloud only returns a person's email when their profile allows it. Anyone without a match stays as plain `@Name` text. Set `link_mentions_to_datahub_users: false` to turn matching off.
+- **Jira issue macros** become links to the issue. The connector reads the Jira server's URL from the first page that Confluence renders with an issue from that server, so each Jira server costs one extra API call per run. If Confluence cannot render the issue link, for example because the Jira server is unreachable from Confluence, the issue key is kept without a link.
+
 #### 3. Embedding Provider (Optional)
 
 If you want semantic search capabilities, configure an embedding provider in your DataHub instance.

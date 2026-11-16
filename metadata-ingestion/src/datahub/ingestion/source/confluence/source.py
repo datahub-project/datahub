@@ -35,13 +35,17 @@ from datahub.ingestion.source.confluence.hierarchy import (
     FolderNode,
     collect_folder_nodes,
 )
+from datahub.ingestion.source.confluence.jira import ConfluenceJiraLinker
 from datahub.ingestion.source.confluence.models import ConfluencePage
 from datahub.ingestion.source.confluence.report import ConfluenceSourceReport
 from datahub.ingestion.source.confluence.storage_format import (
     storage_to_markdown,
     strip_html_tags,
 )
-from datahub.ingestion.source.confluence.users import ConfluenceUserResolver
+from datahub.ingestion.source.confluence.users import (
+    ConfluenceUserResolver,
+    DataHubUserMatcher,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -83,7 +87,15 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         self.client = ConfluenceClient(self.confluence_client, self.report)
         self.crawler = ConfluenceCrawler(self.client, config, self.report)
         self.documents = ConfluenceDocumentBuilder(config)
-        self.user_resolver = ConfluenceUserResolver(self.client, self.report)
+        datahub_users = (
+            DataHubUserMatcher(ctx.graph, self.report)
+            if config.link_mentions_to_datahub_users and ctx.graph
+            else None
+        )
+        self.user_resolver = ConfluenceUserResolver(
+            self.client, self.report, datahub_users
+        )
+        self.jira_links = ConfluenceJiraLinker(self.client, self.report)
 
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
@@ -192,7 +204,11 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
     def _storage_to_text(self, page: ConfluencePage) -> str:
         try:
-            return storage_to_markdown(page.storage, user_resolver=self.user_resolver)
+            return storage_to_markdown(
+                page.storage,
+                user_resolver=self.user_resolver,
+                jira_resolver=self.jira_links.for_page(page.id),
+            )
         except Exception as e:
             self.report.warning(
                 title="Page converted as plain text",
