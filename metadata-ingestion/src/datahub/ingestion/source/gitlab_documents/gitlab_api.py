@@ -230,6 +230,17 @@ class GitLabApiClient:
             f"{self._project_url(owner_repo)}/repository/files/"
             f"{quote(file_path, safe='')}"
         )
+        # The tree listing carries no sizes and the GET body is base64 JSON, so
+        # read the size from a HEAD first rather than download a file to drop it.
+        size = self._head_file_size(url, branch)
+        if size is not None and size > MAX_FILE_SIZE_BYTES:
+            logger.warning(
+                "File %s is %s bytes (max %s), skipping",
+                file_path,
+                size,
+                MAX_FILE_SIZE_BYTES,
+            )
+            return None
         response = self._get(url, params={"ref": branch})
         node = self._json_or_none(response)
         if not isinstance(node, dict):
@@ -260,6 +271,22 @@ class GitLabApiClient:
                 logger.warning(self._last_api_error)
                 return None
         return content
+
+    def _head_file_size(self, url: str, ref: str) -> Optional[int]:
+        # Best effort: on any failure the GET that follows reports the error and
+        # still applies the size limit from its body.
+        try:
+            response = self._session.head(
+                url,
+                params={"ref": ref},
+                headers={"PRIVATE-TOKEN": self._token},
+                timeout=self._timeout,
+            )
+        except requests.RequestException as exc:
+            logger.debug("HEAD %s failed: %s", url, exc)
+            return None
+        size = response.headers.get("X-Gitlab-Size", "")
+        return int(size) if response.status_code == 200 and size.isdigit() else None
 
     def _json_or_none(self, response: Optional[requests.Response]) -> object:
         if response is None:

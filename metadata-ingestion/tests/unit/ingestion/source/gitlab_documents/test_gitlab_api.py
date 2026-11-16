@@ -89,6 +89,7 @@ def test_list_matching_files_raises_with_error_detail() -> None:
 def test_fetch_file_content_decodes_base64_and_skips_large_files() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
+        m.head(requests_mock.ANY, status_code=404)
         m.get(
             f"{API}/repository/files/docs%2Fa.md?ref=main",
             json={
@@ -107,6 +108,18 @@ def test_fetch_file_content_decodes_base64_and_skips_large_files() -> None:
         assert (
             client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
         )
+
+
+def test_fetch_file_content_skips_large_file_before_downloading() -> None:
+    client = GitLabApiClient("glpat-test")
+    url = f"{API}/repository/files/docs%2Fbig.md?ref=main"
+    with requests_mock.Mocker() as m:
+        m.head(url, headers={"X-Gitlab-Size": "5000000"})
+        download = m.get(url, json={"size": 5_000_000, "content": ""})
+        assert (
+            client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
+        )
+        assert not download.called
 
 
 def test_get_latest_commit_sha_retries_once_on_rate_limit() -> None:
@@ -237,6 +250,7 @@ def test_list_matching_files_refuses_next_link_to_another_host() -> None:
 def test_non_json_success_response_is_reported_as_an_api_error() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
+        m.head(requests_mock.ANY, status_code=404)
         m.get(
             f"{API}/repository/files/a.md",
             text="<html>Sign in</html>",
@@ -250,6 +264,7 @@ def test_non_json_success_response_is_reported_as_an_api_error() -> None:
 def test_undecodable_file_content_is_reported_not_raised() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
+        m.head(requests_mock.ANY, status_code=404)
         m.get(
             f"{API}/repository/files/a.md",
             json={"size": 3, "encoding": "base64", "content": "abc"},

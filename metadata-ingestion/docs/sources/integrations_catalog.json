@@ -1089,6 +1089,12 @@
     "description": "Import files and documentation from GitHub repositories into DataHub as Documents, keeping them discoverable and governed alongside the rest of your metadata. Ingested on a schedule through UI or CLI ingestion.",
     "img_path": "img/logos/platforms/github.png"
   },
+  "gitlab": {
+    "platform_type": "Collaboration",
+    "connection_type": "Pull",
+    "description": "Import files and documentation from GitLab projects, on GitLab.com or a self-managed instance, into DataHub as Documents. Ingested on a schedule through UI or CLI ingestion.",
+    "img_path": "img/logos/platforms/gitlab.png"
+  },
   "excel": {
     "platform_type": "Metadata Systems",
     "connection_type": "Pull",

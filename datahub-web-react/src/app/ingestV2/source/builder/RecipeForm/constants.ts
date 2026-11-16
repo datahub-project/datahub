@@ -159,10 +159,7 @@ import {
     DREMIO_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/dremio';
 import {
-    GITHUB_DOCUMENTS_BRANCH,
     GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT,
-    GITHUB_DOCUMENTS_FILE_EXTENSIONS,
-    GITHUB_DOCUMENTS_PATH_PREFIX,
     GITHUB_DOCUMENTS_REPOSITORY,
     GITHUB_DOCUMENTS_TOKEN,
 } from '@app/ingestV2/source/builder/RecipeForm/github-documents';
@@ -447,6 +444,11 @@ import {
     REDSHIFT_PASSWORD,
     REDSHIFT_USERNAME,
 } from '@app/ingestV2/source/builder/RecipeForm/redshift';
+import {
+    REPOSITORY_DOCUMENTS_BRANCH,
+    REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
+    REPOSITORY_DOCUMENTS_PATH_PREFIX,
+} from '@app/ingestV2/source/builder/RecipeForm/repository-documents';
 import {
     FOLDER_ALLOW,
     FOLDER_DENY,
@@ -1112,9 +1114,9 @@ export const RECIPE_FIELDS: RecipeFields = {
         fields: [
             GITHUB_DOCUMENTS_TOKEN,
             GITHUB_DOCUMENTS_REPOSITORY,
-            GITHUB_DOCUMENTS_BRANCH,
-            GITHUB_DOCUMENTS_PATH_PREFIX,
-            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
             GITHUB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
@@ -1125,9 +1127,9 @@ export const RECIPE_FIELDS: RecipeFields = {
             GITLAB_DOCUMENTS_TOKEN,
             GITLAB_DOCUMENTS_BASE_URL,
             GITLAB_DOCUMENTS_REPOSITORY,
-            GITHUB_DOCUMENTS_BRANCH,
-            GITHUB_DOCUMENTS_PATH_PREFIX,
-            GITHUB_DOCUMENTS_FILE_EXTENSIONS,
+            REPOSITORY_DOCUMENTS_BRANCH,
+            REPOSITORY_DOCUMENTS_PATH_PREFIX,
+            REPOSITORY_DOCUMENTS_FILE_EXTENSIONS,
             GITLAB_DOCUMENTS_IMPORT_MODE,
         ],
         filterFields: [],
