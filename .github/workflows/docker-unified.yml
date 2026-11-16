@@ -554,7 +554,7 @@ jobs:
 
       - name: Save build Metadata
         if: ${{ needs.setup.outputs.publish == 'true' || needs.setup.outputs.pr-publish == 'true' }}
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: build-metadata-${{ needs.setup.outputs.tag }}
           path: |
@@ -1211,7 +1211,7 @@ jobs:
           source .github/scripts/docker_logs.sh
 
       - name: Upload logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: docker-logs-java-integration
@@ -1254,7 +1254,7 @@ jobs:
             smoke-test/test-results/junit.stack-free.xml
 
       - name: Upload pytest logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: pytest-smoke-logs-stack-free
@@ -1481,7 +1481,7 @@ jobs:
           source .github/scripts/docker_logs.sh
 
       - name: Upload logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: docker-logs-pytests-${{ matrix.batch }}
@@ -1489,7 +1489,7 @@ jobs:
           retention-days: 5
 
       - name: Upload pytest logs
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         if: failure()
         with:
           name: pytest-smoke-logs-pytests-${{ matrix.batch }}
@@ -1858,7 +1858,7 @@ jobs:
 
       - name: Upload Docker logs on failure
         if: failure()
-        uses: actions/upload-artifact@bbbca2ddaa5d8feaa63e36b76fdaad77386f024f # v7.0.0
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
         with:
           name: docker-logs-ai-${{ matrix.provider }}-${{ github.run_id }}
           path: docker_logs/${{ github.job }}-${{ matrix.provider }}/
