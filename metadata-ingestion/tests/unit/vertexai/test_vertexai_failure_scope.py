@@ -42,8 +42,10 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    EVALUATIONS_KEPT_PROJECT_WIDE,
     PIPELINE_LINKS_ELSEWHERE,
     PLATFORM,
+    REGION_DISCOVERY_FAILED,
     DetailCalls,
     ResourceCategory,
     ResourceKinds,
@@ -439,7 +441,7 @@ def test_project_service_disabled_listed_is_failure_naming_service() -> None:
         "project=proj-one" in c and f"service={_SERVICE}" in c
         for c in _failure_contexts(source)
     )
-    assert not _warnings_but_links_note(source)
+    assert not _warnings_but_notes(source)
 
 
 def test_project_service_disabled_discovered_is_warning_and_kept() -> None:
@@ -556,16 +558,19 @@ def test_project_region_discovery_uses_recipe_credentials() -> None:
 # The single-region fallback is the deprecated `region` field.
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")
 def test_project_region_discovery_failure_falls_back_and_keeps_project() -> None:
-    source = _make_source(discover_regions=True, region=REGION)
-    source._carry = MagicMock()
+    source = _region_source(discover_regions=True, region=REGION)
 
     with _locations_client(_iam_denied()):
-        regions = source._resolve_project_regions()
+        run = _run_regions(source, {}, previous=_EVERY_URN)
 
-    assert regions["proj-one"] == [REGION]
-    assert source.report.warnings
+    assert run.model_step_regions == [REGION]
+    assert {_PIPELINE_URN, _EXPERIMENT_URN} <= {wu.get_urn() for wu in run.workunits}
+    # Names carry no region, so the read region's entities are kept too.
+    assert sorted(run.kept.urns) == sorted(
+        urn for urn in _EVERY_URN if urn not in _UNRELATED_URNS
+    )
+    assert [w.message for w in source.report.warnings] == [REGION_DISCOVERY_FAILED]
     assert not source.report.failures
-    source._carry.keep_project.assert_any_call("proj-one")
 
 
 def test_project_region_discovery_failure_without_fallback_is_project_failure() -> None:
@@ -905,7 +910,7 @@ def test_region_every_kind_failed_listed_project_is_failure() -> None:
 
     # With real containers, any emitted container would show up here.
     assert run.workunits == []
-    assert not _warnings_but_links_note(source)
+    assert not _warnings_but_notes(source)
     assert any("project=proj-one" in c for c in _failure_contexts(source))
     _mock(run.carry.keep_project).assert_called_with("proj-one")
     # The project itself, then each lost read: every one repeats on every run.
@@ -2026,6 +2031,7 @@ def test_model_evaluation_list_failure_keeps_evaluation_kind() -> None:
         "proj-one", [ResourceKinds.MODEL_EVALUATION]
     )
     _mock(source.model_extractor._carry.keep_model_versions).assert_not_called()
+    assert EVALUATIONS_KEPT_PROJECT_WIDE in {w.message for w in source.report.warnings}
 
 
 def test_model_evaluation_list_not_found_keeps_evaluation_kind() -> None:
@@ -2038,6 +2044,7 @@ def test_model_evaluation_list_not_found_keeps_evaluation_kind() -> None:
     )
     (context,) = _warning_contexts(source)
     assert "resource=evaluation_lookup" in context
+    assert EVALUATIONS_KEPT_PROJECT_WIDE in {w.message for w in source.report.warnings}
 
 
 def test_model_list_failure_keeps_that_regions_model_step() -> None:
@@ -2200,16 +2207,6 @@ def test_m1_region_discovery_refused_keeps_containers_flows_and_jobs() -> None:
 
 
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")
-def test_m1_region_discovery_fallback_keeps_containers_flows_and_jobs() -> None:
-    source, current = _m1_source(_M1_PREVIOUS, discover_regions=True, region=REGION)
-
-    with _locations_client(ServiceUnavailable("busy")):
-        source._resolve_project_regions()
-    source._carry.flush()
-
-    assert set(current.urns) == set(_M1_PREVIOUS)
-
-
 def test_m1_carry_forward_keeps_datasets_with_platform_instance() -> None:
     mine = _m1_instance_dataset("proj-one")
     other = _m1_instance_dataset("proj-two")
@@ -2522,12 +2519,16 @@ def _read_experiment_runs(source: VertexAISource, runs: List[Any]) -> List[Any]:
         return list(source.experiment_extractor.get_experiment_run_workunits())
 
 
-def _warnings_but_links_note(source: VertexAISource) -> List[Any]:
-    return [w for w in source.report.warnings if w.message != PIPELINE_LINKS_ELSEWHERE]
+def _warnings_but_notes(source: VertexAISource) -> List[Any]:
+    return [
+        w
+        for w in source.report.warnings
+        if w.message not in (PIPELINE_LINKS_ELSEWHERE, EVALUATIONS_KEPT_PROJECT_WIDE)
+    ]
 
 
 def _warning_contexts(source: VertexAISource) -> List[str]:
-    return [c for w in _warnings_but_links_note(source) for c in w.context]
+    return [c for w in _warnings_but_notes(source) for c in w.context]
 
 
 def test_experiment_missing_store_is_info_and_not_kept() -> None:

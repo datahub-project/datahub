@@ -89,6 +89,8 @@ DETAIL_SWITCHES: Dict[str, str] = {
 LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
 # Only the lost pipeline's own region is held back.
 PIPELINE_LINKS_ELSEWHERE = 'Models in other regions or projects used by these pipelines may lose their pipeline "used by" links until a run reads these pipelines again.'
+REGION_DISCOVERY_FAILED = "Could not list regions, so only the configured region is read. Entity names do not carry their region, so every earlier entity of the project is kept: stale-entity removal is paused for this project until discovery works again. A refusal needs aiplatform.locations.list; to skip discovery, set `discover_regions: false` and list `regions`."
+EVALUATIONS_KEPT_PROJECT_WIDE = "Earlier model evaluations in this project are kept until this model's evaluation list can be read, and evaluations deleted from other models are removed once it reads again. Evaluation names carry only the evaluation id, so they cannot be tied to one model."
 
 # The switch that turns each read off, named when a read is lost for good.
 READ_SWITCHES: Dict[str, str] = {

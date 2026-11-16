@@ -41,6 +41,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     PLATFORM,
+    REGION_DISCOVERY_FAILED,
     DetailCalls,
     ExternalURLs,
     MLMetadataDefaults,
@@ -785,7 +786,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             if self.config.region:
                 self.report.warning(
                     title="Region discovery failed",
-                    message="Could not list regions (needs aiplatform.locations.list); using the configured region instead. List `regions` in the recipe to skip discovery.",
+                    message=REGION_DISCOVERY_FAILED,
                     context=scope_context(Scope(project=project_id), e),
                     exc=e,
                 )
@@ -794,6 +795,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                     classify_error(e),
                     e,
                 )
+                # Entity names carry no region, so the configured region's
+                # earlier entities cannot be told from the unread regions'.
                 self._keep_project_entities(project_id)
             else:
                 self._handle_project_error(project_id, e)

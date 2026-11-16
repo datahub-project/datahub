@@ -1,6 +1,7 @@
 import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import replace
 from functools import partial
 from numbers import Real
 from operator import attrgetter
@@ -22,6 +23,7 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     CREATE_TIME_FIELD,
+    EVALUATIONS_KEPT_PROJECT_WIDE,
     ORDER_BY_UPDATE_TIME_DESC,
     VERSION_SORT_ID_PADDING,
     DetailCalls,
@@ -266,9 +268,15 @@ class VertexAIModelExtractor:
 
             result = self._read_evaluations(model)
             if result.value is None:
-                # Nothing else writes evaluations, so the earlier ones are kept.
+                # Evaluation names carry only the evaluation id, so one model's
+                # evaluations cannot be told from the others': keep the whole kind.
                 self._carry.keep_kind(
                     self._get_scope().project, [ResourceKinds.MODEL_EVALUATION]
+                )
+                self.report.warning(
+                    title="Earlier model evaluations kept",
+                    message=EVALUATIONS_KEPT_PROJECT_WIDE,
+                    context=replace(self._get_scope(), item=model.name).context(),
                 )
                 continue
             evaluations = result.value
