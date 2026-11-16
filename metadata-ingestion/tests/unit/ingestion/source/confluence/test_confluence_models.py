@@ -56,3 +56,24 @@ def test_root_page_has_no_parent() -> None:
 def test_page_without_id_is_rejected() -> None:
     with pytest.raises(ValidationError):
         ConfluencePage.model_validate({"title": "No id"})
+
+
+def test_page_tolerates_nested_fields_of_the_wrong_shape() -> None:
+    page = ConfluencePage.model_validate(
+        {
+            "id": "7",
+            "title": "Odd payload",
+            "_links": "not-a-dict",
+            "version": None,
+            "history": [],
+            "space": "TEAM",
+            "body": {"storage": "not-a-dict"},
+            "ancestors": "not-a-list",
+        }
+    )
+
+    assert page.id == "7"
+    assert page.webui is None
+    assert page.space.key is None
+    assert page.ancestors == []
+    assert page.storage == ""

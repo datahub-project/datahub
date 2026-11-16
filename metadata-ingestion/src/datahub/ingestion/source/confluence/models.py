@@ -50,6 +50,10 @@ class ConfluenceSpaceRef(BaseModel):
     name: Optional[str] = None
 
 
+def _as_dict(value: Any) -> Dict[str, Any]:
+    return value if isinstance(value, dict) else {}
+
+
 def _parse_timestamp(value: Any) -> Optional[datetime]:
     if not isinstance(value, str) or not value:
         return None
@@ -83,14 +87,13 @@ class ConfluencePage(BaseModel):
     def _flatten(cls, data: Any) -> Any:
         if not isinstance(data, dict) or "storage" in data:
             return data
-        body = data.get("body") or {}
-        storage = body.get("storage") if isinstance(body, dict) else None
-        links = data.get("_links") or {}
-        version = data.get("version") or {}
-        history = data.get("history") or {}
-        space = data.get("space") or {}
+        # Any nested field can come back missing or in an unexpected shape;
+        # treat those as absent rather than failing the whole page.
+        body = _as_dict(data.get("body"))
+        space = _as_dict(data.get("space"))
         if not space.get("key") and data.get("spaceKey"):
             space = {**space, "key": data["spaceKey"]}
+        ancestors = data.get("ancestors")
         flat: Dict[str, Any] = {
             "id": str(data["id"]) if data.get("id") else None,
             "title": data.get("title") or "",
@@ -98,13 +101,17 @@ class ConfluencePage(BaseModel):
             # Malformed ancestors are dropped rather than failing the page.
             "ancestors": [
                 a
-                for a in data.get("ancestors") or []
+                for a in (ancestors if isinstance(ancestors, list) else [])
                 if isinstance(a, dict) and a.get("id")
             ],
-            "storage": (storage or {}).get("value") or "",
-            "webui": links.get("webui") or data.get("url"),
-            "last_modified": _parse_timestamp(version.get("when")),
-            "created": _parse_timestamp(history.get("createdDate")),
+            "storage": _as_dict(body.get("storage")).get("value") or "",
+            "webui": _as_dict(data.get("_links")).get("webui") or data.get("url"),
+            "last_modified": _parse_timestamp(
+                _as_dict(data.get("version")).get("when")
+            ),
+            "created": _parse_timestamp(
+                _as_dict(data.get("history")).get("createdDate")
+            ),
         }
         return flat
 
@@ -115,9 +122,13 @@ class ConfluencePage(BaseModel):
 
 class PageBatch(BaseModel):
     pages: List[ConfluencePage]
+    # Results the API returned, including any that could not be parsed. Paging
+    # advances by this, so a batch of unreadable pages does not end the listing.
+    fetched: int
     has_next: bool
 
 
 class SpaceBatch(BaseModel):
     keys: List[str]
+    fetched: int
     has_next: bool

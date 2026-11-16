@@ -58,7 +58,12 @@ class ConfluenceClient:
         response = self.api.get_all_spaces(start=start, limit=limit) or {}
         results = response.get("results") or []
         return SpaceBatch(
-            keys=[str(space["key"]) for space in results if space.get("key")],
+            keys=[
+                str(space["key"])
+                for space in results
+                if isinstance(space, dict) and space.get("key")
+            ],
+            fetched=len(results),
             has_next=bool(results) and _has_next(response),
         )
 
@@ -77,7 +82,9 @@ class ConfluenceClient:
         else:
             results = (response or {}).get("results") or []
             has_next = bool(results) and _has_next(response)
-        return PageBatch(pages=self._parse_pages(results), has_next=has_next)
+        return PageBatch(
+            pages=self._parse_pages(results), fetched=len(results), has_next=has_next
+        )
 
     def get_page(self, page_id: str) -> Optional[ConfluencePage]:
         raw = self.api.get_page_by_id(page_id, expand=PAGE_EXPAND)

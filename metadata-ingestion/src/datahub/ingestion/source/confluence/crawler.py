@@ -53,12 +53,7 @@ class ConfluenceCrawler:
         if self.config._parsed_space_allow is not None:
             spaces = list(self.config._parsed_space_allow)
         else:
-            try:
-                spaces = self._discover_spaces()
-            except Exception as e:
-                self.report.failure(message="Failed to discover spaces", exc=e)
-                self._raise_unless_continuing(e)
-                return []
+            spaces = self._discover_spaces()
         deny = set(self.config._parsed_space_deny or [])
         return [space for space in spaces if space not in deny]
 
@@ -66,16 +61,23 @@ class ConfluenceCrawler:
         spaces: List[str] = []
         start = 0
         while len(spaces) < self.config.max_spaces:
-            batch = self.client.list_spaces(
-                start=start,
-                limit=min(SPACE_PAGE_SIZE, self.config.max_spaces - len(spaces)),
-            )
+            try:
+                batch = self.client.list_spaces(
+                    start=start,
+                    limit=min(SPACE_PAGE_SIZE, self.config.max_spaces - len(spaces)),
+                )
+            except Exception as e:
+                # Keep the spaces already listed. The failure already stops
+                # stale removal, so ingesting them cannot delete anything.
+                self.report.failure(message="Failed to discover spaces", exc=e)
+                self._raise_unless_continuing(e)
+                return spaces
             spaces.extend(batch.keys)
-            if not batch.has_next:
+            if not batch.fetched or not batch.has_next:
                 return spaces
             # Advance by what the server returned: it may cap the page size
             # below the requested limit.
-            start += len(batch.keys)
+            start += batch.fetched
 
         self.report.warning(
             title="Space discovery stopped at max_spaces",
@@ -106,12 +108,12 @@ class ConfluenceCrawler:
                     self.report.report_page_scanned()
                     yield page
                 count += len(batch.pages)
-                if not batch.pages or not batch.has_next:
+                if not batch.fetched or not batch.has_next:
                     break
-                # Advance by what the server returned: it may cap the page size
-                # below the requested limit, and advancing by the limit would
-                # skip the pages in between.
-                start += len(batch.pages)
+                # Advance by what the server returned, counting pages that could
+                # not be parsed: it may cap the page size below the requested
+                # limit, and advancing by the limit would skip pages in between.
+                start += batch.fetched
             else:
                 self.report.warning(
                     title="Space stopped at max_pages_per_space",

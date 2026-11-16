@@ -86,7 +86,7 @@ def test_space_discovery_failure_midway_keeps_spaces_already_listed() -> None:
         Exception("503 unavailable"),
     ]
 
-    assert source._get_spaces() == ["A"]
+    assert source.crawler.space_keys() == ["A"]
     assert "Failed to discover spaces" in log_messages(source.report.failures)
 
 
@@ -251,6 +251,23 @@ def test_space_listing_error_marks_space_failed_without_raising() -> None:
     assert source.report.failed_spaces == ["TEAM"]
     # A failure, so stale removal does not soft-delete the unlisted pages.
     assert "TEAM" in log_contexts(source.report.failures)
+
+
+def test_space_listing_continues_past_a_batch_that_cannot_be_parsed() -> None:
+    """A batch where every page fails validation is not the end of the space:
+    paging advances by the results returned and follows the next link."""
+    source = make_source()
+    client = as_mock(source.confluence_client)
+    client.get_all_pages_from_space.side_effect = [
+        {"results": [{"title": "no id"}, {"title": "no id"}], "_links": {"next": "/n"}},
+        {"results": [make_page("3")], "_links": {}},
+    ]
+
+    pages = list(source.crawler._pages_in_space("TEAM"))
+
+    assert [p.id for p in pages] == ["3"]
+    starts = [c.kwargs["start"] for c in client.get_all_pages_from_space.call_args_list]
+    assert starts == [0, 2]
 
 
 def test_space_listing_failure_midway_keeps_earlier_pages_and_fails() -> None:

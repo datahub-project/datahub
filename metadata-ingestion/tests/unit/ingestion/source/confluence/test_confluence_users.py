@@ -58,7 +58,8 @@ def test_transient_failure_is_retried_on_a_later_mention() -> None:
         TimeoutError("read timed out"),
         {"displayName": "Alex Doe"},
     ]
-    resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
+    report = ConfluenceSourceReport()
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     assert resolver(UserRef(account_id="557058:aaaa")) is None
     assert resolver(UserRef(account_id="557058:aaaa")) == "Alex Doe"
@@ -68,7 +69,7 @@ def test_repeated_transient_failures_give_up_after_the_attempt_limit() -> None:
     client = MagicMock()
     client.get_user_details_by_accountid.side_effect = TimeoutError("down")
     report = ConfluenceSourceReport()
-    resolver = ConfluenceUserResolver(client, report)
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     for _ in range(MAX_USER_LOOKUP_ATTEMPTS + 2):
         resolver(UserRef(account_id="557058:aaaa"))
@@ -82,7 +83,8 @@ def test_permanent_http_errors_are_not_retried(status: int) -> None:
     response = MagicMock(status_code=status)
     client = MagicMock()
     client.get_user_details_by_accountid.side_effect = HTTPError(response=response)
-    resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
+    report = ConfluenceSourceReport()
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     resolver(UserRef(account_id="557058:aaaa"))
     resolver(UserRef(account_id="557058:aaaa"))
