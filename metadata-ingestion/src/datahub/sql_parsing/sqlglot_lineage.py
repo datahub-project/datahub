@@ -950,7 +950,7 @@ def _resolve_tsql_update_alias(
 def _copy_input_tables(statement: sqlglot.exp.Copy) -> Iterator[sqlglot.exp.Table]:
     # Copy.args["params"] can hold unquoted FILE_FORMAT=(FORMAT_NAME=db.s.ff) as a
     # Table under Property; that is a format object, not an upstream. The source
-    # list is Copy.args["files"]. Unloads (COPY … TO, COPY INTO @stage FROM t)
+    # list is Copy.args["files"]. Unloads (COPY … TO, COPY INTO `stg/out` FROM t)
     # keep the exported table on Copy.this, which files does not contain.
     for file_expr in statement.args.get("files") or []:
         yield from file_expr.find_all(sqlglot.exp.Table)

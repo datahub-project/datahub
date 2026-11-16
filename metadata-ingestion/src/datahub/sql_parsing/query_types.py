@@ -28,11 +28,11 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
 
 
 def is_snowflake_stage_table(table: sqlglot.exp.Table) -> bool:
-    # sqlglot has no dedicated stage node. A Snowflake stage ref (@stg/p, @~/p,
-    # @%t/p, @db.schema.stg) parses as Table(this=Var("@...")), and that shape
-    # is only produced by the `@`-gated branch of Snowflake's table-parts parser.
-    # A real table name is always an Identifier (or DynamicIdentifier for
-    # IDENTIFIER('db.s.t')). T-SQL @tbl is Parameter, not Var.
+    # sqlglot has no dedicated stage node. Snowflake stage SQL (`stg/p`, `~/p`,
+    # `%t/p`, `db.schema.stg` with a leading at-sign) parses as Table(this=Var(
+    # "@...")), and that shape is only produced by the `@`-gated branch of
+    # Snowflake's table-parts parser. Real table names use Identifier (or
+    # DynamicIdentifier for IDENTIFIER('db.s.t')); T-SQL table variables use Parameter.
     table_name = table.this
     return isinstance(table_name, sqlglot.exp.Var) and table_name.name.startswith("@")
 
