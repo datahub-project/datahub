@@ -61,18 +61,19 @@ test.describe('Metrics global search', () => {
 
     const typeDropdown = page.getByTestId('filter-dropdown-Type');
     await typeDropdown.click();
-    const semanticOption = page.getByRole('checkbox', { name: /Semantic Model/i }).first();
-    const metricOption = page.getByRole('checkbox', { name: /^Metrics?$/i }).first();
+    // Option checkboxes have no accessible name; clicking the option row toggles it.
+    const semanticOption = searchPage.filterDropdownMenu.getByText(/Semantic Model/i).first();
+    const metricOption = searchPage.filterDropdownMenu.getByText(/^Metrics?$/i).first();
 
     if (await semanticOption.isVisible().catch(() => false)) {
       await semanticOption.click();
-      await searchPage.updateFiltersButton.click();
+      await searchPage.applyFilterSelection(typeDropdown);
       await expect(page.getByText(NAMES.ORDERS_MODEL, { exact: false }).first()).toBeVisible({
         timeout: TIMEOUTS.LONG,
       });
     } else if (await metricOption.isVisible().catch(() => false)) {
       await metricOption.click();
-      await searchPage.updateFiltersButton.click();
+      await searchPage.applyFilterSelection(typeDropdown);
       await expect(page.getByText(NAMES.TOTAL_REVENUE, { exact: false }).first()).toBeVisible({
         timeout: TIMEOUTS.LONG,
       });
