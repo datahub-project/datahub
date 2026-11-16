@@ -1,5 +1,5 @@
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import Text from 'antd/lib/typography/Text';
+import Text from 'antd/es/typography/Text';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';

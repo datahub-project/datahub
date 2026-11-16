@@ -1,4 +1,4 @@
-import { useForm } from 'antd/lib/form/Form';
+import { useForm } from 'antd/es/form/Form';
 import React from 'react';
 
 import AddEditLinkModal from '@app/entityV2/shared/components/links/AddEditLinkModal';

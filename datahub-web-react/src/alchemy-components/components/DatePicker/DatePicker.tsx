@@ -7,7 +7,7 @@ import { DatePickerVariant } from '@components/components/DatePicker/constants';
 import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
 import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
 
-const FOCUSABLE_SELECTOR = 'input, [tabindex]:not([tabindex="-1"])';
+const FOCUSABLE_SELECTOR = '[tabindex]:not([tabindex="-1"])';
 const CONTENTS_STYLE: React.CSSProperties = { display: 'contents' };
 
 export const datePickerDefault: DatePickerProps = {
@@ -66,13 +66,14 @@ export function DatePicker({
             forwardRef<HTMLElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
                 const holderRef = useRef<HTMLSpanElement>(null);
                 // rc-picker focuses this ref on click and compares it with the mousedown target, so it has to
-                // be the focusable element the variant rendered (the variants don't forward refs themselves)
-                useImperativeHandle(
-                    ref,
-                    () =>
-                        (holderRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
-                            holderRef.current) as HTMLElement,
-                );
+                // be the focusable element the variant rendered (the variants don't forward refs themselves).
+                // The input wins over a focusable wrapper; the date switcher has no input, only a tabindex.
+                useImperativeHandle(ref, () => {
+                    const holder = holderRef.current;
+                    return (holder?.querySelector<HTMLElement>('input') ??
+                        holder?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+                        holder) as HTMLElement;
+                });
                 return (
                     <span ref={holderRef} style={CONTENTS_STYLE}>
                         {wrappedInputRenderRef.current?.(props)}

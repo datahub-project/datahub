@@ -2,7 +2,7 @@ import { Button, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import { Checkbox, Form, Input, Select } from 'antd';
-import AntButton from 'antd/lib/button';
+import AntButton from 'antd/es/button';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
