@@ -85,6 +85,8 @@ Requirements:
 
 ### Breaking Changes
 
+- [#20842](https://github.com/datahub-project/datahub/pull/20842) **(Ingestion / Power BI)** Column-level lineage now follows the same `dataset_type_mapping` filter as table-level lineage, in both `metadata_api_mode` settings. If you narrowed `dataset_type_mapping` to fewer platforms than the default, a Power BI column no longer gets a lineage edge to a column of an upstream table that the mapping excludes; before, the column edge was emitted even though the table edge was not. Duplicate column-level edges, which were emitted once per upstream table of a Power BI table, are also removed. **Action:** none unless you relied on column lineage to platforms you left out of `dataset_type_mapping`; add those platforms to the mapping to keep it. The dropped edges disappear on the next run.
+
 - [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
 
 - [#21186](https://github.com/datahub-project/datahub/pull/21186) **(Ingestion / Qlik Sense)** A few Qlik datasets get new identities or details, so the first run after upgrading soft-deletes their old versions when stale metadata removal is on:
