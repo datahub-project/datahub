@@ -32,6 +32,7 @@ const OptionRow = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+    cursor: pointer;
 `;
 
 type Props = {
@@ -70,8 +71,10 @@ export const BooleanSimpleSearchFilter = ({
                 )}
             </Title>
             {areFiltersVisible && (
-                <OptionRow>
-                    <Checkbox isChecked={isSelected} onCheckboxChange={onSelect} size="xs" />
+                // The whole row selects, as antd's Checkbox label did. The box stops its own click from
+                // reaching the row, so it doesn't toggle twice.
+                <OptionRow onClick={onSelect}>
+                    <Checkbox isChecked={isSelected} onCheckboxChange={onSelect} aria-label={option} size="xs" />
                     <SearchFilterLabel field={title} value={option} count={count} />
                 </OptionRow>
             )}
