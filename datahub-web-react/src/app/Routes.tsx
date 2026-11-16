@@ -5,10 +5,9 @@ import { Route, RouteProps, Switch, useLocation } from 'react-router-dom';
 import { useTrackPageView } from '@app/analytics';
 import { isLoggedInVar } from '@app/auth/checkAuthStatus';
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
-import { NoPageFound } from '@app/sharedV2/NoPageFound';
 import { SuspenseGlobal } from '@app/sharedV2/SuspenseGlobal';
 import { ErrorSection } from '@app/sharedV2/error/ErrorSection';
-import { lazyDefault } from '@app/sharedV2/lazyPage';
+import { lazyDefault, lazyNamed } from '@app/sharedV2/lazyPage';
 import { PageRoutes } from '@conf/Global';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
@@ -16,6 +15,7 @@ const LoginV2 = lazyDefault(() => import('@app/auth/loginV2/LoginV2'));
 const SignUpV2 = lazyDefault(() => import('@app/auth/signupV2/SignUpV2'));
 const ResetCredentialsV2 = lazyDefault(() => import('@app/auth/resetCredentialsV2/ResetCredentialsV2'));
 const AuthenticatedApp = lazyDefault(() => import('@app/AuthenticatedApp'));
+const NoPageFound = lazyNamed(() => import('@app/sharedV2/NoPageFound'), 'NoPageFound');
 
 const ProtectedRoute = ({
     isLoggedIn,

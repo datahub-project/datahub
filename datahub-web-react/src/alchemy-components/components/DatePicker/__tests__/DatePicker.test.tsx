@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { DefaultTheme, ThemeProvider } from 'styled-components';
 import { describe, expect, it } from 'vitest';
@@ -68,5 +68,25 @@ describe('DatePicker custom input', () => {
         );
 
         expect(screen.getByRole('textbox')).toBe(input);
+    });
+
+    it('focuses the custom input when the picker is clicked', () => {
+        renderDatePicker({ variant: DatePickerVariant.EditableInput });
+        const input = screen.getByRole('textbox');
+
+        fireEvent.mouseDown(input);
+        fireEvent.click(input);
+
+        expect(input).toHaveFocus();
+    });
+
+    it('focuses the date switcher, which renders no input, when the picker is clicked', () => {
+        const { container } = renderDatePicker({ variant: DatePickerVariant.DateSwitcher });
+        const switcher = container.querySelector('[tabindex="0"]') as HTMLElement;
+
+        // The middle child is the date text between the two arrow buttons
+        fireEvent.click(switcher.children[1]);
+
+        expect(switcher).toHaveFocus();
     });
 });

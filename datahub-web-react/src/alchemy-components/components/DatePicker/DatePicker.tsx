@@ -1,4 +1,4 @@
-import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useImperativeHandle, useMemo, useRef, useState } from 'react';
 
 import { buildDateTimeFormat } from '@components/components/DatePicker/DatePicker.utils';
 import { DatePickerGlobalStyles } from '@components/components/DatePicker/DatePickerGlobalStyles';
@@ -6,6 +6,9 @@ import { DatePickerWrapper, Label, StyledAntdDatePicker } from '@components/comp
 import { DatePickerVariant } from '@components/components/DatePicker/constants';
 import useVariantProps from '@components/components/DatePicker/hooks/useVariantProps';
 import { DatePickerProps, DatePickerValue } from '@components/components/DatePicker/types';
+
+const FOCUSABLE_SELECTOR = 'input, [tabindex]:not([tabindex="-1"])';
+const CONTENTS_STYLE: React.CSSProperties = { display: 'contents' };
 
 export const datePickerDefault: DatePickerProps = {
     variant: DatePickerVariant.Default,
@@ -60,9 +63,22 @@ export function DatePicker({
     wrappedInputRenderRef.current = wrappedInputRender;
     const StableInput = useMemo(
         () =>
-            forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, _ref) => (
-                <>{wrappedInputRenderRef.current?.(props)}</>
-            )),
+            forwardRef<HTMLElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
+                const holderRef = useRef<HTMLSpanElement>(null);
+                // rc-picker focuses this ref on click and compares it with the mousedown target, so it has to
+                // be the focusable element the variant rendered (the variants don't forward refs themselves)
+                useImperativeHandle(
+                    ref,
+                    () =>
+                        (holderRef.current?.querySelector<HTMLElement>(FOCUSABLE_SELECTOR) ??
+                            holderRef.current) as HTMLElement,
+                );
+                return (
+                    <span ref={holderRef} style={CONTENTS_STYLE}>
+                        {wrappedInputRenderRef.current?.(props)}
+                    </span>
+                );
+            }),
         [],
     );
 
