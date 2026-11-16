@@ -213,6 +213,35 @@ assets:
 
 `parent_data_product` accepts a fully-qualified Data Product URN or a resolvable id/name (same resolution rules as `domain`).
 
+#### Create a child Data Product via API
+
+To create a Data Product directly under an existing parent, pass `parentDataProduct` to the `createDataProduct` GraphQL mutation (`POST /api/graphql`):
+
+```graphql
+mutation {
+  createDataProduct(
+    input: {
+      id: "portfolio_analytics"
+      domainUrn: "urn:li:domain:trading"
+      properties: {
+        name: "Portfolio Analytics"
+        description: "Internal product derived from the vendor equities feed."
+        parentDataProduct: "urn:li:dataProduct:vendor_equities"
+      }
+    }
+  ) {
+    urn
+    parentDataProducts {
+      urn
+    }
+  }
+}
+```
+
+The parent is saved in the same write as the product, so a failed request never leaves a product without its parent.
+
+The request is rejected, and nothing is written, if `parentDataProduct` is not a Data Product URN or the parent does not exist. The same checks apply when the parent is set through OpenAPI, Rest.li, or YAML.
+
 ### Creating a Data Product (YAML + git)
 
 DataHub ships with a YAML-based Data Product spec for defining and managing Data Products as code.
