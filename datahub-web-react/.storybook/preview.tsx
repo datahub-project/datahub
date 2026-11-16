@@ -7,9 +7,9 @@ import React, { useEffect, useMemo } from 'react';
 import { I18nextProvider } from 'react-i18next';
 import { ThemeProvider, createGlobalStyle } from 'styled-components';
 
+import { antdTheme } from '../src/alchemy-components/theme/antdTheme';
 import { LOCALE_MAP } from '../src/app/i18n/constants';
 import { isSupportedLanguage } from '../src/app/i18n/utils';
-import { antdTheme } from '../src/alchemy-components/theme/antdTheme';
 import GlobalThemeStyles from '../src/app/theme/GlobalThemeStyles';
 import themes from '../src/conf/theme/themes';
 import { CustomThemeContext } from '../src/customThemeContext';

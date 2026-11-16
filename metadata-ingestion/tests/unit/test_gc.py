@@ -321,24 +321,7 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
 
     def test_delete_soft_deleted_entity_old_enough(self):
         """Test that entities are deleted when they are old enough."""
-        # Calculate a timestamp older than retention days
-        old_timestamp = int(
-            (
-                datetime.now(timezone.utc)
-                - timedelta(days=self.config.retention_days + 1)
-            ).timestamp()
-            * 1000
-        )
-
-        # Mock the aspect return
-        self.mock_graph.get_entity_raw.return_value = {
-            "aspects": {
-                "status": {
-                    "value": {"removed": True},
-                    "created": {"time": old_timestamp},
-                }
-            }
-        }
+        self._expire_soft_delete()
 
         # Call the method
         self.cleanup.delete_soft_deleted_entity(self.sample_urn)
@@ -380,6 +363,181 @@ class TestSoftDeletedEntitiesCleanup2(unittest.TestCase):
         self.assertEqual(
             self.report.num_soft_deleted_retained_due_to_age_by_type.get("dataset"), 1
         )
+
+    def _expire_soft_delete(self) -> None:
+        old_timestamp = int(
+            (
+                datetime.now(timezone.utc)
+                - timedelta(days=self.config.retention_days + 1)
+            ).timestamp()
+            * 1000
+        )
+        self.mock_graph.get_entity_raw.return_value = {
+            "aspects": {
+                "status": {
+                    "value": {"removed": True},
+                    "created": {"time": old_timestamp},
+                }
+            }
+        }
+
+    def test_container_with_children_is_not_hard_deleted(self):
+        container_urn = Urn.from_string("urn:li:container:root")
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.return_value = iter(
+            ["urn:li:container:child"]
+        )
+
+        self.cleanup.delete_soft_deleted_entity(container_urn)
+
+        self.mock_graph.delete_entity.assert_not_called()
+        self.mock_graph.delete_references_to_urn.assert_not_called()
+        self.assertEqual(
+            self.report.num_soft_deleted_containers_retained_with_children, 1
+        )
+        # Soft-deleted, draft and hidden children all hold a link that a hard
+        # delete would strip, so the search must not exclude any of them.
+        search = self.mock_graph.get_urns_by_filter.call_args.kwargs
+        self.assertEqual(search["status"], RemovedStatusFilter.ALL)
+        # Every type with a container aspect, including dataProcessInstance,
+        # which the server's default search types leave out.
+        self.assertEqual(
+            search["entity_types"],
+            [
+                "dataset",
+                "chart",
+                "dashboard",
+                "dataFlow",
+                "dataJob",
+                "dataProcessInstance",
+                "container",
+                "mlModel",
+                "mlModelGroup",
+            ],
+        )
+        self.assertTrue(search["include_draft"])
+        self.assertTrue(search["include_hidden_lifecycle_stages"])
+        self.assertEqual(
+            search["extraFilters"],
+            [
+                SearchFilterRule(
+                    field="container",
+                    condition="EQUAL",
+                    values=["urn:li:container:root"],
+                ).to_raw()
+            ],
+        )
+
+    def test_container_without_children_is_hard_deleted(self):
+        container_urn = Urn.from_string("urn:li:container:root")
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.return_value = iter([])
+
+        self.cleanup.delete_soft_deleted_entity(container_urn)
+
+        self.mock_graph.delete_entity.assert_called_once_with(
+            urn="urn:li:container:root", hard=True
+        )
+        self.assertEqual(
+            self.report.num_soft_deleted_containers_retained_with_children, 0
+        )
+
+    def test_container_is_kept_when_its_children_cannot_be_searched(self):
+        container_urn = Urn.from_string("urn:li:container:root")
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.side_effect = ConnectionError("timeout")
+
+        self.cleanup.delete_soft_deleted_entity(container_urn)
+
+        self.mock_graph.delete_entity.assert_not_called()
+        self.assertEqual(len(self.report.warnings), 1)
+
+    def test_child_check_drops_only_the_unsupported_search_flag(self):
+        container_urn = Urn.from_string("urn:li:container:root")
+        self._expire_soft_delete()
+
+        def search(**kwargs):
+            # As on servers whose SearchFlags have no includeDraft field.
+            if kwargs.get("include_draft"):
+                raise ValueError(
+                    "SearchFlags.includeDraft is not supported by this DataHub server. "
+                    "Upgrade GMS or disable the corresponding option."
+                )
+            return iter(["urn:li:container:child"])
+
+        self.mock_graph.get_urns_by_filter.side_effect = search
+
+        self.cleanup.delete_soft_deleted_entity(container_urn)
+        self.cleanup.delete_soft_deleted_entity(container_urn)
+
+        self.mock_graph.delete_entity.assert_not_called()
+        self.assertEqual(
+            self.report.num_soft_deleted_containers_retained_with_children, 2
+        )
+        # Hidden children are still searched for; the draft flag is tried once.
+        searches = [c.kwargs for c in self.mock_graph.get_urns_by_filter.call_args_list]
+        self.assertEqual(len(searches), 3)
+        for retried in searches[1:]:
+            self.assertFalse(retried["include_draft"])
+            self.assertTrue(retried["include_hidden_lifecycle_stages"])
+        # includeDraft is missing on every OSS server, so it is not reported.
+        self.assertEqual(len(self.report.infos), 1)
+
+    def test_child_check_reports_a_missing_hidden_stage_flag(self):
+        self._expire_soft_delete()
+
+        def search(**kwargs):
+            if kwargs.get("include_hidden_lifecycle_stages"):
+                raise ValueError(
+                    "SearchFlags.includeHiddenLifecycleStages is not supported by "
+                    "this DataHub server."
+                )
+            return iter([])
+
+        self.mock_graph.get_urns_by_filter.side_effect = search
+
+        self.cleanup.delete_soft_deleted_entity(
+            Urn.from_string("urn:li:container:root")
+        )
+
+        self.assertIn(
+            "includeHiddenLifecycleStages",
+            str([i.context for i in self.report.infos]),
+        )
+
+    def test_unrelated_search_error_keeps_the_container(self):
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.side_effect = ValueError("bad filter")
+
+        self.cleanup.delete_soft_deleted_entity(
+            Urn.from_string("urn:li:container:root")
+        )
+
+        self.mock_graph.delete_entity.assert_not_called()
+        self.assertEqual(len(self.report.warnings), 1)
+
+    def test_dry_run_reports_containers_it_would_keep(self):
+        self.cleanup.dry_run = True
+        self._expire_soft_delete()
+        self.mock_graph.get_urns_by_filter.return_value = iter(
+            ["urn:li:container:child"]
+        )
+
+        self.cleanup.delete_soft_deleted_entity(
+            Urn.from_string("urn:li:container:root")
+        )
+
+        self.assertEqual(
+            self.report.num_soft_deleted_containers_retained_with_children, 1
+        )
+
+    def test_children_are_not_checked_for_non_container_entities(self):
+        self._expire_soft_delete()
+
+        self.cleanup.delete_soft_deleted_entity(self.sample_urn)
+
+        self.mock_graph.get_urns_by_filter.assert_not_called()
+        self.mock_graph.delete_entity.assert_called_once()
 
     @time_machine.travel(FROZEN_TIME, tick=False)
     def test_get_urns(self):
