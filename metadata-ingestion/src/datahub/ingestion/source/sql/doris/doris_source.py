@@ -11,7 +11,6 @@ from typing import (
     Optional,
     Sequence,
     Set,
-    Union,
 )
 
 from pydantic import Field, field_validator, model_validator
@@ -54,7 +53,7 @@ from datahub.ingestion.source.sql.mysql import (
     MySQLProfilingConfig,
     MySQLSource,
 )
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_common import register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
@@ -504,7 +503,7 @@ class DorisSource(MySQLSource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         return self._skip_lost_connection_tables(
             dataset_name,
             inspector,
@@ -520,7 +519,7 @@ class DorisSource(MySQLSource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         return self._skip_lost_connection_tables(
             dataset_name,
             inspector,
@@ -531,8 +530,8 @@ class DorisSource(MySQLSource):
         self,
         dataset_name: str,
         inspector: Inspector,
-        workunits: Iterable[Union[SqlWorkUnit, MetadataWorkUnit]],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+        workunits: Iterable[MetadataWorkUnit],
+    ) -> Iterable[MetadataWorkUnit]:
         # `workunits` is the base class's generator, so nothing has been read yet.
         if self._skip_unreachable(inspector):
             return

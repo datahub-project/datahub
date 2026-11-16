@@ -2,7 +2,7 @@ import json
 import logging
 import re
 import urllib.parse
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence, Tuple
 
 from pydantic import field_validator, model_validator
 from pydantic.fields import Field
@@ -36,7 +36,7 @@ from datahub.ingestion.source.sql.hive.storage_lineage import (
     HiveStorageLineage,
     HiveStorageLineageConfigMixin,
 )
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_common import register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.two_tier_sql_source import (
     TwoTierSQLAlchemyConfig,
@@ -155,7 +155,7 @@ class HiveSource(TwoTierSQLAlchemySource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         # Storage lineage needs DatasetProperties (Location) and SchemaMetadata (columns);
         # collect them by aspect type, since they may arrive in different work units.
         dataset_urn: Optional[str] = None
@@ -271,7 +271,7 @@ class HiveSource(TwoTierSQLAlchemySource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,

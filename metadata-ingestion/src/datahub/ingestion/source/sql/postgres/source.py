@@ -11,7 +11,6 @@ from typing import (
     Optional,
     Tuple,
     Type,
-    Union,
 )
 
 # This import verifies that the dependencies are available.
@@ -68,7 +67,6 @@ from datahub.ingestion.source.sql.postgres.query import (
 from datahub.ingestion.source.sql.rds_iam import RDSIAMConnectionMixin
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -741,7 +739,7 @@ class PostgresSource(SQLAlchemySource):
             name for name in materialized_view_names if name not in known
         ]
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
 
         if self.views_failed_parsing:

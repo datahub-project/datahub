@@ -76,7 +76,7 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
     SourceCapabilityModifier,
 )
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit, register_custom_type
+from datahub.ingestion.source.sql.sql_common import register_custom_type
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
 from datahub.ingestion.source.sql.two_tier_sql_source import (
@@ -2364,7 +2364,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader] = None,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """Override to add ownership metadata based on table creator."""
         yield from self._emit_ownership_if_available(dataset_name, schema, table)
         yield from super()._process_table(
@@ -2378,7 +2378,7 @@ HAVING SUM(CurrentPerm) > :size_limit_bytes
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """Override to add ownership metadata based on view creator."""
         yield from self._emit_ownership_if_available(dataset_name, schema, view)
         yield from super()._process_view(

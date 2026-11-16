@@ -65,7 +65,6 @@ from datahub.ingestion.source.common.subtypes import (
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
     SQLCommonConfig,
-    SqlWorkUnit,
     get_schema_metadata,
     make_sqlalchemy_type,
     register_custom_type,
@@ -1766,7 +1765,7 @@ class OracleSource(SQLAlchemySource):
         inspector: Inspector,
         schema: str,
         database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         yield from super().get_schema_level_workunits(inspector, schema, database)
 
         # Process materialized views if enabled
@@ -2154,7 +2153,7 @@ class OracleSource(SQLAlchemySource):
         inspector: Inspector,
         schema: str,
         sql_config: OracleConfig,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """Loop through materialized views in the schema."""
         # isinstance, not hasattr: SA 2.0's Inspector has its own
         # get_materialized_view_names, which doesn't exclude system schemas.
@@ -2563,7 +2562,7 @@ class OracleSource(SQLAlchemySource):
         # Deferred: called explicitly after V$SQL population in get_workunits_internal.
         return iter([])
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         # Schema first: registers table/view schemas into the resolver so that
         # V$SQL queries and view definitions can resolve column-level lineage.
         with self.report.new_stage(METADATA_EXTRACTION):
