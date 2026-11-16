@@ -1,3 +1,4 @@
+from typing import Any, Dict, List, Optional
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -19,6 +20,7 @@ from datahub.ingestion.source.powerbi.m_query._bridge import MQueryParseError
 from datahub.ingestion.source.powerbi.m_query.data_classes import (
     DataAccessFunctionDetail,
     IdentifierAccessor,
+    Lineage,
 )
 from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
     AmazonAthenaLineage,
@@ -99,6 +101,268 @@ def test_parse_one_part_table_reference(creator):
         v[0].urn
         == "urn:li:dataset:(urn:li:dataPlatform:mssql,default_db.dbo.my_table,PROD)"
     )
+
+
+_FABRIC_HOST = "abc.datawarehouse.fabric.microsoft.com"
+_FABRIC_WORKSPACE = "ff23fbe3-7418-42f8-a675-9f10eb2b78cb"
+_FABRIC_LAKEHOUSE = "2afa2dbd-555b-48c8-b082-35d94f4b7836"
+_FABRIC_WAREHOUSE = "6f1c2b0e-0d1a-4c58-9b8e-5a3f6e2d4c11"
+
+
+def _fabric_sql_config(**overrides: Any) -> PowerBiDashboardSourceConfig:
+    values: Dict[str, Any] = dict(
+        tenant_id="test-tenant-id",
+        client_id="test-client-id",
+        client_secret="test-client-secret",
+        fabric_sql_endpoint_to_fabric_onelake={
+            _FABRIC_HOST: {
+                "workspace_id": _FABRIC_WORKSPACE,
+                "database_to_item_id": {
+                    "MyLakehouse": _FABRIC_LAKEHOUSE,
+                    "MyWarehouse": _FABRIC_WAREHOUSE,
+                },
+            }
+        },
+    )
+    values.update(overrides)
+    return PowerBiDashboardSourceConfig(**values)
+
+
+def _fabric_urn(item_id: str, schema_table: str, env: str = "PROD") -> str:
+    return (
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+        f"{_FABRIC_WORKSPACE}.{item_id}.{schema_table},{env})"
+    )
+
+
+def _fabric_lineage(
+    expression: str,
+    config: Optional[PowerBiDashboardSourceConfig] = None,
+    columns: Optional[List[Column]] = None,
+    reporter: Optional[PowerBiDashboardSourceReport] = None,
+) -> Lineage:
+    config = config or _fabric_sql_config()
+    lineages = mquery_parser.get_upstream_tables(
+        table=Table(
+            name="green_tripdata",
+            full_name="db.green_tripdata",
+            expression=expression,
+            columns=columns,
+        ),
+        reporter=reporter or PowerBiDashboardSourceReport(),
+        platform_instance_resolver=ResolvePlatformInstanceFromDatasetTypeMapping(
+            config
+        ),
+        ctx=PipelineContext(run_id="test-run-id"),
+        config=config,
+    )
+    assert len(lineages) <= 1
+    return lineages[0] if lineages else Lineage.empty()
+
+
+def _sql_database_navigation(server: str, database: str, table: str) -> str:
+    return (
+        f'let\n    Source = Sql.Database("{server}", "{database}"),\n'
+        f'    t = Source{{[Schema="dbo",Item="{table}"]}}[Data]\nin\n    t'
+    )
+
+
+def test_fabric_sql_endpoint_navigator_uses_onelake_urn():
+    lineage = _fabric_lineage(
+        _sql_database_navigation(_FABRIC_HOST, "MyLakehouse", "green_tripdata"),
+        columns=[
+            Column(
+                name="Trip_Id",
+                dataType="string",
+                isHidden=False,
+                datahubDataType=StringTypeClass(),
+            )
+        ],
+    )
+
+    expected = _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    assert [u.urn for u in lineage.upstreams] == [expected]
+    assert lineage.upstreams[0].data_platform_pair.datahub_data_platform_name == (
+        "fabric-onelake"
+    )
+    assert lineage.column_lineage[0].upstreams == [
+        ColumnRef(table=expected, column="trip_id")
+    ]
+
+
+def test_fabric_sql_endpoint_picks_item_by_database_name():
+    lineage = _fabric_lineage(
+        _sql_database_navigation(_FABRIC_HOST, "mywarehouse", "orders")
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_WAREHOUSE, "dbo.orders")
+    ]
+
+
+def test_fabric_sql_endpoint_unmapped_database_is_dropped_and_reported():
+    reporter = PowerBiDashboardSourceReport()
+    lineage = _fabric_lineage(
+        _sql_database_navigation(_FABRIC_HOST, "OtherLakehouse", "orders"),
+        reporter=reporter,
+    )
+
+    assert lineage.upstreams == []
+    assert len(reporter.fabric_sql_endpoint_upstreams_skipped) == 1
+    assert len(reporter.warnings) == 1
+
+
+def test_unmapped_sql_server_stays_mssql():
+    lineage = _fabric_lineage(
+        _sql_database_navigation("sql-prod.example.com", "orders", "green_tripdata")
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,orders.dbo.green_tripdata,PROD)"
+    ]
+
+
+def test_fabric_sql_endpoint_host_match_ignores_case_and_port():
+    lineage = _fabric_lineage(
+        _sql_database_navigation(
+            f"TCP:{_FABRIC_HOST.upper()},1433", "MyLakehouse", "green_tripdata"
+        )
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
+def test_fabric_sql_endpoint_platform_instance_env_and_braced_guid():
+    config = _fabric_sql_config(
+        fabric_sql_endpoint_to_fabric_onelake={
+            _FABRIC_HOST: {
+                "workspace_id": f"{{{_FABRIC_WORKSPACE.upper()}}}",
+                "database_to_item_id": {"MyLakehouse": _FABRIC_LAKEHOUSE.upper()},
+                "platform_instance": "contoso",
+                "env": "DEV",
+            }
+        },
+        server_to_platform_instance={
+            _FABRIC_HOST: {"platform_instance": "sql_instance"}
+        },
+    )
+    lineage = _fabric_lineage(
+        _sql_database_navigation(_FABRIC_HOST, "MyLakehouse", "green_tripdata"),
+        config=config,
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        "urn:li:dataset:(urn:li:dataPlatform:fabric-onelake,"
+        f"contoso.{_FABRIC_WORKSPACE}.{_FABRIC_LAKEHOUSE}.dbo.green_tripdata,DEV)"
+    ]
+
+
+def test_fabric_sql_endpoint_keeps_case_without_lowercasing():
+    lineage = _fabric_lineage(
+        'let\n    Source = Sql.Database("abc.datawarehouse.fabric.microsoft.com", '
+        '"MyLakehouse"),\n    t = Source{[Schema="Sales",Item="Green_TripData"]}'
+        "[Data]\nin\n    t",
+        config=_fabric_sql_config(convert_lineage_urns_to_lowercase=False),
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "Sales.Green_TripData")
+    ]
+
+
+def test_fabric_sql_endpoint_cross_database_native_sql():
+    lineage = _fabric_lineage(
+        'let\n    Source = Sql.Database("abc.datawarehouse.fabric.microsoft.com", '
+        '"MyLakehouse", [Query="SELECT t.trip_id FROM dbo.green_tripdata t '
+        'JOIN MyWarehouse.sales.orders o ON o.trip_id = t.trip_id"])\nin\n    Source'
+    )
+
+    assert sorted(u.urn for u in lineage.upstreams) == sorted(
+        [
+            _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata"),
+            _fabric_urn(_FABRIC_WAREHOUSE, "sales.orders"),
+        ]
+    )
+
+
+def test_fabric_sql_endpoint_value_native_query():
+    lineage = _fabric_lineage(
+        "let\n    Source = Value.NativeQuery(Sql.Database("
+        '"abc.datawarehouse.fabric.microsoft.com", "MyLakehouse"), '
+        '"SELECT * FROM dbo.green_tripdata", null, [EnableFolding=true])\nin\n    Source'
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
+def test_fabric_sql_endpoint_value_native_query_unqualified_table():
+    lineage = _fabric_lineage(
+        "let\n    Source = Value.NativeQuery(Sql.Database("
+        '"abc.datawarehouse.fabric.microsoft.com", "MyLakehouse"), '
+        '"SELECT * FROM green_tripdata", null, [EnableFolding=true])\nin\n    Source'
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
+def test_fabric_sql_endpoint_old_parser():
+    lineage = _fabric_lineage(
+        'let\n    Source = Sql.Database("abc.datawarehouse.fabric.microsoft.com", '
+        '"MyLakehouse", [Query="SELECT * FROM green_tripdata"])\nin\n    Source',
+        config=_fabric_sql_config(
+            enable_advance_lineage_sql_construct=False,
+            extract_column_level_lineage=False,
+        ),
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
+def test_fabric_sql_endpoint_sql_databases_navigation():
+    lineage = _fabric_lineage(
+        'let\n    Source = Sql.Databases("abc.datawarehouse.fabric.microsoft.com"),\n'
+        '    db = Source{[Name="MyWarehouse"]}[Data],\n'
+        '    t = db{[Schema="sales",Item="orders"]}[Data]\nin\n    t'
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_WAREHOUSE, "sales.orders")
+    ]
+
+
+def test_fabric_sql_endpoint_odbc_query():
+    lineage = _fabric_lineage(
+        'let\n    Source = Odbc.Query("driver={ODBC Driver 18 for SQL Server};'
+        'server=tcp:abc.datawarehouse.fabric.microsoft.com,1433;dsn=fabric", '
+        '"SELECT * FROM MyLakehouse.dbo.green_tripdata")\nin\n    Source'
+    )
+
+    assert [u.urn for u in lineage.upstreams] == [
+        _fabric_urn(_FABRIC_LAKEHOUSE, "dbo.green_tripdata")
+    ]
+
+
+def test_fabric_sql_endpoint_odbc_without_schema_is_dropped():
+    reporter = PowerBiDashboardSourceReport()
+    lineage = _fabric_lineage(
+        'let\n    Source = Odbc.DataSource("driver={ODBC Driver 18 for SQL Server};'
+        'server=abc.datawarehouse.fabric.microsoft.com;dsn=fabric", '
+        "[HierarchicalNavigation=true]),\n"
+        '    db = Source{[Name="MyLakehouse",Kind="Database"]}[Data],\n'
+        '    t = db{[Name="green_tripdata",Kind="Table"]}[Data]\nin\n    t',
+        reporter=reporter,
+    )
+
+    assert lineage.upstreams == []
+    assert len(reporter.fabric_sql_endpoint_upstreams_skipped) == 1
 
 
 # Amazon Athena Tests
