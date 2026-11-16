@@ -7,6 +7,7 @@ import os
 import re
 import socket
 import time
+import warnings
 from collections import defaultdict
 from dataclasses import dataclass, field
 from datetime import datetime, timedelta
@@ -80,6 +81,7 @@ from datahub.emitter.response_helper import (
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.emitter.token_provider import TokenProviderAuth
+from datahub.errors import DataHubDeprecationWarning
 from datahub.ingestion.api.closeable import Closeable
 from datahub.ingestion.auth.env import build_auth_config_from_env
 from datahub.ingestion.auth.registry import build_token_provider
@@ -144,6 +146,12 @@ TRACE_BACKOFF_FACTOR = 2.0  # Double the wait time each attempt
 # for overhead like request headers.
 # This applies to pretty much all calls to GMS.
 INGEST_MAX_PAYLOAD_BYTES = get_rest_emitter_batch_max_payload_bytes()
+
+_MCE_DEPRECATION_MESSAGE = (
+    "Emitting MetadataChangeEvents is deprecated and will be removed in a "
+    "future release. They are converted to MCPs; emit "
+    "MetadataChangeProposalWrapper instead."
+)
 
 # This limit is somewhat arbitrary. All GMS endpoints will timeout
 # and return a 500 if processing takes too long. To avoid sending
@@ -833,7 +841,10 @@ class DataHubRestEmitter(Closeable, Emitter):
             ):
                 self.emit_mcp(item, emit_mode=emit_mode)
             else:
-                self.emit_mce(item)
+                warnings.warn(
+                    _MCE_DEPRECATION_MESSAGE, DataHubDeprecationWarning, stacklevel=2
+                )
+                self._emit_mce(item, emit_mode)
         except Exception as e:
             if callback:
                 callback(e, str(e))
@@ -842,35 +853,22 @@ class DataHubRestEmitter(Closeable, Emitter):
             if callback:
                 callback(None, "success")  # type: ignore
 
+    @deprecated(_MCE_DEPRECATION_MESSAGE, category=DataHubDeprecationWarning)
     def emit_mce(self, mce: MetadataChangeEvent) -> None:
-        url = f"{self._gms_server}/entities?action=ingest"
+        """Emit an MCE as one MCP per aspect, with the default emit mode."""
+        self._emit_mce(mce, self._default_emit_mode)
 
-        raw_mce_obj = mce.proposedSnapshot.to_obj()
-        mce_obj = pre_json_transform(raw_mce_obj)
-        snapshot_fqn = (
-            f"com.linkedin.metadata.snapshot.{mce.proposedSnapshot.RECORD_SCHEMA.name}"
-        )
-        ensure_has_system_metadata(mce)
-        # To make lint happy
-        assert mce.systemMetadata is not None
-        system_metadata_obj = mce.systemMetadata.to_obj()
-        snapshot = {
-            "entity": {"value": {snapshot_fqn: mce_obj}},
-            "systemMetadata": system_metadata_obj,
-        }
-        payload = json.dumps(snapshot)
-        if len(payload) > INGEST_MAX_PAYLOAD_BYTES:
-            logger.warning(
-                f"MCE object has size {len(payload)} that exceeds the max payload size of {INGEST_MAX_PAYLOAD_BYTES}, "
-                "so this metadata will likely fail to be emitted."
-            )
+    def _emit_mce(self, mce: MetadataChangeEvent, emit_mode: EmitMode) -> None:
+        """Not atomic: if emitting aspect k raises, the aspects before it were already sent and the rest are not."""
+        # Deferred to break the cycle mcp_builder -> ingestion.api.common -> graph.client -> rest_emitter.
+        from datahub.emitter.mcp_builder import mcps_from_mce
 
-        response = self._emit_generic(url, payload)
-        logger.debug(
-            "Sent MCE successfully urn=%s status=%d",
-            mce.proposedSnapshot.urn,
-            response.status_code,
-        )
+        _warn_mce_deprecated()
+        mcps = list(mcps_from_mce(mce))
+        if not mcps:
+            logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
+        for mcp in mcps:
+            self.emit_mcp(mcp, emit_mode=emit_mode)
 
     @overload
     @deprecated("Use emit_mode instead of async_flag")
@@ -1441,3 +1439,9 @@ class DataHubRestEmitter(Closeable, Emitter):
 
 """This class exists as a pass-through for backwards compatibility"""
 DatahubRestEmitter = DataHubRestEmitter
+
+
+# Cached so the warning prints once per process, however many emitters or MCEs there are.
+@functools.lru_cache(maxsize=None)
+def _warn_mce_deprecated() -> None:
+    logger.warning(_MCE_DEPRECATION_MESSAGE)

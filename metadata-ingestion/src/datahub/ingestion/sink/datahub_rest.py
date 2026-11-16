@@ -408,7 +408,11 @@ class DatahubRestSink(Sink[DatahubRestSinkConfig, DataHubRestSinkReport]):
         emit_mode: EmitMode,
     ) -> None:
         # TODO: Add timing metrics
-        self.emitter.emit(record, emit_mode=emit_mode)
+        if isinstance(record, MetadataChangeEvent):
+            for mcp in mcps_from_mce(record):
+                self.emitter.emit(mcp, emit_mode=emit_mode)
+        else:
+            self.emitter.emit(record, emit_mode=emit_mode)
 
     def _emit_batch_wrapper(
         self,
