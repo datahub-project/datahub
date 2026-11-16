@@ -13,7 +13,9 @@ import datahub.metadata.schema_classes as models
 from datahub.cli.json_file import check_mce_file
 from datahub.emitter import mce_builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
+from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.file import (
     FileSourceConfig,
@@ -65,7 +67,28 @@ def test_serde_to_json(
         pytestconfig,
         output_path=f"{output_file}",
         golden_path=golden_file,
+        golden_mces_as_mcps=True,
+        fail_on_output_mces=True,
     )
+
+
+def test_file_source_converts_mces_to_mcps(pytestconfig: pytest.Config) -> None:
+    json_path = pytestconfig.rootpath / "tests/unit/serde/test_serde_large.json"
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-mce"),
+        config=FileSourceConfig(path=str(json_path)),
+    )
+    expected = [
+        mcp
+        for mce in read_metadata_file(json_path)
+        if isinstance(mce, MetadataChangeEventClass)
+        for mcp in mcps_from_mce(mce)
+    ]
+
+    workunits = list(source.get_workunits_internal())
+
+    assert [wu.metadata for wu in workunits] == expected
+    assert len(source.report.warnings) == 1
 
 
 @pytest.mark.parametrize(
