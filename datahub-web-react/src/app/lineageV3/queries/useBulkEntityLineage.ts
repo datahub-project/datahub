@@ -16,7 +16,10 @@ import {
     useIgnoreSchemaFieldStatus,
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
-import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
+import {
+    getNodeForBulkResult,
+    getUnfetchedTransformationalLeaves,
+} from '@app/lineageV3/queries/useBulkEntityLineage.utils';
 import {
     LOAD_ERROR_NOTIFICATION_KEY,
     addQueryNodes,
@@ -153,12 +156,9 @@ export default function useBulkEntityLineage(
                 })
                 .slice(0, BATCH_SIZE);
             if (!newUrnsToFetch.length) {
-                newUrnsToFetch = getUnfetchedTransformationalLeaves(
-                    lineageFilters,
-                    nodes,
-                    rootType,
-                    memoizedShownUrns,
-                ).slice(0, BATCH_SIZE);
+                newUrnsToFetch = getUnfetchedTransformationalLeaves(lineageFilters, nodes, rootType, memoizedShownUrns)
+                    .filter((urn) => !failedUrnsRef.current.has(urn))
+                    .slice(0, BATCH_SIZE);
             }
             if (
                 !newUrnsToFetch.length &&
