@@ -453,12 +453,8 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         else:
             # Auto-discover spaces
             logger.info("Auto-discovering Confluence spaces...")
-            try:
-                spaces = self._discover_spaces()
-                logger.info(f"Discovered {len(spaces)} spaces")
-            except Exception as e:
-                self.report.failure(message="Failed to discover spaces", exc=e)
-                return []
+            spaces = self._discover_spaces()
+            logger.info(f"Discovered {len(spaces)} spaces")
 
         # Apply spaces.deny filter
         if self.config._parsed_space_deny is not None:
@@ -474,10 +470,16 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         spaces: List[str] = []
         start = 0
         while len(spaces) < self.config.max_spaces:
-            response = self.confluence_client.get_all_spaces(
-                start=start,
-                limit=min(SPACE_PAGE_SIZE, self.config.max_spaces - len(spaces)),
-            )
+            try:
+                response = self.confluence_client.get_all_spaces(
+                    start=start,
+                    limit=min(SPACE_PAGE_SIZE, self.config.max_spaces - len(spaces)),
+                )
+            except Exception as e:
+                # Keep the spaces already listed. The failure already stops
+                # stale removal, so ingesting them cannot delete anything.
+                self.report.failure(message="Failed to discover spaces", exc=e)
+                return spaces
             results = (response or {}).get("results") or []
             spaces.extend(space["key"] for space in results if "key" in space)
             if not results or not (response.get("_links") or {}).get("next"):
