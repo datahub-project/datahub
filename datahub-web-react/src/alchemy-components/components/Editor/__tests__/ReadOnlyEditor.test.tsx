@@ -143,6 +143,19 @@ describe('read-only editor', () => {
         expect(href).toBe('/images/a.png');
     });
 
+    it('renders mentions with mentionView', () => {
+        renderEditor({
+            content:
+                'Owned by [@Alice](urn:li:corpuser:alice) and <span data-datahub-mention-urn="urn:li:corpuser:bob">@Bob</span>.',
+            mentionView: ({ urn, name }) => <span data-testid={`mention-${name}`}>{urn}</span>,
+        });
+
+        expect(screen.getByTestId('mention-Alice')).toHaveTextContent('urn:li:corpuser:alice');
+        expect(screen.getByTestId('mention-Bob')).toHaveTextContent('urn:li:corpuser:bob');
+        expect(screen.getByTestId('mention-Alice').closest('p')).toHaveTextContent(/^Owned by/);
+        expect(document.querySelector('span.mentions')).toBeNull();
+    });
+
     it('keeps a font size and drops the rest of the style', () => {
         render(
             <ThemeProvider theme={themeV2}>
