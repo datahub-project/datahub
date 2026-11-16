@@ -1,4 +1,4 @@
-"""Convenience functions for creating MCEs"""
+"""Convenience functions for building URNs and aspects, plus legacy MCE helpers"""
 
 import hashlib
 import json

@@ -2,7 +2,7 @@ source:
   type: file
   config:
     # Coordinates
-    path: ./path/to/mce/file.json
+    path: ./path/to/metadata/file.json
 
 sink:
   # sink configs

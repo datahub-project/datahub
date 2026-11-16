@@ -296,7 +296,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
             for panel in dashboard.panels:
                 self.report.report_chart_scanned()
 
-                # Create chart MCE
                 dataset_urn, chart_urn, chart_mcps = build_chart_mcps(
                     panel=panel,
                     dashboard=dashboard,
