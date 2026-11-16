@@ -9,10 +9,8 @@ import { expect, type Locator, type Page } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { GraphQLHelper } from '../helpers/graphql-helper';
-import { ModalComponent } from './common/modal-component';
 
 export class GlossaryPage extends BasePage {
-  readonly modalComponent: ModalComponent;
 
   // ── Navigation ──────────────────────────────────────────────────────────────
   readonly sidebarContainer: Locator;
@@ -81,7 +79,6 @@ export class GlossaryPage extends BasePage {
     super(page, logger, logDir);
     this.graphqlHelper = new GraphQLHelper(page);
 
-    this.modalComponent = new ModalComponent(page);
 
     this.sidebarContainer = page.getByTestId('glossary-browser-sidebar');
     // eslint-disable-next-line playwright/no-raw-locators -- Ant Design active tab panel CSS class; no semantic role for the active tabpanel
@@ -441,7 +438,10 @@ export class GlossaryPage extends BasePage {
     await this.page.getByTestId('tag-term-modal-input').click();
     await this.filterTagSelectInput.fill(tagName);
     await this.getTagFilterOption(tagName).click();
-    await this.modalComponent.title.click();
+    // Toggle the trigger to close the dropdown: when it flips upward it covers the modal title,
+    // and below it covers the confirm button (same pattern as dataset.page.ts).
+    await this.page.getByTestId('tag-term-modal-input').click();
+    await expect(this.filterTagSelectInput).toBeHidden();
     await this.addTagsConfirmButton.click();
   }
 

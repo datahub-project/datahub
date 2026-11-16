@@ -1,4 +1,6 @@
-import type { ThemeConfig } from 'antd';
+import { type ThemeConfig, theme as antdThemeApi } from 'antd';
+
+import type { Theme } from '@conf/theme/types';
 
 const INPUT_BORDER_COLOR = '#d9d9d9';
 
@@ -66,3 +68,60 @@ export const antdTheme: ThemeConfig = {
         },
     },
 };
+
+/**
+ * Light mode keeps the antd 4 values above. antd 5 paints its components from these tokens at runtime,
+ * at a specificity GlobalThemeStyles can't always beat, so dark mode has to reach antd through its
+ * tokens too: the dark algorithm derives fills and hovers, and the app's own colors pin the rest.
+ */
+export function getAntdTheme(theme: Theme | undefined): ThemeConfig {
+    if (!theme || theme.id !== 'themeV2Dark') return antdTheme;
+    const { colors } = theme;
+    return {
+        algorithm: antdThemeApi.darkAlgorithm,
+        token: {
+            ...antdTheme.token,
+            colorPrimary: colors.buttonFillBrand,
+            colorLink: colors.hyperlinks,
+            colorText: colors.text,
+            colorTextHeading: colors.text,
+            colorTextSecondary: colors.textSecondary,
+            colorTextTertiary: colors.textTertiary,
+            colorTextDescription: colors.textSecondary,
+            colorTextDisabled: colors.textDisabled,
+            colorTextPlaceholder: colors.textPlaceholder,
+            colorIcon: colors.icon,
+            colorIconHover: colors.iconHover,
+            colorBgBase: colors.bg,
+            colorBgContainer: colors.bgInput,
+            colorBgElevated: colors.bg,
+            colorBgLayout: colors.bg,
+            colorBgSpotlight: colors.bgTooltip,
+            colorBgMask: colors.overlayHeavy,
+            colorBgContainerDisabled: colors.bgInputDisabled,
+            colorBorder: colors.border,
+            colorBorderSecondary: colors.border,
+            colorSplit: colors.border,
+            colorFillAlter: colors.bgSurface,
+            colorHighlight: colors.bgSelectedSubtle,
+            controlItemBgHover: colors.bgHover,
+            controlItemBgActive: colors.bgSelectedSubtle,
+        },
+        components: {
+            ...antdTheme.components,
+            Button: { ...antdTheme.components?.Button, defaultBorderColor: colors.borderInput, defaultShadow: 'none' },
+            Input: { colorBorder: colors.borderInput },
+            InputNumber: { colorBorder: colors.borderInput },
+            Select: { colorBorder: colors.borderInput },
+            DatePicker: { colorBorder: colors.borderInput },
+            Checkbox: { colorBorder: colors.borderCheckbox },
+            Layout: {
+                ...antdTheme.components?.Layout,
+                headerBg: colors.bg,
+                headerColor: colors.text,
+                bodyBg: colors.bg,
+            },
+            Tag: { ...antdTheme.components?.Tag, defaultColor: colors.text },
+        },
+    };
+}

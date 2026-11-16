@@ -102,23 +102,26 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textSecondary};
-    text-align: center;
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        color: ${(props) => props.theme.colors.textSecondary};
+        text-align: center;
 
-    font-family: Mulish;
-    font-size: 12px;
-    font-style: normal;
-    font-weight: 700;
-    line-height: normal;
+        font-family: Mulish;
+        font-size: 12px;
+        font-style: normal;
+        font-weight: 700;
+        line-height: normal;
 
-    display: flex;
-    gap: 4px;
-    align-items: center;
+        display: flex;
+        gap: 4px;
+        align-items: center;
 
-    &:hover,
-    :active,
-    :focus {
-        color: ${(props) => props.theme.colors.textTertiary};
+        &:hover,
+        :active,
+        :focus {
+            color: ${(props) => props.theme.colors.textTertiary};
+        }
     }
 `;
 

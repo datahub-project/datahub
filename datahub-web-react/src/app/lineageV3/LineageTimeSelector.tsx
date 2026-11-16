@@ -41,17 +41,20 @@ const ConfirmButtonWrapper = styled.div`
 `;
 
 const ConfirmButton = styled(Button)`
-    border-radius: 15px;
-    border: 1px solid ${(props) => props.theme.colors.text};
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        border-radius: 15px;
+        border: 1px solid ${(props) => props.theme.colors.text};
 
-    position: absolute;
-    right: 10px;
-    bottom: 13px;
-    text-align: right;
+        position: absolute;
+        right: 10px;
+        bottom: 13px;
+        text-align: right;
 
-    :hover {
-        border-color: ${(props) => props.theme.colors.hyperlinks};
-        color: ${(props) => props.theme.colors.hyperlinks};
+        :hover {
+            border-color: ${(props) => props.theme.colors.hyperlinks};
+            color: ${(props) => props.theme.colors.hyperlinks};
+        }
     }
 `;
 

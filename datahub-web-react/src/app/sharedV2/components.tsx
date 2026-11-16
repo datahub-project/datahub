@@ -34,7 +34,10 @@ export const BodyContainer = styled.div`
 `;
 
 export const WhiteButton = styled(Button)`
-    background-color: ${(props) => props.theme.colors.bg};
-    color: ${(props) => props.theme.colors.textBrand};
-    text-shadow: none;
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        background-color: ${(props) => props.theme.colors.bg};
+        color: ${(props) => props.theme.colors.textBrand};
+        text-shadow: none;
+    }
 `;

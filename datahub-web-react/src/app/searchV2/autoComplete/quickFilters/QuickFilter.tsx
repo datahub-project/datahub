@@ -12,31 +12,34 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${(props) => props.theme.colors.border};
-    border-radius: 16px;
-    box-shadow: none;
-    font-weight: 400;
-    color: ${(props) => props.theme.colors.text};
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    padding: 2px 10px;
-    font-size: 14px;
-    margin: 4px;
-
-    &:hover {
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        border: 1px solid ${(props) => props.theme.colors.border};
+        border-radius: 16px;
+        box-shadow: none;
+        font-weight: 400;
         color: ${(props) => props.theme.colors.text};
-    }
+        cursor: pointer;
+        display: flex;
+        align-items: center;
+        padding: 2px 10px;
+        font-size: 14px;
+        margin: 4px;
 
-    ${(props) =>
-        props.selected &&
-        `
-        border: 1px solid ${props.theme.colors.borderBrand};
-        background-color: ${props.theme.colors.bgSurfaceBrand};
         &:hover {
-            background-color: ${props.theme.colors.bgSurfaceBrand};
+            color: ${(props) => props.theme.colors.text};
         }
-    `}
+
+        ${(props) =>
+            props.selected &&
+            `
+            border: 1px solid ${props.theme.colors.borderBrand};
+            background-color: ${props.theme.colors.bgSurfaceBrand};
+            &:hover {
+                background-color: ${props.theme.colors.bgSurfaceBrand};
+            }
+        `}
+    }
 `;
 
 const LabelWrapper = styled.span`

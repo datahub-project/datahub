@@ -1,14 +1,19 @@
-import { ConfigProvider } from 'antd';
-import React from 'react';
+import { ConfigProvider, type ThemeConfig } from 'antd';
+import React, { useMemo } from 'react';
+import { useTheme } from 'styled-components';
 
-import { antdTheme } from '@components/theme/antdTheme';
+import { antdTheme, getAntdTheme } from '@components/theme/antdTheme';
 
 // message, notification and Modal.confirm render outside the React tree, so they don't see the
-// ConfigProvider below and need the theme passed in separately
+// ConfigProvider below. They read the active config from here each time they render.
+let staticApiTheme: ThemeConfig = antdTheme;
 ConfigProvider.config({
-    holderRender: (children) => <ConfigProvider theme={antdTheme}>{children}</ConfigProvider>,
+    holderRender: (children) => <ConfigProvider theme={staticApiTheme}>{children}</ConfigProvider>,
 });
 
 export function AntdThemeProvider({ children }: { children: React.ReactNode }) {
-    return <ConfigProvider theme={antdTheme}>{children}</ConfigProvider>;
+    const theme = useTheme();
+    const config = useMemo(() => getAntdTheme(theme), [theme]);
+    staticApiTheme = config;
+    return <ConfigProvider theme={config}>{children}</ConfigProvider>;
 }

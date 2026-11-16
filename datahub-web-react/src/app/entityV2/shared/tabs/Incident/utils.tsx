@@ -461,7 +461,10 @@ export const getLinkedAssetsData = (assets) => {
 };
 
 export const getFormattedDateForResolver = (lastUpdate) => {
-    return dayjs(lastUpdate).format('M/D/YYYY [at] h:mm A');
+    // dayjs(undefined) is "now", which would show a made-up resolution time
+    if (lastUpdate === undefined || lastUpdate === null) return '-';
+    // Pinned to English: "[at]" is English text, and other locales would localize the AM/PM marker
+    return dayjs(lastUpdate).locale('en').format('M/D/YYYY [at] h:mm A');
 };
 
 // Helper function for validating the form errors

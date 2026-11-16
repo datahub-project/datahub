@@ -29,7 +29,10 @@ const StatusText = styled.div`
 `;
 
 const ActionButton = styled(Button)`
-    color: ${(props) => props.theme.colors.textInformation};
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        color: ${(props) => props.theme.colors.textInformation};
+    }
 `;
 
 const StyledArrowRightOutlined = styled(ArrowRight)`

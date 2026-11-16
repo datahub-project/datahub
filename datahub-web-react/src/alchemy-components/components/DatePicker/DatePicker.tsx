@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { forwardRef, useEffect, useMemo, useRef, useState } from 'react';
 
 import { buildDateTimeFormat } from '@components/components/DatePicker/DatePicker.utils';
 import { DatePickerGlobalStyles } from '@components/components/DatePicker/DatePickerGlobalStyles';
@@ -54,6 +54,18 @@ export function DatePicker({
             });
     }, [disabled, placeholder, isOpen, inputRender]);
 
+    // rc-picker 4 renders the custom input as a component type, so its identity must stay stable or the
+    // input remounts (and loses focus) on every render. It reads the latest render function from a ref.
+    const wrappedInputRenderRef = useRef(wrappedInputRender);
+    wrappedInputRenderRef.current = wrappedInputRender;
+    const StableInput = useMemo(
+        () =>
+            forwardRef<HTMLInputElement, React.InputHTMLAttributes<HTMLInputElement>>((props, _ref) => (
+                <>{wrappedInputRenderRef.current?.(props)}</>
+            )),
+        [],
+    );
+
     return (
         <>
             <DatePickerGlobalStyles />
@@ -63,7 +75,7 @@ export function DatePicker({
                     {...datePickerProps}
                     {...(resolvedFormat ? { format: resolvedFormat } : {})}
                     value={value}
-                    inputRender={wrappedInputRender && ((props) => wrappedInputRender?.(props))}
+                    components={wrappedInputRender ? { input: StableInput } : undefined}
                     onChange={(newValue) => setInternalValue(newValue as DatePickerValue)}
                     onOpenChange={(open) => setIsOpen(open)}
                     disabled={disabled}

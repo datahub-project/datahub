@@ -55,3 +55,18 @@ describe('DatePicker format resolution', () => {
         expect(screen.getByRole('textbox')).toHaveValue('2026-09-10 14:30');
     });
 });
+
+describe('DatePicker custom input', () => {
+    it('keeps the same input element across re-renders, so typing keeps focus', () => {
+        const { rerender } = renderDatePicker({ variant: DatePickerVariant.EditableInput });
+        const input = screen.getByRole('textbox');
+
+        rerender(
+            <ThemeProvider theme={theme as unknown as DefaultTheme}>
+                <DatePicker value={VALUE} variant={DatePickerVariant.EditableInput} placeholder="Pick a date" />
+            </ThemeProvider>,
+        );
+
+        expect(screen.getByRole('textbox')).toBe(input);
+    });
+});

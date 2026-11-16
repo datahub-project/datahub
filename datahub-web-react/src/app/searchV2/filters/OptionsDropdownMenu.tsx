@@ -11,11 +11,14 @@ import { useEntityRegistry } from '@app/useEntityRegistry';
 const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
 const StyledButton = styled(Button)`
-    width: 100%;
-    text-align: center;
-    background-color: ${(p) => p.theme.colors.buttonFillBrand};
-    color: ${(props) => props.theme.colors.textOnFillBrand};
-    border-radius: 0;
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        width: 100%;
+        text-align: center;
+        background-color: ${(p) => p.theme.colors.buttonFillBrand};
+        color: ${(props) => props.theme.colors.textOnFillBrand};
+        border-radius: 0;
+    }
 `;
 
 const DropdownMenu = styled.div<{ type: 'card' | 'default' }>`

@@ -1563,7 +1563,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
     }
     .ant-picker-dropdown,
-    .ant-picker-calendar .ant-picker-header,
+    .ant-picker-dropdown .ant-picker-header,
     .ant-picker-content th,
     .ant-picker-time-panel-cell-inner {
         color: ${(props) => props.theme.colors.text};
@@ -1582,11 +1582,11 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-dropdown .ant-picker-range-arrow::before {
         background-color: ${(props) => props.theme.colors.bg};
     }
-    .ant-picker-calendar .ant-picker-header,
+    .ant-picker-dropdown .ant-picker-header,
     .ant-picker-panel .ant-picker-footer,
     .ant-picker-dropdown .ant-picker-footer-extra:not(:last-child),
-    .ant-picker-calendar .ant-picker-datetime-panel .ant-picker-time-panel,
-    .ant-picker-calendar .ant-picker-time-panel-column:not(:first-child) {
+    .ant-picker-dropdown .ant-picker-datetime-panel .ant-picker-time-panel,
+    .ant-picker-dropdown .ant-picker-time-panel-column:not(:first-child) {
         border-color: ${(props) => props.theme.colors.border};
     }
     .ant-picker-header button {
@@ -1596,10 +1596,10 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-header-view button:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
-    .ant-picker-calendar .ant-picker-cell {
+    .ant-picker-dropdown .ant-picker-cell {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-picker-calendar .ant-picker-cell-in-view {
+    .ant-picker-dropdown .ant-picker-cell-in-view {
         color: ${(props) => props.theme.colors.text};
     }
     body
@@ -1617,7 +1617,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-picker-cell-in-view.ant-picker-cell-in-range::before,
     .ant-picker-cell-in-view.ant-picker-cell-range-start:not(.ant-picker-cell-range-start-single)::before,
     .ant-picker-cell-in-view.ant-picker-cell-range-end:not(.ant-picker-cell-range-end-single)::before,
-    .ant-picker-calendar .ant-picker-time-panel-column-active,
+    .ant-picker-dropdown .ant-picker-time-panel-column-active,
     .ant-picker-time-panel-cell-selected .ant-picker-time-panel-cell-inner {
         background-color: ${(props) => props.theme.colors.bgSelectedSubtle};
     }
@@ -1647,12 +1647,12 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
         .ant-picker-cell-inner::after {
         background-color: ${(props) => props.theme.colors.bgSelected};
     }
-    .ant-picker-calendar .ant-picker-cell-disabled,
+    .ant-picker-dropdown .ant-picker-cell-disabled,
     .ant-picker-time-panel-cell-disabled .ant-picker-time-panel-cell-inner,
     .ant-picker-dropdown .ant-picker-ranges .ant-picker-now-btn-disabled {
         color: ${(props) => props.theme.colors.textDisabled};
     }
-    .ant-picker-calendar .ant-picker-cell-disabled::before {
+    .ant-picker-dropdown .ant-picker-cell-disabled::before {
         background-color: ${(props) => props.theme.colors.bgDisabled};
     }
     .ant-picker-cell-disabled.ant-picker-cell-today .ant-picker-cell-inner::before {

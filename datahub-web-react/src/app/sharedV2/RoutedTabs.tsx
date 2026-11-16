@@ -56,7 +56,12 @@ export const RoutedTabs = ({ defaultPath, tabs, onTabChange, ...props }: Props) 
                 onChange={(newPath) => history.replace(`${url}/${newPath}`)}
                 items={tabs.map((tab) => ({
                     key: tab.path.replace('/', ''),
-                    label: tab.customTitle ? tab.customTitle : tab.name,
+                    // rc-tabs doesn't forward data-* from items, so the antd 4 TabPane test id goes on the label
+                    label: (
+                        <span data-testid={`tab-${tab.path.replace('/', '').toLowerCase()}`}>
+                            {tab.customTitle ? tab.customTitle : tab.name}
+                        </span>
+                    ),
                     disabled: !tab.display?.enabled(),
                 }))}
                 {...props}

@@ -2,31 +2,34 @@ import { Button, Typography } from 'antd';
 import styled from 'styled-components';
 
 export const SearchFilterLabel = styled(Button)<{ $isActive: boolean }>`
-    font-size: 14px;
-    font-weight: 700;
-    border: none;
-    border-radius: 8px;
-    display: flex;
-    align-items: center;
-    box-shadow: none;
-    color: ${(props) => props.theme.colors.text};
-    &&:hover,
-    &&:focus {
-        background-color: ${(props) => props.theme.colors.bgHover};
-    }
-    ${(props) =>
-        props.$isActive &&
-        `
-        && {
-            background-color: ${props.theme.colors.bgSelectedSubtle};
-            border: 1px solid ${props.theme.colors.borderSelected};
-            color: ${props.theme.colors.textSelected};
-        }
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        font-size: 14px;
+        font-weight: 700;
+        border: none;
+        border-radius: 8px;
+        display: flex;
+        align-items: center;
+        box-shadow: none;
+        color: ${(props) => props.theme.colors.text};
         &&:hover,
         &&:focus {
-            background-color: ${props.theme.colors.bgSelected};
+            background-color: ${(props) => props.theme.colors.bgHover};
         }
-    `}
+        ${(props) =>
+            props.$isActive &&
+            `
+            && {
+                background-color: ${props.theme.colors.bgSelectedSubtle};
+                border: 1px solid ${props.theme.colors.borderSelected};
+                color: ${props.theme.colors.textSelected};
+            }
+            &&:hover,
+            &&:focus {
+                background-color: ${props.theme.colors.bgSelected};
+            }
+        `}
+    }
 `;
 
 export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: boolean }>`
@@ -47,13 +50,16 @@ export const MoreFilterOptionLabel = styled.div<{ $isActive: boolean; isOpen?: b
 `;
 
 export const TextButton = styled(Button)<{ marginTop?: number; height?: number }>`
-    color: ${(p) => p.theme.colors.textBrand};
-    padding: 0px 6px;
-    margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
-    ${(props) => props.height !== undefined && `height: ${props.height}px;`}
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        color: ${(p) => p.theme.colors.textBrand};
+        padding: 0px 6px;
+        margin-top: ${(props) => (props.marginTop !== undefined ? `${props.marginTop}px` : '8px')};
+        ${(props) => props.height !== undefined && `height: ${props.height}px;`}
 
-    &:hover {
-        background-color: ${(props) => props.theme.colors.bg};
+        &:hover {
+            background-color: ${(props) => props.theme.colors.bg};
+        }
     }
 `;
 

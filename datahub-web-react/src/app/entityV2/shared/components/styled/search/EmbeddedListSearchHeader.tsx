@@ -48,9 +48,12 @@ const ImpactAnalysisWarning = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    margin-left: auto;
-    color: ${(props) => props.theme.colors.iconWarning};
-    padding: 0;
+    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
+    && {
+        margin-left: auto;
+        color: ${(props) => props.theme.colors.iconWarning};
+        padding: 0;
+    }
 `;
 
 type Props = {

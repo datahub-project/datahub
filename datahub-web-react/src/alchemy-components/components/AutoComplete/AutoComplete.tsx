@@ -7,6 +7,7 @@ import {
     AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR,
     AUTOCOMPLETE_WRAPPER_CLASS_NAME,
     ESCAPE_KEY,
+    TAB_KEY,
 } from '@components/components/AutoComplete/constants';
 import { AutoCompleteProps, OptionType } from '@components/components/AutoComplete/types';
 import { OverlayClassProvider } from '@components/components/Utils';
@@ -50,6 +51,10 @@ export default function AutoComplete({
                 } else {
                     onClear?.();
                 }
+            }
+            // antd 5's select handles Tab like Enter and blocks the focus move, so the onBlur close never runs
+            if (event.key === TAB_KEY && internalOpen) {
+                setInternalOpen(false);
             }
         },
         [internalOpen, onClear],
