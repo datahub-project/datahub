@@ -78,9 +78,9 @@ def _tile_source_types() -> Set[str]:
             # A tile may use an alias, e.g. `databricks` for `unity-catalog`. Count
             # both: `hive-metastore` is a registry key and an alias of
             # `presto-on-hive`.
-            alias = source_registry._aliases.get(source_type)
-            if alias:
-                types.add(alias[0])
+            alias_target = source_registry.get_alias_target(source_type)
+            if alias_target:
+                types.add(alias_target)
     return types
 
 

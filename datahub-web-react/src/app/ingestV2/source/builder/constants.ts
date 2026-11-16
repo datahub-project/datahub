@@ -139,6 +139,8 @@ const FLINK = 'flink';
 const FLINK_URN = `urn:li:dataPlatform:${FLINK}`;
 const GOOGLE_DOCS = 'google_docs';
 const GOOGLE_DOCS_URN = `urn:li:dataPlatform:${GOOGLE_DOCS}`;
+const GOOGLE_DRIVE = 'google_drive';
+const GOOGLE_DRIVE_URN = `urn:li:dataPlatform:${GOOGLE_DRIVE}`;
 const GRAFANA = 'grafana';
 const GRAFANA_URN = `urn:li:dataPlatform:${GRAFANA}`;
 const GLUE = 'glue';
@@ -340,6 +342,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [GRAFANA_URN]: grafanaLogo,
     [GLUE_URN]: glueLogo,
     [GOOGLE_DOCS_URN]: googleDocsLogo,
+    [GOOGLE_DRIVE_URN]: googleDocsLogo,
     [HEX_URN]: hexLogo,
     [HIVE_URN]: hiveLogo,
     [ICEBERG_URN]: icebergLogo,
@@ -426,7 +429,6 @@ const POWER_BI_REPORT_SERVER = 'powerbi-report-server';
 const HIVE_METASTORE = 'hive-metastore';
 const OPENAPI_SOURCE = 'openapi';
 const GOOGLE_DRIVE_SOURCE = 'google-drive';
-const GOOGLE_DRIVE_URN = 'urn:li:dataPlatform:google_drive';
 
 export const SOURCE_TO_PLATFORM_URN = {
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
