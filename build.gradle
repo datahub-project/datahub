@@ -113,7 +113,7 @@ buildscript {
   // Mockito inline mocks need byte-buddy + byte-buddy-agent matched and >= 1.17.5 (ASM 9.8) to
   // instrument Java 25 runtime classes; forced in the resolutionStrategy block below.
   ext.byteBuddyVersion = '1.18.11'
-  ext.openLineageVersion = '1.53.0'
+  ext.openLineageVersion = '1.55.0'
   ext.awsSdk2Version = '2.54.16'
   ext.micrometerVersion = '1.16.6'
   // CVE-2026-1002; CVE-2026-6860 / GHSA-3g76-f9xq-8vp6 (SNI cache growth); fabric8 kubernetes-httpclient-vertx
@@ -989,7 +989,9 @@ subprojects {
       return
     }
     // Wiring ratchet (gradle/wiring/README.md). datahub-frontend is Play/Guice, not Spring.
-    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend') {
+    // Embedded OpenSearch must keep its classpath independent of DataHub and Spring.
+    if (project.path != ':wiring-coverage' && project.path != ':datahub-frontend'
+        && project.path != ':metadata-service:opensearch-embedded') {
       project.apply from: rootProject.file('gradle/wiring/wiring-coverage.gradle')
     }
     /* TODO: evaluate ignoring jar timestamps for increased caching (compares checksum instead)
@@ -1004,8 +1006,11 @@ subprojects {
     // Spring Kafka 4.0 has Jackson 3 support but falls back to Jackson 2 when tools.jackson is absent.
     configurations.all {
       exclude group: 'biz.aQute.bnd', module: 'biz.aQute.bnd.annotation'
-      exclude group: 'tools.jackson.core'
-      exclude group: 'tools.jackson'
+      // OpenSearch 3.7's x-content needs Jackson 3 in its standalone process.
+      if (project.path != ':metadata-service:opensearch-embedded') {
+        exclude group: 'tools.jackson.core'
+        exclude group: 'tools.jackson'
+      }
     }
 
     dependencies {
