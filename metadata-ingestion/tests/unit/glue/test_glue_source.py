@@ -524,7 +524,7 @@ def test_database_resource_link_without_owner_catalog_reports_missing_target() -
     assert source.report.num_resource_link_missing_target == 1
     titles = [w.title for w in source.report.warnings]
     assert "Resource link missing target identifiers" in titles
-    assert "Failed to read resource-link owner schema from Glue" not in titles
+    assert "Failed to read resource-link owner table from Glue" not in titles
 
 
 @pytest.mark.parametrize("include_column_lineage", [True, False])
@@ -823,7 +823,7 @@ def test_resource_link_schema_unresolved_leaves_link_schemaless():
     # The Glue failure is surfaced (with its exception); the generic summary is NOT also emitted, so
     # one unresolved owner produces exactly one report entry.
     titles = [w.title for w in source.report.warnings]
-    assert "Failed to read resource-link owner schema from Glue" in titles
+    assert "Failed to read resource-link owner table from Glue" in titles
     assert "Resource link schema could not be resolved" not in titles
 
 
@@ -864,6 +864,219 @@ def test_resource_link_schema_datahub_error_falls_back_to_glue():
     assert "Failed to read resource-link owner schema from DataHub" in [
         w.title for w in source.report.warnings
     ]
+
+
+OWNER_VIEW_SQL = "SELECT txn_id FROM orders"
+
+
+def _owner_get_table_response(table_type: str) -> Dict[str, Any]:
+    return {
+        "Table": {
+            "Name": "transactions",
+            "DatabaseName": "test-database",
+            "TableType": table_type,
+            "ViewOriginalText": OWNER_VIEW_SQL,
+            "StorageDescriptor": {"Columns": [{"Name": "txn_id", "Type": "bigint"}]},
+        }
+    }
+
+
+def _owner_graph(
+    sub_types: Optional[List[str]] = None, error: Optional[Exception] = None
+) -> MagicMock:
+    # The owner's schema is in DataHub, so Glue is only reached by the View/Table lookup.
+    graph = MagicMock()
+    graph.get_schema_metadata.return_value = _owner_schema()
+
+    def get_aspect(urn: str, aspect_type: Type[Any]) -> Any:
+        if error is not None:
+            raise error
+        if urn != OWNER_TABLE_URN or sub_types is None:
+            return None
+        if aspect_type is models.SubTypesClass:
+            return models.SubTypesClass(typeNames=sub_types)
+        return models.ViewPropertiesClass(
+            materialized=False, viewLanguage="SQL", viewLogic=OWNER_VIEW_SQL
+        )
+
+    graph.get_aspect.side_effect = get_aspect
+    return graph
+
+
+def _link_wus(
+    source: GlueSource,
+    owner_table_type: Optional[str] = None,
+    glue_denied: bool = False,
+    link: Optional[Dict[str, Any]] = None,
+) -> Tuple[List[MetadataWorkUnit], MagicMock]:
+    # Glue is stubbed only as asked, so an unexpected get_table becomes a report warning.
+    with (
+        Stubber(source.glue_client) as stubber,
+        patch.object(source.aggregator, "add_view_definition") as add_view_definition,
+    ):
+        if owner_table_type is not None:
+            stubber.add_response(
+                "get_table",
+                _owner_get_table_response(owner_table_type),
+                {
+                    "CatalogId": "432143214321",
+                    "DatabaseName": "test-database",
+                    "Name": "transactions",
+                },
+            )
+        if glue_denied:
+            stubber.add_client_error(
+                "get_table", service_error_code="AccessDeniedException"
+            )
+        wus = list(
+            source._gen_table_wu(
+                copy.deepcopy(link or resource_link_table_in_mixed_database)
+            )
+        )
+        stubber.assert_no_pending_responses()
+    return wus, add_view_definition
+
+
+def _link_aspect(
+    wus: List[MetadataWorkUnit], aspect_type: Type[Any], urn: str = CONSUMER_LINK_URN
+) -> Any:
+    aspects = [
+        wu.get_aspect_of_type(aspect_type)
+        for wu in wus
+        if wu.get_urn() == urn and wu.get_aspect_of_type(aspect_type) is not None
+    ]
+    return aspects[-1] if aspects else None
+
+
+def _warning_titles(source: GlueSource) -> List[Optional[str]]:
+    return [w.title for w in source.report.warnings]
+
+
+def test_resource_link_to_view_typed_as_view_from_datahub():
+    # GetTables lists the link with no TableType. The owner is already in DataHub as a View, so the
+    # link takes its type and view definition from there, with no Glue call. The SQL is not parsed
+    # for lineage: the link's lineage is its COPY edge to the owner.
+    source = _resource_link_schema_source()
+    source.ctx.graph = _owner_graph(sub_types=["View"])
+
+    wus, add_view_definition = _link_wus(source)
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
+    assert _link_aspect(wus, models.ViewPropertiesClass).viewLogic == OWNER_VIEW_SQL
+    add_view_definition.assert_not_called()
+    assert not source.report.warnings
+
+
+def test_resource_link_to_view_typed_as_view_from_glue():
+    # The owner is not in DataHub, so one cross-account GetTable on the target supplies both the
+    # schema and the type (the stub serves a single response, so a second call would warn).
+    source = _resource_link_schema_source()
+    graph = _owner_graph()
+    graph.get_schema_metadata.return_value = None
+    source.ctx.graph = graph
+
+    wus, add_view_definition = _link_wus(source, owner_table_type="VIRTUAL_VIEW")
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
+    assert _link_aspect(wus, models.ViewPropertiesClass).viewLogic == OWNER_VIEW_SQL
+    add_view_definition.assert_not_called()
+    assert not source.report.warnings
+
+
+def test_resource_link_type_datahub_error_falls_back_to_glue():
+    source = _resource_link_schema_source()
+    source.ctx.graph = _owner_graph(error=Exception("gms unavailable"))
+
+    wus, _ = _link_wus(source, owner_table_type="VIRTUAL_VIEW")
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["View"]
+    assert "Failed to read resource-link owner type from DataHub" in _warning_titles(
+        source
+    )
+
+
+@pytest.mark.parametrize(
+    "sub_types, owner_table_type, glue_denied, glue_warnings",
+    [
+        pytest.param(["Table"], None, False, 0, id="datahub-says-table"),
+        pytest.param(None, "EXTERNAL_TABLE", False, 0, id="glue-says-table"),
+        pytest.param(None, None, True, 1, id="glue-denied"),
+    ],
+)
+def test_resource_link_stays_table_when_owner_is_table_or_unknown(
+    sub_types: Optional[List[str]],
+    owner_table_type: Optional[str],
+    glue_denied: bool,
+    glue_warnings: int,
+) -> None:
+    source = _resource_link_schema_source()
+    source.ctx.graph = _owner_graph(sub_types=sub_types)
+
+    wus, _ = _link_wus(
+        source, owner_table_type=owner_table_type, glue_denied=glue_denied
+    )
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
+    assert _link_aspect(wus, models.ViewPropertiesClass) is None
+    assert (
+        _warning_titles(source).count(
+            "Failed to read resource-link owner table from Glue"
+        )
+        == glue_warnings
+    )
+
+
+@pytest.mark.parametrize("case", ["flag-off", "link-has-table-type"])
+def test_resource_link_type_not_looked_up(case: str) -> None:
+    # A link that already carries a TableType, or resolve_resource_link_schema=False, keeps the
+    # existing behaviour: no owner lookup in DataHub or Glue.
+    source = _resource_link_schema_source(resolve=case != "flag-off")
+    graph = _owner_graph(sub_types=["View"])
+    source.ctx.graph = graph
+    link = dict(resource_link_table_in_mixed_database)
+    if case == "link-has-table-type":
+        link["TableType"] = "EXTERNAL_TABLE"
+
+    wus, _ = _link_wus(source, link=link)
+
+    assert _link_aspect(wus, models.SubTypesClass).typeNames == ["Table"]
+    graph.get_aspect.assert_not_called()
+    assert not source.report.warnings
+
+
+def test_resource_link_glue_owner_cache_keyed_by_target():
+    # Two links to same-named tables in two unmapped catalogs get the same owner URN, but each must
+    # read its own owner from Glue.
+    source = _resource_link_schema_source()
+    links = [
+        {
+            "Name": f"link-{catalog}",
+            "DatabaseName": "mixed-database",
+            "CatalogId": "123412341234",
+            "TargetTable": {"CatalogId": catalog, "DatabaseName": "db", "Name": "t"},
+        }
+        for catalog in ("555555555555", "666666666666")
+    ]
+    with Stubber(source.glue_client) as stubber:
+        for catalog, table_type in (
+            ("555555555555", "VIRTUAL_VIEW"),
+            ("666666666666", "EXTERNAL_TABLE"),
+        ):
+            stubber.add_response(
+                "get_table",
+                _owner_get_table_response(table_type),
+                {"CatalogId": catalog, "DatabaseName": "db", "Name": "t"},
+            )
+        wus = [wu for link in links for wu in source._gen_table_wu(link)]
+        stubber.assert_no_pending_responses()
+
+    link_urn = "urn:li:dataset:(urn:li:dataPlatform:glue,consumer_inst.mixed-database.link-{},PROD)"
+    assert _link_aspect(
+        wus, models.SubTypesClass, link_urn.format("555555555555")
+    ).typeNames == ["View"]
+    assert _link_aspect(
+        wus, models.SubTypesClass, link_urn.format("666666666666")
+    ).typeNames == ["Table"]
 
 
 def test_resource_link_schema_skipped_when_owner_is_self():

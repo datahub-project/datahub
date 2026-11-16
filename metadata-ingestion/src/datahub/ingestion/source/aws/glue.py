@@ -319,8 +319,8 @@ class ResolvedTarget:
 class OwnerSchemaFetch:
     """Outcome of one attempt to read a resource link's owning-table schema.
 
-    ``warned`` is True when the attempt already reported its own (exception-bearing) warning, so the
-    caller can avoid adding a redundant generic warning for the same unresolved owner.
+    ``warned`` is True when a warning (with its exception) has already been reported for this
+    owner, so the caller can avoid adding a redundant generic warning.
     """
 
     schema: Optional[SchemaMetadata]
@@ -457,7 +457,8 @@ class GlueSourceConfig(
             "made) and otherwise from a cross-account `glue:GetTable` on the target (requires "
             "`glue:GetTable` permission on the shared table). When neither is available the link is "
             "left schemaless and its columns remain reachable through its upstream lineage edge. "
-            "Set to False to always keep resource links schemaless."
+            "A link listed without its own type takes its View/Table type and view definition from "
+            "the owning table the same way. Set to False to skip both lookups."
         ),
     )
 
@@ -879,6 +880,11 @@ class GlueSource(StatefulIngestionSourceBase):
         self._presto_view_decode_failures_reported: Set[str] = set()
         self._aws_account_id: Optional[str] = None
         self._aws_account_id_loaded: bool = False
+        # Owner tables from cross-account glue:GetTable, keyed by (catalog, database, name) since
+        # unmapped catalogs share an owner URN; None = read failed. One call per target per run.
+        self._resource_link_owner_tables: Dict[
+            Tuple[str, str, str], Optional[Dict]
+        ] = {}
 
         self.platform_resource_repository: Optional[
             "GluePlatformResourceRepository"
@@ -1173,8 +1179,8 @@ class GlueSource(StatefulIngestionSourceBase):
     ) -> Optional[SchemaMetadata]:
         """Resolve a shared table's schema: DataHub first, then cross-account Glue.
 
-        Counters and the unresolved warning fire once per call (i.e. per resource link); a shared
-        table linked more than once is resolved independently each time.
+        Counters and the unresolved warning fire once per resource link; the Glue read is cached
+        per target, so links sharing a target share one GetTable and one failure warning.
         """
         datahub = self._resource_link_schema_from_datahub(owner_urn)
         if datahub.schema is not None:
@@ -1228,29 +1234,94 @@ class GlueSource(StatefulIngestionSourceBase):
         self, target: Dict, table_name: str, owner_urn: str
     ) -> OwnerSchemaFetch:
         """Read the owning table's schema via a cross-account ``glue:GetTable`` on the target."""
-        try:
-            response = self.glue_client.get_table(
-                CatalogId=target["CatalogId"],
-                DatabaseName=target["DatabaseName"],
-                Name=target["Name"],
-            )
-        except Exception as e:
-            # Missing glue:GetTable permission on the shared table is expected for many Lake
-            # Formation table-level grants — degrade to schemaless rather than failing the run.
-            self.report.warning(
-                title="Failed to read resource-link owner schema from Glue",
-                message="Could not fetch the owning table via cross-account glue:GetTable; the "
-                "resource link will be ingested without a schema. Grant glue:GetTable on the "
-                "shared table to enable this.",
-                context=f"{target.get('DatabaseName')}.{target.get('Name')}",
-                exc=e,
-            )
+        owner_table = self._resource_link_owner_table_from_glue(target)
+        if owner_table is None:
             return OwnerSchemaFetch(schema=None, warned=True)
         return OwnerSchemaFetch(
             schema=self._get_schema_metadata(
-                response["Table"], table_name, dataset_urn=owner_urn
+                owner_table, table_name, dataset_urn=owner_urn
             ),
             warned=False,
+        )
+
+    def _resource_link_owner_table_from_glue(self, target: Dict) -> Optional[Dict]:
+        """Read the owning table via a cross-account ``glue:GetTable``, once per target per run."""
+        key = (target["CatalogId"], target["DatabaseName"], target["Name"])
+        if key in self._resource_link_owner_tables:
+            return self._resource_link_owner_tables[key]
+        response: Optional[Dict] = None
+        try:
+            response = self.glue_client.get_table(
+                CatalogId=key[0], DatabaseName=key[1], Name=key[2]
+            )
+        except Exception as e:
+            # Missing glue:GetTable permission on the shared table is expected for many Lake
+            # Formation table-level grants — degrade rather than failing the run.
+            self.report.warning(
+                title="Failed to read resource-link owner table from Glue",
+                message="Could not fetch the owning table via cross-account glue:GetTable, so the "
+                "resource link's View/Table type, and its schema when not found in DataHub, cannot "
+                "be read from Glue. Grant glue:GetTable on the shared table to enable this.",
+                context=f"{target.get('DatabaseName')}.{target.get('Name')}",
+                exc=e,
+            )
+        owner_table = response["Table"] if response else None
+        self._resource_link_owner_tables[key] = owner_table
+        return owner_table
+
+    def _resource_link_view_properties(
+        self, table: Dict, dataset_urn: str, table_name: str
+    ) -> Optional[ViewPropertiesClass]:
+        """View properties for a resource link listed without a ``TableType`` whose owning table
+        is a view; None otherwise."""
+        if not self.source_config.resolve_resource_link_schema or "TableType" in table:
+            return None
+        target = table.get("TargetTable")
+        if not target:
+            return None
+        owner_urn = self._resource_link_owner_urn(target)
+        if owner_urn is None or owner_urn == dataset_urn:
+            return None
+
+        owner_sub_types: Optional[SubTypes] = None
+        owner_view: Optional[ViewPropertiesClass] = None
+        if self.ctx.graph is not None:
+            try:
+                owner_sub_types = self.ctx.graph.get_aspect(owner_urn, SubTypes)
+                if (
+                    owner_sub_types is not None
+                    and DatasetSubTypes.VIEW in owner_sub_types.typeNames
+                ):
+                    owner_view = self.ctx.graph.get_aspect(
+                        owner_urn, ViewPropertiesClass
+                    )
+            except Exception as e:
+                # A GMS/network error must not abort the run — fall back to Glue for an unread type.
+                self.report.warning(
+                    title="Failed to read resource-link owner type from DataHub",
+                    message="Could not fetch the owning table's View/Table type or view "
+                    "definition from DataHub.",
+                    context=owner_urn,
+                    exc=e,
+                )
+        if owner_sub_types is not None:
+            if DatasetSubTypes.VIEW not in owner_sub_types.typeNames:
+                return None
+            return owner_view or ViewPropertiesClass(
+                materialized=False, viewLanguage="SQL", viewLogic=""
+            )
+
+        owner_table = self._resource_link_owner_table_from_glue(target)
+        if (
+            owner_table is None
+            or owner_table.get("TableType") != self._VIRTUAL_VIEW_TABLE_TYPE
+        ):
+            return None
+        view_definition = self._get_view_definition(owner_table, table_name)
+        return ViewPropertiesClass(
+            materialized=False,
+            viewLanguage="SQL",
+            viewLogic=view_definition.sql if view_definition else "",
         )
 
     @classmethod
@@ -2647,37 +2718,50 @@ class GlueSource(StatefulIngestionSourceBase):
         yield from self._extract_record(dataset_urn, table, full_table_name)
 
         is_view = table.get("TableType") == self._VIRTUAL_VIEW_TABLE_TYPE
+        view_definition = (
+            self._get_view_definition(table, full_table_name) if is_view else None
+        )
+        # A resource link's view properties come from its owner and are not parsed for lineage:
+        # the link's lineage is its COPY edge to the owner.
+        view_properties = (
+            ViewPropertiesClass(
+                materialized=False,
+                viewLanguage="SQL",
+                viewLogic=view_definition.sql if view_definition else "",
+            )
+            if is_view
+            else self._resource_link_view_properties(
+                table, dataset_urn, full_table_name
+            )
+        )
 
         yield MetadataChangeProposalWrapper(
             entityUrn=dataset_urn,
             aspect=SubTypes(
-                typeNames=[DatasetSubTypes.VIEW if is_view else DatasetSubTypes.TABLE]
+                typeNames=[
+                    DatasetSubTypes.VIEW if view_properties else DatasetSubTypes.TABLE
+                ]
             ),
         ).as_workunit()
 
-        if is_view:
+        if view_properties:
             self.report.report_view_scanned()
-            view_definition = self._get_view_definition(table, full_table_name)
             yield MetadataChangeProposalWrapper(
-                entityUrn=dataset_urn,
-                aspect=ViewPropertiesClass(
-                    materialized=False,
-                    viewLanguage="SQL",
-                    viewLogic=view_definition.sql if view_definition else "",
-                ),
+                entityUrn=dataset_urn, aspect=view_properties
             ).as_workunit()
-            if view_definition and self.aggregator:
-                # Glue is a two-level namespace (database.table); the view's Glue
-                # database is the default schema for resolving unqualified tables.
-                # Parse with the view's own dialect (Trino for Athena/Presto views,
-                # Spark for raw Spark/Hive views) rather than the platform default.
-                self.aggregator.add_view_definition(
-                    view_urn=dataset_urn,
-                    view_definition=view_definition.sql,
-                    default_db=None,
-                    default_schema=database_name,
-                    override_dialect=view_definition.dialect,
-                )
+
+        if view_definition and self.aggregator:
+            # Glue is a two-level namespace (database.table); the view's Glue
+            # database is the default schema for resolving unqualified tables.
+            # Parse with the view's own dialect (Trino for Athena/Presto views,
+            # Spark for raw Spark/Hive views) rather than the platform default.
+            self.aggregator.add_view_definition(
+                view_urn=dataset_urn,
+                view_definition=view_definition.sql,
+                default_db=None,
+                default_schema=database_name,
+                override_dialect=view_definition.dialect,
+            )
 
         yield from self._get_domain_wu(
             dataset_name=full_table_name,
