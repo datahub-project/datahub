@@ -765,7 +765,12 @@ class UnityCatalogSourceConfig(
         return ancestors_in(
             (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
             kind,
-            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
+            (
+                DatasetSubTypes.TABLE,
+                DatasetSubTypes.VIEW,
+                DatasetSubTypes.METRIC_VIEW,
+                DatasetContainerSubTypes.DATABRICKS_VOLUME,
+            ),
         )
 
     def pinned_catalogs(self) -> Optional[List[str]]:
