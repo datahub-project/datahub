@@ -257,7 +257,7 @@ class _ModelReferenceResolver:
             if not self.follow_dax_references:
                 return None
             owner = self.measure_owner(reference.field)
-            if owner is None and measure.has_row_context_iterators:
+            if owner is None and _in_iterator(measure, reference):
                 # Inside SUMX('T', [Column]) a bare name that is no measure is
                 # a column of the iterated table.
                 return self._unattributed(measure.name, reference)
@@ -288,15 +288,15 @@ class _ModelReferenceResolver:
             owner: Optional[str] = reference.table
         elif self._is_own_column(reference.field):
             # In a calculated column's row context a bare [Column] is a
-            # column of this table, unless the expression iterates another
-            # table: then it belongs to the iterated table and cannot be
-            # attributed without evaluating the DAX.
-            if column.has_row_context_iterators:
+            # column of this table, unless it only appears inside an iterator
+            # over another table: then it belongs to the iterated table and
+            # cannot be attributed without evaluating the DAX.
+            if _in_iterator(column, reference):
                 return self._unattributed(column.name, reference)
             owner = self.table.name
         else:
             owner = self.measure_owner(reference.field)
-            if owner is None and column.has_row_context_iterators:
+            if owner is None and _in_iterator(column, reference):
                 return self._unattributed(column.name, reference)
         return self._record(
             column.name,
@@ -342,6 +342,15 @@ def _reference_text(reference: powerbi_data_classes.DaxFieldReference) -> str:
     if reference.table is not None:
         return f"'{reference.table}'[{reference.field}]"
     return f"[{reference.field}]"
+
+
+def _in_iterator(
+    owner: Union[powerbi_data_classes.Column, powerbi_data_classes.Measure],
+    reference: powerbi_data_classes.DaxFieldReference,
+) -> bool:
+    """Whether a bare reference only appears inside a table iterator of the
+    owner's DAX, so it may name a column of the iterated table."""
+    return owner.has_row_context_iterators and reference.in_row_context
 
 
 class Mapper:

@@ -1,5 +1,5 @@
 import re
-from typing import List, Optional, Set
+from typing import Dict, List, Optional, Set, Tuple
 
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     DaxFieldReference,
@@ -44,7 +44,6 @@ TABLE_ARGUMENT_FUNCTIONS = (
     "MINX",
     "COUNTX",
     "RANKX",
-    "TOPN",
     "GENERATE",
     "UNION",
     "EXCEPT",
@@ -75,6 +74,12 @@ DAX_TABLE_ARGUMENT_RE = re.compile(
     r"\b(?:"
     + "|".join(TABLE_ARGUMENT_FUNCTIONS)
     + r")\s*\(\s*(?P<bare>[A-Za-z_]\w*)\s*(?=[,)])",
+    re.IGNORECASE,
+)
+# TOPN(N, Table, ...) takes its table second. N is usually a literal or a
+# variable; a computed N containing a comma or parenthesis is not matched.
+DAX_TOPN_TABLE_ARGUMENT_RE = re.compile(
+    r"\bTOPN\s*\(\s*[^,()]+,\s*(?P<bare>[A-Za-z_]\w*)\s*(?=[,)])",
     re.IGNORECASE,
 )
 DAX_ROW_CONTEXT_ITERATOR_RE = re.compile(
@@ -127,6 +132,29 @@ def _end_of_bracketed(expression: str, start: int) -> int:
                 i += 2
                 continue
             return i + 1
+        i += 1
+    return length
+
+
+def _end_of_call(text: str, open_paren: int) -> int:
+    """Index just past the `)` that closes the call whose `(` is at
+    `open_paren`, skipping quoted table names. `text` must already have its
+    strings, comments and bracketed names blanked. An unclosed call extends
+    to the end of the text."""
+    depth = 0
+    i = open_paren
+    length = len(text)
+    while i < length:
+        ch = text[i]
+        if ch == IDENTIFIER_QUOTE:
+            i = _end_of_quoted(text, i, IDENTIFIER_QUOTE)
+            continue
+        if ch == "(":
+            depth += 1
+        elif ch == ")":
+            depth -= 1
+            if depth == 0:
+                return i + 1
         i += 1
     return length
 
@@ -208,8 +236,19 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
     if not expression:
         return references
     text = strip_comments_and_strings(expression)
+    # Same length and offsets as `text`.
+    masked = _mask_bracketed_names(text)
+    iterator_spans: List[Tuple[int, int]] = [
+        (match.end() - 1, _end_of_call(masked, match.end() - 1))
+        for match in DAX_ROW_CONTEXT_ITERATOR_RE.finditer(masked)
+    ]
 
-    seen_fields: Set[DaxFieldReference] = set()
+    def inside_iterator(position: int) -> bool:
+        return any(start < position < end for start, end in iterator_spans)
+
+    # A bare reference is in row context only when every occurrence is
+    # inside an iterator; one occurrence outside reads this table's row.
+    in_row_context: Dict[DaxFieldReference, bool] = {}
     seen_tables: Set[str] = set()
 
     def add_table(name: str) -> None:
@@ -227,13 +266,19 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
         elif match.group("bare") is not None:
             table = match.group("bare")
         reference = DaxFieldReference(table=table, field=field_name)
-        if reference not in seen_fields:
-            seen_fields.add(reference)
-            references.fields.append(reference)
+        iterated = table is None and inside_iterator(match.start())
+        in_row_context[reference] = in_row_context.get(reference, True) and iterated
         if table is not None:
             add_table(table)
+    references.fields = [
+        DaxFieldReference(
+            table=reference.table,
+            field=reference.field,
+            in_row_context=iterated,
+        )
+        for reference, iterated in in_row_context.items()
+    ]
 
-    masked = _mask_bracketed_names(text)
     for match in DAX_QUOTED_TABLE_RE.finditer(masked):
         if masked[match.end() : match.end() + 1] == BRACKET_OPEN:
             continue
@@ -242,11 +287,16 @@ def extract_dax_references(expression: Optional[str]) -> DaxReferences:
     variables = {
         match.group("name").casefold() for match in DAX_VARIABLE_RE.finditer(masked)
     }
-    for match in DAX_TABLE_ARGUMENT_RE.finditer(masked):
+    table_arguments = sorted(
+        [
+            *DAX_TABLE_ARGUMENT_RE.finditer(masked),
+            *DAX_TOPN_TABLE_ARGUMENT_RE.finditer(masked),
+        ],
+        key=lambda match: match.start("bare"),
+    )
+    for match in table_arguments:
         if match.group("bare").casefold() not in variables:
             add_table(match.group("bare"))
 
-    references.has_row_context_iterators = (
-        DAX_ROW_CONTEXT_ITERATOR_RE.search(masked) is not None
-    )
+    references.has_row_context_iterators = bool(iterator_spans)
     return references
