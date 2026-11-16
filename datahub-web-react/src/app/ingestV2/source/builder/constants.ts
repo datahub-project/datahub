@@ -14,6 +14,7 @@ import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
 import dataplexLogo from '@images/dataplexlogo.svg';
 import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
+import db2Logo from '@images/db2logo.png';
 import dbtLogo from '@images/dbtlogo.png';
 import dltLogo from '@images/dltlogo.svg';
 import documentdbLogo from '@images/documentdblogo.svg';
@@ -37,7 +38,9 @@ import hiveLogo from '@images/hivelogo.png';
 import icebergLogo from '@images/iceberglogo.png';
 import informaticaLogo from '@images/informaticalogo.png';
 import informixLogo from '@images/informixlogo.png';
+import kafkaConnectLogo from '@images/kafkaconnectlogo.svg';
 import kafkaLogo from '@images/kafkalogo.png';
+import salesforceLogo from '@images/logo-salesforce.svg';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
 import matillionLogo from '@images/matillionlogo.png';
@@ -50,6 +53,7 @@ import montecarloLogo from '@images/montecarlologo.png';
 import mssqlLogo from '@images/mssqllogo.png';
 import mysqlLogo from '@images/mysqllogo-2.png';
 import neo4j from '@images/neo4j.svg';
+import nifiLogo from '@images/nifilogo.svg';
 import notionLogo from '@images/notionlogo.png';
 import odcsLogo from '@images/odcslogo.png';
 import oktaLogo from '@images/oktalogo.png';
@@ -98,6 +102,8 @@ const COCKROACHDB = 'cockroachdb';
 const COCKROACHDB_URN = `urn:li:dataPlatform:${COCKROACHDB}`;
 const DAGSTER = 'dagster';
 const DAGSTER_URN = `urn:li:dataPlatform:${DAGSTER}`;
+const DB2 = 'db2';
+const DB2_URN = `urn:li:dataPlatform:${DB2}`;
 const DBT = 'dbt';
 export const DBT_URN = `urn:li:dataPlatform:${DBT}`;
 const DOCUMENTDB = 'documentdb';
@@ -131,6 +137,8 @@ export const INFORMIX = 'informix';
 export const INFORMIX_URN = `urn:li:dataPlatform:${INFORMIX}`;
 const KAFKA = 'kafka';
 const KAFKA_URN = `urn:li:dataPlatform:${KAFKA}`;
+const KAFKA_CONNECT = 'kafka-connect';
+const KAFKA_CONNECT_URN = `urn:li:dataPlatform:${KAFKA_CONNECT}`;
 export const LOOKER = 'looker';
 export const LOOK_ML = 'lookml';
 const LOOKER_URN = `urn:li:dataPlatform:${LOOKER}`;
@@ -222,6 +230,8 @@ export const QLIK_SENSE = 'qlik-sense';
 const QLIK_SENSE_URN = `urn:li:dataPlatform:${QLIK_SENSE}`;
 const S3 = 's3';
 const S3_URN = `urn:li:dataPlatform:${S3}`;
+const SALESFORCE = 'salesforce';
+const SALESFORCE_URN = `urn:li:dataPlatform:${SALESFORCE}`;
 const SAGE_MAKER = 'sagemaker';
 const SAGE_MAKER_URN = `urn:li:dataPlatform:${SAGE_MAKER}`;
 const SIGMA = 'sigma';
@@ -237,6 +247,8 @@ const DATAHUB_BUSINESS_GLOSSARY = 'datahub-business-glossary';
 const DATAHUB_URN = `urn:li:dataPlatform:${DATAHUB}`;
 const NEO4J = 'neo4j';
 const NEO4J_URN = `urn:li:dataPlatform:${NEO4J}`;
+const NIFI = 'nifi';
+const NIFI_URN = `urn:li:dataPlatform:${NIFI}`;
 const VERTEX_AI = 'vertexai';
 const VERTEXAI_URN = `urn:li:dataPlatform:${VERTEX_AI}`;
 const INFORMATICA = 'informatica';
@@ -267,6 +279,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CLICKHOUSE_URN]: clickhouseLogo,
     [COCKROACHDB_URN]: cockroachdbLogo,
     [DAGSTER_URN]: dagsterLogo,
+    [DB2_URN]: db2Logo,
     [DBT_URN]: dbtLogo,
     [DLT_URN]: dltLogo,
     [DOCUMENTDB_URN]: documentdbLogo,
@@ -284,6 +297,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [ICEBERG_URN]: icebergLogo,
     [INFORMIX_URN]: informixLogo,
     [KAFKA_URN]: kafkaLogo,
+    [KAFKA_CONNECT_URN]: kafkaConnectLogo,
     [LOOKER_URN]: lookerLogo,
     [MARIA_DB_URN]: mariadbLogo,
     [MATILLION_URN]: matillionLogo,
@@ -305,6 +319,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [PRESTO_URN]: prestoLogo,
     [REDSHIFT_URN]: redshiftLogo,
     [S3_URN]: s3Logo,
+    [SALESFORCE_URN]: salesforceLogo,
     [SAGE_MAKER_URN]: sageMakerLogo,
     [SNOWFLAKE_URN]: snowflakeLogo,
     [SNOWPLOW_URN]: snowplowLogo,
@@ -332,6 +347,7 @@ export const PLATFORM_URN_TO_LOGO = {
     [CASSANDRA_URN]: cassandraLogo,
     [DATAHUB_URN]: datahubLogo,
     [NEO4J_URN]: neo4j,
+    [NIFI_URN]: nifiLogo,
     [VERTEXAI_URN]: vertexAI,
     [INFORMATICA_URN]: informaticaLogo,
     [MONTECARLO_URN]: montecarloLogo,

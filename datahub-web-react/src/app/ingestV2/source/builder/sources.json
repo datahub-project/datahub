@@ -218,6 +218,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:kafka-connect",
+        "name": "kafka-connect",
+        "displayName": "Kafka Connect",
+        "description": "Import Connectors and lineage between Kafka topics and connected systems from Kafka Connect.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/kafka-connect/",
+        "recipe": "source:\n    type: kafka-connect\n    config:\n        # Coordinates\n        connect_uri: # Your Kafka Connect REST endpoint, e.g. http://localhost:8083\n\n        # Credentials (only if authentication is enabled)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # username: # Your Kafka Connect username\n        # password: \"${KAFKA_CONNECT_PASSWORD}\"\n\n        # Optional: map source/sink platforms to platform instances used by their own ingestion\n        # platform_instance_map:\n        #     mysql: mysql_platform_instance\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:sns",
         "name": "sns",
         "displayName": "Amazon SNS",
@@ -268,6 +278,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:nifi",
+        "name": "nifi",
+        "displayName": "NiFi",
+        "description": "Import Process Groups, Processors, and lineage from Apache NiFi.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/nifi/",
+        "recipe": "source:\n    type: nifi\n    config:\n        # Coordinates\n        site_url: # Your NiFi URL, ending with /nifi/, e.g. https://localhost:8443/nifi/\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        auth: SINGLE_USER # One of NO_AUTH, SINGLE_USER, CLIENT_CERT, KERBEROS, BASIC_AUTH\n        username: null # Your NiFi username, e.g. admin\n        password: \"${NIFI_PASSWORD}\"\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:hive",
         "name": "hive",
         "displayName": "Hive",
@@ -284,6 +304,16 @@
         "description": "Import Databases, Schemas, Tables, Views, foreign keys, and view lineage from IBM/HCL Informix.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/informix/",
         "recipe": "source:\n    type: informix\n    config:\n        # Coordinates\n        host_port: # Your Informix host and port, e.g. localhost:9088\n        server: # INFORMIXSERVER name, e.g. informix\n        database: # Your Informix database name, e.g. mydb\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Informix username, e.g. informix\n        password: \"${INFORMIX_PASSWORD}\"\n\n        # Required to auto-download the proprietary IBM JDBC driver from Maven Central\n        accept_ibm_jdbc_license: true\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_view_lineage: true\n        include_foreign_keys: true\n        include_row_counts: true\n        include_ownership: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:db2",
+        "name": "db2",
+        "displayName": "IBM Db2",
+        "description": "Import Databases, Schemas, Tables, Views, Stored Procedures, and lineage from IBM Db2.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/db2/",
+        "recipe": "source:\n    type: db2\n    config:\n        # Coordinates\n        host_port: # Your Db2 host and port, e.g. localhost:50000\n        database: # Your Db2 database name, e.g. SAMPLE\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Db2 username, e.g. db2inst1\n        password: \"${DB2_PASSWORD}\"\n\n        # Optional TLS\n        # uri_args:\n        #     Security: SSL\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_stored_procedures: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
@@ -476,6 +506,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:salesforce",
+        "name": "salesforce",
+        "displayName": "Salesforce",
+        "description": "Import Standard and Custom Objects, Fields, and statistics from Salesforce.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/salesforce/",
+        "recipe": "source:\n    type: salesforce\n    config:\n        # Coordinates\n        instance_url: # Your Salesforce instance URL, e.g. https://MyDomainName.my.salesforce.com\n        # is_sandbox: false\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        auth: USERNAME_PASSWORD\n        username: null # Your Salesforce username, e.g. user@company.com\n        password: \"${SALESFORCE_PASSWORD}\"\n        security_token: \"${SALESFORCE_SECURITY_TOKEN}\"\n\n        # Options\n        ingest_tags: false\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:vertica",
         "name": "vertica",
         "displayName": "Vertica",
@@ -603,6 +643,16 @@
         "description": "Import Tables, Keyspaces, and column schemas from Cassandra.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/cassandra",
         "recipe": "source:\n  type: cassandra\n  config:\n    # Credentials for on prem cassandra\n    contact_point: localhost\n    port: 9042\n    username: admin\n    password: password\n\n    # Or\n    # Credentials Astra Cloud\n    #cloud_config:\n    #  secure_connect_bundle: Path to Secure Connect Bundle (.zip)\n    #  token: Application Token\n\n    # Optional Allow / Deny extraction of particular keyspaces.\n    keyspace_pattern:\n      allow: [.*]\n\n    # Optional Allow / Deny extraction of particular tables.\n    table_pattern:\n      allow: [.*]",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:elasticsearch",
+        "name": "elasticsearch",
+        "displayName": "Elasticsearch",
+        "description": "Import Indices, Index Templates, and Data Streams from Elasticsearch.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/elasticsearch/",
+        "recipe": "source:\n    type: elasticsearch\n    config:\n        # Coordinates\n        host: # Your Elasticsearch host and port, e.g. localhost:9200\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Elasticsearch username, e.g. elastic\n        password: \"${ELASTICSEARCH_PASSWORD}\"\n\n        # SSL\n        use_ssl: true\n        verify_certs: true\n\n        # Options\n        index_pattern:\n            deny:\n                - '^\\..*'\n        ingest_index_templates: false\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
