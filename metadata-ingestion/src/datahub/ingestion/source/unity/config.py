@@ -299,7 +299,9 @@ class UnityCatalogSourceConfig(
         )
     )
 
-    volume_pattern: AllowDenyPattern = Field(
+    volume_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABRICKS_VOLUME)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns for volumes to filter in ingestion. Specify regex to match the entire volume name in `catalog.schema.volume` format. e.g. to match all volumes starting with landing in the Customer catalog and public schema, use the regex `Customer\\.public\\.landing.*`.",
     )
@@ -369,7 +371,9 @@ class UnityCatalogSourceConfig(
         )
     )
 
-    include_volumes: bool = pydantic.Field(
+    include_volumes: Annotated[
+        bool, Enables(DatasetContainerSubTypes.DATABRICKS_VOLUME)
+    ] = pydantic.Field(
         default=False,
         description="Ingest Unity Catalog volumes, represented as DataHub containers "
         "with the `Volume` subtype inside their schema container. Only volume-level "
