@@ -15,6 +15,18 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Default document permissions
+
+Every user can now create documents, including users with no role, such as Readers and new SSO
+users. The user who creates a document becomes its owner, and owners can always edit and delete
+their own documents. Before this change, only Admins and Editors could create documents, and owner
+edit access came from a policy that you could change or remove.
+
+Three system policies grant this access: **All Users - Create Documents**, **Document Owners - Edit
+Documents**, and the existing **Document Owners - Delete Documents**. You cannot edit or deactivate
+them, and DataHub restores them on every upgrade. No action is necessary. If you limited document
+creation to specific roles or groups, that limit no longer applies.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing

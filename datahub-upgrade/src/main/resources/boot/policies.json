@@ -645,5 +645,65 @@
       "type": "METADATA",
       "editable": false
     }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:document-owners-edit-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": true,
+        "allUsers": false,
+        "allGroups": false,
+        "users": [],
+        "groups": []
+      },
+      "resources": {
+        "allResources": false,
+        "filter": {
+          "criteria": [
+            {
+              "field": "TYPE",
+              "values": ["document"],
+              "condition": "EQUALS"
+            }
+          ]
+        }
+      },
+      "privileges": ["EDIT_ENTITY"],
+      "displayName": "Document Owners - Edit Documents",
+      "description": "Document owners can edit Documents they own.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
+  },
+  {
+    "urn": "urn:li:dataHubPolicy:all-users-create-documents-policy",
+    "info": {
+      "actors": {
+        "resourceOwners": false,
+        "allUsers": true,
+        "allGroups": false,
+        "users": [],
+        "groups": []
+      },
+      "resources": {
+        "allResources": false,
+        "filter": {
+          "criteria": [
+            {
+              "field": "TYPE",
+              "values": ["document"],
+              "condition": "EQUALS"
+            }
+          ]
+        }
+      },
+      "privileges": ["CREATE_ENTITY"],
+      "displayName": "All Users - Create Documents",
+      "description": "All users can create Documents. The creator becomes the owner of the new Document.",
+      "state": "ACTIVE",
+      "type": "METADATA",
+      "editable": false
+    }
   }
 ]

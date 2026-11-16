@@ -134,15 +134,16 @@ _Note: Ask DataHub is available in DataHub Cloud only._
 
 ## Who Can Create, Edit, and Delete Documents
 
-| Role   | Create | Edit and move | Delete                  |
-| ------ | ------ | ------------- | ----------------------- |
-| Admin  | Yes    | Yes           | Yes                     |
-| Editor | Yes    | Yes           | Only documents they own |
-| Reader | No     | No            | No                      |
+| Role   | Create | Edit and move           | Delete                  |
+| ------ | ------ | ----------------------- | ----------------------- |
+| Admin  | Yes    | Yes                     | Yes                     |
+| Editor | Yes    | Yes                     | Only documents they own |
+| Reader | Yes    | Only documents they own | Only documents they own |
 
-Owners of a document can also edit, move, and delete it, whatever their role.
+Every user can create a document, including users with no role. The user who creates a document
+becomes its owner. Owners of a document can also edit, move, and delete it, whatever their role.
 
-To change this, edit your [policies](../../../authorization/policies.md#documents).
+The defaults for creators and owners are system policies that you cannot edit. To give more access, add a [policy](../../../authorization/policies.md#documents) of your own.
 
 ## Programmatic Access
 
