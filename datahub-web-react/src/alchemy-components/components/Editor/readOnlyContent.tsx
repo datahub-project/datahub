@@ -34,15 +34,14 @@ const VOID_TAGS = new Set([
     'wbr',
 ]);
 
-// HTML boolean attributes are present with an empty value (`checked=""`). React reads an empty
-// string as false, so they are passed as booleans. A read-only checkbox has no change handler, so
-// `checked` becomes `defaultChecked`.
+// HTML boolean attributes are present with an empty value (`disabled=""`). React reads an empty
+// string as false, so they are passed as booleans.
 const REACT_BOOLEAN_ATTR_NAMES: Record<string, string> = {
-    checked: 'defaultChecked',
     disabled: 'disabled',
     readonly: 'readOnly',
-    selected: 'defaultSelected',
 };
+
+const CHECKABLE_INPUT_TYPES = new Set(['checkbox', 'radio']);
 
 const REACT_ATTR_NAMES: Record<string, string> = {
     class: 'className',
@@ -239,6 +238,12 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
         }
         props[REACT_ATTR_NAMES[name] ?? attr.name] = attr.value;
     });
+    // Controlled rather than defaultChecked: nodes are keyed by position, so an input reused for
+    // new content must take its checked state from that content.
+    if (element.tagName === 'INPUT' && CHECKABLE_INPUT_TYPES.has((element.getAttribute('type') ?? '').toLowerCase())) {
+        props.checked = element.hasAttribute('checked');
+        props.readOnly = true;
+    }
     const fontSize = fontSizeFromStyle(element.getAttribute('style') ?? '');
     if (fontSize) props.style = { fontSize };
     return props;

@@ -295,4 +295,20 @@ describe('read-only task lists', () => {
         expect(open.checked).toBe(false);
         expect(done.disabled).toBe(true);
     });
+
+    it('updates a checkbox when the content changes without remounting', () => {
+        const { rerender } = render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [x] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+
+        rerender(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [ ] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
+    });
 });
