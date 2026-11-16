@@ -166,6 +166,8 @@ EXTRACTION_ALGO_VERSION = "4"
 # into links on the right Jira server.
 VIEW_EXPAND = "body.view"
 JIRA_BROWSE_PATH = "/browse/"
+# The Jira servers linked to this Confluence, as listed for the Jira macro.
+JIRA_SERVERS_PATH = "rest/jiraanywhere/1.0/servers"
 JIRA_ISSUE_KEY_PATTERN = r"/browse/([A-Za-z][A-Za-z0-9_]*-\d+)"
 
 # Searchable field of CorpUserInfo used to match Confluence users to DataHub users.

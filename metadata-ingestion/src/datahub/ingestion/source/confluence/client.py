@@ -7,6 +7,7 @@ from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
 from datahub.ingestion.source.confluence.constants import (
+    JIRA_SERVERS_PATH,
     PAGE_CONTENT_TYPE,
     PAGE_EXPAND,
     VIEW_EXPAND,
@@ -14,6 +15,7 @@ from datahub.ingestion.source.confluence.constants import (
 from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
     ConfluenceUser,
+    JiraServer,
     PageBatch,
     SpaceBatch,
 )
@@ -96,6 +98,12 @@ class ConfluenceClient:
         """The page rendered as HTML, as Confluence shows it."""
         raw = self.api.get_page_by_id(page_id, expand=VIEW_EXPAND) or {}
         return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
+
+    def list_jira_servers(self) -> List[JiraServer]:
+        return [
+            JiraServer.model_validate(server)
+            for server in self.api.get(JIRA_SERVERS_PATH) or []
+        ]
 
     def iter_child_pages(self, page_id: str) -> Iterator[ConfluencePage]:
         """Direct child pages, with the same expand as every other listing, so

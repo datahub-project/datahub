@@ -25,16 +25,17 @@ _DEFAULT_SERVER = ""
 class ConfluenceJiraLinker:
     """Turns Jira macro issue keys into links to the issue.
 
-    The storage format only names the Jira server (an application link id),
-    and Confluence keeps the server's URL. Confluence uses it when it renders
-    the page, so the first page that mentions an issue on a server is fetched
-    rendered, and the server's base URL is read from the issue link there.
-    Every later issue on that server is linked without another call.
+    The storage format only names the Jira server (an application link id);
+    Confluence keeps the server's URL. The linked servers are listed once per
+    run. If that list is unavailable or lacks the server, the first page with
+    an issue on that server is fetched rendered, where Confluence has already
+    linked the issue, and the server's base URL is read from that link.
     """
 
     def __init__(self, client: ConfluenceClient, report: ConfluenceSourceReport):
         self.client = client
         self.report = report
+        self._listed_servers: Optional[Dict[str, str]] = None
         self._base_urls: Dict[str, str] = {}
         self._failed_pages: Dict[str, int] = {}
         self._rendered_links: Dict[str, Dict[str, str]] = {}
@@ -44,14 +45,38 @@ class ConfluenceJiraLinker:
 
     def _link(self, page_id: str, ref: JiraIssueRef) -> Optional[str]:
         server = ref.server_id or ref.server_name or _DEFAULT_SERVER
-        base = self._base_urls.get(server) or self._learn_base_url(
-            server, page_id, ref.key
+        base = (
+            self._server_urls().get(server)
+            or self._base_urls.get(server)
+            or self._learn_base_url(server, page_id, ref.key)
         )
         if base is None:
             self.report.jira_links_unresolved += 1
             return None
         self.report.jira_links_resolved += 1
         return f"{base}{JIRA_BROWSE_PATH}{ref.key}"
+
+    def _server_urls(self) -> Dict[str, str]:
+        if self._listed_servers is not None:
+            return self._listed_servers
+        self._listed_servers = {}
+        try:
+            servers = self.client.list_jira_servers()
+        except Exception as e:
+            self.report.info(
+                title="Jira server list unavailable",
+                message="Jira server URLs are read from rendered pages instead.",
+                exc=e,
+            )
+            return self._listed_servers
+        for server in servers:
+            url = server.url.rstrip("/")
+            self._listed_servers[server.id] = url
+            if server.name:
+                self._listed_servers.setdefault(server.name, url)
+            if server.selected or len(servers) == 1:
+                self._listed_servers.setdefault(_DEFAULT_SERVER, url)
+        return self._listed_servers
 
     def _learn_base_url(self, server: str, page_id: str, key: str) -> Optional[str]:
         if self._failed_pages.get(server, 0) >= MAX_PAGES_PER_JIRA_SERVER:

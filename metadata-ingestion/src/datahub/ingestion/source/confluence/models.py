@@ -124,6 +124,18 @@ class ConfluencePage(BaseModel):
         return self.ancestors[-1].id if self.ancestors else None
 
 
+class JiraServer(BaseModel):
+    """A Jira server linked to Confluence through an application link."""
+
+    model_config = ConfigDict(extra="ignore")
+
+    id: str
+    name: str = ""
+    url: str
+    # The server new Jira macros use when no server is picked.
+    selected: bool = False
+
+
 class PageBatch(BaseModel):
     pages: List[ConfluencePage]
     # Results the API returned, including any that could not be parsed. Paging
