@@ -181,6 +181,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         )
         # Cache of import_source_id -> existing document URN (sync-back round-trip).
         self._resolved_source_id_urns: Dict[str, Optional[str]] = {}
+        self._last_checkpoint_urns: Optional[Set[str]] = None
         self._soft_deleted_cache: Optional[Set[str]] = None
         self._okf_bundles: Dict[str, OkfBundleClass] = {}
         self._okf_index_contents: Dict[str, Optional[str]] = {}
@@ -457,14 +458,22 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             api_error = self.client.last_api_error
             if api_error:
                 # A failed request says nothing about the file, so keep the
-                # previous import rather than let stale removal delete it. A file
-                # never imported has nothing to keep.
+                # previous import rather than let stale removal delete it. Without
+                # a graph match, fall back to the canonical URN only if the last
+                # run imported it: a file never imported has nothing to keep.
+                canonical_urn = (
+                    f"{_DOCUMENT_URN_PREFIX}{normalize_document_id(source_id)}"
+                )
                 existing_urn = self._find_existing_document_urn(
                     source_id,
                     owner_repo,
                     file_path,
-                    f"{_DOCUMENT_URN_PREFIX}{normalize_document_id(source_id)}",
+                    canonical_urn,
                     is_directory=False,
+                ) or (
+                    canonical_urn
+                    if canonical_urn in self._previous_document_urns()
+                    else None
                 )
                 if existing_urn:
                     self._register_document_for_stale_removal(existing_urn)
@@ -880,21 +889,29 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
     def _register_document_for_stale_removal(self, document_urn: str) -> None:
         self.stale_entity_removal_handler.add_entity_to_state("document", document_urn)
 
+    def _previous_document_urns(self) -> Set[str]:
+        if self._last_checkpoint_urns is None:
+            handler = self.stale_entity_removal_handler
+            last_checkpoint = (
+                self.state_provider.get_last_checkpoint(
+                    handler.job_id, GenericCheckpointState
+                )
+                if handler.is_checkpointing_enabled()
+                else None
+            )
+            self._last_checkpoint_urns = (
+                set(last_checkpoint.state.urns) if last_checkpoint else set()
+            )
+        return self._last_checkpoint_urns
+
     def _keep_previous_documents(self) -> None:
         """Carry the last run's documents into this run's state.
 
         Used when the file listing is partial, so stale removal cannot tell a
         deleted file from one that was not listed.
         """
-        handler = self.stale_entity_removal_handler
-        if not handler.is_checkpointing_enabled():
-            return
-        last_checkpoint = self.state_provider.get_last_checkpoint(
-            handler.job_id, GenericCheckpointState
-        )
-        if last_checkpoint:
-            for urn in last_checkpoint.state.urns:
-                handler.add_entity_to_state("", urn)
+        for urn in self._previous_document_urns():
+            self.stale_entity_removal_handler.add_entity_to_state("", urn)
 
     def _register_hierarchy(
         self, source_id: str, title: str, parent_source_id: Optional[str]

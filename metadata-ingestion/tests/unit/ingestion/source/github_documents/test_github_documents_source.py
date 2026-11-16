@@ -312,6 +312,36 @@ def test_failed_download_keeps_only_a_previous_import(
     assert "github-file-not-read" in {entry.title for entry in source.report.warnings}
 
 
+@pytest.mark.parametrize("in_last_checkpoint", [True, False])
+def test_failed_download_without_graph_keeps_a_checkpointed_import(
+    source: GitHubDocumentsSource, in_last_checkpoint: bool
+) -> None:
+    _mock_github_client(
+        source,
+        files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
+        file_content=None,
+    )
+    source.client._last_api_error = "HTTP 502"
+    source.ctx.graph = None
+    canonical_urn = (
+        "urn:li:document:"
+        f"{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md'))}"
+    )
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(
+            state=MagicMock(urns=[canonical_urn] if in_last_checkpoint else [])
+        )
+    )
+
+    list(source.get_workunits_internal())
+
+    registered = [call.args[1] for call in handler.add_entity_to_state.call_args_list]
+    assert registered == ([canonical_urn] if in_last_checkpoint else [])
+
+
 def test_get_workunits_truncates_files_at_max_files_limit() -> None:
     config = GitHubDocumentsSourceConfig(
         github_token=SecretStr("ghp_test"),
