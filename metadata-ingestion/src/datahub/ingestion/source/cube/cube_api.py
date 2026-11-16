@@ -28,6 +28,7 @@ from datahub.ingestion.source.cube.constants import (
     HTTP_RETRY_BACKOFF_FACTOR,
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
+    HTTP_STATUS_FORBIDDEN,
     META_PRIVATE_SCOPE,
     METADATA_API_PAGE_SIZE,
     PLATFORM_API_PAGE_SIZE,
@@ -175,7 +176,7 @@ class CubeAPIClient:
         # the Metadata API or the Control Plane token-mint cannot be reached, so
         # a lineage-only failure never aborts the whole ingestion.
         try:
-            cloud_entities = self._get_cloud_entities()
+            cloud_entities = self._get_cloud_entities_with_private_fallback()
         except (requests.RequestException, ValueError) as e:
             self.report.warning(
                 title="Cube Metadata API unavailable",
@@ -184,18 +185,36 @@ class CubeAPIClient:
                     "unavailable. Provide cloud_api_key + deployment_id + "
                     "environment_id (or a Control Plane token) to enable the "
                     "Metadata API."
-                    + (
-                        " include_private is set: the token also needs the "
-                        "meta-private scope, which Cube Cloud grants only to "
-                        "admins or users who can read the data model."
-                        if self.config.include_private
-                        else ""
-                    )
                 ),
                 exc=e,
             )
             return core_entities
         return merge_entities(core_entities, cloud_entities)
+
+    def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
+        if not self.config.include_private:
+            return self._get_cloud_entities(include_private=False)
+        try:
+            return self._get_cloud_entities(include_private=True)
+        except requests.HTTPError as e:
+            # Cube Cloud silently drops the meta-private scope for callers who
+            # may not read the data model, then rejects include_private with a
+            # 403. Retry without it so public entities keep their warehouse
+            # lineage instead of the whole run falling back to /v1/meta.
+            if e.response is None or e.response.status_code != HTTP_STATUS_FORBIDDEN:
+                raise
+            self.report.warning(
+                title="Cube private entities unavailable",
+                message=(
+                    "include_private is set, but the Metadata API refused it "
+                    "(HTTP 403). The token needs the meta-private scope, which "
+                    "Cube Cloud grants only to admins or users who can read the "
+                    "data model. Ingesting public entities only, so lineage "
+                    "through private cubes is cut off."
+                ),
+                exc=e,
+            )
+            return self._get_cloud_entities(include_private=False)
 
     def get_data_sources(self) -> List[CloudDataSource]:
         if self.config.deployment_type != CubeDeploymentType.CLOUD:
@@ -305,9 +324,9 @@ class CubeAPIClient:
         response = CoreMetaResponse.model_validate(raw)
         return [CubeEntity.from_core_cube(cube) for cube in response.cubes]
 
-    def _get_cloud_entities(self) -> List[CubeEntity]:
+    def _get_cloud_entities(self, include_private: bool) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
-        body = {"include_private": True} if self.config.include_private else {}
+        body = {"include_private": True} if include_private else {}
         offset = 0
         while True:
             raw = self._request(

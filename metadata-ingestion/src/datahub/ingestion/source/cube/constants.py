@@ -55,6 +55,7 @@ HTTP_CONTENT_TYPE_JSON = "application/json"
 HTTP_RETRY_MAX_ATTEMPTS = 3
 HTTP_RETRY_BACKOFF_FACTOR = 1
 HTTP_RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
+HTTP_STATUS_FORBIDDEN = 403
 
 # The Metadata API paginates /v1/entities/all; this is the page size we request.
 METADATA_API_PAGE_SIZE = 100

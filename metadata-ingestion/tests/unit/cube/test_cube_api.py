@@ -76,10 +76,56 @@ def test_entities_all_passes_include_private(
         json={"data": {"entities": []}},
     )
 
-    client._get_cloud_entities()
+    client._get_cloud_entities_with_private_fallback()
 
     assert matcher.last_request is not None
     assert matcher.last_request.json() == expected_body
+
+
+_ENTITIES_ALL_URL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
+_META_URL = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
+
+
+def test_include_private_refused_keeps_public_metadata_api_lineage(
+    requests_mock: rm.Mocker,
+) -> None:
+    # A token without the meta-private scope gets a 403 for include_private.
+    # The connector retries without it, rather than dropping Metadata API
+    # lineage for public entities too.
+    client = _client(include_private=True)
+    requests_mock.get(_META_URL, json={"cubes": []})
+    matcher = requests_mock.post(
+        _ENTITIES_ALL_URL,
+        [
+            {"status_code": 403},
+            {"json": {"data": {"entities": [{"name": "orders", "type": "cube"}]}}},
+        ],
+    )
+
+    entities = client.get_entities()
+
+    assert [e.name for e in entities] == ["orders"]
+    assert [r.json() for r in matcher.request_history] == [
+        {"include_private": True},
+        {},
+    ]
+    assert [w.title for w in client.report.warnings] == [
+        "Cube private entities unavailable"
+    ]
+
+
+def test_include_private_other_errors_fall_back_to_core(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(include_private=True)
+    requests_mock.get(_META_URL, json={"cubes": []})
+    matcher = requests_mock.post(_ENTITIES_ALL_URL, status_code=400)
+
+    assert client.get_entities() == []
+    assert matcher.call_count == 1
+    assert [w.title for w in client.report.warnings] == [
+        "Cube Metadata API unavailable"
+    ]
 
 
 def test_control_plane_base_can_be_overridden(requests_mock: rm.Mocker) -> None:

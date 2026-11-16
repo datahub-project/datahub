@@ -111,8 +111,10 @@ class CubeSourceConfig(
             "cut off. Requires a token with the `meta-private` scope: the minted "
             "token requests it automatically, but Cube Cloud only grants it to "
             "admins or users who can read the data model; a pre-supplied "
-            "`api_token` must already carry it. Set `include_hidden` as well to "
-            "also ingest the private cubes themselves as datasets."
+            "`api_token` must already carry it; if the scope is refused, public "
+            "entities are still ingested. Private cubes are hidden, so also set "
+            "`include_hidden: true` for complete lineage: otherwise they are not "
+            "ingested as datasets and lineage from views stops at them."
         ),
     )
     meta_sync_token_expires_in: int = Field(
@@ -369,8 +371,15 @@ class CubeSourceConfig(
                 "cloud_api_key, deployment_id, and environment_id are only valid "
                 "for deployment_type=CLOUD."
             )
-        if self.deployment_type != CubeDeploymentType.CLOUD and self.include_private:
-            raise ValueError("include_private is only valid for deployment_type=CLOUD.")
+        if self.include_private and (
+            self.deployment_type != CubeDeploymentType.CLOUD
+            or not self.use_metadata_api
+        ):
+            raise ValueError(
+                "include_private requires deployment_type=CLOUD and "
+                "use_metadata_api=true: private entities come only from the "
+                "Cube Cloud Metadata API."
+            )
         # cloud_api_key + deployment_id together unlock the Platform API
         # (reports/workbooks) and are the prerequisite for minting a Metadata
         # API token. environment_id is additionally required only for the
