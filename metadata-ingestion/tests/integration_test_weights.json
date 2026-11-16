@@ -2220,6 +2220,58 @@
     "duration": "2.199s"
   },
   {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_experiment_scope",
+    "duration": "0.340s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_first_run_with_experiments_refused_writes_models_and_fails",
+    "duration": "0.396s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_kind_loss_still_soft_deletes_stale_entities_of_other_kinds",
+    "duration": "0.255s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_model_list_not_found_keeps_the_models",
+    "duration": "0.402s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_model_scope",
+    "duration": "1.639s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_model_scope_kept_model_keeps_the_deployment_that_serves_it",
+    "duration": "1.915s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_pipeline_scope",
+    "duration": "0.859s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_project_scope",
+    "duration": "0.544s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_project_scope_discovered_no_role",
+    "duration": "0.352s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_region_scope",
+    "duration": "0.764s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_retry_budget",
+    "duration": "0.348s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_throttled_dataset_list_keeps_automl_jobs_and_training_data_links",
+    "duration": "2.366s"
+  },
+  {
+    "testId": "tests.integration.vertexai.test_vertexai_failure_scope::test_training_scope",
+    "duration": "2.525s"
+  },
+  {
     "testId": "tests.unit.abs.test_abs_config::test_abs_add_partition_columns_rejected_without_schema_inference",
     "duration": "0.011s"
   },

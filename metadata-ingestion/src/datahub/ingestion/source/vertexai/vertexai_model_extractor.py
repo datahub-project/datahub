@@ -46,7 +46,6 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     DetailResult,
     Scope,
     StoppedScopes,
-    read_list_item,
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
 from datahub.ingestion.source.vertexai.vertexai_utils import (
@@ -118,14 +117,12 @@ class VertexAIModelExtractor:
         self._read_detail = DetailReader(report, stopped_scopes, get_scope_fn)
 
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
-        self._endpoints_keep_previous = False
         self._models_cache: Optional[List[Model]] = None
 
     def reset_regional_caches(self) -> None:
         """Clear the cached models and endpoints, which are region-specific."""
         self._models_cache = None
         self.endpoints = None
-        self._endpoints_keep_previous = False
 
     def _list_versions(self, model: Model) -> List[VersionInfo]:
         registry = model.versioning_registry
@@ -240,7 +237,13 @@ class VertexAIModelExtractor:
             versions = self._read_versions(model).value
             if versions:
                 self._load_endpoints()
-        if versions is None or (versions and self._endpoints_keep_previous):
+        # A throttled endpoint stops the rest, so the deployments are partial.
+        if versions is None or (
+            versions
+            and self._stopped.any_transient(
+                self._get_scope(), [DetailCalls.ENDPOINT_LIST]
+            )
+        ):
             self._keep_model(model)
             return None
         return versions
@@ -718,6 +721,10 @@ class VertexAIModelExtractor:
             self.model_usage_tracker.track_model_group_training_job(
                 model_group_urn, training_job_urn
             )
+        for kept_job_urn in self.model_usage_tracker.kept_jobs_of_version(model_urn):
+            self.model_usage_tracker.track_model_group_training_job(
+                model_group_urn, kept_job_urn
+            )
 
         yield self._create_ml_model_properties_aspect(
             model,
@@ -774,20 +781,17 @@ class VertexAIModelExtractor:
         all_endpoints: List[Endpoint] = rate_limited_gapic_list(
             self.client.Endpoint, self.rate_limiter
         )
-        scope = self._get_scope()
         for endpoint in all_endpoints:
-            deployed = read_list_item(
-                Scope(project=scope.project, region=scope.region, item=endpoint.name),
+            deployed = self._read_detail(
+                DetailCalls.ENDPOINT_LIST,
                 partial(self._list_deployed, endpoint),
-                report=self.report,
-                stopped=self._stopped,
-                call_kind=DetailCalls.ENDPOINT_LIST,
+                item=endpoint.name,
             )
-            if deployed is None:
+            if deployed.value is None:
                 for deployment_urn in self._build_endpoint_urns([endpoint]):
                     self._carry.keep_urn(deployment_urn)
                 continue
-            for resource in deployed:
+            for resource in deployed.value:
                 endpoint_dict.setdefault(resource.model, []).append(endpoint)
         return endpoint_dict
 
@@ -801,7 +805,6 @@ class VertexAIModelExtractor:
                 self._carry,
             )
             self.endpoints = listed.value or {}
-            self._endpoints_keep_previous = listed.keep_previous
 
     def _search_endpoint(self, model: Model) -> List[Endpoint]:
         self._load_endpoints()

@@ -68,7 +68,7 @@ def _automl_job(model_num: int, version: str, suffix: str = "") -> Any:
     return job
 
 
-# job, listed models, output model the lookup finds (None: deleted), datasets
+# jobs, listed models, output model the lookup finds (None: deleted), datasets
 _CASES: Dict[str, Tuple[Any, List[int], Optional[int], bool]] = {
     "automl": (lambda: _automl_job(1, "1"), [1], 1, True),
     "automl_version_2": (lambda: _automl_job(2, "2"), [2], 2, True),
@@ -77,19 +77,31 @@ _CASES: Dict[str, Tuple[Any, List[int], Optional[int], bool]] = {
     "automl_model_deleted": (lambda: _automl_job(1, "1"), [], None, True),
     "automl_version_gone": (lambda: _automl_job(1, "3"), [1], 1, True),
     "custom": (gen_mock_training_custom_job, [1], None, True),
+    "two_automl_jobs_one_version": (
+        lambda: [_automl_job(1, "1"), _renamed(_automl_job(1, "1"), "automl-2")],
+        [1],
+        1,
+        True,
+    ),
 }
 
 
+def _renamed(job: Any, name: str) -> Any:
+    job.name = name
+    return job
+
+
 def _run(case: str, lookup_stopped: bool) -> Tuple[Dict[str, Any], Set[str]]:
-    """Training then the model step; returns the links on the written models
-    and groups, and the URNs that got a lineage-only write."""
+    """Training then the model step; returns the links on the written model
+    versions and groups, and the URNs that got a lineage-only write."""
     make_job, models, output, datasets = _CASES[case]
-    job = make_job()
+    made = make_job()
+    jobs = made if isinstance(made, list) else [made]
     source = _source()
-    automl = "AutoML" in type(job).__name__
+    automl = "AutoML" in type(jobs[0]).__name__
     training_lists = {
-        "AutoMLTabularTrainingJob": [job] if automl else [],
-        "CustomJob": [] if automl else [job],
+        "AutoMLTabularTrainingJob": jobs if automl else [],
+        "CustomJob": [] if automl else jobs,
         "TabularDataset": [gen_mock_dataset()] if datasets else [],
     }
     listed_models = [gen_mock_model(n) for n in models]
@@ -118,7 +130,7 @@ def _run(case: str, lookup_stopped: bool) -> Tuple[Dict[str, Any], Set[str]]:
         patch(f"{_MODEL_MODULE}.rate_limited_gapic_list", side_effect=model_list),
     ):
         list(source.training_extractor.get_workunits())
-        list(source.model_extractor.get_model_workunits())
+        written = {wu.get_urn() for wu in source.model_extractor.get_model_workunits()}
         lineage_only = {
             wu.get_urn() for wu in source.model_extractor.emit_pending_lineage_updates()
         }
@@ -130,7 +142,7 @@ def _run(case: str, lookup_stopped: bool) -> Tuple[Dict[str, Any], Set[str]]:
             sorted(rel.downstream_jobs),
         )
         for urn, rel in tracker.relationships.items()
-        if urn in tracker.emitted_urns
+        if urn in written
     }
     return links, lineage_only
 

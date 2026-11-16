@@ -42,6 +42,7 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAISource
 from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    PIPELINE_LINKS_ELSEWHERE,
     PLATFORM,
     DetailCalls,
     ResourceCategory,
@@ -69,7 +70,6 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     Scope,
     StoppedScopes,
     classify_error,
-    read_list_item,
     urn_entity_name,
 )
 from datahub.ingestion.source.vertexai.vertexai_utils import (
@@ -439,7 +439,7 @@ def test_project_service_disabled_listed_is_failure_naming_service() -> None:
         "project=proj-one" in c and f"service={_SERVICE}" in c
         for c in _failure_contexts(source)
     )
-    assert not source.report.warnings
+    assert not _warnings_but_links_note(source)
 
 
 def test_project_service_disabled_discovered_is_warning_and_kept() -> None:
@@ -905,7 +905,7 @@ def test_region_every_kind_failed_listed_project_is_failure() -> None:
 
     # With real containers, any emitted container would show up here.
     assert run.workunits == []
-    assert not source.report.warnings
+    assert not _warnings_but_links_note(source)
     assert any("project=proj-one" in c for c in _failure_contexts(source))
     _mock(run.carry.keep_project).assert_called_with("proj-one")
     # The project itself, then each lost read: every one repeats on every run.
@@ -1128,6 +1128,18 @@ def test_training_mlmd_refused_writes_jobs_without_metrics_and_warns_per_job() -
     assert all(
         f"region={REGION}" in c and "extract_execution_metrics" in c for c in contexts
     )
+
+
+def test_training_mlmd_refusal_stop_still_writes_the_jobs_after_it() -> None:
+    source = _training_source(extract_execution_metrics=True)
+    client = MagicMock()
+    client.list_executions.side_effect = _iam_denied()
+    _attach_ml_metadata(source, client)
+
+    workunits = _read_training(source, {"CustomJob": _custom_jobs(30)})
+
+    assert client.list_executions.call_count == 25
+    assert len(_aspects(workunits, MLTrainingRunPropertiesClass)) == 30
 
 
 def test_training_mlmd_transient_keeps_job_previous_version() -> None:
@@ -1396,14 +1408,9 @@ def _lose_details(call_kind: str, items: int) -> VertexAISource:
 
 def _lose_runs_of_two_experiments() -> VertexAISource:
     source = _training_source()
+    read = DetailReader(source.report, source._stopped, source._current_scope)
     for experiment in ("experiment-1", "experiment-2"):
-        read_list_item(
-            Scope("proj-one", REGION, item=experiment),
-            MagicMock(side_effect=NotFound("gone")),
-            report=source.report,
-            stopped=source._stopped,
-            call_kind="experiments",
-        )
+        read("experiments", MagicMock(side_effect=NotFound("gone")), item=experiment)
     return source
 
 
@@ -1670,7 +1677,9 @@ def test_training_dataset_list_transient_keeps_jobs_that_need_a_dataset() -> Non
     )
 
     assert workunits == []
-    assert source.training_extractor._datasets_keep_previous
+    assert source.training_extractor._stopped.any_transient(
+        Scope("proj-one", REGION), [DetailCalls.TRAINING_DATASETS]
+    )
     carry = source.training_extractor._carry
     _mock(carry.keep_kind).assert_any_call("proj-one", [ResourceKinds.DATASET])
 
@@ -1812,6 +1821,38 @@ def test_model_endpoint_list_refused_writes_models_without_deployments() -> None
     )
     contexts = [c for w in source.report.warnings for c in w.context]
     assert len([c for c in contexts if "resource=endpoint_list" in c]) == 1
+
+
+@pytest.mark.parametrize(
+    "error", [_iam_denied(), _throttled()], ids=["refused", "throttled"]
+)
+def test_model_one_endpoint_losing_its_models_costs_only_that_endpoint(
+    error: Exception,
+) -> None:
+    source = _model_source()
+    model = gen_mock_model(1)
+    serving = _endpoint_serving(model)
+    _mock(serving).name = "serving-endpoint"
+    failing = gen_mock_endpoint()
+    _mock(failing.list_models).side_effect = error
+
+    workunits = _read_models(source, [model], endpoints=[serving, failing])
+
+    assert not source.report.failures
+    assert any(
+        "resource=endpoint_list" in c and "item=test-endpoint" in c
+        for c in _warning_contexts(source)
+    )
+    assert any(
+        s.kind == "endpoint_list" for s, _, _ in source._stopped.lost_in("proj-one")
+    )
+    if classify_error(error) is ErrorKind.TRANSIENT:
+        # The models keep their previous deployments for this run.
+        assert not _model_properties(workunits)
+    else:
+        # Only the refusing endpoint is lost; the model keeps the one serving it.
+        (properties,) = _model_properties(workunits).values()
+        assert properties.deployments
 
 
 def test_model_endpoint_list_transient_keeps_models_and_deployments() -> None:
@@ -2130,7 +2171,12 @@ def _m1_instance_dataset(project: str) -> str:
 
 
 def test_m1_discovered_no_role_keeps_containers_flows_and_jobs() -> None:
-    source, current = _m1_source([*_M1_PREVIOUS, _model_urn("proj-one.model.m1_1")])
+    previous = [
+        *_M1_PREVIOUS,
+        _model_urn("proj-one.model.m1_1"),
+        _dataset_urn("proj-one.dataset.1"),
+    ]
+    source, current = _m1_source(previous)
     source.config.project_ids = []
 
     with (
@@ -2139,7 +2185,7 @@ def test_m1_discovered_no_role_keeps_containers_flows_and_jobs() -> None:
     ):
         list(source.get_workunits_internal())
 
-    assert set(current.urns) == {*_M1_PREVIOUS, _model_urn("proj-one.model.m1_1")}
+    assert set(current.urns) == set(previous)
 
 
 def test_m1_region_discovery_refused_keeps_containers_flows_and_jobs() -> None:
@@ -2173,6 +2219,33 @@ def test_m1_carry_forward_keeps_datasets_with_platform_instance() -> None:
     carry.flush()
 
     assert set(current.urns) == {mine}
+
+
+def test_m1_broad_keeps_find_the_project_with_platform_instance() -> None:
+    project = get_project_container("proj-one", PLATFORM, "prod-us", ENV).as_urn()
+    guid_container = "urn:li:container:0123456789abcdef0123456789abcdef"
+    flow = _flow_urn("pipe-a")
+    previous = [project, guid_container, flow, _job_urn(flow, "task-a")]
+    carry, current, _ = _carry_forward(previous, platform_instance="prod-us")
+
+    carry.keep_all_containers("proj-one")
+    carry.keep_all_flows("proj-one")
+    carry.flush()
+
+    assert sorted(current.urns) == sorted(previous)
+
+
+def test_m1_keep_project_keeps_category_containers_with_platform_instance() -> None:
+    project = get_project_container("proj-one", PLATFORM, "prod-us", ENV).as_urn()
+    category = get_resource_category_container(
+        "proj-one", PLATFORM, "prod-us", ENV, ResourceCategory.MODELS
+    ).as_urn()
+    carry, current, _ = _carry_forward([project, category], platform_instance="prod-us")
+
+    carry.keep_project("proj-one")
+    carry.flush()
+
+    assert sorted(current.urns) == sorted([project, category])
 
 
 def test_m1_lost_training_kind_keeps_datasets_with_platform_instance() -> None:
@@ -2243,6 +2316,17 @@ def test_m1_ml_metadata_filter_escapes_the_display_name() -> None:
 
     request = client.list_executions.call_args.kwargs["request"]
     assert request.filter == 'display_name="my \\"job\\" back\\\\slash"'
+
+
+def test_m1_lineage_off_reads_no_artifacts() -> None:
+    client = MagicMock()
+    client.list_executions.return_value = [_m1_execution()]
+    helper = _m1_helper(client, enable_lineage_extraction=False)
+
+    result = helper.get_job_lineage_metadata(MagicMock(display_name="job"))
+
+    assert result.value is not None
+    client.query_execution_inputs_and_outputs.assert_not_called()
 
 
 @pytest.mark.parametrize(
@@ -2371,6 +2455,25 @@ def test_m1_automl_config_parse_failure_is_a_warning_for_the_item() -> None:
     assert "item=job-1" in source.report.warnings[0].context[0]
 
 
+def test_m1_automl_job_with_unreadable_config_is_written_without_links() -> None:
+    source = _training_source()
+    job = gen_mock_training_automl_job()
+    _mock(job.to_dict).return_value = {"inputDataConfig": "not-an-object"}
+
+    workunits = _read_training(
+        source,
+        {"AutoMLTabularTrainingJob": [job], "TabularDataset": [gen_mock_dataset()]},
+    )
+
+    urns = _written(workunits)
+    assert any(urn.startswith("urn:li:dataProcessInstance:") for urn in urns)
+    assert not any(urn.startswith("urn:li:dataset:") for urn in urns)
+    assert not source.model_usage_tracker.relationships
+    assert [w.title for w in source.report.warnings] == [
+        "AutoML job config could not be parsed"
+    ]
+
+
 def test_m1_region_discovery_with_no_usable_region_is_reported() -> None:
     source = _make_source(project_ids=["proj-one"], discover_regions=True)
     source._carry = MagicMock()
@@ -2419,8 +2522,12 @@ def _read_experiment_runs(source: VertexAISource, runs: List[Any]) -> List[Any]:
         return list(source.experiment_extractor.get_experiment_run_workunits())
 
 
+def _warnings_but_links_note(source: VertexAISource) -> List[Any]:
+    return [w for w in source.report.warnings if w.message != PIPELINE_LINKS_ELSEWHERE]
+
+
 def _warning_contexts(source: VertexAISource) -> List[str]:
-    return [c for w in source.report.warnings for c in w.context]
+    return [c for w in _warnings_but_links_note(source) for c in w.context]
 
 
 def test_experiment_missing_store_is_info_and_not_kept() -> None:
@@ -2547,9 +2654,8 @@ def test_experiment_list_refused_keeps_all_containers() -> None:
 
 
 @pytest.mark.parametrize("error", [_iam_denied(), _throttled()])
-@pytest.mark.parametrize("lost_call", ["experiment_list", "run_list"])
 def test_experiment_list_failure_through_the_extractor_keeps_every_container(
-    error: Exception, lost_call: str
+    error: Exception,
 ) -> None:
     source = _make_source(
         project_ids=["proj-one"],
@@ -2564,14 +2670,6 @@ def test_experiment_list_failure_through_the_extractor_keeps_every_container(
         patch.object(extractor, "_metadata_store_parent", return_value="p"),
         patch(f"{_PIPELINE_MODULE}.rate_limited_gapic_list", return_value=[]),
     ]
-    if lost_call == "run_list":
-        patches.append(
-            patch.object(
-                extractor,
-                "_list_experiments_rate_limited",
-                return_value=[gen_mock_experiment()],
-            )
-        )
 
     _run_source(source, *patches)
 
@@ -2580,6 +2678,53 @@ def test_experiment_list_failure_through_the_extractor_keeps_every_container(
     lasting = classify_error(error) is not ErrorKind.TRANSIENT
     contexts = _failure_contexts(source) if lasting else _warning_contexts(source)
     assert len([c for c in contexts if "resource=experiments" in c]) == 1
+
+
+@pytest.mark.parametrize(
+    "error", [_iam_denied(), _throttled()], ids=["refused", "throttled"]
+)
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+def test_one_experiments_run_list_lost_costs_only_that_experiment(
+    error: Exception, listed: bool
+) -> None:
+    source = _make_source(
+        project_ids=["proj-one"],
+        include_training_jobs=False,
+        include_experiments=True,
+        include_pipelines=False,
+    )
+    if not listed:
+        source.config.project_ids = []
+    first, second = gen_mock_experiment(1), gen_mock_experiment(2)
+    extractor = source.experiment_extractor
+
+    def run_list(experiment: Any) -> List[Any]:
+        if experiment is first:
+            raise error
+        return [gen_mock_experiment_run()]
+
+    run = _run_source(
+        source,
+        patch.object(
+            extractor, "_list_experiments_rate_limited", return_value=[first, second]
+        ),
+        patch.object(
+            extractor, "_list_experiment_runs_rate_limited", side_effect=run_list
+        ),
+    )
+
+    # The experiments read itself worked, so neither it nor the run fails.
+    assert not source.report.failures
+    assert any(
+        "resource=experiments" in c and "item=mock_experiment_1" in c
+        for c in _warning_contexts(source)
+    )
+    assert any(
+        "resource=experiments" in c for c in source.report.lost_reads["proj-one"]
+    )
+    # A refusal costs only that experiment; a temporary stop keeps the later ones too.
+    runs_written = any(".experiment_run." in wu.get_urn() for wu in run.workunits)
+    assert runs_written is (classify_error(error) is ErrorKind.REFUSED)
 
 
 def _run_experiments_with_models(
@@ -2632,15 +2777,12 @@ def test_experiment_run_list_failure_after_output_is_not_a_project_failure(
     )
 
     assert workunits
-    assert "Project could not be read" not in {f.title for f in source.report.failures}
-    # Experiment links never reach written models, so the models are written
-    # and only the containers are kept, whatever the error.
+    assert not source.report.failures
+    # Experiment links never reach written models, so the models are written.
+    # The run list costs only its experiment, so no container is kept either.
     assert "Model step skipped" not in {w.title for w in source.report.warnings}
-    assert sorted(kept.urns) == sorted([_CONTAINER_URN, _PROJECT_CONTAINER_URN])
-    if classify_error(error) is ErrorKind.TRANSIENT:
-        assert any("resource=experiments" in c for c in _warning_contexts(source))
-    else:
-        assert any("resource=experiments" in c for c in _failure_contexts(source))
+    assert kept.urns == []
+    assert any("resource=experiments" in c for c in _warning_contexts(source))
 
 
 def test_experiment_run_with_logged_custom_job_links_it_upstream() -> None:
@@ -2979,6 +3121,50 @@ def test_pipeline_lookup_not_found_writes_flow_from_list_and_warns() -> None:
     (context,) = _warning_contexts(source)
     assert "resource=pipeline_lookup" in context
     _mock(source._carry.keep_flow).assert_not_called()
+
+
+def _links_elsewhere_contexts(report: VertexAISourceReport) -> List[str]:
+    return [
+        context
+        for entry in report.warnings
+        if entry.message == PIPELINE_LINKS_ELSEWHERE
+        for context in entry.context
+    ]
+
+
+def test_temporary_pipeline_loss_warns_that_models_elsewhere_may_lose_links() -> None:
+    # Only the pipeline's own region holds its models back, so a model in
+    # another region or project that it uses is written without that link.
+    lookup_source, _ = _read_failed_lookup(_throttled())
+    list_report = VertexAISourceReport()
+    ledger = ReadLedger(report=list_report, stopped=StoppedScopes())
+    ledger.record_read("proj-one", REGION, "pipelines", error=_throttled())
+    ledger.record_read("proj-one", REGION, "training_jobs", error=_throttled())
+
+    ledger.report_lost_reads("proj-one", listed=True)
+    # A whole project lost, discovered or listed, and a project-wide error on the
+    # pipeline list, which holds the region's models back without a stop.
+    whole_loss_reports = []
+    for project_ids in ([], ["proj-one"]):
+        project_source = _make_source(include_pipelines=True)
+        project_source.config.project_ids = project_ids
+        project_source._handle_project_error("proj-one", _service_disabled())
+        whole_loss_reports.append(project_source.report)
+    disabled_report = VertexAISourceReport()
+    disabled_ledger = ReadLedger(report=disabled_report, stopped=StoppedScopes())
+    disabled_ledger.record_read(
+        "proj-one", REGION, "pipelines", error=_service_disabled()
+    )
+    disabled_ledger.report_lost_reads("proj-one", listed=True)
+
+    (lookup,) = _links_elsewhere_contexts(lookup_source.report)
+    assert "resource=pipeline_lookup" in lookup
+    (pipeline_list,) = _links_elsewhere_contexts(list_report)
+    assert "resource=pipelines" in pipeline_list
+    assert all(
+        _links_elsewhere_contexts(report)
+        for report in (*whole_loss_reports, disabled_report)
+    )
 
 
 def test_pipeline_checkpoint_early_stop_reads_listed_update_time() -> None:
@@ -3548,3 +3734,16 @@ def test_refusals_before_any_success_stop_after_25_with_one_warning() -> None:
     assert read.call_count == 25
     assert stopped.stop_kind(_EVALUATION_SCOPE) is ErrorKind.REFUSED
     assert len(report.warnings) == 1
+
+
+def test_refusals_are_counted_per_project() -> None:
+    stopped = StoppedScopes()
+    other_project = Scope(
+        project="proj-two", region=REGION, kind=DetailCalls.EVALUATION_LOOKUP
+    )
+    for _ in range(24):
+        stopped.refused(_EVALUATION_SCOPE, _iam_denied())
+
+    stopped.refused(other_project, _iam_denied())
+
+    assert stopped.stop_kind(other_project) is None

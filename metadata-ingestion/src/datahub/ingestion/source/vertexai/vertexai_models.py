@@ -452,6 +452,9 @@ class ModelUsageTracker(BaseModel):
     emitted_urns: Set[str] = Field(default_factory=set)
     skipped_lineage_urns: Set[str] = Field(default_factory=set)
     version_urns_by_model: Dict[str, Set[str]] = Field(default_factory=dict)
+    # A clean read links a group to a job only once it finds the job's output
+    # version; a kept job's link waits until the model step writes that version.
+    kept_jobs_by_version: Dict[str, Set[str]] = Field(default_factory=dict)
 
     def _get_or_create_relationships(self, urn: str) -> ModelLineageRelationships:
         if urn not in self.relationships:
@@ -475,6 +478,12 @@ class ModelUsageTracker(BaseModel):
         self._get_or_create_relationships(model_group_urn).add_training_job(
             training_job_urn
         )
+
+    def track_kept_job_of_version(self, model_urn: str, training_job_urn: str) -> None:
+        self.kept_jobs_by_version.setdefault(model_urn, set()).add(training_job_urn)
+
+    def kept_jobs_of_version(self, model_urn: str) -> Set[str]:
+        return self.kept_jobs_by_version.get(model_urn, set())
 
     def track_model_training_job(self, model_urn: str, training_job_urn: str) -> None:
         self._get_or_create_relationships(model_urn).set_training_job(training_job_urn)

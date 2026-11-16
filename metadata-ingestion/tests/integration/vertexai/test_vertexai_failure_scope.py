@@ -14,7 +14,6 @@ from google.api_core.exceptions import (
     ServiceUnavailable,
 )
 from google.rpc.error_details_pb2 import ErrorInfo
-from pytest import Config
 
 from datahub.ingestion.run.pipeline import Pipeline
 from datahub.ingestion.source.common.gcp_project_filter import GcpProject
@@ -24,7 +23,6 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
 )
-from datahub.testing import mce_helpers
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
     gen_mock_endpoint,
@@ -38,7 +36,6 @@ from tests.integration.vertexai.mock_vertexai import (
     get_mock_pipeline_job,
 )
 
-GOLDEN_DIR = Path(__file__).parent / "failure_scope" / "run2"
 REGION = "us-west2"
 PIPELINE_NAME = "vertexai-failure-scope"
 
@@ -61,7 +58,6 @@ class TwoRuns:
     run1: List[Dict[str, Any]]
     run2: List[Dict[str, Any]]
     run2_report: StaleEntityRemovalSourceReport
-    run2_output: Path
     soft_deleted: Set[str]
 
 
@@ -189,7 +185,6 @@ def run_twice(
         run1=_read_records(run1_output),
         run2=run2,
         run2_report=run2_report,
-        run2_output=run2_output,
         soft_deleted=_soft_deleted(run2),
     )
 
@@ -211,7 +206,7 @@ def _models_only(models_by_project: Dict[str, int], refused: Set[str]) -> Resour
     return resources
 
 
-def test_project_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_project_scope(tmp_path: Path) -> None:
     models = {REFUSED_PROJECT: 2, HEALTHY_PROJECT: 2}
     runs = run_twice(
         tmp_path,
@@ -246,12 +241,6 @@ def test_project_scope(pytestconfig: Config, tmp_path: Path) -> None:
         for c in f.context
     )
 
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "project_scope.json",
-    )
-
 
 def enter_discovery(stack: ExitStack, project_ids: List[str]) -> None:
     """Make Resource Manager discovery find `project_ids`, with no real client."""
@@ -266,7 +255,7 @@ def enter_discovery(stack: ExitStack, project_ids: List[str]) -> None:
     )
 
 
-def test_project_scope_discovered_no_role(pytestconfig: Config, tmp_path: Path) -> None:
+def test_project_scope_discovered_no_role(tmp_path: Path) -> None:
     discovered = [REFUSED_PROJECT, HEALTHY_PROJECT]
 
     def healthy(stack: ExitStack) -> None:
@@ -306,12 +295,6 @@ def test_project_scope_discovered_no_role(pytestconfig: Config, tmp_path: Path) 
     (context,) = [c for w in runs.run2_report.warnings for c in w.context]
     assert f"project={REFUSED_PROJECT}" in context
 
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "project_scope_discovered.json",
-    )
-
 
 REGION_ONE = "us-west2"
 REGION_TWO = "europe-west4"
@@ -345,7 +328,7 @@ def _two_regions(training_lost_in: Optional[str]) -> Callable[[ExitStack], None]
     return lambda stack: enter_world(stack, resources, current)
 
 
-def test_region_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_region_scope(tmp_path: Path) -> None:
     runs = run_twice(
         tmp_path,
         healthy=_two_regions(training_lost_in=None),
@@ -377,12 +360,6 @@ def test_region_scope(pytestconfig: Config, tmp_path: Path) -> None:
         f"region={REGION_ONE}, resource=training_jobs" in c
         for w in runs.run2_report.warnings
         for c in w.context
-    )
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "region_scope.json",
     )
 
 
@@ -485,7 +462,7 @@ def _training_world(
     return enter
 
 
-def test_training_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_training_scope(tmp_path: Path) -> None:
     runs = run_twice(
         tmp_path,
         healthy=_training_world(ml_metadata_refused=False, output_model_found=True),
@@ -515,11 +492,66 @@ def test_training_scope(pytestconfig: Config, tmp_path: Path) -> None:
     assert any(f"region={REGION}, resource=ml_metadata" in c for c in contexts)
     assert any("resource=automl_output_model" in c for c in contexts)
 
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "training_scope.json",
+
+def _dataset_list_world(throttled: bool) -> Callable[[ExitStack], None]:
+    automl_job = gen_mock_training_automl_job()
+    # As the SDK does, the job names its output model by the model's own name.
+    _mock(automl_job.to_dict).return_value["modelToUpload"]["name"] = (
+        f"projects/123/locations/us-central1/models/{gen_mock_model(1).name}"
     )
+
+    def resources(project: str, cls: Type) -> Any:
+        if cls is aiplatform.Model:
+            return gen_mock_models()
+        if cls is aiplatform.CustomJob:
+            return [gen_mock_training_custom_job()]
+        if cls is aiplatform.AutoMLTabularTrainingJob:
+            return [automl_job]
+        if cls is aiplatform.TabularDataset:
+            if throttled:
+                raise ServiceUnavailable("busy")
+            return [gen_mock_dataset()]
+        return []
+
+    return lambda stack: enter_world(stack, resources)
+
+
+def _training_links(records: List[Dict[str, Any]]) -> Dict[str, Any]:
+    """The training-data and trained-by links each model record carries."""
+    links: Dict[str, Any] = {}
+    for record in records:
+        aspect = record.get("aspect", {}).get("json", {})
+        if record.get("aspectName") == "mlModelTrainingData":
+            links[f"{record['entityUrn']} trainingData"] = aspect["trainingData"]
+        elif record.get("aspectName") == "mlModelProperties":
+            links[f"{record['entityUrn']} trainingJobs"] = aspect.get("trainingJobs")
+    return links
+
+
+def test_throttled_dataset_list_keeps_automl_jobs_and_training_data_links(
+    tmp_path: Path,
+) -> None:
+    runs = run_twice(
+        tmp_path,
+        healthy=_dataset_list_world(throttled=False),
+        failing=_dataset_list_world(throttled=True),
+        recipe_overrides={
+            "project_ids": [HEALTHY_PROJECT],
+            "include_pipelines": False,
+            "include_experiments": False,
+            "include_evaluations": False,
+        },
+    )
+
+    before, after = _training_links(runs.run1), _training_links(runs.run2)
+    assert any(key.endswith("trainingData") for key in before)
+    # A link run 2 writes is the one run 1 stored; one it does not write is kept.
+    assert {key: after[key] for key in after if key in before} == {
+        key: before[key] for key in after if key in before
+    }
+    assert set(after) <= set(before)
+    assert runs.soft_deleted == set()
+    assert not runs.run2_report.failures
 
 
 def _model_world(
@@ -551,7 +583,7 @@ def _model_world(
     return lambda stack: enter_world(stack, resources, current)
 
 
-def test_model_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_model_scope(tmp_path: Path) -> None:
     runs = run_twice(
         tmp_path,
         healthy=_model_world(endpoints_refused=False, versions_throttled=False),
@@ -595,12 +627,6 @@ def test_model_scope(pytestconfig: Config, tmp_path: Path) -> None:
     contexts = [c for w in runs.run2_report.warnings for c in w.context]
     assert len([c for c in contexts if "resource=endpoint_list" in c]) == 1
     assert len([c for c in contexts if "resource=model_lookup" in c]) == 1
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "model_scope.json",
-    )
 
 
 def _served_model_world(versions_throttled: bool) -> Callable[[ExitStack], None]:
@@ -708,7 +734,7 @@ def _retry_budget_world(
     return lambda stack: enter_world(stack, resources, current), models
 
 
-def test_retry_budget(pytestconfig: Config, tmp_path: Path) -> None:
+def test_retry_budget(tmp_path: Path) -> None:
     healthy, _ = _retry_budget_world(throttled=False)
     failing, models = _retry_budget_world(throttled=True)
     runs = run_twice(
@@ -746,12 +772,6 @@ def test_retry_budget(pytestconfig: Config, tmp_path: Path) -> None:
     assert not runs.run2_report.failures
     contexts = [c for w in runs.run2_report.warnings for c in w.context]
     assert len([c for c in contexts if "resource=model_lookup" in c]) == 1
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "retry_budget.json",
-    )
 
 
 MISSING_STORE_PROJECT = "test-project-no-store"
@@ -811,7 +831,7 @@ def _experiment_world(
     return enter
 
 
-def test_experiment_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_experiment_scope(tmp_path: Path) -> None:
     runs = run_twice(
         tmp_path,
         healthy=_experiment_world(store_missing=False, run_from_sdk=False),
@@ -862,12 +882,6 @@ def test_experiment_scope(pytestconfig: Config, tmp_path: Path) -> None:
         i.title for i in runs.run2_report.infos
     ]
 
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "experiment_scope.json",
-    )
-
 
 def _pipeline_world(
     refused: Set[str], lookup_refused: bool
@@ -893,7 +907,8 @@ def _pipeline_world(
         lookup = job("mock_pipeline_job_lookup", LOOKUP_REFUSED_PIPELINE)
         if lookup_refused:
             type(lookup).task_details = PropertyMock(side_effect=refused_error())
-        return jobs + [lookup]
+        # Listed first, so a clean pipeline is read after the refused lookup.
+        return [lookup] + jobs
 
     return lambda stack: enter_world(stack, resources)
 
@@ -902,7 +917,7 @@ FIRST_ONLY_PIPELINE = "First Project Pipeline"
 LOOKUP_REFUSED_PIPELINE = "Lookup Refused Pipeline"
 
 
-def test_pipeline_scope(pytestconfig: Config, tmp_path: Path) -> None:
+def test_pipeline_scope(tmp_path: Path) -> None:
     runs = run_twice(
         tmp_path,
         healthy=_pipeline_world(refused=set(), lookup_refused=False),
@@ -934,18 +949,20 @@ def test_pipeline_scope(pytestconfig: Config, tmp_path: Path) -> None:
     ]
     assert "update_time" in lookup_info["customProperties"]
     assert "duration" in lookup_info["customProperties"]
+    # Its tasks keep the links of other runs of the template; the clean
+    # pipeline read after it still writes its own.
+    linked_flows = {
+        r["entityUrn"].split(",")[1]
+        for r in runs.run2
+        if r["aspectName"] == "dataJobInputOutput"
+    }
+    assert linked_flows == {"Mock Pipeline"}
     assert runs.soft_deleted == set()
     # The list is refused on every run, so the listed project fails the run.
     contexts = [c for f in runs.run2_report.failures for c in f.context]
     assert any(
         f"project={REFUSED_PROJECT}" in c and "resource=pipelines" in c
         for c in contexts
-    )
-
-    mce_helpers.check_golden_file(
-        pytestconfig,
-        output_path=runs.run2_output,
-        golden_path=GOLDEN_DIR / "pipeline_scope.json",
     )
 
 

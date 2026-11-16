@@ -1,6 +1,6 @@
 import logging
 from contextlib import AbstractContextManager, nullcontext
-from typing import Dict, Iterable, List, Literal, Optional, Union
+from typing import Dict, Iterable, List, Literal, Optional, Tuple, Union
 
 from google.api_core.exceptions import GoogleAPICallError
 from google.cloud import aiplatform, aiplatform_v1
@@ -107,6 +107,26 @@ _MODEL_STEP_KINDS = [
     ResourceKinds.ENDPOINT,
     ResourceKinds.MODEL_EVALUATION,
 ]
+
+# Title and message of the warning for a discovered project, by error kind.
+_DISCOVERED_PROJECT_WARNINGS: Dict[ErrorKind, Tuple[str, str]] = {
+    ErrorKind.PROJECT_WIDE: (
+        "Project skipped: API not enabled or project invalid",
+        "The Vertex AI API is disabled for this project, or the project is invalid; skipping it. Its earlier entities are kept.",
+    ),
+    ErrorKind.REFUSED: (
+        "Project skipped: no Vertex AI access",
+        "The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept. Grant a Vertex AI role or exclude the project with project_id_pattern.",
+    ),
+    ErrorKind.TRANSIENT: (
+        "Project skipped: could not be read",
+        "This discovered project could not be read because of a temporary error, so it is skipped for this run and read again on the next. Its earlier entities are kept.",
+    ),
+    ErrorKind.ITEM_LASTING: (
+        "Project skipped: could not be read",
+        "This discovered project could not be read, and the error repeats on every run. Its earlier entities are kept. Exclude the project with project_id_pattern if it should not be ingested.",
+    ),
+}
 
 
 @platform_name("Vertex AI", id=PLATFORM)
@@ -385,15 +405,21 @@ class VertexAISource(StatefulIngestionSourceBase):
         self._carry.keep_all_containers(project_id)
         self._carry.keep_all_flows(project_id)
 
+    def _report_pipeline_links_elsewhere(self, context: str) -> None:
+        if self.config.include_pipelines:
+            self.report.report_pipeline_links_elsewhere(context)
+
     def _report_project_unreadable(
         self, project_id: str, exc: Optional[BaseException]
     ) -> None:
+        context = scope_context(Scope(project=project_id), exc)
         self.report.failure(
             title="Project could not be read",
             message="Nothing could be read from this project. Its earlier entities are kept and not soft-deleted.",
-            context=scope_context(Scope(project=project_id), exc),
+            context=context,
             exc=exc,
         )
+        self._report_pipeline_links_elsewhere(context)
         self._keep_project_entities(project_id)
 
     def _handle_project_error(self, project_id: str, exc: Exception) -> None:
@@ -402,45 +428,24 @@ class VertexAISource(StatefulIngestionSourceBase):
         # to ingest a discovered project: no error of it fails the run.
         kind = classify_error(exc)
         listed = bool(self.config.project_ids)
+        context = scope_context(Scope(project=project_id), exc)
         self.report.report_lost_read(
-            project_id,
-            scope_context(Scope(project=project_id), exc),
-            temporary=kind is ErrorKind.TRANSIENT,
+            project_id, context, temporary=kind is ErrorKind.TRANSIENT
         )
-        if not listed and kind is ErrorKind.PROJECT_WIDE:
-            self.report.warning(
-                title="Project skipped: API not enabled or project invalid",
-                message="The Vertex AI API is disabled for this project, or the project is invalid; skipping it. Its earlier entities are kept.",
-                context=scope_context(Scope(project=project_id), exc),
-                exc=exc,
-            )
-            self._keep_project_entities(project_id)
-        elif not listed and kind is ErrorKind.REFUSED:
-            self.report.warning(
-                title="Project skipped: no Vertex AI access",
-                message="The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept. Grant a Vertex AI role or exclude the project with project_id_pattern.",
-                context=scope_context(Scope(project=project_id), exc),
-                exc=exc,
-            )
-            self._keep_project_entities(project_id)
-        elif not listed and kind is ErrorKind.TRANSIENT:
-            self.report.warning(
-                title="Project skipped: could not be read",
-                message="This discovered project could not be read because of a temporary error, so it is skipped for this run and read again on the next. Its earlier entities are kept.",
-                context=scope_context(Scope(project=project_id), exc),
-                exc=exc,
-            )
-            self._keep_project_entities(project_id)
-        elif not listed:
-            self.report.warning(
-                title="Project skipped: could not be read",
-                message="This discovered project could not be read, and the error repeats on every run. Its earlier entities are kept. Exclude the project with project_id_pattern if it should not be ingested.",
-                context=scope_context(Scope(project=project_id), exc),
-                exc=exc,
-            )
-            self._keep_project_entities(project_id)
-        else:
+        if listed:
             self._report_project_unreadable(project_id, exc)
+            return
+        title, message = _DISCOVERED_PROJECT_WARNINGS.get(
+            kind, _DISCOVERED_PROJECT_WARNINGS[ErrorKind.ITEM_LASTING]
+        )
+        self.report.warning(
+            title=title,
+            message=message,
+            context=context,
+            exc=exc,
+        )
+        self._report_pipeline_links_elsewhere(context)
+        self._keep_project_entities(project_id)
 
     def _keep_phase1_kind(self, project_id: str, resource_type: str) -> None:
         if resource_type == ResourceReads.TRAINING_JOBS:
@@ -564,24 +569,16 @@ class VertexAISource(StatefulIngestionSourceBase):
                         rate_limiter=self._rate_limiter,
                     )
                 except (GoogleAPICallError, ValueError) as e:
+                    ml_scope = Scope(
+                        project=project_id, region=region, kind=DetailCalls.ML_METADATA
+                    )
                     self.report.warning(
                         title="ML Metadata client could not be created",
                         message="The ML Metadata client could not be created, so training jobs in this region are written without hyperparameters, metrics or ML Metadata lineage.",
-                        context=scope_context(
-                            Scope(
-                                project=project_id,
-                                region=region,
-                                kind=DetailCalls.ML_METADATA,
-                            ),
-                            e,
-                        ),
+                        context=scope_context(ml_scope, e),
                         exc=e,
                     )
-                    self._stopped.lost(
-                        Scope(project_id, region, kind=DetailCalls.ML_METADATA),
-                        classify_error(e),
-                        e,
-                    )
+                    self._stopped.lost(ml_scope, classify_error(e), e)
                     self._metadata_client = None
                     self._ml_metadata_helper = None
 

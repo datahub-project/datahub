@@ -9,6 +9,7 @@ from pydantic import Field, field_validator, model_validator
 from datahub.configuration.common import AllowDenyPattern
 from datahub.configuration.source_common import (
     EnvConfigMixin,
+    LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
@@ -34,14 +35,10 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
 logger = logging.getLogger(__name__)
 
 
-class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+class PlatformDetail(
+    PlatformInstanceConfigMixin, EnvConfigMixin, LowerCaseDatasetUrnConfigMixin
+):
     """Platform instance configuration for external datasets referenced in Vertex AI lineage."""
-
-    convert_urns_to_lowercase: bool = Field(
-        default=False,
-        description="Convert dataset names to lowercase. Set to true for Snowflake (which defaults to lowercase URNs). "
-        "Leave false for GCS, BigQuery, S3, and ABS.",
-    )
 
 
 class VertexAIConfig(

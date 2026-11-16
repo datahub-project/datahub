@@ -65,7 +65,6 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     DetailReader,
     Scope,
     StoppedScopes,
-    read_list_item,
     scope_context,
 )
 from datahub.ingestion.source.vertexai.vertexai_state import VertexAIStateHandler
@@ -328,21 +327,14 @@ class VertexAIExperimentExtractor:
             logger.info(
                 f"Fetching ExperimentRuns for experiment {experiment_meta.name}"
             )
-            scope = self._get_scope()
-            runs = read_list_item(
-                Scope(
-                    project=scope.project,
-                    region=scope.region,
-                    item=experiment_meta.name,
-                ),
+            runs = self._read_detail(
+                ResourceReads.EXPERIMENTS,
                 partial(
                     self._list_experiment_runs_rate_limited, experiment_meta.experiment
                 ),
-                report=self.report,
-                stopped=self._stopped,
-                call_kind=ResourceReads.EXPERIMENTS,
+                item=experiment_meta.name,
             )
-            if runs is None:
+            if runs.value is None:
                 continue
 
             run_metadata = [
@@ -352,7 +344,7 @@ class VertexAIExperimentExtractor:
                     update_time=getattr(r, "update_time", None),
                     experiment_name=experiment_meta.name,
                 )
-                for r in runs
+                for r in runs.value
             ]
             sort_by_update_time(run_metadata)
 

@@ -30,6 +30,17 @@ class _Read:
     wrote_output: bool = False
 
 
+@dataclass(frozen=True)
+class _LostRead:
+    region: str
+    kind: str
+    error: Exception
+
+    @property
+    def temporary(self) -> bool:
+        return classify_error(self.error) is ErrorKind.TRANSIENT
+
+
 class ReadLedger:
     """What each project's reads produced this run, keyed by (region, read), and
     so what is held back and reported. Safe to call from worker threads."""
@@ -63,10 +74,10 @@ class ReadLedger:
         with self._lock:
             self._read(project_id, region, kind).wrote_output = True
 
-    def _failed(self, project_id: str) -> List[Tuple[str, str, Exception]]:
+    def _failed(self, project_id: str) -> List[_LostRead]:
         with self._lock:
             return [
-                (region, kind, read.error)
+                _LostRead(region=region, kind=kind, error=read.error)
                 for (region, kind), read in self._reads.get(project_id, {}).items()
                 if read.error is not None
             ]
@@ -75,9 +86,9 @@ class ReadLedger:
         """The error of a read that no region of the project can get past."""
         return next(
             (
-                error
-                for _, _, error in self._failed(project_id)
-                if classify_error(error) is ErrorKind.PROJECT_WIDE
+                lost.error
+                for lost in self._failed(project_id)
+                if classify_error(lost.error) is ErrorKind.PROJECT_WIDE
             ),
             None,
         )
@@ -85,9 +96,9 @@ class ReadLedger:
     def lost_phase1_kinds(self, project_id: str, region: str) -> List[str]:
         return sorted(
             {
-                kind
-                for lost_region, kind, _ in self._failed(project_id)
-                if lost_region == region and kind != ResourceReads.MODELS
+                lost.kind
+                for lost in self._failed(project_id)
+                if lost.region == region and lost.kind != ResourceReads.MODELS
             }
         )
 
@@ -103,7 +114,7 @@ class ReadLedger:
         first, then any other except a refusal, then a refusal."""
         rank = {ErrorKind.PROJECT_WIDE: 0, ErrorKind.REFUSED: 2}
         return min(
-            (error for _, _, error in self._failed(project_id)),
+            (lost.error for lost in self._failed(project_id)),
             key=lambda error: rank.get(classify_error(error), 1),
         )
 
@@ -119,51 +130,44 @@ class ReadLedger:
                 return self._stopped.stop_error(scope)
         return next(
             (
-                error
-                for lost_region, kind, error in self._failed(project_id)
-                if classify_error(error) in _HOLDS_BACK
-                and lost_region == region
-                and kind in _LINK_READS
+                lost.error
+                for lost in self._failed(project_id)
+                if classify_error(lost.error) in _HOLDS_BACK
+                and lost.region == region
+                and lost.kind in _LINK_READS
             ),
             None,
         )
 
-    def _lost_list_reads(
-        self, project_id: str
-    ) -> List[Tuple[str, str, Exception, bool]]:
-        """(read, context, error, temporary) of each lost list read. A temporary
-        loss names the pacing switch; a lasting one, the switch that turns the
-        read off."""
-        lost = []
-        for region, kind, error in self._failed(project_id):
-            temporary = classify_error(error) is ErrorKind.TRANSIENT
-            switch = (
-                self._stopped.detail_switch(None, error)
-                if temporary
-                else READ_SWITCHES.get(kind)
-            )
-            context = scope_context(
-                Scope(project=project_id, region=region, kind=kind), error
-            )
-            lost.append((kind, with_switch(context, switch), error, temporary))
-        return lost
+    def _list_context(self, project_id: str, lost: _LostRead) -> str:
+        """The context of a lost list read. A temporary loss names the pacing
+        switch; a lasting one, the switch that turns the read off."""
+        switch = (
+            self._stopped.detail_switch(None, lost.error)
+            if lost.temporary
+            else READ_SWITCHES.get(lost.kind)
+        )
+        scope = Scope(project=project_id, region=lost.region, kind=lost.kind)
+        return with_switch(scope_context(scope, lost.error), switch)
 
     def record_lost_reads(self, project_id: str) -> None:
         """Lists, in the report's summary, every lost list read of the project
         and every detail read stopped or refused there."""
-        lost_lists = {(region, kind) for region, kind, _ in self._failed(project_id)}
-        for _, context, _, temporary in self._lost_list_reads(project_id):
-            self._report.report_lost_read(project_id, context, temporary=temporary)
+        failed = self._failed(project_id)
+        for lost in failed:
+            self._report.report_lost_read(
+                project_id,
+                self._list_context(project_id, lost),
+                temporary=lost.temporary,
+            )
+        lost_lists = {(lost.region, lost.kind) for lost in failed}
         for scope, loss_kind, error in self._stopped.lost_in(project_id):
             # An item of a lost list is already counted in the list's entry.
             if (scope.region, scope.kind) in lost_lists:
                 continue
             self._report.report_lost_read(
                 project_id,
-                with_switch(
-                    scope_context(scope, error),
-                    self._stopped.detail_switch(scope.kind, error),
-                ),
+                self._stopped.detail_context(scope, error),
                 temporary=loss_kind is ErrorKind.TRANSIENT,
             )
 
@@ -171,36 +175,29 @@ class ReadLedger:
         """A temporary loss is a warning. A lasting one fails the run for a listed
         project; a discovered project, which nobody chose to ingest, gets a
         warning instead."""
-        for kind, context, error, temporary in self._lost_list_reads(project_id):
-            if temporary:
-                self._report_temporary_loss(kind, context, error)
+        for lost in self._failed(project_id):
+            if lost.temporary and lost.kind == ResourceReads.MODELS:
+                title = "Model step skipped"
+                message = "The model step was skipped in this region, because the links it depends on or the model list could not be read. Its earlier entities are kept and not soft-deleted."
+            elif lost.temporary:
+                title = "Resource type could not be read"
+                message = "This resource type could not be read in this region. Its earlier entities are kept and not soft-deleted. If it is the training job or pipeline list, or a pipeline's tasks, the region's models also keep their previous version for this run."
             elif listed:
-                self._report.failure(
-                    title="Resource type could not be read",
-                    message="This resource type could not be read in this region, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there.",
-                    context=context,
-                    exc=error,
-                )
+                title = "Resource type could not be read"
+                message = "This resource type could not be read in this region, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
             else:
-                self._report.warning(
-                    title="Resource type could not be read",
-                    message="This resource type could not be read in this region of a discovered project, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there.",
-                    context=context,
-                    exc=error,
-                )
-
-    def _report_temporary_loss(self, kind: str, context: str, error: Exception) -> None:
-        if kind == ResourceReads.MODELS:
-            self._report.warning(
-                title="Model step skipped",
-                message="The model step was skipped in this region, because the links it depends on or the model list could not be read. Its earlier entities are kept and not soft-deleted.",
-                context=context,
-                exc=error,
+                title = "Resource type could not be read"
+                message = "This resource type could not be read in this region of a discovered project, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
+            emit = (
+                self._report.failure
+                if listed and not lost.temporary
+                else self._report.warning
             )
-        else:
-            self._report.warning(
-                title="Resource type could not be read",
-                message="This resource type could not be read in this region. Its earlier entities are kept and not soft-deleted. If it is the training job or pipeline list, or a pipeline's tasks, the region's models also keep their previous version for this run.",
-                context=context,
-                exc=error,
-            )
+            context = self._list_context(project_id, lost)
+            emit(title=title, message=message, context=context, exc=lost.error)
+            # A project-wide error holds the region's models back like a temporary one.
+            if (
+                lost.kind == ResourceReads.PIPELINES
+                and classify_error(lost.error) in _HOLDS_BACK
+            ):
+                self._report.report_pipeline_links_elsewhere(context)

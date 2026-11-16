@@ -87,6 +87,8 @@ DETAIL_SWITCHES: Dict[str, str] = {
 # lookup holds the region's models back; every other kept item's links are
 # rebuilt from its listing or never reach a written model.
 LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
+# Only the lost pipeline's own region is held back.
+PIPELINE_LINKS_ELSEWHERE = 'Models in other regions or projects used by these pipelines may lose their pipeline "used by" links until a run reads these pipelines again.'
 
 # The switch that turns each read off, named when a read is lost for good.
 READ_SWITCHES: Dict[str, str] = {

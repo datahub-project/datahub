@@ -1,6 +1,6 @@
 import threading
 import traceback
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from enum import Enum
 from typing import (
     Callable,
@@ -50,6 +50,7 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     DETAIL_SWITCHES,
     RATE_LIMIT_SWITCH,
     REFUSALS_BEFORE_STOP,
+    DetailCalls,
     ResourceCategory,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
@@ -225,10 +226,7 @@ class StoppedScopes:
         """True when one of these calls is stopped for a while in the region of
         `scope`: an item that needs it is kept, so its other reads are waste."""
         return any(
-            self.stop_kind(
-                Scope(project=scope.project, region=scope.region, kind=call_kind)
-            )
-            is ErrorKind.TRANSIENT
+            self.stop_kind(replace(scope, kind=call_kind)) is ErrorKind.TRANSIENT
             for call_kind in call_kinds
         )
 
@@ -244,6 +242,11 @@ class StoppedScopes:
             return RATE_LIMIT_SWITCH
         return DETAIL_SWITCHES.get(call_kind) if call_kind else None
 
+    def detail_context(self, scope: Scope, exc: Optional[BaseException]) -> str:
+        return with_switch(
+            scope_context(scope, exc), self.detail_switch(scope.kind, exc)
+        )
+
 
 def with_switch(context: str, switch: Optional[str]) -> str:
     return f"{context}, switch={switch}" if switch else context
@@ -255,23 +258,6 @@ class DetailResult(Generic[T]):
     keep_previous: bool
 
 
-def _detail_context(
-    scope: Scope, call_kind: str, exc: Exception, stopped: StoppedScopes
-) -> str:
-    return with_switch(
-        scope_context(
-            Scope(
-                project=scope.project,
-                region=scope.region,
-                kind=call_kind,
-                item=scope.item,
-            ),
-            exc,
-        ),
-        stopped.detail_switch(call_kind, exc),
-    )
-
-
 def _warn_item_lasting(
     report: VertexAISourceReport, context: str, exc: Exception
 ) -> None:
@@ -281,31 +267,6 @@ def _warn_item_lasting(
         context=context,
         exc=exc,
     )
-
-
-def read_list_item(
-    scope: Scope,
-    read: Callable[[], T],
-    *,
-    report: VertexAISourceReport,
-    stopped: StoppedScopes,
-    call_kind: str,
-) -> Optional[T]:
-    """Reads one item inside a list read. An error that repeats for this item
-    (one deleted since the list) costs only the item; any other error fails
-    the whole list, as before."""
-    try:
-        return read()
-    except Exception as e:
-        if classify_error(e) is not ErrorKind.ITEM_LASTING:
-            raise
-        _warn_item_lasting(report, _detail_context(scope, call_kind, e, stopped), e)
-        stopped.lost(
-            Scope(project=scope.project, region=scope.region, kind=call_kind),
-            ErrorKind.ITEM_LASTING,
-            e,
-        )
-        return None
 
 
 def _entity_name(urn: str, entity_type: str) -> Optional[str]:
@@ -462,14 +423,12 @@ class DetailReader:
     ) -> DetailResult[T]:
         """Reads a detail of one item and decides, from the error kind, what the
         item is written with. A stop covers the item's region."""
-        current = self.current_scope()
-        scope = Scope(project=current.project, region=current.region, item=item)
-        stop_scope = Scope(project=scope.project, region=scope.region, kind=call_kind)
+        stop_scope = replace(self.current_scope(), kind=call_kind)
         previous_stop = self.stopped.stop_kind(stop_scope)
         if previous_stop is not None:
             keep_previous = previous_stop is ErrorKind.TRANSIENT
             # A call on a whole list, with no item, is not an item kept.
-            if keep_previous and scope.item is not None:
+            if keep_previous and item is not None:
                 self.report.report_item_kept_after_stop()
             return DetailResult(value=None, keep_previous=keep_previous)
         try:
@@ -478,7 +437,7 @@ class DetailReader:
             kind = classify_error(e)
             if kind is ErrorKind.PROJECT_WIDE:
                 raise
-            context = _detail_context(scope, call_kind, e, self.stopped)
+            context = self.stopped.detail_context(replace(stop_scope, item=item), e)
             if kind is ErrorKind.TRANSIENT:
                 self.stopped.stop(stop_scope, kind, e)
                 self.report.warning(
@@ -487,6 +446,8 @@ class DetailReader:
                     context=context,
                     exc=e,
                 )
+                if call_kind == DetailCalls.PIPELINE_LOOKUP:
+                    self.report.report_pipeline_links_elsewhere(context)
                 return DetailResult(value=None, keep_previous=True)
             if kind is ErrorKind.REFUSED:
                 self.stopped.refused(stop_scope, e)

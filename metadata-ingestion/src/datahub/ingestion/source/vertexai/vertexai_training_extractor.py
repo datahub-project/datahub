@@ -1,7 +1,7 @@
 import logging
 import types
 from contextlib import AbstractContextManager, nullcontext
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Callable, Dict, Iterable, List, Optional, Union
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -140,12 +140,10 @@ class VertexAITrainingExtractor:
         self.rate_limiter = rate_limiter
 
         self.datasets: Optional[Dict[str, VertexAiResourceNoun]] = None
-        self._datasets_keep_previous = False
 
     def reset_regional_caches(self) -> None:
         """Clear the cached datasets, which are region-specific."""
         self.datasets = None
-        self._datasets_keep_previous = False
 
     def get_workunits(self) -> Iterable[MetadataWorkUnit]:
         """Main entry point for training job extraction."""
@@ -259,12 +257,11 @@ class VertexAITrainingExtractor:
             self.name_formatter.format_model_name(entity_id=model_id),
             upload.versionId,
         )
-        self.model_usage_tracker.track_model_training_job(
-            model_urn,
-            builder.make_data_process_instance_urn(
-                self.name_formatter.format_job_name(entity_id=job.name)
-            ),
+        job_urn = builder.make_data_process_instance_urn(
+            self.name_formatter.format_job_name(entity_id=job.name)
         )
+        self.model_usage_tracker.track_model_training_job(model_urn, job_urn)
+        self.model_usage_tracker.track_kept_job_of_version(model_urn, job_urn)
         # As a clean read: training data only when the dataset list holds it.
         dataset = self._search_dataset(dataset_id) if dataset_id else None
         if dataset is not None:
@@ -305,10 +302,6 @@ class VertexAITrainingExtractor:
 
         return
         yield
-
-    def _job_scope(self, job: VertexAiResourceNoun) -> Scope:
-        scope = self._get_scope()
-        return Scope(project=scope.project, region=scope.region, item=job.name)
 
     def _look_up_job(self, job: VertexAiResourceNoun) -> DetailResult[JobLookup]:
         # The SDK refreshes the job from Google when its state or end time is read.
@@ -503,7 +496,6 @@ class VertexAITrainingExtractor:
                 self._carry,
             )
             self.datasets = listed.value or {}
-            self._datasets_keep_previous = listed.keep_previous
             logger.info(f"Cached {len(self.datasets)} datasets")
 
     def _search_dataset(self, dataset_id: str) -> Optional[VertexAiResourceNoun]:
@@ -575,15 +567,15 @@ class VertexAITrainingExtractor:
         try:
             return AutoMLJobConfig(**job.to_dict())
         except (TypeError, ValueError) as e:
+            scope = self._get_scope()
             self.report.warning(
                 title="AutoML job config could not be parsed",
                 message="The job config could not be parsed, so its input dataset and output model links are not read. The job is written without them, or kept as it was when it cannot be written without them.",
-                context=scope_context(self._job_scope(job), e),
+                context=scope_context(replace(scope, item=job.name), e),
                 exc=e,
             )
-            scope = self._get_scope()
             self._stopped.lost(
-                Scope(scope.project, scope.region, kind=DetailCalls.AUTOML_JOB_CONFIG),
+                replace(scope, kind=DetailCalls.AUTOML_JOB_CONFIG),
                 ErrorKind.ITEM_LASTING,
                 e,
             )
@@ -628,7 +620,9 @@ class VertexAITrainingExtractor:
                 )
 
                 input_ds = self._search_dataset(dataset_id)
-                if self._datasets_keep_previous:
+                if self._stopped.any_transient(
+                    self._get_scope(), [DetailCalls.TRAINING_DATASETS]
+                ):
                     job_meta.keep_previous = True
                     return job_meta
                 if input_ds:

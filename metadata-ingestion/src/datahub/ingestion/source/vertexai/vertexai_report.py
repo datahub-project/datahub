@@ -5,6 +5,9 @@ from typing import Dict, List
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    PIPELINE_LINKS_ELSEWHERE,
+)
 
 # Phase 1 reads run in worker threads, so counters shared with them take a lock.
 _COUNTER_LOCK = threading.Lock()
@@ -28,3 +31,11 @@ class VertexAISourceReport(StaleEntityRemovalSourceReport):
     def report_lost_read(self, project: str, context: str, temporary: bool) -> None:
         loss = "temporary" if temporary else "lasting"
         self.lost_reads.setdefault(project, []).append(f"{context}, loss={loss}")
+
+    def report_pipeline_links_elsewhere(self, context: str) -> None:
+        # Its own entry, so the note is never lost among another entry's samples.
+        self.warning(
+            title="Models elsewhere may lose pipeline links",
+            message=PIPELINE_LINKS_ELSEWHERE,
+            context=context,
+        )

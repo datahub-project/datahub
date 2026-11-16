@@ -237,10 +237,16 @@ class VertexAIPipelineExtractor:
                 )
                 continue
             pipeline_meta = self._get_pipeline_metadata(pipeline, details.value or [])
-            yield from self._get_pipeline_workunits(pipeline, pipeline_meta)
+            yield from self._get_pipeline_workunits(
+                pipeline, pipeline_meta, lookup_lost=details.value is None
+            )
 
     def _get_pipeline_workunits(
-        self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata
+        self,
+        pipeline_job: PipelineJob,
+        pipeline_meta: PipelineMetadata,
+        *,
+        lookup_lost: bool,
     ) -> Iterable[MetadataWorkUnit]:
         """
         Emit stable DataFlow/DataJob entities only once,
@@ -280,7 +286,10 @@ class VertexAIPipelineExtractor:
                 logger.debug(f"Skipping DataJob (already emitted): {task.name}")
 
             yield from self._gen_pipeline_task_run_instance(task, pipeline_meta)
-            yield from self._gen_pipeline_task_lineage(task)
+            # The task is shared with other runs of the template; a run that
+            # could not read its details would overwrite their dataset links.
+            if not lookup_lost:
+                yield from self._gen_pipeline_task_lineage(task)
 
     def _gen_pipeline_run_instance(
         self, pipeline_job: PipelineJob, pipeline_meta: PipelineMetadata

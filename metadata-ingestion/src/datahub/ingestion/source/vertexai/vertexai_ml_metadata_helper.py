@@ -2,6 +2,7 @@ import functools
 import itertools
 import logging
 from contextlib import AbstractContextManager, nullcontext
+from dataclasses import replace
 from typing import Callable, Dict, Iterable, List, Optional, Sequence, Union
 
 from google.cloud.aiplatform.base import VertexAiResourceNoun
@@ -195,13 +196,8 @@ class MLMetadataHelper:
                 message="The ML Metadata execution cache is full, so training jobs beyond it may be written without lineage or metrics. Raise ml_metadata_max_execution_search_limit.",
                 context=f"{scope_context(self._scope())}, limit={max_to_retrieve}",
             )
-            scope = self._scope()
             self._stopped.lost(
-                Scope(
-                    scope.project,
-                    scope.region,
-                    kind=DetailCalls.ML_METADATA_EXECUTION_CACHE,
-                ),
+                replace(self._scope(), kind=DetailCalls.ML_METADATA_EXECUTION_CACHE),
                 ErrorKind.ITEM_LASTING,
                 None,
             )
