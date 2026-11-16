@@ -111,10 +111,52 @@ class LauncherSafetyTest(unittest.TestCase):
                 self.assertEqual(
                     (directory / "opensearch-major").read_text().strip(), "3"
                 )
-            with stack.data_directory(directory, True, "2"):
+            with stack.data_directory(directory, True, "2", private_opensearch=True):
                 self.assertEqual(
                     (directory / "opensearch-major").read_text().strip(), "2"
                 )
+
+    def test_fresh_major_switch_cleans_previous_shared_node_before_reset(self) -> None:
+        for private in (False, True):
+            with (
+                self.subTest(private=private),
+                tempfile.TemporaryDirectory() as temporary,
+                patch.object(stack, "SharedOpenSearchManager") as manager,
+                patch.object(stack, "delete_prefixes") as delete,
+            ):
+                directory = Path(temporary) / "stack"
+                directory.mkdir()
+                (directory / ".gms-lite").touch()
+                version = directory / "opensearch-major"
+                version.write_text("3\n")
+                (directory / "gms-2").mkdir()
+                manager.return_value.get_or_start.return_value = 9200
+
+                def clean(port: int, prefixes: list[str]) -> None:
+                    self.assertEqual(version.read_text().strip(), "3")
+                    self.assertTrue((directory / "gms-2").exists())
+                    self.assertEqual(port, 9200)
+                    self.assertEqual(
+                        prefixes,
+                        sorted(
+                            stack.index_prefix(directory, f"gms-{i}") for i in range(3)
+                        ),
+                    )
+
+                delete.side_effect = clean
+                with stack.data_directory(
+                    directory, True, "2", processes=2, private_opensearch=private
+                ):
+                    self.assertEqual(version.read_text().strip(), "2")
+                    self.assertFalse((directory / "gms-2").exists())
+                if private:
+                    manager.assert_not_called()
+                    delete.assert_not_called()
+                else:
+                    manager.assert_called_once_with(
+                        Path.home() / ".datahub/local/opensearch-3", major="3"
+                    )
+                    delete.assert_called_once()
 
     def test_frontend_port_cannot_overlap_gms(self) -> None:
         with (

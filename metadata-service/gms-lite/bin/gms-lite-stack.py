@@ -102,7 +102,12 @@ def write_private(path: Path, content: str) -> None:
 
 @contextmanager
 def data_directory(
-    data_dir: Path, fresh: bool, major: str | None = None
+    data_dir: Path,
+    fresh: bool,
+    major: str | None = None,
+    *,
+    processes: int = 1,
+    private_opensearch: bool = False,
 ) -> Iterator[list[str]]:
     """Keep the lock outside the directory so --fresh cannot unlink a live lock."""
     data_dir.parent.mkdir(parents=True, exist_ok=True)
@@ -128,6 +133,16 @@ def data_directory(
             if not marker.exists() and any(data_dir.iterdir()):
                 raise SystemExit(
                     f"refusing to clear an unrecognized data directory: {data_dir}"
+                )
+            if marker.exists() and previous != major and not private_opensearch:
+                # Clean the old node before erasing the major needed to find it on a retry.
+                manager = SharedOpenSearchManager(
+                    default_shared_dir(previous).expanduser(), major=previous
+                )
+                names = set(previous_instances) | {f"gms-{i}" for i in range(processes)}
+                delete_prefixes(
+                    manager.get_or_start(),
+                    sorted(index_prefix(data_dir, name) for name in names),
                 )
             shutil.rmtree(data_dir)
         data_dir.mkdir(parents=True, exist_ok=True)
@@ -883,7 +898,11 @@ def main() -> None:
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
     with data_directory(
-        args.data_dir, args.fresh, args.opensearch
+        args.data_dir,
+        args.fresh,
+        args.opensearch,
+        processes=args.processes,
+        private_opensearch=args.private_opensearch,
     ) as previous_instances:
         args.previous_instances = previous_instances
         try:
