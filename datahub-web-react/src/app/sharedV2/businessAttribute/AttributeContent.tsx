@@ -1,12 +1,12 @@
 import { Globe } from '@phosphor-icons/react/dist/csr/Globe';
 import { Modal, Tag, message } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
 import { useHasMatchedFieldByUrn } from '@app/search/context/SearchResultContext';
 import { MatchedFieldName } from '@app/search/matches/constants';
+import Highlight from '@app/sharedV2/text/Highlight';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useRemoveBusinessAttributeMutation } from '@graphql/mutations.generated';
