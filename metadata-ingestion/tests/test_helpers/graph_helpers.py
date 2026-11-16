@@ -113,7 +113,11 @@ class MockDataHubGraph(DataHubGraph):
             entity_type = urn.split(":")[2]
             if entity_types and entity_type not in entity_types:
                 continue
-            properties = aspects.get(f"{entity_type}Properties")
+            aspect_name = f"{entity_type}Properties"
+            properties = aspects.get(aspect_name)
+            if isinstance(properties, dict):
+                # import_file stores raw dict aspects; normalize them like get_aspect.
+                properties = ASPECT_NAME_MAP[aspect_name].from_obj(properties)
             if all(
                 properties is not None
                 and field_value(properties, rule["field"]) in rule["values"]

@@ -164,6 +164,27 @@ def test_get_exits_non_zero_for_missing_domain(graph: MagicMock) -> None:
     assert "does not exist" in result.output
 
 
+def test_get_prints_domain_and_writes_yaml(graph: MagicMock, tmp_path: Path) -> None:
+    def get_aspect(urn: str, aspect_type: type) -> Optional[DomainPropertiesClass]:
+        if aspect_type is DomainPropertiesClass:
+            return DomainPropertiesClass(
+                name="Marketing", description="Owns brand assets."
+            )
+        return None
+
+    graph.get_aspect.side_effect = get_aspect
+    out_file = tmp_path / "out.yaml"
+
+    result = _invoke(["get", "--urn", "marketing", "--to-file", str(out_file)])
+
+    assert result.exit_code == 0, result.output
+    assert '"display_name": "Marketing"' in result.output
+    assert '"description": "Owns brand assets."' in result.output
+    written = out_file.read_text()
+    assert "display_name: Marketing" in written
+    assert "description: Owns brand assets." in written
+
+
 def test_delete_hard_deletes_then_removes_references(graph: MagicMock) -> None:
     result = _invoke(["delete", "--urn", "marketing"])
 
@@ -318,4 +339,6 @@ def test_add_and_remove_owner(graph: MagicMock) -> None:
     graph.emit.reset_mock()
     result = _invoke(["remove_owner", "--urn", "marketing", "urn:li:corpuser:jdoe"])
     assert result.exit_code == 0, result.output
-    assert [op["op"] for op in _patch_ops(graph, "ownership")] == ["remove"]
+    assert [(op["op"], op["path"]) for op in _patch_ops(graph, "ownership")] == [
+        ("remove", "/owners/urn:li:corpuser:jdoe")
+    ]

@@ -84,9 +84,10 @@ def upsert(file: Path) -> None:
 @upgrade.check_upgrade
 def update(file: Path) -> None:
     """Create a Domain, or replace its properties with the YAML's: an omitted
-    description or parent is cleared, while the name, created stamp and custom
-    properties are kept. Owners and links are replaced if the YAML sets them and
-    left as they are otherwise; use upsert for partial updates."""
+    description or parent is cleared, the name is kept unless the YAML sets
+    display_name, and the created stamp and custom properties are kept. Owners
+    and links are replaced if the YAML sets them and left as they are otherwise;
+    use upsert for partial updates."""
     _mutate(file, upsert=False)
 
 
