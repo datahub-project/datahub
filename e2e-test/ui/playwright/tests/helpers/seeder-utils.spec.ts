@@ -3,7 +3,8 @@
  * request context is a stub that returns canned lag envelopes.
  */
 
-import { test, expect, type APIRequestContext } from '@playwright/test';
+import type { APIRequestContext } from '@playwright/test';
+import { test, expect } from '../../fixtures/base-test';
 import { totalConsumerLag } from '../../helpers/seeder-utils';
 import { DomainTag } from '../../utils/test-tags';
 

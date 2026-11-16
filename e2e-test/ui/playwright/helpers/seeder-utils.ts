@@ -63,9 +63,11 @@ export async function totalConsumerLag(api: APIRequestContext, gmsBaseUrl: strin
  * Wait until the writes just sent to GMS have been consumed by every hook.
  *
  * The search index writes and the other async MCL hooks (siblings, lineage features, …)
- * run in the consumers, which consumer lag tracks; after that only the ES refresh (1s)
- * remains. Zero must be read twice in a row: an MCP can be committed a moment before
- * the MCL it produced shows up as lag.
+ * run in the consumers, which consumer lag tracks. Zero must be read twice in a row: an
+ * MCP can be committed a moment before the MCL it produced shows up as lag.
+ *
+ * Zero lag means the bulk writes were acknowledged, not that they are searchable: the
+ * index refresh (1s) can still be pending, so `refreshMs` is waited after lag settles.
  *
  * Falls back to the old fixed wait when lag cannot be read, e.g. on a deployed
  * environment where the token lacks the system-status privilege.
@@ -73,7 +75,7 @@ export async function totalConsumerLag(api: APIRequestContext, gmsBaseUrl: strin
 export async function waitForSeededWritesToSettle(
   api: APIRequestContext,
   gmsBaseUrl: string,
-  { minMs = 1_500, timeoutMs = 30_000, fallbackMs = 15_000, pollMs = 500 } = {},
+  { minMs = 1_500, timeoutMs = 30_000, fallbackMs = 15_000, pollMs = 500, refreshMs = 1_500 } = {},
 ): Promise<{ waitedMs: number; usedFallback: boolean; settled: boolean }> {
   const start = Date.now();
   const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
@@ -86,10 +88,15 @@ export async function waitForSeededWritesToSettle(
       return { waitedMs: Date.now() - start, usedFallback: true, settled: false };
     }
     zeroReads = lag === 0 ? zeroReads + 1 : 0;
-    if (zeroReads >= 2) return { waitedMs: Date.now() - start, usedFallback: false, settled: true };
+    if (zeroReads >= 2) {
+      await sleep(refreshMs);
+      return { waitedMs: Date.now() - start, usedFallback: false, settled: true };
+    }
     await sleep(pollMs);
   }
-  // Timed out with lag still present (other shards keep writing); seeding goes on.
+  // Timed out with lag still present (other shards keep writing); seeding goes on, but the
+  // last acknowledged writes still need the index refresh before they are searchable.
+  await sleep(refreshMs);
   return { waitedMs: Date.now() - start, usedFallback: false, settled: false };
 }
 
