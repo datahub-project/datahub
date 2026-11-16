@@ -76,6 +76,17 @@ def test_space_discovery_stops_at_max_spaces_and_warns() -> None:
     assert "max_spaces=2" in log_contexts(source.report.warnings)
 
 
+def test_space_discovery_failure_midway_keeps_spaces_already_listed() -> None:
+    source = make_source()
+    as_mock(source.confluence_client).get_all_spaces.side_effect = [
+        {"results": [{"key": "A"}], "_links": {"next": "/next"}},
+        Exception("503 unavailable"),
+    ]
+
+    assert source._get_spaces() == ["A"]
+    assert "Failed to discover spaces" in log_messages(source.report.failures)
+
+
 def test_space_discovery_api_error_is_reported_not_raised() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_all_spaces.side_effect = Exception(
