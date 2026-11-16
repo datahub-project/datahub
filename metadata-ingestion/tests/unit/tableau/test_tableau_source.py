@@ -1426,10 +1426,6 @@ def _extract_dataset_properties(work_units):
                 wu.metadata.aspect, DatasetPropertiesClass
             ):
                 return wu.metadata.aspect
-        elif hasattr(wu.metadata, "proposedSnapshot"):
-            for aspect in wu.metadata.proposedSnapshot.aspects:
-                if isinstance(aspect, DatasetPropertiesClass):
-                    return aspect
     return None
 
 
