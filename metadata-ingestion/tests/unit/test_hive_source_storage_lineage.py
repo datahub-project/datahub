@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Any, Dict, Iterable, List, Optional, Tuple, Type
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -8,7 +8,7 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sql.hive.hive_source import HiveSource
 from datahub.ingestion.source.sql.hive.storage_lineage import HiveStorageLineage
-from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.two_tier_sql_source import TwoTierSQLAlchemySource
 from datahub.metadata.schema_classes import (
     ContainerClass,
@@ -187,7 +187,7 @@ def test_storage_lineage_without_schema_metadata() -> None:
 
     def without_schema(
         self: SQLAlchemySource, *args: Any, **kwargs: Any
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         for wu in parent(self, *args, **kwargs):
             if wu.get_aspect_of_type(SchemaMetadataClass) is None:
                 yield wu

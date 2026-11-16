@@ -1,7 +1,7 @@
 import logging
 import traceback
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import TYPE_CHECKING, Any, Dict, Iterable, List, Optional, Set, Tuple
 
 import pydantic
 from pydantic import field_validator
@@ -31,7 +31,6 @@ from datahub.ingestion.source.common.subtypes import (
 )
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     get_schema_metadata,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -161,7 +160,7 @@ class VerticaSource(SQLAlchemySource):
         for inspector in super().get_inspectors():
             yield VerticaInspector(inspector)
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         yield from super().get_workunits_internal()
         sql_config = self.config
 
@@ -255,7 +254,7 @@ class VerticaSource(SQLAlchemySource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,
@@ -277,7 +276,7 @@ class VerticaSource(SQLAlchemySource):
         inspector: Inspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         try:
             for view in inspector.get_view_names(schema):
                 dataset_name = self.get_identifier(
@@ -355,7 +354,7 @@ class VerticaSource(SQLAlchemySource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         """
         This function is used for performing operation and gets data for every view inside a schema
 
@@ -368,10 +367,10 @@ class VerticaSource(SQLAlchemySource):
             table_tags (Dict[str, str], optional) Defaults to dict().
 
         Returns:
-            Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]
+            Iterable[MetadataWorkUnit]
 
         Yields:
-            Iterator[Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]]
+            Iterator[Iterable[MetadataWorkUnit]]
         """
 
         dataset_urn = make_dataset_urn_with_platform_instance(
