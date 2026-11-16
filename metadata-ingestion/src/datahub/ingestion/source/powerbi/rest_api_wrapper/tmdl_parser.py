@@ -454,7 +454,7 @@ def _parse_column(node: TmdlNode) -> Optional[ParsedColumn]:
     return ParsedColumn(
         name=node.name,
         data_type=TMDL_DATA_TYPE_TO_SCAN.get(raw_type, raw_type) if raw_type else None,
-        source_column=node.properties.get(PROP_SOURCE_COLUMN),
+        source_column=_property_text(node.properties.get(PROP_SOURCE_COLUMN)),
         is_hidden=_bool_property(node, FLAG_IS_HIDDEN) is True,
         description=node.description,
         expression=expression,
