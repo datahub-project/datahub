@@ -1,21 +1,7 @@
-"""
-Confluence source for DataHub ingestion.
-
-This source connector extracts pages and spaces from Atlassian Confluence (Cloud and Data Center)
-and ingests them as Document entities in DataHub with support for semantic search.
-"""
-
-import hashlib
 import logging
 import time
-from typing import Any, Dict, Iterable, List, Optional, Set, Union
+from typing import Dict, Generator, Iterable, List, Optional, Set
 
-from atlassian import Confluence
-
-from datahub.emitter.mce_builder import (
-    make_data_platform_urn,
-    make_dataplatform_instance_urn,
-)
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SupportStatus,
@@ -33,41 +19,44 @@ from datahub.ingestion.api.source import (
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
-from datahub.ingestion.source.common.subtypes import DocumentSubTypes
+from datahub.ingestion.source.confluence.confluence_client import (
+    ConfluenceClient,
+    create_atlassian_client,
+)
 from datahub.ingestion.source.confluence.confluence_config import ConfluenceSourceConfig
+from datahub.ingestion.source.confluence.confluence_connection import (
+    run_connection_test,
+)
+from datahub.ingestion.source.confluence.confluence_crawler import ConfluenceCrawler
+from datahub.ingestion.source.confluence.confluence_documents import (
+    ConfluenceDocumentBuilder,
+)
 from datahub.ingestion.source.confluence.confluence_hierarchy import (
-    ConfluenceHierarchyExtractor,
     FolderNode,
+    collect_folder_nodes,
 )
 from datahub.ingestion.source.confluence.confluence_html import (
     storage_to_markdown,
     strip_html_tags,
 )
+from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
 from datahub.ingestion.source.confluence.confluence_users import ConfluenceUserResolver
-from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
-from datahub.ingestion.source.unstructured.document_builder import (
-    DocumentEntityBuilder,
+from datahub.ingestion.source.unstructured.chunking_config import (
+    DataHubConnectionConfig,
+    DocumentChunkingSourceConfig,
 )
-from datahub.metadata.schema_classes import (
-    DataPlatformInstanceClass,
-    DocumentStateClass,
+from datahub.ingestion.source.unstructured.chunking_source import (
+    DocumentChunkingSource,
+    SkipMarkerReadError,
+    compute_source_text_sha256,
 )
-from datahub.sdk.document import Document
+from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
-
-# Bump this when the page extraction algorithm changes (e.g. HTML→Markdown
-# conversion, macro stripping, text normalization) to force re-ingestion of
-# all pages on the next run regardless of whether the raw Confluence body changed.
-EXTRACTION_ALGO_VERSION = "3"
-
-PAGE_EXPAND = "ancestors,version,history,space,body.storage"
-PAGE_PAGE_SIZE = 100
-SPACE_PAGE_SIZE = 100
 
 
 @platform_name("Confluence")
@@ -77,250 +66,11 @@ SPACE_PAGE_SIZE = 100
 @capability(SourceCapability.DELETION_DETECTION, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
+    """Ingests Confluence Cloud and Data Center pages, and Cloud folders, as
+    Document entities, keeping the page hierarchy and generating embeddings
+    for semantic search."""
+
     platform = "confluence"  # Required for stateful ingestion checkpoint job_id
-    """
-    Ingests Confluence pages and spaces as DataHub Document entities.
-
-    ## Capabilities
-
-    - **Metadata Extraction**: Extracts pages, spaces, and hierarchical relationships
-    - **Semantic Search**: Generates embeddings for semantic search capabilities
-    - **Stateful Ingestion**: Supports incremental updates based on content changes
-    - **Parent-Child Relationships**: Preserves page hierarchy within spaces
-    - **Cloud & Data Center**: Supports both Confluence Cloud and Data Center/Server
-
-    ## Prerequisites
-
-    ### Confluence Cloud Setup
-
-    1. **Generate API Token**:
-       - Go to https://id.atlassian.com/manage-profile/security/api-tokens
-       - Create a new API token
-       - Save the token securely
-
-    2. **Grant Permissions**:
-       - User must have read access to spaces you want to ingest
-       - Recommended: Use a dedicated service account
-
-    ### Confluence Data Center Setup
-
-    1. **Generate Personal Access Token**:
-       - Navigate to: User Profile > Settings > Personal Access Tokens
-       - Create a new token with read permissions
-       - Save the token securely
-
-    2. **Grant Permissions**:
-       - User must have read access to spaces you want to ingest
-       - Check space permissions in Space Settings > Permissions
-
-    ## Configuration
-
-    ### Minimal Configuration (Cloud)
-
-    ```yaml
-    source:
-      type: confluence
-      config:
-        # Confluence Cloud
-        url: "https://your-domain.atlassian.net/wiki"
-        username: "user@company.com"
-        api_token: "${CONFLUENCE_API_TOKEN}"
-
-        # Simple unified URLs - mix spaces and pages freely!
-        urls:
-          - "https://your-domain.atlassian.net/wiki/spaces/TEAM"  # Full space
-          - "https://your-domain.atlassian.net/wiki/spaces/DOCS/pages/123456/Parent"  # Page tree
-          - "TEAM"  # Space key also works
-          - "789012"  # Page ID also works
-
-        # Control recursive child page crawling (applies to page URLs)
-        recursive: true  # Default: crawl all child pages
-    ```
-
-    ### Minimal Configuration (Data Center)
-
-    ```yaml
-    source:
-      type: confluence
-      config:
-        url: "https://confluence.your-company.com"
-        cloud: false
-        personal_access_token: "${CONFLUENCE_PAT}"
-        urls:
-          - "PUBLIC"  # Space key
-          - "https://confluence.your-company.com/pages/viewpage.action?pageId=123456"  # Page URL
-    ```
-
-    ### Advanced Configuration with Semantic Search
-
-    ```yaml
-    source:
-      type: confluence
-      config:
-        url: "https://your-domain.atlassian.net/wiki"
-        username: "your-email@example.com"
-        api_token: "${CONFLUENCE_API_TOKEN}"
-
-        # Mix spaces and page trees in one simple list
-        urls:
-          - "https://your-domain.atlassian.net/wiki/spaces/PUBLIC"  # All pages from PUBLIC space
-          - "https://your-domain.atlassian.net/wiki/spaces/TEAM/pages/123456/Engineering"  # Just this page tree
-          - "https://confluence.company.com/pages/viewpage.action?pageId=789012"  # Data Center format
-
-        recursive: true  # Crawl children from page URLs
-        max_pages_per_space: 1000
-
-        # Enable chunking for semantic search
-        chunking:
-          enabled: true
-          strategy: "by_title"
-          chunk_size: 500
-          chunk_overlap: 50
-
-        # Enable embeddings
-        embedding:
-          enabled: true
-          provider: "openai"
-          model: "text-embedding-3-small"
-          api_key: "${OPENAI_API_KEY}"
-
-        # Content filtering
-        filtering:
-          min_text_length: 100  # optional; default 0 embeds all non-empty pages
-          include_empty_docs: false
-
-        # Stateful ingestion
-        stateful_ingestion:
-          enabled: true
-          remove_stale_metadata: true
-    ```
-
-    ## Key Features
-
-    ### Hierarchical Relationships
-
-    The connector automatically preserves the page hierarchy:
-    - Space → Page → Child Page → Grandchild Page
-    - Parent relationships are extracted from Confluence's ancestor metadata
-
-    ### Stateful Ingestion
-
-    Supports incremental updates:
-    - Tracks all ingested document URNs in DataHub
-    - Automatically removes stale entities when pages are deleted
-    - DataHub handles deduplication of unchanged content
-
-    ### Semantic Search
-
-    When chunking and embeddings are enabled:
-    - Documents are split into chunks based on configured strategy
-    - Embeddings are generated for each chunk
-    - Enables semantic search in DataHub UI
-
-    ## Common Use Cases
-
-    ### 1. Ingest Specific Spaces
-
-    ```yaml
-    config:
-      urls:
-        - "ENGINEERING"
-        - "PRODUCT"
-        - "DESIGN"
-    ```
-
-    ### 2. Ingest Specific Page Trees
-
-    ```yaml
-    config:
-      urls:
-        - "https://domain.atlassian.net/wiki/spaces/DOCS/pages/123456/API-Documentation"
-        - "https://domain.atlassian.net/wiki/spaces/TEAM/pages/789012/Onboarding"
-      recursive: true  # Include all child pages
-    ```
-
-    ### 3. Mix Spaces and Pages
-
-    ```yaml
-    config:
-      urls:
-        - "PUBLIC"  # Full space
-        - "https://domain.atlassian.net/wiki/spaces/TEAM/pages/123456/Engineering"  # Just this page tree
-    ```
-
-    ### 4. Ingest All Accessible Spaces
-
-    ```yaml
-    config:
-      # Omit urls field to auto-discover
-      max_spaces: 100  # Limit for safety
-    ```
-
-    ### 5. Enable Semantic Search
-
-    ```yaml
-    config:
-      chunking:
-        enabled: true
-        strategy: "by_title"
-      embedding:
-        enabled: true
-        provider: "openai"
-    ```
-
-    ### 6. Incremental Updates
-
-    ```yaml
-    config:
-      stateful_ingestion:
-        enabled: true
-        remove_stale_metadata: true
-    ```
-
-    ## Troubleshooting
-
-    ### Authentication Errors
-
-    - **Cloud**: Verify username/email and API token are correct
-    - **Data Center**: Verify PAT is valid and has read permissions
-    - Test connection: Use `datahub check source-connection -c config.yml`
-
-    ### Rate Limiting
-
-    If hitting Confluence API rate limits:
-    ```yaml
-    config:
-      max_pages_per_space: 500  # Reduce batch size
-      advanced:
-        max_workers: 1  # Reduce parallelism
-    ```
-
-    ### Large Spaces Timeout
-
-    For spaces with 10,000+ pages:
-    ```yaml
-    config:
-      max_pages_per_space: 5000  # Set reasonable limit
-      advanced:
-        timeout_seconds: 600  # Increase timeout
-    ```
-
-    ### Permission Errors
-
-    - Verify service account has read access to all target spaces
-    - Check Space Settings > Permissions in Confluence
-    - Review failed_spaces in ingestion report
-
-    ## Notes
-
-    - **Page IDs**: Uses Confluence's numeric page IDs for URN generation
-    - **Attachments**: Not supported in v1 (pages only)
-    - **Archived Content**: Archived pages are not ingested by default
-    - **Rate Limits**: Respects Confluence Cloud rate limits with backoff
-    """
-
-    platform = "confluence"
-
     config: ConfluenceSourceConfig
     report: ConfluenceSourceReport
 
@@ -329,788 +79,160 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         self.config = config
         self.report = ConfluenceSourceReport()
 
-        # Initialize Confluence API client
-        self.confluence_client = self._create_confluence_client()
-        self.user_resolver = ConfluenceUserResolver(self.confluence_client, self.report)
+        self.confluence_client = create_atlassian_client(config)
+        self.client = ConfluenceClient(self.confluence_client, self.report)
+        self.crawler = ConfluenceCrawler(self.client, config, self.report)
+        self.documents = ConfluenceDocumentBuilder(config)
+        self.user_resolver = ConfluenceUserResolver(self.client, self.report)
 
-        # Initialize document builder
-        self.document_builder = DocumentEntityBuilder(
-            config=config.document_mapping,
-            source_type="confluence",
-        )
-
-        # Initialize chunking/embedding sub-component
-        from datahub.ingestion.source.unstructured.chunking_config import (
-            DataHubConnectionConfig,
-            DocumentChunkingSourceConfig,
-        )
-        from datahub.ingestion.source.unstructured.chunking_source import (
-            DocumentChunkingSource,
-        )
-
-        # Create chunking config (embedding will be auto-configured by DocumentChunkingSource)
-        chunking_config = DocumentChunkingSourceConfig(
-            datahub=DataHubConnectionConfig(),  # Not used in inline mode
-            chunking=config.chunking,
-            embedding=config.embedding,
-            max_documents=config.max_documents,
-        )
-
-        # Pass graph to DocumentChunkingSource so it can load server config
         self.chunking_source = DocumentChunkingSource(
             ctx=ctx,
-            config=chunking_config,
-            standalone=False,  # Run as sub-component
-            graph=ctx.graph,  # Pass graph for server config loading
+            config=DocumentChunkingSourceConfig(
+                datahub=DataHubConnectionConfig(),  # Not used in inline mode
+                chunking=config.chunking,
+                embedding=config.embedding,
+                max_documents=config.max_documents,
+            ),
+            standalone=False,
+            graph=ctx.graph,  # Loads the embedding config from the server
         )
 
-        # Initialize stateful ingestion handler for stale entity removal
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
+        # Pages are collected before any is emitted: a page links to its parent
+        # only when the parent is ingested too, which needs the full set.
+        pages = list(self.crawler.iter_pages())
+        if not pages:
+            logger.warning("No pages collected for ingestion")
+            return
+        logger.info(f"Collected {len(pages)} pages")
 
-    def _get_instance_id(self) -> str:
-        """
-        Get instance identifier for this Confluence installation.
+        ingested_ids = {page.id for page in pages}
+        # Sparse parent pages are kept even when below min_text_length, since
+        # they anchor the hierarchy.
+        parent_ids = {page.parent_id for page in pages if page.parent_id}
 
-        Returns unique identifier distinguishing between multiple Confluence instances:
-        - Explicit: Uses platform_instance config if provided (human-readable)
-        - Auto: Generates deterministic hash from base URL (guaranteed unique)
+        folders: Dict[str, FolderNode] = {}
+        if self.config.ingest_folders:
+            folders = collect_folder_nodes(pages)
+            ingested_ids |= set(folders)
 
-        Hash-based approach ensures URN uniqueness across all Confluence installations
-        without requiring manual configuration or differentiating Cloud vs Data Center.
-        """
-        if self.config.platform_instance:
-            return self.config.platform_instance
+        # Folders first, so the parents exist before the pages that reference them.
+        for folder in folders.values():
+            try:
+                workunits = self.documents.folder_document(
+                    folder, ingested_ids
+                ).as_workunits()
+            except Exception as e:
+                # Folders only reconstruct the hierarchy; one that cannot be
+                # built must not stop the pages from being ingested.
+                self.report.report_folder_failed(folder.id, str(e))
+                continue
+            yield from workunits
+            self.report.folders_ingested += 1
 
-        if self.config.url:
-            # Generate deterministic hash from base URL
-            # First 8 chars provide ~4 billion unique values (collision probability negligible)
-            url_hash = hashlib.sha256(self.config.url.encode()).hexdigest()[:8]
-            return url_hash
+        for page in pages:
+            try:
+                yield from self._page_workunits(page, ingested_ids, parent_ids)
+            except ServerEmbeddingRunError:
+                raise
+            except Exception as e:
+                self.report.report_page_failed(page.id, page.space.key or "", str(e))
+                if (
+                    not self.config.advanced.continue_on_failure
+                    or self.chunking_source.report.num_documents_limit_reached
+                ):
+                    raise
 
-        return "default"
+    def _page_workunits(
+        self, page: ConfluencePage, ingested_ids: Set[str], parent_ids: Set[str]
+    ) -> Iterable[MetadataWorkUnit]:
+        start_time = time.time()
 
-    def _create_confluence_client(self) -> Confluence:
-        """Create and configure Confluence API client."""
-        if self.config.cloud:
-            # Cloud authentication: username + API token
-            if not self.config.username or not self.config.api_token:
-                raise ValueError("Confluence Cloud requires username and api_token")
+        if self._is_page_denied(page.id):
+            self.report.report_page_skipped(page.id, "Filtered by pages.deny")
+            return
 
-            return Confluence(
-                url=self.config.url,
-                username=self.config.username,
-                password=self.config.api_token.get_secret_value(),
-                cloud=True,
-            )
-        else:
-            # Data Center authentication: Personal Access Token
-            if not self.config.personal_access_token:
-                raise ValueError(
-                    "Confluence Data Center requires personal_access_token"
-                )
+        text = self._page_text(page)
+        skip_reason = self._skip_reason(text)
+        if skip_reason and page.id not in parent_ids:
+            self.report.report_page_skipped(page.id, skip_reason)
+            return
 
-            return Confluence(
-                url=self.config.url,
-                token=self.config.personal_access_token.get_secret_value(),
-                cloud=False,
-            )
+        yield from self.documents.page_document(page, text, ingested_ids).as_workunits()
+
+        if not (yield from self._embed(page, text)):
+            return
+        self.report.report_page_processed(page.id, time.time() - start_time)
+        self.report.report_text_extracted(len(text))
 
     def _is_page_denied(self, page_id: str) -> bool:
-        """
-        Check if a page is explicitly excluded by the pages.deny list.
+        """pages.allow seeds the crawl, so only pages.deny is checked here.
+        Re-checking pages.allow would drop the child pages a recursive crawl
+        found under the seeds."""
+        deny = self.config._parsed_page_deny
+        return deny is not None and page_id in deny
 
-        pages.allow is intentionally NOT consulted here. It is a list of *root*
-        pages that seed the crawl (see _get_pages_from_page_allow); when
-        recursive=true the crawler walks the descendants of those roots, so
-        every page that reaches this point is in scope by construction.
-        Re-checking membership in pages.allow at emission time would drop those
-        legitimately-discovered child pages and silently defeat recursive
-        ingestion (only the seed/root pages would survive).
-
-        Args:
-            page_id: Confluence page ID
-
-        Returns:
-            True if the page is denied and should be skipped, False otherwise
-        """
-        if self.config._parsed_page_deny is not None:
-            return page_id in self.config._parsed_page_deny
-
-        return False
-
-    def _get_spaces(self) -> List[str]:
-        """
-        Get list of space keys with allow/deny filtering.
-
-        Returns:
-            List of filtered Confluence space keys
-        """
-        # If spaces.allow is specified, use those spaces directly
-        if self.config._parsed_space_allow is not None:
-            logger.info(
-                f"Using {len(self.config._parsed_space_allow)} spaces from spaces.allow"
+    def _skip_reason(self, text: str) -> Optional[str]:
+        # Empty pages are dropped even when min_text_length is 0, so an empty
+        # string is never embedded.
+        if self.config.filtering.skip_empty_documents and not text:
+            return "No text content"
+        if len(text) < self.config.filtering.min_text_length:
+            return (
+                f"Text length {len(text)} < minimum "
+                f"{self.config.filtering.min_text_length}"
             )
-            spaces = list(self.config._parsed_space_allow)
-        else:
-            # Auto-discover spaces
-            logger.info("Auto-discovering Confluence spaces...")
-            spaces = self._discover_spaces()
-            logger.info(f"Discovered {len(spaces)} spaces")
+        return None
 
-        # Apply spaces.deny filter
-        if self.config._parsed_space_deny is not None:
-            original_count = len(spaces)
-            spaces = [s for s in spaces if s not in self.config._parsed_space_deny]
-            filtered_count = original_count - len(spaces)
-            if filtered_count > 0:
-                logger.info(f"Filtered out {filtered_count} spaces via spaces.deny")
+    def _page_text(self, page: ConfluencePage) -> str:
+        parts: List[str] = [page.title] if page.title else []
+        if page.storage:
+            parts.append(self._storage_to_text(page))
+        return "\n\n".join(parts)
 
-        return spaces
-
-    def _discover_spaces(self) -> List[str]:
-        spaces: List[str] = []
-        start = 0
-        while len(spaces) < self.config.max_spaces:
-            try:
-                response = self.confluence_client.get_all_spaces(
-                    start=start,
-                    limit=min(SPACE_PAGE_SIZE, self.config.max_spaces - len(spaces)),
-                )
-            except Exception as e:
-                # Keep the spaces already listed. The failure already stops
-                # stale removal, so ingesting them cannot delete anything.
-                self.report.failure(message="Failed to discover spaces", exc=e)
-                return spaces
-            results = (response or {}).get("results") or []
-            spaces.extend(space["key"] for space in results if "key" in space)
-            if not results or not (response.get("_links") or {}).get("next"):
-                return spaces
-            # Advance by what the server returned: it may cap the page size
-            # below the requested limit.
-            start += len(results)
-
-        self.report.warning(
-            title="Space discovery stopped at max_spaces",
-            message="Spaces beyond max_spaces were not ingested. Raise max_spaces "
-            "or list the spaces to ingest in spaces.allow.",
-            context=f"max_spaces={self.config.max_spaces}",
-        )
-        return spaces
-
-    def _get_pages_recursively(
-        self, page_id: str, visited: Optional[Set[str]] = None
-    ) -> Iterable[Dict[str, Any]]:
-        """
-        Recursively fetch a page and all its child pages.
-
-        Args:
-            page_id: Starting page ID
-            visited: Set of already-visited page IDs (to prevent cycles)
-
-        Yields:
-            Page metadata dictionaries
-        """
-        if visited is None:
-            visited = set()
-
-        # Prevent infinite loops from circular references
-        if page_id in visited:
-            logger.warning(f"Page {page_id} already visited, skipping to prevent cycle")
-            return
-
-        visited.add(page_id)
-
+    def _storage_to_text(self, page: ConfluencePage) -> str:
         try:
-            # Fetch the page itself with full metadata
-            page = self.confluence_client.get_page_by_id(
-                page_id,
-                expand=PAGE_EXPAND,
-            )
-
-            if not page:
-                logger.warning(f"Page {page_id} not found or not accessible")
-                return
-
-            logger.debug(f"Fetched page: {page_id} - {page.get('title', 'Unknown')}")
-            self.report.report_page_scanned()
-            yield page
-
-            # If recursive mode enabled, fetch child pages
-            if self.config.recursive:
-                try:
-                    # Get direct child pages (convert generator to list for length check)
-                    children_response = list(
-                        self.confluence_client.get_child_pages(page_id)
-                    )
-
-                    # The response is a list of page objects
-                    if children_response:
-                        child_count = len(children_response)
-                        logger.debug(
-                            f"Found {child_count} child pages for page {page_id}"
-                        )
-
-                        # Recursively process each child
-                        for child_page in children_response:
-                            child_id = str(child_page.get("id", ""))
-                            if child_id:
-                                yield from self._get_pages_recursively(
-                                    child_id, visited
-                                )
-
-                except Exception as e:
-                    # The subtree under this page was not read; as a failure this
-                    # also stops stale removal from soft-deleting it.
-                    self.report.failure(
-                        title="Failed to list child pages",
-                        message="Pages under this page were not ingested.",
-                        context=page_id,
-                        exc=e,
-                    )
-
-        except Exception as e:
-            logger.error(f"Failed to fetch page {page_id}: {e}")
-            self.report.failure(message="Failed to fetch page", context=page_id, exc=e)
-
-            if not self.config.advanced.continue_on_failure:
-                raise
-
-    def _get_pages_in_space(self, space_key: str) -> Iterable[Dict[str, Any]]:
-        """
-        Get all pages in a Confluence space.
-
-        Args:
-            space_key: Confluence space key
-
-        Yields:
-            Page metadata dictionaries
-        """
-        start = 0
-        total_pages = 0
-        self.report.report_space_scanned(space_key)
-
-        try:
-            while total_pages < self.config.max_pages_per_space:
-                response = self.confluence_client.get_all_pages_from_space(
-                    space=space_key,
-                    start=start,
-                    limit=min(
-                        PAGE_PAGE_SIZE, self.config.max_pages_per_space - total_pages
-                    ),
-                    expand=PAGE_EXPAND,
-                )
-                pages = (
-                    response
-                    if isinstance(response, list)
-                    else (response or {}).get("results", [])
-                )
-                if not pages:
-                    break
-
-                for page in pages:
-                    self.report.report_page_scanned()
-                    yield page
-                    total_pages += 1
-
-                if isinstance(response, dict) and not (
-                    response.get("_links") or {}
-                ).get("next"):
-                    break
-                # Advance by what the server returned: it may cap the page size
-                # below the requested limit, and advancing by the limit would
-                # skip the pages in between.
-                start += len(pages)
-            else:
-                self.report.warning(
-                    title="Space stopped at max_pages_per_space",
-                    message="Pages beyond max_pages_per_space were not ingested.",
-                    context=f"{space_key}: max_pages_per_space="
-                    f"{self.config.max_pages_per_space}",
-                )
-        except Exception as e:
-            self.report.report_space_failed(space_key, e)
-            return
-
-        self.report.report_space_processed(space_key)
-
-    def _get_pages_from_spaces(self, space_keys: List[str]) -> Iterable[Dict[str, Any]]:
-        """
-        Get all pages from specified spaces.
-
-        Args:
-            space_keys: List of space keys to fetch pages from
-
-        Yields:
-            Page metadata dictionaries
-        """
-        for space_key in space_keys:
-            try:
-                logger.info(f"Fetching pages from space: {space_key}")
-                yield from self._get_pages_in_space(space_key)
-            except Exception as e:
-                logger.error(f"Failed to process space '{space_key}': {e}")
-                self.report.failure(
-                    message="Failed to process space", context=space_key, exc=e
-                )
-
-                if not self.config.advanced.continue_on_failure:
-                    raise
-
-    def _get_pages_from_page_allow(self) -> Iterable[Dict[str, Any]]:
-        """
-        Get pages specified in pages.allow list.
-
-        Yields:
-            Page metadata dictionaries
-        """
-        if not self.config._parsed_page_allow:
-            return
-
-        logger.info(
-            f"Processing {len(self.config._parsed_page_allow)} page(s) from pages.allow"
-        )
-
-        visited_pages: Set[str] = set()
-
-        for page_id in self.config._parsed_page_allow:
-            try:
-                logger.info(
-                    f"Fetching page tree from page: {page_id} (recursive={self.config.recursive})"
-                )
-                if self.config.recursive:
-                    # Recursive crawl from this page
-                    yield from self._get_pages_recursively(page_id, visited_pages)
-                else:
-                    # Just fetch this page (non-recursive)
-                    page = self.confluence_client.get_page_by_id(
-                        page_id,
-                        expand=PAGE_EXPAND,
-                    )
-                    if page:
-                        visited_pages.add(page_id)
-                        self.report.report_page_scanned()
-                        yield page
-                    else:
-                        logger.warning(f"Page {page_id} not found or not accessible")
-
-            except Exception as e:
-                logger.error(f"Failed to process page '{page_id}': {e}")
-                self.report.failure(
-                    message="Failed to process page", context=page_id, exc=e
-                )
-
-                if not self.config.advanced.continue_on_failure:
-                    raise
-
-    def _extract_text_from_page(self, page: Dict[str, Any]) -> str:
-        """
-        Extract text content from Confluence page.
-
-        Args:
-            page: Page metadata from Confluence API
-
-        Returns:
-            Extracted text content
-        """
-        text_parts = []
-
-        # Extract title
-        title = page.get("title", "")
-        if title:
-            text_parts.append(title)
-
-        # Extract body content
-        body = page.get("body", {})
-        if isinstance(body, dict):
-            storage = body.get("storage", {})
-            if isinstance(storage, dict):
-                value = storage.get("value", "")
-                if value:
-                    text_parts.append(self._storage_to_text(page, value))
-
-        return "\n\n".join(text_parts)
-
-    def _storage_to_text(self, page: Dict[str, Any], storage: str) -> str:
-        try:
-            return storage_to_markdown(storage, user_resolver=self.user_resolver)
+            return storage_to_markdown(page.storage, user_resolver=self.user_resolver)
         except Exception as e:
             self.report.warning(
                 title="Page converted as plain text",
                 message="Markdown conversion failed, so the page's formatting, "
                 "links and mentions were dropped from its text.",
-                context=str(page.get("id")),
+                context=page.id,
                 exc=e,
             )
-            return strip_html_tags(storage)
+            return strip_html_tags(page.storage)
 
-    def _build_page_urn(self, page_id: str) -> str:
-        """
-        Build DataHub document URN for a Confluence page with instance identifier.
-
-        Args:
-            page_id: Confluence page ID
-
-        Returns:
-            DataHub document URN with format: urn:li:document:confluence-{instance_id}-{page_id}
-        """
-        instance_id = self._get_instance_id()
-        return f"urn:li:document:{self.platform}-{instance_id}-{page_id}"
-
-    def _extract_parent_urn(
-        self, page: Dict[str, Any], ingested_page_ids: Set[str]
-    ) -> Optional[str]:
-        """
-        Extract and validate parent URN for a page.
-
-        Args:
-            page: Page metadata from Confluence API
-            ingested_page_ids: Set of page IDs being ingested
-
-        Returns:
-            Parent URN if valid, None otherwise
-        """
-        parent_id = ConfluenceHierarchyExtractor.extract_parent_id(page)
-        if not parent_id:
-            return None
-
-        # Only emit parent relationship if parent is being ingested
-        if parent_id not in ingested_page_ids:
-            logger.info(
-                f"Parent page {parent_id} not in ingestion scope (have: {sorted(list(ingested_page_ids))}), skipping parent relationship"
-            )
-            return None
-
-        logger.info(
-            f"Parent page {parent_id} is being ingested, including parent relationship"
-        )
-        instance_id = self._get_instance_id()
-        return ConfluenceHierarchyExtractor.build_parent_urn(
-            parent_id, platform=self.platform, instance_id=instance_id
-        )
-
-    def _build_imported_document(
-        self,
-        doc_id: str,
-        title: str,
-        text: str,
-        url: str,
-        page_id: str,
-        custom_properties: Dict[str, str],
-        parent_urn: Optional[str],
-        created_time: Any,
-        last_modified_time: Any,
-    ) -> Document:
-        if self.config.document_import_mode == DocumentImportMode.NATIVE:
-            return Document.create_document(
-                id=doc_id,
-                title=title,
-                text=text,
-                status=DocumentStateClass.PUBLISHED,
-                custom_properties=custom_properties,
-                parent_document=parent_urn,
-                created_time=created_time,
-                last_modified_time=last_modified_time,
-            )
-
-        return Document.create_external_document(
-            id=doc_id,
-            title=title,
-            platform=self.platform,
-            external_url=url,
-            external_id=page_id,
-            text=text,
-            status=DocumentStateClass.PUBLISHED,
-            custom_properties=custom_properties,
-            parent_document=parent_urn,
-            created_time=created_time,
-            last_modified_time=last_modified_time,
-        )
-
-    def _add_platform_instance(self, doc: Document) -> None:
-        """Attach the dataPlatformInstance aspect so the UI can render the
-        "View in Confluence" link. Uses the URL subdomain as the instance id.
-
-        TODO: promote this to an official Document SDK parameter instead of the
-        _set_aspect backdoor.
-        """
-        if not self.config.url:
-            return
-        from urllib.parse import urlparse
-
-        parsed_url = urlparse(self.config.url)
-        instance_id = (
-            parsed_url.netloc.split(".")[0] if parsed_url.netloc else self.config.url
-        )
-        doc._set_aspect(
-            DataPlatformInstanceClass(
-                platform=make_data_platform_urn(self.platform),
-                instance=make_dataplatform_instance_urn(self.platform, instance_id),
-            )
-        )
-
-    def _create_folder_entity(
-        self, folder: FolderNode, ingested_page_ids: Set[str]
-    ) -> Iterable[MetadataWorkUnit]:
-        """Emit a document entity for a Confluence folder so pages nested under it
-        keep their hierarchy. Folders have no content, so they carry the "Folder"
-        subtype and skip the chunking/embedding step that pages go through."""
-        instance_id = self._get_instance_id()
-        doc_id = f"confluence-{instance_id}-{folder.id}"
-
-        # Link to the folder's parent (a page or another folder) when it is also
-        # ingested; otherwise the folder is a root document under the space.
-        parent_urn = None
-        if folder.parent_id and folder.parent_id in ingested_page_ids:
-            parent_urn = ConfluenceHierarchyExtractor.build_parent_urn(
-                parent_id=folder.parent_id,
-                platform=self.platform,
-                instance_id=instance_id,
-            )
-
-        custom_properties = {
-            "space_key": folder.space_key or "",
-            "folder_id": folder.id,
-        }
-        if self.config.document_import_mode == DocumentImportMode.NATIVE:
-            doc = Document.create_document(
-                id=doc_id,
-                title=folder.title,
-                text="",
-                status=DocumentStateClass.PUBLISHED,
-                subtype=DocumentSubTypes.FOLDER,
-                custom_properties=custom_properties,
-                parent_document=parent_urn,
-            )
-        else:
-            base_url = self.config.url.rstrip("/").removesuffix("/wiki")
-            url = (
-                f"{base_url}/wiki/spaces/{folder.space_key}/folder/{folder.id}"
-                if folder.space_key
-                else f"{base_url}/wiki/folder/{folder.id}"
-            )
-            doc = Document.create_external_document(
-                id=doc_id,
-                title=folder.title,
-                platform=self.platform,
-                external_url=url,
-                external_id=folder.id,
-                text="",
-                status=DocumentStateClass.PUBLISHED,
-                subtype=DocumentSubTypes.FOLDER,
-                custom_properties=custom_properties,
-                parent_document=parent_urn,
-            )
-        self._add_platform_instance(doc)
-
-        # Reuse the page browse-path builder by passing the ancestors that
-        # precede this folder as a synthetic page metadata payload.
-        browse_path_v2 = ConfluenceHierarchyExtractor.build_browse_path_v2(
-            page_metadata={
-                "space": {"name": folder.space_name, "key": folder.space_key},
-                "ancestors": folder.ancestor_prefix,
-            },
-            platform=self.platform,
-            instance_id=instance_id,
-            ingested_page_ids=ingested_page_ids,
-        )
-        if browse_path_v2:
-            doc._set_aspect(browse_path_v2)
-
-        yield from doc.as_workunits()
-        self.report.folders_ingested += 1
-
-    def _create_document_entity(
-        self,
-        page: Dict[str, Any],
-        ingested_page_ids: Set[str],
-        parent_page_ids: Set[str],
-    ) -> Iterable[MetadataWorkUnit]:
-        """
-        Create DataHub document entity from Confluence page.
-
-        Args:
-            page: Page metadata from Confluence API
-            ingested_page_ids: Set of page IDs being ingested
-            parent_page_ids: Set of page IDs that have children (are parents)
-
-        Yields:
-            MetadataWorkUnit for document entity
-        """
-        start_time = time.time()
-
-        page_id = str(page.get("id", ""))
-        if not page_id:
-            logger.warning("Page missing ID, skipping")
-            return
-
-        # Apply pages.deny filter. pages.allow is a crawl seed list, not an
-        # emission whitelist, so it is deliberately not re-checked here -
-        # otherwise recursively-discovered child pages would be dropped.
-        if self._is_page_denied(page_id):
-            logger.info(f"Page {page_id} filtered by pages.deny, skipping")
-            self.report.report_page_skipped(page_id, "Filtered by pages.deny")
-            return
-
-        # Extract text content
-        text = self._extract_text_from_page(page)
-
-        # Drop empty pages, and pages below the optional minimum-length knob.
-        # The empty check is independent of min_text_length so that zeroing the
-        # knob (the default) still drops truly empty pages rather than trying to
-        # embed an empty string.
-        is_empty = self.config.filtering.skip_empty_documents and not text
-        too_short = len(text) < self.config.filtering.min_text_length
-        if is_empty or too_short:
-            # Exempt parent pages: they anchor the hierarchy even when sparse.
-            if page_id not in parent_page_ids:
-                reason = (
-                    "No text content"
-                    if is_empty
-                    else f"Text length {len(text)} < minimum {self.config.filtering.min_text_length}"
-                )
-                self.report.report_page_skipped(page_id, reason)
-                return
-
-        # Extract metadata
-        title = (
-            ConfluenceHierarchyExtractor.extract_page_title(page) or f"Page {page_id}"
-        )
-        url = ConfluenceHierarchyExtractor.extract_page_url(page)
-        space_key = ConfluenceHierarchyExtractor.extract_space_key(page)
-
-        # Build full URL if needed
-        if url and not url.startswith("http"):
-            base_url = self.config.url.rstrip("/")
-            url = f"{base_url}{url}"
-
-        # Extract parent URN
-        parent_urn = self._extract_parent_urn(page, ingested_page_ids)
-
-        # Build custom properties, including a content_hash that encodes both
-        # the raw page body and the extraction algo version. The chunking source
-        # reads this hash to decide whether to re-embed a document; bumping
-        # EXTRACTION_ALGO_VERSION invalidates every document's hash and forces
-        # a full re-ingest on the next run.
-        import json as _json
-
-        raw_body = page.get("body", {}).get("storage", {}).get("value", "") or ""
-        _hash_input = _json.dumps(
-            {"body": raw_body, "algo_version": EXTRACTION_ALGO_VERSION},
-            sort_keys=True,
-        )
-        content_hash = hashlib.sha256(_hash_input.encode("utf-8")).hexdigest()
-
-        custom_properties = {
-            "space_key": space_key or "",
-            "page_id": page_id,
-            "content_hash": content_hash,
-            "extraction_algo_version": EXTRACTION_ALGO_VERSION,
-        }
-
-        # Get timestamps if available
-        version = page.get("version", {})
-        created_time = None
-        last_modified_time = None
-        if isinstance(version, dict):
-            when = version.get("when")
-            if when:
-                try:
-                    from dateutil import parser as date_parser
-
-                    last_modified_time = date_parser.parse(when)
-                except Exception:
-                    pass
-
-        history = page.get("history", {})
-        if isinstance(history, dict):
-            created_date = history.get("createdDate")
-            if created_date:
-                try:
-                    from dateutil import parser as date_parser
-
-                    created_time = date_parser.parse(created_date)
-                except Exception:
-                    pass
-
-        # Create Document using SDK (use confluence-{instance_id}-{page_id} format for uniqueness)
-        instance_id = self._get_instance_id()
-        doc_id = f"confluence-{instance_id}-{page_id}"
-
-        # Construct proper external URL - fallback to base URL + page ID if webui not available
-        if not url:
-            # Remove trailing /wiki if present, then add the page path
-            base_url = self.config.url.rstrip("/")
-            if base_url.endswith("/wiki"):
-                base_url = base_url[:-5]
-            url = f"{base_url}/wiki/pages/{page_id}"
-
-        # Debug logging
-        logger.debug(
-            f"Creating document: doc_id={doc_id}, parent_urn={parent_urn}, url={url}"
-        )
-
-        doc = self._build_imported_document(
-            doc_id=doc_id,
-            title=title,
-            text=text,
-            url=url,
-            page_id=page_id,
-            custom_properties=custom_properties,
-            parent_urn=parent_urn,
-            created_time=created_time,
-            last_modified_time=last_modified_time,
-        )
-
-        self._add_platform_instance(doc)
-
-        # Add BrowsePathsV2 for hierarchical navigation
-        browse_path_v2 = ConfluenceHierarchyExtractor.build_browse_path_v2(
-            page_metadata=page,
-            platform=self.platform,
-            instance_id=self._get_instance_id(),
-            ingested_page_ids=ingested_page_ids,
-        )
-        if browse_path_v2:
-            doc._set_aspect(browse_path_v2)
-
-        # Emit all workunits from the Document
-        for workunit in doc.as_workunits():
-            yield workunit
-
-        # Generate embeddings inline using ChunkingSource
-        # Convert text to elements format expected by chunking source
+    def _embed(
+        self, page: ConfluencePage, text: str
+    ) -> Generator[MetadataWorkUnit, None, bool]:
+        """Chunk and embed the page text. Returns False when the page must be
+        retried next run rather than counted as processed."""
+        document_urn = self.documents.page_urn(page.id)
         elements = [
             {
                 "type": "NarrativeText",
                 "text": text,
                 "metadata": {
-                    "page_id": page_id,
-                    "title": title,
-                    "url": url,
+                    "page_id": page.id,
+                    "title": page.title,
+                    "url": self.documents.page_url(page),
                 },
             }
         ]
-
-        # Get document URN for chunking/embedding
-        document_urn = f"urn:li:document:{doc_id}"
-
-        from datahub.ingestion.source.unstructured.chunking_source import (
-            SkipMarkerReadError,
-            compute_source_text_sha256,
-        )
-
         try:
             yield from self.chunking_source.process_elements_inline(
                 document_urn=document_urn,
                 elements=elements,
-                # Hash the exact text placed on DocumentInfo above, so the embeddings'
-                # sourceTextSha256 byte-matches the server-stamped resolvedTextSha256.
+                # Hash the exact text placed on DocumentInfo, so the embeddings'
+                # sourceTextSha256 byte-matches the server's resolvedTextSha256.
                 source_text_sha256=compute_source_text_sha256(text),
             )
         except SkipMarkerReadError as e:
-            # Do not record this page as processed: the skip marker was not written and
-            # must be retried next run rather than swallowed like an embed failure.
+            # The skip marker was not written, so the page must be retried next
+            # run rather than treated like an embedding failure.
             logger.warning(f"Skip marker deferred for {document_urn}: {e}")
-            return
+            return False
         except Exception as e:
             if (
                 isinstance(e, ServerEmbeddingRunError)
@@ -1125,405 +247,41 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 "Document will be ingested without embeddings.",
                 exc_info=True,
             )
-
-        # Update metrics
-        processing_time = time.time() - start_time
-        self.report.report_page_processed(page_id, processing_time)
-        self.report.report_text_extracted(len(text))
-
-    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
-        """
-        Main ingestion loop.
-
-        Yields:
-            MetadataWorkUnit for all entities
-        """
-        # Track all page IDs being ingested for parent validation
-        all_pages: List[Dict[str, Any]] = []
-
-        # Determine ingestion strategy based on configuration
-        if self.config._parsed_page_allow is not None:
-            # Page-specific ingestion: fetch only specified pages
-            logger.info("Using pages.allow - fetching specific pages only")
-            try:
-                pages = list(self._get_pages_from_page_allow())
-                all_pages.extend(pages)
-                logger.info(f"Collected {len(pages)} pages from pages.allow")
-            except Exception as e:
-                logger.error(f"Failed to collect pages from pages.allow: {e}")
-                if not self.config.advanced.continue_on_failure:
-                    raise
-        else:
-            # Space-based ingestion: discover/use spaces, then fetch all their pages
-            discovered_spaces = self._get_spaces()
-
-            if not discovered_spaces:
-                logger.warning("No spaces to process")
-                return
-
-            logger.info(f"Processing {len(discovered_spaces)} space(s)")
-
-            try:
-                pages = list(self._get_pages_from_spaces(discovered_spaces))
-                all_pages.extend(pages)
-                logger.info(f"Collected {len(pages)} pages from spaces")
-            except Exception as e:
-                logger.error(f"Failed to collect pages from spaces: {e}")
-                if not self.config.advanced.continue_on_failure:
-                    raise
-
-        # Deduplicate pages by ID (in case page appears multiple times)
-        unique_pages_map = {
-            str(page.get("id")): page for page in all_pages if page.get("id")
-        }
-        all_pages = list(unique_pages_map.values())
-
-        logger.info(f"Total unique pages collected: {len(all_pages)}")
-
-        if not all_pages:
-            logger.warning("No pages collected for ingestion")
-            return
-
-        # Build set of ingested page IDs
-        ingested_page_ids = {
-            str(page.get("id", "")) for page in all_pages if page.get("id")
-        }
-        logger.info(
-            f"Ingesting {len(ingested_page_ids)} pages: {sorted(list(ingested_page_ids))}"
-        )
-
-        # Folders are a separate Confluence content type the page APIs never
-        # return, so a page nested under a folder loses its parent link unless we
-        # materialise the folder. Register folder URNs up front so child pages
-        # (and nested folders) resolve their parent against an entity we emit.
-        folder_nodes: Dict[str, FolderNode] = {}
-        if self.config.ingest_folders:
-            try:
-                folder_nodes = ConfluenceHierarchyExtractor.collect_folder_nodes(
-                    all_pages
-                )
-                ingested_page_ids |= set(folder_nodes.keys())
-                logger.info(
-                    f"Discovered {len(folder_nodes)} folder(s) in page ancestry"
-                )
-            except Exception as e:
-                # Folder discovery is best-effort enrichment of the hierarchy;
-                # never let it abort the ingestion of the pages themselves.
-                logger.warning(f"Failed to discover folders from page ancestry: {e}")
-                self.report.report_folder_failed("<discovery>", str(e))
-                folder_nodes = {}
-
-        # Build set of parent page IDs (pages that have children)
-        parent_page_ids: Set[str] = set()
-        for page in all_pages:
-            ancestors = page.get("ancestors", [])
-            if ancestors:
-                # The last ancestor is the immediate parent
-                parent_id = str(ancestors[-1].get("id", ""))
-                if parent_id:
-                    parent_page_ids.add(parent_id)
-
-        # Emit folder entities first so the parent documents exist before the
-        # child pages (and nested folders) that reference them.
-        for folder_node in folder_nodes.values():
-            try:
-                yield from self._create_folder_entity(folder_node, ingested_page_ids)
-            except Exception as e:
-                # Folders are best-effort hierarchy reconstruction; a folder that
-                # fails to materialise is logged as a warning but must never abort
-                # the ingestion of the actual pages, regardless of
-                # continue_on_failure.
-                logger.warning(
-                    f"Failed to create entity for folder {folder_node.id}: {e}"
-                )
-                self.report.report_folder_failed(folder_node.id, str(e))
-
-        # Second pass: create document entities
-        for page in all_pages:
-            try:
-                yield from self._create_document_entity(
-                    page, ingested_page_ids, parent_page_ids
-                )
-
-            except ServerEmbeddingRunError:
-                raise
-            except Exception as e:
-                page_id = str(page.get("id", "unknown"))
-                space_key = (
-                    ConfluenceHierarchyExtractor.extract_space_key(page) or "unknown"
-                )
-                logger.error(f"Failed to create entity for page {page_id}: {e}")
-                self.report.report_page_failed(page_id, space_key, str(e))
-
-                if (
-                    not self.config.advanced.continue_on_failure
-                    or self.chunking_source.report.num_documents_limit_reached
-                ):
-                    raise
+        return True
 
     @staticmethod
     def _test_semantic_search_capability(
         config: ConfluenceSourceConfig,
         graph: Optional[DataHubGraph] = None,
     ) -> CapabilityReport:
-        """Test semantic search capability using the same logic as ingestion.
-
-        Uses DocumentChunkingSource.resolve_embedding_config() to ensure
-        test_connection mirrors actual ingestion behavior exactly:
-        1. If explicit embedding config provided: validate it
-        2. If not: try to load from DataHub server
-        3. If server doesn't have config or is unreachable: use defaults
-
-        Args:
-            config: Full Confluence source configuration
-
-        Returns:
-            CapabilityReport for semantic search capability
-        """
-        from datahub.ingestion.source.unstructured.chunking_source import (
-            DocumentChunkingSource,
-        )
-
+        """Check embeddings the way ingestion resolves them: explicit config,
+        else the server's config, else defaults."""
         return DocumentChunkingSource.test_semantic_search_capability(
             config.embedding, datahub=config.datahub, graph=graph
         )
 
     @staticmethod
-    def test_connection(config_dict: dict) -> TestConnectionReport:  # noqa: C901
-        """Test connection to Confluence API.
-
-        Validates:
-        1. Config is parseable
-        2. Authentication credentials are valid
-        3. Can connect to Confluence API
-        4. If spaces provided, validates they are accessible
-        5. Auto-discovers spaces and reports count
-        6. Semantic search capability (from server config)
-        """
-        try:
-            config = ConfluenceSourceConfig.model_validate(config_dict)
-        except Exception as e:
-            return TestConnectionReport(
-                internal_failure=True,
-                internal_failure_reason=f"Failed to parse config: {e}",
-            )
-
-        try:
-            # Create Confluence client
-            if config.cloud:
-                if not config.username or not config.api_token:
-                    return TestConnectionReport(
-                        basic_connectivity=CapabilityReport(
-                            capable=False,
-                            failure_reason="Cloud authentication requires username and api_token",
-                            mitigation_message="Provide both username and api_token for Confluence Cloud. "
-                            "Generate API token at: https://id.atlassian.com/manage-profile/security/api-tokens",
-                        )
-                    )
-
-                client = Confluence(
-                    url=config.url,
-                    username=config.username,
-                    password=config.api_token.get_secret_value(),
-                    cloud=True,
-                )
-            else:
-                if not config.personal_access_token:
-                    return TestConnectionReport(
-                        basic_connectivity=CapabilityReport(
-                            capable=False,
-                            failure_reason="Data Center authentication requires personal_access_token",
-                            mitigation_message="Generate a Personal Access Token from: User Profile > Settings > Personal Access Tokens",
-                        )
-                    )
-
-                client = Confluence(
-                    url=config.url,
-                    token=config.personal_access_token.get_secret_value(),
-                    cloud=False,
-                )
-
-            # Test basic connectivity
-            try:
-                client.get_all_spaces(start=0, limit=1)
-                basic_connectivity = CapabilityReport(capable=True)
-            except Exception as e:
-                return TestConnectionReport(
-                    basic_connectivity=CapabilityReport(
-                        capable=False,
-                        failure_reason=f"Failed to connect to Confluence: {e.__class__.__name__}: {e}",
-                        mitigation_message="Check that your credentials are correct and you have access to Confluence. "
-                        "Verify the URL is correct (include /wiki for Cloud).",
-                    )
-                )
-
-            # If specific spaces/pages are configured, validate access
-            if config._parsed_space_allow or config._parsed_page_allow:
-                inaccessible_items = []
-                accessible_pages = 0
-                num_spaces = 0
-                num_pages = 0
-
-                # Test spaces.allow
-                if config._parsed_space_allow:
-                    for space_key in config._parsed_space_allow[:5]:  # Test first 5
-                        try:
-                            num_spaces += 1
-                            space = client.get_space(space_key)
-                            # Try to count pages in space
-                            try:
-                                pages = client.get_all_pages_from_space(
-                                    space_key, start=0, limit=10
-                                )
-                                if pages:
-                                    accessible_pages += len(pages)
-                            except Exception:
-                                pass  # Page counting is optional
-                        except Exception as e:
-                            inaccessible_items.append(
-                                f"space {space_key}: {e.__class__.__name__}"
-                            )
-
-                # Test pages.allow
-                if config._parsed_page_allow:
-                    for page_id in config._parsed_page_allow[:5]:  # Test first 5
-                        try:
-                            num_pages += 1
-                            page = client.get_page_by_id(page_id)
-                            if page:
-                                accessible_pages += 1
-                        except Exception as e:
-                            inaccessible_items.append(
-                                f"page {page_id}: {e.__class__.__name__}"
-                            )
-
-                if inaccessible_items:
-                    return TestConnectionReport(
-                        basic_connectivity=basic_connectivity,
-                        capability_report={
-                            "Space/Page Access": CapabilityReport(
-                                capable=False,
-                                failure_reason=f"Cannot access: {', '.join(inaccessible_items[:3])}{'...' if len(inaccessible_items) > 3 else ''}",
-                                mitigation_message="Verify your account has permission to access these Confluence spaces/pages. "
-                                "Check Space Settings > Permissions in Confluence.",
-                            )
-                        },
-                    )
-
-                # All configured items accessible
-                total_items = num_spaces + num_pages
-                capability_report: Dict[
-                    Union[SourceCapability, str], CapabilityReport
-                ] = {
-                    "Space/Page Access": CapabilityReport(
-                        capable=True,
-                        mitigation_message=f"Successfully validated access to {total_items} configured item(s) "
-                        f"({num_spaces} space(s), {num_pages} page(s)). "
-                        f"Found ~{accessible_pages}+ accessible pages.",
-                    ),
-                    "Semantic Search": ConfluenceSource._test_semantic_search_capability(
-                        config
-                    ),
-                }
-
-                return TestConnectionReport(
-                    basic_connectivity=basic_connectivity,
-                    capability_report=capability_report,
-                )
-
-            # No specific spaces configured - perform auto-discovery
-            try:
-                all_spaces = client.get_all_spaces(
-                    start=0,
-                    limit=min(config.max_spaces, 100),  # Cap at 100 for test
-                    expand="homepage,description",
-                )
-
-                if not all_spaces or "results" not in all_spaces:
-                    return TestConnectionReport(
-                        basic_connectivity=basic_connectivity,
-                        capability_report={
-                            "Auto-Discovery": CapabilityReport(
-                                capable=False,
-                                failure_reason="No spaces found",
-                                mitigation_message="Your account may not have access to any Confluence spaces. "
-                                "Contact your Confluence administrator to grant space access.",
-                            )
-                        },
-                    )
-
-                num_spaces = len(all_spaces["results"])
-
-                # Sample a few spaces to estimate page counts
-                total_pages_estimate = 0
-                for space in all_spaces["results"][:3]:  # Sample first 3 spaces
-                    try:
-                        space_key = space.get("key")
-                        if space_key:
-                            pages = client.get_all_pages_from_space(
-                                space_key, start=0, limit=10
-                            )
-                            if pages:
-                                total_pages_estimate += len(pages)
-                    except Exception:
-                        pass  # Page counting is optional
-
-                capability_report = {
-                    "Auto-Discovery": CapabilityReport(
-                        capable=True,
-                        mitigation_message=f"Discovered {num_spaces} accessible space(s) "
-                        f"{'(limited by max_spaces config)' if num_spaces >= config.max_spaces else ''}. "
-                        f"Found ~{total_pages_estimate}+ pages in sampled spaces. "
-                        f"Auto-discovery will ingest all accessible content.",
-                    ),
-                    "Semantic Search": ConfluenceSource._test_semantic_search_capability(
-                        config
-                    ),
-                }
-
-                return TestConnectionReport(
-                    basic_connectivity=basic_connectivity,
-                    capability_report=capability_report,
-                )
-
-            except Exception as e:
-                return TestConnectionReport(
-                    basic_connectivity=basic_connectivity,
-                    capability_report={
-                        "Auto-Discovery": CapabilityReport(
-                            capable=False,
-                            failure_reason=f"Failed to discover spaces: {e}",
-                            mitigation_message="Check that your account has permission to list Confluence spaces.",
-                        )
-                    },
-                )
-
-        except Exception as e:
-            return TestConnectionReport(
-                internal_failure=True,
-                internal_failure_reason=f"Unexpected error during connection test: {e}",
-            )
+    def test_connection(config_dict: dict) -> TestConnectionReport:
+        return run_connection_test(
+            config_dict, ConfluenceSource._test_semantic_search_capability
+        )
 
     def get_report(self) -> ConfluenceSourceReport:
-        """Get ingestion report."""
-        # Copy statistics from chunking source report
-        if self.chunking_source:
-            chunking_report = self.chunking_source.report
-            self.report.num_documents_with_embeddings = (
-                chunking_report.num_documents_with_embeddings
-            )
-            self.report.num_embedding_failures = chunking_report.num_embedding_failures
-            # Extend LossyList with items from the regular list
-            for failure in chunking_report.embedding_failures:
-                self.report.embedding_failures.append(failure)
-            self.report.num_documents_limit_reached = (
-                chunking_report.num_documents_limit_reached
-            )
-
+        # get_report is called more than once per run, so copy the chunking
+        # stats rather than appending to them.
+        chunking_report = self.chunking_source.report
+        self.report.num_documents_with_embeddings = (
+            chunking_report.num_documents_with_embeddings
+        )
+        self.report.num_embedding_failures = chunking_report.num_embedding_failures
+        self.report.embedding_failures = LossyList()
+        self.report.embedding_failures.extend(chunking_report.embedding_failures)
+        self.report.num_documents_limit_reached = (
+            chunking_report.num_documents_limit_reached
+        )
         return self.report
 
     def close(self) -> None:
-        """Clean up resources."""
         try:
             self.chunking_source.close()
         finally:

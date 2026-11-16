@@ -145,3 +145,17 @@ DISCARD_MACROS = frozenset(
         "create-space-button",
     ]
 )
+
+# Content API settings shared by every page listing, so pages fetched by
+# space, by id and as children all carry the same fields.
+PAGE_EXPAND = "ancestors,version,history,space,body.storage"
+PAGE_PAGE_SIZE = 100
+SPACE_PAGE_SIZE = 100
+
+PAGE_CONTENT_TYPE = "page"
+FOLDER_CONTENT_TYPE = "folder"
+
+# Bump when page text extraction changes (conversion, macro handling,
+# normalization) so every page is re-extracted and re-embedded on the next run
+# even if its Confluence body is unchanged.
+EXTRACTION_ALGO_VERSION = "3"

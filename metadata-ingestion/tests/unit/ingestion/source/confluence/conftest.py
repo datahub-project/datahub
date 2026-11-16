@@ -6,7 +6,7 @@ is replaced by a plain ``MagicMock`` (or by the scenario-driven fake in
 inline chunking/embedding step, which is autospecced so no embedding work runs.
 """
 
-from typing import Any, Dict, Iterable, List, Optional
+from typing import Any, Dict, Iterable, List, Optional, Set
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
@@ -17,6 +17,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
+from datahub.ingestion.source.confluence.confluence_models import ConfluencePage
 from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
 from datahub.ingestion.source.unstructured.chunking_source import (
     DocumentChunkingSource,
@@ -24,7 +25,7 @@ from datahub.ingestion.source.unstructured.chunking_source import (
 from datahub.metadata.schema_classes import DocumentInfoClass
 from tests.unit.conftest import aspects_by_urn, aspects_of_type
 
-CONFLUENCE_CLIENT = "datahub.ingestion.source.confluence.confluence_source.Confluence"
+CONFLUENCE_CLIENT = "datahub.ingestion.source.confluence.confluence_client.Confluence"
 CLOUD_URL = "https://test.atlassian.net/wiki"
 
 
@@ -98,6 +99,24 @@ def serve_space(client: MagicMock, pages: List[Dict[str, Any]]) -> None:
     """Make ``client`` discover one space, TEAM, holding ``pages`` on one page."""
     client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
     client.get_all_pages_from_space.return_value = {"results": pages, "_links": {}}
+
+
+def page_workunits(
+    source: ConfluenceSource,
+    page: Dict[str, Any],
+    ingested_ids: Set[str],
+    parent_ids: Set[str],
+) -> Iterable[MetadataWorkUnit]:
+    """Emit one page payload the way the source does during a run."""
+    return source._page_workunits(
+        ConfluencePage.model_validate(page), ingested_ids, parent_ids
+    )
+
+
+def crawl_tree(source: ConfluenceSource, page_id: str) -> List[ConfluencePage]:
+    """Crawl from one seed page, honouring the source's ``recursive`` setting."""
+    source.config._parsed_page_allow = [page_id]
+    return list(source.crawler.iter_pages())
 
 
 def document_infos(

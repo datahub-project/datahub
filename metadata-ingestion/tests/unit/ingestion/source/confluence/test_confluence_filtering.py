@@ -25,14 +25,14 @@ def test_no_filters_ingests_all_spaces(
     config = ConfluenceSourceConfig.model_validate(base_config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # Should get all 5 spaces
         assert len(spaces) == 5
@@ -47,14 +47,14 @@ def test_space_allow_includes_only_specified_spaces(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # Should only get TEAM and DOCS
         assert len(spaces) == 2
@@ -69,14 +69,14 @@ def test_space_deny_excludes_specified_spaces(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # Should get all except personal space and archive
         assert len(spaces) == 3
@@ -99,14 +99,14 @@ def test_space_allow_and_deny_combined(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # PUBLIC should be excluded even though it's in allow list
         assert len(spaces) == 2
@@ -130,14 +130,14 @@ def test_space_allow_with_urls(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # URL parsing should extract space keys
         assert len(spaces) == 2
@@ -157,7 +157,7 @@ def test_no_page_filters_ingests_all_pages(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -184,7 +184,7 @@ def test_page_allow_seeds_crawl_without_filtering_emission(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -210,7 +210,7 @@ def test_page_deny_excludes_specified_pages(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -240,7 +240,7 @@ def test_page_allow_and_deny_combined(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -272,7 +272,7 @@ def test_page_allow_with_urls(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -304,14 +304,14 @@ def test_space_and_page_filters_combined(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # TEAM should be excluded, only DOCS remains
         assert len(spaces) == 1
@@ -331,14 +331,14 @@ def test_exclude_personal_spaces_common_pattern(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # Personal space should be excluded
         assert "~johndoe" not in spaces
@@ -354,14 +354,14 @@ def test_exclude_archived_content_common_pattern(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # ARCHIVE space should be excluded
         assert "ARCHIVE" not in spaces
@@ -393,7 +393,7 @@ def test_page_allow_recursive_ingests_full_tree(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -401,9 +401,7 @@ def test_page_allow_recursive_ingests_full_tree(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        collected_ids = {
-            str(page.get("id")) for page in source._get_pages_from_page_allow()
-        }
+        collected_ids = {page.id for page in source.crawler.iter_pages()}
 
         # The seed and every descendant are collected by the recursive crawl.
         assert collected_ids == {"20001", "20002", "20003", "20004", "20005", "20006"}
@@ -425,7 +423,7 @@ def test_page_allow_non_recursive_ingests_only_seed(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -433,9 +431,7 @@ def test_page_allow_non_recursive_ingests_only_seed(
 
         source = ConfluenceSource(config, pipeline_context)
 
-        collected_ids = {
-            str(page.get("id")) for page in source._get_pages_from_page_allow()
-        }
+        collected_ids = {page.id for page in source.crawler.iter_pages()}
 
         assert collected_ids == {"20001"}
 
@@ -492,8 +488,8 @@ def test_fixture_api_calls() -> None:
     docs_pages = mock_client.get_all_pages_from_space("DOCS", start=0, limit=100)
     assert len(docs_pages["results"]) == 6  # All pages in DOCS space
 
-    # Test get_child_pages
-    children = list(mock_client.get_child_pages("10001"))
+    # Test get_page_child_by_type
+    children = list(mock_client.get_page_child_by_type("10001"))
     assert (
         len(children) == 2
     )  # Meeting Notes and Project Plans are children of Team Home
@@ -515,7 +511,7 @@ def test_page_deny_only_filters_across_all_spaces(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -524,7 +520,7 @@ def test_page_deny_only_filters_across_all_spaces(
         source = ConfluenceSource(config, pipeline_context)
 
         # All spaces should be discovered (no space filters)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
         assert len(spaces) == 5
 
         # Pages 10002 and 20003 should be filtered
@@ -546,14 +542,14 @@ def test_page_deny_with_space_deny(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
         )
 
         source = ConfluenceSource(config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # ARCHIVE space should be excluded
         assert len(spaces) == 4
@@ -579,7 +575,7 @@ def test_page_allow_overrides_space_allow(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -608,7 +604,7 @@ def test_page_allow_ignores_both_space_filters(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"
@@ -637,7 +633,7 @@ def test_page_allow_with_page_deny_complex(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.confluence_client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client_from_fixture(
             "default_repo"

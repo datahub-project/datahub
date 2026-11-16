@@ -4,6 +4,7 @@ import pytest
 from atlassian.errors import ApiNotFoundError
 from requests import HTTPError
 
+from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
 from datahub.ingestion.source.confluence.confluence_html import UserRef
 from datahub.ingestion.source.confluence.confluence_report import (
     ConfluenceSourceReport,
@@ -18,7 +19,7 @@ def test_each_user_is_looked_up_once() -> None:
     client = MagicMock()
     client.get_user_details_by_accountid.return_value = {"displayName": "Alex Doe"}
     report = ConfluenceSourceReport()
-    resolver = ConfluenceUserResolver(client, report)
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     names = [resolver(UserRef(account_id="557058:aaaa")) for _ in range(3)]
 
@@ -30,7 +31,8 @@ def test_each_user_is_looked_up_once() -> None:
 def test_data_center_user_key_uses_the_user_key_lookup() -> None:
     client = MagicMock()
     client.get_user_details_by_userkey.return_value = {"displayName": "Sam Roe"}
-    resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
+    report = ConfluenceSourceReport()
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     assert resolver(UserRef(userkey="ff80")) == "Sam Roe"
     client.get_user_details_by_accountid.assert_not_called()
@@ -40,7 +42,7 @@ def test_failed_lookup_is_warned_once_and_cached() -> None:
     client = MagicMock()
     client.get_user_details_by_accountid.side_effect = ApiNotFoundError("gone")
     report = ConfluenceSourceReport()
-    resolver = ConfluenceUserResolver(client, report)
+    resolver = ConfluenceUserResolver(ConfluenceClient(client, report), report)
 
     assert resolver(UserRef(account_id="557058:gone")) is None
     assert resolver(UserRef(account_id="557058:gone")) is None

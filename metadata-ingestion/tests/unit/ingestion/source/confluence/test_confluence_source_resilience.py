@@ -2,7 +2,7 @@
 test_connection: what happens when the Confluence API returns nothing, raises,
 paginates, or hands back pages missing the fields ingestion relies on."""
 
-from typing import Any, Dict, Iterable, Set
+from typing import Any, Dict, Iterable, Optional, Set
 from unittest.mock import MagicMock, create_autospec, patch
 
 import pytest
@@ -12,9 +12,10 @@ from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_hierarchy import (
-    ConfluenceHierarchyExtractor,
-    FolderNode,
+from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+from datahub.ingestion.source.confluence.confluence_models import (
+    ConfluencePage,
+    ConfluenceSpaceRef,
 )
 from datahub.ingestion.source.confluence.confluence_source import ConfluenceSource
 from datahub.ingestion.source.unstructured.chunking_config import EmbeddingConfig
@@ -29,10 +30,12 @@ from datahub.metadata.schema_classes import (
 from tests.unit.conftest import as_mock, aspects_of_type, log_contexts, log_messages
 from tests.unit.ingestion.source.confluence.conftest import (
     cloud_config_dict,
+    crawl_tree,
     document_infos,
     make_config,
     make_page,
     make_source,
+    page_workunits,
     run_test_connection,
     serve_space,
     stub_chunking,
@@ -47,7 +50,7 @@ def test_space_discovery_with_no_results_yields_no_spaces() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_all_spaces.return_value = {}
 
-    assert source._get_spaces() == []
+    assert source.crawler.space_keys() == []
     assert not source.report.failures
 
 
@@ -59,7 +62,7 @@ def test_space_discovery_follows_next_links() -> None:
         {"results": [{"key": "C"}], "_links": {}},
     ]
 
-    assert source._get_spaces() == ["A", "B", "C"]
+    assert source.crawler.space_keys() == ["A", "B", "C"]
     starts = [c.kwargs["start"] for c in client.get_all_spaces.call_args_list]
     assert starts == [0, 2]
     assert not source.report.warnings
@@ -72,7 +75,7 @@ def test_space_discovery_stops_at_max_spaces_and_warns() -> None:
         "_links": {"next": "/next"},
     }
 
-    assert source._get_spaces() == ["A", "B"]
+    assert source.crawler.space_keys() == ["A", "B"]
     assert "max_spaces=2" in log_contexts(source.report.warnings)
 
 
@@ -93,7 +96,7 @@ def test_space_discovery_api_error_is_reported_not_raised() -> None:
         "503 unavailable"
     )
 
-    assert source._get_spaces() == []
+    assert source.crawler.space_keys() == []
     assert "Failed to discover spaces" in log_messages(source.report.failures)
 
 
@@ -113,8 +116,39 @@ def test_recursive_crawl_skips_page_the_api_cannot_return() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_page_by_id.return_value = None
 
-    assert list(source._get_pages_recursively("404")) == []
+    assert list(crawl_tree(source, "404")) == []
     assert source.report.pages_scanned == 0
+
+
+def test_recursive_crawl_lists_children_once_per_parent() -> None:
+    """Children come from one listing per parent, with bodies, so a tree of N
+    pages does not cost N extra page fetches."""
+    source = make_source(make_config(recursive=True))
+    client = as_mock(source.confluence_client)
+    client.get_page_by_id.return_value = make_page("1")
+    children = {
+        "1": [
+            make_page("2", ancestors=[{"id": "1"}]),
+            make_page("3", ancestors=[{"id": "1"}]),
+        ],
+    }
+    client.get_page_child_by_type.side_effect = (
+        lambda page_id, type="page", expand=None: children.get(page_id, [])
+    )
+
+    assert [p.id for p in crawl_tree(source, "1")] == ["1", "2", "3"]
+    client.get_page_by_id.assert_called_once()
+    assert all(c.kwargs["expand"] for c in client.get_page_child_by_type.call_args_list)
+
+
+def test_get_report_does_not_duplicate_embedding_failures() -> None:
+    source = make_source()
+    source.chunking_source.report.embedding_failures.append("doc-1: boom")
+
+    source.get_report()
+    report = source.get_report()
+
+    assert list(report.embedding_failures) == ["doc-1: boom"]
 
 
 def test_recursive_crawl_keeps_parent_when_child_listing_fails() -> None:
@@ -123,11 +157,11 @@ def test_recursive_crawl_keeps_parent_when_child_listing_fails() -> None:
     source = make_source(make_config(recursive=True))
     client = as_mock(source.confluence_client)
     client.get_page_by_id.return_value = make_page("1")
-    client.get_child_pages.side_effect = Exception("children endpoint 500")
+    client.get_page_child_by_type.side_effect = Exception("children endpoint 500")
 
-    pages = list(source._get_pages_recursively("1"))
+    pages = list(crawl_tree(source, "1"))
 
-    assert [p["id"] for p in pages] == ["1"]
+    assert [p.id for p in pages] == ["1"]
     assert "1" in log_contexts(source.report.failures)
 
 
@@ -135,7 +169,7 @@ def test_recursive_crawl_page_fetch_error_is_reported_when_continuing() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_page_by_id.side_effect = Exception("403")
 
-    assert list(source._get_pages_recursively("1")) == []
+    assert list(crawl_tree(source, "1")) == []
     assert "1" in log_contexts(source.report.failures)
 
 
@@ -144,7 +178,7 @@ def test_recursive_crawl_page_fetch_error_raises_when_not_continuing() -> None:
     as_mock(source.confluence_client).get_page_by_id.side_effect = Exception("403")
 
     with pytest.raises(Exception, match="403"):
-        list(source._get_pages_recursively("1"))
+        list(crawl_tree(source, "1"))
 
 
 # --------------------------------------------------------------------------- #
@@ -163,9 +197,9 @@ def test_space_listing_follows_next_links_and_stops_at_last_page() -> None:
         {"results": [make_page("2")], "_links": {}},
     ]
 
-    pages = list(source._get_pages_in_space("TEAM"))
+    pages = list(source.crawler._pages_in_space("TEAM"))
 
-    assert [p["id"] for p in pages] == ["1", "2"]
+    assert [p.id for p in pages] == ["1", "2"]
     starts = [c.kwargs["start"] for c in client.get_all_pages_from_space.call_args_list]
     assert starts == [0, 1]
 
@@ -180,7 +214,7 @@ def test_space_listing_honours_max_pages_per_space() -> None:
         "_links": {"next": "/more"},
     }
 
-    pages = list(source._get_pages_in_space("TEAM"))
+    pages = list(source.crawler._pages_in_space("TEAM"))
 
     assert len(pages) == 2
     assert client.get_all_pages_from_space.call_args.kwargs["limit"] == 2
@@ -195,16 +229,16 @@ def test_space_listing_accepts_a_bare_list_response() -> None:
         [],
     ]
 
-    pages = list(source._get_pages_in_space("TEAM"))
+    pages = list(source.crawler._pages_in_space("TEAM"))
 
-    assert [p["id"] for p in pages] == ["1"]
+    assert [p.id for p in pages] == ["1"]
 
 
 def test_space_listing_stops_on_empty_response() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_all_pages_from_space.return_value = None
 
-    assert list(source._get_pages_in_space("TEAM")) == []
+    assert list(source.crawler._pages_in_space("TEAM")) == []
 
 
 def test_space_listing_error_marks_space_failed_without_raising() -> None:
@@ -213,7 +247,7 @@ def test_space_listing_error_marks_space_failed_without_raising() -> None:
         "timeout"
     )
 
-    assert list(source._get_pages_in_space("TEAM")) == []
+    assert list(source.crawler._pages_in_space("TEAM")) == []
     assert source.report.failed_spaces == ["TEAM"]
     # A failure, so stale removal does not soft-delete the unlisted pages.
     assert "TEAM" in log_contexts(source.report.failures)
@@ -226,9 +260,9 @@ def test_space_listing_failure_midway_keeps_earlier_pages_and_fails() -> None:
         Exception("timeout"),
     ]
 
-    pages = list(source._get_pages_in_space("TEAM"))
+    pages = list(source.crawler._pages_in_space("TEAM"))
 
-    assert [p["id"] for p in pages] == ["1"]
+    assert [p.id for p in pages] == ["1"]
     assert "TEAM" in log_contexts(source.report.failures)
     assert source.report.spaces_processed == 0
 
@@ -246,9 +280,9 @@ def test_page_allow_non_recursive_skips_unreachable_seed() -> None:
         lambda page_id, expand=None: make_page("222") if page_id == "222" else None
     )
 
-    pages = list(source._get_pages_from_page_allow())
+    pages = list(source.crawler.iter_pages())
 
-    assert [p["id"] for p in pages] == ["222"]
+    assert [p.id for p in pages] == ["222"]
     assert source.report.pages_scanned == 1
 
 
@@ -256,7 +290,7 @@ def test_page_allow_seed_error_is_reported_when_continuing() -> None:
     source = make_source(make_config(pages={"allow": ["111"]}, recursive=False))
     as_mock(source.confluence_client).get_page_by_id.side_effect = Exception("boom")
 
-    assert list(source._get_pages_from_page_allow()) == []
+    assert list(source.crawler.iter_pages()) == []
     assert "111" in log_contexts(source.report.failures)
 
 
@@ -279,19 +313,22 @@ def test_page_allow_seed_error_aborts_run_when_not_continuing() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_page_without_id_is_not_emitted() -> None:
+def test_page_without_id_is_skipped_with_a_warning() -> None:
     source = make_source()
     page = make_page("1")
     del page["id"]
+    serve_space(as_mock(source.confluence_client), [page, make_page("2")])
 
-    assert list(source._create_document_entity(page, set(), set())) == []
-    assert source.report.pages_processed == 0
+    infos = document_infos(source.get_workunits_internal())
+
+    assert len(infos) == 1
+    assert any("Skipped malformed page" in str(w) for w in source.report.warnings)
 
 
 def test_denied_page_is_skipped_and_counted() -> None:
     source = make_source(make_config(pages={"deny": ["999"]}))
 
-    assert list(source._create_document_entity(make_page("999"), {"999"}, set())) == []
+    assert list(page_workunits(source, make_page("999"), {"999"}, set())) == []
     assert source.report.pages_skipped == 1
 
 
@@ -300,7 +337,7 @@ def test_native_import_mode_emits_native_document_without_external_link() -> Non
     point back at Confluence."""
     source = make_source(make_config(document_import_mode="NATIVE"))
 
-    infos = document_infos(source._create_document_entity(make_page("1"), {"1"}, set()))
+    infos = document_infos(page_workunits(source, make_page("1"), {"1"}, set()))
 
     assert len(infos) == 1
     info = next(iter(infos.values()))
@@ -312,7 +349,7 @@ def test_native_import_mode_emits_native_document_without_external_link() -> Non
 def test_external_import_mode_keeps_link_back_to_confluence() -> None:
     source = make_source()
 
-    infos = document_infos(source._create_document_entity(make_page("1"), {"1"}, set()))
+    infos = document_infos(page_workunits(source, make_page("1"), {"1"}, set()))
 
     info = next(iter(infos.values()))
     assert info.source is not None
@@ -324,16 +361,19 @@ def test_external_import_mode_keeps_link_back_to_confluence() -> None:
 
 def test_page_without_webui_link_gets_url_built_from_base_url() -> None:
     """Some API responses omit ``_links.webui``; the external URL then falls back
-    to ``<base>/pages/<id>`` instead of being dropped."""
+    to the page-id URL, which works on both Cloud and Data Center."""
     source = make_source()
     page = make_page("1")
     page["_links"] = {}
 
-    infos = document_infos(source._create_document_entity(page, {"1"}, set()))
+    infos = document_infos(page_workunits(source, page, {"1"}, set()))
 
     info = next(iter(infos.values()))
     assert info.source is not None
-    assert info.source.externalUrl == "https://test.atlassian.net/wiki/pages/1"
+    assert (
+        info.source.externalUrl
+        == "https://test.atlassian.net/wiki/pages/viewpage.action?pageId=1"
+    )
 
 
 def test_unparseable_timestamps_do_not_block_emission() -> None:
@@ -344,7 +384,7 @@ def test_unparseable_timestamps_do_not_block_emission() -> None:
         history={"createdDate": "also-not-a-date"},
     )
 
-    infos = document_infos(source._create_document_entity(page, {"1"}, set()))
+    infos = document_infos(page_workunits(source, page, {"1"}, set()))
 
     assert len(infos) == 1
     assert source.report.pages_processed == 1
@@ -353,10 +393,15 @@ def test_unparseable_timestamps_do_not_block_emission() -> None:
 def test_native_import_mode_emits_native_folder_document() -> None:
     source = make_source(make_config(document_import_mode="NATIVE"))
     folder = FolderNode(
-        id="900", title="Eng", parent_id=None, space_name="TEAM Space", space_key="TEAM"
+        id="900",
+        title="Eng",
+        parent_id=None,
+        space=ConfluenceSpaceRef(name="TEAM Space", key="TEAM"),
     )
 
-    infos = document_infos(source._create_folder_entity(folder, {"900"}))
+    infos = document_infos(
+        source.documents.folder_document(folder, {"900"}).as_workunits()
+    )
 
     info = next(iter(infos.values()))
     assert info.source is not None
@@ -370,7 +415,7 @@ def test_platform_instance_aspect_is_derived_from_url_subdomain() -> None:
     source = make_source()
 
     instances = aspects_of_type(
-        source._create_document_entity(make_page("1"), {"1"}, set()),
+        page_workunits(source, make_page("1"), {"1"}, set()),
         DataPlatformInstanceClass,
     )
 
@@ -385,7 +430,7 @@ def test_deferred_skip_marker_leaves_page_unprocessed_for_retry() -> None:
     source = make_source()
     stub_chunking(source, side_effect=SkipMarkerReadError("could not read marker"))
 
-    workunits = list(source._create_document_entity(make_page("1"), {"1"}, set()))
+    workunits = list(page_workunits(source, make_page("1"), {"1"}, set()))
 
     assert len(document_infos(workunits)) == 1
     assert source.report.pages_processed == 0
@@ -397,7 +442,7 @@ def test_embedding_runtime_error_without_limit_still_counts_page_processed() -> 
     source = make_source()
     stub_chunking(source, side_effect=RuntimeError("embedding backend down"))
 
-    workunits = list(source._create_document_entity(make_page("1"), {"1"}, set()))
+    workunits = list(page_workunits(source, make_page("1"), {"1"}, set()))
 
     assert len(document_infos(workunits)) == 1
     assert source.report.pages_processed == 1
@@ -424,7 +469,7 @@ def test_server_wide_embedding_failure_stops_the_run() -> None:
     with (
         patch.object(
             source,
-            "_create_document_entity",
+            "_page_workunits",
             side_effect=ServerEmbeddingRunError("embedding credits are exhausted"),
         ) as create,
         pytest.raises(ServerEmbeddingRunError),
@@ -444,30 +489,14 @@ def test_duplicate_pages_across_listings_are_emitted_once() -> None:
     assert len(infos) == 1
 
 
-def test_folder_discovery_failure_does_not_block_page_ingestion() -> None:
-    source = make_source()
-    serve_space(as_mock(source.confluence_client), [make_page("1")])
-
-    with patch.object(
-        ConfluenceHierarchyExtractor,
-        "collect_folder_nodes",
-        autospec=True,
-        side_effect=Exception("ancestry parse failed"),
-    ):
-        infos = document_infos(source.get_workunits_internal())
-
-    assert len(infos) == 1
-    assert source.report.folders_failed == 1
-
-
 def test_folder_emission_failure_does_not_block_page_ingestion() -> None:
     folder = {"id": "f1", "type": "folder", "title": "Folder"}
     source = make_source()
     serve_space(as_mock(source.confluence_client), [make_page("1", ancestors=[folder])])
 
     with patch.object(
-        source,
-        "_create_folder_entity",
+        source.documents,
+        "folder_document",
         autospec=True,
         side_effect=Exception("folder broke"),
     ):
@@ -482,18 +511,16 @@ def test_page_emission_failure_is_reported_and_run_continues() -> None:
     remaining pages in the space are still emitted."""
     source = make_source()
     serve_space(as_mock(source.confluence_client), [make_page("1"), make_page("2")])
-    real_create = source._create_document_entity
+    real_create = source._page_workunits
 
     def flaky(
-        page: Dict[str, Any], ingested: Set[str], parents: Set[str]
+        page: ConfluencePage, ingested: Set[str], parents: Set[str]
     ) -> Iterable[Any]:
-        if page["id"] == "1":
+        if page.id == "1":
             raise Exception("render failed")
         return real_create(page, ingested, parents)
 
-    with patch.object(
-        source, "_create_document_entity", autospec=True, side_effect=flaky
-    ):
+    with patch.object(source, "_page_workunits", autospec=True, side_effect=flaky):
         infos = document_infos(source.get_workunits_internal())
 
     assert len(infos) == 1
@@ -508,7 +535,7 @@ def test_page_emission_failure_aborts_run_when_not_continuing() -> None:
     with (
         patch.object(
             source,
-            "_create_document_entity",
+            "_page_workunits",
             autospec=True,
             side_effect=Exception("render failed"),
         ),
@@ -560,7 +587,7 @@ def test_connection_validates_configured_pages() -> None:
     client = MagicMock()
     client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
 
-    def page_lookup(page_id: str) -> Dict[str, str]:
+    def page_lookup(page_id: str, expand: Optional[str] = None) -> Dict[str, str]:
         if page_id == "111":
             return {"id": page_id}
         raise KeyError(page_id)

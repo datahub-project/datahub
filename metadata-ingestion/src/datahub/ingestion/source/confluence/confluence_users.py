@@ -1,11 +1,10 @@
-from typing import Any, Dict, Optional
+from typing import Dict, Optional
 
-from atlassian import Confluence
 from atlassian.errors import ApiNotFoundError, ApiPermissionError
 from requests import HTTPError
 
+from datahub.ingestion.source.confluence.confluence_client import ConfluenceClient
 from datahub.ingestion.source.confluence.confluence_html import UserRef
-from datahub.ingestion.source.confluence.confluence_models import ConfluenceUser
 from datahub.ingestion.source.confluence.confluence_report import (
     ConfluenceSourceReport,
 )
@@ -38,7 +37,7 @@ class ConfluenceUserResolver:
     retried on later mentions. Unresolved mentions fall back to a placeholder.
     """
 
-    def __init__(self, client: Confluence, report: ConfluenceSourceReport):
+    def __init__(self, client: ConfluenceClient, report: ConfluenceSourceReport):
         self.client = client
         self.report = report
         self._cache: Dict[UserRef, Optional[str]] = {}
@@ -55,13 +54,13 @@ class ConfluenceUserResolver:
     def _lookup(self, ref: UserRef) -> Optional[str]:
         self._attempts[ref] = self._attempts.get(ref, 0) + 1
         try:
-            user = ConfluenceUser.model_validate(self._fetch(ref))
+            name = self.client.get_user(ref).name
         except Exception as e:
             if _is_permanent(e) or self._attempts[ref] >= MAX_USER_LOOKUP_ATTEMPTS:
                 self._give_up(ref, e)
             return None
-        self._cache[ref] = user.name
-        return user.name
+        self._cache[ref] = name
+        return name
 
     def _give_up(self, ref: UserRef, e: Exception) -> None:
         self._cache[ref] = None
@@ -72,10 +71,3 @@ class ConfluenceUserResolver:
             context=ref.account_id or ref.userkey or ref.username,
             exc=e,
         )
-
-    def _fetch(self, ref: UserRef) -> Dict[str, Any]:
-        if ref.account_id:
-            return self.client.get_user_details_by_accountid(ref.account_id)
-        if ref.userkey:
-            return self.client.get_user_details_by_userkey(ref.userkey)
-        return self.client.get_user_details_by_username(ref.username)
