@@ -2,6 +2,7 @@ from typing import Any, Dict, Optional
 
 from atlassian import Confluence
 from atlassian.errors import ApiNotFoundError, ApiPermissionError
+from requests import HTTPError
 
 from datahub.ingestion.source.confluence.confluence_html import UserRef
 from datahub.ingestion.source.confluence.confluence_models import ConfluenceUser
@@ -12,6 +13,19 @@ from datahub.ingestion.source.confluence.confluence_report import (
 # A timeout or rate limit on the user API is retried on the user's next
 # mention, up to this many lookups, before the user is given up on for the run.
 MAX_USER_LOOKUP_ATTEMPTS = 3
+
+# Statuses that will not change during the run: bad credentials, no
+# permission to view users, or a user that no longer exists.
+_PERMANENT_HTTP_STATUSES = frozenset([401, 403, 404])
+
+
+def _is_permanent(e: Exception) -> bool:
+    # atlassian-python-api turns 403 and 404 into its own errors for these
+    # endpoints in some versions and leaves a raw HTTPError in others.
+    if isinstance(e, (ApiNotFoundError, ApiPermissionError)):
+        return True
+    response = getattr(e, "response", None) if isinstance(e, HTTPError) else None
+    return response is not None and response.status_code in _PERMANENT_HTTP_STATUSES
 
 
 class ConfluenceUserResolver:
@@ -42,13 +56,8 @@ class ConfluenceUserResolver:
         self._attempts[ref] = self._attempts.get(ref, 0) + 1
         try:
             user = ConfluenceUser.model_validate(self._fetch(ref))
-        except (ApiNotFoundError, ApiPermissionError) as e:
-            # A deleted user or a missing "view users" permission will not
-            # change during the run.
-            self._give_up(ref, e)
-            return None
         except Exception as e:
-            if self._attempts[ref] >= MAX_USER_LOOKUP_ATTEMPTS:
+            if _is_permanent(e) or self._attempts[ref] >= MAX_USER_LOOKUP_ATTEMPTS:
                 self._give_up(ref, e)
             return None
         self._cache[ref] = user.name

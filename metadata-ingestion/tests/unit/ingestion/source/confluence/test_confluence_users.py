@@ -1,6 +1,8 @@
 from unittest.mock import MagicMock
 
+import pytest
 from atlassian.errors import ApiNotFoundError
+from requests import HTTPError
 
 from datahub.ingestion.source.confluence.confluence_html import UserRef
 from datahub.ingestion.source.confluence.confluence_report import (
@@ -71,3 +73,16 @@ def test_repeated_transient_failures_give_up_after_the_attempt_limit() -> None:
 
     assert client.get_user_details_by_accountid.call_count == MAX_USER_LOOKUP_ATTEMPTS
     assert len(report.warnings) == 1
+
+
+@pytest.mark.parametrize("status", [401, 403, 404])
+def test_permanent_http_errors_are_not_retried(status: int) -> None:
+    response = MagicMock(status_code=status)
+    client = MagicMock()
+    client.get_user_details_by_accountid.side_effect = HTTPError(response=response)
+    resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
+
+    resolver(UserRef(account_id="557058:aaaa"))
+    resolver(UserRef(account_id="557058:aaaa"))
+
+    client.get_user_details_by_accountid.assert_called_once()
