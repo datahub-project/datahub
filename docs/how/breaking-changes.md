@@ -85,7 +85,7 @@ Requirements:
 
 ### Breaking Changes
 
-- [#21311](https://github.com/datahub-project/datahub/pull/21311) **(Ingestion / Azure AD)** Users whose account is disabled in Azure AD are now ingested as suspended (`active: false`). Before, every user was ingested as active. The user's country now comes from Azure AD's usage location (a two-letter country code); before, it held the user's mobile phone number. **Action:** none, unless you rely on disabled users appearing as active.
+- [#21311](https://github.com/datahub-project/datahub/pull/21311) **(Ingestion / Azure AD)** Users whose account is disabled in Azure AD are now ingested as suspended (`active: false`). Before, every user was ingested as active. Suspended users can't sign in to DataHub, whichever login method they use. The user's country now comes from Azure AD's usage location (a two-letter country code); before, it held the user's mobile phone number, and it is cleared for users without a usage location. `azure_ad_response_to_username_attr` can now name properties Graph only returns on request, such as `employeeId`; a property name Graph doesn't recognize now fails the run instead of skipping each user. **Action:** before upgrading, check that no one who still needs DataHub access is disabled in Azure AD.
 
 - [#21219](https://github.com/datahub-project/datahub/pull/21219) **(Ingestion / Qlik Sense)** On Qlik Sense Enterprise, QVD datasets are now placed in `Folder` containers that follow their file path (server or share, then each folder), and are browsed under those folders instead of the path split at its dots. Their URNs, schemas and lineage are unchanged. **Action:** update any bookmark or saved browse path that pointed at the old QVD hierarchy.
 
