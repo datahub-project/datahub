@@ -214,6 +214,14 @@ _ODBC_ATHENA_QUERY_CATALOG_TABLE = (
     "in\n    Source"
 )
 
+# Federated (e.g. DynamoDB) table names may contain dots; with a catalog in the
+# SQL, only the catalog is stripped and the dotted table name is kept.
+_ODBC_ATHENA_QUERY_DOTTED_TABLE_WITH_CATALOG = (
+    'let\n    Source = Odbc.Query("driver={Simba Amazon Athena ODBC Driver};'
+    'dsn=athena_prod", "SELECT * FROM ""dyn"".""default"".""orders.v2""")\n'
+    "in\n    Source"
+)
+
 # The same query without the catalog: nothing to strip, but the instance casing
 # must still be restored.
 _ODBC_ATHENA_QUERY_DATABASE_TABLE = (
@@ -488,6 +496,14 @@ _ODBC_NAV_SUCCESS_CASES = [
         },
         "urn:li:dataset:(urn:li:dataPlatform:athena,My_Inst.mydb.orders,PROD)",
         id="athena-odbc-query-mixed-case-instance-without-catalog",
+    ),
+    pytest.param(
+        _ODBC_ATHENA_QUERY_DOTTED_TABLE_WITH_CATALOG,
+        "orders.v2",
+        "default.orders.v2",
+        {},
+        "urn:li:dataset:(urn:li:dataPlatform:athena,default.orders.v2,PROD)",
+        id="athena-odbc-query-dotted-table-with-catalog",
     ),
     pytest.param(
         _ODBC_DB2_NAV_DATABASE_NO_SCHEMA,
