@@ -2,7 +2,7 @@ import json
 import logging
 import time
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Set, Tuple, Union
+from typing import Any, Dict, Iterable, List, Optional, Set, Tuple
 
 from pydantic import BaseModel, Field, ValidationError
 from sqlalchemy import text
@@ -35,7 +35,6 @@ from datahub.ingestion.source.common.subtypes import (
     JobContainerSubTypes,
 )
 from datahub.ingestion.source.sql.postgres import PostgresConfig, PostgresSource
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_config import SQLCommonConfig
 from datahub.ingestion.source.sql.sql_utils import gen_database_key, gen_schema_key
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
@@ -656,7 +655,7 @@ class TimescaleDBSource(PostgresSource):
         inspector: Inspector,
         schema: str,
         database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         yield from super().get_schema_level_workunits(
             inspector=inspector,
             schema=schema,
@@ -890,7 +889,7 @@ class TimescaleDBSource(PostgresSource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         yield from super()._process_table(
             dataset_name, inspector, schema, table, sql_config, data_reader
         )
@@ -934,7 +933,7 @@ class TimescaleDBSource(PostgresSource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         # The parent's _process_view already emits a single DatasetPropertiesClass
         # built from the overridden get_table_properties (which merges the
         # continuous-aggregate keys via _enrich_continuous_aggregate_properties).

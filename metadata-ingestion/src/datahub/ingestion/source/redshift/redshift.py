@@ -64,7 +64,6 @@ from datahub.ingestion.source.redshift.redshift_schema import (
 )
 from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import RedshiftUsageExtractor
-from datahub.ingestion.source.sql.sql_common import SqlWorkUnit
 from datahub.ingestion.source.sql.sql_types import resolve_postgres_modified_type
 from datahub.ingestion.source.sql.sql_utils import (
     add_table_to_schema_container,
@@ -418,7 +417,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._warn_deprecated_configs()
         connection = self._try_get_redshift_connection(self.config)
 
@@ -444,7 +443,7 @@ class RedshiftSource(StatefulIngestionSourceBase, TestableSource):
 
     def _extract_metadata(
         self, connection: redshift_connector.Connection, database: str
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_database_container(
             database=database,
         )
