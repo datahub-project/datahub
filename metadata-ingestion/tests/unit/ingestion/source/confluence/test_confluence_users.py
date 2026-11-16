@@ -7,6 +7,7 @@ from datahub.ingestion.source.confluence.confluence_report import (
     ConfluenceSourceReport,
 )
 from datahub.ingestion.source.confluence.confluence_users import (
+    MAX_USER_LOOKUP_ATTEMPTS,
     ConfluenceUserResolver,
 )
 
@@ -44,4 +45,29 @@ def test_failed_lookup_is_warned_once_and_cached() -> None:
 
     client.get_user_details_by_accountid.assert_called_once()
     assert report.mentions_unresolved == 2
+    assert len(report.warnings) == 1
+
+
+def test_transient_failure_is_retried_on_a_later_mention() -> None:
+    client = MagicMock()
+    client.get_user_details_by_accountid.side_effect = [
+        TimeoutError("read timed out"),
+        {"displayName": "Alex Doe"},
+    ]
+    resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
+
+    assert resolver(UserRef(account_id="557058:aaaa")) is None
+    assert resolver(UserRef(account_id="557058:aaaa")) == "Alex Doe"
+
+
+def test_repeated_transient_failures_give_up_after_the_attempt_limit() -> None:
+    client = MagicMock()
+    client.get_user_details_by_accountid.side_effect = TimeoutError("down")
+    report = ConfluenceSourceReport()
+    resolver = ConfluenceUserResolver(client, report)
+
+    for _ in range(MAX_USER_LOOKUP_ATTEMPTS + 2):
+        resolver(UserRef(account_id="557058:aaaa"))
+
+    assert client.get_user_details_by_accountid.call_count == MAX_USER_LOOKUP_ATTEMPTS
     assert len(report.warnings) == 1
