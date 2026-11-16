@@ -1,0 +1,29 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "9bf187bd79d0199f5f77973e85f8906e4b797141c927f8eb1cda290e723f06c2",
+    "in_tables": [],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.t,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,db.schema.t,PROD)",
+                "column": "$1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "$1 AS \"_COL_0\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "INSERT INTO t SELECT $? FROM @stg/p"
+    }
+}

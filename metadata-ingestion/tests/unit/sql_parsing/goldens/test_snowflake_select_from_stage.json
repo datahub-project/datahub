@@ -1,0 +1,27 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "46bad551262b1e778ab926bf707607e3eb1c3ae469d14566982d424bb3fb8bfd",
+    "in_tables": [],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "$1",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "$1 AS \"_COL_0\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "SELECT $? FROM @stg/p"
+    }
+}

@@ -972,3 +972,14 @@ class TestSnowflakeCopyGrantMultiStatementLineage:
         )
         assert _table_short_names(result.in_tables) == {"src"}
         assert _table_short_names(result.out_tables) == {"v"}
+
+    def test_session_truncate_copy_reports_target_only(self) -> None:
+        result = _parse(
+            [
+                "TRUNCATE TABLE t",
+                "COPY INTO t FROM @stg/p",
+            ],
+            **self._SNOWFLAKE,
+        )
+        assert _table_short_names(result.in_tables) == set()
+        assert _table_short_names(result.out_tables) == {"t"}

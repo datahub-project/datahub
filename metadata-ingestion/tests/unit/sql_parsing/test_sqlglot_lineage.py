@@ -3120,6 +3120,135 @@ def test_postgres_copy_from_file() -> None:
     )
 
 
+def test_snowflake_copy_into_unquoted_file_format() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM @stg/p FILE_FORMAT=(FORMAT_NAME=db.s.ff)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_copy_into_unquoted_file_format.json",
+    )
+
+
+def test_snowflake_copy_into_from_stage_select_unquoted_file_format() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT $1 FROM @stg/p) FILE_FORMAT=(FORMAT_NAME=ff)",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR
+        / "test_snowflake_copy_into_from_stage_select_unquoted_file_format.json",
+    )
+
+
+def test_snowflake_truncate_table() -> None:
+    assert_sql_result(
+        "TRUNCATE TABLE t",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_truncate_table.json",
+    )
+
+
+def test_redshift_copy_from_s3() -> None:
+    assert_sql_result(
+        "COPY t FROM 's3://b/p' IAM_ROLE 'arn:aws:iam::1:role/r' FORMAT AS PARQUET",
+        dialect="redshift",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_redshift_copy_from_s3.json",
+    )
+
+
+def test_snowflake_insert_from_stage() -> None:
+    assert_sql_result(
+        "INSERT INTO t SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_insert_from_stage.json",
+    )
+
+
+def test_snowflake_ctas_from_stage() -> None:
+    assert_sql_result(
+        "CREATE TABLE t AS SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_ctas_from_stage.json",
+    )
+
+
+def test_snowflake_select_from_stage() -> None:
+    assert_sql_result(
+        "SELECT $1 FROM @stg/p",
+        dialect="snowflake",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_snowflake_select_from_stage.json",
+    )
+
+
+def test_databricks_copy_into_from_uri_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 's3://b/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_uri_select.json",
+    )
+
+
+def test_postgres_grant() -> None:
+    assert_sql_result(
+        "GRANT SELECT ON v TO r",
+        dialect="postgres",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_postgres_grant.json",
+    )
+
+
+def test_ddl_statements_skip_column_lineage() -> None:
+    resolver = SchemaResolver(platform="snowflake")
+    for sql in (
+        "DROP TABLE t",
+        "TRUNCATE TABLE t",
+        "ALTER TABLE t ADD COLUMN c INT",
+        "ALTER SESSION SET TIMEZONE = 'UTC'",
+        "COPY INTO t FROM 'gcs://b/p/'",
+        "COPY INTO @stg/out FROM src",
+        "GRANT SELECT ON v TO ROLE r",
+        "REVOKE SELECT ON v FROM ROLE r",
+    ):
+        result = sqlglot_lineage(
+            sql,
+            schema_resolver=resolver,
+            default_db="db",
+            default_schema="schema",
+        )
+        assert result.debug_info.column_error is None, sql
+        assert result.debug_info.error is None, sql
+
+
+def test_snowflake_truncate_multiple_tables_are_writes() -> None:
+    result = sqlglot_lineage(
+        "TRUNCATE TABLE a, b",
+        schema_resolver=SchemaResolver(platform="snowflake"),
+        default_db="db",
+        default_schema="schema",
+    )
+    assert result.in_tables == []
+    assert {DatasetUrn.from_string(urn).name for urn in result.out_tables} == {
+        "db.schema.a",
+        "db.schema.b",
+    }
+    assert result.debug_info.column_error is None
+
+
 def test_clickhouse_materialized_view_to_table() -> None:
     """Test ClickHouse CREATE MATERIALIZED VIEW ... TO target_table syntax.
 

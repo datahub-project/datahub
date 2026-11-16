@@ -27,14 +27,38 @@ def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     )
 
 
-def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
-    # A COPY file operand is not a dataset.
+def is_snowflake_stage_table(table: sqlglot.exp.Table) -> bool:
+    # sqlglot has no dedicated stage node. A Snowflake stage ref (@stg/p, @~/p,
+    # @%t/p, @db.schema.stg) parses as Table(this=Var("@...")), and that shape
+    # is only produced by the `@`-gated branch of Snowflake's table-parts parser.
+    # A real table name is always an Identifier (or DynamicIdentifier for
+    # IDENTIFIER('db.s.t')). T-SQL @tbl is Parameter, not Var.
+    table_name = table.this
+    return isinstance(table_name, sqlglot.exp.Var) and table_name.name.startswith("@")
+
+
+def is_copy_source_uri_table(table: sqlglot.exp.Table) -> bool:
+    # A URI parses as Table(this=Literal) in Snowflake COPY, and as a bare
+    # Literal in Postgres/Redshift. Inside a COPY source sub-select, Databricks
+    # parses 's3://...' as a quoted Identifier, not a Literal.
     table_name = table.this
     if isinstance(table_name, sqlglot.exp.Literal):
         return True
-    if isinstance(table_name, sqlglot.exp.Var) and table_name.name.startswith("@"):
-        return True
-    return False
+    return (
+        isinstance(table_name, sqlglot.exp.Identifier)
+        and bool(table_name.args.get("quoted"))
+        and "://" in table_name.name
+    )
+
+
+def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
+    # Stage refs delegate to is_snowflake_stage_table; file paths parse as
+    # Table(this=Literal) because sqlglot has no URI node. Do not invert to
+    # `not isinstance(..., Identifier)` — COPY INTO IDENTIFIER('db.s.t') is
+    # Table(this=DynamicIdentifier) and is still a real load target.
+    return is_snowflake_stage_table(table) or isinstance(
+        table.this, sqlglot.exp.Literal
+    )
 
 
 def is_copy_load(expression: sqlglot.exp.Expr) -> bool:
