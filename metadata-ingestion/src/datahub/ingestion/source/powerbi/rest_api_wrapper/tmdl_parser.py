@@ -423,13 +423,14 @@ def _parse_partition(node: TmdlNode) -> ParsedPartition:
 
 def _parse_field_properties(node: TmdlNode) -> FieldModelProperties:
     """The column / measure properties beyond the data type. Properties a
-    measure cannot have are simply absent on its node."""
+    measure cannot have are simply absent on its node. Text values are
+    unquoted, so a `sortByColumn` naming a spaced column matches the field."""
     return FieldModelProperties(
-        format_string=node.properties.get(PROP_FORMAT_STRING),
-        display_folder=node.properties.get(PROP_DISPLAY_FOLDER),
-        data_category=node.properties.get(PROP_DATA_CATEGORY),
-        sort_by_column=node.properties.get(PROP_SORT_BY_COLUMN),
-        summarize_by=node.properties.get(PROP_SUMMARIZE_BY),
+        format_string=_property_text(node.properties.get(PROP_FORMAT_STRING)),
+        display_folder=_property_text(node.properties.get(PROP_DISPLAY_FOLDER)),
+        data_category=_property_text(node.properties.get(PROP_DATA_CATEGORY)),
+        sort_by_column=_property_text(node.properties.get(PROP_SORT_BY_COLUMN)),
+        summarize_by=_property_text(node.properties.get(PROP_SUMMARIZE_BY)),
         is_key=_bool_property(node, FLAG_IS_KEY) is True,
         is_nullable=_bool_property(node, FLAG_IS_NULLABLE),
         has_kpi=KEYWORD_KPI in node.flags,

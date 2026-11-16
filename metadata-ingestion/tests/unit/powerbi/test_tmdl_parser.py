@@ -337,13 +337,13 @@ PROPERTIES_TABLE = """table Claims
 \tcolumn State
 \t\tdataType: string
 \t\tdataCategory: StateOrProvince
-\t\tsortByColumn: StateOrder
+\t\tsortByColumn: 'State Order'
 \t\tsourceColumn: STATE
 
 \tcolumn PaidAmount
 \t\tdataType: double
 \t\tformatString: $#,##0.00
-\t\tdisplayFolder: Financials
+\t\tdisplayFolder: 'Claim Financials'
 \t\tsummarizeBy: sum
 \t\tsourceColumn: PAID_AMOUNT
 
@@ -435,13 +435,14 @@ def test_parse_column_and_measure_properties() -> None:
     assert claim_id.format_string is None
     state = _properties(table, "State")
     assert state.data_category == "StateOrProvince"
-    assert state.sort_by_column == "StateOrder"
+    # Fabric quotes text values with spaces; they are stored unquoted.
+    assert state.sort_by_column == "State Order"
     assert not state.is_key
     # Absent isNullable stays unknown rather than defaulting either way.
     assert state.is_nullable is None
     paid = _properties(table, "PaidAmount")
     assert paid.format_string == "$#,##0.00"
-    assert paid.display_folder == "Financials"
+    assert paid.display_folder == "Claim Financials"
     assert paid.summarize_by == "sum"
     assert _properties(table, "Notes").is_nullable is True
 
