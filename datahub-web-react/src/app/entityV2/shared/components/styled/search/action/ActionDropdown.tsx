@@ -1,9 +1,12 @@
 import { Menu, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import React, { useMemo } from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { ItemType } from '@components/components/Menu/types';
+
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
 
 const DownArrow = styled(CaretDown).attrs({ size: 10, weight: 'fill' })`
     margin-left: 2px;
@@ -31,11 +34,12 @@ type Action = {
 type Props = {
     name: string;
     actions: Array<Action>;
-    disabledReason?: string;
+    disabled?: boolean;
+    disabledReason?: ActionDisabledReason;
 };
 
-export default function ActionDropdown({ name, actions, disabledReason }: Props) {
-    const disabled = !!disabledReason;
+export default function ActionDropdown({ name, actions, disabled, disabledReason }: Props) {
+    const { t } = useTranslation('entity.shared.components');
 
     const items: ItemType[] = useMemo(
         () =>
@@ -48,10 +52,15 @@ export default function ActionDropdown({ name, actions, disabledReason }: Props)
         [actions],
     );
 
+    const getDisabledTooltip = () =>
+        disabledReason === ActionDisabledReason.NO_SELECTION
+            ? t('searchActions.noSelection')
+            : t('searchActions.notSupported');
+
     return (
-        <Tooltip title={disabledReason ?? ''}>
+        <Tooltip title={disabled ? getDisabledTooltip() : ''}>
             <Menu items={items} disabled={disabled} trigger={['click']}>
-                <DropdownWrapper disabled={disabled}>
+                <DropdownWrapper disabled={!!disabled}>
                     {name}
                     <DownArrow />
                 </DropdownWrapper>

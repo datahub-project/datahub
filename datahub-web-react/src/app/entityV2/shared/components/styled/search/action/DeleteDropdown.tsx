@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
@@ -10,12 +11,13 @@ import { useBatchUpdateSoftDeletedMutation } from '@graphql/mutations.generated'
 
 type Props = {
     urns: Array<string>;
-    disabledReason?: string;
+    disabled: boolean;
+    disabledReason?: ActionDisabledReason;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DeleteDropdown({ urns, disabledReason, refetch }: Props) {
+export default function DeleteDropdown({ urns, disabled = false, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const { t: tc } = useTranslation('common.actions');
     const [batchUpdateSoftDeletedMutation] = useBatchUpdateSoftDeletedMutation();
@@ -58,6 +60,7 @@ export default function DeleteDropdown({ urns, disabledReason, refetch }: Props)
                         },
                     },
                 ]}
+                disabled={disabled}
                 disabledReason={disabledReason}
             />
             <ConfirmationModal

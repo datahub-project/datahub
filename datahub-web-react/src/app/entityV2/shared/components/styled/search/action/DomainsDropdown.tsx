@@ -3,6 +3,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
 import { SetDomainModal } from '@app/entityV2/shared/containers/profile/sidebar/Domain/SetDomainModal';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
@@ -11,12 +12,13 @@ import { useBatchSetDomainMutation } from '@graphql/mutations.generated';
 
 type Props = {
     urns: Array<string>;
-    disabledReason?: string;
+    disabled: boolean;
+    disabledReason?: ActionDisabledReason;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DomainsDropdown({ urns, disabledReason, refetch }: Props) {
+export default function DomainsDropdown({ urns, disabled = false, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [isUnsetModalVisible, setIsUnsetModalVisible] = useState(false);
@@ -66,6 +68,7 @@ export default function DomainsDropdown({ urns, disabledReason, refetch }: Props
                         },
                     },
                 ]}
+                disabled={disabled}
                 disabledReason={disabledReason}
             />
             {isEditModalVisible && (

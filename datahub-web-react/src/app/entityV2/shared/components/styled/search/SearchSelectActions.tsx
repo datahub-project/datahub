@@ -1,5 +1,4 @@
 import React from 'react';
-import { useTranslation } from 'react-i18next';
 
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import DataProductsDropdown from '@app/entityV2/shared/components/styled/search/action/DataProductsDropdown';
@@ -9,7 +8,7 @@ import DomainDropdown from '@app/entityV2/shared/components/styled/search/action
 import GlossaryTermDropdown from '@app/entityV2/shared/components/styled/search/action/GlossaryTermsDropdown';
 import OwnersDropdown from '@app/entityV2/shared/components/styled/search/action/OwnersDropdown';
 import TagsDropdown from '@app/entityV2/shared/components/styled/search/action/TagsDropdown';
-import { SelectActionGroups } from '@app/entityV2/shared/components/styled/search/types';
+import { ActionDisabledReason, SelectActionGroups } from '@app/entityV2/shared/components/styled/search/types';
 import { EntityAndType } from '@app/entityV2/shared/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -45,7 +44,6 @@ export const SearchSelectActions = ({
     visibleActionGroups = new Set(DEFAULT_ACTION_GROUPS),
     refetch,
 }: Props) => {
-    const { t } = useTranslation('entity.shared.components');
     const entityRegistry = useEntityRegistry();
 
     /**
@@ -64,10 +62,15 @@ export const SearchSelectActions = ({
         );
     };
 
-    const getDisabledReason = (type: EntityCapabilityType): string | undefined => {
-        if (selectedEntityUrns.length === 0) return t('searchActions.noSelection');
-        if (!isEntityCapabilitySupported(type, selectedEntityTypes)) return t('searchActions.notSupported');
+    const getDisabledReason = (type: EntityCapabilityType): ActionDisabledReason | undefined => {
+        if (selectedEntityUrns.length === 0) return ActionDisabledReason.NO_SELECTION;
+        if (!isEntityCapabilitySupported(type, selectedEntityTypes)) return ActionDisabledReason.NOT_SUPPORTED;
         return undefined;
+    };
+
+    const getDisabledProps = (type: EntityCapabilityType) => {
+        const disabledReason = getDisabledReason(type);
+        return { disabled: disabledReason !== undefined, disabledReason };
     };
 
     return (
@@ -75,49 +78,49 @@ export const SearchSelectActions = ({
             {visibleActionGroups.has(SelectActionGroups.CHANGE_OWNERS) && (
                 <OwnersDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.OWNERS)}
+                    {...getDisabledProps(EntityCapabilityType.OWNERS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_GLOSSARY_TERMS) && (
                 <GlossaryTermDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.GLOSSARY_TERMS)}
+                    {...getDisabledProps(EntityCapabilityType.GLOSSARY_TERMS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_TAGS) && (
                 <TagsDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.TAGS)}
+                    {...getDisabledProps(EntityCapabilityType.TAGS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DOMAINS) && (
                 <DomainDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.DOMAINS)}
+                    {...getDisabledProps(EntityCapabilityType.DOMAINS)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DEPRECATION) && (
                 <DeprecationDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.DEPRECATION)}
+                    {...getDisabledProps(EntityCapabilityType.DEPRECATION)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.DELETE) && (
                 <DeleteDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.SOFT_DELETE)}
+                    {...getDisabledProps(EntityCapabilityType.SOFT_DELETE)}
                     refetch={refetch}
                 />
             )}
             {visibleActionGroups.has(SelectActionGroups.CHANGE_DATA_PRODUCTS) && (
                 <DataProductsDropdown
                     urns={selectedEntityUrns}
-                    disabledReason={getDisabledReason(EntityCapabilityType.DATA_PRODUCTS)}
+                    {...getDisabledProps(EntityCapabilityType.DATA_PRODUCTS)}
                     refetch={refetch}
                 />
             )}
