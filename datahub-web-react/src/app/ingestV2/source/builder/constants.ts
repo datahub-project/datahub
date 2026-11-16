@@ -421,6 +421,13 @@ export const PLATFORM_URN_TO_LOGO = {
     [TERADATA_URN]: teradataLogo,
 };
 
+// Source names whose emitted platform id differs from the source name.
+const POWER_BI_REPORT_SERVER = 'powerbi-report-server';
+const HIVE_METASTORE = 'hive-metastore';
+const OPENAPI_SOURCE = 'openapi';
+const GOOGLE_DRIVE_SOURCE = 'google-drive';
+const GOOGLE_DRIVE_URN = 'urn:li:dataPlatform:google_drive';
+
 export const SOURCE_TO_PLATFORM_URN = {
     [CLICKHOUSE_USAGE]: CLICKHOUSE_URN,
     [FEAST_LEGACY]: FEAST_URN,
@@ -435,4 +442,8 @@ export const SOURCE_TO_PLATFORM_URN = {
     [DATAHUB_LINEAGE_FILE]: DATAHUB_URN,
     [DATAHUB_BUSINESS_GLOSSARY]: DATAHUB_URN,
     [GITHUB_DOCUMENTS]: GITHUB_URN,
+    [POWER_BI_REPORT_SERVER]: POWER_BI_URN,
+    [HIVE_METASTORE]: HIVE_URN,
+    [OPENAPI_SOURCE]: OPENAPI_URN,
+    [GOOGLE_DRIVE_SOURCE]: GOOGLE_DRIVE_URN,
 };
