@@ -3,6 +3,7 @@ import logging
 import os
 import time
 from datetime import datetime
+from pathlib import Path
 from typing import List, Optional
 
 import click
@@ -14,6 +15,7 @@ from datahub.cli.config_utils import (
     DatahubConfig,
     get_raw_client_config,
     persist_raw_datahub_config,
+    profile_path,
 )
 from datahub.emitter.serialization_helper import pre_json_transform
 from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
@@ -47,8 +49,14 @@ class LiteCliConfig(DatahubConfig):
     )
 
 
+def _lite_config_path() -> Path:
+    # Lite is local state, not a connection: it stays in ~/.datahubenv whichever
+    # profile is selected, so switching profiles doesn't hide the local catalog.
+    return profile_path("default")
+
+
 def get_lite_config() -> LiteLocalConfig:
-    client_config_dict = get_raw_client_config()
+    client_config_dict = get_raw_client_config(_lite_config_path())
     lite_config = LiteCliConfig.model_validate(client_config_dict)
     return lite_config.lite
 
@@ -372,10 +380,10 @@ def search(
 
 
 def write_lite_config(lite_config: LiteLocalConfig) -> None:
-    cli_config = get_raw_client_config()
+    cli_config = get_raw_client_config(_lite_config_path())
     assert isinstance(cli_config, dict)
     cli_config["lite"] = lite_config.model_dump()
-    persist_raw_datahub_config(cli_config)
+    persist_raw_datahub_config(cli_config, _lite_config_path())
 
 
 @lite.command(context_settings=dict(allow_extra_args=True))

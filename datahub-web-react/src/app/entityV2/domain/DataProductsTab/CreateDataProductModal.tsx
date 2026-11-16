@@ -27,6 +27,7 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
     const [builderState, updateBuilderState] = useState<DataProductBuilderState>(DEFAULT_STATE);
     const [createDataProductMutation] = useCreateDataProductMutation();
     const { reloadByKeyType } = useReloadableContext();
+    const canCreateDataProduct = !!domain.privileges?.canManageDataProducts;
 
     function createDataProduct() {
         createDataProductMutation({
@@ -81,7 +82,8 @@ export default function CreateDataProductModal({ domain, onCreateDataProduct, on
                     text: tc('create'),
                     onClick: createDataProduct,
                     variant: 'filled',
-                    disabled: !builderState.name,
+                    disabled: !builderState.name || !canCreateDataProduct,
+                    tooltip: canCreateDataProduct ? undefined : t('dataProduct.createUnauthorized'),
                     buttonDataTestId: 'submit-button',
                 },
             ]}
