@@ -410,8 +410,12 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         // whatever the child renders itself (lineage nodes set `data-testid` inside, then spread props).
         const ariaProps: Record<string, string | boolean> = {};
         if (role === 'tooltip' && isOpen) ariaProps['aria-describedby'] = overlayId;
-        if (role === 'dialog' && isOpen) ariaProps['aria-controls'] = overlayId;
-        if (role === 'dialog') ariaProps['aria-expanded'] = isOpen;
+        // aria-expanded describes a control that opens the overlay on click. A popover that opens on
+        // hover, like an entity preview card, is descriptive, and its trigger may be a plain element
+        // where aria-expanded isn't allowed.
+        const isDisclosure = role === 'dialog' && triggers.includes('click');
+        if (isDisclosure && isOpen) ariaProps['aria-controls'] = overlayId;
+        if (isDisclosure) ariaProps['aria-expanded'] = isOpen;
 
         const testIdProps = dataTestId ? { 'data-testid': dataTestId } : {};
         const triggerProps = {
