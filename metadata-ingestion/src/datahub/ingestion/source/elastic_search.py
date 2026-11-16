@@ -415,6 +415,17 @@ class ElasticsearchSourceConfig(
             )
         return self
 
+    @model_validator(mode="after")
+    def validate_password_requires_username(self) -> "ElasticsearchSourceConfig":
+        # http_auth only sends credentials when username is set, so a bare password
+        # would otherwise be dropped and the connection made unauthenticated.
+        if self.password is not None and self.username is None:
+            raise ValueError(
+                "password is set but username is not; set username as well, or "
+                "remove password if the cluster does not need basic authentication."
+            )
+        return self
+
     @property
     def http_auth(self) -> Optional[Tuple[str, str]]:
         return (
