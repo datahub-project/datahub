@@ -108,6 +108,25 @@ _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\
 _DWC_SYSTEM_TYPE = "DWC"
 _DATASPHERE_PLATFORM = "sap-datasphere"
 
+_BW_SYSTEM_TYPE = "BW"
+_HANA_SYSTEM_TYPE = "HANA"
+# A live connection to S/4HANA. Its models are built on queries of the BW embedded in
+# S/4HANA and carry the same `query:[][][<query>]` externalId as BW models, so they are
+# resolved through the BW query path.
+_S4HANA_SYSTEM_TYPE = "S/4 HANA"
+_QUERY_SYSTEM_TYPES = (_BW_SYSTEM_TYPE, _S4HANA_SYSTEM_TYPE)
+_VIEW_SYSTEM_TYPES = (_HANA_SYSTEM_TYPE,)
+_QUERY_EXTERNAL_ID_PREFIX = "query:"
+_VIEW_EXTERNAL_ID_PREFIX = "view:"
+# Upstream platform used when the connection has no `connection_mapping` platform. The
+# system type itself can't be used for S/4HANA ("s/4 hana" is not a valid platform name);
+# its queries are BW queries, so they share BW's platform.
+_DEFAULT_UPSTREAM_PLATFORMS: Dict[str, str] = {
+    _BW_SYSTEM_TYPE: "bw",
+    _HANA_SYSTEM_TYPE: "hana",
+    _S4HANA_SYSTEM_TYPE: "bw",
+}
+
 # SAC models are discovered through the stories that consume them, so SAC exposes no
 # folder for a model on that path (and most are private/embedded models created by a
 # data import, which have no standalone folder at all). Without an explicit browse path,
@@ -672,24 +691,29 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.ingest_acquired_data_model_schema_metadata
         ):
             if model.system_type is None:
-                # system_type is only set for BW/HANA. DWC and undetectable/builtin models
-                # arrive as None and still hit DES (DWC 412s there; acquired models resolve).
+                # system_type is only set for live (BW/HANA/S/4 HANA) models. DWC and
+                # undetectable/builtin models arrive as None and still hit DES (DWC 412s there; acquired models resolve).
                 yield from self._emit_acquired_model_schema(dataset_urn, model)
             else:
                 # BW/HANA are live: skip the DES request up front. Counted separately from
                 # the 412 rejections so the report can answer "how many did DES reject?".
                 self.report.acquired_model_schema_skipped_known_live += 1
 
-        if model.system_type in ("BW", "HANA") and model.external_id is not None:
+        if (
+            model.system_type in _DEFAULT_UPSTREAM_PLATFORMS
+            and model.external_id is not None
+        ):
             upstream_dataset_name: Optional[str] = None
 
-            if model.system_type == "BW" and model.external_id.startswith(
-                "query:"
+            if (
+                model.system_type in _QUERY_SYSTEM_TYPES
+                and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX)
             ):  # query:[][][query]
                 query = model.external_id[11:-1]
                 upstream_dataset_name = self.get_query_name(query)
-            elif model.system_type == "HANA" and model.external_id.startswith(
-                "view:"
+            elif (
+                model.system_type in _VIEW_SYSTEM_TYPES
+                and model.external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX)
             ):  # view:[schema][schema.namespace][view]
                 schema, namespace_with_schema, view = model.external_id.split("][", 2)
                 schema = schema[6:]
@@ -700,17 +724,14 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 upstream_dataset_name = self.get_view_name(schema, namespace, view)
 
             if upstream_dataset_name is not None:
+                default_platform = _DEFAULT_UPSTREAM_PLATFORMS[model.system_type]
                 if model.connection_id in self.config.connection_mapping:
                     connection = self.config.connection_mapping[model.connection_id]
-                    platform = (
-                        connection.platform
-                        if connection.platform
-                        else model.system_type.lower()
-                    )
+                    platform = connection.platform or default_platform
                     platform_instance = connection.platform_instance
                     env = connection.env
                 else:
-                    platform = model.system_type.lower()
+                    platform = default_platform
                     platform_instance = model.connection_id
                     env = DEFAULT_ENV
 
@@ -1102,7 +1123,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                         description=nav_description.strip()
                         if nav_description is not None
                         else None,
-                        system_type=nav_entity.get("systemType"),  # BW or HANA
+                        # e.g. BW, HANA, S/4 HANA, DWC
+                        system_type=nav_entity.get("systemType"),
                         connection_id=nav_entity.get("connectionId"),
                         external_id=nav_entity.get(
                             "externalId"
