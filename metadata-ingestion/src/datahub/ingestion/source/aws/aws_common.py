@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -45,6 +46,10 @@ from datahub.configuration.source_common import EnvConfigMixin
 
 logger = logging.getLogger(__name__)
 
+# Assumed-role credentials are re-assumed once less than this remains before expiry.
+# This buffer avoids credentials expiring between the cache check and the AWS call.
+ASSUMED_ROLE_REFRESH_BUFFER = timedelta(minutes=5)
+
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
@@ -72,6 +77,15 @@ class AwsServicePrincipal(Enum):
     ECS = "ecs.amazonaws.com"
     ELASTIC_BEANSTALK = "elasticbeanstalk.amazonaws.com"
     EC2 = "ec2.amazonaws.com"
+
+
+# arn:{partition}:iam::{account}:role/{name}
+ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+
+
+def account_id_from_role_arn(role_arn: str) -> Optional[str]:
+    match = ROLE_ARN_PATTERN.match(role_arn.strip())
+    return match.group(1) if match else None
 
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
@@ -362,6 +376,16 @@ class AwsConnectionConfig(ConfigModel):
                 for role in self.aws_role
             ]
 
+    def with_chained_role(self, role: AwsAssumeRoleConfig) -> "AwsConnectionConfig":
+        """A copy that assumes ``role`` after this config's own roles.
+
+        Built from the set fields rather than with model_copy, which would share
+        the cached credentials and S3 clients of this config.
+        """
+        fields = {name: getattr(self, name) for name in self.model_fields_set}
+        fields["aws_role"] = [*self._normalized_aws_roles(), role]
+        return AwsConnectionConfig.model_validate(fields)
+
     def get_session(self) -> Session:
         if self.aws_access_key_id and self.aws_secret_access_key:
             # Explicit credentials take precedence
@@ -454,11 +478,8 @@ class AwsConnectionConfig(ConfigModel):
     def _should_refresh_credentials(self) -> bool:
         if self._credentials_expiration is None:
             return True
-        # Refresh credentials when less than 5 minutes remain before expiration.
-        # This buffer helps avoid race conditions where credentials expire between
-        # the cache check and actual AWS API usage.
         remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
-        return remaining_time < timedelta(minutes=5)
+        return remaining_time < ASSUMED_ROLE_REFRESH_BUFFER
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()

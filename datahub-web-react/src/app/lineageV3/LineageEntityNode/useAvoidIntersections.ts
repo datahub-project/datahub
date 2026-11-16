@@ -1,6 +1,5 @@
-import { ReactFlowInstance } from '@reactflow/core/dist/esm/types';
 import { MutableRefObject, useContext, useEffect, useRef } from 'react';
-import { Node, XYPosition, useReactFlow } from 'reactflow';
+import { Node, ReactFlowInstance, XYPosition, useReactFlow } from 'reactflow';
 
 import {
     BOUNDING_BOX_LABEL_HEIGHT,
