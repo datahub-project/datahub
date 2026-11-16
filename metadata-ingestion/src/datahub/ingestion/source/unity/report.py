@@ -31,6 +31,9 @@ class UnityCatalogReport(SQLSourceReport):
     hive_metastore_catalog_found: Optional[bool] = None
 
     num_column_lineage_skipped_column_count: int = 0
+    # Upstream tables outside the run whose columns came back empty, so column
+    # lineage keeps the names the lineage reports.
+    num_column_lineage_upstream_without_columns: int = 0
     num_external_upstreams_lacking_permissions: int = 0
     num_external_upstreams_unsupported: int = 0
     num_external_upstreams_partition_stripped: int = 0

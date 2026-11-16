@@ -167,7 +167,7 @@ global.matchMedia =
         };
     });
 
-window.location = {
+(window as { location: unknown }).location = {
     ...window.location,
     replace: () => {},
 };
