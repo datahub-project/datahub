@@ -101,16 +101,14 @@ def _pipeline_config(
 def _status_removed_urns(output_path: pathlib.Path) -> List[str]:
     removed: List[str] = []
     for record in json.loads(output_path.read_text()):
-        proposal = record.get("proposedSnapshot") or record
-        aspect_name = proposal.get("aspectName")
-        if aspect_name != "status":
+        if record.get("aspectName") != "status":
             continue
-        aspect = proposal.get("aspect", {})
+        aspect = record.get("aspect", {})
         payload = aspect.get("json") or aspect.get("value")
         if isinstance(payload, str):
             payload = json.loads(payload)
         if isinstance(payload, dict) and payload.get("removed") is True:
-            removed.append(proposal["entityUrn"])
+            removed.append(record["entityUrn"])
     return removed
 
 
