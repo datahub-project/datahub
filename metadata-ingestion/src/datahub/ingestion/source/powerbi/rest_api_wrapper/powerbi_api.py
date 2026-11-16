@@ -1437,6 +1437,14 @@ class PowerBiAPI:
                 remote_model=analysis_services[partition.expression_source],
                 remote_table_name=partition.entity_name or table_name,
             )
+        if partition.mode is not None and partition.mode != PARTITION_MODE_DIRECT_LAKE:
+            # A non-DirectLake entity partition whose shared expression was not
+            # recognised: not a Fabric SQL endpoint table, so no OneLake edge.
+            return EntityPartitionSource(
+                storage_mode=PARTITION_MODE_TO_STORAGE_MODE.get(
+                    partition.mode, partition.mode
+                ),
+            )
         return EntityPartitionSource(
             storage_mode=Constant.DIRECT_LAKE,
             source_schema=partition.schema_name,

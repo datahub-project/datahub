@@ -514,6 +514,32 @@ def test_table_over_another_analysis_services_server_is_directquery_without_mode
     assert api.reporter.warnings == []
 
 
+def test_directquery_entity_partition_without_shared_expression_is_not_direct_lake() -> (
+    None
+):
+    # The shared expression the partition names is missing from the
+    # definition: the TMDL mode still says DirectQuery, so the table must not
+    # take the DirectLake path and inherit a OneLake edge.
+    composite = ItemDefinition(
+        format="TMDL",
+        parts=[
+            DefinitionPart("definition/tables/Policies.tmdl", COMPOSITE_TABLE_TMDL),
+        ],
+    )
+    api = _api(
+        datasets=[{"id": MODEL_B, "name": "Exec Composite Model"}],
+        definitions={MODEL_B: composite},
+    )
+    workspace = _workspace()
+
+    api.fill_metadata_from_definitions([workspace])
+
+    table = workspace.datasets[MODEL_B].tables[0]
+    assert table.storage_mode == Constant.DIRECT_QUERY
+    assert table.remote_model is None
+    assert table.source_expression is None
+
+
 def test_fabric_item_listing_failure_keeps_datasets() -> None:
     api = _api()
     api._PowerBiAPI__fabric_resolver.list_items.side_effect = _http_error(500)  # type: ignore[attr-defined]

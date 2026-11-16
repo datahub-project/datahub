@@ -920,7 +920,7 @@ class Mapper:
             # The connection resolved to this very table (a model that names
             # itself, or URN options that fold two models into one name).
             if first_sighting:
-                self.__reporter.composite_model_sources_ambiguous += 1
+                self.__reporter.composite_model_tables_self_resolved += 1
                 self.__reporter.warning(
                     title=Constant.COMPOSITE_MODEL_SOURCE_AMBIGUOUS,
                     message="A composite model's remote table resolved to its own URN; no lineage is emitted for it. Check include_workspace_name_in_dataset_urn when two models share a name.",

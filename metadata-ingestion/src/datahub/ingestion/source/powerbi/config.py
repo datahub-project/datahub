@@ -429,15 +429,17 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     # Composite models (extract_composite_model_lineage). Source models are
     # counted once per (workspace, model) across the run: resolved to an
     # ingested model with tables, not ingested (absent or without a
-    # definition), or ambiguous (the name matched more than one model, or a
-    # table resolved to itself). Remote tables are counted once each: linked
-    # to their source table, or that table absent from the source model;
-    # mirrored columns absent from the source table are counted per column.
+    # definition), or ambiguous (the name matched more than one model).
+    # Remote tables are counted once each: linked to their source table, that
+    # table absent from the source model, or resolved to the remote table's
+    # own URN; mirrored columns absent from the source table are counted per
+    # column.
     composite_model_sources_resolved: int = 0
     composite_model_sources_not_ingested: int = 0
     composite_model_sources_ambiguous: int = 0
     composite_model_source_tables_not_found: int = 0
     composite_model_tables_linked: int = 0
+    composite_model_tables_self_resolved: int = 0
     composite_model_columns_unresolved: int = 0
     _composite_models_seen: Set[str] = dataclass_field(default_factory=set)
     _composite_tables_seen: Set[Tuple[str, str]] = dataclass_field(default_factory=set)

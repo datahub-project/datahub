@@ -1378,8 +1378,13 @@ def test_composite_model_source_resolving_to_itself_is_ambiguous() -> None:
     _dataset([table])
 
     assert _extract(mapper, table) is None
+    _extract(mapper, table)
     reporter = _reporter(mapper)
-    assert reporter.composite_model_sources_ambiguous == 1
+    # The source model itself resolved; only the table is the problem, so
+    # the source-level buckets stay mutually exclusive.
+    assert reporter.composite_model_sources_resolved == 1
+    assert reporter.composite_model_sources_ambiguous == 0
+    assert reporter.composite_model_tables_self_resolved == 1
     assert reporter.composite_model_tables_linked == 0
     assert [w.title for w in reporter.warnings] == [
         Constant.COMPOSITE_MODEL_SOURCE_AMBIGUOUS
