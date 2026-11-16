@@ -79,6 +79,9 @@ class StackInfo(TypedDict):
     instances: dict[str, str]
     indexPrefixes: dict[str, str]
     auth: bool
+    frontendPort: int | None
+    systemClientId: str | None
+    systemClientSecret: str | None
     adminTokens: dict[str, str]
     adminTokenExpiresAt: dict[str, str]
 
@@ -733,6 +736,11 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
             name: env["INDEX_PREFIX"] for name, env in environments.items()
         },
         "auth": args.auth,
+        "frontendPort": args.frontend_port,
+        "systemClientId": "__datahub_system" if args.auth else None,
+        "systemClientSecret": credentials["system_client_secret"]
+        if args.auth
+        else None,
         "adminTokens": tokens,
         "adminTokenExpiresAt": {
             name: token_expires_at(token) for name, token in tokens.items()
@@ -773,6 +781,12 @@ def main() -> None:
         default=default_shared_dir(),
         help="shared node state (or GMS_LITE_OPENSEARCH_DIR)",
     )
+    parser.add_argument(
+        "--frontend-port",
+        type=int,
+        default=None,
+        help="frontend port written to stack.json for Vite lite mode",
+    )
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument(
         "--env-file",
@@ -802,6 +816,9 @@ def main() -> None:
             "--processes must be positive and all GMS ports must be in 1..65535"
         )
     ports = list(range(args.port_base, args.port_base + args.processes))
+    if args.frontend_port is not None:
+        if not 1 <= args.frontend_port <= 65535 or args.frontend_port in ports:
+            parser.error("--frontend-port must be a distinct port in 1..65535")
     if args.opensearch_port is not None and (
         not 0 <= args.opensearch_port <= 65535 or args.opensearch_port in ports
     ):

@@ -109,6 +109,9 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
     "gms-1": "gmslite0123456789abgms1"
   },
   "auth": true,
+  "frontendPort": 19002,
+  "systemClientId": "__datahub_system",
+  "systemClientSecret": "<system-client-secret>",
   "adminTokens": {
     "gms-0": "<personal-access-token>",
     "gms-1": "<personal-access-token>"
@@ -129,8 +132,13 @@ the same instance names to the server-issued token expiry in ISO-8601 UTC.
 After expiry, authenticated requests return 401 even if `/health` still succeeds.
 Restart the stack with the same data directory to mint new tokens, then reread
 `stack.json`; tokens are not refreshed while the launcher runs. The launcher uses OSS's
-shipped bootstrap policies without adding or replacing any policy. No frontend
-or password login is started.
+shipped bootstrap policies without adding or replacing any policy.
+
+`--frontend-port` publishes `frontendPort` (otherwise null). With authentication enabled,
+`systemClientId` and `systemClientSecret` let Vite's lite mode verify native credentials
+and mint browser sessions through the same GMS auth APIs as Play; both are null with
+`--no-auth`. These fields are private, like `adminTokens`. The launcher itself does not
+start a frontend; `scripts/dev/datahub-dev.sh start --local` starts and manages Vite.
 
 Pass the instance token as `Authorization: Bearer <token>`, or use it with the
 DataHub CLI as `DATAHUB_GMS_TOKEN` alongside `DATAHUB_GMS_URL`. `/health` and
