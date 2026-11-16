@@ -1,6 +1,6 @@
 import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Minus } from '@phosphor-icons/react/dist/csr/Minus';
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 
 import {
     CheckboxBase,
@@ -49,6 +49,13 @@ export const Checkbox = ({
         setChecked(isChecked || false);
     }, [isChecked]);
 
+    // A native checkbox reports its own state, so it takes no aria-checked; partial selection is the
+    // input's indeterminate property, which has no attribute and is announced as "mixed".
+    const inputRef = useRef<HTMLInputElement>(null);
+    useEffect(() => {
+        if (inputRef.current) inputRef.current.indeterminate = !!isIntermediate;
+    }, [isIntermediate]);
+
     const onClick = useCallback(
         (e: React.MouseEvent) => {
             e.stopPropagation();
@@ -86,6 +93,7 @@ export const Checkbox = ({
                 $size={size || 'sm'}
             >
                 <HiddenInput
+                    ref={inputRef}
                     type="checkbox"
                     checked={isActive}
                     disabled={isDisabled || false}
@@ -93,7 +101,6 @@ export const Checkbox = ({
                     // The visible label isn't linked by id, so name the input directly. Callers without a
                     // visible label pass their own `aria-label`.
                     aria-label={label || undefined}
-                    aria-checked={checked}
                     {...props}
                 />
                 <CheckboxBox $checked={isActive} $error={!!error} $disabled={isDisabled || false} $size={size || 'sm'}>
