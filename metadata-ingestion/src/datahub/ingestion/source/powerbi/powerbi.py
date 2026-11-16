@@ -6,7 +6,7 @@
 import functools
 import logging
 from datetime import datetime
-from typing import Iterable, List, Optional, Set, Tuple, Union
+from typing import Dict, Iterable, List, Optional, Set, Tuple, Union
 
 import more_itertools
 
@@ -39,6 +39,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
+    DatasetSubTypes,
     SourceCapabilityModifier,
 )
 from datahub.ingestion.source.fabric.common.urn_generator import make_onelake_urn
@@ -142,6 +143,9 @@ class Mapper:
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
         self.workspace_key: Optional[ContainerKey] = None
+        # AAS models referenced by lineage. Empty list means the model is
+        # already in DataHub and must not be overwritten.
+        self._hidden_aas_models: Dict[str, List[MetadataChangeProposalWrapper]] = {}
 
     @staticmethod
     def urn_to_lowercase(value: str, flag: bool) -> str:
@@ -409,6 +413,19 @@ class Mapper:
                     )
                 )
 
+        if table.dataset:
+            known = {upstream_table.dataset for upstream_table in upstream}
+            for model in table.dataset.analysis_services_models:
+                model_urn = self._register_analysis_services_model(model)
+                if model_urn and model_urn not in known:
+                    known.add(model_urn)
+                    upstream.append(
+                        UpstreamClass(
+                            dataset=model_urn,
+                            type=DatasetLineageTypeClass.TRANSFORMED,
+                        )
+                    )
+
         if len(upstream) > 0:
             upstream_lineage_class: UpstreamLineageClass = UpstreamLineageClass(
                 upstreams=upstream,
@@ -652,6 +669,157 @@ class Mapper:
 
         return dataset_mcps
 
+    def _analysis_services_model_urn(self, server: str, database: str) -> Optional[str]:
+        """Dataset URN of an AAS model, matching the AAS connector's cube dataset.
+
+        The model users know is the catalog. The AAS connector emits that as a
+        dataset named by the catalog on platform ``azure-analysis-services``.
+        """
+        if not self.__config.is_platform_in_dataset_type_mapping("AnalysisServices"):
+            return None
+        pair = SupportedDataPlatform.AZURE_ANALYSIS_SERVICES.value
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=pair,
+                data_platform_server=server,
+            )
+        )
+        return self.lineage_urn_to_lowercase(
+            builder.make_dataset_urn_with_platform_instance(
+                platform=pair.datahub_data_platform_name,
+                name=database,
+                platform_instance=platform_detail.platform_instance,
+                env=platform_detail.env or self.__config.env,
+            )
+        )
+
+    def _dataset_exists(self, urn: str) -> bool:
+        graph = self.__ctx.graph
+        if graph is None:
+            return False
+        exists = getattr(graph, "exists", None)
+        if not callable(exists):
+            return False
+        try:
+            return exists(urn) is True
+        except Exception:
+            logger.debug("Could not check whether %s exists", urn, exc_info=True)
+            return False
+
+    def _analysis_services_placeholder(self, urn: str) -> bool:
+        """True when this source should write the hidden model dataset.
+
+        A model the Analysis Services connector has already ingested is left
+        unchanged. A missing model, or one this source previously wrote as
+        hidden, is written again so connection details can be filled in.
+        """
+        if not self._dataset_exists(urn):
+            return True
+        graph = self.__ctx.graph
+        get_aspect = getattr(graph, "get_aspect", None)
+        if not callable(get_aspect):
+            return False
+        try:
+            status = get_aspect(urn, StatusClass)
+        except Exception:
+            logger.debug("Could not read status for %s", urn, exc_info=True)
+            return False
+        return isinstance(status, StatusClass) and status.removed is True
+
+    def _register_analysis_services_model(
+        self, model: powerbi_data_classes.AnalysisServicesModel
+    ) -> Optional[str]:
+        """Remember an AAS model so a missing one is emitted as a hidden dataset.
+
+        Lineage search drops neighbors that have never been written. A model
+        the Analysis Services connector has not ingested yet is written with
+        ``status.removed`` so it stays on the graph as a hidden dataset and is
+        not owned by this source. The server and Power BI datasource type are
+        stored on that dataset. An ingested model is left unchanged.
+        """
+        urn = self._analysis_services_model_urn(model.server, model.database)
+        if urn is None or urn in self._hidden_aas_models:
+            return urn
+        if not self._analysis_services_placeholder(urn):
+            self._hidden_aas_models[urn] = []
+            return urn
+
+        pair = SupportedDataPlatform.AZURE_ANALYSIS_SERVICES.value
+        platform_detail = self.__dataplatform_instance_resolver.get_platform_instance(
+            PowerBIPlatformDetail(
+                data_platform_pair=pair,
+                data_platform_server=model.server,
+            )
+        )
+        mcps = [
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=StatusClass(removed=True),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetPropertiesClass(
+                    name=model.database,
+                    customProperties={
+                        "server": model.server,
+                        "datasourceType": model.datasource_type,
+                    },
+                ),
+            ),
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=SubTypesClass(
+                    typeNames=[
+                        DatasetSubTypes.CUBE,
+                        DatasetSubTypes.SEMANTIC_MODEL,
+                    ]
+                ),
+            ),
+        ]
+        if platform_detail.platform_instance:
+            mcps.append(
+                MetadataChangeProposalWrapper(
+                    entityUrn=urn,
+                    aspect=DataPlatformInstanceClass(
+                        platform=builder.make_data_platform_urn(
+                            pair.datahub_data_platform_name
+                        ),
+                        instance=builder.make_dataplatform_instance_urn(
+                            pair.datahub_data_platform_name,
+                            platform_detail.platform_instance,
+                        ),
+                    ),
+                )
+            )
+        self._hidden_aas_models[urn] = mcps
+        return urn
+
+    def analysis_services_model_urns(
+        self, dataset: Optional[powerbi_data_classes.PowerBIDataset]
+    ) -> List[str]:
+        """Model URNs for a dataset, registering a hidden dataset when missing.
+
+        A live connection has no tables, so these URNs are the report's
+        upstream rather than an upstream of a Power BI table.
+        """
+        if not self.__config.extract_lineage or dataset is None:
+            return []
+        urns: List[str] = []
+        for model in dataset.analysis_services_models:
+            urn = self._register_analysis_services_model(model)
+            if urn and urn not in urns:
+                urns.append(urn)
+        return urns
+
+    def hidden_analysis_services_model_workunits(self) -> Iterable[MetadataWorkUnit]:
+        pending = self._hidden_aas_models
+        self._hidden_aas_models = {}
+        for mcps in pending.values():
+            for mcp in mcps:
+                # Non-primary so stateful ingestion does not soft-delete the
+                # model once the Analysis Services connector ingests it.
+                yield mcp.as_workunit(is_primary_source=False)
+
     def paginated_report_datasource_urns(
         self,
         report: powerbi_data_classes.Report,
@@ -697,6 +865,30 @@ class Mapper:
                     "in dataset_type_mapping.",
                     ds.datasource_type,
                 )
+                continue
+
+            # The AAS connector's model dataset is named by catalog, not
+            # server.database. An internal pbiazure binding was already skipped.
+            if pair.datahub_data_platform_name == "azure-analysis-services":
+                if not ds.database:
+                    self.__reporter.info(
+                        title="Analysis Services Model Name Missing",
+                        message=(
+                            "AnalysisServices datasource has no database; "
+                            "model lineage skipped."
+                        ),
+                        context=f"report={report.name}, server={ds.server}",
+                    )
+                    continue
+                model_urn = self._register_analysis_services_model(
+                    powerbi_data_classes.AnalysisServicesModel(
+                        server=ds.server,
+                        database=ds.database,
+                        datasource_type=ds.datasource_type,
+                    )
+                )
+                if model_urn:
+                    urns.append(model_urn)
                 continue
 
             platform_detail = (
@@ -808,6 +1000,9 @@ class Mapper:
         ds_input: List[str] = self.to_urn_set(
             [x for x in ds_mcps if x.entityType == Constant.DATASET]
         )
+        # A live Analysis Services connection has no tables to use as inputs.
+        if not ds_input:
+            ds_input.extend(self.analysis_services_model_urns(tile.dataset))
 
         def tile_custom_properties(tile: powerbi_data_classes.Tile) -> dict:
             custom_properties: dict = {
@@ -1348,6 +1543,7 @@ class Mapper:
         workspace: powerbi_data_classes.Workspace,
         ds_mcps: List[MetadataChangeProposalWrapper],
         report: powerbi_data_classes.Report,
+        extra_inputs: Optional[List[str]] = None,
     ) -> List[MetadataChangeProposalWrapper]:
         chart_mcps = []
 
@@ -1374,6 +1570,9 @@ class Mapper:
             ds_input: List[str] = self.to_urn_set(
                 [x for x in ds_mcps if x.entityType == Constant.DATASET]
             )
+            for urn in extra_inputs or []:
+                if urn not in ds_input:
+                    ds_input.append(urn)
 
             # Create chartInfo mcp
             # Set chartUrl only if tile is created from Report
@@ -1580,19 +1779,27 @@ class Mapper:
         user_mcps = self.to_datahub_users(report.users)
         # Convert pages to charts. A report has a single dataset and the same dataset used in pages to create visualization
         ds_mcps = self.to_datahub_dataset(report.dataset, workspace)
-        chart_mcps = self.pages_to_chart(
-            report.pages, workspace=workspace, ds_mcps=ds_mcps, report=report
-        )
-
         # collect all upstream datasets; using a set to retain unique urns
         dataset_urns: Set[str] = {
             dataset.entityUrn
             for dataset in ds_mcps
             if dataset.entityType == DatasetUrn.ENTITY_TYPE and dataset.entityUrn
         }
+        # A live connection has no tables, so the model is the report upstream.
+        live_model_urns = (
+            [] if dataset_urns else self.analysis_services_model_urns(report.dataset)
+        )
+        chart_mcps = self.pages_to_chart(
+            report.pages,
+            workspace=workspace,
+            ds_mcps=ds_mcps,
+            report=report,
+            extra_inputs=live_model_urns,
+        )
         # Paginated (RDL) reports without a shared dataset get their lineage
         # solely from this fallback path.
         dataset_urns.update(self.paginated_report_datasource_urns(report))
+        dataset_urns.update(live_model_urns)
         dataset_edges = [
             EdgeClass(destinationUrn=dataset_urn) for dataset_urn in dataset_urns
         ]
@@ -2009,6 +2216,7 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
                     yield wu
 
         yield from self.extract_independent_datasets(workspace)
+        yield from self.mapper.hidden_analysis_services_model_workunits()
 
     def _get_dashboard_patch_work_unit(
         self, work_unit: MetadataWorkUnit

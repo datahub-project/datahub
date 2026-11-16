@@ -84,6 +84,9 @@ PowerBI Source will extract lineage for the below listed PowerBI Data Sources:
 8.  Amazon Redshift
 9.  Amazon Athena
 10. Starburst / Trino
+11. Azure Analysis Services
+
+An external Analysis Services connection (admin-scan `datasourceUsages`, or a paginated report datasource that is not a binding back to a Power BI semantic model) is emitted as upstream lineage to the model. A live connection whose dataset has no tables still links the report and its pages to that model. The admin scan often omits `datasourceUsages` for that dataset, so the connector also reads `GET /groups/{workspaceId}/datasets/{datasetId}/datasources`, or `GET /admin/datasets/{datasetId}/datasources` when `admin_apis_only` is set. The dataset name is the connection database, which is the model catalog, on platform `azure-analysis-services`. That matches the model dataset emitted by the Azure Analysis Services connector. Set `server_to_platform_instance` for the Analysis Services server when the Analysis Services recipe uses a `platform_instance`, so the two URNs carry the same instance. If that model is not in DataHub yet, Power BI writes it as a hidden dataset (`status.removed`) so the lineage edge is kept. Its subtypes are Cube and Semantic Model, matching the model dataset written by the Azure Analysis Services connector. That dataset's custom properties record the connection `server` and `datasourceType`. An `asazure://` server is Azure Analysis Services; a `powerbi://` server is the Power BI XMLA endpoint. The ingestion log includes both values. Once the Analysis Services connector ingests the model, that dataset is left as the connector wrote it. A connection whose server starts with `pbiazure` and whose database starts with `sobe_wowvirtualserver-` is a Power BI semantic model and is not treated as Analysis Services.
 
 Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracle`, and ODBC data sources.
 

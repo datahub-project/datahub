@@ -397,6 +397,7 @@ class RegularAPIResolver(DataResolverBase):
         Constant.REPORT_LIST: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports",
         Constant.PAGE_BY_REPORT: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/pages",
         Constant.REPORT_DATASOURCES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/reports/{REPORT_ID}/datasources",
+        Constant.DATASET_DATASOURCES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/datasources",
         Constant.DATASET_EXECUTE_QUERIES: "{POWERBI_BASE_URL}/{WORKSPACE_ID}/datasets/{DATASET_ID}/executeQueries",
         Constant.GET_WORKSPACE_APP: "{MY_ORG_URL}/apps/{APP_ID}",
     }
@@ -512,6 +513,34 @@ class RegularAPIResolver(DataResolverBase):
             for raw in response.json().get(Constant.VALUE, [])
             if (ds := ReportDatasource.from_raw(raw)) is not None
         ]
+
+    def get_dataset_datasources(
+        self, workspace_id: str, dataset_id: str
+    ) -> List[Dict[str, Any]]:
+        """Raw rows from ``GET /groups/{id}/datasets/{id}/datasources``.
+
+        A live Analysis Services connection often has no tables and no
+        ``datasourceUsages`` in the admin scan, so this is the only place the
+        model server and database are available.
+        """
+        endpoint = RegularAPIResolver.API_ENDPOINTS[
+            Constant.DATASET_DATASOURCES
+        ].format(
+            POWERBI_BASE_URL=self._base_url,
+            WORKSPACE_ID=workspace_id,
+            DATASET_ID=dataset_id,
+        )
+        logger.info(
+            "Requesting dataset datasources for workspace %s dataset %s",
+            workspace_id,
+            dataset_id,
+        )
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+        )
+        response.raise_for_status()
+        return response.json().get(Constant.VALUE, [])
 
     def get_users(self, workspace_id: str, entity: str, entity_id: str) -> List[User]:
         return []  # User list is not available in regular access
@@ -667,6 +696,7 @@ class AdminAPIResolver(DataResolverBase):
         Constant.DATASET_LIST: "{POWERBI_ADMIN_BASE_URL}/groups/{WORKSPACE_ID}/datasets",
         Constant.WORKSPACE_MODIFIED_LIST: "{POWERBI_ADMIN_BASE_URL}/workspaces/modified",
         Constant.GET_WORKSPACE_APP: "{POWERBI_ADMIN_BASE_URL}/apps",
+        Constant.DATASET_DATASOURCES: "{POWERBI_ADMIN_BASE_URL}/datasets/{DATASET_ID}/datasources",
     }
 
     def create_scan_job(self, workspace_ids: List[str]) -> str:
@@ -928,6 +958,31 @@ class AdminAPIResolver(DataResolverBase):
     ) -> Dict[str, str]:
         logger.debug("Get dataset parameter is unsupported in Admin API")
         return {}
+
+    def get_dataset_datasources(
+        self, workspace_id: str, dataset_id: str
+    ) -> List[Dict[str, Any]]:
+        """Raw rows from ``GET /admin/datasets/{id}/datasources``.
+
+        ``admin_apis_only`` recipes cannot use the workspace-scoped endpoint,
+        and the admin scan usually omits ``datasourceUsages`` for live
+        Analysis Services connections.
+        """
+        endpoint = AdminAPIResolver.API_ENDPOINTS[Constant.DATASET_DATASOURCES].format(
+            POWERBI_ADMIN_BASE_URL=self._admin_base_url,
+            DATASET_ID=dataset_id,
+        )
+        logger.info(
+            "Requesting admin dataset datasources for workspace %s dataset %s",
+            workspace_id,
+            dataset_id,
+        )
+        response = self._request_session.get(
+            endpoint,
+            headers=self.get_authorization_header(),
+        )
+        response.raise_for_status()
+        return response.json().get(Constant.VALUE, [])
 
     def profile_dataset(
         self,

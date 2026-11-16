@@ -2,7 +2,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Optional, Set, Tuple, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -231,6 +231,12 @@ class PowerBIDataset:
     # From relations[].dependentOnArtifactId
     dependent_on_artifact_id: Optional[str] = None
 
+    # External Analysis Services models. Internal Power BI dataset bindings
+    # (pbiazure + sobe_wowvirtualserver-) are not included.
+    analysis_services_models: List["AnalysisServicesModel"] = field(
+        default_factory=list
+    )
+
     def get_urn_part(self):
         return f"datasets.{self.id}"
 
@@ -340,7 +346,7 @@ class ReportDatasource:
         return ReportDatasource(
             datasource_type=datasource_type,
             server=server,
-            database=connection.get("database"),
+            database=connection.get("database") or connection.get("initialCatalog"),
         )
 
     @property
@@ -358,6 +364,87 @@ class ReportDatasource:
         ):
             return self.database[len(PBI_DATASET_CATALOG_PREFIX) :]
         return None
+
+
+@dataclass(frozen=True)
+class AnalysisServicesModel:
+    """An Analysis Services model named by a Power BI datasource row.
+
+    ``database`` is the model catalog and becomes the dataset name. ``server``
+    is the connection server: ``asazure://`` is Azure Analysis Services,
+    ``powerbi://`` is the Power BI XMLA endpoint. ``datasource_type`` is the
+    Power BI type, normally ``AnalysisServices``.
+    """
+
+    server: str
+    database: str
+    datasource_type: str
+
+
+def analysis_services_models_from_rows(
+    rows: List[Dict[str, Any]],
+) -> List[AnalysisServicesModel]:
+    """External AAS models from datasource API rows.
+
+    An internal Power BI semantic-model binding (``pbiazure`` plus a
+    ``sobe_wowvirtualserver-`` database) is not an Analysis Services model.
+    """
+    models: List[AnalysisServicesModel] = []
+    seen: Set[Tuple[str, str]] = set()
+    for raw in rows:
+        parsed = ReportDatasource.from_raw(raw)
+        if (
+            parsed is None
+            or parsed.powerbi_dataset_id is not None
+            or parsed.datasource_type.replace(" ", "") != "AnalysisServices"
+            or not parsed.database
+        ):
+            continue
+        key = (parsed.server, parsed.database)
+        if key in seen:
+            continue
+        seen.add(key)
+        models.append(
+            AnalysisServicesModel(
+                server=parsed.server,
+                database=parsed.database,
+                datasource_type=parsed.datasource_type,
+            )
+        )
+    return models
+
+
+def analysis_services_models_from_scan(
+    scan_result: Optional[dict], dataset_raw: dict
+) -> List[AnalysisServicesModel]:
+    """External AAS models a scanned dataset is connected to.
+
+    The admin scan lists workspace datasources separately from datasets and
+    links them with ``datasourceUsages[].datasourceInstanceId``. Those usages
+    are on the dataset for a live connection and on each table otherwise.
+    """
+    if not scan_result:
+        return []
+
+    usages: List[Any] = list(dataset_raw.get("datasourceUsages") or [])
+    for table in dataset_raw.get("tables") or []:
+        if isinstance(table, dict):
+            usages.extend(table.get("datasourceUsages") or [])
+    usage_ids = {
+        usage.get("datasourceInstanceId")
+        for usage in usages
+        if isinstance(usage, dict) and usage.get("datasourceInstanceId")
+    }
+    if not usage_ids:
+        return []
+
+    linked = [
+        raw
+        for raw in scan_result.get("datasources") or []
+        if isinstance(raw, dict)
+        and (raw.get("datasourceId") or raw.get("datasourceInstanceId")) in usage_ids
+    ]
+    return analysis_services_models_from_rows(linked)
 
 
 @dataclass
