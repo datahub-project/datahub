@@ -43,8 +43,14 @@ and mapped to the DataHub `CorpUserInfo` aspect:
 - email
 - title
 - country (from `usageLocation`, a two-letter country code)
+- department
+- company name (stored as a custom property)
 
-The connector requests these fields, plus `accountEnabled` and the attribute set in `azure_ad_response_to_username_attr`, with `$select`, because Microsoft Graph doesn't return `accountEnabled` or `usageLocation` by default.
+The connector requests these fields, plus `accountEnabled` and the attribute set in `azure_ad_response_to_username_attr`, with `$select`, because Microsoft Graph doesn't return `accountEnabled`, `usageLocation`, `department` or `companyName` by default.
+
+To ingest more user properties, list them in `user_select_attributes`, for example `officeLocation` or `employeeId`. They are stored as custom properties on the user.
+
+To ingest each user's manager, set `ingest_user_manager: true`. The connector then expands the `manager` of each user returned by `/users` and derives the manager's username the same way as for other users. Managers are not fetched for users found only through group membership (`ingest_groups_users`), and managers that are organizational contacts rather than users are skipped.
 
 This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Azure AD `accountEnabled: false` maps to DataHub `SUSPENDED` (and `active: false`); enabled or missing values map to `ACTIVE` (and `active: true`).
 
