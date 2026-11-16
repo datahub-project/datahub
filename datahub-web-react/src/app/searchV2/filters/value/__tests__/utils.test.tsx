@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '@app/searchV2/filters/types';
@@ -12,6 +11,7 @@ import {
 } from '@app/searchV2/filters/value/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
 import { AllowedValue, EntityType } from '@types';

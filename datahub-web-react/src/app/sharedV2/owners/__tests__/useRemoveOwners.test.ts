@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
 import { useRemoveOwners } from '@app/sharedV2/owners/useRemoveOwners';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useBatchRemoveOwnersMutation } from '@graphql/mutations.generated';
 

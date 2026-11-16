@@ -2,8 +2,10 @@
 body {
     color: rgba(0, 0, 0, 0.85);
     font-size: 12px;
+    // Overlays portaled to <body> (dropdowns, submenus, modals) sit outside the `.themeV2 *` Mulish
+    // rule and inherit this (antdTheme sets fontFamily: 'inherit'), so keep it in sync with @font-family-v2
     font-family:
-        'Manrope',
+        'Mulish',
         -apple-system,
         BlinkMacSystemFont,
         'Segoe UI',

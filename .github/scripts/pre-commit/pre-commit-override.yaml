@@ -123,7 +123,7 @@ repos:
           runs a chain step without its predecessors
         entry: python3 .github/scripts/check_playwright_p0.py
         language: system
-        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/check_playwright_p0\.py)$
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/(check_playwright_p0|plan_playwright_tier)\.py)$
         # The script globs the specs itself; it needs the whole tree, not the diff.
         pass_filenames: false
         # Also runs in CI via lint-jobs.yml playwright-e2e-lint.

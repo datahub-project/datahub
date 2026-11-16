@@ -1,10 +1,11 @@
 package datahub.client.v2;
 
-import static org.testng.Assert.*;
+import static org.junit.Assert.*;
+import static org.junit.Assume.assumeTrue;
 
 import datahub.client.v2.config.DataHubClientConfigV2;
 import java.io.IOException;
-import org.testng.annotations.Test;
+import org.junit.Test;
 
 /** Tests for DataHubClientV2 configuration and initialization. */
 public class DataHubClientV2Test {
@@ -15,7 +16,7 @@ public class DataHubClientV2Test {
 
     assertNotNull(client);
     assertNotNull(client.getConfig());
-    assertEquals(client.getConfig().getServer(), "http://localhost:8080");
+    assertEquals("http://localhost:8080", client.getConfig().getServer());
     assertNotNull(client.getEmitter());
     assertNotNull(client.entities());
 
@@ -33,10 +34,10 @@ public class DataHubClientV2Test {
             .build();
 
     assertNotNull(client);
-    assertEquals(client.getConfig().getServer(), "http://localhost:8080");
-    assertEquals(client.getConfig().getToken(), "test-token");
-    assertEquals(client.getConfig().getTimeoutMs(), 30000);
-    assertEquals(client.getConfig().getMaxRetries(), 5);
+    assertEquals("http://localhost:8080", client.getConfig().getServer());
+    assertEquals("test-token", client.getConfig().getToken());
+    assertEquals(30000, client.getConfig().getTimeoutMs());
+    assertEquals(5, client.getConfig().getMaxRetries());
 
     client.close();
   }
@@ -49,18 +50,21 @@ public class DataHubClientV2Test {
     DataHubClientV2 client = DataHubClientV2.builder().config(config).build();
 
     assertNotNull(client);
-    assertEquals(client.getConfig(), config);
+    assertEquals(config, client.getConfig());
 
     client.close();
   }
 
-  @Test(expectedExceptions = IllegalArgumentException.class)
+  @Test(expected = IllegalArgumentException.class)
   public void testClientBuilderWithoutServer() throws IOException {
     DataHubClientV2.builder().build();
   }
 
   @Test
   public void testConfigFromEnvWithMissingVariable() {
+    // fromEnv() reads the process environment; the integration-test setup passes DATAHUB_SERVER
+    // through to this JVM, so the "missing" case can only be checked when neither var is set.
+    assumeTrue(System.getenv("DATAHUB_SERVER") == null && System.getenv("DATAHUB_GMS_URL") == null);
     try {
       DataHubClientConfigV2.fromEnv();
       fail("Should throw IllegalArgumentException when DATAHUB_SERVER is not set");
@@ -81,8 +85,8 @@ public class DataHubClientV2Test {
     var restConfig = config.toRestEmitterConfig();
 
     assertNotNull(restConfig);
-    assertEquals(restConfig.getServer(), "http://localhost:8080");
-    assertEquals(restConfig.getToken(), "test-token");
-    assertEquals(restConfig.getTimeoutSec(), 15);
+    assertEquals("http://localhost:8080", restConfig.getServer());
+    assertEquals("test-token", restConfig.getToken());
+    assertEquals(Integer.valueOf(15), restConfig.getTimeoutSec());
   }
 }

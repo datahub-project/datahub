@@ -6,6 +6,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.AuditStamp;
+import com.linkedin.common.Ownership;
 import com.linkedin.common.Status;
 import com.linkedin.common.VersionProperties;
 import com.linkedin.common.urn.GlossaryNodeUrn;
@@ -83,7 +84,7 @@ public class CreateGlossaryTermVersionResolver
    * from the input), versioning and lifecycle state (set by this resolver), per-asset workflow
    * state, and values the platform computes. Every other aspect is copied, so metadata added to
    * glossary terms later is carried over too; add an aspect here if it must start fresh on each
-   * version. Ownership is copied before the creator is added.
+   * version. Ownership is copied too; the creator becomes owner only if no owner was copied.
    */
   private static final Set<String> NOT_COPIED_ASPECTS =
       ImmutableSet.of(
@@ -279,7 +280,10 @@ public class CreateGlossaryTermVersionResolver
     return EntityKeyUtils.convertEntityKeyToUrn(key, VERSION_SET_ENTITY_NAME);
   }
 
-  /** Creates the GlossaryTerm entity and adds the creator as owner. Returns the new URN string. */
+  /**
+   * Creates the GlossaryTerm entity and returns its URN string. The creator is added as owner
+   * unless the new version inherits at least one owner from the previous version.
+   */
   private String createGlossaryTerm(
       QueryContext context,
       CreateGlossaryTermVersionInput input,
@@ -297,12 +301,20 @@ public class CreateGlossaryTermVersionResolver
     final String glossaryTermUrn =
         _entityClient.ingestProposal(context.getOperationContext(), proposal, false);
 
+    boolean copiedOwners = false;
     if (previous != null && !Boolean.FALSE.equals(input.getCopyMetadata())) {
       copyPreviousMetadata(context, UrnUtils.getUrn(glossaryTermUrn), previous);
+      final EnvelopedAspect ownership = previous.aspects().get(OWNERSHIP_ASPECT_NAME);
+      copiedOwners =
+          ownership != null && !new Ownership(ownership.getValue().data()).getOwners().isEmpty();
     }
 
-    OwnerUtils.addCreatorAsOwner(
-        context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
+    // A new version keeps the previous version's owners. Adding the creator on top would give
+    // every version an extra Technical Owner that nobody chose.
+    if (!copiedOwners) {
+      OwnerUtils.addCreatorAsOwner(
+          context, glossaryTermUrn, OwnerEntityType.CORP_USER, _entityService);
+    }
 
     return glossaryTermUrn;
   }

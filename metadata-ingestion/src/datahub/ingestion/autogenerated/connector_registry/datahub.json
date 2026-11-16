@@ -4066,7 +4066,7 @@
         },
         {
           "capability": "LINEAGE_FINE",
-          "description": "Disabled by default.",
+          "description": "Enabled by default, can be disabled via configuration `include_column_lineage`",
           "subtype_modifier": null,
           "supported": true
         },

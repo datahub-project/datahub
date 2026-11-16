@@ -1,10 +1,11 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { vi } from 'vitest';
 
 import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import { useTemplateOperations } from '@app/homeV3/context/hooks/useTemplateOperations';
 import { ModulePositionInput } from '@app/homeV3/template/types';
 import { useReloadableContext } from '@app/sharedV2/reloadableContext/hooks/useReloadableContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useUpdateAssetSettingsMutation } from '@graphql/settings.generated';
 import {

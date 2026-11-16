@@ -1010,13 +1010,7 @@ class UnityCatalogSourceConfig(
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
-        if INFORMATION_SCHEMA_DENY in v.deny:
-            return v
-        # Rebuilt rather than mutated: a caller-supplied pattern object passes
-        # through by identity, and model_copy would keep its compiled-regex caches.
-        return type(v).model_validate(
-            {**v.model_dump(), "deny": [*v.deny, INFORMATION_SCHEMA_DENY]}
-        )
+        return v.with_deny(INFORMATION_SCHEMA_DENY)
 
     @field_validator("profiling", mode="before")
     @classmethod

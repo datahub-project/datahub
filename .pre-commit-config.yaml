@@ -186,7 +186,7 @@ repos:
           describe runs a chain step without its predecessors
         entry: python3 .github/scripts/check_playwright_p0.py
         language: system
-        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/check_playwright_p0\.py)$
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/(check_playwright_p0|plan_playwright_tier)\.py)$
         pass_filenames: false
         stages:
           - pre-commit
