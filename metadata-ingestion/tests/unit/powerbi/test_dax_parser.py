@@ -130,6 +130,28 @@ def test_row_context_iterators_are_flagged() -> None:
     ).has_row_context_iterators
 
 
+def test_iterator_scope_is_tracked_per_reference() -> None:
+    references = extract_dax_references(
+        "IF([Status] = 1, SUMX(RELATEDTABLE('Policy (EU)'), [Premium]))"
+        " + FILTER(Claims, [Paid] > 0) + [Paid]"
+    )
+    assert references.has_row_context_iterators
+    assert [(r.field, r.in_row_context) for r in references.fields] == [
+        ("Status", False),
+        ("Premium", True),
+        # Also read outside the FILTER, so it is this table's column.
+        ("Paid", False),
+    ]
+
+
+def test_topn_table_is_its_second_argument() -> None:
+    assert _tables("TOPN(10, Claims, Claims[PaidAmount])") == ["Claims"]
+    assert _tables("COUNTROWS(TOPN(N, Policies)) + COUNTROWS(Claims)") == [
+        "Policies",
+        "Claims",
+    ]
+
+
 def test_variables_are_not_tables() -> None:
     expression = (
         "VAR Open = FILTER('Claims', 'Claims'[Status] = 1)\n"
