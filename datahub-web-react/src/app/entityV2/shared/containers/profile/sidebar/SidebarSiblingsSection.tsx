@@ -101,7 +101,8 @@ export const SidebarSiblingsSection = () => {
         if (group.total === 0) {
             return <></>;
         }
-        const more = group.total - group.members.length;
+        // Members that failed to load aren't shown and aren't "more" either.
+        const more = Math.max(0, group.total - group.members.length - group.skipped);
         const displayName = entityRegistry.getDisplayName(EntityType.Dataset, entityData);
         const search = QueryString.stringify({
             query: encodeURIComponent(displayName),
