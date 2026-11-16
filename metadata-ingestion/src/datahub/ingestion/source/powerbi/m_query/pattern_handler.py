@@ -2416,7 +2416,17 @@ class OdbcLineage(AbstractLineage):
         def prefix_metastore(urn: str) -> str:
             try:
                 parsed = DatasetUrn.from_string(urn)
-            except InvalidUrnError:
+            except InvalidUrnError as e:
+                self.reporter.warning(
+                    title="Failed to apply Databricks metastore prefix",
+                    message=(
+                        "Could not parse a Databricks upstream URN to prefix the "
+                        "configured metastore; the emitted URN may not match the "
+                        "Databricks connector."
+                    ),
+                    context=f"table-name={self.table.full_name}, urn={urn}",
+                    exc=e,
+                )
                 return urn
             split_name = self._split_platform_instance_prefix(
                 parsed.name, platform_instance

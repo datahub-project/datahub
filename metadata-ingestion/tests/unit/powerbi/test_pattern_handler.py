@@ -2047,6 +2047,25 @@ def test_odbc_athena_post_processing_keeps_unparseable_urn_and_warns() -> None:
     assert len(instance.reporter.warnings) == 2
 
 
+def test_odbc_databricks_metastore_prefix_keeps_unparseable_urn_and_warns() -> None:
+    instance = _build_odbc_lineage()
+    pair = DataPlatformPair(
+        powerbi_data_platform_name="Databricks",
+        datahub_data_platform_name="databricks",
+    )
+    lineage = Lineage(
+        upstreams=[DataPlatformTable(data_platform_pair=pair, urn="not-a-urn")],
+        column_lineage=[],
+    )
+
+    prefixed = instance._prefix_databricks_metastore(
+        lineage, pair, DataBricksPlatformDetail(metastore="my_ms")
+    )
+
+    assert [u.urn for u in prefixed.upstreams] == ["not-a-urn"]
+    assert len(instance.reporter.warnings) == 1
+
+
 def test_odbc_athena_nav_override_matches_case_insensitively():
     """make_urn lowercases names by default, while users copy mixed-case names
     from the Power Query navigator into the override; it must still match. The
