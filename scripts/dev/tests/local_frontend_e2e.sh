@@ -51,10 +51,17 @@ case "$1" in
         ;;
     browser)
         cd e2e-test/ui/playwright
-        BASE_URL="$DATAHUB_FRONTEND_URL" \
-            DATAHUB_ADMIN_USERNAME="$ADMIN_USERNAME" DATAHUB_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+        export BASE_URL="$DATAHUB_FRONTEND_URL" \
+            DATAHUB_ADMIN_USERNAME="$ADMIN_USERNAME" DATAHUB_ADMIN_PASSWORD="$ADMIN_PASSWORD"
+        login_test() {
             node_modules/.bin/playwright test --config=playwright.no-webserver.config.ts \
-            tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' \
-            --trace=on
+                tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' "$@"
+        }
+        # On a cold Vite cache the dependency scan cannot resolve the template-string theme import
+        # in useSetAppTheme.tsx, so Vite discovers dependencies while the first page loads and
+        # reloads it several times, outlasting the login helper's 30s wait. One untimed pass warms
+        # the optimizer; the checked run below then measures a warm dev server.
+        login_test --output=test-results/warmup >/dev/null 2>&1 || echo "warm-up login did not finish; running the check anyway"
+        login_test --trace=on
         ;;
 esac

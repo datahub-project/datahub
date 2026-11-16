@@ -4,7 +4,7 @@ import basicSsl from '@vitejs/plugin-basic-ssl';
 import react from '@vitejs/plugin-react-swc';
 import * as fs from 'fs';
 import * as path from 'path';
-import { PluginOption, defineConfig, loadEnv } from 'vite';
+import { PluginOption, ProxyOptions, defineConfig, loadEnv } from 'vite';
 import macrosPlugin from 'vite-plugin-babel-macros';
 import svgr from 'vite-plugin-svgr';
 import { configDefaults } from 'vitest/config';
@@ -182,7 +182,7 @@ export default defineConfig(async ({ mode }) => {
         configure: proxyDebugConfig,
     };
 
-    const proxyOptions =
+    const proxyOptions: Record<string, ProxyOptions> =
         process.env.PREVIEW_MODE === 'lite'
             ? {}
             : {
@@ -325,7 +325,8 @@ export default defineConfig(async ({ mode }) => {
             host: false,
             port: 3000,
             proxy: proxyOptions,
-            https: isHttps,
+            // Vite 6 types `https` as TLS options; an empty object enables HTTPS like `true` did.
+            https: isHttps ? {} : undefined,
         },
         css: {
             preprocessorOptions: {
