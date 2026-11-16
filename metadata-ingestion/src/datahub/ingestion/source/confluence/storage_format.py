@@ -7,6 +7,7 @@ from pydantic import BaseModel, ConfigDict
 
 from datahub.ingestion.source.confluence.constants import (
     DISCARD_MACROS,
+    EMOTICON_NAMES,
     NAMESPACED_TAG_PATTERN,
     TASK_STATUS_COMPLETE,
     UNRESOLVED_USER_TEXT,
@@ -102,6 +103,19 @@ def _attr(tag: Optional[Tag], name: str) -> str:
 def _child(tag: Tag, name: str) -> Optional[Tag]:
     found = tag.find(name, recursive=False)
     return found if isinstance(found, Tag) else None
+
+
+def _emoji_from_id(emoji_id: str) -> str:
+    """Cloud stores an emoji's code points as hex joined by "-" (1f44d, or
+    1f468-200d-1f4bb for a sequence). Custom emoji have other ids."""
+    try:
+        return (
+            "".join(chr(int(part, 16)) for part in emoji_id.split("-"))
+            if emoji_id
+            else ""
+        )
+    except (ValueError, OverflowError):
+        return ""
 
 
 def _param(macro: Tag, name: str) -> str:
@@ -328,5 +342,8 @@ class _StorageRewriter:
         fallback = _attr(emoticon, StorageAttr.EMOJI_FALLBACK)
         if fallback:
             return fallback
+        emoji = _emoji_from_id(_attr(emoticon, StorageAttr.EMOJI_ID))
+        if emoji:
+            return emoji
         name = _attr(emoticon, StorageAttr.NAME)
-        return f":{name}:" if name else ""
+        return EMOTICON_NAMES.get(name) or (f":{name}:" if name else "")

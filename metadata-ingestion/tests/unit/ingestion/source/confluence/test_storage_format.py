@@ -208,3 +208,13 @@ def test_formatting_macro_keeps_body_and_navigation_macro_is_dropped() -> None:
     )
 
     assert storage_to_markdown(html, _names) == "Owned by @Alex Doe\n\nNested detail"
+
+
+def test_emoticons_become_emoji() -> None:
+    html = (
+        '<p><ac:emoticon ac:name="smile" /> '
+        '<ac:emoticon ac:name="blue-star" ac:emoji-id="1f44d" /> '
+        '<ac:emoticon ac:name="custom" ac:emoji-id="a1b2c3d4-not-hex" /></p>'
+    )
+
+    assert storage_to_markdown(html) == "\U0001f642 \U0001f44d :custom:"

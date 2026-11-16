@@ -44,6 +44,7 @@ class StorageAttr(StrEnum):
     TITLE = "ac:title"
     ANCHOR = "ac:anchor"
     EMOJI_FALLBACK = "ac:emoji-fallback"
+    EMOJI_ID = "ac:emoji-id"
 
     ACCOUNT_ID = "ri:account-id"
     USERKEY = "ri:userkey"
@@ -172,3 +173,29 @@ JIRA_ISSUE_KEY_PATTERN = r"/browse/([A-Za-z][A-Za-z0-9_]*-\d+)"
 
 # Searchable field of CorpUserInfo used to match Confluence users to DataHub users.
 CORPUSER_EMAIL_FIELD = "email"
+
+# Confluence's built-in emoticons, which older content stores by name only.
+EMOTICON_NAMES = {
+    "smile": "\U0001f642",
+    "sad": "\u2639\ufe0f",
+    "cheeky": "\U0001f61b",
+    "laugh": "\U0001f603",
+    "wink": "\U0001f609",
+    "thumbs-up": "\U0001f44d",
+    "thumbs-down": "\U0001f44e",
+    "information": "\u2139\ufe0f",
+    "tick": "\u2705",
+    "cross": "\u274c",
+    "warning": "\u26a0\ufe0f",
+    "plus": "\u2795",
+    "minus": "\u2796",
+    "question": "\u2753",
+    "light-on": "\U0001f4a1",
+    "light-off": "\U0001f4a1",
+    "yellow-star": "\u2b50",
+    "red-star": "\u2b50",
+    "green-star": "\u2b50",
+    "blue-star": "\u2b50",
+    "heart": "\u2764\ufe0f",
+    "broken-heart": "\U0001f494",
+}
