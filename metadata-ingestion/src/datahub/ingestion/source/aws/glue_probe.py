@@ -474,10 +474,11 @@ class GlueMetadataProbe(ProbeProviderBase):
         "<database>.<table>" for tables and views alike; `probe filter` builds
         that from the database this command reports as the parent. subtype is
         the DataHub subtype ingestion gives each (View for VIRTUAL_VIEW,
-        otherwise Table); a resource link listed without a type or storage
-        descriptor takes its owning table's type in ingestion, which this
-        command does not read, so those links are named in a warning. Each
-        record also carries the facts the recipe's
+        otherwise Table), except that a resource link listed without a type or
+        storage descriptor may be ingested as a View: with
+        resolve_resource_link_schema on, ingestion takes its type from the
+        owning table, which this command does not read. Each record also
+        carries the facts the recipe's
         non-pattern rules read -- whether the table is itself a Lake Formation
         resource link, and whether its database is one or belongs to another
         catalog -- so judge this output with `probe filter --from-run`. Lake
@@ -494,19 +495,6 @@ class GlueMetadataProbe(ProbeProviderBase):
         except ProbeSoftError as exc:
             self._warn(f"{exc}. {_DENIED_TABLES_SUFFIX}")
             return []
-        bare_links = [
-            str(table["Name"])
-            for table in tables
-            if "TargetTable" in table
-            and not table.get("TableType")
-            and not table.get("StorageDescriptor")
-        ]
-        if bare_links and self._config.resolve_resource_link_schema:
-            self._warn(
-                f"resource links listed without a type ({', '.join(bare_links)}) are "
-                f"shown as Table; with resolve_resource_link_schema on, ingestion "
-                f"takes their View/Table type from the owning table"
-            )
         return [_table_record(table, record) for table in tables]
 
     @probe_method()

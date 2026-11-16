@@ -1327,8 +1327,12 @@ class GlueSource(StatefulIngestionSourceBase):
                 return None
         elif owner_sub_types is None:
             return None
+        # Name the owning view too: the link itself has no view text to inspect.
         view_definition = (
-            self._get_view_definition(owner_table, table_name)
+            self._get_view_definition(
+                owner_table,
+                f"{table_name} -> {target['DatabaseName']}.{target['Name']}",
+            )
             if owner_table is not None
             else None
         )

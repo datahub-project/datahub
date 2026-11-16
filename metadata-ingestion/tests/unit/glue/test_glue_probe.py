@@ -270,7 +270,6 @@ def test_tables_lists_tables_and_views_with_their_subtype(glue: Stubber) -> None
             "database_catalog_id": "123456789012",
         },
     ]
-    assert any("shared_orders" in w and "owning table" in w for w in result.warnings)
     assert "never shown" not in str(result.to_dict())
     assert "someone@example.com" not in str(result.to_dict())
     assert "SELECT 1" not in str(result.to_dict())
