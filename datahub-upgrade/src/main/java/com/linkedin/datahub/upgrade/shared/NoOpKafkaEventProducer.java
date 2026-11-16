@@ -1,4 +1,4 @@
-package com.linkedin.datahub.upgrade.loadindices;
+package com.linkedin.datahub.upgrade.shared;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.dao.producer.KafkaEventProducer;
@@ -23,8 +23,8 @@ import org.apache.avro.generic.IndexedRecord;
 import org.apache.kafka.clients.producer.Producer;
 
 /**
- * No-op implementation of KafkaEventProducer for LoadIndices upgrade operations. This prevents
- * connection attempts to Kafka during index loading operations.
+ * No-op implementation of KafkaEventProducer for the LoadIndices and Cleanup upgrades. This
+ * prevents connection attempts to Kafka from contexts that never emit events.
  */
 @Slf4j
 public class NoOpKafkaEventProducer extends KafkaEventProducer {
