@@ -618,18 +618,30 @@ def test_odbc_navigation_warns_and_skips(
 
 
 @pytest.mark.parametrize(
-    "sql, expected_name",
+    "sql, metastore, expected_name",
     [
         pytest.param(
             "SELECT * FROM main.sales.orders",
+            "my_ms",
             "dbx.my_ms.main.sales.orders",
             id="catalog-schema-table",
         ),
+        # Lowercased like the rest of the name, as make_urn does for navigation.
+        pytest.param(
+            "SELECT * FROM main.sales.orders",
+            "My_MS",
+            "dbx.my_ms.main.sales.orders",
+            id="mixed-case-metastore",
+        ),
         # Without a catalog there is nothing to put the metastore in front of.
-        pytest.param("SELECT * FROM sales.orders", "dbx.sales.orders", id="no-catalog"),
+        pytest.param(
+            "SELECT * FROM sales.orders", "my_ms", "dbx.sales.orders", id="no-catalog"
+        ),
     ],
 )
-def test_odbc_query_databricks_prefixes_metastore(sql: str, expected_name: str) -> None:
+def test_odbc_query_databricks_prefixes_metastore(
+    sql: str, metastore: str, expected_name: str
+) -> None:
     """Odbc.Query must emit the same Databricks URN as ODBC navigation, which
     prefixes a configured metastore like Databricks.Catalogs."""
     expression = (
@@ -644,7 +656,7 @@ def test_odbc_query_databricks_prefixes_metastore(sql: str, expected_name: str) 
             "server_to_platform_instance": {
                 "adb-1.azuredatabricks.net": {
                     "platform_instance": "dbx",
-                    "metastore": "my_ms",
+                    "metastore": metastore,
                 }
             }
         }

@@ -2407,7 +2407,10 @@ class OdbcLineage(AbstractLineage):
             not isinstance(platform_detail, DataBricksPlatformDetail)
         ):
             return lineage
-        metastore = platform_detail.metastore
+        # Lowercased like the rest of the name, as make_urn does for navigation.
+        metastore = urn_to_lowercase(
+            platform_detail.metastore, self.config.convert_lineage_urns_to_lowercase
+        )
         platform_instance = platform_detail.platform_instance
 
         def prefix_metastore(urn: str) -> str:
