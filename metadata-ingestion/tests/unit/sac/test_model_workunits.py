@@ -109,7 +109,7 @@ def _s4hana_live_model() -> ResourceModel:
         description=None,
         system_type="S/4 HANA",
         connection_id="MY_S4_CONNECTION",
-        external_id="query:[][][MY_QUERY]",
+        external_id="query:[][][2CZMY_QUERY_VIEW]",
         is_import=False,
     )
 
@@ -121,16 +121,14 @@ def test_get_model_workunits_resolves_s4hana_query_lineage(requests_mock):
         source.get_model_workunits(_acquired_model_dataset_urn(), _s4hana_live_model())
     )
 
-    expected_upstream = (
-        "urn:li:dataset:(urn:li:dataPlatform:bw,MY_S4_CONNECTION.QUERY/MY_QUERY,PROD)"
-    )
+    expected_upstream = "urn:li:dataset:(urn:li:dataPlatform:s4hana,MY_S4_CONNECTION.ZMY_QUERY_VIEW,PROD)"
     lineage = _aspects(workunits, UpstreamLineageClass)
     assert len(lineage) == 1
     assert [u.dataset for u in lineage[0].upstreams] == [expected_upstream]
     # The upstream query dataset is created even if its source system is never ingested.
     upstream_keys = _aspects(workunits, DatasetKeyClass)
     assert [(k.platform, k.name) for k in upstream_keys] == [
-        ("urn:li:dataPlatform:bw", "MY_S4_CONNECTION.QUERY/MY_QUERY")
+        ("urn:li:dataPlatform:s4hana", "MY_S4_CONNECTION.ZMY_QUERY_VIEW")
     ]
     assert not source.report.warnings
 
@@ -140,7 +138,7 @@ def test_get_model_workunits_s4hana_uses_connection_mapping_platform(requests_mo
         requests_mock,
         connection_mapping={
             "MY_S4_CONNECTION": ConnectionMappingConfig(
-                platform="s4hana", platform_instance="prod_s4"
+                platform="my_platform", platform_instance="prod_s4"
             )
         },
     )
@@ -151,5 +149,5 @@ def test_get_model_workunits_s4hana_uses_connection_mapping_platform(requests_mo
 
     lineage = _aspects(workunits, UpstreamLineageClass)
     assert [u.dataset for u in lineage[0].upstreams] == [
-        "urn:li:dataset:(urn:li:dataPlatform:s4hana,prod_s4.QUERY/MY_QUERY,PROD)"
+        "urn:li:dataset:(urn:li:dataPlatform:my_platform,prod_s4.ZMY_QUERY_VIEW,PROD)"
     ]

@@ -110,21 +110,22 @@ _DATASPHERE_PLATFORM = "sap-datasphere"
 
 _BW_SYSTEM_TYPE = "BW"
 _HANA_SYSTEM_TYPE = "HANA"
-# A live connection to S/4HANA. Its models are built on queries of the BW embedded in
-# S/4HANA and carry the same `query:[][][<query>]` externalId as BW models, so they are
-# resolved through the BW query path.
 _S4HANA_SYSTEM_TYPE = "S/4 HANA"
-_QUERY_SYSTEM_TYPES = (_BW_SYSTEM_TYPE, _S4HANA_SYSTEM_TYPE)
-_VIEW_SYSTEM_TYPES = (_HANA_SYSTEM_TYPE,)
 _QUERY_EXTERNAL_ID_PREFIX = "query:"
 _VIEW_EXTERNAL_ID_PREFIX = "view:"
-# Upstream platform used when the connection has no `connection_mapping` platform. The
-# system type itself can't be used for S/4HANA ("s/4 hana" is not a valid platform name);
-# its queries are BW queries, so they share BW's platform.
+# SAC reads S/4HANA through the BW embedded in it: each CDS analytical query view
+# (`@Analytics.query: true`) is exposed as a transient BW query named `2C<name>`, and
+# the model's externalId is BW-style (`query:[][][2C<name>]`). The upstream is the CDS
+# view itself, so it is named without the `2C` prefix and without the BW-specific
+# `query_name_template`, under its own platform rather than `bw`. For CDS view entities
+# `<name>` is the entity name; for older DDIC-based CDS views it is the SQL view name.
+_S4HANA_TRANSIENT_QUERY_PREFIX = "2C"
+_S4HANA_PLATFORM = "s4hana"
+# Upstream platform used when the connection has no `connection_mapping` platform.
 _DEFAULT_UPSTREAM_PLATFORMS: Dict[str, str] = {
     _BW_SYSTEM_TYPE: "bw",
     _HANA_SYSTEM_TYPE: "hana",
-    _S4HANA_SYSTEM_TYPE: "bw",
+    _S4HANA_SYSTEM_TYPE: _S4HANA_PLATFORM,
 }
 
 # SAC models are discovered through the stories that consume them, so SAC exposes no
@@ -705,14 +706,21 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
         ):
             upstream_dataset_name: Optional[str] = None
 
-            if (
-                model.system_type in _QUERY_SYSTEM_TYPES
-                and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX)
+            if model.system_type == _BW_SYSTEM_TYPE and model.external_id.startswith(
+                _QUERY_EXTERNAL_ID_PREFIX
             ):  # query:[][][query]
                 query = model.external_id[11:-1]
                 upstream_dataset_name = self.get_query_name(query)
             elif (
-                model.system_type in _VIEW_SYSTEM_TYPES
+                model.system_type == _S4HANA_SYSTEM_TYPE
+                and model.external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX)
+            ):  # query:[][][2C<cds view>]
+                query = model.external_id[11:-1]
+                upstream_dataset_name = query.removeprefix(
+                    _S4HANA_TRANSIENT_QUERY_PREFIX
+                )
+            elif (
+                model.system_type == _HANA_SYSTEM_TYPE
                 and model.external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX)
             ):  # view:[schema][schema.namespace][view]
                 schema, namespace_with_schema, view = model.external_id.split("][", 2)
