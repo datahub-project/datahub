@@ -1,6 +1,8 @@
+import aerospikeLogo from '@images/aerospike.png';
 import airflowLogo from '@images/airflowlogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
+import absLogo from '@images/azureblobstoragelogo.svg';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigidLogo from '@images/bigidlogo.png';
 import bigqueryLogo from '@images/bigquerylogo.png';
@@ -9,6 +11,7 @@ import clickhouseLogo from '@images/clickhouselogo.png';
 import cockroachdbLogo from '@images/cockroachdblogo.png';
 import confluenceLogo from '@images/confluencelogo.svg';
 import csvLogo from '@images/csv-logo.png';
+import cubeLogo from '@images/cubelogo.png';
 import dagsterLogo from '@images/dagsterlogo.svg';
 import databricksLogo from '@images/databrickslogo.png';
 import datahubLogo from '@images/datahublogo.png';
@@ -16,22 +19,26 @@ import dataplexLogo from '@images/dataplexlogo.svg';
 import dataprocMetastoreLogo from '@images/dataprocmetastorelogo.svg';
 import db2Logo from '@images/db2logo.png';
 import dbtLogo from '@images/dbtlogo.png';
+import deltaLakeLogo from '@images/deltalakelogo.png';
 import dltLogo from '@images/dltlogo.svg';
 import documentdbLogo from '@images/documentdblogo.svg';
 import dremioLogo from '@images/dremiologo.png';
 import druidLogo from '@images/druidlogo.png';
 import dynamodbLogo from '@images/dynamodblogo.png';
 import elasticsearchLogo from '@images/elasticsearchlogo.png';
+import excelLogo from '@images/excel-logo.svg';
 import fabricDataFactoryLogo from '@images/fabricdatafactorylogo.svg';
 import fabricLogo from '@images/fabriclogo.svg';
 import fabricOnelakeLogo from '@images/fabriconelakelogo.png';
 import feastLogo from '@images/feastlogo.png';
 import fivetranLogo from '@images/fivetranlogo.png';
 import flinkLogo from '@images/flinklogo.svg';
+import gcsLogo from '@images/gcslogo.svg';
 import githubLogo from '@images/githublogo.png';
 import glueLogo from '@images/gluelogo.png';
 import googleDocsLogo from '@images/googledocslogo.svg';
 import grafanaLogo from '@images/grafana.png';
+import hanaLogo from '@images/hanalogo.png';
 import hexLogo from '@images/hex.png';
 import hightouchLogo from '@images/hightouchlogo.png';
 import hiveLogo from '@images/hivelogo.png';
@@ -40,6 +47,7 @@ import informaticaLogo from '@images/informaticalogo.png';
 import informixLogo from '@images/informixlogo.png';
 import kafkaConnectLogo from '@images/kafkaconnectlogo.svg';
 import kafkaLogo from '@images/kafkalogo.png';
+import langfuseLogo from '@images/langfuselogo.svg';
 import salesforceLogo from '@images/logo-salesforce.svg';
 import lookerLogo from '@images/lookerlogo.svg';
 import mariadbLogo from '@images/mariadblogo.svg';
@@ -57,25 +65,33 @@ import nifiLogo from '@images/nifilogo.svg';
 import notionLogo from '@images/notionlogo.png';
 import odcsLogo from '@images/odcslogo.png';
 import oktaLogo from '@images/oktalogo.png';
+import openapiLogo from '@images/openapilogo.png';
 import oracleLogo from '@images/oraclelogo.png';
+import pineconeLogo from '@images/pineconelogo.png';
 import postgresLogo from '@images/postgreslogo.png';
 import powerbiLogo from '@images/powerbilogo.svg';
 import presetLogo from '@images/presetlogo.svg';
 import prestoLogo from '@images/prestologo.png';
+import pulsarLogo from '@images/pulsarlogo.png';
 import qlikLogo from '@images/qliklogo.png';
+import quicksightLogo from '@images/quicksightlogo.svg';
+import redashLogo from '@images/redashlogo.png';
 import redshiftLogo from '@images/redshiftlogo.png';
 import s3Logo from '@images/s3logo.png';
 import sacLogo from '@images/saclogo.svg';
 import sageMakerLogo from '@images/sagemakerlogo.png';
 import sigmaLogo from '@images/sigmalogo.png';
+import slackLogo from '@images/slacklogo.png';
 import snaplogicLogo from '@images/snaplogic.svg';
 import snowflakeLogo from '@images/snowflakelogo.png';
 import snowplowLogo from '@images/snowplowlogo.png';
 import sparkLogo from '@images/sparklogo.png';
 import sqlmeshLogo from '@images/sqlmeshlogo.png';
+import starrocksLogo from '@images/starrockslogo.svg';
 import streamlitLogo from '@images/streamlitlogo.png';
 import supersetLogo from '@images/supersetlogo.png';
 import tableauLogo from '@images/tableaulogo.svg';
+import teradataLogo from '@images/teradatalogo.png';
 import thoughtspotLogo from '@images/thoughtspotlogo.svg';
 import tidbLogo from '@images/tidblogo.svg';
 import timescaledbLogo from '@images/timescalelogo.png';
@@ -267,6 +283,38 @@ const FABRIC_DATA_FACTORY = 'fabric-data-factory';
 const FABRIC_DATA_FACTORY_URN = `urn:li:dataPlatform:${FABRIC_DATA_FACTORY}`;
 const FABRIC_ONELAKE = 'fabric-onelake';
 const FABRIC_ONELAKE_URN = `urn:li:dataPlatform:${FABRIC_ONELAKE}`;
+const ABS = 'abs';
+const ABS_URN = `urn:li:dataPlatform:${ABS}`;
+const AEROSPIKE = 'aerospike';
+const AEROSPIKE_URN = `urn:li:dataPlatform:${AEROSPIKE}`;
+const CUBE = 'cube';
+const CUBE_URN = `urn:li:dataPlatform:${CUBE}`;
+const DELTA_LAKE = 'delta-lake';
+const DELTA_LAKE_URN = `urn:li:dataPlatform:${DELTA_LAKE}`;
+const EXCEL = 'excel';
+const EXCEL_URN = `urn:li:dataPlatform:${EXCEL}`;
+const GCS = 'gcs';
+const GCS_URN = `urn:li:dataPlatform:${GCS}`;
+const HANA = 'hana';
+const HANA_URN = `urn:li:dataPlatform:${HANA}`;
+const LANGFUSE = 'langfuse';
+const LANGFUSE_URN = `urn:li:dataPlatform:${LANGFUSE}`;
+const OPENAPI = 'OpenApi';
+const OPENAPI_URN = `urn:li:dataPlatform:${OPENAPI}`;
+const PINECONE = 'pinecone';
+const PINECONE_URN = `urn:li:dataPlatform:${PINECONE}`;
+const PULSAR = 'pulsar';
+const PULSAR_URN = `urn:li:dataPlatform:${PULSAR}`;
+const QUICKSIGHT = 'quicksight';
+const QUICKSIGHT_URN = `urn:li:dataPlatform:${QUICKSIGHT}`;
+const REDASH = 'redash';
+const REDASH_URN = `urn:li:dataPlatform:${REDASH}`;
+const SLACK = 'slack';
+const SLACK_URN = `urn:li:dataPlatform:${SLACK}`;
+const STARROCKS = 'starrocks';
+const STARROCKS_URN = `urn:li:dataPlatform:${STARROCKS}`;
+const TERADATA = 'teradata';
+const TERADATA_URN = `urn:li:dataPlatform:${TERADATA}`;
 export const RDF = 'rdf';
 
 export const PLATFORM_URN_TO_LOGO = {
@@ -355,6 +403,22 @@ export const PLATFORM_URN_TO_LOGO = {
     [FABRIC_URN]: fabricLogo,
     [FABRIC_DATA_FACTORY_URN]: fabricDataFactoryLogo,
     [FABRIC_ONELAKE_URN]: fabricOnelakeLogo,
+    [ABS_URN]: absLogo,
+    [AEROSPIKE_URN]: aerospikeLogo,
+    [CUBE_URN]: cubeLogo,
+    [DELTA_LAKE_URN]: deltaLakeLogo,
+    [EXCEL_URN]: excelLogo,
+    [GCS_URN]: gcsLogo,
+    [HANA_URN]: hanaLogo,
+    [LANGFUSE_URN]: langfuseLogo,
+    [OPENAPI_URN]: openapiLogo,
+    [PINECONE_URN]: pineconeLogo,
+    [PULSAR_URN]: pulsarLogo,
+    [QUICKSIGHT_URN]: quicksightLogo,
+    [REDASH_URN]: redashLogo,
+    [SLACK_URN]: slackLogo,
+    [STARROCKS_URN]: starrocksLogo,
+    [TERADATA_URN]: teradataLogo,
 };
 
 export const SOURCE_TO_PLATFORM_URN = {

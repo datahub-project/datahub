@@ -129,6 +129,16 @@
         "isPopular": true
     },
     {
+        "urn": "urn:li:dataPlatform:powerbi",
+        "name": "powerbi-report-server",
+        "displayName": "Power BI Report Server",
+        "description": "Import Reports, Paginated Reports, and ownership from Power BI Report Server.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/powerbi-report-server/",
+        "recipe": "source:\n    type: powerbi-report-server\n    config:\n        # Coordinates\n        host_port: # Your Report Server host and port, e.g. reports.example.com:80\n        # server_alias: # Optional: alias for the host used in URNs\n        report_virtual_directory_name: Reports\n        report_server_virtual_directory_name: ReportServer\n\n        # Credentials (Windows account)\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: # Your Windows username\n        password: \"${POWERBI_REPORT_SERVER_PASSWORD}\"\n        workstation_name: localhost\n\n        # Options\n        extract_ownership: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:dbt",
         "name": "dbt-cloud",
         "displayName": "dbt Cloud",
@@ -228,6 +238,26 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:pulsar",
+        "name": "pulsar",
+        "displayName": "Apache Pulsar",
+        "description": "Import Tenants, Namespaces, Topics, and schemas from Apache Pulsar.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/pulsar/",
+        "recipe": "source:\n    type: pulsar\n    config:\n        # Coordinates\n        web_service_url: # Your Pulsar web service URL, e.g. http://localhost:8080\n\n        # Credentials (only if authentication is enabled)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # token: \"${PULSAR_TOKEN}\"\n\n        # Optional: tenants to ingest (listing all tenants requires the superUser role)\n        # tenants:\n        #     - my_tenant\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:kinesis",
+        "name": "kinesis",
+        "displayName": "Amazon Kinesis",
+        "description": "Import Data Streams, Firehose streams, schemas, and lineage from Amazon Kinesis.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/kinesis/",
+        "recipe": "source:\n    type: kinesis\n    config:\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        aws_config:\n            aws_region: # Your AWS region, e.g. us-east-1\n            # Omit the keys below to use the executor's IAM role\n            aws_access_key_id: # Your AWS access key ID\n            aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # Options\n        include_streams: true\n        include_firehose: true\n        include_table_lineage: true\n        extract_tags: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:sns",
         "name": "sns",
         "displayName": "Amazon SNS",
@@ -298,6 +328,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:hive",
+        "name": "hive-metastore",
+        "displayName": "Hive Metastore",
+        "description": "Import Databases, Tables, Views, and storage lineage directly from a Hive Metastore.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hive-metastore/",
+        "recipe": "source:\n    type: hive-metastore\n    config:\n        # Coordinates (the metastore's backing database)\n        host_port: # Your metastore database host and port, e.g. localhost:3306\n        database: metastore # Your metastore database name\n        # scheme: postgresql+psycopg2 # Use this if the metastore database is PostgreSQL (default: mysql+pymysql)\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your metastore database username\n        password: \"${HIVE_METASTORE_PASSWORD}\"\n\n        # Platform to emit tables under: hive (default), presto, or trino\n        mode: hive\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Catalog",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:informix",
         "name": "informix",
         "displayName": "Informix",
@@ -311,9 +351,39 @@
         "urn": "urn:li:dataPlatform:db2",
         "name": "db2",
         "displayName": "IBM Db2",
-        "description": "Import Databases, Schemas, Tables, Views, Stored Procedures, and lineage from IBM Db2.",
+        "description": "Import Databases, Schemas, Tables, Views, Stored Procedures, and lineage from IBM Db2. Requires an x86_64 executor.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/db2/",
         "recipe": "source:\n    type: db2\n    config:\n        # Coordinates\n        host_port: # Your Db2 host and port, e.g. localhost:50000\n        database: # Your Db2 database name, e.g. SAMPLE\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Db2 username, e.g. db2inst1\n        password: \"${DB2_PASSWORD}\"\n\n        # Optional TLS\n        # uri_args:\n        #     Security: SSL\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_stored_procedures: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:hana",
+        "name": "hana",
+        "displayName": "SAP HANA",
+        "description": "Import Schemas, Tables, Views, Calculation Views, Stored Procedures, and lineage from SAP HANA.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/hana/",
+        "recipe": "source:\n    type: hana\n    config:\n        # Coordinates\n        host_port: # Your SAP HANA host and port, e.g. hana.example.com:30015\n        # database: # Optional: tenant database name\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your SAP HANA username\n        password: \"${HANA_PASSWORD}\"\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_calculation_views: false\n        include_stored_procedures: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:teradata",
+        "name": "teradata",
+        "displayName": "Teradata",
+        "description": "Import Databases, Tables, Views, lineage, and usage statistics from Teradata.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/teradata/",
+        "recipe": "source:\n    type: teradata\n    config:\n        # Coordinates\n        host_port: # Your Teradata host and port, e.g. myinstance.teradata.com:1025\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Teradata username\n        password: \"${TERADATA_PASSWORD}\"\n\n        # Options\n        include_tables: true\n        include_views: true\n        # Lineage and usage read the DBQL query log (DBC.QryLogV)\n        include_table_lineage: false\n        include_usage_statistics: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Warehouse",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:starrocks",
+        "name": "starrocks",
+        "displayName": "StarRocks",
+        "description": "Import Tables, Views, Databases, Schemas, and statistics from StarRocks.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/starrocks/",
+        "recipe": "source:\n    type: starrocks\n    config:\n        # Coordinates\n        host_port: # Your StarRocks FE host and query port, e.g. localhost:9030\n        # database: # Optional: one database in catalog.database format, e.g. default_catalog.my_db\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your StarRocks username\n        password: \"${STARROCKS_PASSWORD}\"\n\n        # Options\n        include_tables: true\n        include_views: true\n        include_external_catalogs: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
@@ -346,6 +416,16 @@
         "recipe": "source:\n    type: glue\n    config:\n        env: PROD\n        extract_owners: true\n        extract_transforms: true\n",
         "category": "Data Lake",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:fabric-onelake",
+        "name": "fabric-onelake",
+        "displayName": "Fabric OneLake",
+        "description": "Import Workspaces, Lakehouses, Warehouses, Schemas, Tables, and Views from Microsoft Fabric OneLake.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/fabric-onelake/",
+        "recipe": "source:\n    type: fabric-onelake\n    config:\n        # Credentials (service principal)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            authentication_method: service_principal\n            client_id: # Your Azure application (client) ID\n            client_secret: \"${AZURE_CLIENT_SECRET}\"\n            tenant_id: # Your Azure tenant ID\n\n        # Options\n        extract_lakehouses: true\n        extract_warehouses: true\n        # Views require a SQL Analytics Endpoint; see the docs for sql_endpoint\n        extract_views: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Lake",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:mssql",
@@ -396,6 +476,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:aerospike",
+        "name": "aerospike",
+        "displayName": "Aerospike",
+        "description": "Import Namespaces, Sets, and inferred schemas from Aerospike.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/aerospike/",
+        "recipe": "source:\n    type: aerospike\n    config:\n        # Coordinates\n        hosts: # Your Aerospike seed nodes as [host, port] pairs\n            - - localhost\n              - 3000\n\n        # Credentials (only if security is enabled)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # username: # Your Aerospike username\n        # password: \"${AEROSPIKE_PASSWORD}\"\n        # tls_enabled: false\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:oracle",
         "name": "oracle",
         "displayName": "Oracle",
@@ -412,6 +502,36 @@
         "description": "Import Charts and Dashboards from Superset",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/superset/",
         "recipe": "source:\n  type: superset\n  config:\n    # Coordinates\n    connect_uri: http://localhost:8088\n\n    # Credentials\n    username: user\n    password: pass\n    provider: ldap",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:redash",
+        "name": "redash",
+        "displayName": "Redash",
+        "description": "Import Dashboards, Charts, and lineage from Redash.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/redash/",
+        "recipe": "source:\n    type: redash\n    config:\n        # Coordinates\n        connect_uri: # Your Redash URL, e.g. https://redash.example.com\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        api_key: \"${REDASH_API_KEY}\"\n\n        # Options\n        skip_draft: true\n        parse_table_names_from_sql: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:quicksight",
+        "name": "quicksight",
+        "displayName": "Amazon QuickSight",
+        "description": "Import Dashboards, Analyses, Datasets, Folders, ownership, and lineage from Amazon QuickSight.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/quicksight/",
+        "recipe": "source:\n    type: quicksight\n    config:\n        # Coordinates (QuickSight is regional; one recipe per region)\n        aws_region: # Your AWS region, e.g. us-east-1\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        # Omit the keys below to use the executor's IAM role\n        aws_access_key_id: # Your AWS access key ID\n        aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # Options\n        extract_lineage: true\n        extract_ownership: true\n        extract_tags: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "BI & Analytics",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:cube",
+        "name": "cube",
+        "displayName": "Cube",
+        "description": "Import Cubes, Views, Reports, Workbooks, and lineage from Cube.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/cube/",
+        "recipe": "source:\n    type: cube\n    config:\n        # Coordinates\n        api_url: # Your Cube REST API URL including the base path, e.g. http://localhost:4000/cubejs-api\n        deployment_type: CORE # CORE for self-hosted Cube, CLOUD for Cube Cloud\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        api_token: \"${CUBE_API_TOKEN}\"\n\n        # Optional: warehouse behind the Cube data model, for upstream lineage\n        # warehouse_platform: snowflake\n\n        stateful_ingestion:\n            enabled: true",
         "category": "BI & Analytics",
         "isPopular": false
     },
@@ -486,6 +606,16 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:langfuse",
+        "name": "langfuse",
+        "displayName": "Langfuse",
+        "description": "Import Prompts, Traces, Generations, and Scores from Langfuse.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/langfuse/",
+        "recipe": "source:\n    type: langfuse\n    config:\n        # Coordinates\n        # Add secret in Secrets Tab with relevant names for each variable\n        connection:\n            host: # Your Langfuse URL, e.g. https://cloud.langfuse.com\n            public_key: # Your Langfuse public key\n            secret_key: \"${LANGFUSE_SECRET_KEY}\"\n\n        # Options\n        window:\n            start_time: \"-7d\"\n        include_traces: true\n        include_prompts: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "ML Platforms",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:azure-ad",
         "name": "azure-ad",
         "displayName": "Azure AD",
@@ -506,12 +636,52 @@
         "isPopular": false
     },
     {
+        "urn": "urn:li:dataPlatform:ldap",
+        "name": "ldap",
+        "displayName": "LDAP",
+        "description": "Import Users and Groups from LDAP.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/ldap/",
+        "recipe": "source:\n    type: ldap\n    config:\n        # Coordinates\n        ldap_server: # Your LDAP server URL, e.g. ldaps://ldap.example.com\n        base_dn: # Your base DN, e.g. dc=example,dc=org\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        ldap_user: # Your bind DN, e.g. cn=admin,dc=example,dc=org\n        ldap_password: \"${LDAP_PASSWORD}\"\n\n        # Options\n        filter: (objectClass=*)\n        tls_verify: true\n        stateful_ingestion:\n            enabled: true",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:slack",
+        "name": "slack",
+        "displayName": "Slack",
+        "description": "Import Users and public Channels from Slack.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/slack/",
+        "recipe": "source:\n    type: slack\n    config:\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        bot_token: \"${SLACK_BOT_TOKEN}\"\n\n        # Options\n        enrich_user_metadata: true\n        ingest_users: true\n        ingest_public_channels: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:salesforce",
         "name": "salesforce",
         "displayName": "Salesforce",
         "description": "Import Standard and Custom Objects, Fields, and statistics from Salesforce.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/salesforce/",
         "recipe": "source:\n    type: salesforce\n    config:\n        # Coordinates\n        instance_url: # Your Salesforce instance URL, e.g. https://MyDomainName.my.salesforce.com\n        # is_sandbox: false\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        auth: USERNAME_PASSWORD\n        username: null # Your Salesforce username, e.g. user@company.com\n        password: \"${SALESFORCE_PASSWORD}\"\n        security_token: \"${SALESFORCE_SECURITY_TOKEN}\"\n\n        # Options\n        ingest_tags: false\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:OpenApi",
+        "name": "openapi",
+        "displayName": "OpenAPI",
+        "description": "Import API endpoints and their schemas from an OpenAPI (Swagger) specification.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/openapi/",
+        "recipe": "source:\n    type: openapi\n    config:\n        # Coordinates\n        name: # A name for this API, e.g. my_api\n        url: # Your API base URL, e.g. https://api.example.com\n        swagger_file: # Path of the spec relative to the URL, e.g. openapi.json\n\n        # Credentials (only if the API requires authentication)\n        # Add secret in Secrets Tab with relevant names for each variable\n        # bearer_token: \"${OPENAPI_BEARER_TOKEN}\"\n        # username: # Your username for basic authentication\n        # password: \"${OPENAPI_PASSWORD}\"\n",
+        "category": "Miscellaneous",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:excel",
+        "name": "excel",
+        "displayName": "Excel",
+        "description": "Import Worksheets and inferred schemas from Excel files in S3 or Azure Blob Storage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/excel/",
+        "recipe": "source:\n    type: excel\n    config:\n        # Coordinates\n        path_list:\n            - # Path to your Excel files, e.g. s3://my-bucket/reports/*.xlsx\n\n        # Credentials (S3)\n        # Add secret in Secrets Tab with relevant names for each variable\n        aws_config:\n            aws_region: # Your AWS region, e.g. us-east-1\n            # Omit the keys below to use the executor's IAM role\n            aws_access_key_id: # Your AWS access key ID\n            aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # For Azure Blob Storage paths, use azure_config instead:\n        # azure_config:\n        #     account_name: # Your storage account name\n        #     container_name: # Your container name\n        #     sas_token: \"${AZURE_SAS_TOKEN}\"\n\n        # Options\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true",
         "category": "Miscellaneous",
         "isPopular": false
     },
@@ -532,6 +702,26 @@
         "description": "Import Connectors, Destinations, Sync Histor, Users, and lineage from FiveTran.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/fivetran/",
         "recipe": "source:\n    type: fivetran\n    config:\n        # Fivetran log connector destination server configurations\n        fivetran_log_config:\n            destination_platform: snowflake\n            snowflake_destination_config:\n                # Coordinates\n                account_id: snowflake_account_id\n                warehouse: warehouse_name\n                database: snowflake_db\n                log_schema: fivetran_log_schema\n\n                # Credentials\n                username: ${SNOWFLAKE_USER}\n                password: ${SNOWFLAKE_PASS}\n                role: snowflake_role\n\n        # Optional - filter for certain connector names instead of ingesting everything.\n        # connector_patterns:\n        #     allow:\n        #         - connector_name\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for source\n        # A mapping of Fivetran connector id to data platform instance\n        # sources_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV\n\n        # Optional -- This mapping is optional and only required to configure platform-instance for destination.\n        # A mapping of Fivetran destination id to data platform instance\n        # destination_to_platform_instance:\n        #     calendar_elected:\n        #         platform_instance: cloud_postgres_instance\n        #         env: DEV",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:azure-data-factory",
+        "name": "azure-data-factory",
+        "displayName": "Azure Data Factory",
+        "description": "Import Data Factories, Pipelines, Activities, run history, and lineage from Azure Data Factory.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/azure-data-factory/",
+        "recipe": "source:\n    type: azure-data-factory\n    config:\n        # Coordinates\n        subscription_id: # Your Azure subscription ID\n        # resource_group: # Optional: limit to one resource group\n\n        # Credentials (service principal)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            authentication_method: service_principal\n            client_id: # Your Azure application (client) ID\n            client_secret: \"${AZURE_CLIENT_SECRET}\"\n            tenant_id: # Your Azure tenant ID\n\n        # Options\n        include_lineage: true\n        include_execution_history: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "ETL / ELT",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:fabric-data-factory",
+        "name": "fabric-data-factory",
+        "displayName": "Fabric Data Factory",
+        "description": "Import Workspaces, Data Pipelines, Activities, run history, and lineage from Microsoft Fabric Data Factory.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/fabric-data-factory/",
+        "recipe": "source:\n    type: fabric-data-factory\n    config:\n        # Credentials (service principal)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            authentication_method: service_principal\n            client_id: # Your Azure application (client) ID\n            client_secret: \"${AZURE_CLIENT_SECRET}\"\n            tenant_id: # Your Azure tenant ID\n\n        # Options\n        include_lineage: true\n        include_execution_history: true\n        execution_history_days: 7\n        stateful_ingestion:\n            enabled: true",
         "category": "ETL / ELT",
         "isPopular": false
     },
@@ -652,7 +842,7 @@
         "displayName": "Elasticsearch",
         "description": "Import Indices, Index Templates, and Data Streams from Elasticsearch.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/elasticsearch/",
-        "recipe": "source:\n    type: elasticsearch\n    config:\n        # Coordinates\n        host: # Your Elasticsearch host and port, e.g. localhost:9200\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Elasticsearch username, e.g. elastic\n        password: \"${ELASTICSEARCH_PASSWORD}\"\n\n        # SSL\n        use_ssl: true\n        verify_certs: true\n\n        # Options\n        index_pattern:\n            deny:\n                - '^\\..*'\n        ingest_index_templates: false\n        stateful_ingestion:\n            enabled: true",
+        "recipe": "source:\n    type: elasticsearch\n    config:\n        # Coordinates\n        host: # Your Elasticsearch host and port, e.g. localhost:9200\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        username: null # Your Elasticsearch username, e.g. elastic\n        password: \"${ELASTICSEARCH_PASSWORD}\"\n\n        # SSL (enable both for HTTPS clusters)\n        use_ssl: false\n        verify_certs: false\n\n        # Options\n        index_pattern:\n            deny:\n                - '^\\..*'\n        ingest_index_templates: false\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
@@ -673,6 +863,16 @@
         "description": "Import Nodes and Relationships from Neo4j.",
         "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/neo4j/",
         "recipe": "source:\n    type: 'neo4j'\n    config:\n        uri: 'neo4j+ssc://host:7687'\n        username: 'neo4j'\n        password: 'password'\n        env: 'PROD'\n\nsink:\n  type: \"datahub-rest\"\n  config:\n    server: 'http://localhost:8080'",
+        "category": "Database",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:pinecone",
+        "name": "pinecone",
+        "displayName": "Pinecone",
+        "description": "Import Indexes, Namespaces, and inferred metadata schemas from Pinecone.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/pinecone/",
+        "recipe": "source:\n    type: pinecone\n    config:\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        api_key: \"${PINECONE_API_KEY}\"\n\n        # Options\n        enable_schema_inference: true\n        stateful_ingestion:\n            enabled: true",
         "category": "Database",
         "isPopular": false
     },
@@ -750,6 +950,16 @@
         "isNew": true
     },
     {
+        "urn": "urn:li:dataPlatform:google_drive",
+        "name": "google-drive",
+        "displayName": "Google Drive",
+        "description": "Import Google Docs from Google Drive folders and shared drives as Documents.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/google_drive/",
+        "recipe": "source:\n    type: google-drive\n    config:\n        # Coordinates\n        root_folder_ids:\n            - # Your Drive folder ID, shared drive ID, or folder URL\n\n        # Credentials (service account key; omit to use Application Default Credentials)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            project_id: # Your GCP project ID\n            client_email: # Your service account email\n            client_id: # Your service account client ID\n            private_key_id: \"${GDRIVE_PRIVATE_KEY_ID}\"\n            private_key: \"${GDRIVE_PRIVATE_KEY}\"\n\n        # Options\n        recursive: true\n        document_import_mode: EXTERNAL\n        stateful_ingestion:\n            enabled: true",
+        "category": "Context Document Sources",
+        "isPopular": false
+    },
+    {
         "urn": "urn:li:dataPlatform:airflow",
         "name": "airflow",
         "displayName": "Airflow",
@@ -791,6 +1001,36 @@
         "recipe": "source:\n  type: s3\n  config:\n    path_specs:\n      - include: \"s3://covid19-lake/covid_knowledge_graph/csv/nodes/*.*\"\n\n    aws_config:\n      aws_access_key_id: key_id\n      aws_secret_access_key: access_key\n      aws_region: us-east-2\n    env: \"PROD\"\n    profiling:\n      enabled: false",
         "category": "Data Lake",
         "isPopular": true
+    },
+    {
+        "urn": "urn:li:dataPlatform:abs",
+        "name": "abs",
+        "displayName": "Azure Blob Storage",
+        "description": "Import Datasets, Folders, containers, and inferred schemas from Azure Blob Storage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/abs/",
+        "recipe": "source:\n    type: abs\n    config:\n        # Coordinates\n        path_specs:\n            - include: # Path to your files, e.g. https://myaccount.blob.core.windows.net/mycontainer/data/{table}/*.parquet\n\n        # Credentials\n        # Add secret in Secrets Tab with relevant names for each variable\n        azure_config:\n            account_name: # Your storage account name\n            container_name: # Your container name\n            sas_token: \"${AZURE_SAS_TOKEN}\"\n\n        # Options\n        profiling:\n            enabled: false\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Lake",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:gcs",
+        "name": "gcs",
+        "displayName": "Google Cloud Storage",
+        "description": "Import Datasets, Folders, buckets, and inferred schemas from Google Cloud Storage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/gcs/",
+        "recipe": "source:\n    type: gcs\n    config:\n        # Coordinates\n        path_specs:\n            - include: # Path to your files, e.g. gs://my-bucket/data/{table}/*.parquet\n\n        # Credentials (HMAC keys)\n        # Add secret in Secrets Tab with relevant names for each variable\n        credential:\n            hmac_access_id: # Your HMAC access ID\n            hmac_access_secret: \"${GCS_HMAC_ACCESS_SECRET}\"\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Lake",
+        "isPopular": false
+    },
+    {
+        "urn": "urn:li:dataPlatform:delta-lake",
+        "name": "delta-lake",
+        "displayName": "Delta Lake",
+        "description": "Import Delta Tables, schemas, and version history from Delta Lake on S3 or Azure storage.",
+        "docsUrl": "https://docs.datahub.com/docs/generated/ingestion/sources/delta-lake/",
+        "recipe": "source:\n    type: delta-lake\n    config:\n        # Coordinates\n        base_path: # Path to a Delta table or a folder of tables, e.g. s3://my-bucket/delta/\n\n        # Credentials (S3)\n        # Add secret in Secrets Tab with relevant names for each variable\n        s3:\n            aws_config:\n                aws_region: # Your AWS region, e.g. us-east-1\n                # Omit the keys below to use the executor's IAM role\n                aws_access_key_id: # Your AWS access key ID\n                aws_secret_access_key: \"${AWS_SECRET_ACCESS_KEY}\"\n\n        # For Azure storage (abfss://), use azure instead of s3:\n        # azure:\n        #     account_name: # Your storage account name\n        #     sas_token: \"${AZURE_SAS_TOKEN}\"\n\n        stateful_ingestion:\n            enabled: true",
+        "category": "Data Lake",
+        "isPopular": false
     },
     {
         "urn": "urn:li:dataPlatform:sagemaker",
