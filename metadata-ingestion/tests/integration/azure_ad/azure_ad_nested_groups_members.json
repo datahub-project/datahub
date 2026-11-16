@@ -13,7 +13,7 @@
         "officeLocation": null,
         "preferredLanguage": null,
         "accountEnabled": true,
-        "usageLocation": "US"
+        "usageLocation": null
     },
     {
         "@odata.type": "#microsoft.graph.group",
