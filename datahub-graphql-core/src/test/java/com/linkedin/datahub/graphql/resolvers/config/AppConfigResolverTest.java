@@ -1202,4 +1202,15 @@ public class AppConfigResolverTest {
     assertNotNull(result.getEntityIndexV3());
     assertFalse(Boolean.TRUE.equals(result.getEntityIndexV3().getEnabled()));
   }
+
+  @Test
+  public void testMcpServerEnabledFollowsTheFeatureFlag() throws Exception {
+    when(mockFeatureFlags.isMcpServerEnabled()).thenReturn(false);
+    assertFalse(
+        resolver.get(mockDataFetchingEnvironment).get().getFeatureFlags().getMcpServerEnabled());
+
+    when(mockFeatureFlags.isMcpServerEnabled()).thenReturn(true);
+    assertTrue(
+        resolver.get(mockDataFetchingEnvironment).get().getFeatureFlags().getMcpServerEnabled());
+  }
 }

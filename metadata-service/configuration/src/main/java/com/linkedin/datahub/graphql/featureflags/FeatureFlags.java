@@ -121,6 +121,9 @@ public class FeatureFlags {
   // existed when the request arrived; false restores the previous delete behavior. The default is
   // set in application.yaml (featureFlags.reliableHardDelete).
   private boolean reliableHardDelete;
+  // Turns on DataHub's built-in MCP server: /mcp on the datahub-ai-service, and the MCP settings
+  // page and home page module in the UI. Off until the feature is released.
+  private boolean mcpServerEnabled = false;
 
   /** Per-operation read: the operation's resolved value, else the bound one. */
   public boolean isMetricsEnabled(@Nonnull final OperationFingerprint operation) {

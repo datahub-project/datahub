@@ -39,6 +39,8 @@ class FakeGms:
     down: bool = False
     auth_enabled: Optional[bool] = True
     """What /config reports; None is a GMS from before it reported it."""
+    mcp_server_enabled: Optional[bool] = True
+    """MCP_SERVER_ENABLED as /config reports it; None is a GMS from before the flag."""
     me_calls: int = 0
     open_clients: int = 0
     # When set, every getMe call waits here, so concurrent calls overlap.
@@ -49,7 +51,10 @@ class FakeGms:
         if self.down:
             raise requests.ConnectionError("connection refused")
         return GmsServerInfo(
-            version="v1.7.0", server_env="core", auth_enabled=self.auth_enabled
+            version="v1.7.0",
+            server_env="core",
+            auth_enabled=self.auth_enabled,
+            mcp_server_enabled=self.mcp_server_enabled,
         )
 
     def execute_graphql(

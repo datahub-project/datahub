@@ -34,6 +34,9 @@ class GmsServerInfo:
     auth_enabled: Optional[bool] = None
     """``authentication.enabled``; None on a GMS that doesn't report it."""
 
+    mcp_server_enabled: Optional[bool] = None
+    """``mcpServer.enabled`` (MCP_SERVER_ENABLED); None on a GMS that doesn't report it."""
+
     @classmethod
     def from_config(cls, config: Mapping[str, Any]) -> "GmsServerInfo":
         versions = config.get("versions") or {}
@@ -41,10 +44,14 @@ class GmsServerInfo:
         datahub = config.get("datahub") or {}
         authentication = config.get("authentication") or {}
         enabled = authentication.get("enabled")
+        mcp_server_enabled = (config.get("mcpServer") or {}).get("enabled")
         return cls(
             version=datahub_version.get("version") or None,
             server_env=datahub.get("serverEnv") or None,
             auth_enabled=enabled if isinstance(enabled, bool) else None,
+            mcp_server_enabled=mcp_server_enabled
+            if isinstance(mcp_server_enabled, bool)
+            else None,
         )
 
     @property

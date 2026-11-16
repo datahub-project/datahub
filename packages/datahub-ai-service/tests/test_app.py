@@ -86,6 +86,40 @@ async def test_mcp_is_unavailable_while_gms_is_down(gms: FakeGms) -> None:
     assert response.status_code == 503
 
 
+async def test_mcp_is_off_until_gms_turns_it_on(gms: FakeGms) -> None:
+    gms.mcp_server_enabled = False
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+        off = await http.post(
+            f"{url}/mcp",
+            json=INITIALIZE,
+            headers={**MCP_HEADERS, "Authorization": "Bearer alice-token"},
+        )
+        health = await http.get(f"{url}/health")
+        gms.mcp_server_enabled = True
+        on = await http.post(
+            f"{url}/mcp",
+            json=INITIALIZE,
+            headers={**MCP_HEADERS, "Authorization": "Bearer alice-token"},
+        )
+
+    assert off.status_code == 404
+    assert off.json()["error"] == "mcp_disabled"
+    assert health.status_code == 200
+    assert on.status_code == 200
+
+
+async def test_mcp_stays_on_for_a_gms_without_the_flag(gms: FakeGms) -> None:
+    gms.mcp_server_enabled = None
+    async with serve(_app(gms)) as url, httpx.AsyncClient() as http:
+        response = await http.post(
+            f"{url}/mcp",
+            json=INITIALIZE,
+            headers={**MCP_HEADERS, "Authorization": "Bearer alice-token"},
+        )
+
+    assert response.status_code == 200
+
+
 @pytest.mark.parametrize(
     ("mode", "content_type"),
     [("sse", "text/event-stream"), ("json", "application/json")],

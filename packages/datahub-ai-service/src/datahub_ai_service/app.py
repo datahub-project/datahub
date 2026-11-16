@@ -9,6 +9,7 @@ from typing import AsyncIterator, Callable, Optional, Sequence
 
 from loguru import logger
 from starlette.applications import Starlette
+from starlette.middleware import Middleware
 from starlette.requests import Request
 from starlette.responses import JSONResponse
 from starlette.routing import BaseRoute, Mount, Route
@@ -20,6 +21,7 @@ from .config import AiServiceConfig
 from .mcp.auth import DataHubTokenVerifier, McpAuthMiddleware
 from .mcp.auth_mode import GmsAuth, GmsAuthDetector
 from .mcp.client_factory import CallerClientFactory
+from .mcp.feature_gate import McpFeatureGate
 from .mcp.host_guard import HostGuard
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver
@@ -118,4 +120,6 @@ def create_app(
         async with mcp_app.lifespan(mcp_app):
             yield
 
-    return Starlette(routes=routes, lifespan=lifespan)
+    # MCP_SERVER_ENABLED on GMS turns the MCP paths on and off; /health stays up.
+    gate = Middleware(McpFeatureGate, server_info=server_info, paths=(MCP_PATH,))
+    return Starlette(routes=routes, lifespan=lifespan, middleware=[gate])

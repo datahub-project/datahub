@@ -348,6 +348,16 @@ public class ConfigServletTest extends AbstractTestNGSpringContextTests {
     assertEquals(authenticationConfig.path("enabled").asBoolean(!authEnabled), authEnabled);
     assertEquals(authenticationConfig.size(), 1);
 
+    // MCP server section: whether the built-in MCP server is on, nothing else
+    JsonNode mcpServerConfig = config.path("mcpServer");
+    boolean mcpServerEnabled =
+        webApplicationContext
+            .getBean("configurationProvider", ConfigurationProvider.class)
+            .getFeatureFlags()
+            .isMcpServerEnabled();
+    assertEquals(mcpServerConfig.path("enabled").asBoolean(!mcpServerEnabled), mcpServerEnabled);
+    assertEquals(mcpServerConfig.size(), 1);
+
     // Telemetry section
     assertTrue(config.has("telemetry"));
     JsonNode telemetryConfig = config.path("telemetry");
