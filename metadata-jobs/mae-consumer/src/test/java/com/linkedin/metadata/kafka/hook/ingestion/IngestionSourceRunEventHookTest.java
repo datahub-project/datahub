@@ -144,7 +144,7 @@ public class IngestionSourceRunEventHookTest {
     // One read for the results' inputs and one for the source.
     verify(client, times(2)).batchGetV2(any(OperationContext.class), any(), any());
     verify(timeseriesAspectService, times(1))
-        .getLatestTimeseriesAspectValues(any(), eq(Set.of(SOURCE)), any(), any());
+        .getLatestTimeseriesAspectValuesStrict(any(), eq(Set.of(SOURCE)), any(), any());
     List<DataHubIngestionSourceRunEvent> events = allEmitted(2);
     // The older run's failure carries the success just recorded for the newer run.
     assertEquals(events.get(1).getRequestedAtMillis(), 50L);
@@ -221,6 +221,26 @@ public class IngestionSourceRunEventHookTest {
     verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
   }
 
+  @Test
+  public void testFailedLatestEventReadWritesNothingAndCountsTheBatch() throws Exception {
+    // An empty result from a failed read would look like a source with no history, and the new
+    // event would drop the success and failure times carried forward from the previous one.
+    MetricUtils metricUtils = mock(MetricUtils.class);
+    OperationContext withMetrics = mock(OperationContext.class);
+    when(withMetrics.getMetricUtils()).thenReturn(Optional.of(metricUtils));
+    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
+            eq(withMetrics), any(), any(), any()))
+        .thenThrow(new IllegalStateException("subquery failed"));
+
+    hook.invokeBatch(
+        withMetrics,
+        List.of(
+            mcl(RUN, EXECUTION_REQUEST_RESULT_ASPECT_NAME, result("SUCCESS"), result("RUNNING"))));
+
+    verify(client, never()).ingestProposal(any(), any(), anyBoolean());
+    verify(metricUtils).increment(eq(IngestionSourceRunEventHook.class), any(String.class), eq(1d));
+  }
+
   private List<DataHubIngestionSourceRunEvent> allEmitted(int count) throws Exception {
     ArgumentCaptor<MetadataChangeProposal> captor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
@@ -249,7 +269,7 @@ public class IngestionSourceRunEventHookTest {
   }
 
   private void latestEvent(DataHubIngestionSourceRunEvent event) {
-    when(timeseriesAspectService.getLatestTimeseriesAspectValues(
+    when(timeseriesAspectService.getLatestTimeseriesAspectValuesStrict(
             any(), eq(Set.of(SOURCE)), eq(Set.of(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME)), any()))
         .thenReturn(
             Map.of(
