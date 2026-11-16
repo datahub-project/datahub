@@ -2,7 +2,7 @@ import logging
 from dataclasses import dataclass, field
 from typing import Dict, List, Literal, Optional, Union
 
-from pydantic import Field, model_validator
+from pydantic import Field, field_validator, model_validator
 
 from datahub.configuration.common import (
     AllowDenyPattern,
@@ -13,6 +13,7 @@ from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.ingestion.source.qlik_sense.file_lineage import file_storage_of_uri
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -150,6 +151,10 @@ class QlikSourceReport(StaleEntityRemovalSourceReport):
     # Apps Qlik Cloud has no lineage graph for, read as having no tables.
     apps_without_lineage_graph: LossyList[str] = field(default_factory=LossyList)
     unresolved_data_connections: LossyList[str] = field(default_factory=LossyList)
+    file_sources_resolved: int = 0
+    # File data connections whose files an app reads but whose storage is not
+    # known: add them to file_connection_to_storage.
+    unresolved_file_connections: LossyList[str] = field(default_factory=LossyList)
     apps_read: int = 0
     apps_skipped_unchanged: int = 0
     # Apps read again because checking whether they changed failed.
@@ -174,6 +179,34 @@ class PlatformDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
         default=None,
         description="Schema used for tables the load script does not qualify.",
     )
+
+
+class FileStorageDetail(PlatformInstanceConfigMixin, EnvConfigMixin):
+    storage_uri: Optional[str] = Field(
+        default=None,
+        description="Where the connection's files are, as an `abfss://<container>@<account>"
+        ".dfs.core.windows.net/<folder>`, `s3://<bucket>/<folder>` or "
+        "`gs://<bucket>/<folder>` URI, or Azure HTTPS. An Azure URI must name the "
+        "container; `wasb://` and `wasbs://` are not accepted. Read from the data "
+        "connection when not set, which needs the API key's user to see the "
+        "connection.",
+    )
+
+    convert_urns_to_lowercase: bool = Field(
+        default=False,
+        description="Lowercase the file dataset names, to match a storage source "
+        "run with `convert_urns_to_lowercase`.",
+    )
+
+    @field_validator("storage_uri")
+    @classmethod
+    def storage_uri_is_supported(cls, value: Optional[str]) -> Optional[str]:
+        if value is not None and file_storage_of_uri(value) is None:
+            raise ValueError(
+                f"Unsupported storage_uri {value!r}: use an abfss:// or Azure HTTPS "
+                "URI that names the container, or an s3:// or gs:// URI"
+            )
+        return value
 
 
 class QlikOnPremConfig(ConfigModel):
@@ -352,6 +385,15 @@ class QlikSourceConfig(
         "Repository Service, to connect or reply before the request fails. An app "
         "whose read times out is ingested as partly read.",
     )
+    include_sheets_and_charts: bool = Field(
+        default=True,
+        description="Ingest each app's sheets as dashboards and their charts. When "
+        "false, apps are read without their sheets, which is faster, and each app "
+        "dashboard links only to its tables. With stale metadata removal, sheets "
+        "and charts ingested earlier are soft-deleted; raise "
+        "`stateful_ingestion.fail_safe_threshold` for that first run, as they are "
+        "usually most of the entities and their removal otherwise trips it.",
+    )
     include_column_lineage: bool = Field(
         default=True,
         description="Emit column-level lineage, from load scripts and app data "
@@ -367,6 +409,37 @@ class QlikSourceConfig(
         "Use 'data_connection_name' as key. Set `platform`, `database` and `default_schema` when they "
         "cannot be inferred from the data connection.",
     )
+    script_variables: Dict[str, str] = Field(
+        default={},
+        description="Values for load script variables the connector can't read, "
+        "such as ones computed with LET, set in an included script, or deleted "
+        "after the reload, keyed by variable name without `$()`. Used in QVD and "
+        "file paths, connection names, SQL and chart expressions. An app's own "
+        "variables, as its last reload left them, take precedence, and a "
+        "variable the visible script sets overrides it from where it is set.",
+    )
+    file_connection_to_storage: Dict[str, FileStorageDetail] = Field(
+        default={},
+        description="Qlik Cloud only. Where the files of Azure Storage, Amazon S3 "
+        "and Google Cloud Storage data connections are in DataHub, for lineage from "
+        "the files apps load. Use the data connection name as key, as load scripts "
+        "write it (`<space>:<connection>` or `<connection>`). Set `storage_uri` "
+        "when the API key's user cannot see the connection, and `platform_instance` "
+        "and `env` to match the source that ingests the storage.",
+    )
+
+    @field_validator("script_variables")
+    @classmethod
+    def script_variable_names_are_bare(cls, value: Dict[str, str]) -> Dict[str, str]:
+        # A name such as `$(vSchema)` or ` vSchema` never matches a reference
+        # in the script, so it would be ignored without notice.
+        for name in value:
+            if not name or name != name.strip() or any(c in name for c in "$()="):
+                raise ValueError(
+                    f"Invalid script_variables name {name!r}: use the variable "
+                    "name alone, such as vSchema, without $() or spaces around it"
+                )
+        return value
 
     @model_validator(mode="after")
     def validate_connection(self) -> "QlikSourceConfig":

@@ -1,3 +1,4 @@
+import functools
 import logging
 import time
 from concurrent.futures import FIRST_COMPLETED, Future, ThreadPoolExecutor, wait
@@ -15,12 +16,35 @@ from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import SourceReport
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.filters import RemovedStatusFilter, SearchFilterRule
+from datahub.metadata.urns import ContainerUrn
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.stats_collections import TopKDict
 from datahub.utilities.urns._urn_base import Urn
 from datahub.utilities.urns.error import InvalidUrnError
 
 logger = logging.getLogger(__name__)
+
+# Entity types with a `container` aspect in entity-registry.yml. They are listed
+# because an untyped search only covers the server's default search types, which
+# leave out dataProcessInstance. mlModelDeployment also has the aspect but no
+# GraphQL EntityType, so it cannot be searched here.
+_CONTAINER_CHILD_ENTITY_TYPES = [
+    "dataset",
+    "chart",
+    "dashboard",
+    "dataFlow",
+    "dataJob",
+    "dataProcessInstance",
+    "container",
+    "mlModel",
+    "mlModelGroup",
+]
+
+# get_urns_by_filter argument -> the GraphQL SearchFlags field it sets.
+_CHILD_SEARCH_FLAGS = {
+    "include_draft": "includeDraft",
+    "include_hidden_lifecycle_stages": "includeHiddenLifecycleStages",
+}
 
 
 class SoftDeletedEntitiesCleanupConfig(ConfigModel):
@@ -126,6 +150,7 @@ class SoftDeletedEntitiesReport(SourceReport):
     deletion_limit_reached: bool = False
     num_soft_deleted_entity_found: int = 0
     num_soft_deleted_entity_invalid_urn: int = 0
+    num_soft_deleted_containers_retained_with_children: int = 0
 
 
 class SoftDeletedEntitiesCleanup:
@@ -151,6 +176,10 @@ class SoftDeletedEntitiesCleanup:
         self.start_time = time.time()
         self._report_lock: Lock = Lock()
         self.last_print_time = 0.0
+        # A flag is turned off once the server reports it does not support it.
+        self._child_search_flags: Dict[str, bool] = {
+            flag: True for flag in _CHILD_SEARCH_FLAGS
+        }
 
     def _increment_retained_count(self) -> None:
         """Thread-safe method to update report fields"""
@@ -204,6 +233,80 @@ class SoftDeletedEntitiesCleanup:
         self.ctx.graph.delete_entity(urn=urn.urn(), hard=True)
         self._update_report(urn.urn(), urn.entity_type)
 
+    def _has_children(self, urn: Urn) -> bool:
+        # Children in any state count, soft-deleted, draft and hidden ones included:
+        # each still holds a `container` link that hard-deleting this container
+        # would leave dangling. The `container` field is matched rather than browsePathsV2,
+        # which entities emitted outside ingestion sources often lack.
+        search = functools.partial(
+            self.graph.get_urns_by_filter,
+            entity_types=_CONTAINER_CHILD_ENTITY_TYPES,
+            status=RemovedStatusFilter.ALL,
+            batch_size=1,
+            extraFilters=[
+                SearchFilterRule(
+                    field="container", condition="EQUAL", values=[urn.urn()]
+                ).to_raw()
+            ],
+        )
+        while True:
+            flags = [flag for flag, on in self._child_search_flags.items() if on]
+            try:
+                return any(
+                    search(
+                        include_draft="include_draft" in flags,
+                        include_hidden_lifecycle_stages="include_hidden_lifecycle_stages"
+                        in flags,
+                    )
+                )
+            except ValueError as e:
+                # get_urns_by_filter raises this before searching when the server's
+                # SearchFlags lack a field: includeDraft is not in every edition, and
+                # older servers lack includeHiddenLifecycleStages.
+                unsupported = [
+                    flag
+                    for flag in flags
+                    if f"SearchFlags.{_CHILD_SEARCH_FLAGS[flag]} " in str(e)
+                ]
+                if not unsupported:
+                    raise
+                self._disable_child_search_flags(unsupported)
+
+    def _disable_child_search_flags(self, flags: List[str]) -> None:
+        with self._report_lock:
+            for flag in flags:
+                if not self._child_search_flags[flag]:
+                    continue
+                self._child_search_flags[flag] = False
+                if flag == "include_draft":
+                    # Draft entities only exist in some editions, so a server
+                    # without the flag has no draft children to miss.
+                    logger.debug(
+                        "Container child check runs without includeDraft, "
+                        "which this server does not support"
+                    )
+                    continue
+                self.report.info(
+                    title="Container child check runs without an unsupported search flag",
+                    message="This DataHub server does not support the search flag, so "
+                    "children it covers are not counted when deciding whether a "
+                    "soft-deleted container can be hard-deleted.",
+                    context=_CHILD_SEARCH_FLAGS[flag],
+                )
+
+    def _report_container_retained(self, urn: Urn) -> None:
+        with self._report_lock:
+            self.report.num_soft_deleted_containers_retained_with_children += 1
+            self.report.info(
+                title="Soft-deleted container still has children",
+                message="Not hard-deleting soft-deleted containers that still have "
+                "children. Restore the container, or delete its children first.",
+                context=urn.urn(),
+                # Retained again on every run; the counter and sampled report
+                # entry already record it.
+                log=False,
+            )
+
     def delete_soft_deleted_entity(self, urn: Urn) -> None:
         assert self.ctx.graph
 
@@ -217,6 +320,28 @@ class SoftDeletedEntitiesCleanup:
             if aspect["aspects"]["status"]["value"]["removed"] and aspect["aspects"][
                 "status"
             ]["created"]["time"] < (retention_time * 1000):
+                if urn.entity_type == ContainerUrn.ENTITY_TYPE:
+                    if self._deletion_limit_reached() or self._times_up():
+                        return
+                    # Hard-deleting a container leaves every child linked to a
+                    # container that no longer exists, so the subtree can't be
+                    # restored. While children remain it stays soft-deleted, so
+                    # restoring it brings the tree back.
+                    try:
+                        has_children = self._has_children(urn)
+                    except Exception as e:
+                        with self._report_lock:
+                            self.report.warning(
+                                title="Could not check children of soft-deleted container",
+                                message="Skipped hard-deleting the container because its "
+                                "children could not be searched.",
+                                context=urn.urn(),
+                                exc=e,
+                            )
+                        return
+                    if has_children:
+                        self._report_container_retained(urn)
+                        return
                 logger.debug(f"Hard deleting {urn}")
                 self.delete_entity(urn)
             else:
