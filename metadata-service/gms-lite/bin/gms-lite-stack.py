@@ -13,7 +13,6 @@ import argparse
 import base64
 import errno
 import fcntl
-import hashlib
 import json
 import os
 import re
@@ -37,6 +36,7 @@ from _opensearch_manager import (
     default_shared_dir,
     delete_prefixes,
     index_names,
+    index_prefix,
     wait_for_ready,
 )
 from _system_update_checker import SystemUpdateChecker
@@ -240,12 +240,6 @@ class Processes:
         for child in self.children:
             if child.stdout is not None:
                 child.stdout.close()
-
-
-def index_prefix(data_dir: Path, instance: str) -> str:
-    # A path hash avoids collisions between equally named directories in different worktrees.
-    stack_id = hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest()[:12]
-    return f"gmslite{stack_id}{instance.replace('-', '')}"
 
 
 def start_opensearch(

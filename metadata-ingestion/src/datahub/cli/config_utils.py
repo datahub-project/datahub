@@ -6,7 +6,6 @@ import logging
 import os
 import re
 import sys
-import tempfile
 from contextlib import contextmanager
 from contextvars import ContextVar
 from dataclasses import dataclass
@@ -18,6 +17,11 @@ import click
 import yaml
 from pydantic import BaseModel, ValidationError
 
+from datahub.cli._profile_store import (
+    ensure_private_directory as ensure_private_directory,
+    profile_path_in as _profile_path_in,
+    write_profile_text,
+)
 from datahub.configuration.env_vars import (
     get_gms_host,
     get_gms_port,
@@ -96,12 +100,6 @@ def _home() -> Path:
     # entry (containers run as an arbitrary UID). expanduser leaves "~" in
     # place instead, as the legacy import-time DATAHUB_CONFIG_PATH did.
     return Path(os.path.expanduser("~"))
-
-
-def _profile_path_in(home: Path, name: str) -> Path:
-    if name == "default":
-        return home / ".datahubenv"
-    return home / ".datahub" / "profiles" / name / ".datahubenv"
 
 
 def profile_path(name: str) -> Path:
@@ -288,29 +286,11 @@ def same_server(left: Optional[str], right: Optional[str]) -> bool:
     return left.rstrip("/") == right.rstrip("/")
 
 
-def ensure_private_directory(path: Path) -> None:
-    if not path.exists():
-        ensure_private_directory(path.parent)
-        path.mkdir(mode=0o700, exist_ok=True)
-
-
 def persist_raw_datahub_config(
     config: Mapping[str, object], path: Optional[Path] = None
 ) -> None:
     target = path or resolve_profile(for_init=True, allow_create=True).path
-    # Users keep ~/.datahubenv or profile directories as symlinks (dotfiles repos,
-    # older HOME-override layouts); replacing the link would orphan its target.
-    target = Path(os.path.realpath(target))
-    ensure_private_directory(target.parent)
-    fd, temporary = tempfile.mkstemp(dir=target.parent, prefix=".datahubenv.")
-    try:
-        with os.fdopen(fd, "w") as outfile:
-            yaml.safe_dump(dict(config), outfile, default_flow_style=False)
-        os.chmod(temporary, 0o600)
-        os.replace(temporary, target)
-    finally:
-        if os.path.exists(temporary):
-            os.unlink(temporary)
+    write_profile_text(target, yaml.safe_dump(dict(config), default_flow_style=False))
     reset_profile_cache()
 
 

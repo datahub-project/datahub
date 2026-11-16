@@ -6,6 +6,7 @@ from __future__ import annotations
 import argparse
 import errno
 import fcntl
+import hashlib
 import json
 import os
 import queue
@@ -65,6 +66,12 @@ def wait_for_ready(
         return ready_events.get(timeout=timeout_seconds)
     except queue.Empty:
         return None
+
+
+def index_prefix(data_dir: Path, instance: str) -> str:
+    # A path hash avoids collisions between equally named directories in different worktrees.
+    stack_id = hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest()[:12]
+    return f"gmslite{stack_id}{instance.replace('-', '')}"
 
 
 def index_names(port: int) -> list[str]:
