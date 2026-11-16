@@ -255,7 +255,7 @@ Requirements:
 Requirements:
 
 - CLI / Python SDK: 1.7.0.19
-- Helm Chart: (TBD)
+- Helm Chart: 1.1.10
 
 ### Breaking Changes
 
