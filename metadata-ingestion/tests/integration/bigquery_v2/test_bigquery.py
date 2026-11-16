@@ -33,9 +33,23 @@ from datahub.ingestion.source.bigquery_v2.bigquery_schema_gen import (
     BigQueryV2Config,
 )
 from datahub.testing import mce_helpers
+from datahub.utilities.file_backed_collections import FileBackedDict
 from tests.test_helpers.state_helpers import run_and_get_pipeline
 
 FROZEN_TIME = "2022-02-03 07:00:00"
+
+
+def _columns_fbd(
+    mapping: Dict[str, List[BigqueryColumn]],
+) -> FileBackedDict[List[BigqueryColumn]]:
+    # get_columns_for_dataset now returns a FileBackedDict; mirror that here so the
+    # production close() in _process_schema operates on the real type.
+    fbd: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
+        tablename="bigquery_columns"
+    )
+    for table_name, table_columns in mapping.items():
+        fbd[table_name] = table_columns
+    return fbd
 
 
 @pytest.fixture(autouse=True)
@@ -148,7 +162,7 @@ def _configure_linked_dataset_mocks(
                 materialized=False,
             )
         )
-    get_columns_for_dataset.return_value = columns_by_name
+    get_columns_for_dataset.return_value = _columns_fbd(columns_by_name)
     get_sample_data_for_table.return_value = {
         column.name: [random.randint(1, 80) for _ in range(20)] for column in columns
     }
@@ -257,11 +271,13 @@ def test_bigquery_v2_ingest(
         ),
     ]
 
-    get_columns_for_dataset.return_value = {
-        table_name: columns,
-        snapshot_table_name: columns,
-        view_name: columns,
-    }
+    get_columns_for_dataset.return_value = _columns_fbd(
+        {
+            table_name: columns,
+            snapshot_table_name: columns,
+            view_name: columns,
+        }
+    )
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
         "email": [random_email() for i in range(20)],
@@ -361,31 +377,33 @@ def test_bigquery_v2_project_labels_ingest(
     )
     table_name = "table-1"
     get_core_table_details.return_value = {table_name: table_list_item}
-    get_columns_for_dataset.return_value = {
-        table_name: [
-            BigqueryColumn(
-                name="age",
-                ordinal_position=1,
-                is_nullable=False,
-                field_path="col_1",
-                data_type="INT",
-                comment="comment",
-                is_partition_column=False,
-                cluster_column_position=None,
-                policy_tags=["Test Policy Tag"],
-            ),
-            BigqueryColumn(
-                name="email",
-                ordinal_position=1,
-                is_nullable=False,
-                field_path="col_2",
-                data_type="STRING",
-                comment="comment",
-                is_partition_column=False,
-                cluster_column_position=None,
-            ),
-        ]
-    }
+    get_columns_for_dataset.return_value = _columns_fbd(
+        {
+            table_name: [
+                BigqueryColumn(
+                    name="age",
+                    ordinal_position=1,
+                    is_nullable=False,
+                    field_path="col_1",
+                    data_type="INT",
+                    comment="comment",
+                    is_partition_column=False,
+                    cluster_column_position=None,
+                    policy_tags=["Test Policy Tag"],
+                ),
+                BigqueryColumn(
+                    name="email",
+                    ordinal_position=1,
+                    is_nullable=False,
+                    field_path="col_2",
+                    data_type="STRING",
+                    comment="comment",
+                    is_partition_column=False,
+                    cluster_column_position=None,
+                ),
+            ]
+        }
+    )
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
         "email": [random_email() for i in range(20)],
@@ -483,11 +501,13 @@ def test_bigquery_queries_v2_ingest(
         ),
     ]
 
-    get_columns_for_dataset.return_value = {
-        table_name: columns,
-        snapshot_table_name: columns,
-        view_name: columns,
-    }
+    get_columns_for_dataset.return_value = _columns_fbd(
+        {
+            table_name: columns,
+            snapshot_table_name: columns,
+            view_name: columns,
+        }
+    )
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
         "email": [random_email() for i in range(20)],
@@ -755,10 +775,12 @@ def test_bigquery_convert_column_urns_to_lowercase(
     ]
 
     # Set up mock returns for columns
-    get_columns_for_dataset.return_value = {
-        table_name: source_columns,
-        derived_table_name: derived_columns,
-    }
+    get_columns_for_dataset.return_value = _columns_fbd(
+        {
+            table_name: source_columns,
+            derived_table_name: derived_columns,
+        }
+    )
 
     # Set up sample data
     get_sample_data_for_table.return_value = {
@@ -933,11 +955,13 @@ def test_bigquery_lineage_v2_ingest_view_snapshots(
         ),
     ]
 
-    get_columns_for_dataset.return_value = {
-        table_name: columns,
-        snapshot_table_name: columns,
-        view_name: columns,
-    }
+    get_columns_for_dataset.return_value = _columns_fbd(
+        {
+            table_name: columns,
+            snapshot_table_name: columns,
+            view_name: columns,
+        }
+    )
     get_sample_data_for_table.return_value = {
         "age": [random.randint(1, 80) for i in range(20)],
         "email": [random_email() for i in range(20)],

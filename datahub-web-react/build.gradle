@@ -121,12 +121,26 @@ task generateLazyIconStubs(type: NodeTask, dependsOn: yarnInstall) {
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
-  args = ['run', 'start']
+  if (project.hasProperty('frontendMode')) {
+    environment.put('PREVIEW_MODE', project.property('frontendMode'))
+  }
+  if (project.hasProperty('frontendStackFile')) {
+    environment.put('GMS_LITE_STACK_FILE', project.property('frontendStackFile'))
+  }
+  args = ['run', 'start-only'] + (project.hasProperty('frontendPort')
+    ? ['--port', project.property('frontendPort').toString(), '--strictPort'] : [])
 }
 
 task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
-  args = ['run', 'preview']
+  if (project.hasProperty('frontendMode')) {
+    environment.put('PREVIEW_MODE', project.property('frontendMode'))
+  }
+  if (project.hasProperty('frontendStackFile')) {
+    environment.put('GMS_LITE_STACK_FILE', project.property('frontendStackFile'))
+  }
+  args = ['run', 'preview'] + (project.hasProperty('frontendPort')
+    ? ['--port', project.property('frontendPort').toString(), '--strictPort'] : [])
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
@@ -143,6 +157,7 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
   inputs.files(project.fileTree(dir: 'vite-plugins'))
+  inputs.files(project.fileTree(dir: 'devtools'))
   doLast {
     // touch a file with name yarn-lint.txt in the build directory
     def file = file(test_sentinel)
@@ -162,6 +177,7 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
     // Run on all files
     inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
     inputs.files(project.fileTree(dir: 'vite-plugins'))
+    inputs.files(project.fileTree(dir: 'devtools'))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
@@ -221,6 +237,17 @@ task yarnI18nFlatKeysCheck(type: YarnTask, dependsOn: [yarnInstall]) {
   outputs.cacheIf { true }
 }
 
+task yarnDevtoolsTest(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['vitest', 'run', '--config', 'devtools/vitest.config.ts']
+  inputs.files(project.fileTree(dir: 'devtools'))
+}
+
+task yarnDevtoolsTypeCheck(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['tsc', '--project', 'devtools/tsconfig.json']
+}
+
+yarnTest.dependsOn yarnDevtoolsTest
+yarnLint.dependsOn yarnDevtoolsTypeCheck
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {

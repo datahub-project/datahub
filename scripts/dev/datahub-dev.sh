@@ -35,12 +35,30 @@ EOF
   unset _dh_cfg
 fi
 
+# Local-mode lifecycle always stays on this machine, even with a configured runner.
+_dh_local=$(python3 - "$(dirname "$0")" <<'EOF'
+import hashlib, json, pathlib, sys
+root = pathlib.Path(sys.argv[1]).resolve().parents[1]
+worktree_id = hashlib.sha256(str(root).encode()).hexdigest()[:6]
+try:
+    registry = json.loads((pathlib.Path.home() / ".datahub/dev/instances.json").read_text())
+    print("1" if registry.get("instances", {}).get(worktree_id, {}).get("mode") == "local" else "")
+except (OSError, ValueError):
+    print("")
+EOF
+)
+if [ "${1:-}" = "start" ]; then
+  for _dh_arg in "$@"; do
+    [ "$_dh_arg" = "--local" ] && _dh_local=1
+  done
+fi
+
 # When a runner is configured and we're not already on the remote side,
 # proxy ALL commands through the runner — EXCEPT the ones that are inherently
 # local (managing the local registry or printing local connection info).
 # 'start' and 'setup --remote' are handled specially inside datahub_dev.py
 # itself, so they also skip this proxy and reach Python directly.
-if [ -n "$DATAHUB_RUNNER" ] && [ "$DATAHUB_REMOTE_EXEC" != "1" ]; then
+if [ -n "$DATAHUB_RUNNER" ] && [ "$DATAHUB_REMOTE_EXEC" != "1" ] && [ "$_dh_local" != "1" ]; then
   case "${1:-}" in
     instances|shell-env|start|setup|suspend)
       # Local-aware commands: let Python handle them (start/setup/suspend have

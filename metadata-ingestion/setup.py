@@ -936,7 +936,11 @@ plugins: Dict[str, Set[str]] = {
     # path (richer metadata, run history support).
     "dlt": {"dlt>=1.0.0,<2.0.0"},
     "snaplogic": set(),
-    "qlik-sense": sqlglot_lib | {"requests<3.0.0", "websocket-client<2.0.0"},
+    # path_spec_common: QVD folder containers use the data lake sources'
+    # ContainerWUCreator, whose module imports PathSpec.
+    "qlik-sense": sqlglot_lib
+    | path_spec_common
+    | {"requests<3.0.0", "websocket-client<2.0.0"},
     "quicksight": aws_common | sqlglot_lib,
     # usage_common: sigma emits no usage itself, but SqlParsingAggregator imports
     # usage_common, which pulls sqlparse in via sql_formatter.
