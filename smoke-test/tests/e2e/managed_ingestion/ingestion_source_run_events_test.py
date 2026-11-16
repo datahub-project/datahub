@@ -12,7 +12,7 @@ from datahub.metadata.schema_classes import (
     DataHubIngestionSourceRunEventClass,
     ExecutionRequestResultClass,
 )
-from tests.e2e.utils import execute_graphql, unique_suffix, with_test_retry
+from tests.e2e.utils import delete_urn, execute_graphql, unique_suffix, with_test_retry
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -59,10 +59,12 @@ def _create_source(auth_session, name: str) -> str:
     )["data"]["createIngestionSource"]
 
 
-def _run(auth_session, source_urn: str) -> str:
-    return execute_graphql(
+def _run(auth_session, source_urn: str, run_urns: List[str]) -> str:
+    run_urn = execute_graphql(
         auth_session, _CREATE_RUN, {"input": {"ingestionSourceUrn": source_urn}}
     )["data"]["createIngestionExecutionRequest"]
+    run_urns.append(run_urn)
+    return run_urn
 
 
 def _list_sources(
@@ -128,27 +130,41 @@ def source_urns(auth_session) -> Iterator[List[str]]:
             logger.warning("cleanup failed for %s", urn, exc_info=True)
 
 
-def test_list_sorts_by_last_run(auth_session, graph_client, source_urns):
+@pytest.fixture()
+def run_urns(graph_client) -> Iterator[List[str]]:
+    """Execution requests a test creates; deleting a source leaves its runs behind."""
+    urns: List[str] = []
+    yield urns
+    for urn in urns:
+        try:
+            delete_urn(graph_client, urn)
+        except Exception:
+            logger.warning("cleanup failed for %s", urn, exc_info=True)
+
+
+def test_list_sorts_by_last_run(auth_session, graph_client, source_urns, run_urns):
     first, second = source_urns
-    first_run = _run(auth_session, first)
+    first_run = _run(auth_session, first, run_urns)
     # Distinct request times, so the expected order does not depend on a tie.
     time.sleep(0.05)
-    second_run = _run(auth_session, second)
+    second_run = _run(auth_session, second, run_urns)
 
     first_event = _ensure_run_event(graph_client, first, first_run, "PENDING")
     second_event = _ensure_run_event(graph_client, second, second_run, "PENDING")
     assert second_event.requestedAtMillis > first_event.requestedAtMillis
     _ensure_listed(auth_session, source_urns, [second, first])
 
-    newer_first_run = _run(auth_session, first)
+    newer_first_run = _run(auth_session, first, run_urns)
     _ensure_run_event(graph_client, first, newer_first_run, "PENDING")
     _ensure_listed(auth_session, source_urns, [first, second])
 
 
-def test_list_filters_by_last_run_status(auth_session, graph_client, source_urns):
+def test_list_filters_by_last_run_status(
+    auth_session, graph_client, source_urns, run_urns
+):
     succeeded, pending = source_urns
-    succeeded_run = _run(auth_session, succeeded)
-    pending_run = _run(auth_session, pending)
+    succeeded_run = _run(auth_session, succeeded, run_urns)
+    pending_run = _run(auth_session, pending, run_urns)
     _ensure_run_event(graph_client, pending, pending_run, "PENDING")
 
     graph_client.emit_mcp(
