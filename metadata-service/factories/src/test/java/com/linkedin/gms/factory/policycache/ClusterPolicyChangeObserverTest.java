@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -19,6 +20,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import org.mockito.InOrder;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -42,11 +44,14 @@ public class ClusterPolicyChangeObserverTest {
   }
 
   @Test
-  public void testClientWriteWaitsLocallyAndSignalsEachPolicy() {
+  public void testClientWriteSignalsEachPolicyBeforeWaitingLocally() {
     new ClusterPolicyChangeObserver(authorizer, changes, metricUtils)
         .onPolicyChange(Set.of(FIRST, SECOND), true);
 
-    verify(authorizer).onPolicyChange(Set.of(FIRST, SECOND));
+    // Other members must not wait behind this member's local read.
+    final InOrder order = inOrder(changes, authorizer);
+    order.verify(changes, times(2)).setAsync(anyString(), anyLong());
+    order.verify(authorizer).onPolicyChange(Set.of(FIRST, SECOND));
     verify(authorizer, never()).requestUpdate(any());
     verify(changes).setAsync(eq(FIRST.toString()), anyLong());
     verify(changes).setAsync(eq(SECOND.toString()), anyLong());

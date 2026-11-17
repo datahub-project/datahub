@@ -11,9 +11,9 @@ import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
- * Updates this GMS's policy cache after a committed policy write, then, with
- * POLICY_CACHE_BROADCAST_ENABLED, signals the change to the other GMS members through {@link
- * com.datahub.authorization.PolicyChangeMap}.
+ * After a committed policy write, signals the change to the other GMS members through {@link
+ * com.datahub.authorization.PolicyChangeMap} (with POLICY_CACHE_BROADCAST_ENABLED), then updates
+ * this GMS's policy cache.
  */
 @Slf4j
 public class ClusterPolicyChangeObserver implements PolicyChangeObserver {
@@ -36,13 +36,15 @@ public class ClusterPolicyChangeObserver implements PolicyChangeObserver {
 
   @Override
   public void onPolicyChange(@Nonnull Set<Urn> policyUrns, boolean clientWrite) {
+    // Signal first: the write is committed, so other members can read it now instead of after this
+    // member's wait below.
+    if (changes != null) {
+      publish(changes, policyUrns);
+    }
     if (clientWrite) {
       authorizer.onPolicyChange(policyUrns);
     } else {
       authorizer.requestUpdate(policyUrns);
-    }
-    if (changes != null) {
-      publish(changes, policyUrns);
     }
   }
 
