@@ -178,6 +178,21 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testKeywordRerankRungKeepsKeywordOrderWithHybridReadOn() throws IOException {
+    ResolvedSearchTemplate resolved =
+        new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 1L, "fulltext", null);
+    resolved.setTemplateRerank(true);
+    OperationContext templated = opContext.withResolvedSearchTemplate(resolved);
+
+    SearchResult result =
+        dao.finishTemplateHybrid(templated, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+
+    assertEquals(rowIds(result), range(10, 20));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
   public void testSearchUsesTheBoundTemplateKnnContext() throws IOException {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();

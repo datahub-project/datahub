@@ -29,6 +29,9 @@ import com.linkedin.common.Urn
  * Unset keeps the parent default. A record with a template replaces it. A record with no
  * template clears it.
  * {@code matchedFields} is inherited. When no template in the chain sets it, it resolves to true.
+ * {@code profiles} applies its operations to the inherited set, and {@code useDefault} drops
+ * them. Unset {@code scope} keeps the parent scope. A non-empty {@code scope} replaces it, and an
+ * explicitly present empty {@code scope} drops it.
  *
  * {@code apiVersion} is the template and Mustache-context contract. Unset keeps the parent
  * version. When no ancestor sets it, the resolved version is 1. A value other than 1 is rejected
@@ -50,7 +53,7 @@ import com.linkedin.common.Urn
 @Aspect = {
   "name": "searchTemplateProperties",
   "aspectJson": true,
-  "schemaVersion": 4
+  "schemaVersion": 5
 }
 record SearchTemplateProperties {
   /**
@@ -170,11 +173,16 @@ record SearchTemplateProperties {
   rescore: optional string
 
   /**
-   * Mustache JSON for document rerank weights: {@code keyword_weight} and {@code vector_weight}.
-   * {@code k} and {@code num_candidates} are unused; the candidates are the keyword rows already
-   * returned. Unset means this template stays in keyword order. An explicit empty value drops an
-   * inherited section, so a child keeps the parent's clauses and functionScore. Applied only when
-   * semantic read is on and the request includes document entities.
+   * Mustache JSON for the rerank blend. With {@code retrieval.combine: keywordRerank} it holds
+   * {@code vectorWeight} (0 to 1), {@code lexical} ({@code inputMin}, {@code inputMax},
+   * {@code steepness}), {@code blendFloor} (0 to 1, the minimum normalized vector score for a row to
+   * be blended), and {@code others: keepKeywordPlaces}. A section with no {@code combine} keeps the
+   * earlier shape: {@code field} is required, with {@code keyword_weight} and
+   * {@code vector_weight}. {@code k} and {@code num_candidates} are unused; the candidates are the
+   * keyword rows already returned. Unset means this template stays in keyword order. An explicit
+   * empty value drops an inherited section, so a child keeps the parent's clauses and
+   * functionScore. A section with no {@code combine} applies only when semantic read is on and the
+   * request includes document entities.
    */
   knn: optional string
 
@@ -200,6 +208,19 @@ record SearchTemplateProperties {
    * inherited retrieval section.
    */
   retrieval: optional SearchTemplateRetrieval
+
+  /**
+   * Embedding profiles the vector leg uses. Unset inherits the parent. Each entity resolves to
+   * its registry default when no template in the chain selects a profile. A keyword rung rejects
+   * this section unless its body cites the native embedding placeholders.
+   */
+  profiles: optional SearchTemplateProfiles
+
+  /**
+   * Static entity scope. Unset inherits the parent. An explicit empty value drops an inherited
+   * scope, which means the whole request.
+   */
+  scope: optional SearchTemplateScope
 
   /**
    * Selection, stop, and the next template. Unset means this template is one query. An explicit

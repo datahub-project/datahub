@@ -177,12 +177,20 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (resolved == null) {
       return;
     }
-    if (servedUrn == null || !semanticReadEnabled()) {
+    resolved.setTemplateRerank(false);
+    if (servedUrn == null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
     MergedSearchTemplate template = loader.load(opContext, servedUrn);
-    if (template.getKnn() == null) {
+    // A keywordRerank rung owns the rerank of its window. This release reads that shape and does
+    // not execute it, so the rung keeps keyword order and the default hybrid reranker stays off.
+    if (SearchTemplateCapabilities.keywordRerank(template)) {
+      resolved.setTemplateRerank(true);
+      resolved.setKnn(false, 1f, 1f, 100);
+      return;
+    }
+    if (!semanticReadEnabled() || template.getKnn() == null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }

@@ -10,6 +10,9 @@ import javax.annotation.Nullable;
 
 /** Named splice points in a query body. Where a tag sits inside the JSON is not checked. */
 public final class SearchTemplateHoles {
+  /** Native embedding clauses placeholder, rendered only by the later native mixed query. */
+  public static final String EMBEDDING_CLAUSES_JSON = "embeddingClausesJson";
+
   private static final Pattern TAG = Pattern.compile("\\{\\{[#&/]?\\s*([A-Za-z0-9_]+)\\s*}}");
   private static final Pattern SPLICE = Pattern.compile("\\{\\{&\\s*([A-Za-z0-9_]+)\\s*}}");
   private static final Pattern SECTION = Pattern.compile("\\{\\{#\\s*([A-Za-z0-9_]+)\\s*}}");
@@ -69,6 +72,11 @@ public final class SearchTemplateHoles {
       return false;
     }
     if (SearchTemplateContextVariables.STRUCTURED_QUERY.equals(name)) {
+      return true;
+    }
+    // The native mixed query cites the embedding clauses. It is valid to store, and a build that
+    // does not run it fails the search when the template is selected.
+    if (EMBEDDING_CLAUSES_JSON.equals(name)) {
       return true;
     }
     if (name.endsWith("Json") && SearchTemplateContextVariables.isContextName(name)) {

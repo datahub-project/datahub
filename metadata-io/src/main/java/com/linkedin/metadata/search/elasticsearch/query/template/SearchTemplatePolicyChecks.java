@@ -18,6 +18,7 @@ import com.linkedin.search.template.SearchTemplateNormalization;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateRetrievalAnchor;
 import com.linkedin.search.template.StructuredPropertyClause;
 import com.linkedin.search.template.StructuredPropertyQuery;
 import java.util.Collection;
@@ -31,7 +32,12 @@ import org.apache.commons.lang3.StringUtils;
 public final class SearchTemplatePolicyChecks {
   private SearchTemplatePolicyChecks() {}
 
+  /**
+   * {@code merged} is true for the parent chain merged into one template. Rules over sections that
+   * a child can inherit separately run only then.
+   */
   public static void check(
+      boolean merged,
       @Nonnull SearchTemplateProperties properties,
       int maxRoutes,
       int maxRoutePatternLength,
@@ -71,7 +77,7 @@ public final class SearchTemplatePolicyChecks {
       checkNormalization(properties.getNormalization());
     }
     if (properties.hasRanking() && properties.getRanking() != null) {
-      checkRanking(properties, maxRankingSignals, maxRankingWindow, entitySpecs);
+      checkRanking(merged, properties, maxRankingSignals, maxRankingWindow, entitySpecs);
     }
     SearchTemplateComponents.checkWrite(properties, registry);
     if (properties.hasRetrieval() && properties.getRetrieval() != null) {
@@ -81,6 +87,73 @@ public final class SearchTemplatePolicyChecks {
       checkLadder(
           properties.getLadder(), properties.hasRetrieval() ? properties.getRetrieval() : null);
     }
+    if (properties.hasProfiles() && properties.getProfiles() != null) {
+      SearchTemplateProfilesPolicy.check(properties.getProfiles());
+    }
+    if (properties.hasScope() && properties.getScope() != null) {
+      SearchTemplateRoutes.names(
+          "scope.entityTypes",
+          properties.getScope().hasEntityTypes() ? properties.getScope().getEntityTypes() : null);
+    }
+    if (merged) {
+      checkMergedSections(properties);
+    }
+  }
+
+  /**
+   * Rules over sections a child inherits separately: similarity with {@code knn} or {@code next},
+   * the native embedding placeholders with a combine or {@code vectorBody}, and {@code profiles} on
+   * a keyword rung that cites no placeholder.
+   */
+  static void checkMergedSections(@Nonnull SearchTemplateProperties properties) {
+    SearchTemplateRetrieval retrieval =
+        properties.hasRetrieval() ? properties.getRetrieval() : null;
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    boolean similarity =
+        retrieval != null
+            && SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(
+                retrieval.getQuerySource());
+    if (similarity && StringUtils.isNotBlank(properties.getKnn())) {
+      throw new SearchTemplateException("Search template similarity cannot set knn");
+    }
+    if (similarity
+        && properties.hasLadder()
+        && properties.getLadder() != null
+        && properties.getLadder().hasNext()
+        && properties.getLadder().getNext() != null) {
+      throw new SearchTemplateException("Search template similarity cannot set next");
+    }
+    boolean placeholders = citesEmbeddingPlaceholders(properties);
+    boolean vectorBody =
+        retrieval != null
+            && retrieval.hasVectorBody()
+            && StringUtils.isNotBlank(retrieval.getVectorBody());
+    if (placeholders && (combine != null || vectorBody)) {
+      throw new SearchTemplateException(
+          "Search template embedding placeholders cannot be combined with combine or vectorBody");
+    }
+    if (properties.hasProfiles()
+        && !SearchTemplateLoader.emptyProfiles(properties.getProfiles())
+        && combine == null
+        && !placeholders) {
+      throw new SearchTemplateException("Search template profiles requires a vector leg");
+    }
+  }
+
+  private static boolean citesEmbeddingPlaceholders(@Nonnull SearchTemplateProperties properties) {
+    if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getQuery())
+        || SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getClauses())
+        || SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getRescore())) {
+      return true;
+    }
+    if (properties.hasQueryFragments() && properties.getQueryFragments() != null) {
+      for (String fragment : properties.getQueryFragments().values()) {
+        if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(fragment)) {
+          return true;
+        }
+      }
+    }
+    return false;
   }
 
   public static void checkStructuredPropertyQuery(@Nonnull StructuredPropertyQuery section) {
@@ -172,6 +245,7 @@ public final class SearchTemplatePolicyChecks {
   }
 
   public static void checkRanking(
+      boolean merged,
       @Nonnull SearchTemplateProperties properties,
       int maxRankingSignals,
       int maxRankingWindow,
@@ -234,7 +308,7 @@ public final class SearchTemplatePolicyChecks {
     if (reference || signals) {
       requireCapability(properties, "rankingSignals");
       rejectEngineRescore(properties);
-      requireKeyword(properties);
+      requireKeyword(merged, properties);
     }
     if (formula) {
       requireCapability(properties, "rankingFormula");
@@ -245,6 +319,17 @@ public final class SearchTemplatePolicyChecks {
         }
       }
       RankingFormulaCheck.check(ranking.getFormula(), names);
+    }
+  }
+
+  /** Ranking signals or a ranking reference need keyword retrieval on the merged template. */
+  static void requireKeywordForRanking(@Nonnull SearchTemplateProperties properties) {
+    SearchTemplateRanking ranking = properties.hasRanking() ? properties.getRanking() : null;
+    if (ranking == null || SearchTemplateLoader.emptyRanking(ranking)) {
+      return;
+    }
+    if (reference(ranking) || signals(ranking)) {
+      requireKeyword(true, properties);
     }
   }
 
@@ -293,25 +378,123 @@ public final class SearchTemplatePolicyChecks {
     }
   }
 
-  private static void requireKeyword(SearchTemplateProperties properties) {
-    if (StringUtils.isNotBlank(properties.getKnn())) {
+  /**
+   * Ranking runs on keyword retrieval. keywordRerank is keyword retrieval, so its {@code knn} blend
+   * may sit beside ranking. One aspect that sets no retrieval may inherit that combine, so the
+   * {@code knn} rule waits for the merged check.
+   */
+  private static void requireKeyword(boolean merged, SearchTemplateProperties properties) {
+    SearchTemplateRetrieval retrieval =
+        properties.hasRetrieval() ? properties.getRetrieval() : null;
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    boolean keywordRerank = SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine);
+    if (StringUtils.isNotBlank(properties.getKnn())
+        && !keywordRerank
+        && (merged || retrieval != null)) {
       throw new SearchTemplateException("Search template ranking requires keyword retrieval");
     }
-    SearchTemplateRetrieval retrieval = properties.getRetrieval();
-    if (retrieval != null
-        && StringUtils.isNotBlank(retrieval.getMode())
-        && !"keyword".equals(retrieval.getMode())) {
+    if ((combine != null && !keywordRerank)
+        || (retrieval != null
+            && StringUtils.isNotBlank(retrieval.getMode())
+            && !"keyword".equals(retrieval.getMode()))) {
       throw new SearchTemplateException("Search template ranking requires keyword retrieval");
     }
   }
 
+  /**
+   * Rules inside one retrieval section, which a child replaces as a whole. Each rejects a template
+   * that is invalid in every build. A later combine, a second embedding profile, and {@code
+   * vectorBody} stay valid to store and fail when selected by a build that does not run them.
+   */
   public static void checkRetrieval(@Nonnull SearchTemplateRetrieval retrieval) {
     if (SearchTemplateLoader.emptyRetrieval(retrieval)) {
       return;
     }
-    if (retrieval.hasMode() && retrieval.getMode() != null && !retrieval.getMode().isBlank()) {
-      requireClosed("retrieval mode", retrieval.getMode(), SearchTemplateCapabilities.MODES);
+    String mode = text(retrieval.hasMode() ? retrieval.getMode() : null);
+    if (mode != null) {
+      requireClosed("retrieval mode", mode, SearchTemplateCapabilities.MODES);
     }
+    String combineField = text(retrieval.hasCombine() ? retrieval.getCombine() : null);
+    if (combineField != null) {
+      requireClosed("retrieval combine", combineField, SearchTemplateCapabilities.COMBINES);
+      boolean vectorPair =
+          "vector".equals(mode) && SearchTemplateCapabilities.COMBINE_VECTOR.equals(combineField);
+      boolean keywordPair =
+          "keyword".equals(mode)
+              && SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combineField);
+      if (mode != null && !vectorPair && !keywordPair) {
+        throw new SearchTemplateException(
+            "Search template retrieval mode " + mode + " conflicts with combine " + combineField);
+      }
+    }
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    boolean keywordRung = combine == null;
+    boolean vector = SearchTemplateCapabilities.COMBINE_VECTOR.equals(combine);
+    String querySource = text(retrieval.hasQuerySource() ? retrieval.getQuerySource() : null);
+    if (querySource != null) {
+      requireClosed("retrieval querySource", querySource, SearchTemplateCapabilities.QUERY_SOURCES);
+      if (keywordRung) {
+        throw new SearchTemplateException(
+            "Search template retrieval querySource requires a vector leg");
+      }
+      if (SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(querySource) && !vector) {
+        throw new SearchTemplateException(
+            "Search template retrieval querySource anchorEntity requires combine vector");
+      }
+    }
+    if (retrieval.hasAnchor() && retrieval.getAnchor() != null) {
+      SearchTemplateRetrievalAnchor anchor = retrieval.getAnchor();
+      if (!SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(querySource)) {
+        throw new SearchTemplateException(
+            "Search template retrieval anchor requires querySource anchorEntity");
+      }
+      String urnParameter = text(anchor.hasUrnParameter() ? anchor.getUrnParameter() : null);
+      if (urnParameter != null) {
+        requireClosed(
+            "retrieval anchor urnParameter",
+            urnParameter,
+            SearchTemplateCapabilities.ANCHOR_URN_PARAMETERS);
+      }
+    }
+    String profileScore = text(retrieval.hasProfileScore() ? retrieval.getProfileScore() : null);
+    if (profileScore != null) {
+      requireClosed(
+          "retrieval profileScore", profileScore, SearchTemplateCapabilities.PROFILE_SCORES);
+      if (keywordRung) {
+        throw new SearchTemplateException(
+            "Search template retrieval profileScore requires a vector leg");
+      }
+    }
+    boolean vectorBody = text(retrieval.hasVectorBody() ? retrieval.getVectorBody() : null) != null;
+    if (vectorBody && keywordRung) {
+      throw new SearchTemplateException(
+          "Search template retrieval vectorBody requires a vector leg");
+    }
+    if (vectorBody && profileScore != null) {
+      throw new SearchTemplateException(
+          "Search template retrieval vectorBody cannot be combined with profileScore");
+    }
+    if (retrieval.hasMinSimilarity() && retrieval.getMinSimilarity() != null) {
+      float floor = retrieval.getMinSimilarity();
+      if (!Float.isFinite(floor) || floor < -1f || floor > 1f) {
+        throw new SearchTemplateException(
+            "Search template retrieval minSimilarity must be from -1 to 1");
+      }
+      if (keywordRung || SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine)) {
+        throw new SearchTemplateException(
+            "Search template retrieval minSimilarity requires a vector-admitting combine");
+      }
+      if (SearchTemplateCapabilities.PROFILE_SCORE_WEIGHTED_SUM.equals(profileScore)) {
+        throw new SearchTemplateException(
+            "Search template retrieval minSimilarity cannot be combined with profileScore"
+                + " weightedSum");
+      }
+    }
+  }
+
+  @Nullable
+  private static String text(@Nullable String value) {
+    return value == null || value.isBlank() ? null : value;
   }
 
   public static void requireClosed(
@@ -349,7 +532,8 @@ public final class SearchTemplatePolicyChecks {
     if (ladder.hasFacets() && ladder.getFacets() != null && !ladder.getFacets().isBlank()) {
       requireClosed("facets", ladder.getFacets(), SearchTemplateCapabilities.FACETS);
       boolean vector =
-          retrieval != null && retrieval.hasMode() && "vector".equals(retrieval.getMode());
+          SearchTemplateCapabilities.COMBINE_VECTOR.equals(
+              SearchTemplateCapabilities.combine(retrieval));
       if ("candidates".equals(ladder.getFacets()) && !vector) {
         throw new SearchTemplateException(
             "Search template facets candidates requires vector retrieval");

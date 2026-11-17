@@ -5,8 +5,11 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.google.re2j.Pattern;
 import com.google.re2j.PatternSyntaxException;
 import com.linkedin.search.template.SearchTemplateRoute;
+import com.linkedin.search.template.SearchTemplateRouteMatch;
 import java.util.ArrayList;
+import java.util.HashSet;
 import java.util.List;
+import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -18,7 +21,12 @@ public final class SearchTemplateRoutes {
 
   private SearchTemplateRoutes() {}
 
-  public record Compiled(@Nonnull Pattern pattern, @Nonnull String target) {}
+  /**
+   * {@code match} is stored with the route. This release does not evaluate route conditions, so a
+   * selected route that sets them fails the search.
+   */
+  public record Compiled(
+      @Nonnull Pattern pattern, @Nonnull String target, @Nullable SearchTemplateRouteMatch match) {}
 
   @Nonnull
   public static List<Compiled> compile(
@@ -44,9 +52,15 @@ public final class SearchTemplateRoutes {
       if (route.getTemplate() == null) {
         throw new SearchTemplateException("Search template route target is missing");
       }
+      SearchTemplateRouteMatch match = route.hasMatch() ? route.getMatch() : null;
+      if (match != null) {
+        checkMatch(match);
+      }
       compiled.add(
           new Compiled(
-              pattern(route.getQueryRegex(), maxPatternLength), route.getTemplate().toString()));
+              pattern(route.getQueryRegex(), maxPatternLength),
+              route.getTemplate().toString(),
+              emptyMatch(match) ? null : match));
     }
     return List.copyOf(compiled);
   }
@@ -86,11 +100,46 @@ public final class SearchTemplateRoutes {
     String text = query == null ? "" : query.trim();
     for (Compiled route : template.getRoutes()) {
       if (route.pattern().matcher(text).matches()) {
+        if (route.match() != null) {
+          throw new SearchTemplateException(
+              "Search template section is not supported: route match");
+        }
         return new Decision(route.target(), false);
       }
     }
     String fallback = template.getDefaultRoute();
     return new Decision(fallback, fallback != null);
+  }
+
+  /** Rejects conditions that are invalid in every build. */
+  private static void checkMatch(@Nonnull SearchTemplateRouteMatch match) {
+    names("route match.entityTypes", match.hasEntityTypes() ? match.getEntityTypes() : null);
+    names("route match.surfaces", match.hasSurfaces() ? match.getSurfaces() : null);
+  }
+
+  private static boolean emptyMatch(@Nullable SearchTemplateRouteMatch match) {
+    return match == null
+        || ((!match.hasEntityTypes() || match.getEntityTypes() == null)
+            && (!match.hasSurfaces() || match.getSurfaces() == null)
+            && (!match.hasSemanticEligible() || match.isSemanticEligible() == null)
+            && (!match.hasAnySemanticEligible() || match.isAnySemanticEligible() == null));
+  }
+
+  /** Each name is non-blank and listed once. */
+  public static void names(@Nonnull String field, @Nullable List<String> values) {
+    if (values == null) {
+      return;
+    }
+    Set<String> seen = new HashSet<>();
+    for (String value : values) {
+      if (value == null || value.isBlank()) {
+        throw new SearchTemplateException("Search template " + field + " has an empty name");
+      }
+      if (!seen.add(value)) {
+        throw new SearchTemplateException(
+            "Search template " + field + " names " + value + " more than once");
+      }
+    }
   }
 
   @Nonnull

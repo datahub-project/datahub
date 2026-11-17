@@ -234,13 +234,13 @@ input SearchFlags {
   searchType: String
 
   """
-  Minimum relevance score (inclusive) for the semantic (kNN) search path. Hits scoring below this
-  floor are dropped, letting an agent abstain instead of returning weak matches. Currently honored
-  only by the semantic search path.
+  Deprecated. Minimum engine kNN score (inclusive). On the cosine engines that hybrid read allows,
+  the engine score is (1 + cosine) / 2, a normalized value from 0 to 1.
 
-  The value is compared against the engine's raw kNN relevance score (cosine-derived), which is not
-  a normalized 0..1 value; its scale depends on the embedding model and search engine, so a suitable
-  floor must be calibrated per deployment rather than assumed.
+  On semantic search, a hit below this score is dropped, letting an agent abstain instead of
+  returning weak matches. On document rerank, a row below it is not blended and keeps its keyword
+  position; the row is not dropped. A search template's retrieval.minSimilarity, a raw cosine,
+  replaces it on the vector leg, and knn.blendFloor replaces it on rerank.
   """
   minScore: Float
 
