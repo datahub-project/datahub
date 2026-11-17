@@ -78,7 +78,12 @@ Snowflake is deprecating username + password authentication (`DEFAULT_AUTHENTICA
    --  Grant access to dynamic tables
    grant monitor on all dynamic tables in database identifier($db_var) to role datahub_role;
    grant monitor on future dynamic tables in database identifier($db_var) to role datahub_role;
-   --  Grant access to stored procedures (needed for include_procedures, enabled by default)
+   --  Grant access to streams (include_streams, enabled by default)
+   grant select on all streams in database identifier($db_var) to role datahub_role;
+   grant select on future streams in database identifier($db_var) to role datahub_role;
+   --  Optional - grant access to stored procedures (include_procedures, enabled by default).
+   --  WARNING: USAGE on a procedure is the privilege to CALL it, and procedures run with their
+   --  owner's rights by default. Scope to specific schemas, or set include_procedures: false.
    grant usage on all procedures in database identifier($db_var) to role datahub_role;
    grant usage on future procedures in database identifier($db_var) to role datahub_role;
 
