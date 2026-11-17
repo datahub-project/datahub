@@ -52,7 +52,7 @@ public final class SearchTemplateRoutes {
       if (route.getTemplate() == null) {
         throw new SearchTemplateException("Search template route target is missing");
       }
-      SearchTemplateRouteMatch match = route.hasMatch() ? route.getMatch() : null;
+      SearchTemplateRouteMatch match = route.getMatch();
       if (match != null) {
         checkMatch(match);
       }
@@ -113,8 +113,8 @@ public final class SearchTemplateRoutes {
 
   /** Rejects conditions that are invalid in every build. */
   private static void checkMatch(@Nonnull SearchTemplateRouteMatch match) {
-    names("route match.entityTypes", match.hasEntityTypes() ? match.getEntityTypes() : null);
-    names("route match.surfaces", match.hasSurfaces() ? match.getSurfaces() : null);
+    names("route match.entityTypes", match.getEntityTypes());
+    names("route match.surfaces", match.getSurfaces());
   }
 
   private static boolean emptyMatch(@Nullable SearchTemplateRouteMatch match) {

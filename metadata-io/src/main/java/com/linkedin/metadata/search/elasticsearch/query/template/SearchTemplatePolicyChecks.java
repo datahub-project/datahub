@@ -94,13 +94,11 @@ public final class SearchTemplatePolicyChecks {
           "Search template queryFragments cannot name "
               + SearchTemplateHoles.EMBEDDING_CLAUSES_JSON);
     }
-    if (properties.hasProfiles() && properties.getProfiles() != null) {
+    if (properties.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(properties.getProfiles());
     }
-    if (properties.hasScope() && properties.getScope() != null) {
-      SearchTemplateRoutes.names(
-          "scope.entityTypes",
-          properties.getScope().hasEntityTypes() ? properties.getScope().getEntityTypes() : null);
+    if (properties.getScope() != null) {
+      SearchTemplateRoutes.names("scope.entityTypes", properties.getScope().getEntityTypes());
     }
     if (merged) {
       checkMergedSections(properties);
@@ -113,8 +111,7 @@ public final class SearchTemplatePolicyChecks {
    * a keyword rung that cites no placeholder.
    */
   static void checkMergedSections(@Nonnull SearchTemplateProperties properties) {
-    SearchTemplateRetrieval retrieval =
-        properties.hasRetrieval() ? properties.getRetrieval() : null;
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
     String combine = SearchTemplateCapabilities.combine(retrieval);
     boolean similarity =
         retrieval != null
@@ -153,7 +150,7 @@ public final class SearchTemplatePolicyChecks {
         || SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getRescore())) {
       return true;
     }
-    if (properties.hasQueryFragments() && properties.getQueryFragments() != null) {
+    if (properties.getQueryFragments() != null) {
       for (String fragment : properties.getQueryFragments().values()) {
         if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(fragment)) {
           return true;
@@ -331,7 +328,7 @@ public final class SearchTemplatePolicyChecks {
 
   /** Ranking signals or a ranking reference need keyword retrieval on the merged template. */
   static void requireKeywordForRanking(@Nonnull SearchTemplateProperties properties) {
-    SearchTemplateRanking ranking = properties.hasRanking() ? properties.getRanking() : null;
+    SearchTemplateRanking ranking = properties.getRanking();
     if (ranking == null || SearchTemplateLoader.emptyRanking(ranking)) {
       return;
     }
@@ -391,8 +388,7 @@ public final class SearchTemplatePolicyChecks {
    * {@code knn} rule waits for the merged check.
    */
   private static void requireKeyword(boolean merged, SearchTemplateProperties properties) {
-    SearchTemplateRetrieval retrieval =
-        properties.hasRetrieval() ? properties.getRetrieval() : null;
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
     String combine = SearchTemplateCapabilities.combine(retrieval);
     boolean keywordRerank = SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine);
     if (StringUtils.isNotBlank(properties.getKnn())
@@ -417,11 +413,11 @@ public final class SearchTemplatePolicyChecks {
     if (SearchTemplateLoader.emptyRetrieval(retrieval)) {
       return;
     }
-    String mode = text(retrieval.hasMode() ? retrieval.getMode() : null);
+    String mode = text(retrieval.getMode());
     if (mode != null) {
       requireClosed("retrieval mode", mode, SearchTemplateCapabilities.MODES);
     }
-    String combineField = text(retrieval.hasCombine() ? retrieval.getCombine() : null);
+    String combineField = text(retrieval.getCombine());
     if (combineField != null) {
       requireClosed("retrieval combine", combineField, SearchTemplateCapabilities.COMBINES);
       boolean vectorPair =
@@ -437,7 +433,7 @@ public final class SearchTemplatePolicyChecks {
     String combine = SearchTemplateCapabilities.combine(retrieval);
     boolean keywordRung = combine == null;
     boolean vector = SearchTemplateCapabilities.COMBINE_VECTOR.equals(combine);
-    String querySource = text(retrieval.hasQuerySource() ? retrieval.getQuerySource() : null);
+    String querySource = text(retrieval.getQuerySource());
     if (querySource != null) {
       requireClosed("retrieval querySource", querySource, SearchTemplateCapabilities.QUERY_SOURCES);
       if (keywordRung) {
@@ -449,13 +445,13 @@ public final class SearchTemplatePolicyChecks {
             "Search template retrieval querySource anchorEntity requires combine vector");
       }
     }
-    if (retrieval.hasAnchor() && retrieval.getAnchor() != null) {
+    if (retrieval.getAnchor() != null) {
       SearchTemplateRetrievalAnchor anchor = retrieval.getAnchor();
       if (!SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(querySource)) {
         throw new SearchTemplateException(
             "Search template retrieval anchor requires querySource anchorEntity");
       }
-      String urnParameter = text(anchor.hasUrnParameter() ? anchor.getUrnParameter() : null);
+      String urnParameter = text(anchor.getUrnParameter());
       if (urnParameter != null) {
         requireClosed(
             "retrieval anchor urnParameter",
@@ -463,7 +459,7 @@ public final class SearchTemplatePolicyChecks {
             SearchTemplateCapabilities.ANCHOR_URN_PARAMETERS);
       }
     }
-    String profileScore = text(retrieval.hasProfileScore() ? retrieval.getProfileScore() : null);
+    String profileScore = text(retrieval.getProfileScore());
     if (profileScore != null) {
       requireClosed(
           "retrieval profileScore", profileScore, SearchTemplateCapabilities.PROFILE_SCORES);
@@ -472,7 +468,7 @@ public final class SearchTemplatePolicyChecks {
             "Search template retrieval profileScore requires a vector leg");
       }
     }
-    boolean vectorBody = text(retrieval.hasVectorBody() ? retrieval.getVectorBody() : null) != null;
+    boolean vectorBody = text(retrieval.getVectorBody()) != null;
     if (vectorBody && keywordRung) {
       throw new SearchTemplateException(
           "Search template retrieval vectorBody requires a vector leg");
@@ -481,7 +477,7 @@ public final class SearchTemplatePolicyChecks {
       throw new SearchTemplateException(
           "Search template retrieval vectorBody cannot be combined with profileScore");
     }
-    if (retrieval.hasMinSimilarity() && retrieval.getMinSimilarity() != null) {
+    if (retrieval.getMinSimilarity() != null) {
       float floor = retrieval.getMinSimilarity();
       if (!Float.isFinite(floor) || floor < -1f || floor > 1f) {
         throw new SearchTemplateException(

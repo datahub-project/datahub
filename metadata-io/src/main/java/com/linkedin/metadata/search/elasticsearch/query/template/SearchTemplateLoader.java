@@ -391,15 +391,13 @@ public class SearchTemplateLoader {
       if (props.hasRanking()) {
         ranking = mergeRanking(ranking, props.getRanking(), addSatisfiedRemoves);
       }
-      if (props.hasRetrieval() && props.getRetrieval() != null) {
+      if (props.getRetrieval() != null) {
         SearchTemplateRetrieval retrieval = props.getRetrieval();
         requireKnownFields(retrieval, "retrieval");
-        requireKnownFields(
-            retrieval.hasAnchor() ? retrieval.getAnchor() : null, "retrieval.anchor");
-        requireKnownFields(
-            retrieval.hasBridge() ? retrieval.getBridge() : null, "retrieval.bridge");
+        requireKnownFields(retrieval.getAnchor(), "retrieval.anchor");
+        requireKnownFields(retrieval.getBridge(), "retrieval.bridge");
       }
-      if (props.hasProfiles() && props.getProfiles() != null) {
+      if (props.getProfiles() != null) {
         requireKnownFields(props.getProfiles(), "profiles");
         profiles = SearchTemplateProfilesPolicy.merge(profiles, props.getProfiles());
       }
@@ -1096,12 +1094,12 @@ public class SearchTemplateLoader {
     boolean authorization = !retrieval.hasAuthorization() || blank(retrieval.getAuthorization());
     boolean onFailure = !retrieval.hasOnFailure() || blank(retrieval.getOnFailure());
     boolean bridge = !retrieval.hasBridge() || emptyBridge(retrieval.getBridge());
-    boolean combine = !retrieval.hasCombine() || blank(retrieval.getCombine());
-    boolean querySource = !retrieval.hasQuerySource() || blank(retrieval.getQuerySource());
+    boolean combine = blank(retrieval.getCombine());
+    boolean querySource = blank(retrieval.getQuerySource());
     boolean anchor = !retrieval.hasAnchor() || emptyAnchor(retrieval.getAnchor());
-    boolean profileScore = !retrieval.hasProfileScore() || blank(retrieval.getProfileScore());
-    boolean minSimilarity = !retrieval.hasMinSimilarity() || retrieval.getMinSimilarity() == null;
-    boolean vectorBody = !retrieval.hasVectorBody() || blank(retrieval.getVectorBody());
+    boolean profileScore = blank(retrieval.getProfileScore());
+    boolean minSimilarity = retrieval.getMinSimilarity() == null;
+    boolean vectorBody = blank(retrieval.getVectorBody());
     return mode
         && model
         && field
@@ -1124,8 +1122,8 @@ public class SearchTemplateLoader {
     if (anchor == null) {
       return true;
     }
-    boolean urnParameter = !anchor.hasUrnParameter() || blank(anchor.getUrnParameter());
-    boolean excludeSelf = !anchor.hasExcludeSelf() || anchor.isExcludeSelf() == null;
+    boolean urnParameter = blank(anchor.getUrnParameter());
+    boolean excludeSelf = anchor.isExcludeSelf() == null;
     return urnParameter && excludeSelf;
   }
 
@@ -1134,11 +1132,10 @@ public class SearchTemplateLoader {
     if (profiles == null) {
       return true;
     }
-    boolean useDefault = !profiles.hasUseDefault() || profiles.isUseDefault() == null;
-    boolean add = !profiles.hasAdd() || profiles.getAdd() == null || profiles.getAdd().isEmpty();
-    boolean remove =
-        !profiles.hasRemove() || profiles.getRemove() == null || profiles.getRemove().isEmpty();
-    boolean replace = !profiles.hasReplace() || profiles.getReplace() == null;
+    boolean useDefault = profiles.isUseDefault() == null;
+    boolean add = profiles.getAdd() == null || profiles.getAdd().isEmpty();
+    boolean remove = profiles.getRemove() == null || profiles.getRemove().isEmpty();
+    boolean replace = profiles.getReplace() == null;
     boolean override =
         !profiles.hasOverride()
             || profiles.getOverride() == null

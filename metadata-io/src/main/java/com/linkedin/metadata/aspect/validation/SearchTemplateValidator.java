@@ -219,12 +219,11 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
    * {@code profiles}. They are still read, so the write is accepted with a warning.
    */
   private static void warnDeprecatedNames(Urn urn, SearchTemplateProperties properties) {
-    SearchTemplateRetrieval retrieval =
-        properties.hasRetrieval() ? properties.getRetrieval() : null;
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
     boolean retrievalNames =
         retrieval != null
-            && ((retrieval.hasModel() && StringUtils.isNotBlank(retrieval.getModel()))
-                || (retrieval.hasField() && StringUtils.isNotBlank(retrieval.getField())));
+            && ((StringUtils.isNotBlank(retrieval.getModel()))
+                || (StringUtils.isNotBlank(retrieval.getField())));
     boolean knnNames =
         properties.hasKnn()
             && properties.getKnn() != null

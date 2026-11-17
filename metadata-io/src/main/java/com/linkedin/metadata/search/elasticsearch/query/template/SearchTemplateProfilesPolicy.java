@@ -20,18 +20,15 @@ public final class SearchTemplateProfilesPolicy {
 
   /** Rejects a selection that is invalid in every build. */
   public static void check(@Nonnull SearchTemplateProfiles profiles) {
-    boolean useDefault = profiles.hasUseDefault() && profiles.isUseDefault() != null;
-    boolean replace = profiles.hasReplace() && profiles.getReplace() != null;
-    Set<String> add = ids("add", profiles.hasAdd() ? profiles.getAdd() : null);
-    Set<String> remove = ids("remove", profiles.hasRemove() ? profiles.getRemove() : null);
+    boolean useDefault = profiles.isUseDefault() != null;
+    boolean replace = profiles.getReplace() != null;
+    Set<String> add = ids("add", profiles.getAdd());
+    Set<String> remove = ids("remove", profiles.getRemove());
     if (useDefault) {
       if (!profiles.isUseDefault()) {
         throw new SearchTemplateException("Search template profiles.useDefault must be true");
       }
-      if (replace
-          || !add.isEmpty()
-          || !remove.isEmpty()
-          || (profiles.hasOverride() && profiles.getOverride() != null)) {
+      if (replace || !add.isEmpty() || !remove.isEmpty() || (profiles.getOverride() != null)) {
         throw new SearchTemplateException(
             "Search template profiles.useDefault cannot be combined with other operations");
       }
@@ -49,7 +46,7 @@ public final class SearchTemplateProfilesPolicy {
             "Search template profiles names " + id + " in both add and remove");
       }
     }
-    if (profiles.hasOverride() && profiles.getOverride() != null) {
+    if (profiles.getOverride() != null) {
       for (Map.Entry<String, Float> entry : profiles.getOverride().entrySet()) {
         if (entry.getKey() == null || entry.getKey().isBlank()) {
           throw new SearchTemplateException("Search template profiles.override has an empty id");
@@ -86,27 +83,26 @@ public final class SearchTemplateProfilesPolicy {
     Set<String> remove = new LinkedHashSet<>();
     Map<String, Float> override = new LinkedHashMap<>();
     if (parent != null) {
-      if (parent.hasReplace() && parent.getReplace() != null) {
+      if (parent.getReplace() != null) {
         replace = new LinkedHashSet<>(parent.getReplace());
       }
-      if (parent.hasAdd() && parent.getAdd() != null) {
+      if (parent.getAdd() != null) {
         add.addAll(parent.getAdd());
       }
-      if (parent.hasRemove() && parent.getRemove() != null) {
+      if (parent.getRemove() != null) {
         remove.addAll(parent.getRemove());
       }
-      if (parent.hasOverride() && parent.getOverride() != null) {
+      if (parent.getOverride() != null) {
         override.putAll(parent.getOverride());
       }
     }
-    if (child.hasReplace() && child.getReplace() != null) {
+    if (child.getReplace() != null) {
       replace = new LinkedHashSet<>(child.getReplace());
       add.clear();
       remove.clear();
     }
-    List<String> childAdd = child.hasAdd() && child.getAdd() != null ? child.getAdd() : List.of();
-    List<String> childRemove =
-        child.hasRemove() && child.getRemove() != null ? child.getRemove() : List.of();
+    List<String> childAdd = child.getAdd() != null ? child.getAdd() : List.of();
+    List<String> childRemove = child.getRemove() != null ? child.getRemove() : List.of();
     if (replace != null) {
       replace.removeAll(childRemove);
       replace.addAll(childAdd);
@@ -116,7 +112,7 @@ public final class SearchTemplateProfilesPolicy {
       remove.removeAll(childAdd);
       remove.addAll(childRemove);
     }
-    if (child.hasOverride() && child.getOverride() != null) {
+    if (child.getOverride() != null) {
       override.putAll(child.getOverride());
     }
     if (replace != null && replace.isEmpty()) {
