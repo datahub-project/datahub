@@ -146,6 +146,7 @@ public final class SearchTemplateChecks {
     if (merged.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(merged.getProfiles());
     }
+    SearchTemplatePolicyChecks.rejectRouterBody(composed);
     SearchTemplatePolicyChecks.checkMergedSections(composed);
     SearchTemplatePolicyChecks.requireKeywordForRanking(composed);
     String knn = merged.getKnn();

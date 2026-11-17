@@ -292,6 +292,7 @@ public class ESSearchDAOHybridTest {
         SearchResult served = search(dao, searching, keywordRerank, byScore);
         // The mocked engine ignores size. Hybrid read on fetches the window and slices the page.
         int page = served.getEntities().size();
+        assertEquals(page, hybrid == null ? 100 : 10);
         assertEquals(rowIds(served), rowIds(expected).subList(0, page));
         assertEquals(scores(served), scores(expected).subList(0, page));
         assertEquals(served.getNumEntities(), expected.getNumEntities());

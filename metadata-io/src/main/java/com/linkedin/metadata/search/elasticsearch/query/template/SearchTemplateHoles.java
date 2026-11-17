@@ -76,7 +76,8 @@ public final class SearchTemplateHoles {
 
   private static boolean allowedUnescaped(
       @Nonnull String name, @Nonnull Set<String> fragments, @Nonnull String template) {
-    if (name.isEmpty() || ".".equals(name)) {
+    // Reserved for the native mixed query, so a fragment cannot splice it into another section.
+    if (name.isEmpty() || ".".equals(name) || EMBEDDING_CLAUSES_JSON.equals(name)) {
       return false;
     }
     if (SearchTemplateContextVariables.STRUCTURED_QUERY.equals(name)) {

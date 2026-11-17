@@ -388,9 +388,11 @@ public class SearchTemplateLoader {
         ranking = mergeRanking(ranking, props.getRanking(), addSatisfiedRemoves);
       }
       if (props.hasProfiles() && props.getProfiles() != null) {
+        requireKnownFields(props.getProfiles(), "profiles");
         profiles = SearchTemplateProfilesPolicy.merge(profiles, props.getProfiles());
       }
       if (props.hasScope()) {
+        requireKnownFields(props.getScope(), "scope");
         scope = emptyScope(props.getScope()) ? null : props.getScope();
       }
       if (props.hasFields()) {
@@ -1129,6 +1131,23 @@ public class SearchTemplateLoader {
             || profiles.getOverride() == null
             || profiles.getOverride().isEmpty();
     return useDefault && add && remove && replace && override;
+  }
+
+  /**
+   * A field this release does not know may change what the section selects, so the template fails
+   * closed instead of reading the section as empty.
+   */
+  private static void requireKnownFields(
+      @Nullable com.linkedin.data.template.RecordTemplate section, @Nonnull String name) {
+    if (section == null) {
+      return;
+    }
+    for (String key : section.data().keySet()) {
+      if (section.schema().getField(key) == null) {
+        throw new SearchTemplateException(
+            "Search template section is not supported: " + name + "." + key);
+      }
+    }
   }
 
   /** True when the section names no entity type, so it drops an inherited scope. */

@@ -55,9 +55,9 @@ public final class SearchTemplateProfilesPolicy {
           throw new SearchTemplateException("Search template profiles.override has an empty id");
         }
         Float weight = entry.getValue();
-        if (weight == null || !Float.isFinite(weight)) {
+        if (weight == null || !Float.isFinite(weight) || weight <= 0f) {
           throw new SearchTemplateException(
-              "Search template profiles.override weight must be a number: " + entry.getKey());
+              "Search template profiles.override weight must be positive: " + entry.getKey());
         }
       }
     }

@@ -239,6 +239,15 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     router.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("x"))));
     assertRejects("routerScope", () -> SearchTemplateChecks.check(router, 1024));
 
+    SearchTemplateProperties future = parentOf("Future", "urn:li:searchTemplate:child");
+    SearchTemplateScope futureScope = new SearchTemplateScope();
+    futureScope.data().put("futureCondition", true);
+    future.setScope(futureScope);
+    store("urn:li:searchTemplate:future", future);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:future"));
+
     SearchTemplateProperties reset = parentOf("Reset", "urn:li:searchTemplate:child");
     reset.setProfiles(new SearchTemplateProfiles().setUseDefault(true));
     store("urn:li:searchTemplate:reset", reset);
@@ -250,7 +259,8 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
             new SearchTemplateProfiles().setUseDefault(true).setAdd(new StringArray(List.of("a"))),
             new SearchTemplateProfiles()
                 .setAdd(new StringArray(List.of("a")))
-                .setRemove(new StringArray(List.of("a"))))) {
+                .setRemove(new StringArray(List.of("a"))),
+            new SearchTemplateProfiles().setOverride(new FloatMap(Map.of("a", 0f))))) {
       SearchTemplateProperties properties = rung(r -> r.setCombine("vector"));
       properties.setProfiles(bad);
       assertRejects(bad.toString(), () -> SearchTemplateChecks.check(properties, 1024));
