@@ -100,6 +100,28 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testUnreadableRerankBlendDoesNotFailTheRender() {
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties rerank = parentOf("Rerank", SEARCH_TEMPLATE_FULLTEXT_URN);
+    rerank.setApiVersion(2);
+    rerank.setRetrieval(retrieval(r -> r.setCombine("keywordRerank")));
+    rerank.setKnn("{ \"vectorWeight\": ");
+    store(RERANK, rerank);
+    templates.getDefaults().put("fulltext", Map.of("default", RERANK));
+
+    // The rerank reads the blend later and keeps keyword order when it cannot.
+    SearchTemplateDryRender preview =
+        coordinator(true)
+            .preview(
+                opContext,
+                "customer orders",
+                List.of("document"),
+                false,
+                SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertEquals(preview.resolvedUrn(), RERANK);
+  }
+
+  @Test
   public void testKeywordRerankCacheIdentityFollowsTheRerankInputs() {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
     SearchTemplateProperties rerank = parentOf("Rerank", SEARCH_TEMPLATE_FULLTEXT_URN);
