@@ -13,7 +13,6 @@ import argparse
 import base64
 import errno
 import fcntl
-import hashlib
 import json
 import os
 import re
@@ -36,7 +35,12 @@ from _opensearch_manager import (
     SharedOpenSearchManager,
     default_shared_dir,
     delete_prefixes,
+    distribution_script,
+    ensure_data_major,
     index_names,
+    index_prefix,
+    selected_major,
+    validate_major,
     wait_for_ready,
 )
 from _system_update_checker import SystemUpdateChecker
@@ -44,10 +48,6 @@ from _system_update_checker import SystemUpdateChecker
 REPO_ROOT = Path(__file__).resolve().parents[3]
 WAR = REPO_ROOT / "metadata-service/war/build/libs/war.war"
 UPGRADE_JAR = REPO_ROOT / "datahub-upgrade/build/libs/datahub-upgrade.jar"
-OPENSEARCH = (
-    REPO_ROOT
-    / "metadata-service/opensearch-embedded/build/install/opensearch-embedded/bin/opensearch-embedded"
-)
 DEFAULT_DATA_DIR = REPO_ROOT / "metadata-service/gms-lite/build/stack"
 OPENSEARCH_READY_TIMEOUT_SECONDS = 900
 JAVA = (
@@ -73,12 +73,16 @@ class Credentials(TypedDict):
 
 class StackInfo(TypedDict):
     bootId: str
+    opensearchVersion: str
     opensearchPort: int
     opensearchShared: bool
     default: str
     instances: dict[str, str]
     indexPrefixes: dict[str, str]
     auth: bool
+    frontendPort: int | None
+    systemClientId: str | None
+    systemClientSecret: str | None
     adminTokens: dict[str, str]
     adminTokenExpiresAt: dict[str, str]
 
@@ -97,7 +101,14 @@ def write_private(path: Path, content: str) -> None:
 
 
 @contextmanager
-def data_directory(data_dir: Path, fresh: bool) -> Iterator[list[str]]:
+def data_directory(
+    data_dir: Path,
+    fresh: bool,
+    major: str | None = None,
+    *,
+    processes: int = 1,
+    private_opensearch: bool = False,
+) -> Iterator[list[str]]:
     """Keep the lock outside the directory so --fresh cannot unlink a live lock."""
     data_dir.parent.mkdir(parents=True, exist_ok=True)
     with (data_dir.parent / f".{data_dir.name}.gms-lite.lock").open("w") as lock:
@@ -105,6 +116,13 @@ def data_directory(data_dir: Path, fresh: bool) -> Iterator[list[str]]:
             fcntl.flock(lock, fcntl.LOCK_EX | fcntl.LOCK_NB)
         except BlockingIOError as error:
             raise SystemExit(f"data directory is already in use: {data_dir}") from error
+        major = major or selected_major()
+        version_file = data_dir / "opensearch-major"
+        previous = version_file.read_text().strip() if version_file.exists() else "3"
+        if (data_dir / ".gms-lite").exists() and previous != major and not fresh:
+            raise SystemExit(
+                f"changing OpenSearch {previous} to {major} requires --fresh"
+            )
         previous_instances = [
             path.name
             for path in data_dir.glob("gms-*")
@@ -116,9 +134,20 @@ def data_directory(data_dir: Path, fresh: bool) -> Iterator[list[str]]:
                 raise SystemExit(
                     f"refusing to clear an unrecognized data directory: {data_dir}"
                 )
+            if marker.exists() and previous != major and not private_opensearch:
+                # Clean the old node before erasing the major needed to find it on a retry.
+                manager = SharedOpenSearchManager(
+                    default_shared_dir(previous).expanduser(), major=previous
+                )
+                names = set(previous_instances) | {f"gms-{i}" for i in range(processes)}
+                delete_prefixes(
+                    manager.get_or_start(),
+                    sorted(index_prefix(data_dir, name) for name in names),
+                )
             shutil.rmtree(data_dir)
         data_dir.mkdir(parents=True, exist_ok=True)
         marker.touch()
+        version_file.write_text(major + "\n")
         stack_file = data_dir / "stack.json"
         stack_file.unlink(missing_ok=True)
         try:
@@ -242,17 +271,13 @@ class Processes:
                 child.stdout.close()
 
 
-def index_prefix(data_dir: Path, instance: str) -> str:
-    # A path hash avoids collisions between equally named directories in different worktrees.
-    stack_id = hashlib.sha256(str(data_dir.resolve()).encode()).hexdigest()[:12]
-    return f"gmslite{stack_id}{instance.replace('-', '')}"
-
-
 def start_opensearch(
     args: argparse.Namespace, processes: Processes, log_dir: Path
 ) -> int:
     if not args.private_opensearch:
-        manager = SharedOpenSearchManager(args.shared_opensearch_dir)
+        manager = SharedOpenSearchManager(
+            args.shared_opensearch_dir, major=args.opensearch
+        )
         bound = manager.get_or_start()
         log(f"Shared OpenSearch ready on port {bound}; survives stack shutdown")
         log(
@@ -261,19 +286,24 @@ def start_opensearch(
                 [
                     str(Path(__file__).with_name("_opensearch_manager.py")),
                     "stop",
+                    "--opensearch",
+                    args.opensearch,
                     "--dir",
                     str(manager.shared_dir),
                 ]
             )
         )
         return bound
+    private_dir = args.data_dir / f"opensearch-{args.opensearch}"
+    private_dir.mkdir(parents=True, exist_ok=True)
+    ensure_data_major(private_dir, args.opensearch)
     process = processes.start(
         [
-            str(OPENSEARCH),
+            str(distribution_script(REPO_ROOT, args.opensearch)),
             "--port",
             str(args.opensearch_port or 0),
             "--data",
-            str(args.data_dir / "opensearch"),
+            str(private_dir),
         ],
         dict(os.environ),
         log_dir / "opensearch.log",
@@ -433,6 +463,7 @@ def instance_env(
     data_dir: Path,
     credentials: Credentials,
     auth: bool,
+    major: str,
 ) -> dict[str, str]:
     directory = data_dir / instance
     directory.mkdir(parents=True, exist_ok=True)
@@ -462,9 +493,12 @@ def instance_env(
         "DATAHUB_OBJECT_STORAGE_URI": storage.as_uri(),
         "ELASTICSEARCH_HOST": "localhost",
         "ELASTICSEARCH_PORT": str(os_port),
-        "ELASTICSEARCH_SHIM_ENGINE_TYPE": "OPENSEARCH_3",
+        "ELASTICSEARCH_SHIM_ENGINE_TYPE": f"OPENSEARCH_{major}",
         "ELASTICSEARCH_SHIM_AUTO_DETECT": "false",
-        "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": "true",
+        # Keep 2.x document IDs compatible with the Docker default.
+        "ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED": str(
+            major == "3"
+        ).lower(),
         "INDEX_PREFIX": index_prefix(data_dir, instance),
         "GRAPH_SERVICE_IMPL": "elasticsearch",
         "ELASTICSEARCH_NUM_SHARDS_PER_INDEX": "1",
@@ -649,13 +683,14 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
                 ":metadata-service:war:bootJar",
                 ":datahub-upgrade:bootJar",
                 ":metadata-service:opensearch-embedded:installDist",
+                f"-PopensearchVersion={args.opensearch}",
                 "-x",
                 "test",
             ],
             cwd=REPO_ROOT,
             check=True,
         )
-    for path in (WAR, UPGRADE_JAR, OPENSEARCH):
+    for path in (WAR, UPGRADE_JAR, distribution_script(REPO_ROOT, args.opensearch)):
         if not path.exists():
             raise SystemExit(f"missing {path}; run without --skip-build")
     base = read_env_file(args.env_file)
@@ -664,7 +699,14 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
     names = [f"gms-{i}" for i in range(args.processes)]
     environments = {
         name: instance_env(
-            base, name, args.port_base + i, bound, data_dir, credentials, args.auth
+            base,
+            name,
+            args.port_base + i,
+            bound,
+            data_dir,
+            credentials,
+            args.auth,
+            args.opensearch,
         )
         for i, name in enumerate(names)
     }
@@ -731,6 +773,7 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
         wait_admin_access(urls[name], token, processes)
     stack: StackInfo = {
         "bootId": secrets.token_hex(16),
+        "opensearchVersion": args.opensearch,
         "opensearchPort": bound,
         "opensearchShared": not args.private_opensearch,
         "default": names[0],
@@ -739,6 +782,11 @@ def run_stack(args: argparse.Namespace, processes: Processes) -> None:
             name: env["INDEX_PREFIX"] for name, env in environments.items()
         },
         "auth": args.auth,
+        "frontendPort": args.frontend_port,
+        "systemClientId": "__datahub_system" if args.auth else None,
+        "systemClientSecret": credentials["system_client_secret"]
+        if args.auth
+        else None,
         "adminTokens": tokens,
         "adminTokenExpiresAt": {
             name: token_expires_at(token) for name, token in tokens.items()
@@ -776,9 +824,16 @@ def main() -> None:
     parser.add_argument(
         "--shared-opensearch-dir",
         type=Path,
-        default=default_shared_dir(),
+        default=None,
         help="shared node state (or GMS_LITE_OPENSEARCH_DIR)",
     )
+    parser.add_argument(
+        "--frontend-port",
+        type=int,
+        default=None,
+        help="frontend port written to stack.json for Vite lite mode",
+    )
+    parser.add_argument("--opensearch", choices=("2", "3"))
     parser.add_argument("--data-dir", type=Path, default=DEFAULT_DATA_DIR)
     parser.add_argument(
         "--env-file",
@@ -808,6 +863,9 @@ def main() -> None:
             "--processes must be positive and all GMS ports must be in 1..65535"
         )
     ports = list(range(args.port_base, args.port_base + args.processes))
+    if args.frontend_port is not None:
+        if not 1 <= args.frontend_port <= 65535 or args.frontend_port in ports:
+            parser.error("--frontend-port must be a distinct port in 1..65535")
     if args.opensearch_port is not None and (
         not 0 <= args.opensearch_port <= 65535 or args.opensearch_port in ports
     ):
@@ -819,6 +877,16 @@ def main() -> None:
     )
     ensure_ports_available(ports)
     args.data_dir = args.data_dir.expanduser().resolve()
+    version_file = args.data_dir / "opensearch-major"
+    recorded = (
+        version_file.read_text().strip()
+        if version_file.exists()
+        else ("3" if (args.data_dir / ".gms-lite").exists() else None)
+    )
+    args.opensearch = validate_major(args.opensearch or recorded or selected_major())
+    args.shared_opensearch_dir = args.shared_opensearch_dir or default_shared_dir(
+        args.opensearch
+    )
     processes = Processes()
 
     def interrupted(signum: int, frame: object) -> None:
@@ -829,7 +897,13 @@ def main() -> None:
 
     signal.signal(signal.SIGTERM, interrupted)
     signal.signal(signal.SIGINT, interrupted)
-    with data_directory(args.data_dir, args.fresh) as previous_instances:
+    with data_directory(
+        args.data_dir,
+        args.fresh,
+        args.opensearch,
+        processes=args.processes,
+        private_opensearch=args.private_opensearch,
+    ) as previous_instances:
         args.previous_instances = previous_instances
         try:
             run_stack(args, processes)

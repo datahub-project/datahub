@@ -150,6 +150,7 @@ export default function UserProfile({ urn }: Props) {
         data?.corpUser?.editableProperties?.displayName ||
         (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
         undefined;
+    const manager = data?.corpUser?.info?.manager;
 
     // Side bar data
     const sidebarData = {
@@ -162,6 +163,9 @@ export default function UserProfile({ urn }: Props) {
         name: displayName,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || data?.corpUser?.info?.departmentName || undefined,
+        manager: manager
+            ? { urn: manager.urn, name: entityRegistry.getDisplayName(EntityType.CorpUser, manager) }
+            : undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,

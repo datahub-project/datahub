@@ -5653,3 +5653,30 @@ def test_dbt_meta_mapping_list_values_yield_one_tag_and_term_per_item():
     assert [t.tag for t in field.globalTags.tags] == expected_tags
     assert field.glossaryTerms is not None
     assert [t.urn for t in field.glossaryTerms.terms] == expected_terms
+
+
+@pytest.mark.parametrize(
+    "materialization, materialized",
+    [
+        ("view", False),
+        ("ephemeral", False),
+        ("semantic_view", False),
+        ("metric_view", False),
+        ("table", True),
+        ("incremental", True),
+        ("snapshot", True),
+        ("materialized_view", True),
+        ("dynamic_table", True),
+        ("insert_by_period", True),
+        (None, True),
+    ],
+)
+def test_view_properties_materialized_follows_materialization(
+    materialization: Optional[str], materialized: bool
+) -> None:
+    node = dataclasses.replace(
+        _make_sibling_dbt_node(), materialization=materialization, raw_code="select 1"
+    )
+    view_properties = _make_dbt_source()._create_view_properties_aspect(node)
+    assert view_properties is not None
+    assert view_properties.materialized is materialized

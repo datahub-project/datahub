@@ -44,6 +44,41 @@ describe('Popover', () => {
         expect(screen.queryByRole('dialog')).not.toBeInTheDocument();
     });
 
+    it('marks a click trigger as expanded, but not a hover trigger', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Popover content="Menu" trigger="click">
+                    <button type="button">click trigger</button>
+                </Popover>
+                <Popover content="Preview">
+                    <div>hover trigger</div>
+                </Popover>
+            </ThemeProvider>,
+        );
+
+        expect(screen.getByRole('button', { name: 'click trigger' })).toHaveAttribute('aria-expanded', 'false');
+        expect(screen.getByText('hover trigger')).not.toHaveAttribute('aria-expanded');
+    });
+
+    it('mounts kept content only after the first open, then keeps it when closed', () => {
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Popover content={<span>Kept content</span>} trigger="click" destroyTooltipOnHide={false}>
+                    <button type="button">Open details</button>
+                </Popover>
+            </ThemeProvider>,
+        );
+
+        expect(screen.queryByText('Kept content')).not.toBeInTheDocument();
+
+        fireEvent.click(screen.getByRole('button', { name: 'Open details' }));
+        expect(screen.getByText('Kept content')).toBeVisible();
+
+        fireEvent.keyDown(document, { key: 'Escape' });
+        expect(screen.getByText('Kept content')).toBeInTheDocument();
+        expect(screen.getByText('Kept content')).not.toBeVisible();
+    });
+
     it('stays open when a menu portaled from its content is pressed, and closes on an outside press', () => {
         const PortaledMenu = () => createPortal(<button type="button">Edit view</button>, document.body);
 
