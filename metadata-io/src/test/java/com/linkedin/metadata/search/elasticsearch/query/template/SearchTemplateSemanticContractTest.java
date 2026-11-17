@@ -293,6 +293,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     store("urn:li:searchTemplate:stampedChild", child);
     assertEquals(loader.load(opContext, "urn:li:searchTemplate:stampedChild").getApiVersion(), 2);
 
+    for (String tag :
+        List.of(
+            "{{^embeddingClausesJson}}{}{{/embeddingClausesJson}}",
+            "{{#embeddingField}}{{/embeddingField}}",
+            "{{{embeddingClausesJson}}}")) {
+      assertTrue(SearchTemplateCapabilities.citesEmbeddingPlaceholders(tag), tag);
+    }
+
     SearchTemplateProperties nativeEarlier =
         body("Native", "{ \"bool\": { \"should\": [ {{&embeddingClausesJson}} ] } }", null);
     store("urn:li:searchTemplate:nativeEarlier", nativeEarlier);

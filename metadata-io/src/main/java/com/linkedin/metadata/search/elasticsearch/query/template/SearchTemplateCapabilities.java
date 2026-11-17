@@ -128,9 +128,12 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> PROFILE_SCORES = Set.of("best", PROFILE_SCORE_WEIGHTED_SUM);
   public static final Set<String> ANCHOR_URN_PARAMETERS = Set.of("raw");
 
-  /** {@code embeddingClausesJson} and {@code embeddingField}, in any Mustache tag form. */
+  /**
+   * {@code embeddingClausesJson} and {@code embeddingField} under any Mustache tag: variable,
+   * unescaped, triple braces, section, inverted section, or section end.
+   */
   private static final Pattern EMBEDDING_PLACEHOLDER =
-      Pattern.compile("\\{\\{\\{?\\s*&?\\s*(?:embeddingClausesJson|embeddingField)\\s*}?}}");
+      Pattern.compile("\\{\\{\\{?\\s*[&#^/]?\\s*(?:embeddingClausesJson|embeddingField)\\s*}?}}");
 
   private SearchTemplateCapabilities() {}
 
