@@ -24,9 +24,13 @@ from datahub.ingestion.source.snowflake.snowflake_schema import (
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
     GlobalTagsClass,
+    OtherSchemaClass,
     PlatformResourceInfoClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
     SchemaMetadataClass,
     StatusClass,
+    StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyDefinitionClass,
     StructuredPropertyValueAssignmentClass,
@@ -259,15 +263,81 @@ def test_managed_tags_on_a_dataset_come_from_datahub_not_snowflake() -> None:
     assert schema_metadata.fields[0].globalTags is None
 
 
-def test_dataset_with_only_managed_tags_gets_no_global_tags() -> None:
+def test_dataset_with_only_managed_tags_drops_native_tags_removed_in_snowflake() -> (
+    None
+):
+    # TIER was removed in Snowflake; PII is DataHub's. The dataset keeps PII
+    # and loses TIER, as a run before managed records would have dropped it.
     gen = make_gen(
-        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")])
+        tag_repository=fake_tag_repository(
+            [tag_record(_PII, "urn:li:tag:pii")],
+            in_datahub={
+                _DATASET_URN: [
+                    GlobalTagsClass(
+                        [
+                            TagAssociationClass("urn:li:tag:pii"),
+                            TagAssociationClass(_TIER_TAG_URN),
+                        ]
+                    )
+                ]
+            },
+        )
     )
 
     workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
     assert aspects(workunits, TagPropertiesClass) == {}
+    dataset_tags = aspects(workunits, GlobalTagsClass)[_DATASET_URN]
+    assert [t.tag for t in dataset_tags.tags] == ["urn:li:tag:pii"]
+
+
+def _schema_in_datahub(field_path: str, *tags: str) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="test_db.public.t1",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath=field_path,
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="VARCHAR",
+                globalTags=GlobalTagsClass([TagAssociationClass(t) for t in tags]),
+            )
+        ],
+    )
+
+
+def test_failed_record_load_keeps_column_tags_from_datahub() -> None:
+    # Snowflake tags are skipped for the run; dataset tags are left alone, and
+    # column tags, written inside schemaMetadata, are carried over instead of
+    # cleared.
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [],
+            load_error=RuntimeError("search timed out"),
+            in_datahub={_DATASET_URN: [_schema_in_datahub("id", _PII_TAG_URN)]},
+        )
+    )
+
+    workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
+
     assert aspects(workunits, GlobalTagsClass) == {}
+    schema_metadata = aspects(workunits, SchemaMetadataClass)[_DATASET_URN]
+    assert schema_metadata.fields[0].globalTags is not None
+    assert [t.tag for t in schema_metadata.fields[0].globalTags.tags] == [_PII_TAG_URN]
+
+
+def test_managed_records_are_protected_when_no_database_is_left() -> None:
+    managed = tag_record(_PII, "urn:li:tag:pii")
+    gen = make_gen(tag_repository=fake_tag_repository([managed]))
+    gen.get_databases = lambda: []  # type: ignore[method-assign]
+
+    workunits = list(gen.get_workunits_internal())
+
+    statuses = [wu for wu in workunits if wu.get_aspect_of_type(StatusClass)]
+    assert [wu.is_primary_source for wu in statuses] == [False]
 
 
 def test_unreadable_datahub_tags_leave_dataset_tags_unwritten() -> None:
@@ -294,7 +364,10 @@ def test_managed_term_is_left_out_of_dataset_and_column_tags() -> None:
     workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
     assert aspects(workunits, TagPropertiesClass) == {}
-    assert aspects(workunits, GlobalTagsClass) == {}
+    # Written empty: Snowflake lists a tag, so native tags it no longer lists
+    # are dropped; the term itself never becomes a tag.
+    dataset_tags = aspects(workunits, GlobalTagsClass)[dataset_urn(gen, "T1")]
+    assert dataset_tags.tags == []
     schema_metadata = aspects(workunits, SchemaMetadataClass)[dataset_urn(gen, "T1")]
     assert schema_metadata.fields[0].globalTags is None
 
@@ -358,15 +431,19 @@ def test_native_tags_unchanged_and_record_emitted() -> None:
     assert [r.secondaryKeys for r in records.values()] == [[_PII_TAG_URN]]
 
 
-def test_only_skipped_properties_emit_no_upsert_aspect() -> None:
+def test_only_managed_properties_still_replace_the_upsert_aspect() -> None:
+    # With every tag DataHub's, UPSERT still writes the aspect, so native
+    # properties removed in Snowflake are dropped as before.
     gen = make_gen(
         tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")]),
         extract_tags_as_structured_properties=True,
+        structured_properties_write_mode=StructuredPropertyWriteMode.UPSERT,
     )
 
     workunits = list(gen.gen_dataset_workunits(_tagged_table(), SCHEMA, DB))
 
-    assert aspects(workunits, StructuredPropertiesClass) == {}
+    structured = aspects(workunits, StructuredPropertiesClass)
+    assert structured[_DATASET_URN].properties == []
 
 
 def test_container_tags_keep_the_managed_tags_datahub_holds() -> None:
@@ -391,6 +468,28 @@ def test_container_tags_keep_the_managed_tags_datahub_holds() -> None:
         "urn:li:tag:pii",
         _TIER_TAG_URN,
     ]
+
+
+def test_container_with_only_managed_tags_still_drops_removed_native_ones() -> None:
+    # gen_containers skips an empty tag list or property map; the container
+    # still gets them written whole, so native ones removed in Snowflake go.
+    db = database()
+    db.tags = [_PII]
+    container_urn = make_gen().identifiers.gen_database_key(DB).as_urn()
+    record = [tag_record(_PII, "urn:li:tag:pii")]
+
+    as_tags = make_gen(tag_repository=fake_tag_repository(record))
+    as_properties = make_gen(
+        tag_repository=fake_tag_repository(record),
+        extract_tags_as_structured_properties=True,
+    )
+
+    tags = aspects(list(as_tags.gen_database_containers(db)), GlobalTagsClass)
+    properties = aspects(
+        list(as_properties.gen_database_containers(db)), StructuredPropertiesClass
+    )
+    assert tags[container_urn].tags == []
+    assert properties[container_urn].properties == []
 
 
 @pytest.mark.xfail(

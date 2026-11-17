@@ -117,6 +117,7 @@ class SnowflakeV2Report(
     num_datahub_aspect_read_failures: int = 0
     num_tag_platform_resource_lookup_failures: int = 0
     num_tag_platform_resources_unparseable: int = 0
+    num_tag_platform_resource_invalid_urns: int = 0
     streams_scanned: int = 0
     procedures_scanned: int = 0
     streamlit_apps_scanned: int = 0

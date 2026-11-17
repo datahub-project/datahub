@@ -16,11 +16,17 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    OtherSchemaClass,
     PlatformResourceInfoClass,
+    SchemaFieldClass,
+    SchemaFieldDataTypeClass,
+    SchemaMetadataClass,
     StatusClass,
+    StringTypeClass,
     StructuredPropertiesClass,
     StructuredPropertyValueAssignmentClass,
     TagAssociationClass,
+    TagKeyClass,
     _Aspect,
 )
 from datahub.metadata.urns import PlatformResourceUrn, StructuredPropertyUrn, TagUrn
@@ -133,12 +139,53 @@ def test_global_tags_keep_the_managed_tags_datahub_holds() -> None:
     assert r.report.num_managed_tags_preserved_from_datahub == 1
 
 
-def test_only_managed_tags_write_no_global_tags() -> None:
+def test_only_managed_tags_still_drop_native_tags_removed_in_snowflake() -> None:
+    # The asset's other Snowflake tag was removed in Snowflake: the whole write
+    # must drop it, as it did before, while keeping DataHub's managed tag.
+    r = resolver(
+        [tag_record(_TAG, "urn:li:tag:pii")],
+        in_datahub={
+            _DATASET: [
+                GlobalTagsClass(
+                    tags=[
+                        TagAssociationClass("urn:li:tag:pii"),
+                        TagAssociationClass("urn:li:tag:test_db.public.tier:1"),
+                    ]
+                )
+            ]
+        },
+    )
+
+    assert _tags(r.global_tags(_DATASET, [_TAG])) == ["urn:li:tag:pii"]
+
+
+def test_no_snowflake_tags_write_no_global_tags() -> None:
     r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
 
-    assert r.global_tags(_DATASET, [_TAG]) is None
+    assert r.global_tags(_DATASET, []) is None
     assert r.repository is not None
     assert r.repository.graph.get_aspect.call_count == 0  # type: ignore[attr-defined]
+
+
+def test_upsert_with_only_managed_properties_still_replaces_the_aspect() -> None:
+    r = resolver(
+        [tag_record(_TAG, _RETENTION, with_value=False)],
+        in_datahub={
+            _DATASET: [
+                StructuredPropertiesClass(
+                    properties=[
+                        StructuredPropertyValueAssignmentClass(
+                            propertyUrn="urn:li:structuredProperty:snowflake.old",
+                            values=["x"],
+                        ),
+                    ]
+                )
+            ]
+        },
+    )
+
+    assert r.resolve_structured_properties(_DATASET, [_TAG], _UPSERT) == {}
+    assert r.resolve_structured_properties(_DATASET, [_TAG], _PATCH) is None
 
 
 def test_datahub_is_not_read_without_managed_records() -> None:
@@ -234,9 +281,10 @@ def test_existing_native_record_is_emitted_again_each_run() -> None:
     assert emitted_secondary_keys(r) == [[_NATIVE_TAG_URN.urn()]]
 
 
-def test_managed_records_stay_in_the_checkpoint_with_status_only() -> None:
-    # Stale-entity removal would soft-delete a record that sync-back turned
-    # managed, after which the search no longer finds it.
+def test_managed_records_are_kept_out_of_stale_entity_removal() -> None:
+    # Sync-back owns these records. A Status emitted as non-primary keeps them
+    # out of this pipeline's state and on its skip list, so a run that doesn't
+    # emit them (tags skipped, no database left) can't soft-delete them.
     other = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="LOW")
     managed = tag_record(_TAG, "urn:li:tag:pii", platform_instance="acct_a")
     native = tag_record(
@@ -261,6 +309,7 @@ def test_managed_records_stay_in_the_checkpoint_with_status_only() -> None:
     assert aspects(first_run_end, StatusClass) == {
         managed_urn: StatusClass(removed=False)
     }
+    assert [wu.is_primary_source for wu in first_run_end] == [False]
     assert list(aspects(later, PlatformResourceInfoClass)) == [_record_urn(native)]
     assert managed_urn not in {wu.get_urn() for wu in later}
 
@@ -352,8 +401,119 @@ def test_load_error_skips_tags_and_fails_the_run() -> None:
     assert emitted_secondary_keys(r) == []
 
 
-def test_managed_record_without_urn_is_native() -> None:
+def test_managed_record_without_urn_is_still_datahubs() -> None:
+    # Sync-back writes the record before it sets the tag, so a record it hasn't
+    # linked yet still means the tag is DataHub's, never a native one.
     r = resolver([tag_record(_TAG)])
 
-    assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
-    assert r.is_native(_TAG)
+    assert r.resolve_tag_urn(_TAG) is None
+    assert not r.is_native(_TAG)
+
+
+def test_managed_records_are_protected_when_tags_are_skipped() -> None:
+    managed = tag_record(_TAG, "urn:li:tag:pii")
+    r = resolver([managed], extract_tags=TagOption.skip)
+
+    workunits = list(r.platform_resource_workunits())
+
+    assert [(wu.get_urn(), wu.is_primary_source) for wu in workunits] == [
+        (_record_urn(managed), False)
+    ]
+
+
+def test_carried_over_datahub_tags_never_enter_stale_entity_state() -> None:
+    # The DataHub tag is written into the asset's GlobalTags, so the referenced
+    # tag would be materialized as this pipeline's entity and soft-deleted by a
+    # later run that no longer references it. Its key aspect goes out as
+    # non-primary instead: written as before, never in the state.
+    r = resolver(
+        [tag_record(_TAG, "urn:li:tag:pii")],
+        in_datahub={
+            _DATASET: [GlobalTagsClass(tags=[TagAssociationClass("urn:li:tag:pii")])]
+        },
+    )
+
+    r.global_tags(_DATASET, [_TIER])
+    r.global_tags(_DATASET, [_TIER])
+    keys = [
+        (wu.get_urn(), wu.is_primary_source)
+        for wu in r.platform_resource_workunits()
+        if wu.get_aspect_of_type(TagKeyClass) is not None
+    ]
+
+    assert keys == [("urn:li:tag:pii", False)]
+
+
+def test_invalid_linked_urn_is_dropped_and_the_record_still_used() -> None:
+    # Written by another tool: one bad URN must not stop the load.
+    record = tag_record(_TAG, "urn:li:tag:pii")
+    record.datahub_linked_resources().urns.append("not a urn")
+    r = resolver([record, tag_record(_TIER, "urn:li:tag:gold")])
+
+    assert not r.is_native(_TAG)
+    assert not r.is_native(_TIER)
+    assert r.report.num_tag_platform_resource_invalid_urns == 1
+    assert r.report.num_tag_platform_resource_lookup_failures == 0
+
+
+def test_load_error_does_not_count_tags_as_datahub_managed() -> None:
+    repository = fake_tag_repository([], load_error=RuntimeError("search timed out"))
+    r = resolver(repository=repository)
+
+    r.resolve_tag_urn(_TAG)
+    r.resolve_structured_properties(_DATASET, [_TAG], _PATCH)
+
+    assert r.report.num_tags_skipped_datahub_managed == 0
+    assert r.report.num_structured_properties_skipped_datahub_managed == 0
+
+
+def _schema_with_column_tags(*tags: str) -> SchemaMetadataClass:
+    return SchemaMetadataClass(
+        schemaName="t1",
+        platform="urn:li:dataPlatform:snowflake",
+        version=0,
+        hash="",
+        platformSchema=OtherSchemaClass(rawSchema=""),
+        fields=[
+            SchemaFieldClass(
+                fieldPath="col_1",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="VARCHAR",
+                globalTags=GlobalTagsClass(
+                    tags=[TagAssociationClass(tag) for tag in tags]
+                ),
+            ),
+            SchemaFieldClass(
+                fieldPath="col_2",
+                type=SchemaFieldDataTypeClass(type=StringTypeClass()),
+                nativeDataType="VARCHAR",
+            ),
+        ],
+    )
+
+
+def test_column_tags_are_kept_from_datahub_when_records_cannot_be_loaded() -> None:
+    # Column tags are written inside schemaMetadata, whole: skipping them would
+    # clear every column's tags for the run.
+    repository = fake_tag_repository(
+        [],
+        load_error=RuntimeError("search timed out"),
+        in_datahub={
+            _DATASET: [_schema_with_column_tags("urn:li:tag:test_db.public.pii:high")]
+        },
+    )
+    r = resolver(repository=repository)
+    r.is_native(_TAG)
+
+    kept = r.kept_column_tags(_DATASET)
+
+    assert kept is not None
+    assert {path: _tags(tags) for path, tags in kept.items()} == {
+        "col_1": ["urn:li:tag:test_db.public.pii:high"]
+    }
+
+
+def test_column_tags_are_resolved_normally_when_records_load() -> None:
+    r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
+
+    assert r.kept_column_tags(_DATASET) is None

@@ -9,10 +9,7 @@ from datahub.emitter.mcp_builder import (
     StructuredPropertyWriteMode,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.snowflake.snowflake_config import (
-    SnowflakeV2Config,
-    TagOption,
-)
+from datahub.ingestion.source.snowflake.snowflake_config import SnowflakeV2Config
 from datahub.ingestion.source.snowflake.snowflake_report import SnowflakeV2Report
 from datahub.ingestion.source.snowflake.snowflake_schema import SnowflakeTag
 from datahub.ingestion.source.snowflake.snowflake_tag_entities import (
@@ -26,6 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 )
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
+    SchemaMetadataClass,
     StatusClass,
     StructuredPropertiesClass,
     TagAssociationClass,
@@ -62,8 +60,13 @@ class SnowflakeTagResolver:
     All records of this platform instance are loaded with one paged scroll on
     first use, so lookups cost nothing per tag. DataHub's current aspect is
     read only for entities about to get a whole aspect, and only when a managed
-    record links a URN of that kind. Without a repository (no DataHub graph),
-    or if loading fails, every tag is native.
+    record links a URN of that kind. Without a repository (no DataHub graph)
+    every tag is native; if loading fails, every tag is skipped.
+
+    What DataHub owns stays out of this pipeline's stale-entity state: managed
+    records and the DataHub tags carried over into a whole `GlobalTags` are
+    emitted as non-primary, so a later run that no longer emits them never
+    soft-deletes them.
     """
 
     def __init__(
@@ -79,6 +82,8 @@ class SnowflakeTagResolver:
         self.report = report
         self.identifiers = identifiers
         self.platform_instance = platform_instance
+        # Kept after a failed load, to carry column tags over from DataHub.
+        self._graph = repository.graph if repository is not None else None
         # Schemas are processed in parallel threads.
         self._lock = threading.RLock()
         self._records: Optional[Dict[str, SnowflakeTagPlatformResource]] = None
@@ -90,12 +95,16 @@ class SnowflakeTagResolver:
         # DataHub URNs that managed records link, and their entity types.
         self._managed_linked_urns: Set[str] = set()
         self._managed_linked_entity_types: Set[str] = set()
+        # DataHub tags carried over into a whole GlobalTags this run, in order.
+        self._carried_over_tag_urns: Dict[str, None] = {}
+        self._carried_over_emitted: Set[str] = set()
         self._load_failed = False
 
     def resolve_tag_urn(self, tag: SnowflakeTag) -> Optional[TagUrn]:
         """The native tag URN for `tag`, or None if DataHub manages it."""
         if not self.is_native(tag):
-            self.report.num_tags_skipped_datahub_managed += 1
+            if not self._load_failed:
+                self.report.num_tags_skipped_datahub_managed += 1
             return None
         native = TagUrn.from_string(
             make_tag_urn(self.identifiers.snowflake_identifier(tag.tag_identifier()))
@@ -107,9 +116,9 @@ class SnowflakeTagResolver:
         self._load()
         if self._load_failed:
             return False
-        return (
-            self._managed_urn(self._lookup(tag, with_value=True)) is None
-            and self._managed_urn(self._lookup(tag, with_value=False)) is None
+        return not (
+            self._is_managed(self._lookup(tag, with_value=True))
+            or self._is_managed(self._lookup(tag, with_value=False))
         )
 
     def global_tags(
@@ -117,16 +126,21 @@ class SnowflakeTagResolver:
     ) -> Optional[GlobalTagsClass]:
         """The whole `GlobalTags` aspect to write for an entity, or None for none.
 
-        Native tags from Snowflake, plus the managed tags DataHub holds now.
-        Nothing is written when there is no native tag (as before) or when
-        DataHub's tags could not be read, since the write would drop them.
+        Native tags from Snowflake, plus the managed tags DataHub holds now. It
+        is written whenever Snowflake lists tags for the entity, even if all of
+        them are managed, so a native tag removed in Snowflake is dropped as
+        before. Nothing is written when Snowflake lists none (as before), when
+        the records could not be loaded, or when DataHub's tags could not be
+        read, since the write would drop them.
         """
+        if not tags or self._load_failed:
+            return None
         native = [
             tag_urn.urn()
             for tag_urn in (self.resolve_tag_urn(tag) for tag in tags)
             if tag_urn is not None
         ]
-        if not native:
+        if self._load_failed:
             return None
         try:
             current = self._current_aspect(
@@ -142,6 +156,8 @@ class SnowflakeTagResolver:
             ):
                 associations.append(association)
                 self.report.num_managed_tags_preserved_from_datahub += 1
+                with self._lock:
+                    self._carried_over_tag_urns[association.tag] = None
         return GlobalTagsClass(tags=associations)
 
     def resolve_structured_properties(
@@ -153,18 +169,22 @@ class SnowflakeTagResolver:
         """The properties to write for an entity, or None to write none at all.
 
         Native properties from Snowflake. `UPSERT` replaces the aspect whole, so
-        it also gets the values DataHub holds now for managed properties, and
-        nothing is written if those could not be read.
+        it also gets the values DataHub holds now for managed properties, is
+        written even when every tag is managed (dropping native properties
+        removed in Snowflake, as before), and is not written if those values
+        could not be read.
         """
+        if not tags or self._load_failed:
+            return None
         resolved: Dict[StructuredPropertyUrn, StructuredPropertyValues] = {}
         for tag in tags:
             prop = self._native_structured_property(tag)
             if prop is not None:
                 resolved[prop] = tag.value
-        if not resolved:
+        if self._load_failed:
             return None
         if write_mode != StructuredPropertyWriteMode.UPSERT:
-            return resolved
+            return resolved or None
         try:
             current = self._current_aspect(
                 entity_urn, StructuredPropertyUrn.ENTITY_TYPE, StructuredPropertiesClass
@@ -186,12 +206,17 @@ class SnowflakeTagResolver:
 
         Existing records are emitted again so stale-entity removal keeps them.
         A new record is re-read first and dropped if another writer (sync-back)
-        created it since the run started, so it is never overwritten. Managed
-        records get only a `Status`, once per run: never sync-back's content,
-        but enough to keep them out of stale-entity removal.
+        created it since the run started, so it is never overwritten.
+
+        What DataHub owns goes out as non-primary, which keeps it out of this
+        pipeline's stale-entity state and on its skip list: managed records get
+        only a `Status`, once per run (never sync-back's content), and each
+        DataHub tag carried over into a `GlobalTags` gets its key aspect, which
+        is what auto-materialization would otherwise emit as this pipeline's.
         """
-        if self.repository is not None and self.config.extract_tags != TagOption.skip:
-            # Load even if no tag was seen, so managed records stay checkpointed.
+        if self.repository is not None:
+            # Load even with tags skipped or none seen, so managed records are
+            # protected in every run.
             self._load()
         with self._lock:
             queued = list(self._queued.items())
@@ -199,10 +224,20 @@ class SnowflakeTagResolver:
             self._emitted.update(key for key, _ in queued)
             managed_urns = self._managed_record_urns
             self._managed_record_urns = []
+            carried_over = [
+                urn
+                for urn in self._carried_over_tag_urns
+                if urn not in self._carried_over_emitted
+            ]
+            self._carried_over_emitted.update(carried_over)
         for urn in managed_urns:
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=StatusClass(removed=False)
-            ).as_workunit()
+            ).as_workunit(is_primary_source=False)
+        for urn in carried_over:
+            yield MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=TagUrn.from_string(urn).to_key_aspect()
+            ).as_workunit(is_primary_source=False)
         written_meanwhile = self._written_meanwhile(
             [key for key, _ in queued if key in self._new_keys]
         )
@@ -216,13 +251,47 @@ class SnowflakeTagResolver:
         self, tag: SnowflakeTag
     ) -> Optional[StructuredPropertyUrn]:
         if not self.is_native(tag):
-            self.report.num_structured_properties_skipped_datahub_managed += 1
+            if not self._load_failed:
+                self.report.num_structured_properties_skipped_datahub_managed += 1
             return None
         native = StructuredPropertyUrn(
             self.identifiers.snowflake_identifier(tag.structured_property_identifier())
         )
         self._use_native(tag, with_value=False, urn=native.urn())
         return native
+
+    def kept_column_tags(
+        self, dataset_urn: str
+    ) -> Optional[Dict[str, GlobalTagsClass]]:
+        """Column tags to keep, by field path, when the records could not be
+        loaded; None when they loaded and column tags resolve as usual.
+
+        Column tags are written inside `schemaMetadata`, whole, so a run that
+        skips tags would otherwise clear every column's tags. The tags DataHub
+        holds now are carried over instead, as dataset tags are left alone.
+        """
+        self._load()
+        if not self._load_failed:
+            return None
+        if self._graph is None:
+            return {}
+        try:
+            current = self._graph.get_aspect(dataset_urn, SchemaMetadataClass)
+        except Exception as e:
+            self.report.num_datahub_aspect_read_failures += 1
+            self.report.warning(
+                title="Failed to read an asset's current metadata from DataHub",
+                message="Its column tags could not be kept while Snowflake tags "
+                "are skipped, and are cleared for this run.",
+                context=dataset_urn,
+                exc=e,
+            )
+            return {}
+        return {
+            field.fieldPath: field.globalTags
+            for field in (current.fields if current else [])
+            if field.globalTags is not None and field.globalTags.tags
+        }
 
     def _current_aspect(
         self, entity_urn: str, linked_entity_type: str, aspect_type: Type[_A]
@@ -280,13 +349,12 @@ class SnowflakeTagResolver:
                     if record is None or not self._is_this_instance(record):
                         continue
                     records[record.id.to_platform_resource_key().id] = record
+                    linked = self._valid_linked_urns(resource.urn, record)
                     if record.is_managed_by_datahub():
                         self._managed_record_urns.append(resource.urn)
-                        for urn in record.datahub_linked_resources().urns:
-                            self._managed_linked_urns.add(urn)
-                            self._managed_linked_entity_types.add(
-                                Urn.from_string(urn).entity_type
-                            )
+                        for urn in linked:
+                            self._managed_linked_urns.add(urn.urn())
+                            self._managed_linked_entity_types.add(urn.entity_type)
             self._records = records
             return records
 
@@ -310,6 +378,30 @@ class SnowflakeTagResolver:
             )
             return None
 
+    def _valid_linked_urns(
+        self, resource_urn: str, record: SnowflakeTagPlatformResource
+    ) -> List[Urn]:
+        """The record's linked URNs; any that don't parse are dropped from it.
+
+        Another tool may have written the record: one bad URN must neither stop
+        the load nor make the record's tag native.
+        """
+        links = record.datahub_linked_resources().urns
+        valid: List[Urn] = []
+        for urn in list(links):
+            try:
+                valid.append(Urn.from_string(urn))
+            except Exception as e:
+                links.remove(urn)
+                self.report.num_tag_platform_resource_invalid_urns += 1
+                self.report.warning(
+                    title="Ignored an invalid URN in a Snowflake tag platform resource",
+                    message="The rest of the record is still used.",
+                    context=f"{resource_urn}: {urn}",
+                    exc=e,
+                )
+        return valid
+
     def _is_this_instance(self, record: SnowflakeTagPlatformResource) -> bool:
         # The scroll only filters by instance when one is configured.
         return _lower(record.id.platform_instance) == _lower(self.platform_instance)
@@ -329,13 +421,10 @@ class SnowflakeTagResolver:
         )
 
     @staticmethod
-    def _managed_urn(record: Optional[SnowflakeTagPlatformResource]) -> Optional[Urn]:
-        if record is None or not record.is_managed_by_datahub():
-            return None
-        urns = record.datahub_linked_resources().urns
-        if not urns:
-            return None
-        return Urn.from_string(urns[0])
+    def _is_managed(record: Optional[SnowflakeTagPlatformResource]) -> bool:
+        # Linked or not: sync-back writes the record before it sets the tag, so
+        # a managed record it has yet to link still means the tag is DataHub's.
+        return record is not None and record.is_managed_by_datahub()
 
     def _use_native(self, tag: SnowflakeTag, with_value: bool, urn: str) -> None:
         if self.repository is None:
