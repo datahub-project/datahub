@@ -122,15 +122,8 @@ class ConfluenceCrawler:
                 # space with exactly `cap` pages looks the same as a larger one.
                 # start already points past the last batch.
                 if self.client.has_more_space_pages(space_key, start):
-                    # A failure rather than a warning: stale removal would
-                    # otherwise soft-delete the pages beyond the cap.
-                    self.report.failure(
-                        title="Space stopped at max_pages_per_space",
-                        message="Pages beyond max_pages_per_space were not "
-                        "ingested, so stale removal is skipped for this run. "
-                        "Raise max_pages_per_space to ingest the whole space.",
-                        context=f"{space_key}: max_pages_per_space={cap}",
-                    )
+                    self.report.report_space_truncated(space_key, cap)
+                    return
         except Exception as e:
             self.report.report_space_failed(space_key, e)
             self._raise_unless_continuing(e)

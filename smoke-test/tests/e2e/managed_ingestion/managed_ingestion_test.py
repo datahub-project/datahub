@@ -280,7 +280,6 @@ def test_create_list_get_remove_secret(auth_session):
                 }""",
                 {"urn": s["urn"]},
             )
-            wait_for_writes_to_sync()
 
     # Re-fetch to get accurate baseline count after any cleanup
     res_data = execute_graphql(auth_session, query, variables)
