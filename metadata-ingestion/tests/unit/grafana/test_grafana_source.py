@@ -89,10 +89,30 @@ def test_process_dashboard(mock_api, mock_source, mock_dashboard):
 def test_process_dashboard_with_folder(mock_api, mock_source, mock_dashboard):
     workunit_list = list(mock_source._process_dashboard(mock_dashboard))
 
-    assert len(workunit_list) > 0
-    # Verify folder container relationship is created
-    container_workunits = [wu for wu in workunit_list if "container" in wu.id]
-    assert len(container_workunits) > 0
+    folder_urn = make_container_urn(
+        FolderKey(
+            platform=mock_source.config.platform,
+            instance=mock_source.config.platform_instance,
+            folder_id="1",
+        )
+    )
+    dashboard_container_urn = make_container_urn(
+        DashboardContainerKey(
+            platform=mock_source.config.platform,
+            instance=mock_source.config.platform_instance,
+            dashboard_id=mock_dashboard.uid,
+            folder_id=mock_dashboard.folder_id,
+        )
+    )
+
+    # The dashboard container must be placed inside its folder container
+    folder_memberships = [
+        wu
+        for wu in workunit_list
+        if wu.metadata.entityUrn == dashboard_container_urn
+        and getattr(wu.metadata.aspect, "container", None) == folder_urn
+    ]
+    assert len(folder_memberships) == 1
 
 
 @patch("datahub.ingestion.source.grafana.grafana_source.GrafanaAPIClient")
@@ -104,11 +124,13 @@ def test_process_dashboard_general_folder(mock_api, mock_source):
         version="1",
         panels=[],
         schemaVersion="1.0",
-        meta={"folderId": "0"},
+        # Grafana returns the General folder as the integer 0
+        meta={"folderId": 0},
     )
 
     workunit_list = list(mock_source._process_dashboard(dashboard))
 
+    assert dashboard.folder_id == "0"
     general_folder_urn = make_container_urn(
         FolderKey(
             platform=mock_source.config.platform,

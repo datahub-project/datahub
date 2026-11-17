@@ -55,6 +55,9 @@ from datahub.metadata.schema_classes import (
 )
 
 # Grafana-specific ingestion stages
+# General is Grafana's virtual root folder; no folder container exists for it.
+GRAFANA_GENERAL_FOLDER_ID = "0"
+
 GRAFANA_BASIC_EXTRACTION = "Grafana Basic Dashboard Extraction"
 GRAFANA_FOLDER_EXTRACTION = "Grafana Folder Extraction"
 GRAFANA_DASHBOARD_EXTRACTION = "Grafana Dashboard Extraction"
@@ -263,7 +266,7 @@ class GrafanaSource(StatefulIngestionSourceBase):
         )
 
         # If dashboard is in a folder, add it to folder container
-        if dashboard.folder_id and dashboard.folder_id != "0":
+        if dashboard.folder_id and dashboard.folder_id != GRAFANA_GENERAL_FOLDER_ID:
             folder_key = FolderKey(
                 platform=self.config.platform,
                 instance=self.config.platform_instance,
@@ -356,28 +359,6 @@ class GrafanaSource(StatefulIngestionSourceBase):
         yield from add_dataset_to_container(
             container_key=dashboard_container_key,
             dataset_urn=dashboard_urn,
-        )
-
-    def _add_dashboard_to_folder(
-        self, dashboard: Dashboard
-    ) -> Iterable[MetadataWorkUnit]:
-        """Add dashboard to folder container"""
-        folder_key = FolderKey(
-            platform=self.config.platform,
-            instance=self.config.platform_instance,
-            folder_id=str(dashboard.folder_id),
-        )
-
-        dashboard_key = DashboardContainerKey(
-            platform=self.config.platform,
-            instance=self.config.platform_instance,
-            dashboard_id=dashboard.uid,
-            folder_id=dashboard.folder_id,
-        )
-
-        yield from add_dataset_to_container(
-            container_key=folder_key,
-            dataset_urn=dashboard_key.as_urn(),
         )
 
     def _add_input_fields_to_chart(
