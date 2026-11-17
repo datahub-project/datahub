@@ -11,6 +11,7 @@ import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.gms.factory.search.SearchV3IndexRebuild;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.ebean.Database;
@@ -64,6 +65,15 @@ import org.springframework.context.annotation.Import;
           classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
     })
 public class CleanupUpgradeConfig {
+
+  /**
+   * Cleanup tears indices down and serves no reads, so a missing V3 index after the cutover does
+   * not stop it.
+   */
+  @Bean
+  public SearchV3IndexRebuild searchV3IndexRebuild() {
+    return new SearchV3IndexRebuild();
+  }
 
   @Autowired(required = false)
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents esComponents;

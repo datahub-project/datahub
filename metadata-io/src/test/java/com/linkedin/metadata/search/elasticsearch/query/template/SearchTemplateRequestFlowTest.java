@@ -1080,7 +1080,6 @@ public class SearchTemplateRequestFlowTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration indexV3 = new EntityIndexVersionConfiguration();
     indexV3.setEnabled(true);
     indexV3.setKeywordReadEnabled(true);
-    indexV3.setSemanticReadEnabled(true);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getEntityIndex().setV3(indexV3);
     elastic.getSearch().getV3().setTemplates(templates);
