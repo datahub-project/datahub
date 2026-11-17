@@ -285,6 +285,30 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
         () -> loader.load(opContext, "urn:li:searchTemplate:earlierContract"));
   }
 
+  @Test
+  public void testStampedChildKeepsTheParentContract() {
+    store("urn:li:searchTemplate:semanticParent", rung(r -> r.setCombine("keywordRerank")));
+    SearchTemplateProperties child = parentOf("Child", "urn:li:searchTemplate:semanticParent");
+    child.setApiVersion(1);
+    store("urn:li:searchTemplate:stampedChild", child);
+    assertEquals(loader.load(opContext, "urn:li:searchTemplate:stampedChild").getApiVersion(), 2);
+
+    SearchTemplateProperties nativeEarlier =
+        body("Native", "{ \"bool\": { \"should\": [ {{&embeddingClausesJson}} ] } }", null);
+    store("urn:li:searchTemplate:nativeEarlier", nativeEarlier);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:nativeEarlier"));
+
+    SearchTemplateProperties patched = rung(r -> r.setCombine("vector"));
+    patched.setProfiles(
+        new SearchTemplateProfiles().setUseDefault(true).setAdd(new StringArray(List.of("a"))));
+    store("urn:li:searchTemplate:patched", patched);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:patched"));
+  }
+
   private static MergedSearchTemplate merged(SearchTemplateProperties properties) {
     return MergedSearchTemplate.builder()
         .urn("urn:li:searchTemplate:mergedSemantic")

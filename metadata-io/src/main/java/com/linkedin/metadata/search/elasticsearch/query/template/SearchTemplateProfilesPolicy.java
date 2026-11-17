@@ -72,6 +72,9 @@ public final class SearchTemplateProfilesPolicy {
   @Nullable
   public static SearchTemplateProfiles merge(
       @Nullable SearchTemplateProfiles parent, @Nonnull SearchTemplateProfiles child) {
+    // A patch write reaches the merge without the per-aspect check, so the raw operations are
+    // checked here before they are normalized.
+    check(child);
     if (child.hasUseDefault() && Boolean.TRUE.equals(child.isUseDefault())) {
       return null;
     }

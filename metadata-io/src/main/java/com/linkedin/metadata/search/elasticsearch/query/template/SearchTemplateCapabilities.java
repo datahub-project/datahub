@@ -370,7 +370,9 @@ public final class SearchTemplateCapabilities {
             || (retrieval.hasVectorBody() && StringUtils.isNotBlank(retrieval.getVectorBody())))) {
       return true;
     }
-    if (template.getProfiles() != null || template.getScope() != null) {
+    if (template.getProfiles() != null
+        || template.getScope() != null
+        || citesEmbeddingPlaceholders(template)) {
       return true;
     }
     for (SearchTemplateRoutes.Compiled route : template.getRoutes()) {

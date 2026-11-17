@@ -377,8 +377,12 @@ public class SearchTemplateLoader {
       TemplateCopy copy = chain.get(i);
       SearchTemplateProperties props = copy.properties();
       SearchTemplateCapabilities.requireDeclared(props);
+      // A write that omits the version is stamped 1, so a child cannot lower a parent's contract.
       if (props.hasApiVersion() && props.getApiVersion() != null) {
-        apiVersion = props.getApiVersion();
+        apiVersion =
+            apiVersion == null
+                ? props.getApiVersion()
+                : Math.max(apiVersion, props.getApiVersion());
       }
       if (props.hasCapabilities()) {
         capabilities = capabilityList(props.getCapabilities());

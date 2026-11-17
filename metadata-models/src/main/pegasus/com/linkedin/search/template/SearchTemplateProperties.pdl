@@ -84,8 +84,8 @@ record SearchTemplateProperties {
    * Template and Mustache-context contract. This release implements 1 and 2. Version 2 adds the
    * semantic fields: retrieval combine, querySource, anchor, profileScore, minSimilarity, and
    * vectorBody, plus profiles, scope, and route match. A template that sets one must resolve to 2.
-   * Unset inherits the parent version, or 1 when no ancestor sets it. Any other value is rejected at
-   * write and at load.
+   * Unset inherits the parent version, or 1 when no ancestor sets it. A child cannot lower the
+   * version its parents resolve to. Any other value is rejected at write and at load.
    */
   @Searchable = {
     "fieldName": "apiVersion",
