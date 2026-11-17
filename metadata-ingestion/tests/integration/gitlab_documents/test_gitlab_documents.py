@@ -41,8 +41,10 @@ def test_gitlab_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
                     "path": relative,
                 }
             )
+            file_url = f"{api}/repository/files/{quote(relative, safe='')}"
+            m.head(file_url, headers={"X-Gitlab-Size": str(len(contents))})
             m.get(
-                f"{api}/repository/files/{quote(relative, safe='')}",
+                file_url,
                 json={
                     "size": len(contents),
                     "encoding": "base64",
