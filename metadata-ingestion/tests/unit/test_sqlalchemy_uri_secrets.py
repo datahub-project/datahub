@@ -30,6 +30,35 @@ from datahub.ingestion.source.sql.sqlalchemy_uri import (
             id="userinfo_with_unencoded_at_skips_the_misparsed_prefix",
         ),
         pytest.param(
+            "postgresql://my_user:a/b@cdef-secret@my-host/my_db",
+            {"sqlalchemy_uri.userinfo_password.verbatim": "a/b@cdef-secret"},
+            id="userinfo_with_unencoded_slash_and_at",
+        ),
+        pytest.param(
+            "postgresql://my-host:5432/my_db?application_name=a@b",
+            {},
+            id="no_credentials_with_at_in_query",
+        ),
+        pytest.param(
+            "mssql+pyodbc://my-host:1433/my_db?driver=my-driver&UID=my_user@my-tenant",
+            {},
+            id="no_credentials_with_uid_at_tenant",
+        ),
+        pytest.param(
+            "postgresql://my_user:my-secret@my-host/my_db?application_name=a@b",
+            {
+                "sqlalchemy_uri.userinfo_password.verbatim": "my-secret",
+                "sqlalchemy_uri.userinfo_password": "my-secret",
+            },
+            id="userinfo_with_at_in_query",
+        ),
+        pytest.param(
+            # Ambiguous with an "@" in a query; such a password must be encoded.
+            "postgresql://my_user:my?secret@my-host/my_db",
+            {},
+            id="unencoded_question_mark_in_password_is_not_guessed",
+        ),
+        pytest.param(
             "postgresql://my_user:my-secret@my-host:bad/my_db?password=my-query-secret",
             {
                 "sqlalchemy_uri.userinfo_password.verbatim": "my-secret",

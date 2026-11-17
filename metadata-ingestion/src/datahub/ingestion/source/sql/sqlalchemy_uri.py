@@ -42,10 +42,15 @@ _ODBC_PASSWORD_AS_WRITTEN = re.compile(
     r"(?:(?:\{|%7B)(?P<braced>.*?)(?:\}|%7D)|(?P<plain>.*?)(?=;|%3B|$))",
     re.IGNORECASE,
 )
-# The userinfo password exactly as written in the URI. Bounded by the last "@"
-# before the path or query, so an unencoded "@" inside the password -- which
-# SQLAlchemy splits into the host instead -- stays part of it.
-_VERBATIM_USERINFO_PASSWORD = re.compile(r"^[\w+.-]+://[^:/?#@]*:(?P<password>[^/?]*)@")
+# The userinfo password exactly as written in the URI. It runs to the first "@"
+# that is followed by a plausible host (no "@", "/", "?" or "#" before the
+# path, query or end), so an unencoded "@" or "/" inside the password -- which
+# SQLAlchemy splits into the host instead -- stays part of it. It never spans a
+# "?": an "@" after one belongs to the query (e.g. UID=user@tenant), so a
+# password holding an unencoded "?" must be percent-encoded to be found here.
+_VERBATIM_USERINFO_PASSWORD = re.compile(
+    r"^[\w+.-]+://[^:/?#@]*:(?P<password>[^?]*?)@[^@/?#]*(?=[/?#]|$)"
+)
 
 
 def parse_host_port(
@@ -142,12 +147,15 @@ def sqlalchemy_uri_secrets(url: str) -> Dict[str, str]:
                 "may not be masked in logs"
             )
         return secrets
-    # When the password holds an unencoded "@", SQLAlchemy splits it into the
-    # host and returns only a prefix; registering that prefix would mask an
-    # unrelated short string everywhere, and the verbatim form already covers it.
-    if parsed.password and (
-        verbatim is None
-        or urllib.parse.unquote(verbatim.group("password")) == parsed.password
+    # Trust SQLAlchemy's password only when it agrees with the userinfo found in
+    # the raw string. Otherwise it has mis-split the URI: a password holding an
+    # unencoded "@" yields just a prefix (already covered by the verbatim form),
+    # and a URI with no credentials but an "@" in its query yields a span like
+    # "5432/db?app=a". Registering either would mask unrelated log text.
+    if (
+        parsed.password
+        and verbatim is not None
+        and urllib.parse.unquote(verbatim.group("password")) == parsed.password
     ):
         secrets["sqlalchemy_uri.userinfo_password"] = str(parsed.password)
     for key, value in parsed.query.items():

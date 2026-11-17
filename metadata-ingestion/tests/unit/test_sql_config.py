@@ -64,9 +64,13 @@ def test_connection_url_needs_a_host_or_a_uri() -> None:
 
 
 @pytest.fixture(autouse=True)
-def fresh_secret_registry() -> Iterator[SecretRegistry]:
+def fresh_secret_registry(
+    monkeypatch: pytest.MonkeyPatch,
+) -> Iterator[SecretRegistry]:
     # Validating a config with a sqlalchemy_uri registers secrets in the
     # process-global registry; clear it in place so no test leaks into another.
+    # Registration is a no-op when masking is disabled, so force it on.
+    monkeypatch.delenv("DATAHUB_DISABLE_SECRET_MASKING", raising=False)
     registry = SecretRegistry.get_instance()
     registry.clear()
     try:

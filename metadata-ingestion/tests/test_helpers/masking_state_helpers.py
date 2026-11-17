@@ -7,9 +7,11 @@ cannot drift.
 
 import contextlib
 import logging
+import os
 import sys
 from io import StringIO
 from typing import Iterator
+from unittest import mock
 
 import pytest
 
@@ -34,24 +36,29 @@ def reset_masking_process_state() -> None:
 def capture_masked_log(logger_name: str) -> Iterator[StringIO]:
     """Capture `logger_name`'s DEBUG output with the secret masking filter
     installed, the way the CLI runs. Secrets must be registered inside the
-    block: the masking state is reset on entry and on exit."""
-    reset_masking_process_state()
+    block. The registry is cleared in place on entry and exit (see
+    `_isolate_secret_registry` for why not `reset_instance()`), and masking is
+    forced on whatever DATAHUB_DISABLE_SECRET_MASKING says."""
     stream = StringIO()
     handler = logging.StreamHandler(stream)
     handler.setFormatter(logging.Formatter("%(message)s"))
     target = logging.getLogger(logger_name)
     previous_level = target.level
-    target.setLevel(logging.DEBUG)
-    target.addHandler(handler)
-    install_masking_filter(
-        secret_registry=SecretRegistry.get_instance(), install_stdout_wrapper=False
-    )
-    try:
-        yield stream
-    finally:
-        target.removeHandler(handler)
-        target.setLevel(previous_level)
-        reset_masking_process_state()
+    with mock.patch.dict(os.environ):
+        os.environ.pop("DATAHUB_DISABLE_SECRET_MASKING", None)
+        uninstall_masking_filter()
+        registry = SecretRegistry.get_instance()
+        registry.clear()
+        target.setLevel(logging.DEBUG)
+        target.addHandler(handler)
+        install_masking_filter(secret_registry=registry, install_stdout_wrapper=False)
+        try:
+            yield stream
+        finally:
+            target.removeHandler(handler)
+            target.setLevel(previous_level)
+            uninstall_masking_filter()
+            registry.clear()
 
 
 @pytest.fixture
