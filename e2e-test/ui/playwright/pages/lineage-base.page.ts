@@ -26,6 +26,7 @@ import * as fs from 'fs';
 import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
+import { TIMEOUTS } from '../utils/constants';
 
 /**
  * How long the graph viewport must hold still to count as settled: longer than the graph's own
@@ -62,6 +63,8 @@ export class LineageBasePage extends BasePage {
   readonly downloadCsvInput: Locator;
   readonly csvModalDownloadButton: Locator;
   readonly lineageEditSearchInput: Locator;
+  readonly setUpstreamsButton: Locator;
+  readonly setDownstreamsButton: Locator;
   readonly lineageTabDirectionSelect: Locator;
   readonly lineageTabDownstreamOption: Locator;
   readonly lineageTabUpstreamOption: Locator;
@@ -93,6 +96,8 @@ export class LineageBasePage extends BasePage {
     this.downloadCsvInput = page.getByTestId('download-as-csv-input');
     this.csvModalDownloadButton = page.getByTestId('csv-modal-download-button');
     this.lineageEditSearchInput = page.getByRole('dialog').getByTestId('search-input');
+    this.setUpstreamsButton = page.getByRole('button', { name: /Set Upstreams/i });
+    this.setDownstreamsButton = page.getByRole('button', { name: /Set Downstreams/i });
     this.lineageTabDirectionSelect = page.getByTestId('lineage-tab-direction-select');
     this.lineageTabDownstreamOption = page.getByTestId('lineage-tab-direction-select-option-downstream');
     this.lineageTabUpstreamOption = page.getByTestId('lineage-tab-direction-select-option-upstream');
@@ -183,7 +188,7 @@ export class LineageBasePage extends BasePage {
 
   async checkEdgeNotExists(node1Urn: string, node2Urn: string): Promise<void> {
     await expect(this.page.getByTestId(`rf__edge-${node1Urn}-:-${node2Urn}`)).toHaveCount(0, {
-      timeout: 10000,
+      timeout: TIMEOUTS.MEDIUM,
     });
   }
 
@@ -563,6 +568,21 @@ export class LineageBasePage extends BasePage {
     await this.lineageEditSearchInput.clear();
     await this.lineageEditSearchInput.fill(text);
     await this.lineageEditSearchInput.press('Enter');
+  }
+
+  /** Tick or untick a search result in the Edit Lineage modal. */
+  async toggleLineageEditResult(urn: string): Promise<void> {
+    await this.page.getByTestId(`checkbox-${urn}`).click();
+  }
+
+  /** Save the Edit Lineage modal's upstream selection. */
+  async clickSetUpstreams(): Promise<void> {
+    await this.setUpstreamsButton.click();
+  }
+
+  /** Save the Edit Lineage modal's downstream selection. */
+  async clickSetDownstreams(): Promise<void> {
+    await this.setDownstreamsButton.click();
   }
 
   async getSetUpstreamsButton(): Promise<Locator> {
