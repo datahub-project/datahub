@@ -14,6 +14,7 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     Scope,
     StoppedScopes,
     classify_error,
+    error_title,
     scope_context,
     with_switch,
 )
@@ -194,7 +195,12 @@ class ReadLedger:
                 else self._report.warning
             )
             context = self._list_context(project_id, lost)
-            emit(title=title, message=message, context=context, exc=lost.error)
+            emit(
+                title=error_title(lost.error, title),
+                message=message,
+                context=context,
+                exc=lost.error,
+            )
             # A project-wide error holds the region's models back like a temporary one.
             if (
                 lost.kind == ResourceReads.PIPELINES

@@ -67,7 +67,7 @@ Grant the following permissions to the service account on all target projects.
 | `aiplatform.executions.queryExecutionInputsAndOutputs` | Allows a user to read the input and output artifacts of an execution                  |
 | `aiplatform.modelEvaluations.list`                     | Allows a user to view and list the evaluations of a model                             |
 | `aiplatform.modelEvaluations.get`                      | Allows a user to view details of a specific model evaluation                          |
-| `aiplatform.locations.list`                            | Allows a user to list the regions of a project (used when `discover_regions` is true) |
+| `aiplatform.locations.list`                            | Lists a project's regions (for `discover_regions` or to check a region the SDK lacks) |
 | `aiplatform.datasets.list`                             | Allows a user to view and list all datasets in a project                              |
 | `aiplatform.datasets.get`                              | Allows a user to view details of a specific dataset                                   |
 | `aiplatform.pipelineJobs.list`                         | Allows a user to view and list all pipeline jobs in a project                         |

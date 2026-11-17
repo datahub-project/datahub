@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import timedelta
 from functools import partial
 from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
-from unittest.mock import MagicMock, PropertyMock, patch
+from unittest.mock import MagicMock, PropertyMock, call, patch
 
 import pytest
 from google.api_core.exceptions import (
@@ -24,7 +24,13 @@ from google.api_core.exceptions import (
     Unauthorized,
     Unknown,
 )
-from google.auth.exceptions import RefreshError, TransportError
+from google.auth.exceptions import (
+    DefaultCredentialsError,
+    GoogleAuthError,
+    RefreshError,
+    TimeoutError as AuthTimeoutError,
+    TransportError,
+)
 from google.cloud import aiplatform
 from google.cloud.aiplatform import ModelEvaluation
 from google.cloud.location import locations_pb2
@@ -43,9 +49,19 @@ from datahub.ingestion.source.vertexai.vertexai import VertexAIConfig, VertexAIS
 from datahub.ingestion.source.vertexai.vertexai_builder import VertexAIURIParser
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     EVALUATIONS_KEPT_PROJECT_WIDE,
+    LOCATIONS_SKIPPED,
+    LOCATIONS_SKIPPED_TITLE,
     PIPELINE_LINKS_ELSEWHERE,
     PLATFORM,
     REGION_DISCOVERY_FAILED,
+    REGION_UNCHECKED,
+    REGION_UNCHECKED_TITLE,
+    REGION_UNKNOWN,
+    REGION_UNKNOWN_TITLE,
+    UNEXPECTED_ERROR_TITLE,
+    UNSCOPED_KEPT,
+    UNSCOPED_KEPT_DISCOVERED,
+    UNSCOPED_KEPT_TITLE,
     DetailCalls,
     ResourceCategory,
     ResourceKinds,
@@ -137,8 +153,12 @@ def _mock(obj: object) -> MagicMock:
         (ServiceUnavailable("x"), ErrorKind.TRANSIENT),
         (DeadlineExceeded("x"), ErrorKind.TRANSIENT),
         (RetryError("x", cause=ServiceUnavailable("y")), ErrorKind.TRANSIENT),
-        (RefreshError("x"), ErrorKind.TRANSIENT),
+        (RefreshError("x", retryable=True), ErrorKind.TRANSIENT),
+        (RefreshError("x"), ErrorKind.REFUSED),
         (TransportError("x"), ErrorKind.TRANSIENT),
+        (AuthTimeoutError("x"), ErrorKind.TRANSIENT),
+        (DefaultCredentialsError("x"), ErrorKind.REFUSED),
+        (GoogleAuthError("x"), ErrorKind.REFUSED),
         (TypeError("x"), ErrorKind.ITEM_LASTING),
         (NotImplementedError("x"), ErrorKind.ITEM_LASTING),
     ],
@@ -185,6 +205,7 @@ def _carry_forward(
     has_current: bool = True,
     platform_instance: Optional[str] = None,
     report: Optional[VertexAISourceReport] = None,
+    discovered: bool = False,
 ) -> Tuple[CarryForward, GenericCheckpointState, MagicMock]:
     current = GenericCheckpointState()
     provider = MagicMock()
@@ -203,6 +224,7 @@ def _carry_forward(
         PLATFORM,
         platform_instance=platform_instance,
         env=ENV,
+        discovered=discovered,
         report=report or VertexAISourceReport(),
     )
     return carry, current, provider
@@ -250,7 +272,10 @@ _EVERY_URN = [
 def _real_carry(source: VertexAISource, previous: List[str]) -> GenericCheckpointState:
     """Gives the source and its extractors one real CarryForward that remembers
     `previous`; the returned state is what the run would keep."""
-    carry, current, _ = _carry_forward(previous)
+    assert isinstance(source.report, VertexAISourceReport)
+    carry, current, _ = _carry_forward(
+        previous, report=source.report, discovered=not source.config.project_ids
+    )
     source._carry = carry
     for extractor in (
         source.model_extractor,
@@ -343,7 +368,7 @@ def test_primitives_carry_forward_keep_all_containers_keeps_only_containers() ->
     carry, current, _ = _carry_forward(
         [container, other_container, _model_urn("p1.model.a")]
     )
-    carry.keep_all_containers("p1")
+    carry.keep_all_containers(Scope("p1"))
     carry.flush()
     assert sorted(current.urns) == sorted([container, other_container])
 
@@ -460,8 +485,13 @@ def test_project_service_disabled_discovered_is_warning_and_kept() -> None:
 
 @pytest.mark.parametrize(
     "error",
-    [DeadlineExceeded("slow"), ResourceExhausted("quota"), NotFound("gone")],
-    ids=["timeout", "quota", "not_found"],
+    [
+        DeadlineExceeded("slow"),
+        ResourceExhausted("quota"),
+        NotFound("gone"),
+        TypeError("bad"),
+    ],
+    ids=["timeout", "quota", "not_found", "not_google"],
 )
 @pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
 def test_any_project_error_fails_only_a_listed_project(
@@ -482,6 +512,9 @@ def test_any_project_error_fails_only_a_listed_project(
         assert any(
             "project=proj-one" in c for w in source.report.warnings for c in w.context
         )
+        assert any(
+            w.title == UNEXPECTED_ERROR_TITLE for w in source.report.warnings
+        ) == isinstance(error, TypeError)
     source._carry.keep_project.assert_called_once_with("proj-one")
     assert source.report.lost_reads["proj-one"]
 
@@ -535,6 +568,7 @@ def test_project_region_discovery_parses_list_locations_response() -> None:
     response = locations_pb2.ListLocationsResponse(
         locations=[
             locations_pb2.Location(name="projects/proj-one/locations/us-central1"),
+            locations_pb2.Location(name="projects/proj-one"),
             locations_pb2.Location(name="projects/proj-one/locations/europe-west4"),
         ]
     )
@@ -569,7 +603,10 @@ def test_project_region_discovery_failure_falls_back_and_keeps_project() -> None
     assert sorted(run.kept.urns) == sorted(
         urn for urn in _EVERY_URN if urn not in _UNRELATED_URNS
     )
-    assert [w.message for w in source.report.warnings] == [REGION_DISCOVERY_FAILED]
+    assert [w.message for w in source.report.warnings] == [
+        REGION_DISCOVERY_FAILED,
+        UNSCOPED_KEPT,
+    ]
     assert not source.report.failures
 
 
@@ -661,6 +698,7 @@ def _run_regions(
     real_pending_lineage: bool = False,
     yield_output: bool = True,
     model_errors: Optional[Dict[str, Exception]] = None,
+    model_output: Optional[MetadataChangeProposalWrapper] = None,
     previous: Optional[List[str]] = None,
 ) -> RegionRun:
     """Run every region; `errors` maps (region, phase 1 kind) to what that read
@@ -684,12 +722,13 @@ def _run_regions(
 
         return MagicMock(side_effect=read)
 
-    def model_step() -> Iterator[MetadataWorkUnit]:
+    def model_step() -> Iterator[MetadataChangeProposalWrapper]:
         model_step_regions.append(source._current_region)
+        if model_output is not None:
+            yield model_output
         error = (model_errors or {}).get(source._current_region or "")
         if error is not None:
             raise error
-        return iter([])
 
     with ExitStack() as stack:
         stack.enter_context(
@@ -886,7 +925,7 @@ def test_region_keep_model_step_keeps_models_deployments_evaluations() -> None:
     source = _region_source()
     kept = _real_carry(source, _EVERY_URN)
 
-    source._keep_model_step("proj-one")
+    source._keep_model_step(Scope("proj-one", kind="models"))
     source._carry.flush()
 
     assert sorted(kept.urns) == sorted(
@@ -911,6 +950,7 @@ def test_region_every_kind_failed_listed_project_is_failure() -> None:
     # With real containers, any emitted container would show up here.
     assert run.workunits == []
     assert not _warnings_but_notes(source)
+    assert "Project could not be read" in [f.title for f in source.report.failures]
     assert any("project=proj-one" in c for c in _failure_contexts(source))
     _mock(run.carry.keep_project).assert_called_with("proj-one")
     # The project itself, then each lost read: every one repeats on every run.
@@ -923,6 +963,27 @@ def test_region_every_kind_failed_listed_project_is_failure() -> None:
     ]
     for region, kind in expected:
         assert any(f"region={region}, resource={kind}" in c for c in lost)
+
+
+def test_region_models_written_before_the_model_step_failed_keep_the_project_readable() -> (
+    None
+):
+    source = _region_source()
+    errors: Dict[Tuple[str, str], Exception] = {
+        (region, kind): _iam_denied() for region in REGIONS for kind in _PHASE1_KINDS
+    }
+    model = MetadataChangeProposalWrapper(
+        entityUrn=_model_urn("proj-one.model.a_1"), aspect=StatusClass(removed=False)
+    )
+
+    _run_regions(
+        source,
+        errors,
+        model_errors={region: _iam_denied() for region in REGIONS},
+        model_output=model,
+    )
+
+    assert "Project could not be read" not in [f.title for f in source.report.failures]
 
 
 def test_region_every_kind_refused_discovered_project_is_warning() -> None:
@@ -1012,7 +1073,7 @@ def test_region_carry_forward_keep_all_flows_keeps_flows_and_tasks_only() -> Non
     job = _job_urn(flow, "task-a")
     container = get_project_container("p1", PLATFORM, None, ENV).as_urn()
     carry, current, _ = _carry_forward([flow, job, container, _model_urn("p1.model.a")])
-    carry.keep_all_flows("p1")
+    carry.keep_all_flows(Scope("p1"))
     carry.flush()
     assert sorted(current.urns) == sorted([flow, job])
 
@@ -1020,7 +1081,7 @@ def test_region_carry_forward_keep_all_flows_keeps_flows_and_tasks_only() -> Non
 def test_region_unknown_phase1_read_is_refused_not_dropped() -> None:
     source = _region_source()
     with pytest.raises(ValueError):
-        source._keep_phase1_kind("proj-one", "not_a_read")
+        source._keep_phase1_kind(Scope("proj-one", kind="not_a_read"))
 
 
 def test_flush_with_many_exact_keeps_uses_a_set_not_closures() -> None:
@@ -1262,12 +1323,22 @@ def test_primitives_read_detail_project_wide_error_is_raised() -> None:
         _read_detail(MagicMock(side_effect=_service_disabled()))
 
 
-def test_primitives_read_detail_item_lasting_warns_without_stopping() -> None:
-    result, report, stopped = _read_detail(MagicMock(side_effect=TypeError("bad")))
+@pytest.mark.parametrize(
+    ("error", "title"),
+    [
+        (TypeError("bad"), UNEXPECTED_ERROR_TITLE),
+        (NotImplementedError("legacy run"), UNEXPECTED_ERROR_TITLE),
+        (NotFound("gone"), "Detail could not be read"),
+    ],
+)
+def test_primitives_read_detail_item_lasting_warns_without_stopping(
+    error: Exception, title: str
+) -> None:
+    result, report, stopped = _read_detail(MagicMock(side_effect=error))
 
     assert result.value is None
     assert not result.keep_previous
-    assert len(report.warnings) == 1
+    assert [w.title for w in report.warnings] == [title]
     assert (
         stopped.stop_kind(Scope(project="proj-one", region=REGION, kind="ml_metadata"))
         is None
@@ -2225,8 +2296,8 @@ def test_m1_broad_keeps_find_the_project_with_platform_instance() -> None:
     previous = [project, guid_container, flow, _job_urn(flow, "task-a")]
     carry, current, _ = _carry_forward(previous, platform_instance="prod-us")
 
-    carry.keep_all_containers("proj-one")
-    carry.keep_all_flows("proj-one")
+    carry.keep_all_containers(Scope("proj-one"))
+    carry.keep_all_flows(Scope("proj-one"))
     carry.flush()
 
     assert sorted(current.urns) == sorted(previous)
@@ -2249,7 +2320,7 @@ def test_m1_lost_training_kind_keeps_datasets_with_platform_instance() -> None:
     mine = _m1_instance_dataset("proj-one")
     source, current = _m1_source([mine], platform_instance="prod-us")
 
-    source._keep_phase1_kind("proj-one", "training_jobs")
+    source._keep_phase1_kind(Scope("proj-one", kind="training_jobs"))
     source._carry.flush()
 
     assert set(current.urns) == {mine}
@@ -2677,7 +2748,16 @@ def test_experiment_list_failure_through_the_extractor_keeps_every_container(
     # Only the containers are kept: pipelines were read, so their flows go.
     assert kept.urns == [_CONTAINER_URN, _PROJECT_CONTAINER_URN]
     lasting = classify_error(error) is not ErrorKind.TRANSIENT
-    contexts = _failure_contexts(source) if lasting else _warning_contexts(source)
+    contexts = (
+        _failure_contexts(source)
+        if lasting
+        else [
+            c
+            for w in source.report.warnings
+            if w.title != UNSCOPED_KEPT_TITLE
+            for c in w.context
+        ]
+    )
     assert len([c for c in contexts if "resource=experiments" in c]) == 1
 
 
@@ -3168,6 +3248,26 @@ def test_temporary_pipeline_loss_warns_that_models_elsewhere_may_lose_links() ->
     )
 
 
+@pytest.mark.parametrize(
+    ("error", "title"),
+    [
+        (TypeError("bad"), UNEXPECTED_ERROR_TITLE),
+        (_iam_denied(), "Resource type could not be read"),
+    ],
+    ids=["not_google", "google"],
+)
+def test_lost_list_read_title_names_an_unexpected_error(
+    error: Exception, title: str
+) -> None:
+    report = VertexAISourceReport()
+    ledger = ReadLedger(report=report, stopped=StoppedScopes())
+    ledger.record_read("proj-one", REGION, "training_jobs", error=error)
+
+    ledger.report_lost_reads("proj-one", listed=False)
+
+    assert [w.title for w in report.warnings] == [title]
+
+
 def test_pipeline_checkpoint_early_stop_reads_listed_update_time() -> None:
     source = _pipeline_source()
     newer, older = get_mock_pipeline_job(), get_mock_pipeline_job()
@@ -3245,8 +3345,8 @@ def test_flush_is_one_pass_over_earlier_urns_for_many_keeps() -> None:
         get_project_container("p1", PLATFORM, None, ENV).as_urn(),
     ]
     carry, current, _ = _carry_forward(previous)
-    carry.keep_all_containers("p1")
-    carry.keep_all_flows("p1")
+    carry.keep_all_containers(Scope("p1"))
+    carry.keep_all_flows(Scope("p1"))
     carry.keep_kind("p1", [ResourceKinds.MODEL])
     carry.keep_project("p1")
     for i in range(60):
@@ -3556,6 +3656,7 @@ def test_region_loop_never_ingested_discovered_project_carries_no_broad_entities
     )
 
     assert run.kept.urns == []
+    assert UNSCOPED_KEPT_TITLE not in [w.title for w in source.report.warnings]
 
 
 @pytest.mark.parametrize("error", [_service_disabled(), _no_role()])
@@ -3571,6 +3672,11 @@ def test_region_loop_ingested_before_discovered_project_carries_broad_entities(
     run = _run_regions(source, errors, previous=previous)
 
     assert sorted(run.kept.urns) == sorted(previous)
+    (warning,) = [w for w in source.report.warnings if w.title == UNSCOPED_KEPT_TITLE]
+    assert warning.message == UNSCOPED_KEPT_DISCOVERED
+    assert (
+        f"project=proj-one, region={REGIONS[0]}, resource=pipelines" in warning.context
+    )
 
 
 def test_a_run_over_several_projects_makes_one_pass_over_earlier_urns() -> None:
@@ -3748,3 +3854,226 @@ def test_refusals_are_counted_per_project() -> None:
     stopped.refused(other_project, _iam_denied())
 
     assert stopped.stop_kind(other_project) is None
+
+
+def _listed_locations(project: str, *names: str) -> locations_pb2.ListLocationsResponse:
+    return locations_pb2.ListLocationsResponse(
+        locations=[
+            locations_pb2.Location(name=f"projects/{project}/locations/{name}")
+            for name in names
+        ]
+    )
+
+
+# Google lists these four; the installed SDK accepts only us-central1 and global,
+# and the connector skips global.
+_GOOGLE_LOCATIONS = ["us-central1", "europe-west99", "us", "global"]
+
+
+@pytest.mark.parametrize(
+    "config,listed,read,list_calls,context_suffix",
+    [
+        (
+            {"discover_regions": True},
+            _GOOGLE_LOCATIONS,
+            ["us-central1"],
+            1,
+            ", newer_regions=['europe-west99'], multi_regions=['us'], unsupported=['global']",
+        ),
+        ({"regions": ["us-central1"]}, [], ["us-central1"], 0, None),
+        (
+            {"regions": ["us-central1", "europe-west99"]},
+            _GOOGLE_LOCATIONS,
+            ["us-central1"],
+            1,
+            ", newer_regions=['europe-west99']",
+        ),
+        (
+            {"regions": ["us-central1", "us", "global"]},
+            _GOOGLE_LOCATIONS,
+            ["us-central1"],
+            1,
+            ", multi_regions=['us'], unsupported=['global']",
+        ),
+    ],
+    ids=["discovered", "configured_sdk_reads", "configured_newer", "configured_multi"],
+)
+def test_locations_the_sdk_refuses_are_skipped_with_one_warning(
+    config: Dict[str, Any],
+    listed: List[str],
+    read: List[str],
+    list_calls: int,
+    context_suffix: Optional[str],
+) -> None:
+    source = _make_source(project_ids=["proj-one"], **config)
+    source._carry = MagicMock()
+
+    with _locations_client(_listed_locations("proj-one", *listed)) as client_cls:
+        regions = source._resolve_project_regions()
+
+    assert regions == {"proj-one": read}
+    assert client_cls.return_value.list_locations.call_count == list_calls
+    skipped = [w for w in source.report.warnings if w.title == LOCATIONS_SKIPPED_TITLE]
+    if context_suffix is None:
+        assert not skipped
+    else:
+        (warning,) = skipped
+        assert warning.message == LOCATIONS_SKIPPED
+        (context,) = warning.context
+        assert "project=proj-one" in context and context.endswith(context_suffix)
+    # A skipped location is not a lost read: no failure, no keep.
+    assert not source.report.failures
+    assert not source.report.lost_reads
+    assert source._carry.mock_calls == []
+
+
+_TYPO_LISTED = _listed_locations("proj-one", *_GOOGLE_LOCATIONS)
+
+
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+@pytest.mark.parametrize(
+    "responses,title,message,checked_in",
+    [
+        ([_TYPO_LISTED], REGION_UNKNOWN_TITLE, REGION_UNKNOWN, "proj-one"),
+        (
+            [_iam_denied(), _TYPO_LISTED],
+            REGION_UNKNOWN_TITLE,
+            REGION_UNKNOWN,
+            "proj-two",
+        ),
+        (
+            [_service_disabled(), _iam_denied()],
+            REGION_UNCHECKED_TITLE,
+            REGION_UNCHECKED,
+            "proj-two",
+        ),
+        # A temporary error is not tried on the next project.
+        ([_throttled()], REGION_UNCHECKED_TITLE, REGION_UNCHECKED, "proj-one"),
+        (
+            [locations_pb2.ListLocationsResponse()],
+            REGION_UNCHECKED_TITLE,
+            REGION_UNCHECKED,
+            "proj-one",
+        ),
+    ],
+    ids=["typo", "typo_after_refusal", "unchecked", "unchecked_temporary", "empty"],
+)
+def test_configured_region_google_does_not_list_fails_every_project(
+    listed: bool, responses: List[object], title: str, message: str, checked_in: str
+) -> None:
+    source = _make_source(regions=["us-central1", "us-centrall1"])
+    if not listed:
+        source.config.project_ids = []
+    source._carry = MagicMock()
+
+    with _locations_client(None) as client_cls:
+        client_cls.return_value.list_locations.side_effect = responses
+        regions = source._resolve_project_regions()
+
+    assert regions == {}
+    assert client_cls.return_value.list_locations.call_args_list == [
+        call(request={"name": f"projects/{p}"})
+        for p in ["proj-one", "proj-two"][: len(responses)]
+    ]
+    assert not [w for w in source.report.warnings if w.title == title]
+    (failure,) = [f for f in source.report.failures if f.title == title]
+    assert failure.message == message
+    assert [c.split(",")[0] for c in failure.context] == [
+        "project=proj-one",
+        "project=proj-two",
+    ]
+    assert all(
+        f"regions=['us-centrall1'], checked_in={checked_in}" in c
+        for c in failure.context
+    )
+    assert set(source.report.lost_reads) == {"proj-one", "proj-two"}
+    assert source._carry.keep_project.call_args_list == [
+        call("proj-one"),
+        call("proj-two"),
+    ]
+
+
+@pytest.mark.filterwarnings("ignore:.*region.*deprecated")
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+def test_discovery_failure_with_a_refused_fallback_is_one_unchecked_loss(
+    listed: bool,
+) -> None:
+    region = "us-centrall1"
+    source = _make_source(
+        project_ids=["proj-one"], discover_regions=True, regions=[], region=region
+    )
+    if not listed:
+        source.config.project_ids = []
+    source._carry = MagicMock()
+
+    with _locations_client(_throttled()):
+        regions = source._resolve_project_regions()
+
+    assert regions == {"proj-one": []}
+    reported = source.report.failures if listed else _warnings_but_notes(source)
+    assert [(r.title, r.message) for r in reported] == [
+        (REGION_UNCHECKED_TITLE, REGION_UNCHECKED)
+    ]
+    assert source.report.lost_reads == {
+        "proj-one": [f"project=proj-one, regions=['{region}'], loss=temporary"]
+    }
+    source._carry.keep_project.assert_called_once_with("proj-one")
+
+
+@pytest.mark.filterwarnings("ignore:.*region.*deprecated")
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+@pytest.mark.parametrize(
+    "error,region,discovered_title",
+    [
+        (
+            _service_disabled(),
+            "us",
+            "Project skipped: API not enabled or project invalid",
+        ),
+        (_throttled(), "global", "Project skipped: could not be read"),
+    ],
+    ids=["api_off", "global"],
+)
+def test_discovery_failure_with_no_region_to_check_is_a_project_error(
+    listed: bool, error: Exception, region: str, discovered_title: str
+) -> None:
+    source = _make_source(
+        project_ids=["proj-one"], discover_regions=True, regions=[], region=region
+    )
+    if not listed:
+        source.config.project_ids = []
+    source._carry = MagicMock()
+
+    with _locations_client(error):
+        regions = source._resolve_project_regions()
+
+    assert regions == {"proj-one": []}
+    reported = source.report.failures if listed else _warnings_but_notes(source)
+    assert [r.title for r in reported] == [
+        "Project could not be read" if listed else discovered_title
+    ]
+    assert set(source.report.lost_reads) == {"proj-one"}
+
+
+def test_a_skipped_location_never_reaches_aiplatform_init() -> None:
+    source = _make_source(
+        project_ids=["proj-one"],
+        discover_regions=True,
+        include_models=True,
+        include_training_jobs=False,
+        include_pipelines=False,
+        include_experiments=False,
+    )
+    initialised: List[str] = []
+
+    with _locations_client(_listed_locations("proj-one", *_GOOGLE_LOCATIONS)):
+        run = _run_source(
+            source,
+            patch(
+                "datahub.ingestion.source.vertexai.vertexai.aiplatform.init",
+                side_effect=lambda **kw: initialised.append(kw["location"]),
+            ),
+        )
+
+    assert initialised == ["us-central1"]
+    assert run.model_step_regions == ["us-central1"]

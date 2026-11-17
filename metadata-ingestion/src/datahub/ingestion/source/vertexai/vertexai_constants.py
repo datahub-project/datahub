@@ -90,6 +90,20 @@ LINKS_LOST_ON_STOP = frozenset({DetailCalls.PIPELINE_LOOKUP})
 # Only the lost pipeline's own region is held back.
 PIPELINE_LINKS_ELSEWHERE = 'Models in other regions or projects used by these pipelines may lose their pipeline "used by" links until a run reads these pipelines again.'
 REGION_DISCOVERY_FAILED = "Could not list regions, so only the configured region is read. Entity names do not carry their region, so every earlier entity of the project is kept: stale-entity removal is paused for this project until discovery works again. A refusal needs aiplatform.locations.list; to skip discovery, set `discover_regions: false` and list `regions`."
+LOCATIONS_SKIPPED_TITLE = "Vertex AI locations skipped"
+LOCATIONS_SKIPPED = "These locations of the project are not read. `newer_regions` are Vertex AI regions the installed Google Cloud SDK (google-cloud-aiplatform) cannot read yet; `multi_regions` are multi-region locations and `unsupported` is the `global` location, which the connector does not read yet. Full coverage is planned for a later release."
+GLOBAL_LOCATION = "global"
+SKIPPED_NEWER_REGIONS = "newer_regions"
+SKIPPED_MULTI_REGIONS = "multi_regions"
+SKIPPED_UNSUPPORTED = "unsupported"
+REGION_UNKNOWN_TITLE = "Configured region is not a Vertex AI location"
+REGION_UNKNOWN = "A region set in `regions` (or the deprecated `region`) is not in Google's list of Vertex AI locations, so no project is read. Earlier entities are kept and not soft-deleted. Correct the region name in the recipe."
+REGION_UNCHECKED_TITLE = "Configured region could not be checked"
+REGION_UNCHECKED = "A region set in `regions` (or the deprecated `region`) is not one the installed Google Cloud SDK (google-cloud-aiplatform) can read, and Google's list of Vertex AI locations could not be read to tell a newer region from a misspelt one, so this project is not read. Its earlier entities are kept and not soft-deleted. Remove the region from the recipe, or grant aiplatform.locations.list so it can be checked."
+UNSCOPED_KEPT_TITLE = "Pipelines and containers kept in every project"
+UNSCOPED_KEPT = "A read was lost in the project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their names carry no project, so their stale-entity removal pauses."
+UNSCOPED_KEPT_DISCOVERED = "A read was lost in the discovered project named in the context, so earlier pipelines, pipeline tasks or containers of every project are kept this run: their names carry no project, so their stale-entity removal pauses. If this repeats on every run, exclude the project with `project_id_pattern`, or restore its access."
+UNEXPECTED_ERROR_TITLE = "Unexpected error while reading Vertex AI"
 EVALUATIONS_KEPT_PROJECT_WIDE = "Earlier model evaluations in this project are kept until this model's evaluation list can be read, and evaluations deleted from other models are removed once it reads again. Evaluation names carry only the evaluation id, so they cannot be tied to one model."
 
 # The switch that turns each read off, named when a read is lost for good.

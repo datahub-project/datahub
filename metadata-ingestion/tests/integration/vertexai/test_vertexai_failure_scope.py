@@ -20,6 +20,7 @@ from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
+from datahub.ingestion.source.vertexai.vertexai_constants import UNSCOPED_KEPT_TITLE
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
 )
@@ -291,8 +292,21 @@ def test_project_scope_discovered_no_role(tmp_path: Path) -> None:
     # Container URNs are GUIDs, so the check above cannot see them.
     assert not any(urn.startswith("urn:li:container:") for urn in runs.soft_deleted)
     assert not runs.run2_report.failures
+    kept = [
+        c
+        for w in runs.run2_report.warnings
+        if w.title == UNSCOPED_KEPT_TITLE
+        for c in w.context
+    ]
+    assert f"project={REFUSED_PROJECT}" in kept
+    assert all(c.startswith(f"project={REFUSED_PROJECT}") for c in kept)
     # One warning for the skipped project, not one per read it lost.
-    (context,) = [c for w in runs.run2_report.warnings for c in w.context]
+    (context,) = [
+        c
+        for w in runs.run2_report.warnings
+        if w.title != UNSCOPED_KEPT_TITLE
+        for c in w.context
+    ]
     assert f"project={REFUSED_PROJECT}" in context
 
 

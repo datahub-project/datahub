@@ -9,6 +9,7 @@ from google.cloud.aiplatform.models import Model
 from google.cloud.aiplatform_v1 import MetadataServiceClient
 from google.cloud.resourcemanager_v3 import ProjectsClient
 from google.oauth2 import service_account
+from typing_extensions import LiteralString
 
 from datahub.configuration.env_vars import get_vertexai_disable_parallelism
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -40,8 +41,18 @@ from datahub.ingestion.source.vertexai.vertexai_builder import (
 )
 from datahub.ingestion.source.vertexai.vertexai_config import VertexAIConfig
 from datahub.ingestion.source.vertexai.vertexai_constants import (
+    GLOBAL_LOCATION,
+    LOCATIONS_SKIPPED,
+    LOCATIONS_SKIPPED_TITLE,
     PLATFORM,
     REGION_DISCOVERY_FAILED,
+    REGION_UNCHECKED,
+    REGION_UNCHECKED_TITLE,
+    REGION_UNKNOWN,
+    REGION_UNKNOWN_TITLE,
+    SKIPPED_MULTI_REGIONS,
+    SKIPPED_NEWER_REGIONS,
+    SKIPPED_UNSUPPORTED,
     DetailCalls,
     ExternalURLs,
     MLMetadataDefaults,
@@ -78,6 +89,7 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     Scope,
     StoppedScopes,
     classify_error,
+    error_title,
     scope_context,
     urn_entity_name,
 )
@@ -108,6 +120,15 @@ _MODEL_STEP_KINDS = [
     ResourceKinds.ENDPOINT,
     ResourceKinds.MODEL_EVALUATION,
 ]
+
+
+def _sdk_reads(region: str) -> bool:
+    # The check `aiplatform.init` runs: the installed SDK's own region list.
+    try:
+        return aiplatform.utils.validate_region(region)
+    except ValueError:
+        return False
+
 
 # Title and message of the warning for a discovered project, by error kind.
 _DISCOVERED_PROJECT_WARNINGS: Dict[ErrorKind, Tuple[str, str]] = {
@@ -175,6 +196,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             platform=self.platform,
             platform_instance=config.platform_instance,
             env=config.env,
+            discovered=not config.project_ids,
             report=self.report,
         )
         self._ledger = ReadLedger(report=self.report, stopped=self._stopped)
@@ -234,27 +256,112 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def _resolve_project_regions(self) -> Dict[str, List[str]]:
         """Resolve regions for each project (either discover via API or use config)."""
-        project_to_regions: Dict[str, List[str]] = {}
+        if not self.config.discover_regions:
+            configured = self.config.regions or (
+                [self.config.region] if self.config.region else []
+            )
+            if not self._configured_regions_listed(configured):
+                return {}
+            return {p: self._readable_regions(p, configured) for p in self._projects}
+        return {
+            p: self._readable_regions(p, self._discover_regions_for_project(p))
+            for p in self._projects
+        }
 
-        if self.config.discover_regions:
-            for project_id in self._projects:
-                regions = self._discover_regions_for_project(project_id)
-                project_to_regions[project_id] = (
-                    regions
-                    if regions
-                    else ([self.config.region] if self.config.region else [])
-                )
-        else:
-            if self.config.regions:
-                regions_from_config = self.config.regions
-            elif self.config.region:
-                regions_from_config = [self.config.region]
-            else:
-                regions_from_config = []
-            for project_id in self._projects:
-                project_to_regions[project_id] = regions_from_config
+    def _configured_regions_listed(self, regions: List[str]) -> bool:
+        """Fails every project, before any is read, if a configured region the SDK refuses is not a Vertex AI location or cannot be checked."""
+        refused = [region for region in regions if not _sdk_reads(region)]
+        if not refused or not self._projects:
+            return True
+        # Skipping a typo (us-eas1) would let stale removal soft-delete every
+        # entity of the region meant (us-east1): names carry no region. The
+        # regions are the recipe's, so the first project that answers checks
+        # them for every project.
+        locations: List[str] = []
+        for checked_in in self._projects:
+            error: Optional[Exception] = None
+            try:
+                locations = self._list_locations(checked_in)
+            except Exception as e:
+                error = e
+                # A refusal or an API that is off belongs to this project. A
+                # temporary error is the service's or the quota's, so the next
+                # project would most likely fail the same way.
+                if classify_error(e) in (ErrorKind.REFUSED, ErrorKind.PROJECT_WIDE):
+                    continue
+            break
+        # An empty list cannot tell a newer region from a typo either.
+        if not locations:
+            self._fail_configured_regions(
+                project_ids=self._projects,
+                regions=refused,
+                title=REGION_UNCHECKED_TITLE,
+                message=REGION_UNCHECKED,
+                exc=error,
+                fail_run=True,
+                checked_in=checked_in,
+            )
+            return False
+        unknown = [region for region in refused if region.lower() not in locations]
+        if unknown:
+            self._fail_configured_regions(
+                project_ids=self._projects,
+                regions=unknown,
+                title=REGION_UNKNOWN_TITLE,
+                message=REGION_UNKNOWN,
+                exc=None,
+                fail_run=True,
+                checked_in=checked_in,
+            )
+        return not unknown
 
-        return project_to_regions
+    def _readable_regions(self, project_id: str, regions: List[str]) -> List[str]:
+        """Skips, with one warning, the locations the connector cannot read."""
+        refused = [region for region in regions if not _sdk_reads(region)]
+        skipped = {
+            # Region ids are hyphenated (us-central1); multi-region codes (us, eu) never.
+            SKIPPED_NEWER_REGIONS: [region for region in refused if "-" in region],
+            SKIPPED_MULTI_REGIONS: [region for region in refused if "-" not in region],
+            # The SDK accepts `global`, but its regional-style endpoint answers
+            # 501 for models and jobs.
+            SKIPPED_UNSUPPORTED: [
+                region for region in regions if region.lower() == GLOBAL_LOCATION
+            ],
+        }
+        if not any(skipped.values()):
+            return regions
+        context = Scope(project=project_id).context() + "".join(
+            f", {group}={names}" for group, names in skipped.items() if names
+        )
+        self.report.warning(
+            title=LOCATIONS_SKIPPED_TITLE, message=LOCATIONS_SKIPPED, context=context
+        )
+        unread = {region for names in skipped.values() for region in names}
+        return [region for region in regions if region not in unread]
+
+    def _fail_configured_regions(
+        self,
+        project_ids: List[str],
+        regions: List[str],
+        title: LiteralString,
+        message: LiteralString,
+        exc: Optional[Exception],
+        fail_run: bool,
+        checked_in: Optional[str],
+    ) -> None:
+        emit = self.report.failure if fail_run else self.report.warning
+        checked = f", checked_in={checked_in}" if checked_in else ""
+        for project_id in project_ids:
+            context = f"{scope_context(Scope(project=project_id), exc)}, regions={regions}{checked}"
+            self.report.report_lost_read(
+                project_id,
+                context,
+                temporary=exc is not None
+                and classify_error(exc) is ErrorKind.TRANSIENT,
+            )
+            emit(title=title, message=message, context=context, exc=exc)
+            self._report_pipeline_links_elsewhere(context)
+            self._keep_project_entities(Scope(project=project_id))
 
     def _initialize_builders_and_extractors(self) -> None:
         """Initialize URN builders and resource extractors."""
@@ -394,17 +501,18 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _current_scope(self) -> Scope:
         return Scope(project=self._get_project_id(), region=self._get_region())
 
-    def _keep_project_entities(self, project_id: str) -> None:
-        self._carry.keep_project(project_id)
+    def _keep_project_entities(self, lost: Scope) -> None:
+        self._carry.keep_project(lost.project)
         # Only these kinds name checkpointed entities: process instances never are.
-        self._carry.keep_kind(project_id, [*_MODEL_STEP_KINDS, ResourceKinds.DATASET])
-        self._keep_unscoped_entities(project_id)
+        self._carry.keep_kind(lost.project, [*_MODEL_STEP_KINDS, ResourceKinds.DATASET])
+        self._keep_unscoped_entities(lost, flows=True)
 
-    def _keep_unscoped_entities(self, project_id: str) -> None:
+    def _keep_unscoped_entities(self, lost: Scope, flows: bool) -> None:
         # GUID containers, flows and jobs cannot be tied to a project, so a
         # project that was ingested before keeps all of them.
-        self._carry.keep_all_containers(project_id)
-        self._carry.keep_all_flows(project_id)
+        self._carry.keep_all_containers(lost)
+        if flows:
+            self._carry.keep_all_flows(lost)
 
     def _report_pipeline_links_elsewhere(self, context: str) -> None:
         if self.config.include_pipelines:
@@ -421,7 +529,7 @@ class VertexAISource(StatefulIngestionSourceBase):
             exc=exc,
         )
         self._report_pipeline_links_elsewhere(context)
-        self._keep_project_entities(project_id)
+        self._keep_project_entities(Scope(project=project_id))
 
     def _handle_project_error(self, project_id: str, exc: Exception) -> None:
         # Discovery returns every project the account can see, with no check
@@ -440,28 +548,29 @@ class VertexAISource(StatefulIngestionSourceBase):
             kind, _DISCOVERED_PROJECT_WARNINGS[ErrorKind.ITEM_LASTING]
         )
         self.report.warning(
-            title=title,
+            title=error_title(exc, title),
             message=message,
             context=context,
             exc=exc,
         )
         self._report_pipeline_links_elsewhere(context)
-        self._keep_project_entities(project_id)
+        self._keep_project_entities(Scope(project=project_id))
 
-    def _keep_phase1_kind(self, project_id: str, resource_type: str) -> None:
-        if resource_type == ResourceReads.TRAINING_JOBS:
-            self._carry.keep_kind(project_id, [ResourceKinds.DATASET])
-        elif resource_type == ResourceReads.EXPERIMENTS:
-            self._carry.keep_all_containers(project_id)
-        elif resource_type == ResourceReads.PIPELINES:
-            self._carry.keep_all_flows(project_id)
-            self._carry.keep_all_containers(project_id)
+    def _keep_phase1_kind(self, lost: Scope) -> None:
+        if lost.kind == ResourceReads.TRAINING_JOBS:
+            self._carry.keep_kind(lost.project, [ResourceKinds.DATASET])
+        elif lost.kind == ResourceReads.EXPERIMENTS:
+            self._keep_unscoped_entities(lost, flows=False)
+        elif lost.kind == ResourceReads.PIPELINES:
+            self._keep_unscoped_entities(lost, flows=True)
         else:
-            raise ValueError(f"Unknown phase 1 read: {resource_type}")
+            raise ValueError(f"Unknown phase 1 read: {lost.kind}")
 
     def _keep_lost_phase1(self, project_id: str, region: str) -> None:
         for resource_type in self._ledger.lost_phase1_kinds(project_id, region):
-            self._keep_phase1_kind(project_id, resource_type)
+            self._keep_phase1_kind(
+                Scope(project=project_id, region=region, kind=resource_type)
+            )
 
     def _hold_back_pending_lineage(self, project_id: str) -> None:
         """Links tracked for a held-back model stay in the tracker, but no
@@ -475,9 +584,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             ]
         )
 
-    def _keep_model_step(self, project_id: str) -> None:
-        self._carry.keep_kind(project_id, _MODEL_STEP_KINDS)
-        self._carry.keep_all_containers(project_id)
+    def _keep_model_step(self, lost: Scope) -> None:
+        self._carry.keep_kind(lost.project, _MODEL_STEP_KINDS)
+        self._keep_unscoped_entities(lost, flows=False)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._project_to_regions = self._resolve_project_regions()
@@ -634,18 +743,26 @@ class VertexAISource(StatefulIngestionSourceBase):
 
     def _keep_unread_regions(self, project_id: str, first_region: bool) -> None:
         if self.config.include_training_jobs:
-            self._keep_phase1_kind(project_id, ResourceReads.TRAINING_JOBS)
+            self._keep_phase1_kind(
+                Scope(project=project_id, kind=ResourceReads.TRAINING_JOBS)
+            )
         if first_region and self.config.include_experiments:
-            self._keep_phase1_kind(project_id, ResourceReads.EXPERIMENTS)
+            self._keep_phase1_kind(
+                Scope(project=project_id, kind=ResourceReads.EXPERIMENTS)
+            )
         if self.config.include_pipelines:
-            self._keep_phase1_kind(project_id, ResourceReads.PIPELINES)
+            self._keep_phase1_kind(
+                Scope(project=project_id, kind=ResourceReads.PIPELINES)
+            )
         if self.config.include_models or self.config.include_evaluations:
-            self._keep_model_step(project_id)
+            self._keep_model_step(Scope(project=project_id, kind=ResourceReads.MODELS))
 
     def _lose_model_step(self, project_id: str, region: str, exc: Exception) -> None:
         self._ledger.record_read(project_id, region, ResourceReads.MODELS, error=exc)
         self._hold_back_pending_lineage(project_id)
-        self._keep_model_step(project_id)
+        self._keep_model_step(
+            Scope(project=project_id, region=region, kind=ResourceReads.MODELS)
+        )
 
     def _gen_model_step_workunits(
         self, project_id: str, region: str
@@ -654,23 +771,38 @@ class VertexAISource(StatefulIngestionSourceBase):
         # model step. Item and detail failures are decided inside the extractor.
         try:
             if self.config.include_models:
-                yield from auto_workunit(self.model_extractor.get_model_workunits())
+                yield from self._record_model_output(
+                    project_id,
+                    region,
+                    auto_workunit(self.model_extractor.get_model_workunits()),
+                )
 
                 # Emit lineage updates for models that have tracked lineage but
                 # weren't re-processed (e.g., in incremental mode when a new pipeline
                 # references an existing model that hasn't changed)
-                yield from auto_workunit(
-                    self.model_extractor.emit_pending_lineage_updates()
+                yield from self._record_model_output(
+                    project_id,
+                    region,
+                    auto_workunit(self.model_extractor.emit_pending_lineage_updates()),
                 )
 
             if self.config.include_evaluations:
-                yield from auto_workunit(
-                    self.model_extractor.get_evaluation_workunits()
+                yield from self._record_model_output(
+                    project_id,
+                    region,
+                    auto_workunit(self.model_extractor.get_evaluation_workunits()),
                 )
         except Exception as e:
             self._lose_model_step(project_id, region, e)
         else:
             self._ledger.record_read(project_id, region, ResourceReads.MODELS)
+
+    def _record_model_output(
+        self, project_id: str, region: str, workunits: Iterable[MetadataWorkUnit]
+    ) -> Iterable[MetadataWorkUnit]:
+        for workunit in workunits:
+            self._ledger.record_wrote_output(project_id, region, ResourceReads.MODELS)
+            yield workunit
 
     def _read_phase1_resource(
         self, resource_type: str, project_id: str, region: str
@@ -758,32 +890,37 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _get_region(self) -> str:
         return self._current_region or self.config.region or ""
 
+    def _list_locations(self, project_id: str) -> List[str]:
+        client = aiplatform_v1.PipelineServiceClient(
+            client_options={"api_endpoint": "aiplatform.googleapis.com"},
+            credentials=self._credentials,
+        )
+        response = client.list_locations(request={"name": f"projects/{project_id}"})
+        locations: List[str] = []
+        for loc in response.locations:
+            # loc.name like projects/{project}/locations/{region}
+            try:
+                parts = loc.name.split("/")
+                region = parts[parts.index("locations") + 1]
+                if region and region not in locations:
+                    locations.append(region)
+            except (ValueError, IndexError, AttributeError) as e:
+                logger.debug(
+                    f"Failed to parse region from location name '{loc.name}' for project {project_id} | cause={type(e).__name__}: {e}"
+                )
+                continue
+        return locations
+
     def _discover_regions_for_project(self, project_id: str) -> List[str]:
         """Discover available Vertex AI regions for a project using Locations API."""
         try:
-            client = aiplatform_v1.PipelineServiceClient(
-                client_options={"api_endpoint": "aiplatform.googleapis.com"},
-                credentials=self._credentials,
-            )
-            response = client.list_locations(request={"name": f"projects/{project_id}"})
-            discovered: List[str] = []
-            for loc in response.locations:
-                # loc.name like projects/{project}/locations/{region}
-                try:
-                    parts = loc.name.split("/")
-                    region = parts[parts.index("locations") + 1]
-                    if region and region not in discovered:
-                        discovered.append(region)
-                except (ValueError, IndexError, AttributeError) as e:
-                    logger.debug(
-                        f"Failed to parse region from location name '{loc.name}' for project {project_id} | cause={type(e).__name__}: {e}"
-                    )
-                    continue
+            discovered = self._list_locations(project_id)
             if not discovered:
                 raise ValueError("The location list holds no usable region")
             return discovered
         except Exception as e:
-            if self.config.region:
+            region = self.config.region
+            if region and _sdk_reads(region) and region.lower() != GLOBAL_LOCATION:
                 self.report.warning(
                     title="Region discovery failed",
                     message=REGION_DISCOVERY_FAILED,
@@ -791,14 +928,33 @@ class VertexAISource(StatefulIngestionSourceBase):
                     exc=e,
                 )
                 self._stopped.lost(
-                    Scope(project_id, kind=DetailCalls.REGION_DISCOVERY),
+                    Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY),
                     classify_error(e),
                     e,
                 )
                 # Entity names carry no region, so the configured region's
                 # earlier entities cannot be told from the unread regions'.
-                self._keep_project_entities(project_id)
+                self._keep_project_entities(
+                    Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY)
+                )
+                return [region]
+            if (
+                region
+                and not _sdk_reads(region)
+                and classify_error(e) is not ErrorKind.PROJECT_WIDE
+            ):
+                # Discovery just failed, so no list can tell this region from a typo.
+                self._fail_configured_regions(
+                    project_ids=[project_id],
+                    regions=[region],
+                    title=REGION_UNCHECKED_TITLE,
+                    message=REGION_UNCHECKED,
+                    exc=e,
+                    fail_run=bool(self.config.project_ids),
+                    checked_in=None,
+                )
             else:
+                # No region to read (none, or `global`), or the API is off.
                 self._handle_project_error(project_id, e)
             return []
 

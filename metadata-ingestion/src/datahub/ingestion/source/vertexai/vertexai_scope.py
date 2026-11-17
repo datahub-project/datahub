@@ -23,6 +23,7 @@ from google.api_core.exceptions import (
     Forbidden,
     GatewayTimeout,
     GoogleAPICallError,
+    GoogleAPIError,
     InternalServerError,
     MethodNotImplemented,
     ResourceExhausted,
@@ -32,7 +33,13 @@ from google.api_core.exceptions import (
     TooManyRequests,
     Unauthorized,
 )
-from google.auth.exceptions import GoogleAuthError
+from google.auth.exceptions import (
+    GoogleAuthError,
+    RefreshError,
+    TimeoutError as AuthTimeoutError,
+    TransportError,
+)
+from typing_extensions import LiteralString
 
 from datahub.emitter.mce_builder import DEFAULT_ENV
 from datahub.ingestion.source.common.gcp_errors import (
@@ -50,6 +57,10 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     DETAIL_SWITCHES,
     RATE_LIMIT_SWITCH,
     REFUSALS_BEFORE_STOP,
+    UNEXPECTED_ERROR_TITLE,
+    UNSCOPED_KEPT,
+    UNSCOPED_KEPT_DISCOVERED,
+    UNSCOPED_KEPT_TITLE,
     DetailCalls,
     ResourceCategory,
 )
@@ -110,8 +121,14 @@ class ErrorKind(Enum):
 
 
 def classify_error(exc: BaseException) -> ErrorKind:
-    if isinstance(exc, (*_TRANSIENT_ERRORS, GoogleAuthError)):
+    if isinstance(exc, (*_TRANSIENT_ERRORS, TransportError, AuthTimeoutError)):
         return ErrorKind.TRANSIENT
+    # Only a refresh the library marks retryable may succeed on the next run;
+    # bad credentials fail the same way every time.
+    if isinstance(exc, GoogleAuthError):
+        if isinstance(exc, RefreshError) and exc.retryable:
+            return ErrorKind.TRANSIENT
+        return ErrorKind.REFUSED
     if isinstance(exc, Forbidden):
         if is_service_disabled(exc) or error_info_reason(exc) in PROJECT_WIDE_REASONS:
             return ErrorKind.PROJECT_WIDE
@@ -127,6 +144,12 @@ def classify_error(exc: BaseException) -> ErrorKind:
     if isinstance(exc, (ServerError, Aborted, Cancelled)):
         return ErrorKind.TRANSIENT
     return ErrorKind.ITEM_LASTING
+
+
+def error_title(exc: BaseException, title: LiteralString) -> LiteralString:
+    if isinstance(exc, (GoogleAPIError, GoogleAuthError)):
+        return title
+    return UNEXPECTED_ERROR_TITLE
 
 
 @dataclass(frozen=True)
@@ -262,7 +285,7 @@ def _warn_item_lasting(
     report: VertexAISourceReport, context: str, exc: Exception
 ) -> None:
     report.warning(
-        title="Detail could not be read",
+        title=error_title(exc, "Detail could not be read"),
         message="A read failed in a way that repeats, so it was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it.",
         context=context,
         exc=exc,
@@ -298,6 +321,7 @@ class CarryForward:
         platform: str,
         platform_instance: Optional[str] = None,
         env: str = DEFAULT_ENV,
+        discovered: bool = False,
         *,
         report: VertexAISourceReport,
     ) -> None:
@@ -305,15 +329,16 @@ class CarryForward:
         self._platform = platform
         self._platform_instance = platform_instance
         self._env = env
+        self._discovered = discovered
         self._report = report
         self._lock = threading.Lock()
         self._urns: Set[str] = set()
         self._flows: Set[str] = set()
         self._model_names: Set[str] = set()
         self._prefixes: Set[str] = set()
-        # (project, entity type): every earlier entity of the type is kept, if
-        # that project was ingested before. Such entities carry no project.
-        self._broad: Set[Tuple[str, str]] = set()
+        # (lost read, entity type): every earlier entity of the type is kept, if
+        # the read's project was ingested before. Such entities carry no project.
+        self._broad: Set[Tuple[Scope, str]] = set()
 
     def flush(self) -> None:
         if self._state_provider is None or not (
@@ -329,11 +354,18 @@ class CarryForward:
         if last is None:
             return
         last_urns = set(last.state.urns)
-        broad_types = {
-            entity_type
-            for project, entity_type in self._broad
-            if self._project_container(project) in last_urns
+        broad = {
+            (scope, entity_type)
+            for scope, entity_type in self._broad
+            if self._project_container(scope.project) in last_urns
         }
+        broad_types = {entity_type for _, entity_type in broad}
+        for context in sorted({scope.context() for scope, _ in broad}):
+            self._report.warning(
+                title=UNSCOPED_KEPT_TITLE,
+                message=UNSCOPED_KEPT_DISCOVERED if self._discovered else UNSCOPED_KEPT,
+                context=context,
+            )
         prefixes = tuple(self._prefixes)
         state = current.state
         # Counted as a difference so URNs this run wrote itself are not counted.
@@ -398,11 +430,11 @@ class CarryForward:
         """Keeps every URN made of this model name and a numeric version ID."""
         self._queue(self._model_names, model_name)
 
-    def keep_all_containers(self, project: str) -> None:
-        self._queue(self._broad, (project, _CONTAINER))
+    def keep_all_containers(self, lost: Scope) -> None:
+        self._queue(self._broad, (lost, _CONTAINER))
 
-    def keep_all_flows(self, project: str) -> None:
-        self._queue(self._broad, (project, _DATA_FLOW), (project, _DATA_JOB))
+    def keep_all_flows(self, lost: Scope) -> None:
+        self._queue(self._broad, (lost, _DATA_FLOW), (lost, _DATA_JOB))
 
     def keep_flow(self, flow_urn: str) -> None:
         """Keeps the flow and every task of it."""
