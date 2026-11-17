@@ -201,7 +201,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
-    if (!semanticReadEnabled() || template.getKnn() == null) {
+    if (!semanticReadEnabled()
+        || template.getKnn() == null
+        || SearchTemplateCapabilities.combine(template.getRetrieval()) != null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }

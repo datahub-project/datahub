@@ -339,6 +339,49 @@ public class SearchTemplateGatesTest {
   }
 
   @Test
+  public void testKnnNamesOnAnExplicitCombineAreNotTheLegacyRerank() {
+    MergedSearchTemplate named =
+        merged(retrieval("vector")).knn("{ \"model\": \"dataset_l2\" }").build();
+    assertNull(
+        SearchTemplateCapabilities.rejectionCode(
+            named, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD));
+    // The legacy shape, with no combine, still needs document rerank.
+    MergedSearchTemplate legacy =
+        merged(null).knn("{ \"field\": \"embeddings.vector\", \"k\": 10 }").build();
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(
+            legacy, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD),
+        "knn");
+  }
+
+  @Test
+  public void testASecondProfileOfAnotherClassStillCounts() {
+    EmbeddingProfile card =
+        new EmbeddingProfile(
+            "entityMetadata.v1",
+            "entityMetadata",
+            null,
+            "cosine",
+            Set.of("document"),
+            Set.of(ELASTICSEARCH, OPENSEARCH));
+    SearchTemplateGates textChunksOnly =
+        new SearchTemplateGates(
+            new EmbeddingProfileRegistry(
+                List.of(DOCUMENT_DEFAULT, card), Map.of("document", DOCUMENT_DEFAULT.id())),
+            SEMANTIC,
+            true,
+            Set.of(VECTOR_RETRIEVAL),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
+    MergedSearchTemplate mixed =
+        merged(retrieval("vector"))
+            .profiles(new SearchTemplateProfiles().setAdd(ids(card.id())))
+            .build();
+    assertEquals(
+        textChunksOnly.bindingRejection(mixed, List.of("document"), OPENSEARCH, true),
+        SearchTemplateGates.SEVERAL_PROFILES);
+  }
+
+  @Test
   public void testAdvertisedNamesAreKnownCapabilities() {
     assertThrows(
         IllegalArgumentException.class,

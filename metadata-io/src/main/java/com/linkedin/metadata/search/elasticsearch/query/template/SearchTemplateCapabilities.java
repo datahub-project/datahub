@@ -262,7 +262,12 @@ public final class SearchTemplateCapabilities {
     }
     // keywordRerank serves keyword order when the rerank cannot run, so it is not a capability
     // failure. This release reads that shape and does not execute the rerank.
-    if (template.getKnn() != null && !scroll && !documentRerank && !keywordRerank(template)) {
+    // Only the legacy shape, with no combine, runs its knn through document rerank. With a combine,
+    // knn carries the blend or the deprecated profile names, and the gates decide.
+    if (template.getKnn() != null
+        && !scroll
+        && !documentRerank
+        && combine(template.getRetrieval()) == null) {
       return "knn";
     }
     if (template.getLadder() != null

@@ -137,7 +137,11 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
               SearchTemplateException.class,
               () ->
                   SearchTemplateCapabilities.requireSupported(
-                      merged, true, false, SearchTemplateComponentRegistry.empty()));
+                      merged,
+                      true,
+                      false,
+                      SearchTemplateComponentRegistry.empty(),
+                      SearchTemplateGates.none()));
         });
   }
 

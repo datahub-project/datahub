@@ -236,7 +236,7 @@ public final class SearchTemplateGates {
     for (String entityType : members(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
-      if (joinGate(resolution, entityType) != null) {
+      if (!countsToward(resolution, entityType)) {
         continue;
       }
       selected.addAll(resolution.profileIds());
@@ -375,6 +375,29 @@ public final class SearchTemplateGates {
       return ENTITY_NOT_ADVERTISED;
     }
     return null;
+  }
+
+  // An enabled entity counts toward the one-profile rule unless every profile it selects that the
+  // registry knows is of a class this build does not run for it. A second profile of another
+  // class still counts, so the selection fails closed instead of emptying the leg.
+  private boolean countsToward(
+      @Nonnull EmbeddingProfileRegistry.Resolution resolution, @Nonnull String entityType) {
+    if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
+      return false;
+    }
+    boolean known = false;
+    for (String id : resolution.profileIds()) {
+      EmbeddingProfile profile = profiles.profile(id);
+      if (profile == null) {
+        continue;
+      }
+      known = true;
+      Set<String> types = advertisedEntityTypes.get(profile.profileClass());
+      if (types != null && types.contains(entityType)) {
+        return true;
+      }
+    }
+    return !known;
   }
 
   // An unknown id has no class here; coverage reports it.
