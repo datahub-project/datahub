@@ -918,7 +918,8 @@ public class MultiEntityMappingsBuilderTest {
     for (IndexMapping v2Mapping :
         new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG)
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH)
             .getIndexMappings(registryContext)) {
       String v3Index = v2Mapping.getIndexName().replace("index_v2", "index_v3");
       Map<String, Object> v3Properties = v3PropertiesByIndex.get(v3Index);
@@ -1725,6 +1726,61 @@ public class MultiEntityMappingsBuilderTest {
     @SuppressWarnings("unchecked")
     Map<String, Object> entityType = (Map<String, Object>) properties.get("_entityType");
     assertEquals(entityType.get("type"), "keyword");
+  }
+
+  /**
+   * Query subjects and incidents both store URNs under {@code entities}, and neither is a shared
+   * search label. The parsed name is not a root, so the shared mapping must not keep the complete
+   * URN on an {@code ignore_above} keyword named {@code entities}. It belongs on {@code
+   * entities_urn}, which is what an {@code entities} filter reads. A KEYWORD annotation on either
+   * contributor drops that sibling, and incident health then aggregates a field the index does not
+   * map.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSharedEntitiesFieldKeepsTheFullUrnSibling() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Map<String, Object> properties =
+        getProperties(
+            new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+                .getIndexMappings(registryContext)
+                .iterator()
+                .next()
+                .getMappings());
+
+    assertFalse(
+        properties.containsKey("entities"),
+        "complete URNs stay on entities_urn: " + properties.get("entities"));
+
+    Map<String, Object> entitiesUrn = (Map<String, Object>) properties.get("entities_urn");
+    assertNotNull(entitiesUrn, properties.keySet().toString());
+    assertEquals(entitiesUrn.get("type"), "keyword", entitiesUrn.toString());
+    assertFalse(entitiesUrn.containsKey("ignore_above"), entitiesUrn.toString());
+    Map<String, Object> lowercase =
+        (Map<String, Object>) ((Map<String, Object>) entitiesUrn.get("fields")).get("lowercase");
+    assertEquals(lowercase.get("type"), "keyword", lowercase.toString());
+    assertEquals(lowercase.get("normalizer"), "keyword_normalizer", lowercase.toString());
+
+    for (String aspectName : List.of("incidentInfo", "querySubjects")) {
+      Map<String, Object> source = getAspectFieldMapping(properties, aspectName, "entities");
+      assertEquals(source.get("copy_to"), List.of("entities_urn"), aspectName + " " + source);
+    }
+
+    List<EntitySpec> searchable =
+        V3SearchFields.searchableEntitySpecs(registryContext.getEntityRegistry());
+    SearchFieldResolver allEntities = new SearchFieldResolver(searchable);
+    assertEquals(
+        allEntities.exactPath("entities", SearchFieldResolver.Intent.FILTER), "entities_urn");
+    SearchFieldResolver incidentsOnly =
+        new SearchFieldResolver(
+            List.of(registryContext.getEntityRegistry().getEntitySpec(INCIDENT_ENTITY_NAME)));
+    assertEquals(
+        incidentsOnly.exactPath("entities", SearchFieldResolver.Intent.FILTER), "entities_urn");
+    assertEquals(
+        incidentsOnly.exactPath("entities.keyword", SearchFieldResolver.Intent.FILTER),
+        "entities_urn");
   }
 
   @Test

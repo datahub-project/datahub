@@ -13,15 +13,20 @@ import com.linkedin.datahub.graphql.types.incident.IncidentMapper;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.ArrayList;
 import java.util.Collections;
@@ -33,6 +38,8 @@ import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /** GraphQL Resolver used for fetching the list of Assertions associated with an Entity. */
 public class EntityIncidentsResolver
@@ -46,9 +53,17 @@ public class EntityIncidentsResolver
   static final String INCIDENT_ASSIGNEES_SEARCH_INDEX_FIELD_NAME = "assignees";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
 
   public EntityIncidentsResolver(final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public EntityIncidentsResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
     _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
   }
 
   @Override
@@ -73,7 +88,8 @@ public class EntityIncidentsResolver
             final Filter filter =
                 buildIncidentsFilter(
                     entityUrn, maybeState, maybeStage, maybePriority, maybeAssigneeUrns);
-            final List<SortCriterion> sortCriteria = buildIncidentsSortCriteria();
+            final List<SortCriterion> sortCriteria =
+                buildIncidentsSortCriteria(context.getOperationContext());
             final SearchResult searchResult =
                 _entityClient.filter(
                     context.getOperationContext(),
@@ -159,9 +175,16 @@ public class EntityIncidentsResolver
     return QueryUtils.newListsFilter(criterionMap);
   }
 
-  private List<SortCriterion> buildIncidentsSortCriteria() {
+  private List<SortCriterion> buildIncidentsSortCriteria(
+      @Nonnull final OperationContext opContext) {
     final SortCriterion sortCriterion = new SortCriterion();
-    sortCriterion.setField(CREATED_TIME_SEARCH_INDEX_FIELD_NAME);
+    sortCriterion.setField(
+        EntitySearchIndexResolver.indexedField(
+            _entityIndexConfiguration,
+            opContext,
+            CREATED_TIME_SEARCH_INDEX_FIELD_NAME,
+            MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+            Intent.SORT));
     sortCriterion.setOrder(SortOrder.DESCENDING);
     return Collections.singletonList(sortCriterion);
   }

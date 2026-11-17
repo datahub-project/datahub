@@ -1,0 +1,27 @@
+namespace com.linkedin.okf
+
+/** Identity and declared format version of an OKF knowledge bundle. */
+record OkfBundle {
+  /** Canonical URI of the bundle's location, without a branch or trailing slash for GitHub. */
+  @Searchable = {
+    "fieldName": "okfBundleLocation",
+    "fieldType": "KEYWORD",
+    "addToFilters": false,
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
+  }
+  location: string
+
+  /** Bundle root relative to the location's root, without leading or trailing slashes; "." for a bundle at that root. */
+  @Searchable = {
+    "fieldName": "okfBundleRootPath",
+    "fieldType": "KEYWORD",
+    "addToFilters": false,
+    "queryByDefault": false,
+    "v3": { "queryByDefault": false }
+  }
+  rootPath: string
+
+  /** Format version declared by okf_version in the bundle-root index.md frontmatter. */
+  okfVersion: optional string
+}

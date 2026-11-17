@@ -1,5 +1,7 @@
 package io.datahubproject.openapi.v3.controller;
 
+import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_CREDENTIALS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
@@ -38,6 +40,10 @@ import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.AuthorizerChain;
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionRunEvent;
+import com.linkedin.assertion.AssertionRunStatus;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.Owner;
@@ -2632,6 +2638,94 @@ public class EntityControllerTest extends AbstractTestNGSpringContextTests {
             any(), eq(DATASET_ENTITY_NAME), eq(DATASET_PROFILE_ASPECT_NAME), any(Filter.class));
     verify(mockEntityService, never())
         .deleteAspect(any(), anyString(), anyString(), anyMap(), anyBoolean());
+  }
+
+  /**
+   * Deleting an assertion's run history removes timeseries values without an aspect write the
+   * assertion validator sees, so the endpoint itself requires Edit Assertions on the assets the
+   * assertion checks, as deleting the assertion does.
+   */
+  @Test
+  public void testDeleteAssertionRunEventNeedsEditAssertionsOnTarget() throws Exception {
+    Urn assertionUrn = UrnUtils.getUrn("urn:li:assertion:run-history-delete");
+    Urn datasetUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:testPlatform,run_history,PROD)");
+    reset(mockEntityService, mockTimeseriesAspectService);
+    when(testAspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(assertionUrn)), eq(Set.of(ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                assertionUrn,
+                Map.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    new Aspect(
+                        new AssertionInfo()
+                            .setType(AssertionType.DATASET)
+                            .setEntityUrn(datasetUrn)
+                            .data()))));
+    // A live target; run history of an assertion whose target is gone may be deleted freely.
+    when(testAspectRetriever.entityExists(any(), eq(Set.of(datasetUrn))))
+        .thenReturn(Map.of(datasetUrn, true));
+    com.linkedin.metadata.aspect.EnvelopedAspect latest =
+        new com.linkedin.metadata.aspect.EnvelopedAspect()
+            .setAspect(
+                com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(
+                    new AssertionRunEvent()
+                        .setTimestampMillis(1234L)
+                        .setRunId("run")
+                        .setAssertionUrn(assertionUrn)
+                        .setAsserteeUrn(datasetUrn)
+                        .setStatus(AssertionRunStatus.COMPLETE)));
+    when(mockTimeseriesAspectService.getLatestTimeseriesAspectValues(
+            any(), eq(Set.of(assertionUrn)), eq(Set.of(ASSERTION_RUN_EVENT_ASPECT_NAME)), any()))
+        .thenReturn(Map.of(assertionUrn, Map.of(ASSERTION_RUN_EVENT_ASPECT_NAME, latest)));
+    String path =
+        "/openapi/v3/entity/assertion/" + assertionUrn + "/" + ASSERTION_RUN_EVENT_ASPECT_NAME;
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, Mockito.CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      // Delete Entity on the assertion, but no Edit Assertions or Edit Entity on the dataset.
+      stubAuthorizer(
+          request ->
+              !(request.getResourceSpec().isPresent()
+                  && datasetUrn.toString().equals(request.getResourceSpec().get().getEntity())
+                  && (PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType().equals(request.getPrivilege())
+                      || PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE
+                          .getType()
+                          .equals(request.getPrivilege()))));
+      mockMvc
+          .perform(MockMvcRequestBuilders.delete(path).accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isForbidden());
+      verify(mockTimeseriesAspectService, never())
+          .deleteAspectValues(any(), anyString(), anyString(), any(Filter.class));
+
+      stubAuthorizer(request -> true);
+      mockMvc
+          .perform(MockMvcRequestBuilders.delete(path).accept(MediaType.APPLICATION_JSON))
+          .andExpect(status().isOk());
+      verify(mockTimeseriesAspectService)
+          .deleteAspectValues(
+              any(), eq("assertion"), eq(ASSERTION_RUN_EVENT_ASPECT_NAME), any(Filter.class));
+    }
+  }
+
+  private void stubAuthorizer(java.util.function.Predicate<AuthorizationRequest> allowed) {
+    reset(authorizerChain);
+    org.mockito.stubbing.Answer<AuthorizationResult> answer =
+        invocation -> {
+          AuthorizationRequest request = invocation.getArgument(0);
+          return new AuthorizationResult(
+              request,
+              allowed.test(request)
+                  ? AuthorizationResult.Type.ALLOW
+                  : AuthorizationResult.Type.DENY,
+              "");
+        };
+    when(authorizerChain.authorize(any(AuthorizationRequest.class))).thenAnswer(answer);
+    when(authorizerChain.authorize(
+            any(AuthorizationRequest.class), any(Map.class), any(OperationContext.class)))
+        .thenAnswer(answer);
   }
 
   @Test

@@ -17,7 +17,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"
@@ -164,7 +164,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"
@@ -574,7 +574,7 @@
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=simple_dag",
+            "externalUrl": "http://airflow.example.com/dags/simple_dag",
             "name": "simple_dag",
             "description": "A simple DAG that runs a few fake data tasks.",
             "env": "PROD"

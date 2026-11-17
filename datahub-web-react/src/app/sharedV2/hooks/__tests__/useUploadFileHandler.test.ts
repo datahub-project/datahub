@@ -1,5 +1,5 @@
 import { notification } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
@@ -10,6 +10,7 @@ import { FileUploadFailureType } from '@components/components/Editor/types';
 import useFileUpload from '@app/sharedV2/hooks/useFileUpload';
 import useFileUploadAnalyticsCallbacks from '@app/sharedV2/hooks/useFileUploadAnalyticsCallbacks';
 import { useUploadFileHandler } from '@app/sharedV2/hooks/useUploadFileHandler';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { UploadDownloadScenario } from '@types';
 

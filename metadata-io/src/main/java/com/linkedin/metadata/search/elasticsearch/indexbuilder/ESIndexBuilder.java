@@ -70,6 +70,7 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -1825,7 +1826,8 @@ public class ESIndexBuilder {
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
     Map<String, Object> reinfo = new HashMap<>();
     try {
-      Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(opContext, indexState.name());
+      Optional<TaskInfo> previousTaskInfo =
+          getTaskInfoByHeader(opContext, indexState.name(), false);
 
       int targetShards = extractTargetShards(indexState);
       String reindexTaskId = "";
@@ -3141,14 +3143,26 @@ public class ESIndexBuilder {
   }
 
   public Optional<TaskInfo> getTaskInfoByHeader(
-      @Nonnull OperationContext opContext, String indexName) throws Throwable {
+      @Nonnull OperationContext opContext, String indexName, boolean requireCompleteList)
+      throws Throwable {
     Retry retryWithDefaultConfig = retryRegistry.retry("getTaskInfoByHeader");
 
     return retryWithDefaultConfig.executeCheckedSupplier(
         () -> {
           ListTasksRequest listTasksRequest = new ListTasksRequest().setDetailed(true);
-          List<TaskInfo> taskInfos =
-              searchClient.listTasks(listTasksRequest, requestOptionsLong).getTasks();
+          ListTasksResponse response = searchClient.listTasks(listTasksRequest, requestOptionsLong);
+          if (requireCompleteList
+              && (!response.getNodeFailures().isEmpty() || !response.getTaskFailures().isEmpty())) {
+            throw new IllegalStateException(
+                "Task list for "
+                    + indexName
+                    + " is incomplete: "
+                    + response.getNodeFailures().size()
+                    + " node failure(s), "
+                    + response.getTaskFailures().size()
+                    + " task failure(s). Cannot rule out a live reindex.");
+          }
+          List<TaskInfo> taskInfos = response.getTasks();
           return taskInfos.stream()
               .filter(
                   info ->

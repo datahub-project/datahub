@@ -391,17 +391,27 @@ public class EmbeddingProviderFactoryTest {
   }
 
   @Test
-  public void rejectsAwsBedrockWithoutBedrockRegion() throws Exception {
-    EmbeddingProviderConfiguration config =
-        configWithBedrock("us-west-2", "cohere.embed-english-v3");
-    config.getBedrock().setAwsRegion(" ");
+  public void bedrockRegionUsesConfiguredValue() {
+    assertEquals(
+        EmbeddingProviderFactory.resolveBedrockRegion(
+            " eu-west-1 ", Map.of("BEDROCK_AWS_REGION", "us-east-1")::get),
+        "eu-west-1");
+  }
 
-    IllegalStateException error =
-        expectThrows(
-            IllegalStateException.class,
-            () -> factoryWithConfigAndAwsCredentials(config).getInstance());
+  @Test
+  public void bedrockRegionFallsThroughBlankConfiguredValue() {
+    assertEquals(
+        EmbeddingProviderFactory.resolveBedrockRegion(
+            " ", Map.of("BEDROCK_AWS_REGION", "us-east-1", "AWS_REGION", "eu-central-1")::get),
+        "us-east-1");
+  }
 
-    assertTrue(error.getMessage().contains("bedrock.awsRegion"));
+  @Test
+  public void bedrockRegionDefaultsWhenEveryNameIsBlank() {
+    assertEquals(
+        EmbeddingProviderFactory.resolveBedrockRegion(
+            null, Map.of("AWS_REGION", " ", "BEDROCK_AWS_REGION", "")::get),
+        "us-west-2");
   }
 
   // ------- OpenAI provider tests -------

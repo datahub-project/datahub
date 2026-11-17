@@ -6,6 +6,7 @@
     "addDataProductError": "Failed to add assets to Data Product. An unknown error occurred.",
     "addDataProductModalTitle": "Add assets to Data Product",
     "addDataProductTooltip": "Add Assets to Data Product",
+    "addDataProductUnauthorized": "You do not have permission to add assets to this Data Product",
     "addDomainError": "Failed to add assets to Domain: {{error}}",
     "addDomainModalTitle": "Add assets to Domain",
     "addDomainTooltip": "Add Assets to Domain",

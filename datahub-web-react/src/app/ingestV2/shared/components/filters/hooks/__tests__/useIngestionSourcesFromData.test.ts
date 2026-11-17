@@ -1,6 +1,5 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import useIngestionSourcesFromData from '@app/ingestV2/shared/components/filters/hooks/useIngestionSourcesFromData';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { ListIngestionSourcesQuery } from '@graphql/ingestion.generated';
 // import { describe, it, expect } from 'vitest';

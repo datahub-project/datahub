@@ -14,7 +14,6 @@ import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
-import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.client.EntityClientAspectRetriever;
@@ -63,6 +62,21 @@ public final class StructuredPropertyUrnIdentity {
   }
 
   /**
+   * {@code copyTo} names a shared search field. The parsed name is copied there so a query of that
+   * shared field still finds the property.
+   */
+  public static boolean feedsSharedField(
+      @Nonnull final StructuredPropertyDefinition definition,
+      @Nonnull final Collection<EntitySpec> entitySpecs) {
+    if (!definition.hasSearchConfiguration() || !definition.getSearchConfiguration().hasCopyTo()) {
+      return false;
+    }
+    return !V3SearchFields.copyDestinations(
+            entitySpecs, definition.getSearchConfiguration().getCopyTo())
+        .isEmpty();
+  }
+
+  /**
    * The parsed-name sibling is mapped when a full-text query reads it, which is what matches the
    * tokens of a URN value, or when {@code copyTo} feeds a shared search field. A property that is
    * only filtered on stays the exact URN and does not get this field.
@@ -73,12 +87,10 @@ public final class StructuredPropertyUrnIdentity {
     if (!definition.hasSearchConfiguration()) {
       return false;
     }
-    final DataHubSearchConfig searchConfiguration = definition.getSearchConfiguration();
-    if (searchConfiguration.isQueryByDefault()) {
+    if (definition.getSearchConfiguration().isQueryByDefault()) {
       return true;
     }
-    return searchConfiguration.hasCopyTo()
-        && !V3SearchFields.copyDestinations(entitySpecs, searchConfiguration.getCopyTo()).isEmpty();
+    return feedsSharedField(definition, entitySpecs);
   }
 
   @Nonnull

@@ -70,13 +70,14 @@ Two things consume the executor's ephemeral disk (under `/tmp/datahub/`) during 
 - **Per-execution logs** under `/tmp/datahub/logs/`. Unlike venvs, logs are **kept after the run** so you can inspect them
   directly (logs visible via UI are stored in DataHub and are truncated)
 
-By default nothing prunes the logs. Enable the in-process **log garbage collector** with
-**`DATAHUB_EXECUTOR_LOG_GC_ENABLED=true`**: it scans the log directory on a timer and deletes per-execution directories
-older than the retention window, with a size cap as a safety net. Tunables:
+The in-process **log garbage collector** prunes the logs and is on by default: it scans the log directory on a timer and
+deletes per-execution directories older than the retention window, with a size cap as a safety net. It runs on
+standalone executors in both SQS and Kafka mode, and on the embedded worker inside the coordinator. Set
+**`DATAHUB_EXECUTOR_LOG_GC_ENABLED=false`** to keep all logs. Tunables:
 
 | Variable                                              | Default             | Purpose                                                                                 |
 | ----------------------------------------------------- | ------------------- | --------------------------------------------------------------------------------------- |
-| **`DATAHUB_EXECUTOR_LOG_GC_ENABLED`**                 | `false`             | Master switch for the log GC.                                                           |
+| **`DATAHUB_EXECUTOR_LOG_GC_ENABLED`**                 | `true`              | Master switch for the log GC.                                                           |
 | **`DATAHUB_EXECUTOR_LOG_DIR`**                        | `/tmp/datahub/logs` | Directory scanned.                                                                      |
 | **`DATAHUB_EXECUTOR_LOG_GC_RETENTION_DAYS`**          | `14`                | Age threshold for deletion.                                                             |
 | **`DATAHUB_EXECUTOR_LOG_GC_MAX_DIR_SIZE_MB`**         | `10000`             | Size-cap safety net; oldest logs are removed first when exceeded. `0` disables the cap. |

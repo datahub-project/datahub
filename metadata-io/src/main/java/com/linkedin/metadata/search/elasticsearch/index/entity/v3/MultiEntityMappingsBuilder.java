@@ -12,11 +12,11 @@ import static com.linkedin.metadata.search.utils.ESUtils.FIELDS;
 import static com.linkedin.metadata.search.utils.ESUtils.KEYWORD_FIELD_TYPE;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
-import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.FieldSpecUtils;
@@ -29,6 +29,7 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation.FieldType;
 import com.linkedin.metadata.models.annotation.v3.FieldMapping;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingFieldConfigBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -104,6 +105,8 @@ import lombok.extern.slf4j.Slf4j;
  */
 @Slf4j
 public class MultiEntityMappingsBuilder implements MappingsBuilder {
+  static final String PRIMARY_SEARCH_GROUP = "primary";
+
   /** Configuration for entity indexing behavior and v3 search settings. */
   private final EntityIndexConfiguration entityIndexConfiguration;
 
@@ -111,6 +114,12 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   @Nullable private final Map<String, Object> mappingBaseConfiguration;
 
   private final int keywordMaxLength;
+
+  /** Semantic model configuration used only for creation-time vector-capable DDL. */
+  @Nullable private final SemanticSearchConfiguration semanticSearchConfiguration;
+
+  /** Search engine shim used to choose the correct vector field type for the target engine. */
+  @Nullable private final SearchClientShim<?> searchClientShim;
 
   /** Engine-specific shape of a declared partial ngram subfield. */
   @Nonnull private final Map<String, String> partialNgramConfig;
@@ -138,8 +147,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       int keywordMaxLength,
       @Nonnull List<V3MappingContributor> mappingContributors)
       throws IOException {
-
     this.entityIndexConfiguration = entityIndexConfiguration;
+    this.semanticSearchConfiguration = entityIndexConfiguration.getSemanticSearch();
+    this.searchClientShim = searchClientShim;
     this.partialNgramConfig =
         searchClientShim != null
             ? searchClientShim.partialNgramConfig()
@@ -167,7 +177,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
    */
   @Override
   public Collection<IndexMapping> getIndexMappings(@Nonnull OperationContext opContext) {
-    return getIndexMappings(opContext, null);
+    return getIndexMappings(opContext, List.of());
   }
 
   /**
@@ -194,6 +204,48 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         opContext,
         entityRegistry,
         getMappingsForSearchableEntities(entityRegistry, structuredProperties));
+  }
+
+  /**
+   * Generates deterministic pre-build audit records for each V3 search group. The audit counts the
+   * generated mapping tree and records field conflicts before index creation mutates cluster state.
+   */
+  public Collection<SearchGroupMappingAudit> getSearchGroupMappingAudits(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    // The live index uses one mapping built from every searchable entity. Audit that mapping for
+    // every index key creation uses, including an entity whose search group is omitted.
+    List<EntitySpec> sharedSpecs = searchableEntitySpecs(entityRegistry);
+    Map<String, Object> sharedMappings =
+        getMappingsForSearchableEntities(entityRegistry, structuredProperties);
+    Integer maxFieldsLimit = entityIndexConfiguration.getV3().getMaxFieldsLimit();
+    return V3IndexKeys.groupEntitySpecs(entityRegistry).keySet().stream()
+        .map(
+            indexKey ->
+                SearchGroupMappingAudit.create(
+                    indexKey, sharedSpecs, sharedMappings, maxFieldsLimit))
+        .collect(Collectors.toList());
+  }
+
+  /** Generates deterministic pre-build audit records for each V3 search group. */
+  public Collection<SearchGroupMappingAudit> getSearchGroupMappingAudits(
+      @Nonnull OperationContext opContext) {
+    return getSearchGroupMappingAudits(opContext, List.of());
+  }
+
+  /** Generates one deterministic pre-build registry audit report across all V3 search groups. */
+  public SearchGroupMappingAuditReport getSearchGroupMappingAuditReport(
+      @Nonnull OperationContext opContext,
+      @Nonnull final Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+    return SearchGroupMappingAuditReport.create(
+        getSearchGroupMappingAudits(opContext, structuredProperties));
+  }
+
+  /** Generates one deterministic pre-build registry audit report across all V3 search groups. */
+  public SearchGroupMappingAuditReport getSearchGroupMappingAuditReport(
+      @Nonnull OperationContext opContext) {
+    return getSearchGroupMappingAuditReport(opContext, List.of());
   }
 
   /**
@@ -232,10 +284,9 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
         log.warn("Could not extract entity type from URN: {}", entityTypeUrn);
         continue;
       }
-      // While unknown data is tolerated, an entity type this registry doesn't know (e.g. added by
-      // a newer version before a rollback) is skipped, so the mapping is still updated for the
-      // property's known types; otherwise it fails as before.
-      if (handling().entitySpecForData(entityRegistry, entityTypeName).isPresent()) {
+      // Registries throw for a type they do not know. A property that names one (added by a newer
+      // build, then rolled back) still updates the types this registry does know.
+      if (entityRegistry.findEntitySpec(entityTypeName).isPresent()) {
         knownEntityType = true;
       } else {
         log.warn("Missing entitySpec for entity type: {}", entityTypeName);
@@ -331,8 +382,24 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   private Map<String, Object> getMappingsForSearchableEntities(
       @Nonnull EntityRegistry entityRegistry,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
+    // The index mapping is shared. Embeddings stay on it when semantic search is enabled; index
+    // settings decide which indices turn knn on.
+    return buildMappings(
+        entityRegistry,
+        searchableEntitySpecs(entityRegistry),
+        structuredProperties,
+        PRIMARY_SEARCH_GROUP);
+  }
 
-    List<EntitySpec> entitySpecs = searchableEntitySpecs(entityRegistry);
+  /**
+   * Builds one mapping from the given entity specs. Contributor fields are unioned onto that
+   * mapping. {@code embeddingSearchGroup} selects whether the primary embedding field is included.
+   */
+  private Map<String, Object> buildMappings(
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull List<EntitySpec> entitySpecs,
+      Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      @Nonnull String embeddingSearchGroup) {
 
     if (entitySpecs.isEmpty()) {
       log.warn("No searchable entities found for the shared V3 mapping");
@@ -437,6 +504,8 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
       }
     }
 
+    addPrimaryEmbeddingMappings(embeddingSearchGroup, combinedMappings);
+
     return combinedMappings;
   }
 
@@ -527,10 +596,57 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
     properties.put(MappingConstants.URN_NAME_FIELD, V3SearchFields.fullUrnRootMapping());
     // The projector writes _entityType into every V3 document; without an explicit mapping,
     // dynamic mapping makes it analyzed text and the entity-type facet aggregation (and exact
-    // filters on camelCase entity names) fail on the consolidated index. No normalizer: the
-    // entity-type facet includes the registry names case-sensitively.
+    // filters on camelCase entity names) fail on the consolidated index.
     properties.putIfAbsent(
-        V3SearchDocumentProjector.ENTITY_TYPE_FIELD, new HashMap<>(Map.of(TYPE, "keyword")));
+        V3SearchDocumentProjector.ENTITY_TYPE_FIELD,
+        new HashMap<>(FieldTypeMapper.getMappingsForKeyword()));
+  }
+
+  @SuppressWarnings("unchecked")
+  private void addPrimaryEmbeddingMappings(
+      @Nonnull final String searchGroup, @Nonnull final Map<String, Object> combinedMappings) {
+    if (!PRIMARY_SEARCH_GROUP.equals(searchGroup)
+        || !SemanticEmbeddingFieldConfigBuilder.semanticIndexingEnabled(
+            semanticSearchConfiguration)) {
+      return;
+    }
+
+    final Object propertiesObject = combinedMappings.get(PROPERTIES);
+    if (!(propertiesObject instanceof Map)) {
+      return;
+    }
+
+    final Map<String, Object> properties = (Map<String, Object>) propertiesObject;
+    Map<String, Object> built =
+        searchClientShim == null
+            ? Map.of()
+            : SemanticEmbeddingFieldConfigBuilder.buildEmbeddingFieldConfig(
+                semanticSearchConfiguration, searchClientShim);
+    Object existing = properties.get("embeddings");
+    if (existing instanceof Map) {
+      properties.put("embeddings", mergePreservingExisting((Map<String, Object>) existing, built));
+    } else if (searchClientShim != null) {
+      properties.put("embeddings", built);
+    }
+  }
+
+  /** Keeps contributor keys such as sourceTextSha256 and fills in vector fields that are absent. */
+  @SuppressWarnings("unchecked")
+  private static Map<String, Object> mergePreservingExisting(
+      @Nonnull Map<String, Object> existing, @Nonnull Map<String, Object> incoming) {
+    Map<String, Object> merged = new HashMap<>(existing);
+    for (Map.Entry<String, Object> entry : incoming.entrySet()) {
+      Object current = merged.get(entry.getKey());
+      if (current instanceof Map && entry.getValue() instanceof Map) {
+        merged.put(
+            entry.getKey(),
+            mergePreservingExisting(
+                (Map<String, Object>) current, (Map<String, Object>) entry.getValue()));
+      } else if (!merged.containsKey(entry.getKey())) {
+        merged.put(entry.getKey(), entry.getValue());
+      }
+    }
+    return merged;
   }
 
   /**
@@ -1257,6 +1373,7 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
   private static List<SearchableFieldSpec> lowercaseContributors(
       @Nonnull String rootFieldName, @Nonnull Collection<EntitySpec> entitySpecs) {
     List<SearchableFieldSpec> contributors = new ArrayList<>();
+    Boolean lowercase = null;
     for (EntitySpec entitySpec : entitySpecs) {
       if (entitySpec.getAspectSpecs() == null) {
         continue;
@@ -1272,6 +1389,23 @@ public class MultiEntityMappingsBuilder implements MappingsBuilder {
           }
           String indexed = resolved.indexedFieldName().orElse(resolved.getFieldName());
           if (rootFieldName.equals(indexed)) {
+            boolean value = resolved.isV3Lowercase();
+            if (lowercase != null && lowercase != value) {
+              throw new IllegalArgumentException(
+                  "Search V3 field '"
+                      + rootFieldName
+                      + "' contributors disagree on v3.lowercase: "
+                      + entitySpec.getName()
+                      + "."
+                      + aspectSpec.getName()
+                      + " "
+                      + fieldSpec.getPath()
+                      + " fieldType="
+                      + resolved.getFieldType()
+                      + " lowercase="
+                      + value);
+            }
+            lowercase = value;
             contributors.add(fieldSpec);
           }
         }

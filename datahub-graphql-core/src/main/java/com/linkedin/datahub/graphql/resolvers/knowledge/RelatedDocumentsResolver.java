@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
@@ -22,6 +23,9 @@ import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import graphql.schema.DataFetcher;
@@ -33,7 +37,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -44,7 +49,6 @@ import lombok.extern.slf4j.Slf4j;
  * only shown if owned by the current user or a group they belong to
  */
 @Slf4j
-@RequiredArgsConstructor
 public class RelatedDocumentsResolver
     implements DataFetcher<CompletableFuture<RelatedDocumentsResult>> {
 
@@ -53,8 +57,25 @@ public class RelatedDocumentsResolver
   private static final String DEFAULT_QUERY = "*";
   private static final String SUB_TYPES_FIELD = "typeNames";
 
+  private static final String LAST_MODIFIED_AT_FIELD = "lastModifiedAt";
+
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public RelatedDocumentsResolver(
+      @Nonnull final DocumentService documentService, @Nonnull final EntityClient entityClient) {
+    this(documentService, entityClient, null);
+  }
+
+  public RelatedDocumentsResolver(
+      @Nonnull final DocumentService documentService,
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _documentService = documentService;
+    _entityClient = entityClient;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<RelatedDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -102,9 +123,16 @@ public class RelatedDocumentsResolver
                     baseUserCriteria, userAndGroupUrns, false, canManageDocuments);
 
             // Step 1: Search using service to get URNs
-            // Sort by lastModifiedAt descending to show most recently updated documents first
             final SortCriterion sortCriterion =
-                new SortCriterion().setField("lastModifiedAt").setOrder(SortOrder.DESCENDING);
+                new SortCriterion()
+                    .setField(
+                        EntitySearchIndexResolver.indexedField(
+                            _entityIndexConfiguration,
+                            context.getOperationContext(),
+                            LAST_MODIFIED_AT_FIELD,
+                            MappingConstants.SYSTEM_MODIFIED_TIME_FIELD,
+                            Intent.SORT))
+                    .setOrder(SortOrder.DESCENDING);
             final SearchResult gmsResult;
             try {
               gmsResult =

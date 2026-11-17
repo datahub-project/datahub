@@ -23,6 +23,9 @@ class DremioSourceReport(
 ):
     num_containers_failed: int = 0
     num_datasets_failed: int = 0
+    # Set when the job-history fetch stopped early; the stateful time window
+    # is then left in place so the next run re-reads it.
+    query_fetch_incomplete: bool = False
     containers_scanned: int = 0
     containers_filtered: int = 0
 

@@ -35,6 +35,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import javax.annotation.Nonnull;
+import org.apache.lucene.search.TotalHits;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
 import org.opensearch.action.search.SearchResponse;
@@ -262,6 +263,14 @@ public class ConsistencyServiceTest {
             nullable(String.class),
             nullable(Integer.class)))
         .thenReturn(emptyScroll);
+  }
+
+  private static SearchResponse emptyScrollPage() {
+    SearchResponse emptyPage = mock(SearchResponse.class);
+    when(emptyPage.getHits())
+        .thenReturn(
+            new SearchHits(new SearchHit[0], new TotalHits(0, TotalHits.Relation.EQUAL_TO), 0f));
+    return emptyPage;
   }
 
   // ============================================================================
@@ -2666,5 +2675,43 @@ public class ConsistencyServiceTest {
             opContext, CheckBatchRequest.builder().entityType("assertion").batchSize(100).build());
 
     assertTrue(count.isEmpty());
+  }
+
+  // ============================================================================
+  // checkBatch scroll failure tests
+  // ============================================================================
+
+  private CheckBatchRequest assertionCheckBatchRequest() {
+    return CheckBatchRequest.builder()
+        .entityType("assertion")
+        .checkIds(List.of("test-assertion-check"))
+        .batchSize(100)
+        .build();
+  }
+
+  @Test
+  public void testCheckBatchRetriesFailedScroll() {
+    SearchResponse emptyPage = emptyScrollPage();
+    when(mockEsSystemMetadataDAO.scroll(any(), any(), anyBoolean(), any(), any(), any(), any()))
+        .thenReturn(null)
+        .thenReturn(emptyPage);
+
+    CheckResult result = consistencyService.checkBatch(mockOpContext, assertionCheckBatchRequest());
+
+    assertEquals(result.getEntitiesScanned(), 0);
+    verify(mockEsSystemMetadataDAO, times(2))
+        .scroll(any(), any(), anyBoolean(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testCheckBatchThrowsWhenScrollKeepsFailing() {
+    when(mockEsSystemMetadataDAO.scroll(any(), any(), anyBoolean(), any(), any(), any(), any()))
+        .thenReturn(null);
+
+    assertThrows(
+        IllegalStateException.class,
+        () -> consistencyService.checkBatch(mockOpContext, assertionCheckBatchRequest()));
+    verify(mockEsSystemMetadataDAO, times(3))
+        .scroll(any(), any(), anyBoolean(), any(), any(), any(), any());
   }
 }

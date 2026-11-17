@@ -126,6 +126,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    OperationClass,
+    OperationSourceTypeClass,
+    OperationTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -1343,6 +1346,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
+            if self.config.include_operational_stats and view.last_refreshed:
+                refreshed_ms = int(view.last_refreshed.timestamp() * 1000)
+                # Event time, not run time, so a re-run without a new refresh rewrites the same row.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self.identifiers.gen_dataset_urn(view_name),
+                    aspect=OperationClass(
+                        timestampMillis=refreshed_ms,
+                        lastUpdatedTimestamp=refreshed_ms,
+                        operationType=OperationTypeClass.UPDATE,
+                        sourceType=OperationSourceTypeClass.DATA_PLATFORM,
+                    ),
+                ).as_workunit()
 
     def _process_semantic_view(
         self,

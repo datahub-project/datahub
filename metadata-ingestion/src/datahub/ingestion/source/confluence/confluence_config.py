@@ -91,7 +91,7 @@ class PageFilterConfig(ConfigModel):
 
 
 class ConfluenceSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """Configuration for Confluence source connector."""
 

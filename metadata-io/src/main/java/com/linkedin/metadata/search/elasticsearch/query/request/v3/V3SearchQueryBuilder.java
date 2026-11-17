@@ -1757,27 +1757,31 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   @Override
   public Set<SearchFieldConfig> getStandardFields(
       @Nonnull OperationContext opContext, @Nonnull Collection<EntitySpec> entitySpecs) {
-    return supportedFields(
-        withSharedFields(
-            super.getStandardFields(opContext, entitySpecs),
-            cachedFullTextFields(opContext.getEntityRegistry()),
-            cachedAnalyzerSubfields(opContext.getEntityRegistry()),
-            opContext,
-            entitySpecs),
-        entitySpecs);
+    Set<SearchFieldConfig> fields =
+        supportedFields(
+            withSharedFields(
+                super.getStandardFields(opContext, entitySpecs),
+                cachedFullTextFields(opContext.getEntityRegistry()),
+                cachedAnalyzerSubfields(opContext.getEntityRegistry()),
+                opContext,
+                entitySpecs),
+            entitySpecs);
+    return fields;
   }
 
   @Override
   protected Set<SearchFieldConfig> getStandardFields(
       @Nonnull OperationContext opContext, @Nonnull EntitySpec entitySpec) {
-    return supportedFields(
-        withSharedFields(
-            super.getStandardFields(opContext, entitySpec),
-            cachedFullTextFields(opContext.getEntityRegistry()),
-            cachedAnalyzerSubfields(opContext.getEntityRegistry()),
-            opContext,
-            List.of(entitySpec)),
-        List.of(entitySpec));
+    Set<SearchFieldConfig> fields =
+        supportedFields(
+            withSharedFields(
+                super.getStandardFields(opContext, entitySpec),
+                cachedFullTextFields(opContext.getEntityRegistry()),
+                cachedAnalyzerSubfields(opContext.getEntityRegistry()),
+                opContext,
+                List.of(entitySpec)),
+            List.of(entitySpec));
+    return fields;
   }
 
   /**

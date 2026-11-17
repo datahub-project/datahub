@@ -1,3 +1,4 @@
+import re
 from unittest.mock import Mock
 
 import pytest
@@ -166,8 +167,8 @@ class TestDremioPartitioning:
         # Outer condition (bounds the system-table side + sort) scopes per container.
         outer = [call.args[1] for call in calls]
         assert "REGEXP_LIKE" in outer[0]
-        assert "SRC_A" in outer[0]
-        assert "SRC_B" in outer[1] and "SRC_B" not in outer[0]
+        assert "src_a" in outer[0]
+        assert "src_b" in outer[1] and "src_b" not in outer[0]
 
         # Pushable COLUMNS-scan filter is passed per container and scoped correctly.
         pushable = [call.kwargs["columns_schema_filter"] for call in calls]
@@ -196,14 +197,30 @@ class TestDremioPartitioning:
         # `is True`: report is a Mock, so an unset attribute would be truthy.
         assert dremio_api.report.dataset_fetch_incomplete is True
 
-    def test_outer_condition_matches_root_and_nested_paths(self):
+    @pytest.mark.parametrize(
+        "schema, matches",
+        [
+            ("MY.SOURCE", True),
+            ("MY.SOURCE.X", True),
+            # The dot in the name is literal, and a sibling sharing the prefix
+            # is a different container.
+            ("MYXSOURCE", False),
+            ("MY.SOURCEX", False),
+            ("MY.SOURCE_OLD.X", False),
+        ],
+    )
+    def test_outer_condition_matches_root_and_nested_paths_only(
+        self, schema: str, matches: bool
+    ) -> None:
         condition = DremioSQLQueries.container_schema_condition(
             "my.source", "UPPER(TABLE_SCHEMA)"
         )
-        # Dot in the name is regex-escaped; nested paths are matched via (\..*)?.
-        assert "REGEXP_LIKE(UPPER(TABLE_SCHEMA)" in condition
-        assert "MY\\.SOURCE" in condition
-        assert "(\\..*)?" in condition
+        match = re.fullmatch(
+            r"AND REGEXP_LIKE\(UPPER\(TABLE_SCHEMA\), '(.*)'\)", condition
+        )
+        assert match
+        # Dremio's REGEXP_LIKE is Java's Matcher.find().
+        assert (re.search(match.group(1), schema) is not None) is matches
 
     def test_columns_filter_is_pushdown_shaped(self):
         # Dremio only pushes plain =/LIKE on a bare (UPPER-wrapped) TABLE_SCHEMA
