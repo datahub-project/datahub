@@ -386,6 +386,64 @@ class TestSafetyNet:
         assert d.run_all_integration is True
 
 
+class TestUnitTestedOnlyConnector:
+    """`integration_tests: false` exempts a connector from the safety net."""
+
+    @staticmethod
+    def _add_connector(repo_root: Path, name: str, opt_out: bool) -> None:
+        src = repo_root / "metadata-ingestion/src/datahub/ingestion/source" / name
+        src.mkdir(parents=True)
+        (src / "source.py").write_text("class SomeSource: pass\n")
+        if opt_out:
+            (src / "connector.yaml").write_text("integration_tests: false\n")
+
+    @staticmethod
+    def _changed(name: str) -> str:
+        return f"metadata-ingestion/src/datahub/ingestion/source/{name}/source.py"
+
+    def test_change_runs_no_integration_tests(self, repo_root):
+        self._add_connector(repo_root, "docs_only", opt_out=True)
+
+        d = classify([self._changed("docs_only")], repo_root)
+
+        assert d.run_all_integration is False
+        assert d.test_matrix == []
+
+    def test_unmarked_dir_alongside_still_runs_full_suite(self, repo_root):
+        self._add_connector(repo_root, "docs_only", opt_out=True)
+        self._add_connector(repo_root, "unmapped", opt_out=False)
+
+        d = classify([self._changed("docs_only"), self._changed("unmapped")], repo_root)
+
+        assert d.run_all_integration is True
+
+    def test_tested_connector_importing_it_still_runs(self, repo_root):
+        self._add_connector(repo_root, "docs_only", opt_out=True)
+        kafka = repo_root / "metadata-ingestion/src/datahub/ingestion/source/kafka"
+        (kafka / "kafka.py").write_text(
+            "from datahub.ingestion.source.docs_only.source import SomeSource\n"
+        )
+
+        d = classify([self._changed("docs_only")], repo_root)
+
+        assert [t["connector"] for t in d.test_matrix] == ["kafka"]
+
+    def test_validate_rejects_opt_out_on_connector_with_integration_tests(
+        self, repo_root
+    ):
+        powerbi = repo_root / "metadata-ingestion/src/datahub/ingestion/source/powerbi"
+        (powerbi / "connector.yaml").write_text("integration_tests: false\n")
+
+        assert any("integration_tests: false" in e for e in validate(repo_root))
+
+    def test_non_boolean_value_is_rejected(self, repo_root):
+        src = repo_root / "metadata-ingestion/src/datahub/ingestion/source/powerbi"
+        (src / "connector.yaml").write_text("integration_tests: 'no'\n")
+
+        with pytest.raises(SystemExit):
+            load_connector_registry(repo_root)
+
+
 class TestImportGraph:
     """Verify import graph is built correctly."""
 

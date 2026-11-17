@@ -1,0 +1,3 @@
+# No integration tests: this connector is covered by unit tests (testQuick) only,
+# so changing it alone runs no integration batches.
+integration_tests: false
