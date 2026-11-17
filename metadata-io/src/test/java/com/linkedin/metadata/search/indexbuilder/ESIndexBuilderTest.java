@@ -411,10 +411,6 @@ public class ESIndexBuilderTest {
                 .v2(on)
                 .v3(on.toBuilder().keywordReadEnabled(true).build())
                 .build(),
-            EntityIndexConfiguration.builder()
-                .v2(on)
-                .v3(on.toBuilder().semanticReadEnabled(true).build())
-                .build(),
             EntityIndexConfiguration.builder().v2(off).v3(on).build())) {
       when(elasticSearchConfiguration.getEntityIndex()).thenReturn(v3Reads);
       assertThrows(

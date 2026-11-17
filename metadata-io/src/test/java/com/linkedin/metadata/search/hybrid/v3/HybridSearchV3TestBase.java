@@ -158,7 +158,6 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             .v3(
                 V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
                     .keywordReadEnabled(true)
-                    .semanticReadEnabled(true)
                     .hybridReadEnabled(true)
                     .build())
             .semanticSearch(semanticSearch)

@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateLadder;
 import io.datahubproject.metadata.context.OperationContext;
@@ -470,11 +471,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   private boolean semanticReadEnabled() {
-    if (elasticSearchConfiguration.getEntityIndex() == null
-        || elasticSearchConfiguration.getEntityIndex().getV3() == null) {
-      return false;
-    }
-    return elasticSearchConfiguration.getEntityIndex().getV3().isSemanticReadEnabled();
+    return SemanticEntitySearchService.shouldReadSemanticV3(
+        elasticSearchConfiguration.getEntityIndex());
   }
 
   @Nonnull

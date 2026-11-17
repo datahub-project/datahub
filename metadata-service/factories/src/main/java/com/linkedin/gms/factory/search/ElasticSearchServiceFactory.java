@@ -16,7 +16,6 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
@@ -126,9 +125,9 @@ public class ElasticSearchServiceFactory {
 
   /**
    * The hybrid reranker when {@code elasticsearch.entityIndex.v3.hybridReadEnabled} is on with V3
-   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors V3 semantic reads
-   * serve, so startup fails unless V3 keyword and semantic reads, semantic search, a real embedding
-   * provider and the active model's mapping are all configured.
+   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors semantic search
+   * reads from V3, so startup fails unless semantic search reads V3, a real embedding provider is
+   * configured, and the active model's mapping is configured.
    */
   @Nullable
   static HybridSearchResultReranker hybridSearchResultReranker(
@@ -141,19 +140,13 @@ public class ElasticSearchServiceFactory {
         || !entityIndex.getV3().isHybridReadEnabled()) {
       return null;
     }
-    if (!EntitySearchIndexResolver.shouldReadV3(entityIndex)) {
+    if (!SemanticEntitySearchService.shouldReadSemanticV3(entityIndex)) {
       throw hybridConfigurationError(
-          "keyword reads must use V3 (elasticsearch.entityIndex.v3.keywordReadEnabled)");
-    }
-    if (!entityIndex.getV3().isSemanticReadEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled must be true");
+          "semantic search must read the V3 index"
+              + " (elasticsearch.entityIndex.semanticSearch.enabled, with V3 keyword reads or V2"
+              + " off)");
     }
     final SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
-    if (semanticSearch == null || !semanticSearch.isEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.semanticSearch.enabled must be true");
-    }
     final EmbeddingProvider provider = embeddingProvider.get();
     if (provider == null || provider instanceof NoOpEmbeddingProvider) {
       throw hybridConfigurationError("an embedding provider must be configured");
