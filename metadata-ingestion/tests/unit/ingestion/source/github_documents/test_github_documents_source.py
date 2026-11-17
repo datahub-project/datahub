@@ -284,6 +284,37 @@ def test_partial_listing_keeps_previous_documents(
     assert not source.report.failures
 
 
+def test_partial_listing_with_ignore_old_state_keeps_nothing() -> None:
+    source = GitHubDocumentsSource(
+        GitHubDocumentsSourceConfig(
+            github_token=SecretStr("ghp_test"),
+            repository="acme/docs",
+            max_files=1,
+        ),
+        PipelineContext(run_id="test-run"),
+    )
+    _mock_github_client(
+        source,
+        files=[
+            RepositoryFileInfo(path="docs/a.md", size=12),
+            RepositoryFileInfo(path="docs/b.md", size=12),
+        ],
+    )
+    handler = source.stale_entity_removal_handler
+    handler.checkpointing_enabled = True
+    handler.stateful_ingestion_config = MagicMock(ignore_old_state=True)
+    handler.add_entity_to_state = MagicMock()  # type: ignore[method-assign]
+    source.state_provider.get_last_checkpoint = MagicMock(  # type: ignore[method-assign]
+        return_value=MagicMock(state=MagicMock(urns=["urn:li:document:not-listed"]))
+    )
+
+    list(source.get_workunits_internal())
+
+    registered = [call.args[1] for call in handler.add_entity_to_state.call_args_list]
+    assert "urn:li:document:not-listed" not in registered
+    source.state_provider.get_last_checkpoint.assert_not_called()
+
+
 @pytest.mark.parametrize("previously_imported", [True, False])
 def test_failed_download_keeps_only_a_previous_import(
     source: GitHubDocumentsSource, previously_imported: bool

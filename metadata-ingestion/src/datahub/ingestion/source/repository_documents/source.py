@@ -897,6 +897,7 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                     handler.job_id, GenericCheckpointState
                 )
                 if handler.is_checkpointing_enabled()
+                and not handler._ignore_old_state()
                 else None
             )
             self._last_checkpoint_urns = (
