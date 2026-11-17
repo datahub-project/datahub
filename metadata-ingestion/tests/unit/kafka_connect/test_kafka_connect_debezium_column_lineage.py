@@ -1,7 +1,7 @@
 """Debezium lineage through ByLogicalTableRouter, down to the topic's stored field paths."""
 
 import json
-from typing import Dict, List, Optional, Sequence
+from typing import Dict, List, Optional, Sequence, Tuple
 from unittest.mock import MagicMock
 
 from datahub.emitter.mce_builder import make_schema_field_urn
@@ -18,7 +18,10 @@ from datahub.metadata.schema_classes import (
     OtherSchemaClass,
     SchemaMetadataClass,
 )
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.field_paths import (
+    KEY_FIELD_PATH_MARKER,
+    get_simple_field_path_from_v2_field_path,
+)
 from tests.unit.kafka_connect.conftest import (
     StubSchemaResolver,
     attach_resolver,
@@ -95,26 +98,37 @@ def _stored_value_path(schema: SchemaMetadataClass, simple_path: str) -> str:
     return next(
         f.fieldPath
         for f in schema.fields
-        if "[key=True]" not in f.fieldPath
+        if KEY_FIELD_PATH_MARKER not in f.fieldPath
         and get_simple_field_path_from_v2_field_path(f.fieldPath) == simple_path
     )
+
+
+def _run(
+    topic_schema: Optional[SchemaMetadataClass],
+    source_columns: Sequence[str] = COLUMNS,
+    connector_config: Optional[Dict[str, str]] = None,
+    source_tables: Sequence[str] = (SOURCE_TABLE,),
+) -> Tuple[List[KafkaConnectLineage], KafkaConnectSourceReport, MagicMock]:
+    report = KafkaConnectSourceReport()
+    connector = DebeziumSourceConnector(
+        make_manifest(connector_config or CONNECTOR_CONFIG, name="orders-cdc"),
+        KafkaConnectSourceConfig(use_schema_resolver=True),
+        report,
+    )
+    graph: MagicMock = mock_graph()
+    graph.get_aspect.return_value = topic_schema
+    resolver = StubSchemaResolver(platform="mysql", graph=graph)
+    for table in source_tables:
+        resolver.add_schema(table, {column: "VARCHAR" for column in source_columns})
+    attach_resolver(connector, resolver)
+    return connector.extract_lineages(), report, graph
 
 
 def _extract(
     topic_schema: Optional[SchemaMetadataClass],
     source_columns: Sequence[str] = COLUMNS,
 ) -> List[KafkaConnectLineage]:
-    connector = DebeziumSourceConnector(
-        make_manifest(CONNECTOR_CONFIG, name="orders-cdc"),
-        KafkaConnectSourceConfig(use_schema_resolver=True),
-        KafkaConnectSourceReport(),
-    )
-    graph: MagicMock = mock_graph()
-    graph.get_aspect.return_value = topic_schema
-    resolver = StubSchemaResolver(platform="mysql", graph=graph)
-    resolver.add_schema(SOURCE_TABLE, {column: "VARCHAR" for column in source_columns})
-    attach_resolver(connector, resolver)
-    return connector.extract_lineages()
+    return _run(topic_schema, source_columns)[0]
 
 
 def _column_links(lineage: KafkaConnectLineage) -> Dict[str, str]:
@@ -155,6 +169,13 @@ def test_columns_link_to_stored_after_field_paths() -> None:
     links = _column_links(_extract(schema)[0])
 
     assert links == _expected_links(schema, topic_path_prefix="after.")
+    # Pinned so the test does not just mirror the implementation's lookup rule.
+    assert links[make_schema_field_urn(SOURCE_URN, "customer_name")] == (
+        make_schema_field_urn(
+            TOPIC_URN,
+            "[version=2.0].[type=Envelope].[type=Value].after.[type=string].customer_name",
+        )
+    )
 
 
 def test_unwrapped_topic_links_to_value_fields_not_key() -> None:
@@ -222,7 +243,7 @@ def test_topic_with_mismatched_schema_gets_no_column_lineage() -> None:
             {"name": "body", "type": "string"},
         ],
     }
-    lineages = _extract(
+    lineages, report, _ = _run(
         _topic_schema(
             {
                 **ENVELOPE_SCHEMA,
@@ -233,6 +254,48 @@ def test_topic_with_mismatched_schema_gets_no_column_lineage() -> None:
 
     assert lineages[0].target_dataset == TOPIC
     assert lineages[0].fine_grained_lineages is None
+    assert any(
+        w.title == "Source columns not found in Kafka topic schema"
+        for w in report.warnings
+    )
+
+
+def test_topic_without_column_fields_skips_column_lineage_quietly() -> None:
+    # e.g. Debezium MongoDB, where "after" is a JSON string, not a record.
+    lineages, report, _ = _run(
+        _topic_schema(
+            {
+                **ENVELOPE_SCHEMA,
+                "fields": [
+                    {"name": "after", "type": ["null", "string"], "default": None},
+                    {"name": "op", "type": "string"},
+                ],
+            }
+        )
+    )
+
+    assert lineages[0].target_dataset == TOPIC
+    assert lineages[0].fine_grained_lineages is None
+    assert len(report.warnings) == 0
+
+
+def test_topic_schema_is_fetched_once_for_tables_routed_to_it() -> None:
+    tables = ("inventory.orders", "inventory.orders_eu", "inventory.orders_apac")
+    config = {
+        **CONNECTOR_CONFIG,
+        "table.include.list": ",".join(tables),
+        "transforms.Reroute.topic.regex": "(shard1)\\.(.*)\\.(orders.*)",
+        "transforms.Reroute.topic.replacement": TOPIC,
+    }
+
+    lineages, _, graph = _run(
+        _topic_schema(ENVELOPE_SCHEMA), connector_config=config, source_tables=tables
+    )
+
+    assert {lineage.source_dataset for lineage in lineages} == set(tables)
+    assert all(lineage.target_dataset == TOPIC for lineage in lineages)
+    assert all(lineage.fine_grained_lineages for lineage in lineages)
+    graph.get_aspect.assert_called_once()
 
 
 def test_topic_without_schema_in_datahub_keeps_column_name_paths() -> None:

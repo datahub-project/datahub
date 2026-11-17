@@ -1,3 +1,9 @@
+from typing import Final
+
+# Marks a v2 field path as part of a Kafka key schema rather than the value schema.
+KEY_FIELD_PATH_MARKER: Final[str] = "[key=True]"
+
+
 def get_simple_field_path_from_v2_field_path(field_path: str) -> str:
     """A helper function to extract simple . path notation from the v2 field path"""
 

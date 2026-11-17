@@ -58,7 +58,10 @@ from datahub.metadata.schema_classes import (
 from datahub.sql_parsing._models import _TableName
 from datahub.utilities.lossy_collections import LossyList
 from datahub.utilities.urns.dataset_urn import DatasetUrn
-from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
+from datahub.utilities.urns.field_paths import (
+    KEY_FIELD_PATH_MARKER,
+    get_simple_field_path_from_v2_field_path,
+)
 
 if TYPE_CHECKING:
     from datahub.sql_parsing.schema_resolver import SchemaResolver
@@ -131,8 +134,6 @@ DEBEZIUM_CONNECTORS_WITH_2_LEVEL_CONTAINER: Final[set] = {
 
 # Debezium change events nest the row's columns under the envelope's "after" field.
 DEBEZIUM_ENVELOPE_AFTER_PREFIX: Final[str] = "after."
-
-KAFKA_KEY_FIELD_PATH_MARKER: Final[str] = "[key=True]"
 
 
 # Confluent Cloud connector class names
@@ -922,6 +923,11 @@ class BaseConnector:
     all_cluster_topics: Optional[List[str]] = (
         None  # All topics from Kafka cluster (Confluent Cloud only, for validation)
     )
+    # Topic URN -> value-schema field paths (None if DataHub has no schema).
+    # Shard tables routed into one topic would otherwise refetch it per table.
+    _topic_field_paths_cache: Dict[str, Optional[TopicFieldPaths]] = field(
+        default_factory=dict, init=False, repr=False
+    )
 
     def requires_cluster_topics(self) -> bool:
         if self.connector_manifest.type == SINK:
@@ -1357,6 +1363,19 @@ class BaseConnector:
                 )
                 fine_grained_lineages.append(fine_grained_lineage)
 
+            if (
+                topic_field_paths is not None
+                and not fine_grained_lineages
+                and not topic_field_paths.is_debezium_envelope
+            ):
+                # Nothing to compare against: e.g. Debezium MongoDB stores "after"
+                # as a JSON string, and String/JSON converters register no columns.
+                logger.debug(
+                    f"Topic {target_dataset} has no fields matching {source_platform} "
+                    f"table {source_dataset}; skipping column-level lineage"
+                )
+                return None
+
             # A topic missing most source columns most likely has the wrong schema
             # registered (e.g. a subject-name mismatch); emitting partial links
             # would be misleading.
@@ -1392,19 +1411,21 @@ class BaseConnector:
         has no schema for the topic."""
         if not (self.schema_resolver and self.schema_resolver.graph):
             return None
+        if topic_urn in self._topic_field_paths_cache:
+            return self._topic_field_paths_cache[topic_urn]
 
+        field_paths: Optional[TopicFieldPaths] = None
         schema = self.schema_resolver.graph.get_aspect(topic_urn, SchemaMetadataClass)
-        if not isinstance(schema, SchemaMetadataClass):
-            return None
-
-        field_paths = TopicFieldPaths()
-        for schema_field in schema.fields:
-            if KAFKA_KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
-                continue
-            field_paths.add(
-                get_simple_field_path_from_v2_field_path(schema_field.fieldPath),
-                schema_field.fieldPath,
-            )
+        if isinstance(schema, SchemaMetadataClass):
+            field_paths = TopicFieldPaths()
+            for schema_field in schema.fields:
+                if KEY_FIELD_PATH_MARKER in schema_field.fieldPath:
+                    continue
+                field_paths.add(
+                    get_simple_field_path_from_v2_field_path(schema_field.fieldPath),
+                    schema_field.fieldPath,
+                )
+        self._topic_field_paths_cache[topic_urn] = field_paths
         return field_paths
 
     def _extract_sink_fine_grained_lineage(

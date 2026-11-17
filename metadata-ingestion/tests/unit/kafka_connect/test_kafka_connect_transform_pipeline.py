@@ -226,18 +226,18 @@ class TestByLogicalTableRouterPlugin:
     def test_noop_reroute_then_regex_router(self) -> None:
         # Used to keep per-table schema names while RegexRouter renames the topic.
         config = {
-            "transforms": "Reroute,ToProgram",
+            "transforms": "Reroute,Rename",
             "transforms.Reroute.type": self.TYPE,
             "transforms.Reroute.topic.regex": "shard1\\.inventory\\.(.*)",
             "transforms.Reroute.topic.replacement": "shard1.inventory.$1",
-            "transforms.ToProgram.type": "org.apache.kafka.connect.transforms.RegexRouter",
-            "transforms.ToProgram.regex": "shard1\\.inventory\\.(.*)",
-            "transforms.ToProgram.replacement": "shard1.dml",
+            "transforms.Rename.type": "org.apache.kafka.connect.transforms.RegexRouter",
+            "transforms.Rename.regex": "shard1\\.inventory\\.(.*)",
+            "transforms.Rename.replacement": "shard1.changes",
         }
 
         result = TransformPipeline().apply_forward(["shard1.inventory.orders"], config)
 
-        assert result.topics == ["shard1.dml"]
+        assert result.topics == ["shard1.changes"]
         assert result.warnings == []
 
 
