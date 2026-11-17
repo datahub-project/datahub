@@ -715,8 +715,16 @@ class AasMapper:
 
     @staticmethod
     def _urn_safe(value: str) -> str:
-        # Measure names are free text; tuple URN keys cannot carry these.
-        return value.replace(",", "_").replace("(", "_").replace(")", "_")
+        # Measure names are free text. Tuple URN keys cannot carry `,` `(` `)`.
+        # A raw `%` is not a valid URL escape, and the metrics page decodes the
+        # URN out of the path, so a name like "Margin %" fails to open. The
+        # display name is unchanged on metricInfo.name.
+        return (
+            value.replace(",", "_")
+            .replace("(", "_")
+            .replace(")", "_")
+            .replace("%", "_")
+        )
 
     def _measure_upstream_datasets(
         self,

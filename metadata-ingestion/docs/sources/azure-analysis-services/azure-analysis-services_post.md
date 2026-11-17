@@ -42,7 +42,9 @@ emits measures that are hidden, or that sit on a hidden table. With
 `emit_semantic_model.ingest_hidden_metrics.hidden_metric_tag` (default `hidden_metric`). Visible metrics are not
 tagged. A column that is not hidden, and whose table is not hidden, is a dimension of the
 model. A date/time column is flagged as a time dimension. Metric
-ids are the measure names, with `,`, `(` and `)` replaced by `_`. DAX is recorded with the
+ids are the measure names, with `,`, `(`, `)` and `%` replaced by `_`. The `%` is
+replaced because a raw percent sign in the metric URN breaks the metrics page when it
+decodes the URL. The measure's display name is kept on the metric. DAX is recorded with the
 `OTHER` expression dialect, as the semantic model has no DAX dialect. A table excluded by
 `table_pattern` is left off the model, and a relationship that names it is not emitted. Inactive
 relationships are not emitted. The TMSL

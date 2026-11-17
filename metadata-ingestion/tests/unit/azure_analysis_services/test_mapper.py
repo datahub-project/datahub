@@ -311,6 +311,7 @@ def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
                         expression="SUM(Sales[Amount])",
                     ),
                     AasMeasure(name="Margin (%)", expression="1", is_hidden=True),
+                    AasMeasure(name="Growth %", expression="1"),
                     AasMeasure(
                         name="Ratio", expression="DIVIDE([Total Sales], Product[Cost])"
                     ),
@@ -377,8 +378,15 @@ def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
 
     assert {u for u, a in aspects if isinstance(a, MetricInfoClass)} == {
         metric_urn("Total Sales"),
+        metric_urn("Growth _"),
         metric_urn("Ratio"),
     }
+    growth = next(
+        a
+        for u, a in aspects
+        if u == metric_urn("Growth _") and isinstance(a, MetricInfoClass)
+    )
+    assert growth.name == "Growth %"
     total_urn = metric_urn("Total Sales")
     info = next(
         a for u, a in aspects if u == total_urn and isinstance(a, MetricInfoClass)
@@ -397,7 +405,7 @@ def test_visible_columns_are_dimensions_and_measures_are_metrics() -> None:
 
     assert upstreams("Total Sales") == [sales_urn]
     assert upstreams("Ratio") == [sales_urn, product_urn]
-    assert not any(u == metric_urn("Margin _%_") for u, _ in aspects)
+    assert not any(u == metric_urn("Margin ___") for u, _ in aspects)
     assert not any(u == metric_urn("Not Exposed") for u, _ in aspects)
 
 
