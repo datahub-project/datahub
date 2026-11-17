@@ -39,6 +39,7 @@ from google.rpc.error_details_pb2 import ErrorInfo
 
 import datahub.emitter.mce_builder as builder
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import ExperimentKey
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.state.entity_removal_state import GenericCheckpointState
@@ -58,10 +59,14 @@ from datahub.ingestion.source.vertexai.vertexai_constants import (
     REGION_UNCHECKED_TITLE,
     REGION_UNKNOWN,
     REGION_UNKNOWN_TITLE,
+    UNEXPECTED_DETAIL_ERROR,
+    UNEXPECTED_ERROR,
     UNEXPECTED_ERROR_TITLE,
     UNSCOPED_KEPT,
     UNSCOPED_KEPT_DISCOVERED,
     UNSCOPED_KEPT_TITLE,
+    UNSCOPED_REMOVED,
+    UNSCOPED_REMOVED_TITLE,
     DetailCalls,
     ResourceCategory,
     ResourceKinds,
@@ -71,6 +76,7 @@ from datahub.ingestion.source.vertexai.vertexai_ml_metadata_helper import (
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
     MLMetadataConfig,
+    ModelGroupKey,
     ModelUsageTracker,
     PipelineContainerKey,
     model_version_base,
@@ -206,6 +212,7 @@ def _carry_forward(
     platform_instance: Optional[str] = None,
     report: Optional[VertexAISourceReport] = None,
     discovered: bool = False,
+    env: str = ENV,
 ) -> Tuple[CarryForward, GenericCheckpointState, MagicMock]:
     current = GenericCheckpointState()
     provider = MagicMock()
@@ -223,7 +230,7 @@ def _carry_forward(
         provider,
         PLATFORM,
         platform_instance=platform_instance,
-        env=ENV,
+        env=env,
         discovered=discovered,
         report=report or VertexAISourceReport(),
     )
@@ -368,7 +375,7 @@ def test_primitives_carry_forward_keep_all_containers_keeps_only_containers() ->
     carry, current, _ = _carry_forward(
         [container, other_container, _model_urn("p1.model.a")]
     )
-    carry.keep_all_containers(Scope("p1"))
+    carry.keep_all_containers(Scope("p1"), cause=None, experiments=False)
     carry.flush()
     assert sorted(current.urns) == sorted([container, other_container])
 
@@ -921,16 +928,52 @@ def test_region_failure_keeps_whole_kind_for_project() -> None:
     )
 
 
-def test_region_keep_model_step_keeps_models_deployments_evaluations() -> None:
+@pytest.mark.parametrize(
+    "discovered,error,folders_kept",
+    [
+        (False, _iam_denied(), True),
+        (True, _throttled(), True),
+        (True, _no_role(), False),
+    ],
+    ids=["listed", "discovered_temporary", "discovered_lasting"],
+)
+def test_region_lost_model_step_keeps_models_deployments_evaluations(
+    discovered: bool, error: Exception, folders_kept: bool
+) -> None:
     source = _region_source()
-    kept = _real_carry(source, _EVERY_URN)
+    if discovered:
+        source.config.project_ids = []
 
-    source._keep_model_step(Scope("proj-one", kind="models"))
-    source._carry.flush()
-
-    assert sorted(kept.urns) == sorted(
-        [*_MODEL_STEP_URNS, _CONTAINER_URN, _PROJECT_CONTAINER_URN]
+    run = _run_regions(
+        source, {}, model_errors={REGIONS[0]: error}, previous=_EVERY_URN
     )
+
+    folders = [_CONTAINER_URN, _PROJECT_CONTAINER_URN] if folders_kept else []
+    assert sorted(run.kept.urns) == sorted([*_MODEL_STEP_URNS, *folders])
+
+
+def test_region_every_read_of_a_discovered_project_failed_keeps_flows_if_one_loss_was_temporary() -> (
+    None
+):
+    source = _region_source()
+    source.config.project_ids = []
+    # Recorded first, the lasting losses would decide the keep by read order.
+    errors: Dict[Tuple[str, str], Exception] = {
+        (region, kind): NotFound("gone")
+        for region in REGIONS
+        for kind in ("training_jobs", "pipelines")
+    }
+    errors[(REGIONS[0], "experiments")] = _throttled()
+    own_project = get_project_container("proj-one", PLATFORM, None, ENV).as_urn()
+
+    run = _run_regions(
+        source,
+        errors,
+        model_errors={region: NotFound("gone") for region in REGIONS},
+        previous=[own_project, *_FLOW_URNS],
+    )
+
+    assert set(_FLOW_URNS) <= set(run.kept.urns)
 
 
 def test_region_every_kind_failed_listed_project_is_failure() -> None:
@@ -1073,7 +1116,7 @@ def test_region_carry_forward_keep_all_flows_keeps_flows_and_tasks_only() -> Non
     job = _job_urn(flow, "task-a")
     container = get_project_container("p1", PLATFORM, None, ENV).as_urn()
     carry, current, _ = _carry_forward([flow, job, container, _model_urn("p1.model.a")])
-    carry.keep_all_flows(Scope("p1"))
+    carry.keep_all_flows(Scope("p1"), cause=None)
     carry.flush()
     assert sorted(current.urns) == sorted([flow, job])
 
@@ -1081,7 +1124,7 @@ def test_region_carry_forward_keep_all_flows_keeps_flows_and_tasks_only() -> Non
 def test_region_unknown_phase1_read_is_refused_not_dropped() -> None:
     source = _region_source()
     with pytest.raises(ValueError):
-        source._keep_phase1_kind(Scope("proj-one", kind="not_a_read"))
+        source._keep_phase1_kind(Scope("proj-one", kind="not_a_read"), cause=None)
 
 
 def test_flush_with_many_exact_keeps_uses_a_set_not_closures() -> None:
@@ -1338,7 +1381,9 @@ def test_primitives_read_detail_item_lasting_warns_without_stopping(
 
     assert result.value is None
     assert not result.keep_previous
-    assert [w.title for w in report.warnings] == [title]
+    assert [
+        (w.title, w.message == UNEXPECTED_DETAIL_ERROR) for w in report.warnings
+    ] == [(title, title == UNEXPECTED_ERROR_TITLE)]
     assert (
         stopped.stop_kind(Scope(project="proj-one", region=REGION, kind="ml_metadata"))
         is None
@@ -2234,12 +2279,20 @@ _M1_PREVIOUS = [*_M1_PLAIN_KEPT, _M1_OWN_CONTAINER]
 def _m1_source(
     previous: List[str],
     platform_instance: Optional[str] = None,
+    discovered: bool = False,
     **config: object,
 ) -> Tuple[VertexAISource, GenericCheckpointState]:
     source = _make_source(
         project_ids=["proj-one"], platform_instance=platform_instance, **config
     )
-    carry, current, _ = _carry_forward(previous, platform_instance=platform_instance)
+    if discovered:
+        source.config.project_ids = []
+    carry, current, _ = _carry_forward(
+        previous,
+        platform_instance=platform_instance,
+        report=source.report,
+        discovered=discovered,
+    )
     source._carry = carry
     return source, current
 
@@ -2248,33 +2301,191 @@ def _m1_instance_dataset(project: str) -> str:
     return _dataset_urn(f"prod-us.{project}.dataset.1")
 
 
-def test_m1_discovered_no_role_keeps_containers_flows_and_jobs() -> None:
-    previous = [
-        *_M1_PREVIOUS,
+UNSCOPED_TITLES = (UNSCOPED_KEPT_TITLE, UNSCOPED_REMOVED_TITLE)
+
+
+def _unscoped_warnings(source: VertexAISource) -> List[Tuple[str, str]]:
+    return [
+        (w.title, w.message)
+        for w in source.report.warnings
+        if w.title in UNSCOPED_TITLES
+    ]
+
+
+@pytest.mark.parametrize(
+    "error,kept_everywhere,experiments",
+    [(_no_role(), False, True), (_throttled(), True, True), (_no_role(), False, False)],
+    ids=["lasting", "temporary", "lasting_without_experiments"],
+)
+def test_m1_unreadable_discovered_project_keeps_folders_and_flows_only_if_temporary(
+    error: Exception, kept_everywhere: bool, experiments: bool
+) -> None:
+    scoped = [
+        _M1_OWN_CONTAINER,
         _model_urn("proj-one.model.m1_1"),
         _dataset_urn("proj-one.dataset.1"),
     ]
-    source, current = _m1_source(previous)
-    source.config.project_ids = []
+    previous = [*_M1_PLAIN_KEPT, *scoped]
+    source, current = _m1_source(
+        previous, discovered=True, include_experiments=experiments
+    )
 
     with (
         patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init"),
-        patch.object(source, "_gen_workunits_for_project", side_effect=_no_role()),
+        patch.object(source, "_gen_workunits_for_project", side_effect=error),
     ):
         list(source.get_workunits_internal())
 
-    assert set(current.urns) == set(previous)
+    assert set(current.urns) == set(previous if kept_everywhere else scoped)
+    assert _unscoped_warnings(source) == (
+        [(UNSCOPED_KEPT_TITLE, UNSCOPED_KEPT_DISCOVERED)]
+        if kept_everywhere
+        else [(UNSCOPED_REMOVED_TITLE, UNSCOPED_REMOVED)]
+        if experiments
+        else []
+    )
 
 
-def test_m1_region_discovery_refused_keeps_containers_flows_and_jobs() -> None:
-    source, current = _m1_source(_M1_PREVIOUS, discover_regions=True)
-    source.config.project_ids = []
+@pytest.mark.parametrize(
+    "temporary_kind,warned",
+    [(None, True), ("pipelines", False), ("experiments", False)],
+    ids=["alone", "covered", "covered_without_flows"],
+)
+def test_m1_removal_warning_names_only_what_no_temporary_loss_keeps(
+    temporary_kind: Optional[str], warned: bool
+) -> None:
+    report = VertexAISourceReport()
+    carry, current, _ = _carry_forward(_M1_PREVIOUS, report=report, discovered=True)
+    if temporary_kind is not None:
+        temporary = Scope("proj-one", region=REGIONS[1], kind=temporary_kind)
+        carry.keep_all_containers(
+            temporary,
+            cause=_throttled(),
+            experiments=temporary_kind == "experiments",
+        )
+        if temporary_kind == "pipelines":
+            carry.keep_all_flows(temporary, cause=_throttled())
+    lasting = Scope("proj-one", region=REGIONS[0], kind="experiments")
+    carry.keep_all_containers(lasting, cause=None, experiments=True)
 
-    with _locations_client(_no_role()):
+    carry.flush()
+
+    removed = [
+        c
+        for w in report.warnings
+        if w.title == UNSCOPED_REMOVED_TITLE
+        for c in w.context
+    ]
+    assert removed == (["project=proj-one"] if warned else [])
+
+
+@pytest.mark.parametrize(
+    "lost_project,pipelines_lost,name,instance,env",
+    [
+        ("proj-one", True, "shared", None, ENV),
+        ("proj-two", True, "shared", None, ENV),
+        # The URN encodes "," "(" ")", and the name starts with the instance.
+        ("proj-one", True, "prod-us.p,q (1)", "prod-us", "DEV"),
+        # Only the experiment list is lost, so the pipelines were read this run.
+        ("proj-one", False, "shared", None, ENV),
+    ],
+    ids=["first", "second", "encoded_with_instance", "experiments_only"],
+)
+def test_m1_lasting_loss_keeps_the_flows_tied_to_the_project(
+    lost_project: str,
+    pipelines_lost: bool,
+    name: str,
+    instance: Optional[str],
+    env: str,
+) -> None:
+    flow = DataFlowUrn.create_from_ids(
+        orchestrator=PLATFORM, flow_id=name, env=env, platform_instance=instance
+    ).urn()
+    folders = {
+        p: _pipeline_folder(p, name, instance=instance, env=env)
+        for p in ("proj-one", "proj-two")
+    }
+    previous = [
+        *(get_project_container(p, PLATFORM, instance, env).as_urn() for p in folders),
+        *folders.values(),
+        flow,
+        _job_urn(flow, "task-1"),
+        # Odd URNs in the last state are skipped, not fatal.
+        f"urn:li:dataFlow:({PLATFORM},no-cluster)",
+        f"urn:li:mlModelGroup:({PLATFORM})",
+    ]
+    carry, current, _ = _carry_forward(
+        previous, platform_instance=instance, discovered=True, env=env
+    )
+    carry.keep_all_containers(
+        Scope(lost_project), cause=_no_role(), experiments=not pipelines_lost
+    )
+    if pipelines_lost:
+        carry.keep_all_flows(Scope(lost_project), cause=_no_role())
+
+    carry.flush()
+
+    assert set(current.urns) == (
+        {flow, _job_urn(flow, "task-1"), folders[lost_project]}
+        if pipelines_lost
+        else set()
+    )
+
+
+@pytest.mark.parametrize("listed", [True, False], ids=["listed", "discovered"])
+def test_m1_project_lost_to_a_connector_error_keeps_everything_and_asks_for_a_report(
+    listed: bool,
+) -> None:
+    source, current = _m1_source(_M1_PREVIOUS, discovered=not listed)
+
+    with (
+        patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init"),
+        patch.object(
+            source, "_gen_workunits_for_project", side_effect=TypeError("bug")
+        ),
+    ):
+        list(source.get_workunits_internal())
+
+    assert set(current.urns) == set(_M1_PREVIOUS)
+    project_entries = source.report.failures if listed else source.report.warnings
+    assert [
+        e.message for e in project_entries if e.title == UNEXPECTED_ERROR_TITLE
+    ] == [UNEXPECTED_ERROR]
+    assert _unscoped_warnings(source) == [(UNSCOPED_KEPT_TITLE, UNEXPECTED_ERROR)]
+    (lost,) = source.report.lost_reads["proj-one"]
+    assert lost.endswith("loss=lasting")
+
+
+# The single-region fallback is the deprecated `region` field.
+@pytest.mark.filterwarnings("ignore:.*region.*deprecated")
+@pytest.mark.parametrize(
+    "region,error,kept_everywhere",
+    [
+        (None, _no_role(), False),
+        (REGION, _no_role(), False),
+        (REGION, _throttled(), True),
+    ],
+    ids=["no_fallback", "fallback", "fallback_throttled"],
+)
+def test_m1_region_discovery_refused_discovered_keeps_only_own_containers(
+    region: Optional[str], error: Exception, kept_everywhere: bool
+) -> None:
+    source, current = _m1_source(
+        _M1_PREVIOUS, discovered=True, discover_regions=True, region=region
+    )
+
+    with _locations_client(error):
         source._discover_regions_for_project("proj-one")
     source._carry.flush()
 
-    assert set(current.urns) == set(_M1_PREVIOUS)
+    assert set(current.urns) == (
+        set(_M1_PREVIOUS) if kept_everywhere else {_M1_OWN_CONTAINER}
+    )
+    assert _unscoped_warnings(source) == [
+        (UNSCOPED_KEPT_TITLE, UNSCOPED_KEPT_DISCOVERED)
+        if kept_everywhere
+        else (UNSCOPED_REMOVED_TITLE, UNSCOPED_REMOVED)
+    ]
 
 
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")
@@ -2296,8 +2507,8 @@ def test_m1_broad_keeps_find_the_project_with_platform_instance() -> None:
     previous = [project, guid_container, flow, _job_urn(flow, "task-a")]
     carry, current, _ = _carry_forward(previous, platform_instance="prod-us")
 
-    carry.keep_all_containers(Scope("proj-one"))
-    carry.keep_all_flows(Scope("proj-one"))
+    carry.keep_all_containers(Scope("proj-one"), cause=None, experiments=False)
+    carry.keep_all_flows(Scope("proj-one"), cause=None)
     carry.flush()
 
     assert sorted(current.urns) == sorted(previous)
@@ -2320,20 +2531,70 @@ def test_m1_lost_training_kind_keeps_datasets_with_platform_instance() -> None:
     mine = _m1_instance_dataset("proj-one")
     source, current = _m1_source([mine], platform_instance="prod-us")
 
-    source._keep_phase1_kind(Scope("proj-one", kind="training_jobs"))
+    source._keep_phase1_kind(Scope("proj-one", kind="training_jobs"), cause=None)
     source._carry.flush()
 
     assert set(current.urns) == {mine}
 
 
-def test_m1_skipped_project_keeps_datasets_with_platform_instance() -> None:
-    mine = _m1_instance_dataset("proj-one")
-    source, current = _m1_source([mine], platform_instance="prod-us")
-    source.config.project_ids = []
+def _pipeline_folder(
+    project: str, name: str, instance: Optional[str] = None, env: str = ENV
+) -> str:
+    return PipelineContainerKey(
+        project_id=project,
+        platform=PLATFORM,
+        instance=instance,
+        env=env,
+        pipeline_name=name,
+    ).as_urn()
+
+
+def test_m1_skipped_project_keeps_its_folders_and_pipelines_with_platform_instance() -> (
+    None
+):
+    def group_folder(project: str) -> str:
+        return ModelGroupKey(
+            project_id=project,
+            platform=PLATFORM,
+            instance="prod-us",
+            env=ENV,
+            model_group_name=f"{project}.model_group.g1",
+        ).as_urn()
+
+    def flow(name: str) -> str:
+        return DataFlowUrn.create_from_ids(
+            orchestrator=PLATFORM, flow_id=name, env=ENV, platform_instance="prod-us"
+        ).urn()
+
+    own = get_project_container("proj-one", PLATFORM, "prod-us", ENV).as_urn()
+    group = f"urn:li:mlModelGroup:(urn:li:dataPlatform:{PLATFORM},proj-one.model_group.g1,{ENV})"
+    kept = [
+        _m1_instance_dataset("proj-one"),
+        own,
+        group,
+        group_folder("proj-one"),
+        flow("pipe-a"),
+        _job_urn(flow("pipe-a"), "task-1"),
+        _pipeline_folder("proj-one", "pipe-a", instance="prod-us"),
+    ]
+    experiment_folder = ExperimentKey(
+        platform=PLATFORM, instance="prod-us", env=ENV, id="proj-one.experiment.e1"
+    ).as_urn()
+    # Another project's pipeline, which this project's loss does not keep.
+    elsewhere = [
+        flow("pipe-b"),
+        _job_urn(flow("pipe-b"), "task-1"),
+        _pipeline_folder("proj-two", "pipe-b", instance="prod-us"),
+    ]
+    source, current = _m1_source(
+        [*kept, group_folder("proj-two"), experiment_folder, *elsewhere],
+        platform_instance="prod-us",
+        discovered=True,
+    )
 
     _run_projects(source, {"proj-one": _no_role()})
 
-    assert set(current.urns) == {mine}
+    assert set(current.urns) == set(kept)
 
 
 @pytest.mark.parametrize(
@@ -3265,7 +3526,25 @@ def test_lost_list_read_title_names_an_unexpected_error(
 
     ledger.report_lost_reads("proj-one", listed=False)
 
-    assert [w.title for w in report.warnings] == [title]
+    assert [(w.title, w.message == UNEXPECTED_ERROR) for w in report.warnings] == [
+        (title, title == UNEXPECTED_ERROR_TITLE)
+    ]
+
+
+@pytest.mark.parametrize("lasting_first", [True, False])
+def test_ledger_keep_cause_of_an_unreadable_project_ignores_read_order(
+    lasting_first: bool,
+) -> None:
+    ledger = ReadLedger(report=VertexAISourceReport(), stopped=StoppedScopes())
+    temporary = _throttled()
+    reads = [("pipelines", NotFound("gone")), ("experiments", temporary)]
+    for kind, error in reads if lasting_first else reads[::-1]:
+        ledger.record_read("proj-one", REGION, kind, error=error)
+    assert ledger.keep_cause("proj-one") is temporary
+
+    bug = TypeError("bad")
+    ledger.record_read("proj-one", REGION, "training_jobs", error=bug)
+    assert ledger.keep_cause("proj-one") is bug
 
 
 def test_pipeline_checkpoint_early_stop_reads_listed_update_time() -> None:
@@ -3345,8 +3624,8 @@ def test_flush_is_one_pass_over_earlier_urns_for_many_keeps() -> None:
         get_project_container("p1", PLATFORM, None, ENV).as_urn(),
     ]
     carry, current, _ = _carry_forward(previous)
-    carry.keep_all_containers(Scope("p1"))
-    carry.keep_all_flows(Scope("p1"))
+    carry.keep_all_containers(Scope("p1"), cause=None, experiments=False)
+    carry.keep_all_flows(Scope("p1"), cause=None)
     carry.keep_kind("p1", [ResourceKinds.MODEL])
     carry.keep_project("p1")
     for i in range(60):
@@ -3531,8 +3810,7 @@ def test_stored_errors_do_not_pin_traceback_frames() -> None:
 
 
 def _skipped_project_run(previous: List[str]) -> GenericCheckpointState:
-    source, current = _m1_source(previous)
-    source.config.project_ids = []
+    source, current = _m1_source(previous, discovered=True)
     with (
         patch("datahub.ingestion.source.vertexai.vertexai.aiplatform.init"),
         patch.object(source, "_gen_workunits_for_project", side_effect=_no_role()),
@@ -3548,10 +3826,6 @@ def test_skipped_discovered_project_never_read_keeps_no_broad_entities() -> None
     previous = [other_project_container, _M1_FLOW, _M1_JOB, _M1_CONTAINER]
 
     assert _skipped_project_run(previous).urns == []
-
-
-def test_skipped_discovered_project_read_before_keeps_broad_entities() -> None:
-    assert set(_skipped_project_run(_M1_PREVIOUS).urns) == set(_M1_PREVIOUS)
 
 
 def _quota_warning_contexts(source: VertexAISource) -> List[str]:
@@ -3656,26 +3930,30 @@ def test_region_loop_never_ingested_discovered_project_carries_no_broad_entities
     )
 
     assert run.kept.urns == []
-    assert UNSCOPED_KEPT_TITLE not in [w.title for w in source.report.warnings]
+    titles = {w.title for w in source.report.warnings}
+    assert not titles & {UNSCOPED_KEPT_TITLE, UNSCOPED_REMOVED_TITLE}
 
 
-@pytest.mark.parametrize("error", [_service_disabled(), _no_role()])
-def test_region_loop_ingested_before_discovered_project_carries_broad_entities(
-    error: Exception,
-) -> None:
+def test_region_loop_api_off_in_a_discovered_project_leaves_unread_regions_to_removal() -> (
+    None
+):
     source = _region_source()
     source.config.project_ids = []
-    errors = {(region, kind): error for region in REGIONS for kind in _PHASE1_KINDS}
+    errors: Dict[Tuple[str, str], Exception] = {
+        (region, kind): _service_disabled()
+        for region in REGIONS
+        for kind in _PHASE1_KINDS
+    }
     own_project = get_project_container("proj-one", PLATFORM, None, ENV).as_urn()
-    previous = [own_project, _CONTAINER_URN, *_FLOW_URNS]
+    unscoped = {_CONTAINER_URN, *_FLOW_URNS}
 
-    run = _run_regions(source, errors, previous=previous)
+    run = _run_regions(source, errors, previous=[own_project, *unscoped])
 
-    assert sorted(run.kept.urns) == sorted(previous)
-    (warning,) = [w for w in source.report.warnings if w.title == UNSCOPED_KEPT_TITLE]
-    assert warning.message == UNSCOPED_KEPT_DISCOVERED
-    assert (
-        f"project=proj-one, region={REGIONS[0]}, resource=pipelines" in warning.context
+    assert not unscoped & set(run.kept.urns)
+    (warning,) = [w for w in source.report.warnings if w.title in UNSCOPED_TITLES]
+    assert (warning.title, list(warning.context)) == (
+        UNSCOPED_REMOVED_TITLE,
+        ["project=proj-one"],
     )
 
 
@@ -4018,6 +4296,45 @@ def test_discovery_failure_with_a_refused_fallback_is_one_unchecked_loss(
         "proj-one": [f"project=proj-one, regions=['{region}'], loss=temporary"]
     }
     source._carry.keep_project.assert_called_once_with("proj-one")
+
+
+@pytest.mark.filterwarnings("ignore:.*region.*deprecated")
+@pytest.mark.parametrize(
+    "config,response,kept_everywhere",
+    [
+        # The run fails, so it soft-deletes nothing either way.
+        ({"regions": ["us-central1", "us-centrall1"]}, _TYPO_LISTED, True),
+        (
+            {"discover_regions": True, "regions": [], "region": "us-centrall1"},
+            _iam_denied(),
+            False,
+        ),
+        (
+            {"discover_regions": True, "regions": [], "region": "us-centrall1"},
+            _throttled(),
+            True,
+        ),
+    ],
+    ids=["fails_run", "warns_lasting", "warns_temporary"],
+)
+def test_unchecked_region_of_a_discovered_project_keeps_flows_and_folders(
+    config: Dict[str, Any], response: object, kept_everywhere: bool
+) -> None:
+    source, current = _m1_source(_M1_PREVIOUS, discovered=True, **config)
+
+    with _locations_client(None) as client_cls:
+        client_cls.return_value.list_locations.side_effect = [response]
+        source._resolve_project_regions()
+    source._carry.flush()
+
+    assert set(current.urns) == (
+        set(_M1_PREVIOUS) if kept_everywhere else {_M1_OWN_CONTAINER}
+    )
+    assert _unscoped_warnings(source) == [
+        (UNSCOPED_KEPT_TITLE, UNSCOPED_KEPT_DISCOVERED)
+        if kept_everywhere
+        else (UNSCOPED_REMOVED_TITLE, UNSCOPED_REMOVED)
+    ]
 
 
 @pytest.mark.filterwarnings("ignore:.*region.*deprecated")

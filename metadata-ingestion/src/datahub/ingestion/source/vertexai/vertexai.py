@@ -89,6 +89,7 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     Scope,
     StoppedScopes,
     classify_error,
+    error_message,
     error_title,
     scope_context,
     urn_entity_name,
@@ -134,11 +135,11 @@ def _sdk_reads(region: str) -> bool:
 _DISCOVERED_PROJECT_WARNINGS: Dict[ErrorKind, Tuple[str, str]] = {
     ErrorKind.PROJECT_WIDE: (
         "Project skipped: API not enabled or project invalid",
-        "The Vertex AI API is disabled for this project, or the project is invalid; skipping it. Its earlier entities are kept.",
+        "The Vertex AI API is disabled for this project, or the project is invalid; skipping it. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project.",
     ),
     ErrorKind.REFUSED: (
         "Project skipped: no Vertex AI access",
-        "The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept. Grant a Vertex AI role or exclude the project with project_id_pattern.",
+        "The service account has no Vertex AI role on this project; skipping it. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Grant a Vertex AI role or exclude the project with project_id_pattern.",
     ),
     ErrorKind.TRANSIENT: (
         "Project skipped: could not be read",
@@ -146,7 +147,7 @@ _DISCOVERED_PROJECT_WARNINGS: Dict[ErrorKind, Tuple[str, str]] = {
     ),
     ErrorKind.ITEM_LASTING: (
         "Project skipped: could not be read",
-        "This discovered project could not be read, and the error repeats on every run. Its earlier entities are kept. Exclude the project with project_id_pattern if it should not be ingested.",
+        "This discovered project could not be read, and the error repeats on every run. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project. Exclude the project with project_id_pattern if it should not be ingested.",
     ),
 }
 
@@ -351,17 +352,13 @@ class VertexAISource(StatefulIngestionSourceBase):
     ) -> None:
         emit = self.report.failure if fail_run else self.report.warning
         checked = f", checked_in={checked_in}" if checked_in else ""
+        temporary = exc is not None and classify_error(exc) is ErrorKind.TRANSIENT
         for project_id in project_ids:
             context = f"{scope_context(Scope(project=project_id), exc)}, regions={regions}{checked}"
-            self.report.report_lost_read(
-                project_id,
-                context,
-                temporary=exc is not None
-                and classify_error(exc) is ErrorKind.TRANSIENT,
-            )
+            self.report.report_lost_read(project_id, context, temporary=temporary)
             emit(title=title, message=message, context=context, exc=exc)
             self._report_pipeline_links_elsewhere(context)
-            self._keep_project_entities(Scope(project=project_id))
+            self._keep_project_entities(Scope(project=project_id), cause=exc)
 
     def _initialize_builders_and_extractors(self) -> None:
         """Initialize URN builders and resource extractors."""
@@ -501,37 +498,37 @@ class VertexAISource(StatefulIngestionSourceBase):
     def _current_scope(self) -> Scope:
         return Scope(project=self._get_project_id(), region=self._get_region())
 
-    def _keep_project_entities(self, lost: Scope) -> None:
+    def _keep_project_entities(
+        self, lost: Scope, cause: Optional[BaseException]
+    ) -> None:
         self._carry.keep_project(lost.project)
         # Only these kinds name checkpointed entities: process instances never are.
         self._carry.keep_kind(lost.project, [*_MODEL_STEP_KINDS, ResourceKinds.DATASET])
-        self._keep_unscoped_entities(lost, flows=True)
+        self._keep_unscoped_entities(
+            lost,
+            cause=cause,
+            flows=True,
+            experiments=self.config.include_experiments,
+        )
 
-    def _keep_unscoped_entities(self, lost: Scope, flows: bool) -> None:
-        # GUID containers, flows and jobs cannot be tied to a project, so a
-        # project that was ingested before keeps all of them.
-        self._carry.keep_all_containers(lost)
+    def _keep_unscoped_entities(
+        self,
+        lost: Scope,
+        cause: Optional[BaseException],
+        flows: bool,
+        experiments: bool,
+    ) -> None:
+        self._carry.keep_all_containers(lost, cause=cause, experiments=experiments)
         if flows:
-            self._carry.keep_all_flows(lost)
+            self._carry.keep_all_flows(lost, cause=cause)
 
     def _report_pipeline_links_elsewhere(self, context: str) -> None:
         if self.config.include_pipelines:
             self.report.report_pipeline_links_elsewhere(context)
 
-    def _report_project_unreadable(
-        self, project_id: str, exc: Optional[BaseException]
+    def _handle_project_error(
+        self, project_id: str, exc: Exception, keep_cause: Optional[Exception] = None
     ) -> None:
-        context = scope_context(Scope(project=project_id), exc)
-        self.report.failure(
-            title="Project could not be read",
-            message="Nothing could be read from this project. Its earlier entities are kept and not soft-deleted.",
-            context=context,
-            exc=exc,
-        )
-        self._report_pipeline_links_elsewhere(context)
-        self._keep_project_entities(Scope(project=project_id))
-
-    def _handle_project_error(self, project_id: str, exc: Exception) -> None:
         # Discovery returns every project the account can see, with no check
         # that the API is on or that a Vertex AI role is held, so nobody chose
         # to ingest a discovered project: no error of it fails the run.
@@ -542,34 +539,49 @@ class VertexAISource(StatefulIngestionSourceBase):
             project_id, context, temporary=kind is ErrorKind.TRANSIENT
         )
         if listed:
-            self._report_project_unreadable(project_id, exc)
-            return
-        title, message = _DISCOVERED_PROJECT_WARNINGS.get(
-            kind, _DISCOVERED_PROJECT_WARNINGS[ErrorKind.ITEM_LASTING]
-        )
-        self.report.warning(
-            title=error_title(exc, title),
-            message=message,
-            context=context,
-            exc=exc,
-        )
+            self.report.failure(
+                title=error_title(exc, "Project could not be read"),
+                message=error_message(
+                    exc,
+                    "Nothing could be read from this project. Its earlier entities are kept and not soft-deleted.",
+                ),
+                context=context,
+                exc=exc,
+            )
+        else:
+            title, message = _DISCOVERED_PROJECT_WARNINGS.get(
+                kind, _DISCOVERED_PROJECT_WARNINGS[ErrorKind.ITEM_LASTING]
+            )
+            self.report.warning(
+                title=error_title(exc, title),
+                message=error_message(exc, message),
+                context=context,
+                exc=exc,
+            )
         self._report_pipeline_links_elsewhere(context)
-        self._keep_project_entities(Scope(project=project_id))
+        self._keep_project_entities(Scope(project=project_id), cause=keep_cause or exc)
 
-    def _keep_phase1_kind(self, lost: Scope) -> None:
+    def _keep_phase1_kind(self, lost: Scope, cause: Optional[BaseException]) -> None:
         if lost.kind == ResourceReads.TRAINING_JOBS:
             self._carry.keep_kind(lost.project, [ResourceKinds.DATASET])
         elif lost.kind == ResourceReads.EXPERIMENTS:
-            self._keep_unscoped_entities(lost, flows=False)
+            self._keep_unscoped_entities(
+                lost, cause=cause, flows=False, experiments=True
+            )
         elif lost.kind == ResourceReads.PIPELINES:
-            self._keep_unscoped_entities(lost, flows=True)
+            self._keep_unscoped_entities(
+                lost, cause=cause, flows=True, experiments=False
+            )
         else:
             raise ValueError(f"Unknown phase 1 read: {lost.kind}")
 
     def _keep_lost_phase1(self, project_id: str, region: str) -> None:
-        for resource_type in self._ledger.lost_phase1_kinds(project_id, region):
+        for resource_type, error in self._ledger.lost_phase1_kinds(
+            project_id, region
+        ).items():
             self._keep_phase1_kind(
-                Scope(project=project_id, region=region, kind=resource_type)
+                Scope(project=project_id, region=region, kind=resource_type),
+                cause=error,
             )
 
     def _hold_back_pending_lineage(self, project_id: str) -> None:
@@ -584,9 +596,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             ]
         )
 
-    def _keep_model_step(self, lost: Scope) -> None:
+    def _keep_model_step(self, lost: Scope, cause: Optional[BaseException]) -> None:
         self._carry.keep_kind(lost.project, _MODEL_STEP_KINDS)
-        self._keep_unscoped_entities(lost, flows=False)
+        self._keep_unscoped_entities(lost, cause=cause, flows=False, experiments=False)
 
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._project_to_regions = self._resolve_project_regions()
@@ -619,7 +631,9 @@ class VertexAISource(StatefulIngestionSourceBase):
             yield from resources
         if self._ledger.every_read_failed(project_id):
             self._handle_project_error(
-                project_id, self._ledger.representative_error(project_id)
+                project_id,
+                self._ledger.representative_error(project_id),
+                keep_cause=self._ledger.keep_cause(project_id),
             )
         else:
             self._ledger.report_lost_reads(
@@ -733,35 +747,46 @@ class VertexAISource(StatefulIngestionSourceBase):
                 else:
                     yield from self._gen_model_step_workunits(project_id, region)
 
-            if self._ledger.project_wide_error(project_id) is not None:
+            project_wide = self._ledger.project_wide_error(project_id)
+            if project_wide is not None:
                 # No region can get past this, so the rest are not read at all.
                 if region != regions[-1]:
-                    self._keep_unread_regions(project_id, first_region=first_region)
+                    self._keep_unread_regions(
+                        project_id, first_region=first_region, cause=project_wide
+                    )
                 break
 
             first_region = False
 
-    def _keep_unread_regions(self, project_id: str, first_region: bool) -> None:
+    def _keep_unread_regions(
+        self, project_id: str, first_region: bool, cause: Exception
+    ) -> None:
         if self.config.include_training_jobs:
             self._keep_phase1_kind(
-                Scope(project=project_id, kind=ResourceReads.TRAINING_JOBS)
+                Scope(project=project_id, kind=ResourceReads.TRAINING_JOBS),
+                cause=cause,
             )
         if first_region and self.config.include_experiments:
             self._keep_phase1_kind(
-                Scope(project=project_id, kind=ResourceReads.EXPERIMENTS)
+                Scope(project=project_id, kind=ResourceReads.EXPERIMENTS),
+                cause=cause,
             )
         if self.config.include_pipelines:
             self._keep_phase1_kind(
-                Scope(project=project_id, kind=ResourceReads.PIPELINES)
+                Scope(project=project_id, kind=ResourceReads.PIPELINES),
+                cause=cause,
             )
         if self.config.include_models or self.config.include_evaluations:
-            self._keep_model_step(Scope(project=project_id, kind=ResourceReads.MODELS))
+            self._keep_model_step(
+                Scope(project=project_id, kind=ResourceReads.MODELS), cause=cause
+            )
 
     def _lose_model_step(self, project_id: str, region: str, exc: Exception) -> None:
         self._ledger.record_read(project_id, region, ResourceReads.MODELS, error=exc)
         self._hold_back_pending_lineage(project_id)
         self._keep_model_step(
-            Scope(project=project_id, region=region, kind=ResourceReads.MODELS)
+            Scope(project=project_id, region=region, kind=ResourceReads.MODELS),
+            cause=exc,
         )
 
     def _gen_model_step_workunits(
@@ -935,7 +960,8 @@ class VertexAISource(StatefulIngestionSourceBase):
                 # Entity names carry no region, so the configured region's
                 # earlier entities cannot be told from the unread regions'.
                 self._keep_project_entities(
-                    Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY)
+                    Scope(project=project_id, kind=DetailCalls.REGION_DISCOVERY),
+                    cause=e,
                 )
                 return [region]
             if (

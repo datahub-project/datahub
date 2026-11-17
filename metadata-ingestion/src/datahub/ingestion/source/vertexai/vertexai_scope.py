@@ -1,5 +1,6 @@
 import threading
 import traceback
+import urllib.parse
 from dataclasses import dataclass, replace
 from enum import Enum
 from typing import (
@@ -53,18 +54,25 @@ from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
 )
 from datahub.ingestion.source.state.stateful_ingestion_base import StateProviderWrapper
+from datahub.ingestion.source.vertexai.vertexai_builder import VertexAINameFormatter
 from datahub.ingestion.source.vertexai.vertexai_constants import (
     DETAIL_SWITCHES,
     RATE_LIMIT_SWITCH,
     REFUSALS_BEFORE_STOP,
+    UNEXPECTED_DETAIL_ERROR,
+    UNEXPECTED_ERROR,
     UNEXPECTED_ERROR_TITLE,
     UNSCOPED_KEPT,
     UNSCOPED_KEPT_DISCOVERED,
     UNSCOPED_KEPT_TITLE,
+    UNSCOPED_REMOVED,
+    UNSCOPED_REMOVED_TITLE,
     DetailCalls,
     ResourceCategory,
 )
 from datahub.ingestion.source.vertexai.vertexai_models import (
+    ModelGroupKey,
+    PipelineContainerKey,
     model_version_base,
 )
 from datahub.ingestion.source.vertexai.vertexai_report import VertexAISourceReport
@@ -101,6 +109,7 @@ _DATA_JOB = DataJobUrn.ENTITY_TYPE
 _CONTAINER = ContainerUrn.ENTITY_TYPE
 _DATA_FLOW = DataFlowUrn.ENTITY_TYPE
 _ML_MODEL = MlModelUrn.ENTITY_TYPE
+_ML_MODEL_GROUP = MlModelGroupUrn.ENTITY_TYPE
 _TRANSIENT_ERRORS = (
     ResourceExhausted,
     TooManyRequests,
@@ -146,10 +155,26 @@ def classify_error(exc: BaseException) -> ErrorKind:
     return ErrorKind.ITEM_LASTING
 
 
+def is_google_error(exc: BaseException) -> bool:
+    return isinstance(exc, (GoogleAPIError, GoogleAuthError))
+
+
 def error_title(exc: BaseException, title: LiteralString) -> LiteralString:
-    if isinstance(exc, (GoogleAPIError, GoogleAuthError)):
-        return title
-    return UNEXPECTED_ERROR_TITLE
+    return title if is_google_error(exc) else UNEXPECTED_ERROR_TITLE
+
+
+def error_message(exc: BaseException, message: LiteralString) -> LiteralString:
+    return message if is_google_error(exc) else UNEXPECTED_ERROR
+
+
+def keeps_like_temporary(cause: Optional[BaseException]) -> bool:
+    """Whether a lost read keeps every project's pipelines and containers, as a
+    temporary loss does. With no error, the loss lasts."""
+    # Remove only when Google says something the user must act on. An error of
+    # ours is a bug, which says nothing about the data.
+    return cause is not None and (
+        not is_google_error(cause) or classify_error(cause) is ErrorKind.TRANSIENT
+    )
 
 
 @dataclass(frozen=True)
@@ -286,7 +311,13 @@ def _warn_item_lasting(
 ) -> None:
     report.warning(
         title=error_title(exc, "Detail could not be read"),
-        message="A read failed in a way that repeats, so it was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it.",
+        # An item read keeps nothing, so the connector-error body for a lost
+        # list read would wrongly say earlier entities are kept.
+        message=(
+            "A read failed in a way that repeats, so it was skipped. What depends on it is written without it, or kept as it was when it cannot be written without it."
+            if is_google_error(exc)
+            else UNEXPECTED_DETAIL_ERROR
+        ),
         context=context,
         exc=exc,
     )
@@ -308,6 +339,27 @@ def _flow_of_job(urn: str) -> Optional[str]:
         return str(DataJobUrn.from_string(urn).get_data_flow_urn())
     except InvalidUrnError:
         return None
+
+
+def _pipeline_name(flow_urn: str, instance_prefix: str) -> Optional[str]:
+    """The pipeline name the extractor keyed the flow's folder with."""
+    try:
+        flow_id = DataFlowUrn.from_string(flow_urn).flow_id
+    except InvalidUrnError:
+        return None
+    # The URN encodes reserved characters such as "," and "("; the folder key does not.
+    return urllib.parse.unquote(flow_id.removeprefix(instance_prefix))
+
+
+def _model_group_name(urn: str) -> Optional[str]:
+    try:
+        return _entity_name(urn, _ML_MODEL_GROUP)
+    except InvalidUrnError:
+        return None
+
+
+def _model_group_prefix(project: str) -> str:
+    return VertexAINameFormatter(lambda: project).format_model_group_name("")
 
 
 class CarryForward:
@@ -337,12 +389,22 @@ class CarryForward:
         self._model_names: Set[str] = set()
         self._prefixes: Set[str] = set()
         # (lost read, entity type): every earlier entity of the type is kept, if
-        # the read's project was ingested before. Such entities carry no project.
+        # the read's project was ingested before. Their URNs do not show the project.
         self._broad: Set[Tuple[Scope, str]] = set()
+        # The same, for a lasting loss in a discovered project: left to removal.
+        self._unkept: Set[Tuple[Scope, str]] = set()
+        # Lost reads whose error is not Google's.
+        self._ours: Set[Scope] = set()
+        # Projects with a lost read that covers their experiments.
+        self._experiments_lost: Set[str] = set()
 
     def flush(self) -> None:
         if self._state_provider is None or not (
-            self._urns or self._model_names or self._prefixes or self._broad
+            self._urns
+            or self._model_names
+            or self._prefixes
+            or self._broad
+            or self._unkept
         ):
             return
         job_id = StaleEntityRemovalHandler.compute_job_id(self._platform)
@@ -354,17 +416,37 @@ class CarryForward:
         if last is None:
             return
         last_urns = set(last.state.urns)
-        broad = {
-            (scope, entity_type)
-            for scope, entity_type in self._broad
-            if self._project_container(scope.project) in last_urns
-        }
+        broad = self._ingested_before(self._broad, last_urns)
+        unkept = self._ingested_before(self._unkept, last_urns)
+        # A failed run soft-deletes nothing: stale removal copies the last state.
+        if self._report.failures:
+            broad |= unkept
+            unkept = set()
         broad_types = {entity_type for _, entity_type in broad}
-        for context in sorted({scope.context() for scope, _ in broad}):
+        for scope in sorted({scope for scope, _ in broad}, key=Scope.context):
             self._report.warning(
                 title=UNSCOPED_KEPT_TITLE,
-                message=UNSCOPED_KEPT_DISCOVERED if self._discovered else UNSCOPED_KEPT,
-                context=context,
+                message=UNEXPECTED_ERROR
+                if scope in self._ours
+                else UNSCOPED_KEPT_DISCOVERED
+                if self._discovered
+                else UNSCOPED_KEPT,
+                context=scope.context(),
+            )
+        # Only experiment folders cannot be tied to their project. A broad keep
+        # already keeps every container or every flow.
+        if _CONTAINER not in broad_types:
+            folder_projects = {s.project for s, t in unkept if t == _CONTAINER}
+            for project in sorted(folder_projects & self._experiments_lost):
+                self._report.warning(
+                    title=UNSCOPED_REMOVED_TITLE,
+                    message=UNSCOPED_REMOVED,
+                    context=Scope(project=project).context(),
+                )
+            self._keep_model_group_containers(folder_projects, last_urns)
+        if _DATA_FLOW not in broad_types:
+            self._keep_own_pipelines(
+                {s.project for s, t in unkept if t == _DATA_FLOW}, last_urns
             )
         prefixes = tuple(self._prefixes)
         state = current.state
@@ -385,6 +467,15 @@ class CarryForward:
             return True
         name = _entity_name(urn, entity_type) if prefixes else None
         return name is not None and name.startswith(prefixes)
+
+    def _ingested_before(
+        self, keeps: Set[Tuple[Scope, str]], last_urns: Set[str]
+    ) -> Set[Tuple[Scope, str]]:
+        return {
+            (scope, entity_type)
+            for scope, entity_type in keeps
+            if self._project_container(scope.project) in last_urns
+        }
 
     def _project_container(self, project: str) -> str:
         return get_project_container(
@@ -423,6 +514,60 @@ class CarryForward:
             ),
         )
 
+    def _keep_model_group_containers(
+        self, projects: Set[str], last_urns: Set[str]
+    ) -> None:
+        # A model group's folder key holds the group's name, which the group's
+        # URN carries, so it is rebuilt like the project's category folders.
+        if not projects:
+            return
+        names = [
+            name
+            for urn in last_urns
+            if guess_entity_type(urn) == _ML_MODEL_GROUP
+            and (name := _model_group_name(urn)) is not None
+        ]
+        for project in projects:
+            prefix = _model_group_prefix(project)
+            self._urns.update(
+                ModelGroupKey(
+                    project_id=project,
+                    platform=self._platform,
+                    instance=self._platform_instance,
+                    env=self._env,
+                    model_group_name=name,
+                ).as_urn()
+                for name in names
+                if name.startswith(prefix)
+            )
+
+    def _keep_own_pipelines(self, projects: Set[str], last_urns: Set[str]) -> None:
+        # A flow is this project's when the project's folder for it was written
+        # before. The folder key holds the flow id without its instance prefix.
+        if not projects:
+            return
+        instance_prefix = (
+            f"{self._platform_instance}." if self._platform_instance else ""
+        )
+        flows = [
+            (urn, name)
+            for urn in last_urns
+            if guess_entity_type(urn) == _DATA_FLOW
+            and (name := _pipeline_name(urn, instance_prefix)) is not None
+        ]
+        for project in projects:
+            for urn, name in flows:
+                folder = PipelineContainerKey(
+                    project_id=project,
+                    platform=self._platform,
+                    instance=self._platform_instance,
+                    env=self._env,
+                    pipeline_name=name,
+                ).as_urn()
+                if folder in last_urns:
+                    self._urns.update((folder, urn))
+                    self._flows.add(urn)
+
     def keep_urn(self, urn: str) -> None:
         self._queue(self._urns, urn)
 
@@ -430,11 +575,31 @@ class CarryForward:
         """Keeps every URN made of this model name and a numeric version ID."""
         self._queue(self._model_names, model_name)
 
-    def keep_all_containers(self, lost: Scope) -> None:
-        self._queue(self._broad, (lost, _CONTAINER))
+    def keep_all_containers(
+        self, lost: Scope, cause: Optional[BaseException], *, experiments: bool
+    ) -> None:
+        """`experiments`: the lost read covers the project's experiments."""
+        self._queue_broad(lost, cause, _CONTAINER)
+        if experiments:
+            self._queue(self._experiments_lost, lost.project)
 
-    def keep_all_flows(self, lost: Scope) -> None:
-        self._queue(self._broad, (lost, _DATA_FLOW), (lost, _DATA_JOB))
+    def keep_all_flows(self, lost: Scope, cause: Optional[BaseException]) -> None:
+        self._queue_broad(lost, cause, _DATA_FLOW, _DATA_JOB)
+
+    def _queue_broad(
+        self, lost: Scope, cause: Optional[BaseException], *entity_types: str
+    ) -> None:
+        # Nobody chose a discovered project, so its lasting loss must not pause
+        # removal in every project on every run. Its entities are restored by
+        # the first run that writes them again.
+        keeps = (
+            self._broad
+            if keeps_like_temporary(cause) or not self._discovered
+            else self._unkept
+        )
+        self._queue(keeps, *((lost, entity_type) for entity_type in entity_types))
+        if cause is not None and not is_google_error(cause):
+            self._queue(self._ours, lost)
 
     def keep_flow(self, flow_urn: str) -> None:
         """Keeps the flow and every task of it."""

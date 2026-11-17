@@ -14,7 +14,10 @@ from datahub.ingestion.source.vertexai.vertexai_scope import (
     Scope,
     StoppedScopes,
     classify_error,
+    error_message,
     error_title,
+    is_google_error,
+    keeps_like_temporary,
     scope_context,
     with_switch,
 )
@@ -94,14 +97,13 @@ class ReadLedger:
             None,
         )
 
-    def lost_phase1_kinds(self, project_id: str, region: str) -> List[str]:
-        return sorted(
-            {
-                lost.kind
-                for lost in self._failed(project_id)
-                if lost.region == region and lost.kind != ResourceReads.MODELS
-            }
-        )
+    def lost_phase1_kinds(self, project_id: str, region: str) -> Dict[str, Exception]:
+        """Each phase 1 read lost in the region, with its error."""
+        return {
+            lost.kind: lost.error
+            for lost in self._failed(project_id)
+            if lost.region == region and lost.kind != ResourceReads.MODELS
+        }
 
     def every_read_failed(self, project_id: str) -> bool:
         with self._lock:
@@ -117,6 +119,15 @@ class ReadLedger:
         return min(
             (lost.error for lost in self._failed(project_id)),
             key=lambda error: rank.get(classify_error(error), 1),
+        )
+
+    def keep_cause(self, project_id: str) -> Exception:
+        """The error that decides what a project whose every read failed keeps.
+        Any loss that keeps like a temporary one decides it, so the order the
+        reads finished in cannot."""
+        return min(
+            (lost.error for lost in self._failed(project_id)),
+            key=lambda error: (not keeps_like_temporary(error), is_google_error(error)),
         )
 
     def hold_back_error(self, project_id: str, region: str) -> Optional[Exception]:
@@ -188,7 +199,7 @@ class ReadLedger:
                 message = "This resource type could not be read in this region, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
             else:
                 title = "Resource type could not be read"
-                message = "This resource type could not be read in this region of a discovered project, and the error repeats on every run. Its earlier entities are kept, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
+                message = "This resource type could not be read in this region of a discovered project, and the error repeats on every run. Its earlier entities are kept, except experiment folders when an 'Experiment folders not kept while unreadable' warning names the project, and what depends on it is written without it. Grant the permission named in the context, or turn the read off with the switch named there."
             emit = (
                 self._report.failure
                 if listed and not lost.temporary
@@ -197,7 +208,7 @@ class ReadLedger:
             context = self._list_context(project_id, lost)
             emit(
                 title=error_title(lost.error, title),
-                message=message,
+                message=error_message(lost.error, message),
                 context=context,
                 exc=lost.error,
             )

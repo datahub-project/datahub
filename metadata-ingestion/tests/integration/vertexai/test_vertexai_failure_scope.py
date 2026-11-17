@@ -7,6 +7,7 @@ from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Type
 from unittest.mock import MagicMock, Mock, PropertyMock, patch
 
 import google.cloud.aiplatform as aiplatform
+import pytest
 from google.api_core.exceptions import (
     NotFound,
     PermissionDenied,
@@ -20,9 +21,19 @@ from datahub.ingestion.source.common.gcp_project_filter import GcpProject
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
 )
-from datahub.ingestion.source.vertexai.vertexai_constants import UNSCOPED_KEPT_TITLE
+from datahub.ingestion.source.vertexai.vertexai_constants import (
+    UNSCOPED_KEPT_DISCOVERED,
+    UNSCOPED_KEPT_TITLE,
+    UNSCOPED_REMOVED_TITLE,
+    ResourceCategory,
+)
 from datahub.ingestion.source.vertexai.vertexai_experiment_extractor import (
     VertexAIExperimentExtractor,
+)
+from datahub.ingestion.source.vertexai.vertexai_models import ModelGroupKey
+from datahub.ingestion.source.vertexai.vertexai_utils import (
+    get_project_container,
+    get_resource_category_container,
 )
 from tests.integration.vertexai.mock_vertexai import (
     gen_mock_dataset,
@@ -257,54 +268,55 @@ def enter_discovery(stack: ExitStack, project_ids: List[str]) -> None:
 
 
 def test_project_scope_discovered_no_role(tmp_path: Path) -> None:
-    discovered = [REFUSED_PROJECT, HEALTHY_PROJECT]
-
-    def healthy(stack: ExitStack) -> None:
-        enter_discovery(stack, discovered)
-        enter_world(
-            stack, _models_only({REFUSED_PROJECT: 2, HEALTHY_PROJECT: 2}, set())
-        )
-
-    def failing(stack: ExitStack) -> None:
-        enter_discovery(stack, discovered)
-        enter_world(
-            stack,
-            _models_only(
-                {REFUSED_PROJECT: 2, HEALTHY_PROJECT: 1}, refused={REFUSED_PROJECT}
-            ),
-        )
-
     runs = run_twice(
         tmp_path,
-        healthy=healthy,
-        failing=failing,
+        healthy=_discovered_world("project", error=None, gone=False),
+        failing=_discovered_world("project", error=refused_error(), gone=True),
         recipe_overrides={
             "include_training_jobs": False,
-            "include_pipelines": False,
-            "include_experiments": False,
             "include_evaluations": False,
         },
     )
 
-    gone_model = f"{_MODEL_URN_PREFIX}{HEALTHY_PROJECT}.model.mock_prediction_model_2_2"
-    assert any(urn.startswith(gone_model) for urn in runs.soft_deleted)
-    assert not any(REFUSED_PROJECT in urn for urn in runs.soft_deleted)
-    # Container URNs are GUIDs, so the check above cannot see them.
-    assert not any(urn.startswith("urn:li:container:") for urn in runs.soft_deleted)
+    run1_urns = {r["entityUrn"] for r in runs.run1}
+    # Container URNs are GUIDs, so their project cannot be seen in them. The
+    # project's own containers, model group folders and pipelines are kept.
+    own = {
+        get_project_container(REFUSED_PROJECT, "vertexai", None, "PROD").as_urn(),
+        *(
+            get_resource_category_container(
+                REFUSED_PROJECT, "vertexai", None, "PROD", category
+            ).as_urn()
+            for category in ResourceCategory.all()
+        ),
+        ModelGroupKey(
+            project_id=REFUSED_PROJECT,
+            platform="vertexai",
+            env="PROD",
+            model_group_name=f"{REFUSED_PROJECT}.model_group.mock_prediction_model_1",
+        ).as_urn(),
+        *_pipeline_entities(runs.run1, FIRST_ONLY_PIPELINE),
+    }
+    assert own <= run1_urns
+    # Only its experiment folder goes, and stale removal goes on in the other project.
+    assert runs.soft_deleted == _pipeline_entities(runs.run1, GONE_PIPELINE) | {
+        _folder(runs.run1, FIRST_EXPERIMENT.name)
+    }
     assert not runs.run2_report.failures
-    kept = [
+    titles = [w.title for w in runs.run2_report.warnings]
+    assert UNSCOPED_KEPT_TITLE not in titles
+    removed = [
         c
         for w in runs.run2_report.warnings
-        if w.title == UNSCOPED_KEPT_TITLE
+        if w.title == UNSCOPED_REMOVED_TITLE
         for c in w.context
     ]
-    assert f"project={REFUSED_PROJECT}" in kept
-    assert all(c.startswith(f"project={REFUSED_PROJECT}") for c in kept)
+    assert removed == [f"project={REFUSED_PROJECT}"]
     # One warning for the skipped project, not one per read it lost.
     (context,) = [
         c
         for w in runs.run2_report.warnings
-        if w.title != UNSCOPED_KEPT_TITLE
+        if w.title == "Project skipped: no Vertex AI access"
         for c in w.context
     ]
     assert f"project={REFUSED_PROJECT}" in context
@@ -978,6 +990,146 @@ def test_pipeline_scope(tmp_path: Path) -> None:
         f"project={REFUSED_PROJECT}" in c and "resource=pipelines" in c
         for c in contexts
     )
+
+
+SECOND_PIPELINE = "Second Project Pipeline"
+GONE_PIPELINE = "Gone Pipeline"
+FIRST_EXPERIMENT = gen_mock_experiment(1)
+
+
+def _discovered_world(
+    lost: str, error: Optional[Exception], gone: bool
+) -> Callable[[ExitStack], None]:
+    """Two discovered projects, each with a model, a pipeline and an experiment
+    of its own. The second also runs a pipeline that is gone when `gone`. Where
+    `error` is set, the first project's `lost` read raises it, or every read of
+    it when `lost` is "project"."""
+    current: Dict[str, str] = {}
+    second_experiment = gen_mock_experiment(2)
+    # Experiments share one incremental checkpoint across projects, so the
+    # second project's experiment must be newer than the first one's.
+    _mock(second_experiment).update_time += timedelta(days=1)
+
+    def job(name: str) -> Any:
+        pipeline_job = get_mock_pipeline_job()
+        _mock(pipeline_job).name = name
+        _mock(pipeline_job).display_name = name
+        return pipeline_job
+
+    def fails(read: str) -> bool:
+        return (
+            error is not None
+            and lost in (read, "project")
+            and current["project"] == REFUSED_PROJECT
+        )
+
+    def resources(project: str, cls: Type) -> Any:
+        if fails("pipelines" if cls is aiplatform.PipelineJob else "models"):
+            raise error  # type: ignore[misc]
+        if cls is aiplatform.Model:
+            return gen_mock_models(1)
+        if cls is not aiplatform.PipelineJob:
+            return []
+        if project == REFUSED_PROJECT:
+            return [job(FIRST_ONLY_PIPELINE)]
+        return [job(SECOND_PIPELINE)] + ([] if gone else [job(GONE_PIPELINE)])
+
+    def experiments(_extractor: Any) -> Any:
+        if fails("experiments"):
+            raise error  # type: ignore[misc]
+        if current["project"] == REFUSED_PROJECT:
+            return [FIRST_EXPERIMENT]
+        return [second_experiment]
+
+    def enter(stack: ExitStack) -> None:
+        enter_discovery(stack, [REFUSED_PROJECT, HEALTHY_PROJECT])
+        enter_world(stack, resources, current)
+        stack.enter_context(
+            patch(
+                f"{_EXPERIMENT_EXTRACTOR}._list_experiments_rate_limited",
+                new=experiments,
+            )
+        )
+
+    return enter
+
+
+def _folder(records: List[Dict[str, Any]], name: str) -> str:
+    (urn,) = {
+        r["entityUrn"]
+        for r in records
+        if r["aspectName"] == "containerProperties"
+        and r["aspect"]["json"]["name"] == name
+    }
+    return urn
+
+
+def _pipeline_entities(records: List[Dict[str, Any]], name: str) -> Set[str]:
+    """The flow, tasks and folder run 1 wrote for this pipeline."""
+    flow = f"urn:li:dataFlow:(vertexai,{name},PROD)"
+    tasks = {
+        r["entityUrn"]
+        for r in records
+        if r["entityUrn"].startswith(f"urn:li:dataJob:({flow},")
+    }
+    assert tasks
+    return {flow, *tasks, _folder(records, name)}
+
+
+@pytest.mark.parametrize("lost", ["pipelines", "experiments", "models"])
+@pytest.mark.parametrize("temporary", [False, True], ids=["lasting", "temporary"])
+def test_discovered_project_lasting_loss_keeps_its_pipelines_and_leaves_experiment_folders_to_removal(
+    tmp_path: Path, lost: str, temporary: bool
+) -> None:
+    error = (
+        RetryError("retries exhausted", cause=ServiceUnavailable("busy"))
+        if temporary
+        else refused_error()
+    )
+    runs = run_twice(
+        tmp_path,
+        healthy=_discovered_world(lost, error=None, gone=False),
+        failing=_discovered_world(lost, error=error, gone=True),
+        recipe_overrides={
+            "include_training_jobs": False,
+            "include_evaluations": False,
+        },
+    )
+
+    gone = _pipeline_entities(runs.run1, GONE_PIPELINE)
+    if not temporary:
+        # The first project keeps its own pipeline, tied to it by its folder, and
+        # stale removal goes on in the other project.
+        expected = (
+            gone | {_folder(runs.run1, FIRST_EXPERIMENT.name)}
+            if lost == "experiments"
+            else gone
+        )
+    elif lost == "pipelines":
+        expected = set()
+    else:
+        # A lost experiment or model list keeps every folder, but no pipeline.
+        expected = gone - {_folder(runs.run1, GONE_PIPELINE)}
+    assert any(REFUSED_PROJECT in r["entityUrn"] for r in runs.run1)
+    assert runs.soft_deleted == expected
+    assert not runs.run2_report.failures
+    removed = [
+        w for w in runs.run2_report.warnings if w.title == UNSCOPED_REMOVED_TITLE
+    ]
+    kept = [w for w in runs.run2_report.warnings if w.title == UNSCOPED_KEPT_TITLE]
+    if temporary:
+        assert not removed
+        (warning,) = kept
+        assert warning.message == UNSCOPED_KEPT_DISCOVERED
+        # A temporary pipeline loss also holds the models back, under its own context.
+        assert all(c.startswith(f"project={REFUSED_PROJECT},") for c in warning.context)
+        assert [c for c in warning.context if f"resource={lost}" in c]
+    else:
+        assert not kept
+        # Only a lost experiment list leaves experiment folders unwritten.
+        assert [list(w.context) for w in removed] == (
+            [[f"project={REFUSED_PROJECT}"]] if lost == "experiments" else []
+        )
 
 
 def run_once(
