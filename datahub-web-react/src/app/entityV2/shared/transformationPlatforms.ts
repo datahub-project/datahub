@@ -1,4 +1,3 @@
-import { SubType } from '@app/entityV2/shared/components/subtypes';
 import { getPlatformUrnFromEntityUrn } from '@app/entityV2/shared/utils';
 import { DBT_URN, SQLMESH_URN } from '@app/ingestV2/source/builder/constants';
 
@@ -25,9 +24,11 @@ export function isTransformationPlatform(node: { urn?: string; type: string }): 
     );
 }
 
-/** A warehouse table that a transformation tool reads but doesn't build, typed 'Source' by each tool. */
+/** The subtype dbt and SQLMesh both give a warehouse table they read but don't build. */
+const SOURCE_SUBTYPE = 'Source';
+
 export function isSourceSubtype(subtype?: string | null): boolean {
-    return subtype === SubType.DbtSource;
+    return subtype === SOURCE_SUBTYPE;
 }
 
 /** Whether lineage draws this source as its warehouse sibling, per its tool's feature flag (dbt only). */
