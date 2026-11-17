@@ -481,7 +481,6 @@ SELECT id, amount FROM my_db.my_schema.orders
     [
         "*",  # bare star parses as a Star expression
         "s.*",  # qualified star parses as a Column wrapping a Star
-        "*, y",  # a star anywhere in the list skips the mapping
     ],
 )
 def test_insert_column_list_mapping_skipped_for_star_select(
@@ -492,21 +491,39 @@ def test_insert_column_list_mapping_skipped_for_star_select(
     # star itself (`* AS a`), leaving the downstream column with no
     # upstreams. The mapping is skipped instead, and lineage keeps the
     # source column names produced by star expansion.
-    schemas = {
-        "my_db.my_schema.my_source": {"x": "NUMBER", "y": "NUMBER"},
-        "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
-    }
-    insert_columns = "(a)" if select_list != "*, y" else "(a, b)"
     assert _column_upstreams(
         f"""\
-INSERT INTO my_db.my_schema.my_target {insert_columns}
+INSERT INTO my_db.my_schema.my_target (a)
 SELECT {select_list} FROM my_db.my_schema.my_source s
 """,
         platform="postgres",
-        schemas=schemas,
+        schemas={
+            "my_db.my_schema.my_source": {"x": "NUMBER", "y": "NUMBER"},
+            "my_db.my_schema.my_target": {"a": "NUMBER"},
+        },
     ) == {
         "x": ["my_db.my_schema.my_source.x"],
         "y": ["my_db.my_schema.my_source.y"],
+    }
+
+
+def test_insert_column_list_mapping_skipped_when_star_is_mixed_in() -> None:
+    # A star anywhere in the SELECT list skips the whole mapping: positions
+    # after the star shift by however many columns it expands to, so no
+    # positional pairing is trustworthy until expansion has happened.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (a, b)
+SELECT *, 1 FROM my_db.my_schema.my_source
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_source": {"x": "NUMBER"},
+            "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
+        },
+    ) == {
+        "x": ["my_db.my_schema.my_source.x"],
+        "1": [],
     }
 
 
