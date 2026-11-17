@@ -398,6 +398,7 @@ public class HybridSearchResultRerankerTest {
                     true,
                     Set.of("document", "dataset"),
                     Map.of("text_embedding_3_small", new ModelEmbeddingConfig()),
+                    null,
                     null)),
             new HybridScoreMapBuilder(
                 new HybridVectorScoreNormalizer(SearchEngineType.ELASTICSEARCH_8, "cosine")),

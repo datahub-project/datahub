@@ -25,4 +25,10 @@ public class SemanticSearchConfiguration {
 
   /** Configuration for the embedding provider used to generate query embeddings. */
   private EmbeddingProviderConfiguration embeddingProvider;
+
+  /**
+   * Raw cosine floor, from -1 to 1, for a search template vector rung that leaves {@code
+   * retrieval.minSimilarity} unset. Null means no floor.
+   */
+  private Float minSimilarity;
 }
