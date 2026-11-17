@@ -771,7 +771,8 @@ public class ESSearchDAO {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     // An explicit template kNN section is reranked by CachingEntitySearchService. It takes
     // precedence over the default entity hybrid reranker, but still receives the requested page.
-    return resolved != null && resolved.isKnnApplied()
+    // A keywordRerank rung owns its rerank the same way, so the default reranker stays off.
+    return resolved != null && (resolved.isKnnApplied() || resolved.isTemplateRerank())
         ? sliceHybridWindow(result, from, size)
         : rerankHybrid(opContext, entityNames, input, result, from, size);
   }
