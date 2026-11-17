@@ -297,6 +297,93 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testRemoveThatEmptiesTheInheritedReplaceFails() {
+    SearchTemplateProperties parent = rung(r -> r.setCombine("vector"));
+    parent.setProfiles(new SearchTemplateProfiles().setReplace(new StringArray(List.of("a"))));
+    store("urn:li:searchTemplate:emptyParent", parent);
+    SearchTemplateProperties child = parentOf("Child", "urn:li:searchTemplate:emptyParent");
+    child.setProfiles(new SearchTemplateProfiles().setRemove(new StringArray(List.of("a"))));
+    store("urn:li:searchTemplate:emptyChild", child);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:emptyChild"));
+
+    SearchTemplateValidator validator = templateValidator();
+    assertFalse(
+        validate(
+                validator,
+                holeContext(),
+                item(
+                    UrnUtils.getUrn("urn:li:searchTemplate:emptyChild"),
+                    SYSTEM,
+                    ChangeType.UPSERT,
+                    child))
+            .isEmpty());
+
+    // A parent write that narrows the list under an inheriting child's remove fails too.
+    SearchTemplateProperties wide = rung(r -> r.setCombine("vector"));
+    wide.setProfiles(new SearchTemplateProfiles().setReplace(new StringArray(List.of("a", "b"))));
+    store("urn:li:searchTemplate:wideParent", wide);
+    SearchTemplateProperties narrowed = parentOf("Child", "urn:li:searchTemplate:wideParent");
+    narrowed.setProfiles(new SearchTemplateProfiles().setRemove(new StringArray(List.of("a"))));
+    store("urn:li:searchTemplate:narrowedChild", narrowed);
+    assertEquals(
+        loader.load(opContext, "urn:li:searchTemplate:narrowedChild").getProfiles().getReplace(),
+        List.of("b"));
+    SearchTemplateProperties narrow = rung(r -> r.setCombine("vector"));
+    narrow.setProfiles(new SearchTemplateProfiles().setReplace(new StringArray(List.of("a"))));
+    assertFalse(
+        validate(
+                validator,
+                holeContext(),
+                item(
+                    UrnUtils.getUrn("urn:li:searchTemplate:wideParent"),
+                    SYSTEM,
+                    ChangeType.UPSERT,
+                    narrow))
+            .isEmpty());
+  }
+
+  @Test
+  public void testPlaceholderInAnySectionFailsClosed() {
+    Map<String, Consumer<SearchTemplateProperties>> citations =
+        Map.of(
+            "functionScore",
+            p ->
+                p.setFunctionScore(
+                    "{ \"functions\": [ { \"filter\": { \"exists\": { \"field\":"
+                        + " \"{{embeddingField}}\" } }, \"weight\": 2 } ] }"),
+            "knn",
+            p -> p.setKnn("{ \"field\": \"{{embeddingField}}\", \"k\": 10 }"),
+            "aggregations",
+            p ->
+                p.setAggregations(
+                    "{ \"vectors\": { \"value_count\": { \"field\": \"{{embeddingField}}\" } } }"),
+            "sort",
+            p -> p.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]"));
+    citations.forEach(
+        (section, cite) -> {
+          SearchTemplateProperties semantic = body("Native", "{ \"match_all\": {} }", null);
+          semantic.setApiVersion(2);
+          cite.accept(semantic);
+          store("urn:li:searchTemplate:" + section + "V2", semantic);
+          // Document rerank is on so a legacy knn section is not rejected before the scan.
+          assertEquals(
+              SearchTemplateCapabilities.rejectionCode(
+                  loader.load(opContext, "urn:li:searchTemplate:" + section + "V2"),
+                  true,
+                  false,
+                  SearchTemplateComponentRegistry.empty()),
+              "nativeQuery",
+              section);
+
+          SearchTemplateProperties legacy = body("Native", "{ \"match_all\": {} }", null);
+          cite.accept(legacy);
+          assertMergedRejects(section + "V1", legacy);
+        });
+  }
+
+  @Test
   public void testSemanticFieldsRequireTheSemanticApiVersion() {
     SearchTemplateProperties earlier = rung(r -> r.setCombine("keywordRerank"));
     earlier.setApiVersion(1);
