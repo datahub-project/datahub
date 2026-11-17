@@ -44,7 +44,9 @@ and mapped to the DataHub `CorpUserInfo` aspect:
 - title
 - country
 
-This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Azure AD `accountEnabled: false` maps to DataHub `SUSPENDED` (and `active: false`); enabled or missing values map to `ACTIVE` (and `active: true`).
+Country is read from `usageLocation`.
+
+This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Azure AD `accountEnabled: false` maps to DataHub `SUSPENDED` (and `active: false`); enabled or missing values map to `ACTIVE` (and `active: true`). Azure AD only returns `accountEnabled` when the app registration has `User.Read.All`. If it is missing, users are treated as active and the run reports a warning.
 
 #### Extracting DataHub Groups
 
