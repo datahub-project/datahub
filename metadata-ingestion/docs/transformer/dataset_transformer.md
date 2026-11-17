@@ -1837,7 +1837,7 @@ transformers:
       owners_json: "<path_to_owners_json>" # the JSON file mentioned at the start
 ```
 
-After running `datahub ingest -c <path_to_recipe>`, our MCEs will now have the following owners appended:
+After running `datahub ingest -c <path_to_recipe>`, the `ownership` aspect of each dataset will now have the following owners appended:
 
 ```json
 "owners": [

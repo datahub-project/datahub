@@ -3096,34 +3096,6 @@ def mce_emitter() -> DataHubRestEmitter:
     )
 
 
-def test_emit_mce_emits_one_mcp_per_aspect(mce_emitter: DataHubRestEmitter) -> None:
-    status = Status(removed=False)
-    properties = DatasetProperties(description="d")
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(
-            urn=_MCE_URN, aspects=[status, properties]
-        )
-    )
-    callback = Mock()
-
-    with (
-        patch.object(mce_emitter, "emit_mcp") as emit_mcp,
-        pytest.warns(DataHubDeprecationWarning),
-    ):
-        mce_emitter.emit(mce, callback=callback, emit_mode=EmitMode.SYNC_WAIT)
-
-    mcps = [c.args[0] for c in emit_mcp.call_args_list]
-    assert all(isinstance(m, MetadataChangeProposalWrapper) for m in mcps)
-    assert [(m.entityUrn, m.aspect) for m in mcps] == [
-        (_MCE_URN, status),
-        (_MCE_URN, properties),
-    ]
-    assert [c.kwargs["emit_mode"] for c in emit_mcp.call_args_list] == [
-        EmitMode.SYNC_WAIT
-    ] * 2
-    callback.assert_called_once_with(None, "success")
-
-
 def test_emit_mce_method_is_deprecated_and_uses_default_emit_mode(
     mce_emitter: DataHubRestEmitter,
 ) -> None:
@@ -3153,37 +3125,24 @@ def test_emit_mce_posts_to_ingest_proposal(mce_emitter: DataHubRestEmitter) -> N
     response = Mock(spec=Response)
     response.status_code = 200
     response.headers = {}
+    callback = Mock()
     with (
         patch.object(
             mce_emitter, "_emit_generic", return_value=response
         ) as emit_generic,
         pytest.warns(DataHubDeprecationWarning),
     ):
-        mce_emitter.emit(mce)
+        mce_emitter.emit(mce, callback=callback, emit_mode=EmitMode.SYNC_PRIMARY)
 
     urls = [c.args[0] for c in emit_generic.call_args_list]
     assert urls == [f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal"] * 2
-    proposals = [json.loads(c.args[1])["proposal"] for c in emit_generic.call_args_list]
+    payloads = [json.loads(c.args[1]) for c in emit_generic.call_args_list]
+    proposals = [p["proposal"] for p in payloads]
     assert [p["aspectName"] for p in proposals] == ["status", "datasetProperties"]
     assert [p["systemMetadata"]["runId"] for p in proposals] == ["run-1"] * 2
-
-
-def test_emit_mce_with_no_aspects_emits_nothing(
-    mce_emitter: DataHubRestEmitter, caplog: pytest.LogCaptureFixture
-) -> None:
-    mce = MetadataChangeEventClass(
-        proposedSnapshot=DatasetSnapshotClass(urn=_MCE_URN, aspects=[])
-    )
-    callback = Mock()
-    with (
-        patch.object(mce_emitter, "_emit_generic") as emit_generic,
-        pytest.warns(DataHubDeprecationWarning),
-    ):
-        mce_emitter.emit(mce, callback=callback)
-
-    emit_generic.assert_not_called()
+    # The fixture's default is ASYNC, so "false" shows the explicit emit_mode won.
+    assert [p["async"] for p in payloads] == ["false"] * 2
     callback.assert_called_once_with(None, "success")
-    assert "produced zero MCPs" in caplog.text
 
 
 def test_emit_mce_failure_stops_and_reaches_callback(

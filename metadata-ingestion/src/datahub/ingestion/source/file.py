@@ -255,6 +255,10 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                         yield MetadataWorkUnit(id, mcp=obj)
                     else:
                         yield MetadataWorkUnit(id, mcp_raw=obj)
+                elif not obj.proposedSnapshot.aspects:
+                    self.report.failure(
+                        message="MetadataChangeEvent has no aspects", context=id
+                    )
                 else:
                     if not warned_mce:
                         warned_mce = True

@@ -578,7 +578,6 @@ class SqlmeshSource(
 
         # Emit status FIRST so the MAE consumer can always hydrate the entity,
         # even if it processes this MCL before other aspects are committed.
-        # dbt uses the same pattern (StatusClass emitted before the other aspects).
         yield MetadataChangeProposalWrapper(
             entityUrn=sqlmesh_urn,
             aspect=StatusClass(removed=False),

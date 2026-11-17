@@ -22,7 +22,7 @@ This transformer applies to every entity type. Aspects other than the three abov
 
 :::warning Sources that emit MCEs lose their other aspects
 
-For a `MetadataChangeEvent` (MCE), only the three aspects above are forwarded and its other aspects are dropped. To check what a source emits, run it into a `file` sink.
+For a `MetadataChangeEvent` (MCE) that carries one of the three aspects above, only those aspects are forwarded and its other aspects are dropped. To check what a source emits, run it into a `file` sink.
 :::
 
 ## Config Details
