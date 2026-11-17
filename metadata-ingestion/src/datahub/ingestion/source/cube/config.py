@@ -67,6 +67,20 @@ class CubeSourceConfig(
             "Has no effect for Cube Core deployments."
         ),
     )
+    include_private: bool = Field(
+        default=False,
+        description=(
+            "Cube Cloud only. Request private (`public: false`) cubes, views, and "
+            "members from the Metadata API, so lineage from public views through "
+            "private cubes reaches warehouse tables. Requires `include_hidden: "
+            "true` and `use_metadata_api: true`. The token needs the "
+            "`meta-private` scope, which Cube Cloud grants only to admins or "
+            "users who can read the data model: a minted token requests it "
+            "automatically, a pre-supplied `api_token` must already carry it. If "
+            "the Metadata API fails or refuses private entities, the run reports "
+            "a failure."
+        ),
+    )
 
     cloud_api_key: Optional[SecretStr] = Field(
         default=None,
@@ -369,6 +383,21 @@ class CubeSourceConfig(
             raise ValueError(
                 "environment_id also requires cloud_api_key and deployment_id to "
                 "mint a Metadata API token via the Control Plane API."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_include_private(self) -> "CubeSourceConfig":
+        # Private entities come back with public: false, so without
+        # include_hidden they would be fetched and then dropped as hidden.
+        if self.include_private and not (
+            self.deployment_type == CubeDeploymentType.CLOUD
+            and self.use_metadata_api
+            and self.include_hidden
+        ):
+            raise ValueError(
+                "include_private requires deployment_type=CLOUD, "
+                "use_metadata_api: true, and include_hidden: true."
             )
         return self
 
