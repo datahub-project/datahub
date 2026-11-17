@@ -1,9 +1,11 @@
 import logging
+from dataclasses import dataclass
 from http import HTTPStatus
 from typing import Dict, Iterable, List, Mapping, Optional, Type, TypeVar, Union
 from urllib.parse import urlparse
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -56,6 +58,10 @@ _PlatformResponse = TypeVar(
 )
 
 
+class _UnexpectedMetadataApiResponseError(ValueError):
+    """A /v1/entities/all page did not match the documented envelope."""
+
+
 class _PrivateEntitiesRefusedError(Exception):
     """Cube Cloud answered the first include_private page with HTTP 403."""
 
@@ -64,12 +70,20 @@ class _PrivateEntitiesRefusedError(Exception):
         self.http_error = http_error
 
 
+@dataclass
+class _SkippedCloudEntity:
+    name: Optional[str]
+    context: str
+    error: ValidationError
+
+
 class CubeAPIClient:
     def __init__(self, config: CubeSourceConfig, report: CubeSourceReport):
         self.config = config
         self.report = report
         self.session = self._create_session()
         self._meta_sync_token: Optional[str] = None
+        self._skipped_cloud_entities: List[_SkippedCloudEntity] = []
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -202,17 +216,29 @@ class CubeAPIClient:
                     exc=e,
                 )
                 return core_entities
+            unexpected = isinstance(e, _UnexpectedMetadataApiResponseError)
             self.report.warning(
-                title="Cube Metadata API unavailable",
+                title=(
+                    "Unexpected Cube Metadata API response"
+                    if unexpected
+                    else "Cube Metadata API unavailable"
+                ),
                 message=(
-                    "Using /v1/meta only; lineage to warehouse tables will be "
-                    "unavailable. Provide cloud_api_key + deployment_id + "
+                    "The Metadata API response did not have the expected "
+                    "shape. Using /v1/meta only; lineage to warehouse tables "
+                    "will be unavailable."
+                    if unexpected
+                    else "Using /v1/meta only; lineage to warehouse tables will "
+                    "be unavailable. Provide cloud_api_key + deployment_id + "
                     "environment_id (or a Control Plane token) to enable the "
                     "Metadata API."
                 ),
                 exc=e,
             )
             return core_entities
+        core_names = {entity.name for entity in core_entities}
+        for skipped in self._skipped_cloud_entities:
+            self._report_skipped_entity(skipped, in_meta=skipped.name in core_names)
         return merge_entities(
             core_entities,
             cloud_entities,
@@ -356,6 +382,7 @@ class CubeAPIClient:
 
     def _get_cloud_entities(self, *, include_private: bool) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
+        self._skipped_cloud_entities = []
         body = {"include_private": True} if include_private else {}
         offset = 0
         while True:
@@ -378,9 +405,32 @@ class CubeAPIClient:
                 ):
                     raise _PrivateEntitiesRefusedError(e) from e
                 raise
-            response = CloudEntitiesResponse.model_validate(raw)
+            except requests.JSONDecodeError as e:
+                raise _UnexpectedMetadataApiResponseError(
+                    f"/v1/entities/all returned a non-JSON body at offset {offset}"
+                ) from e
+            try:
+                response = CloudEntitiesResponse.model_validate(raw)
+            except ValidationError as e:
+                raise _UnexpectedMetadataApiResponseError(
+                    f"Unexpected /v1/entities/all response at offset {offset}"
+                ) from e
             page = response.data
-            for entity in page:
+            for raw_entity in page:
+                try:
+                    entity = CloudEntity.model_validate(raw_entity)
+                except ValidationError as e:
+                    name = (
+                        raw_entity.get("name") if isinstance(raw_entity, dict) else None
+                    )
+                    self._skipped_cloud_entities.append(
+                        _SkippedCloudEntity(
+                            name=name if isinstance(name, str) else None,
+                            context=f"{name or '<unnamed entity>'} at offset {offset}",
+                            error=e,
+                        )
+                    )
+                    continue
                 self._report_unusable_references(entity)
                 entities.append(CubeEntity.from_cloud_entity(entity))
 
@@ -391,6 +441,29 @@ class CubeAPIClient:
             if offset >= pagination.total or not page:
                 break
         return entities
+
+    def _report_skipped_entity(
+        self, skipped: _SkippedCloudEntity, *, in_meta: bool
+    ) -> None:
+        self.report.metadata_api_entities_skipped += 1
+        if self.config.include_private or not in_meta:
+            # Only the Metadata API returns this entity (private, or absent
+            # from /v1/meta), so a failure stops stale removal deleting it.
+            self.report.failure(
+                title="Skipped invalid Metadata API entity",
+                message="The connector could not parse this entity, so it and "
+                "its lineage are missing from this run; stale removal is skipped.",
+                context=skipped.context,
+                exc=skipped.error,
+            )
+            return
+        self.report.warning(
+            title="Skipped invalid Metadata API entity",
+            message="The connector could not parse this entity, so its "
+            "Metadata API lineage is missing from this run.",
+            context=skipped.context,
+            exc=skipped.error,
+        )
 
     def _report_unusable_references(self, entity: CloudEntity) -> None:
         skipped = entity.unusable_reference_count()
