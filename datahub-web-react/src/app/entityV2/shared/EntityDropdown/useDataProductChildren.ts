@@ -16,7 +16,9 @@ export default function useDataProductChildren(
     entityData: GenericEntityProperties | null,
 ) {
     const needsLookup = entityType === EntityType.DataProduct && entityData?.children == null;
-    const [fetchChildren, { data }] = useGetDataProductChildrenCountLazyQuery({ fetchPolicy: 'network-only' });
+    const [fetchChildren, { data, error }] = useGetDataProductChildrenCountLazyQuery({
+        fetchPolicy: 'network-only',
+    });
 
     const onMenuOpenChange = useCallback(
         (open: boolean) => {
@@ -25,12 +27,16 @@ export default function useDataProductChildren(
         [needsLookup, fetchChildren, urn],
     );
 
-    const total = data?.dataProduct?.childDataProducts?.total;
+    // The component can be reused for another product, so only trust a result for this urn.
+    const result = data?.dataProduct?.urn === urn ? data.dataProduct : undefined;
+    const total = result?.childDataProducts?.total;
+    // Keep Delete disabled until the count is known. A failed lookup leaves it to the server-side check.
+    const childCountPending = needsLookup && !result && !error;
+
     const entityDataWithChildren = useMemo<GenericEntityProperties | null>(
-        () =>
-            needsLookup && total !== undefined ? { ...entityData, children: { relationships: [], total } } : entityData,
+        () => (needsLookup && total != null ? { ...entityData, children: { relationships: [], total } } : entityData),
         [needsLookup, total, entityData],
     );
 
-    return { entityData: entityDataWithChildren, onMenuOpenChange };
+    return { entityData: entityDataWithChildren, onMenuOpenChange, childCountPending };
 }

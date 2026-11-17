@@ -119,7 +119,7 @@ const EntityDropdown = (props: Props) => {
         triggerType = ['click'],
         refetchDeprecation,
     } = props;
-    const { entityData, onMenuOpenChange } = useDataProductChildren(urn, entityType, entityDataProp);
+    const { entityData, onMenuOpenChange, childCountPending } = useDataProductChildren(urn, entityType, entityDataProp);
     const { urn: entityProfileUrn, setDrawer } = useEntityContext();
     const onEntityProfile = entityProfileUrn === urn;
 
@@ -537,11 +537,13 @@ const EntityDropdown = (props: Props) => {
     // Delete should always be last (destructive action)
     if (menuItems.has(EntityMenuItems.DELETE)) {
         let deleteTooltip: string | undefined;
-        const deleteDisabled = isDeleteDisabled(entityType, entityData, me.platformPrivileges);
+        const deleteBlocked = isDeleteDisabled(entityType, entityData, me.platformPrivileges);
+        // While a card's child count loads, Delete stays disabled without a tooltip.
+        const deleteDisabled = deleteBlocked || childCountPending;
         const entityName = entityRegistry.getEntityName(entityType);
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
             deleteTooltip = t(getChildDeletionWarningKey(entityType), { entityName });
-        } else if (deleteDisabled) {
+        } else if (deleteBlocked) {
             deleteTooltip = t('delete.noPermission', { entityName });
         }
         menuItemsList.push({

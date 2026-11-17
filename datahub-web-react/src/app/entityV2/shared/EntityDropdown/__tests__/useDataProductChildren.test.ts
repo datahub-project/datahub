@@ -9,8 +9,9 @@ import { EntityType } from '@types';
 
 const fetchChildrenMock = vi.fn();
 let lazyQueryData: unknown;
+let lazyQueryError: Error | undefined;
 vi.mock('@graphql/dataProduct.generated', () => ({
-    useGetDataProductChildrenCountLazyQuery: () => [fetchChildrenMock, { data: lazyQueryData }],
+    useGetDataProductChildrenCountLazyQuery: () => [fetchChildrenMock, { data: lazyQueryData, error: lazyQueryError }],
 }));
 
 const URN = 'urn:li:dataProduct:parent';
@@ -20,6 +21,7 @@ describe('useDataProductChildren', () => {
     beforeEach(() => {
         vi.clearAllMocks();
         lazyQueryData = undefined;
+        lazyQueryError = undefined;
     });
 
     it('fetches the child count when a data product card menu opens', () => {
@@ -37,6 +39,25 @@ describe('useDataProductChildren', () => {
 
         expect(result.current.entityData?.children?.total).toBe(2);
         expect(result.current.entityData?.name).toBe('Finance');
+        expect(result.current.childCountPending).toBe(false);
+    });
+
+    it('reports the count as pending until it arrives, and not after a failed lookup', () => {
+        const pending = renderHook(() => useDataProductChildren(URN, EntityType.DataProduct, CARD_DATA));
+        expect(pending.result.current.childCountPending).toBe(true);
+
+        lazyQueryError = new Error('lookup failed');
+        const failed = renderHook(() => useDataProductChildren(URN, EntityType.DataProduct, CARD_DATA));
+        expect(failed.result.current.childCountPending).toBe(false);
+    });
+
+    it('ignores a count fetched for another data product', () => {
+        lazyQueryData = { dataProduct: { urn: 'urn:li:dataProduct:other', childDataProducts: { total: 3 } } };
+
+        const { result } = renderHook(() => useDataProductChildren(URN, EntityType.DataProduct, CARD_DATA));
+
+        expect(result.current.entityData?.children).toBeUndefined();
+        expect(result.current.childCountPending).toBe(true);
     });
 
     it('does not fetch when the count is already known or the entity is not a data product', () => {
@@ -51,5 +72,7 @@ describe('useDataProductChildren', () => {
 
         expect(fetchChildrenMock).not.toHaveBeenCalled();
         expect(profile.result.current.entityData).toBe(profileData);
+        expect(profile.result.current.childCountPending).toBe(false);
+        expect(domain.result.current.childCountPending).toBe(false);
     });
 });

@@ -26,6 +26,16 @@ mutation deleteDataProduct($urn: String!) {
 }
 """
 
+CHILD_COUNT_QUERY = """
+query childCount($urn: String!) {
+  dataProduct(urn: $urn) {
+    childDataProducts(input: { count: 0, query: "*" }) {
+      total
+    }
+  }
+}
+"""
+
 
 def _emit_data_product(
     graph_client: DataHubGraph, urn: str, name: str, parent: Optional[str] = None
@@ -36,6 +46,13 @@ def _emit_data_product(
             aspect=DataProductPropertiesClass(name=name, parentDataProduct=parent),
         )
     )
+
+
+@with_test_retry()
+def _wait_for_child_count(auth_session, parent: str, expected: int) -> None:
+    # The delete check finds children through search, so wait until the index reflects them.
+    res = execute_graphql(auth_session, CHILD_COUNT_QUERY, {"urn": parent})
+    assert res["data"]["dataProduct"]["childDataProducts"]["total"] == expected
 
 
 def _is_removed(graph_client: DataHubGraph, urn: str) -> bool:
@@ -64,8 +81,7 @@ def test_parent_with_children_cannot_be_deleted(auth_session, graph_client):
     try:
         _emit_data_product(graph_client, parent, f"Parent {suffix}")
         _emit_data_product(graph_client, child, f"Child {suffix}", parent=parent)
-        # The delete check finds children through search.
-        wait_for_writes_to_sync()
+        _wait_for_child_count(auth_session, parent, 1)
 
         res = execute_graphql(
             auth_session,
@@ -90,7 +106,7 @@ def test_parent_with_children_cannot_be_deleted(auth_session, graph_client):
 
         # Moving the child to the root releases the parent.
         _emit_data_product(graph_client, child, f"Child {suffix}")
-        wait_for_writes_to_sync()
+        _wait_for_child_count(auth_session, parent, 0)
 
         graph_client.hard_delete_entity(parent)
         wait_for_writes_to_sync()
