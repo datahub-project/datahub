@@ -196,6 +196,17 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
     assertEquals(rejectionOf("scoped", scoped), "scope");
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
+    assertEquals(
+        rejectionOf(
+            "rerankScore", rung(r -> r.setCombine("keywordRerank").setProfileScore("best"))),
+        "profileScore");
+    SearchTemplateProperties nativeSibling =
+        body(
+            "Native",
+            "{ \"bool\": { \"should\": [ { \"match_all\": {} }, {{&embeddingClausesJson}} ] } }",
+            null);
+    nativeSibling.setApiVersion(2);
+    SearchTemplateChecks.check(nativeSibling, 1024);
 
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
     router.setApiVersion(2);

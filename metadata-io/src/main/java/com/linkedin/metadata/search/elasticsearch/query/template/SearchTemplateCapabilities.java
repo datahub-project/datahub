@@ -266,8 +266,14 @@ public final class SearchTemplateCapabilities {
     if (citesEmbeddingPlaceholders(template)) {
       return "nativeQuery";
     }
-    if (template.getProfiles() != null && combine(template.getRetrieval()) == null) {
+    // This release resolves no embedding profile, so any selection fails closed.
+    if (template.getProfiles() != null) {
       return "profiles";
+    }
+    if (template.getRetrieval() != null
+        && template.getRetrieval().hasProfileScore()
+        && StringUtils.isNotBlank(template.getRetrieval().getProfileScore())) {
+      return "profileScore";
     }
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     if (retrieval == null) {
@@ -307,7 +313,8 @@ public final class SearchTemplateCapabilities {
       case "retrievalCombine" -> "retrieval combine " + retrieval.getCombine();
       case "vectorBody" -> "retrieval vectorBody";
       case "scope" -> "scope";
-      case "profiles" -> "profiles on a keyword rung";
+      case "profiles" -> "profiles";
+      case "profileScore" -> "retrieval profileScore";
       case "nativeQuery" -> "native embedding placeholders";
       case "retrievalBridge" -> "retrieval bridge";
       default -> code;

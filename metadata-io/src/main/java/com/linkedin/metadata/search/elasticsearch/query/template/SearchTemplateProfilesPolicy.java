@@ -119,6 +119,9 @@ public final class SearchTemplateProfilesPolicy {
     if (child.hasOverride() && child.getOverride() != null) {
       override.putAll(child.getOverride());
     }
+    if (replace != null && replace.isEmpty()) {
+      throw new SearchTemplateException("Search template profiles resolve to an empty selection");
+    }
     SearchTemplateProfiles merged = new SearchTemplateProfiles();
     if (replace != null) {
       merged.setReplace(new StringArray(replace));

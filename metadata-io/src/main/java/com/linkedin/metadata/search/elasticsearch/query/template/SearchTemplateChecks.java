@@ -457,7 +457,11 @@ public final class SearchTemplateChecks {
             nullToEmpty(sort),
             String.join("\n", fragments.values()));
     rejectUnescaped(query, clauses, functionScore, rescore, knn, aggregations, sort, fragments);
-    Map<String, Object> mustache = SearchTemplateMustache.validationContext(source);
+    Map<String, Object> mustache =
+        new LinkedHashMap<>(SearchTemplateMustache.validationContext(source));
+    // Sample values so a stored native mixed query renders to valid JSON at write time.
+    mustache.put(SearchTemplateHoles.EMBEDDING_CLAUSES_JSON, "{ \"match_all\": {} }");
+    mustache.put("embeddingField", "embeddings.vector");
     Map<String, Object> spliced = new LinkedHashMap<>(mustache);
     for (Map.Entry<String, String> entry : fragments.entrySet()) {
       String rendered = render(entry.getValue(), mustache);
