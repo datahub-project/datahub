@@ -34,6 +34,11 @@ grant references on future views in database "<your-database>" to role datahub_r
 grant monitor on all dynamic tables in database "<your-database>" to role datahub_role;
 grant monitor on future dynamic tables in database "<your-database>" to role datahub_role;
 
+// Required for stored procedure ingestion (include_procedures, enabled by default).
+// information_schema.procedures only lists procedures the role has privileges on.
+grant usage on all procedures in database "<your-database>" to role datahub_role;
+grant usage on future procedures in database "<your-database>" to role datahub_role;
+
 // If you ARE using Snowflake Profiling or Classification feature: Grant select privileges to your tables
 grant select on all tables in database "<your-database>" to role datahub_role;
 grant select on future tables in database "<your-database>" to role datahub_role;
