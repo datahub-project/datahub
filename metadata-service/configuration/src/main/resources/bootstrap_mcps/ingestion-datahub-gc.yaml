@@ -12,8 +12,6 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-      # Defaults to the CLI pre-built into the executor image, so this system source
-      # always matches the deployed release and installs nothing at run time.
       version: '{{&ingestion.version}}{{^ingestion.version}}bundled{{/ingestion.version}}'
       recipe:
         source:
