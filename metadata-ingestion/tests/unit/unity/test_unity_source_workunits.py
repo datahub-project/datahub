@@ -16,6 +16,7 @@ from databricks.sdk.errors import NotFound
 from databricks.sdk.service.catalog import (
     CatalogInfo,
     ColumnInfo,
+    ColumnTypeName,
     DataSourceFormat,
     ForeignKeyConstraint,
     GetMetastoreSummaryResponse,
@@ -56,9 +57,11 @@ from datahub.metadata.schema_classes import (
     DatasetUsageStatisticsClass,
     GlobalTagsClass,
     OwnershipClass,
+    RecordTypeClass,
     SchemaMetadataClass,
     SiblingsClass,
     StatusClass,
+    StringTypeClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
 )
@@ -717,6 +720,40 @@ def test_schema_whose_tables_cannot_be_listed_is_skipped_not_fatal(
     assert list(report.schemas.processed_entities) == [f"{CATALOG}.{SCHEMA}"]
     assert "Missed schema because of parsing issues" in warning_messages(report)
     assert _dataset_urn(run, "orders") in run.urns(DatasetPropertiesClass)
+
+
+def test_variant_column_is_emitted_as_a_record_type(
+    ws: MagicMock, run_source: RunSource
+) -> None:
+    """VARIANT holds semi-structured data; it must not fall back to a null type."""
+    ws.tables.list.return_value = [
+        _table_info(
+            "events",
+            TableType.MANAGED,
+            [
+                ColumnInfo(
+                    name="col_a",
+                    type_name=ColumnTypeName.STRING,
+                    type_text="string",
+                    position=0,
+                ),
+                ColumnInfo(
+                    name="col_b",
+                    type_name=ColumnTypeName.VARIANT,
+                    type_text="variant",
+                    position=1,
+                ),
+            ],
+        )
+    ]
+
+    run = run_source(ws, _config(include_tags=False))
+
+    schema = run.aspect(_dataset_urn(run, "events"), SchemaMetadataClass)
+    fields = {field.fieldPath: field for field in schema.fields}
+    assert isinstance(fields["col_a"].type.type, StringTypeClass)
+    assert isinstance(fields["col_b"].type.type, RecordTypeClass)
+    assert fields["col_b"].nativeDataType == "variant"
 
 
 def test_sqlalchemy_profiler_only_receives_tables_matching_the_profile_pattern(
