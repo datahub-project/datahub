@@ -1927,6 +1927,21 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                 "ERROR: this worktree has an unmanaged or Docker registry entry; use a different worktree"
             )
             return 1
+        major = getattr(args, "opensearch", None)
+        if major is None:
+            try:
+                major = local.resolve_major(instance)
+            except (RuntimeError, ValueError) as error:
+                _log(f"ERROR: {error}")
+                return 1
+        changing_major = instance is not None and major != local.recorded_major(
+            instance
+        )
+        if changing_major and not getattr(args, "fresh", False):
+            _log(
+                "ERROR: changing an existing stack's OpenSearch major requires --fresh"
+            )
+            return 1
         recorded = instance.get("local_options", {}) if instance else {}
         options = {
             "processes": getattr(args, "processes", None)
@@ -1943,10 +1958,14 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
             _log("ERROR: --processes must be between 1 and 999")
             return 1
         if instance and local.stack_running(WORKTREE_ID, instance["ports"]):
-            if options != recorded or getattr(args, "fresh", False):
+            if options != recorded or getattr(args, "fresh", False) or changing_major:
                 _log(
                     "ERROR: local stack is running or starting; stop it before changing options"
                 )
+                return 1
+        if changing_major:
+            # Delete indices on the OLD node before publishing the new engine selection.
+            if local.cmd_nuke_local(WORKTREE_ID, instance["ports"], keep_data=False):
                 return 1
         if instance is None:
             try:
@@ -1958,11 +1977,16 @@ def _cmd_start_local(args: argparse.Namespace) -> int:
                 "worktree_path": str(REPO_ROOT),
                 "mode": "local",
                 "local_owner": local.OWNER,
-                "opensearch_dir": str(local.SHARED_OPENSEARCH_DIR),
+                "opensearch_dir": str(local.shared_opensearch_dir(major)),
                 "slot": slot,
                 "ports": local.local_ports(slot),
                 "created_at": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             }
+        instance = {
+            **instance,
+            "opensearch_version": major,
+            "opensearch_dir": str(local.shared_opensearch_dir(major)),
+        }
         claimed_ports = {
             port
             for key, entry in registry["instances"].items()
@@ -2017,6 +2041,9 @@ def cmd_start(args: argparse.Namespace) -> int:
     if getattr(args, "local", False) or (instance and instance.get("mode") == "local"):
         return _cmd_start_local(args)
 
+    if getattr(args, "opensearch", None) is not None:
+        _log("ERROR: --opensearch requires --local")
+        return 1
     # Proxy to remote machine when a runner is configured.
     if RUNNER:
         return _cmd_start_remote(args)
@@ -2420,7 +2447,12 @@ def build_parser() -> argparse.ArgumentParser:
     start_p.add_argument(
         "--local",
         action="store_true",
-        help="Run GMS locally on H2 and shared OpenSearch 3, without Docker",
+        help="Run GMS locally on H2 and shared OpenSearch, without Docker",
+    )
+    start_p.add_argument(
+        "--opensearch",
+        choices=("2", "3"),
+        help="Embedded OpenSearch major in local mode (default: recorded value or module default)",
     )
     start_p.add_argument(
         "--processes",

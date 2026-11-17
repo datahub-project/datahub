@@ -177,7 +177,9 @@ jobs:
       # Pull requests run only the p0 tier while the PYTEST_P0_SMOKE repository
       # variable is 'true'; post-merge pushes -- and the default with the
       # variable unset -- always run the full suite. smoke.sh reads it as
-      # SMOKE_TIER.
+      # SMOKE_TIER. Repository variables don't reach pull requests from forks,
+      # so those always run the full suite (smoke_test_matrix gives them 3
+      # batches).
       #
       # The `run-all-tests` label (both suites) or `run-all-tests:pytest` (pytest
       # only) opts a single PR back into the whole suite, for
@@ -486,6 +488,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           java: ${{ env.IMAGE_BUILD_MODULES != '' }}
           python: ${{ env.IMAGE_BUILD_MODULES != '' }}
 
@@ -1055,6 +1058,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
@@ -1307,6 +1311,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
@@ -1616,6 +1621,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space

@@ -8,7 +8,7 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 import { HeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { EntityType, OwnerType } from '@types';
+import { EntityType, Maybe, OwnerType } from '@types';
 
 const StyledTitle = styled(HeaderTitle)`
     margin-bottom: 12px;
@@ -31,9 +31,9 @@ const SectionContainer = styled.div`
     flex-direction: column;
 `;
 
-interface Props {
-    owner: OwnerType;
-}
+type Props = {
+    owner: Pick<OwnerType, 'type'> & { editableProperties?: Maybe<{ pictureLink?: Maybe<string> }> };
+};
 
 export default function SummaryCreatedBySection({ owner }: Props) {
     // This section shows ownership.owners[0], which is not the entity's creator — DataHub records no

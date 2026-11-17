@@ -1,6 +1,6 @@
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
-import React, { useEffect, useState } from 'react';
+import React, { ComponentType, useEffect, useState } from 'react';
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
@@ -10,7 +10,9 @@ import {
     getFileTypeFromFilename,
     handleFileDownload,
 } from '@components/components/Editor/extensions/fileDragDrop/fileUtils';
+import { DATAHUB_MENTION_ATTRS } from '@components/components/Editor/extensions/mentions/constants';
 import { URL_ATTRIBUTES, isSafeHref, scrubSrcset } from '@components/components/Editor/readOnlyHtml';
+import type { EditorMentionViewProps } from '@components/components/Editor/types';
 import { FileNode } from '@components/components/FileNode/FileNode';
 
 import { safeUrl } from '@utils/urlUtils';
@@ -289,7 +291,23 @@ function soleFileNode(element: HTMLElement): HTMLElement | null {
     return null;
 }
 
-function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.ReactNode {
+export type ReadOnlyRenderOptions = {
+    mentionView?: ComponentType<EditorMentionViewProps>;
+};
+
+function mentionProps(node: HTMLElement): EditorMentionViewProps {
+    const urn = node.getAttribute(DATAHUB_MENTION_ATTRS.urn) ?? '';
+    // Same fallback as the editor's parseDOM, for mention spans written as raw HTML.
+    const name = node.getAttribute(DATAHUB_MENTION_ATTRS.name) || node.textContent?.replace(/^@/, '') || urn;
+    return { urn, name };
+}
+
+function nodeToReact(
+    node: ChildNode,
+    key: string,
+    options: ReadOnlyRenderOptions,
+    parentTag?: string,
+): React.ReactNode {
     if (node.nodeType === Node.TEXT_NODE) {
         const text = node.textContent ?? '';
         if (!text || (parentTag && TABLE_TAGS.has(parentTag) && !text.trim())) return null;
@@ -310,6 +328,21 @@ function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.Re
         return <ReadOnlyFileCard key={key} {...fileCardProps(node)} />;
     }
 
+    const { mentionView: MentionView } = options;
+    if (MentionView && node.hasAttribute(DATAHUB_MENTION_ATTRS.urn)) {
+        const mention = mentionProps(node);
+        // The wrapper keeps the mention attributes but not the `mentions` class: that class
+        // styles the plain `@name` text, and the view draws its own chip.
+        return (
+            <span
+                key={key}
+                {...{ [DATAHUB_MENTION_ATTRS.urn]: mention.urn, [DATAHUB_MENTION_ATTRS.name]: mention.name }}
+            >
+                <MentionView urn={mention.urn} name={mention.name} />
+            </span>
+        );
+    }
+
     const tag = node.tagName.toLowerCase();
     // A file card is a div. It can replace a paragraph or heading whose only content is the file,
     // including when emphasis wraps that file. A file mentioned in a sentence stays an inline chip.
@@ -321,15 +354,17 @@ function nodeToReact(node: ChildNode, key: string, parentTag?: string): React.Re
     const props = { ...elementAttributes(node), key };
     if (VOID_TAGS.has(tag)) return React.createElement(tag, props);
 
-    const children = Array.from(node.childNodes).map((child, index) => nodeToReact(child, `${key}-${index}`, tag));
+    const children = Array.from(node.childNodes).map((child, index) =>
+        nodeToReact(child, `${key}-${index}`, options, tag),
+    );
     return React.createElement(tag, props, children);
 }
 
-/** Sanitized HTML, with file spans replaced by the file card. */
-export function readOnlyHtmlToReact(html: string): React.ReactNode {
+/** Sanitized HTML, with file spans replaced by the file card and mention spans by `mentionView`. */
+export function readOnlyHtmlToReact(html: string, options: ReadOnlyRenderOptions = {}): React.ReactNode {
     if (typeof DOMParser === 'undefined') {
         return <div dangerouslySetInnerHTML={{ __html: html }} />;
     }
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return Array.from(doc.body.childNodes).map((node, index) => nodeToReact(node, `readonly-${index}`));
+    return Array.from(doc.body.childNodes).map((node, index) => nodeToReact(node, `readonly-${index}`, options));
 }
