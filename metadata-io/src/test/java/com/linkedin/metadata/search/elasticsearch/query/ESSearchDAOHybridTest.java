@@ -514,6 +514,44 @@ public class ESSearchDAOHybridTest {
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
+  @Test
+  public void testSortedTemplateSearchExplainsThatTheRerankDoesNotApply() throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    harness.store(RERANK_URN, fulltext(KEEP_PLACES));
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+            .withSearchTemplateRuntime(documentRerankCoordinator(harness))
+            .withSearchFlags(
+                flags -> flags.setFulltext(true).setIncludeExplain(true).setMinScore(0.5f));
+    SearchResponse keywordResponse = response(10);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    List<SortCriterion> byName =
+        List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+
+    ESSearchDAO dao =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            reranker);
+
+    // Through the template executor, which records the served rung for every sort
+    SearchResult sorted = search(dao, searching, RERANK_URN, byName);
+
+    KeywordRerankExplanation explanation = sorted.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getReason(), SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
   private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final String KEEP_PLACES = "{ \"others\": \"keepKeywordPlaces\" }";
@@ -527,29 +565,7 @@ public class ESSearchDAOHybridTest {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();
     harness.store(RERANK_URN, fulltext(knn));
-    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
-    semanticSearch.setEnabled(true);
-    semanticSearch.setEnabledEntities(Set.of("document"));
-    semanticSearch.setModels(Map.of(MODEL_KEY, new ModelEmbeddingConfig()));
-    EmbeddingProfile document =
-        new EmbeddingProfile(
-            MODEL_KEY,
-            EmbeddingProfile.TEXT_CHUNKS,
-            "text-embedding-3-small",
-            "cosine",
-            Set.of("document"),
-            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
-    SearchTemplateCoordinator coordinator =
-        new SearchTemplateCoordinator(
-            harness.elastic(),
-            null,
-            harness.loader,
-            ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty(),
-            SearchTemplateGates.of(
-                new EmbeddingProfileRegistry(List.of(document), Map.of("document", MODEL_KEY)),
-                semanticSearch,
-                true));
+    SearchTemplateCoordinator coordinator = documentRerankCoordinator(harness);
     ResolvedSearchTemplate resolved = new ResolvedSearchTemplate(RERANK_URN, 1L, "fulltext", null);
     resolved.setExecutionCapabilities(
         false, documentRerank, ENTITY_NAMES, EmbeddingProfileRegistry.OPENSEARCH);
@@ -564,6 +580,33 @@ public class ESSearchDAOHybridTest {
                         flags.setFulltext(true).setMinScore(minScore, SetMode.REMOVE_IF_NULL)));
     doReturn(Optional.of(metrics)).when(served).getMetricUtils();
     return served;
+  }
+
+  /** A coordinator on a build that reranks Document rows with {@link #MODEL_KEY}. */
+  private static SearchTemplateCoordinator documentRerankCoordinator(
+      SearchTemplateFixtures.Harness harness) {
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("document"));
+    semanticSearch.setModels(Map.of(MODEL_KEY, new ModelEmbeddingConfig()));
+    EmbeddingProfile document =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            "text-embedding-3-small",
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    return new SearchTemplateCoordinator(
+        harness.elastic(),
+        null,
+        harness.loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.of(
+            new EmbeddingProfileRegistry(List.of(document), Map.of("document", MODEL_KEY)),
+            semanticSearch,
+            true));
   }
 
   private List<HybridRerankPlan> rerankPlans(int calls) throws IOException {

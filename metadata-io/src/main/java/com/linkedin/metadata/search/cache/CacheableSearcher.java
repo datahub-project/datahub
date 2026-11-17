@@ -88,13 +88,14 @@ public class CacheableSearcher<K> {
             batchId++;
           } while (resultsSoFar < from + size);
           SearchResultMetadata metadata = batchedResult.getMetadata();
-          // A rerank explains the batch it reordered, so a page that spans batches keeps the
-          // explanation of the batch that holds its first row
-          if (metadata != null
-              && startMetadata != null
-              && startMetadata != metadata
-              && startMetadata.hasKeywordRerank()) {
-            metadata.setKeywordRerank(startMetadata.getKeywordRerank());
+          // A rerank explains the batch it reordered, so a page that spans batches reports what the
+          // batch holding its first row reports, including no explanation at all
+          if (metadata != null && startMetadata != null && startMetadata != metadata) {
+            if (startMetadata.hasKeywordRerank()) {
+              metadata.setKeywordRerank(startMetadata.getKeywordRerank());
+            } else {
+              metadata.removeKeywordRerank();
+            }
           }
           return new SearchResult()
               .setEntities(new SearchEntityArray(resultEntities))

@@ -2,6 +2,7 @@ package com.linkedin.metadata.search.cache;
 
 import static org.mockito.Mockito.mock;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.google.common.collect.Streams;
@@ -48,32 +49,44 @@ public class CacheableSearcherTest {
 
   @Test
   public void testPageAcrossBatchesKeepsTheRerankExplanationOfItsFirstRow() {
+    SearchResult page = pageAcrossBatches("rerankAcrossBatches", "applied", "keptKeywordOrder");
+
+    assertEquals(page.getEntities().size(), 10);
+    assertEquals(page.getMetadata().getKeywordRerank().getOutcome(), "applied");
+  }
+
+  @Test
+  public void testPageAcrossBatchesHasNoRerankExplanationWhenItsFirstRowHasNone() {
+    SearchResult page = pageAcrossBatches("noRerankInFirstBatch", null, "applied");
+
+    assertEquals(page.getEntities().size(), 10);
+    assertFalse(page.getMetadata().hasKeywordRerank());
+  }
+
+  /** Rows 5 to 14, across the first two batches of 10, each batch explained by its outcome. */
+  private SearchResult pageAcrossBatches(String cacheName, String firstBatch, String laterBatches) {
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
     CacheableSearcher<Integer> searcher =
         new CacheableSearcher<>(
-            cacheManager.getCache("rerankAcrossBatches"),
+            cacheManager.getCache(cacheName),
             10,
             qs -> {
               SearchResult batch = getSearchResult(qs, 10);
               if (!batch.hasMetadata()) {
                 batch.setMetadata(new SearchResultMetadata());
               }
-              // Only the first batch is inside the rerank window
-              batch
-                  .getMetadata()
-                  .setKeywordRerank(
-                      new KeywordRerankExplanation()
-                          .setOutcome(qs.getFrom() == 0 ? "applied" : "keptKeywordOrder"));
+              String outcome = qs.getFrom() == 0 ? firstBatch : laterBatches;
+              if (outcome != null) {
+                batch
+                    .getMetadata()
+                    .setKeywordRerank(new KeywordRerankExplanation().setOutcome(outcome));
+              }
               return batch;
             },
             CacheableSearcher.QueryPagination::getFrom,
             true);
-
-    SearchResult page = searcher.getSearchResults(opContext, 5, 10);
-
-    assertEquals(page.getEntities().size(), 10);
-    assertEquals(page.getMetadata().getKeywordRerank().getOutcome(), "applied");
+    return searcher.getSearchResults(opContext, 5, 10);
   }
 
   @Test
