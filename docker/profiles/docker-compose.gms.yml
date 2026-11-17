@@ -75,6 +75,37 @@ x-datahub-dev-telemetry-env: &datahub-dev-telemetry-env
 x-datahub-dev-aws-env: &datahub-dev-aws-env
   AWS_PROFILE:
   AWS_SDK_LOAD_CONFIG: ${AWS_SDK_LOAD_CONFIG:-1}
+# Host GCP session (Application Default Credentials). Names without a value pass through from the
+# shell and are absent when unset. The images have no gcloud CLI, so the project must be explicit.
+x-datahub-dev-gcp-env: &datahub-dev-gcp-env
+  CLOUDSDK_ACTIVE_CONFIG_NAME:
+  CLOUDSDK_CORE_PROJECT:
+  GOOGLE_CLOUD_PROJECT:
+  GOOGLE_APPLICATION_CREDENTIALS:
+# Vertex embedding provider settings. Every Java service that scans the embedding factory (GMS,
+# system-update, MAE, MCE) builds the provider at startup, and Vertex resolves Application Default
+# Credentials and needs a project then, so each of them gets the GCP session above and these names.
+# No compose default: the location falls back to us-east1 in application.yaml.
+x-datahub-dev-vertex-env: &datahub-dev-vertex-env
+  VERTEX_AI_PROJECT_ID:
+  VERTEX_AI_LOCATION:
+# Bedrock embedding region. GMS, system-update, MAE, and MCE all build the embedding provider, so
+# a region set in the shell has to reach every one of them. No compose default: application.yaml
+# falls back through BEDROCK_AWS_REGION, then AWS_REGION, then us-west-2. S3, SQS, and STS read
+# AWS_REGION only, so the Bedrock names do not move them.
+x-datahub-dev-bedrock-region-env: &datahub-dev-bedrock-region-env
+  AWS_REGION:
+  BEDROCK_EMBEDDING_AWS_REGION:
+  BEDROCK_AWS_REGION:
+
+# Host sources are variables so datahub-dev can substitute an empty placeholder when the host has
+# no ~/.aws or ~/.config/gcloud; otherwise Docker creates the missing directory as root.
+x-aws-config-mount: &aws-config-mount "${DATAHUB_DEV_AWS_DIR:-${HOME}/.aws}:/home/datahub/.aws:ro"
+x-aws-sso-cache-mount: &aws-sso-cache-mount "${DATAHUB_DEV_AWS_DIR:-${HOME}/.aws}/sso/cache:/home/datahub/.aws/sso/cache:rw"
+x-gcloud-config-mount: &gcloud-config-mount "${DATAHUB_DEV_GCLOUD_DIR:-${HOME}/.config/gcloud}:/home/datahub/.config/gcloud:ro"
+# An external service-account key, mounted at its host path so GOOGLE_APPLICATION_CREDENTIALS
+# resolves unchanged. Unset, this mounts an empty file instead.
+x-gcp-credentials-file-mount: &gcp-credentials-file-mount "${GOOGLE_APPLICATION_CREDENTIALS:-./empty.env}:${GOOGLE_APPLICATION_CREDENTIALS:-/tmp/gcp-credentials-unset}:ro"
 
 x-localstack-env: &localstack-env
   AWS_ENDPOINT_URL: ${DATAHUB_AWS_ENDPOINT_URL:-http://localstack:4566}
@@ -141,7 +172,7 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
   ports:
     - ${DATAHUB_MAPPED_UPGRADE_DEBUG_PORT:-5003}:5003
   environment: &datahub-system-update-dev-env
-    <<: [*datahub-dev-telemetry-env, *datahub-system-update-env, *datahub-dev-aws-env]
+    <<: [*datahub-dev-telemetry-env, *datahub-system-update-env, *datahub-dev-aws-env, *datahub-dev-gcp-env, *datahub-dev-vertex-env, *datahub-dev-bedrock-region-env]
     REPROCESS_DEFAULT_BROWSE_PATHS_V2: ${REPROCESS_DEFAULT_BROWSE_PATHS_V2:-false}
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5003'
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
@@ -149,8 +180,10 @@ x-datahub-system-update-service-dev: &datahub-system-update-service-dev
     - ../../datahub-upgrade/build/libs/:/datahub/datahub-upgrade/bin/
     - ../../metadata-models/src/main/resources/:/datahub/datahub-gms/resources
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
-    - ${HOME}/.aws:/home/datahub/.aws:ro
-    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+    - *aws-config-mount
+    - *aws-sso-cache-mount
+    - *gcloud-config-mount
+    - *gcp-credentials-file-mount
 
 #################################
 # GMS
@@ -214,7 +247,7 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ${DATAHUB_LOCAL_COMMON_ENV:-empty.env}
     - ${DATAHUB_LOCAL_GMS_ENV:-empty2.env}
   environment: &datahub-gms-dev-env
-    <<: [*datahub-dev-telemetry-env, *datahub-gms-env, *datahub-dev-aws-env]
+    <<: [*datahub-dev-telemetry-env, *datahub-gms-env, *datahub-dev-aws-env, *datahub-dev-gcp-env, *datahub-dev-vertex-env, *datahub-dev-bedrock-region-env]
     JAVA_TOOL_OPTIONS: '-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5001 -Dlogging.appender.debug_file.level=${GMS_LOGGING_APPENDER_DEBUG_FILE_LEVEL:-DEBUG}'
     SEARCH_SERVICE_ENABLE_CACHE: false
     LINEAGE_SEARCH_CACHE_ENABLED: false
@@ -237,8 +270,10 @@ x-datahub-gms-service-dev: &datahub-gms-service-dev
     - ../../metadata-service/war/build/libs/:/datahub/datahub-gms/bin
     - ${HOME}/.datahub/plugins:/etc/datahub/plugins
     - ${HOME}/.datahub/search:/etc/datahub/search
-    - ${HOME}/.aws:/home/datahub/.aws:ro
-    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+    - *aws-config-mount
+    - *aws-sso-cache-mount
+    - *gcloud-config-mount
+    - *gcp-credentials-file-mount
 
 
 #################################
@@ -266,14 +301,20 @@ x-datahub-mae-consumer-service: &datahub-mae-consumer-service
 x-datahub-mae-consumer-service-dev: &datahub-mae-consumer-service-dev
   <<: *datahub-mae-consumer-service
   image: ${DATAHUB_MAE_CONSUMER_IMAGE:-${DATAHUB_REPO:-acryldata}/datahub-mae-consumer}:${DATAHUB_MAE_VERSION:-${DATAHUB_VERSION:-debug}}
+  # The host session reaches object storage (DATAHUB_OBJECT_STORAGE_URI on s3:// or gs://). The
+  # consumer also builds the embedding provider at startup, which is why it gets the Vertex settings.
   environment: &datahub-mae-consumer-dev-env
-    <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env]
+    <<: [*datahub-dev-telemetry-env, *datahub-mae-consumer-env, *datahub-dev-aws-env, *datahub-dev-gcp-env, *datahub-dev-vertex-env, *datahub-dev-bedrock-region-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
   volumes:
     - ./datahub-mae-consumer/start.sh:/datahub/datahub-mae-consumer/scripts/start.sh
     - ../../metadata-models/src/main/resources/:/datahub/datahub-mae-consumer/resources
     - ../../metadata-jobs/mae-consumer-job/build/libs/:/datahub/datahub-mae-consumer/bin/
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mae-consumer/scripts/prometheus-config.yaml
+    - *aws-config-mount
+    - *aws-sso-cache-mount
+    - *gcloud-config-mount
+    - *gcp-credentials-file-mount
 
 #################################
 # MCE Consumer
@@ -306,13 +347,16 @@ x-datahub-mce-consumer-service-dev: &datahub-mce-consumer-service-dev
     - ${DATAHUB_MAPPED_MCE_CONSUMER_PORT:-9090}:9090
     - ${DATAHUB_MAPPED_MCE_DEBUG_PORT:-5009}:5009
   environment: &datahub-mce-consumer-env-dev
-    <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env]
+    <<: [*datahub-dev-telemetry-env, *datahub-mce-consumer-env, *datahub-dev-gcp-env, *datahub-dev-vertex-env, *datahub-dev-bedrock-region-env]
     ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
     JAVA_TOOL_OPTIONS: "-agentlib:jdwp=transport=dt_socket,server=y,suspend=n,address=*:5009"
   volumes:
     - ./datahub-mce-consumer/start.sh:/datahub/datahub-mce-consumer/scripts/start.sh
     - ../../metadata-jobs/mce-consumer-job/build/libs/:/datahub/datahub-mce-consumer/bin
     - ./monitoring/client-prometheus-config.yaml:/datahub/datahub-mce-consumer/scripts/prometheus-config.yaml
+    # GCP only: the consumer builds the embedding provider at startup, so Vertex needs ADC.
+    - *gcloud-config-mount
+    - *gcp-credentials-file-mount
 
 services:
   #################################
@@ -447,7 +491,9 @@ services:
   system-update-debug-aws: &system-update-debug-aws
     <<: *datahub-system-update-service-dev
     environment:
-      <<: [*datahub-system-update-dev-env, *localstack-env]
+      # LocalStack first: in a merge list the first mapping wins, so its endpoint, keys, and region
+      # beat the host session. Same order as datahub-gms-debug-aws.
+      <<: [*localstack-env, *datahub-system-update-dev-env]
     profiles:
       - debug-backend-aws
       - debug-aws
@@ -538,7 +584,8 @@ services:
     profiles:
       - debug-postgres-cdc
     environment:
-      <<: *system-update-quickstart-postgres-cdc-env
+      # The quickstart CDC env has no host cloud session; add it, since the dev mounts apply here.
+      <<: [*system-update-quickstart-postgres-cdc-env, *datahub-dev-aws-env, *datahub-dev-gcp-env, *datahub-dev-vertex-env, *datahub-dev-bedrock-region-env]
     depends_on:
       postgres:
         condition: service_healthy
@@ -868,7 +915,9 @@ services:
   datahub-mae-consumer-debug-postgres-consumers:
     <<: *datahub-mae-consumer-service-dev
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env]
+      # Postgres first so its datasource keys win over the MySQL ones inside the dev env; the dev env
+      # carries the host cloud session, which a standalone environment: block would drop.
+      <<: [*primary-datastore-postgres-env, *datahub-mae-consumer-dev-env]
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}
       DATAHUB_MESSAGING_TRANSPORT: ${DATAHUB_MESSAGING_TRANSPORT:-pgqueue}
       MCL_CONSUMER_BATCH_ENABLED: ${MCL_CONSUMER_BATCH_ENABLED:-true}
@@ -951,7 +1000,9 @@ services:
   datahub-mce-consumer-debug-postgres-consumers:
     <<: *datahub-mce-consumer-service-dev
     environment:
-      <<: [*primary-datastore-postgres-env, *graph-datastore-search-env, *search-datastore-env, *datahub-dev-telemetry-env, *kafka-env, *datahub-common-env, *datahub-authentication-env]
+      # Postgres first so its datasource keys win over the MySQL ones inside the dev env; the dev env
+      # carries the GCP session and Vertex settings, which a standalone environment: block would drop.
+      <<: [*primary-datastore-postgres-env, *datahub-mce-consumer-env-dev]
       ALTERNATE_MCP_VALIDATION: ${ALTERNATE_MCP_VALIDATION:-true}
       STRICT_URN_VALIDATION_ENABLED: ${STRICT_URN_VALIDATION_ENABLED:-true}
       ENTITY_VERSIONING_ENABLED: ${ENTITY_VERSIONING_ENABLED:-true}

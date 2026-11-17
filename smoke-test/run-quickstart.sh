@@ -4,12 +4,15 @@ set -euxo pipefail
 DIR="$( cd "$( dirname "${BASH_SOURCE[0]}" )" >/dev/null 2>&1 && pwd )"
 cd "$DIR"
 
+# installDev (Gradle start-up plus the venv) takes 1-2 min and the containers do
+# not need it, so it runs in the background while compose starts. The venv is
+# activated at the end of this script, which smoke.sh sources.
+install_dev_pid=""
+install_dev_log=""
 if [[ "${SKIP_INSTALL_DEV:-}" != "true" ]]; then
-  ../gradlew :smoke-test:installDev
-  set +x
-  echo "Activating virtual environment"
-  source venv/bin/activate
-  set -x
+  install_dev_log=$(mktemp)
+  ../gradlew :smoke-test:installDev >"$install_dev_log" 2>&1 &
+  install_dev_pid=$!
 fi
 
 mkdir -p ~/.datahub/plugins/frontend/auth/
@@ -25,6 +28,18 @@ DATAHUB_SEARCH_TAG="${DATAHUB_SEARCH_TAG:=2.19.3}"
 XPACK_SECURITY_ENABLED="${XPACK_SECURITY_ENABLED:=plugins.security.disabled=true}"
 ELASTICSEARCH_USE_SSL="${ELASTICSEARCH_USE_SSL:=false}"
 USE_AWS_ELASTICSEARCH="${USE_AWS_ELASTICSEARCH:=true}"
+
+# Env applied to every service, including the standalone MAE/MCE consumers
+export DATAHUB_LOCAL_COMMON_ENV="${DATAHUB_LOCAL_COMMON_ENV:-$(pwd)/smoke.common.env}"
+
+# Usage-aggregation metrics tests wait for the next flush, so each one waited up to a
+# full interval (compose default 30s). Exported rather than put in smoke.common.env:
+# the compose file sets this key under `environment:`, which overrides env_file.
+export USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS="${USAGE_AGGREGATION_FLUSH_INTERVAL_SECONDS:-5}"
+
+# POLICY_CACHE_REFRESH_INTERVAL_SECONDS is 2 below, not the 120s default. Creating a policy
+# refreshes GMS's policy cache before the new policy is searchable, so the grant only takes
+# effect at the next scheduled refresh, and every policy test polls until then.
 
 quickstart_compose() {
   THEME_V2_DEFAULT=false \
@@ -42,7 +57,7 @@ quickstart_compose() {
   ELASTICSEARCH_INDEX_BUILDER_REFRESH_INTERVAL_SECONDS=1 \
   ELASTICSEARCH_INDEX_REFRESH_INTERVAL_TIMESERIES_SECONDS=1 \
   KAFKA_LISTENER_CONCURRENCY=3 \
-  POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10 \
+  POLICY_CACHE_REFRESH_INTERVAL_SECONDS=2 \
   DATAHUB_ACTIONS_IMAGE=acryldata/datahub-actions \
   DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${DATAHUB_TOKEN_SERVICE_SIGNING_KEY} \
   DATAHUB_TOKEN_SERVICE_SALT=${DATAHUB_TOKEN_SERVICE_SALT} \
@@ -105,3 +120,17 @@ done
 
 quickstart_compose up -d --quiet-pull --wait --wait-timeout 900
 
+if [[ -n "$install_dev_pid" ]]; then
+  install_dev_rc=0
+  wait "$install_dev_pid" || install_dev_rc=$?
+  cat "$install_dev_log"
+  rm -f "$install_dev_log"
+  if [[ "$install_dev_rc" -ne 0 ]]; then
+    echo "ERROR: :smoke-test:installDev failed with exit code $install_dev_rc" >&2
+    exit "$install_dev_rc"
+  fi
+  set +x
+  echo "Activating virtual environment"
+  source venv/bin/activate
+  set -x
+fi

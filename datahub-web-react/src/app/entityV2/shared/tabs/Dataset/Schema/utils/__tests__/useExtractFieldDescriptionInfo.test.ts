@@ -1,7 +1,6 @@
-import { renderHook } from '@testing-library/react-hooks';
-
 import { buildEditableSchemaFieldInfoMaps } from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useEditableSchemaFieldInfoMaps';
 import useExtractFieldDescriptionInfo from '@app/entityV2/shared/tabs/Dataset/Schema/utils/useExtractFieldDescriptionInfo';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EditableSchemaMetadata, EntityType, SchemaField, SchemaFieldDataType } from '@types';
 
@@ -349,7 +348,7 @@ describe('useExtractFieldDescriptionInfo', () => {
     });
 
     describe('return value consistency', () => {
-        it('should return a new function reference on re-renders even when inputs do not change', () => {
+        it('should keep the same function reference on re-renders when inputs do not change', () => {
             const { result, rerender } = renderHook(({ metadata }) => useExtractFieldDescriptionInfo(metadata), {
                 initialProps: { metadata: mockEditableSchemaMetadata },
             });
@@ -360,8 +359,8 @@ describe('useExtractFieldDescriptionInfo', () => {
 
             const secondFunction = result.current;
 
-            // React hooks create new function instances on each render
-            expect(firstFunction).not.toBe(secondFunction);
+            // Stable while inputs are unchanged, so memoized schema table cells skip re-rendering.
+            expect(firstFunction).toBe(secondFunction);
         });
 
         it('should return a new function reference when editableSchemaMetadata changes', () => {

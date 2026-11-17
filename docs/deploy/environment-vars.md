@@ -26,19 +26,21 @@ Reference Links:
 
 ### Authentication Configuration
 
-| Environment Variable                                | Default                              | Description                                                                                                      | Components                                                      |
-| --------------------------------------------------- | ------------------------------------ | ---------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
-| `METADATA_SERVICE_AUTH_ENABLED`                     | `true`                               | Enable if you want all requests to the Metadata Service to be authenticated                                      | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
-| `DATAHUB_SYSTEM_CLIENT_SECRET`                      |                                      | System client secret used by AuthServiceController                                                               | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
-| `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`                              | Normally failures are only warnings, enable this to throw them                                                   | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`                              | Key used to validate incoming tokens and sign new tokens                                                         | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`                              | Salt used for token validation and signing                                                                       | GMS                                                             |
-| `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`                              | Signing algorithm for DataHub tokens                                                                             | GMS                                                             |
-| `SESSION_TOKEN_DURATION_MS`                         | `86400000`                           | The max duration of a UI session in milliseconds (defaults to 1 day)                                             | GMS                                                             |
-| `ACCESS_TOKEN_ALLOW_NO_EXPIRY`                      | `false`                              | When true, allow creating personal/service access tokens with no expiry (`NO_EXPIRY`)                            | GMS                                                             |
-| `ACCESS_TOKEN_ALLOWED_DURATIONS`                    | `PT1H,P1D,P7D,P30D,P90D,P180D,P365D` | Comma-separated ISO-8601 durations allowed when creating access tokens (create-time only; `P1M`=30d, `P1Y`=365d) | GMS                                                             |
-| `GUEST_AUTHENTICATION_USER`                         | `guest`                              | Guest user for unauthenticated access                                                                            | GMS                                                             |
-| `GUEST_AUTHENTICATION_ENABLED`                      | `false`                              | Enable guest authentication                                                                                      | GMS                                                             |
+| Environment Variable                                | Default                              | Description                                                                                                       | Components                                                      |
+| --------------------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- | --------------------------------------------------------------- |
+| `METADATA_SERVICE_AUTH_ENABLED`                     | `true`                               | Enable if you want all requests to the Metadata Service to be authenticated                                       | GMS, MAE Consumer, MCE Consumer, PE Consumer, Frontend          |
+| `DATAHUB_SYSTEM_CLIENT_SECRET`                      |                                      | System client secret used by AuthServiceController                                                                | GMS, MAE Consumer, MCE Consumer, PE Consumer, Actions, Frontend |
+| `METADATA_SERVICE_AUTHENTICATOR_EXCEPTIONS_ENABLED` | `false`                              | Normally failures are only warnings, enable this to throw them                                                    | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_KEY`                 | `Empty`                              | Key used to validate incoming tokens and sign new tokens                                                          | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SALT`                        | `Empty`                              | Salt used for token validation and signing                                                                        | GMS                                                             |
+| `DATAHUB_TOKEN_SERVICE_SIGNING_ALGORITHM`           | `HS256`                              | Signing algorithm for DataHub tokens                                                                              | GMS                                                             |
+| `SESSION_TOKEN_DURATION_MS`                         | `86400000`                           | The max duration of a UI session in milliseconds (defaults to 1 day)                                              | GMS                                                             |
+| `ACCESS_TOKEN_ALLOW_NO_EXPIRY`                      | `false`                              | When true, allow creating personal/service access tokens with no expiry (`NO_EXPIRY`)                             | GMS                                                             |
+| `ACCESS_TOKEN_ALLOWED_DURATIONS`                    | `PT1H,P1D,P7D,P30D,P90D,P180D,P365D` | Comma-separated ISO-8601 durations allowed when creating access tokens (create-time only; `P1M`=30d, `P1Y`=365d)  | GMS                                                             |
+| `AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS`              | `3`                                  | `Retry-After` (seconds) on the 503 returned when a token cannot be checked because the token store is unavailable | GMS                                                             |
+| `AUTH_UNAVAILABLE_RETRY_AFTER_JITTER_PERCENT`       | `50`                                 | Random extra delay added to that `Retry-After`, as a percentage of it (0-100)                                     | GMS                                                             |
+| `GUEST_AUTHENTICATION_USER`                         | `guest`                              | Guest user for unauthenticated access                                                                             | GMS                                                             |
+| `GUEST_AUTHENTICATION_ENABLED`                      | `false`                              | Enable guest authentication                                                                                       | GMS                                                             |
 
 ### Authorization Configuration
 
@@ -64,11 +66,12 @@ Reference Links:
 - **CLI Configuration**: [CLI Documentation](../cli.md)
 - **DataHub Actions**: [Actions Documentation](../actions/README.md)
 
-| Environment Variable                        | Default | Description                                                                                      | Components        |
-| ------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------ | ----------------- |
-| `UI_INGESTION_ENABLED`                      | `true`  | Enable UI-based ingestion                                                                        | GMS, MAE Consumer |
-| `INGESTION_BATCH_REFRESH_COUNT`             | `100`   | Number of entities to refresh in a single batch when refreshing entities after ingestion         | GMS               |
-| `INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS` | `43200` | Interval at which the ingestion source scheduler will check for new or updated ingestion sources | GMS               |
+| Environment Variable                        | Default | Description                                                                                                                                                                         | Components        |
+| ------------------------------------------- | ------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ----------------- |
+| `UI_INGESTION_ENABLED`                      | `true`  | Enable UI-based ingestion                                                                                                                                                           | GMS, MAE Consumer |
+| `INGESTION_BATCH_REFRESH_COUNT`             | `100`   | Number of entities to refresh in a single batch when refreshing entities after ingestion                                                                                            | GMS               |
+| `INGESTION_SOURCE_REFRESH_INTERVAL_SECONDS` | `43200` | Interval at which the ingestion source scheduler will check for new or updated ingestion sources                                                                                    | GMS               |
+| `DATAHUB_KAFKA_AUTO_REGISTER_SCHEMAS`       | `true`  | Whether Python Kafka emitters and sinks register MCE/MCP schemas with the Schema Registry. Set to `false` for a read-only Schema Registry; the schemas must then be pre-registered. | Python Ingestion  |
 
 ## Telemetry & Analytics
 

@@ -1,11 +1,11 @@
 import { Tooltip } from '@components';
 import { Typography } from 'antd';
 import React from 'react';
-import Highlight from 'react-highlighter';
 import styled, { useTheme } from 'styled-components';
 
 import StructuredPropertyTooltip from '@app/entityV2/shared/tabs/Properties/StructuredPropertyTooltip';
 import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
+import Highlight from '@app/sharedV2/text/Highlight';
 
 const MIN_CONTENT = 'min-content' as const;
 

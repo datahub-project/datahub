@@ -1,9 +1,9 @@
 import { toast } from '@components';
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import analytics, { EventType } from '@app/analytics';
 import { useUndeprecateResource } from '@app/entityV2/shared/EntityDropdown/useUndeprecateResource';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SubResourceType } from '@types';
 

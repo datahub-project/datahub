@@ -53,14 +53,23 @@ repos:
 
       - id: java-spotless
         name: Spotless Apply (matching Java projects)
-        entry: python3 .github/scripts/pre-commit/run_spotless.py --projects datahub-frontend,datahub-graphql-core,datahub-upgrade,entity-registry,ingestion-scheduler,li-utils,metadata-auth/auth-api,metadata-dao-impl/kafka-producer,metadata-events/mxe-registration,metadata-events/mxe-utils-avro,metadata-integration/java/acryl-spark-lineage,metadata-integration/java/datahub-client,metadata-integration/java/datahub-event,metadata-integration/java/datahub-protobuf,metadata-integration/java/datahub-schematron/cli,metadata-integration/java/datahub-schematron/lib,metadata-integration/java/examples,metadata-integration/java/openlineage-converter,metadata-io,metadata-io/metadata-io-api,metadata-jobs/common,metadata-jobs/mae-consumer,metadata-jobs/mae-consumer-job,metadata-jobs/mce-consumer,metadata-jobs/mce-consumer-job,metadata-jobs/pe-consumer,metadata-models,metadata-models-custom,metadata-models-validator,metadata-operation-context,metadata-service/auth-config,metadata-service/auth-filter,metadata-service/auth-impl,metadata-service/auth-servlet-impl,metadata-service/configuration,metadata-service/events-service,metadata-service/factories,metadata-service/graphql-servlet-impl,metadata-service/iceberg-catalog,metadata-service/openapi-analytics-servlet,metadata-service/openapi-entity-servlet,metadata-service/openapi-entity-servlet/generators,metadata-service/openapi-servlet,metadata-service/openapi-servlet/models,metadata-service/plugin,metadata-service/plugin/src/test/sample-test-plugins,metadata-service/rate-limit,metadata-service/restli-client,metadata-service/restli-client-api,metadata-service/restli-servlet-impl,metadata-service/schema-registry-api,metadata-service/schema-registry-servlet,metadata-service/services,metadata-service/servlet,metadata-service/war,metadata-utils,mock-entity-registry,test-models
+        entry: python3 .github/scripts/pre-commit/run_spotless.py --projects datahub-frontend,datahub-graphql-core,datahub-upgrade,entity-registry,ingestion-scheduler,li-utils,metadata-auth/auth-api,metadata-dao-impl/kafka-producer,metadata-events/mxe-registration,metadata-events/mxe-utils-avro,metadata-integration/java/acryl-spark-lineage,metadata-integration/java/datahub-client,metadata-integration/java/datahub-event,metadata-integration/java/datahub-protobuf,metadata-integration/java/datahub-schematron/cli,metadata-integration/java/datahub-schematron/lib,metadata-integration/java/examples,metadata-integration/java/openlineage-converter,metadata-io,metadata-io/metadata-io-api,metadata-jobs/common,metadata-jobs/mae-consumer,metadata-jobs/mae-consumer-job,metadata-jobs/mce-consumer,metadata-jobs/mce-consumer-job,metadata-jobs/pe-consumer,metadata-models,metadata-models-custom,metadata-models-validator,metadata-operation-context,metadata-service/auth-config,metadata-service/auth-filter,metadata-service/auth-impl,metadata-service/auth-servlet-impl,metadata-service/configuration,metadata-service/events-service,metadata-service/factories,metadata-service/graphql-servlet-impl,metadata-service/iceberg-catalog,metadata-service/openapi-analytics-servlet,metadata-service/openapi-entity-servlet,metadata-service/openapi-entity-servlet/generators,metadata-service/openapi-servlet,metadata-service/openapi-servlet/models,metadata-service/opensearch-embedded,metadata-service/plugin,metadata-service/plugin/src/test/sample-test-plugins,metadata-service/rate-limit,metadata-service/restli-client,metadata-service/restli-client-api,metadata-service/restli-servlet-impl,metadata-service/schema-registry-api,metadata-service/schema-registry-servlet,metadata-service/services,metadata-service/servlet,metadata-service/war,metadata-utils,mock-entity-registry,test-models,wiring-coverage
           --
         language: system
-        files: ^(datahub\-frontend|datahub\-graphql\-core|datahub\-upgrade|entity\-registry|ingestion\-scheduler|li\-utils|metadata\-auth/auth\-api|metadata\-dao\-impl/kafka\-producer|metadata\-events/mxe\-registration|metadata\-events/mxe\-utils\-avro|metadata\-integration/java/acryl\-spark\-lineage|metadata\-integration/java/datahub\-client|metadata\-integration/java/datahub\-event|metadata\-integration/java/datahub\-protobuf|metadata\-integration/java/datahub\-schematron/cli|metadata\-integration/java/datahub\-schematron/lib|metadata\-integration/java/examples|metadata\-integration/java/openlineage\-converter|metadata\-io|metadata\-io/metadata\-io\-api|metadata\-jobs/common|metadata\-jobs/mae\-consumer|metadata\-jobs/mae\-consumer\-job|metadata\-jobs/mce\-consumer|metadata\-jobs/mce\-consumer\-job|metadata\-jobs/pe\-consumer|metadata\-models|metadata\-models\-custom|metadata\-models\-validator|metadata\-operation\-context|metadata\-service/auth\-config|metadata\-service/auth\-filter|metadata\-service/auth\-impl|metadata\-service/auth\-servlet\-impl|metadata\-service/configuration|metadata\-service/events\-service|metadata\-service/factories|metadata\-service/graphql\-servlet\-impl|metadata\-service/iceberg\-catalog|metadata\-service/openapi\-analytics\-servlet|metadata\-service/openapi\-entity\-servlet|metadata\-service/openapi\-entity\-servlet/generators|metadata\-service/openapi\-servlet|metadata\-service/openapi\-servlet/models|metadata\-service/plugin|metadata\-service/plugin/src/test/sample\-test\-plugins|metadata\-service/rate\-limit|metadata\-service/restli\-client|metadata\-service/restli\-client\-api|metadata\-service/restli\-servlet\-impl|metadata\-service/schema\-registry\-api|metadata\-service/schema\-registry\-servlet|metadata\-service/services|metadata\-service/servlet|metadata\-service/war|metadata\-utils|mock\-entity\-registry|test\-models)/.*\.java$
+        files: ^(datahub\-frontend|datahub\-graphql\-core|datahub\-upgrade|entity\-registry|ingestion\-scheduler|li\-utils|metadata\-auth/auth\-api|metadata\-dao\-impl/kafka\-producer|metadata\-events/mxe\-registration|metadata\-events/mxe\-utils\-avro|metadata\-integration/java/acryl\-spark\-lineage|metadata\-integration/java/datahub\-client|metadata\-integration/java/datahub\-event|metadata\-integration/java/datahub\-protobuf|metadata\-integration/java/datahub\-schematron/cli|metadata\-integration/java/datahub\-schematron/lib|metadata\-integration/java/examples|metadata\-integration/java/openlineage\-converter|metadata\-io|metadata\-io/metadata\-io\-api|metadata\-jobs/common|metadata\-jobs/mae\-consumer|metadata\-jobs/mae\-consumer\-job|metadata\-jobs/mce\-consumer|metadata\-jobs/mce\-consumer\-job|metadata\-jobs/pe\-consumer|metadata\-models|metadata\-models\-custom|metadata\-models\-validator|metadata\-operation\-context|metadata\-service/auth\-config|metadata\-service/auth\-filter|metadata\-service/auth\-impl|metadata\-service/auth\-servlet\-impl|metadata\-service/configuration|metadata\-service/events\-service|metadata\-service/factories|metadata\-service/graphql\-servlet\-impl|metadata\-service/iceberg\-catalog|metadata\-service/openapi\-analytics\-servlet|metadata\-service/openapi\-entity\-servlet|metadata\-service/openapi\-entity\-servlet/generators|metadata\-service/openapi\-servlet|metadata\-service/openapi\-servlet/models|metadata\-service/opensearch\-embedded|metadata\-service/plugin|metadata\-service/plugin/src/test/sample\-test\-plugins|metadata\-service/rate\-limit|metadata\-service/restli\-client|metadata\-service/restli\-client\-api|metadata\-service/restli\-servlet\-impl|metadata\-service/schema\-registry\-api|metadata\-service/schema\-registry\-servlet|metadata\-service/services|metadata\-service/servlet|metadata\-service/war|metadata\-utils|mock\-entity\-registry|test\-models|wiring\-coverage)/.*\.java$
         pass_filenames: true
         require_serial: true
         stages:
           - pre-push
+
+      - id: gms-lite-python
+        name: GMS-lite Python lint and format
+        entry: ./gradlew :metadata-service:gms-lite:lintFix -x generateGitPropertiesGlobal
+        language: system
+        files: ^metadata-service/gms-lite/.*\.(py|toml)$
+        pass_filenames: false
+        stages:
+          - pre-commit
 
       - id: guard-push-file-count
         name: Guard against massive pushes (>500 files)
@@ -109,15 +118,15 @@ repos:
         stages:
           - pre-commit
 
-      - id: actionlint-docker
+      - id: actionlint
         name: Lint GitHub Actions workflow files
-        description: Runs actionlint Docker image to lint GitHub Actions workflow
-          files
-        language: docker_image
+        description: Runs the pinned actionlint, locally when installed (mise) or
+          via Docker
+        language: system
         types:
           - yaml
         files: ^\.github/workflows/
-        entry: docker.io/rhysd/actionlint:1.7.11
+        entry: bash .github/scripts/pre-commit/run_actionlint.sh
         stages:
           - pre-commit
 
@@ -186,7 +195,7 @@ repos:
           describe runs a chain step without its predecessors
         entry: python3 .github/scripts/check_playwright_p0.py
         language: system
-        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/check_playwright_p0\.py)$
+        files: ^(e2e-test/ui/playwright/tests/.*\.spec\.ts|\.github/scripts/(check_playwright_p0|plan_playwright_tier)\.py)$
         pass_filenames: false
         stages:
           - pre-commit

@@ -1,9 +1,10 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { renderHook } from '@testing-library/react-hooks';
+import { waitFor } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it, vi } from 'vitest';
 
 import useGroupMembers, { HOVER_CARD_MEMBER_LIMIT } from '@app/sharedV2/hoverCard/useGroupMembers';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetGroupHoverCardMembersDocument, useGetGroupHoverCardMembersQuery } from '@graphql/group.generated';
 import { CorpGroup, CorpUser, Entity, EntityType } from '@types';
@@ -73,9 +74,7 @@ function renderUseGroupMembers(entity: Entity, mocks: MockedResponse[]) {
 describe('useGroupMembers', () => {
     it('fetches the total and first members of a group', async () => {
         const { mock } = membersMock(GROUP_URN, 7, ['alice', 'bob']);
-        const { result, waitFor } = renderUseGroupMembers({ urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup, [
-            mock,
-        ]);
+        const { result } = renderUseGroupMembers({ urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup, [mock]);
 
         expect(result.current.total).toBeUndefined();
         await waitFor(() => expect(result.current.total).toBe(7));
@@ -84,7 +83,7 @@ describe('useGroupMembers', () => {
 
     it('shows a total the group was loaded with until the fetch lands', async () => {
         const { mock } = membersMock(GROUP_URN, 7, ['alice']);
-        const { result, waitFor } = renderUseGroupMembers(
+        const { result } = renderUseGroupMembers(
             { urn: GROUP_URN, type: EntityType.CorpGroup, memberCount: { total: 6 } } as unknown as CorpGroup,
             [mock],
         );
@@ -114,7 +113,7 @@ describe('useGroupMembers', () => {
     it("never shows one group's members on another group while that group's members load", async () => {
         const { mock: firstGroup } = membersMock(GROUP_URN, 5, ['alice']);
         const { mock: secondGroup } = membersMock(OTHER_GROUP_URN, 9, ['carol'], 20);
-        const { result, waitFor, rerender } = renderUseGroupMembers(
+        const { result, rerender } = renderUseGroupMembers(
             { urn: GROUP_URN, type: EntityType.CorpGroup } as CorpGroup,
             [firstGroup, secondGroup],
         );

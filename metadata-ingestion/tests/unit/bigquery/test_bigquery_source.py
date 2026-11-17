@@ -2,7 +2,7 @@ import logging
 import re
 from datetime import datetime, timedelta, timezone
 from types import SimpleNamespace
-from typing import Any, Dict, List, Optional, cast
+from typing import Any, Dict, Iterator, List, Optional, Tuple, cast
 from unittest.mock import MagicMock, Mock, patch
 
 import pytest
@@ -37,6 +37,7 @@ from datahub.ingestion.source.bigquery_v2.bigquery_queries import (
 from datahub.ingestion.source.bigquery_v2.bigquery_report import BigQueryV2Report
 from datahub.ingestion.source.bigquery_v2.bigquery_schema import (
     _LIST_TABLES_PAGE_SIZE,
+    BigqueryColumn,
     BigqueryDataset,
     BigqueryProject,
     BigQuerySchemaApi,
@@ -80,6 +81,8 @@ from datahub.metadata.schema_classes import (
 )
 from datahub.sql_parsing.schema_resolver import SchemaResolver
 from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
+from datahub.utilities.file_backed_collections import FileBackedDict
+from tests.unit.bigquery.query_result_fakes import FakeResultPage
 
 FROZEN_TIME = "2022-02-03 07:00:00"
 
@@ -575,6 +578,13 @@ def test_gen_table_dataset_workunits(
     assert len(mcps) >= 7
 
 
+def _query_result(items: list[Any]) -> MagicMock:
+    rows = MagicMock()
+    rows.total_rows = len(items)
+    rows.pages = [FakeResultPage(items)]
+    return rows
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 @patch.object(BigQueryV2Config, "get_bigquery_client")
 @patch.object(BigQueryV2Config, "get_projects_client")
@@ -622,11 +632,11 @@ def test_get_datasets_for_project_id_with_timestamps(
     def mock_query(query, location=None, job_retry=None):
         mock_job = MagicMock()
         if location == "US":
-            mock_job.result.return_value = [mock_row_dataset1]
+            mock_job.result.return_value = _query_result([mock_row_dataset1])
         elif location == "EU":
-            mock_job.result.return_value = [mock_row_dataset2]
+            mock_job.result.return_value = _query_result([mock_row_dataset2])
         else:
-            mock_job.result.return_value = []
+            mock_job.result.return_value = _query_result([])
         return mock_job
 
     mock_bq_client.query.side_effect = mock_query
@@ -1430,6 +1440,131 @@ def test_list_tables_uses_large_page_size() -> None:
 
     client.list_tables.assert_called_once()
     assert client.list_tables.call_args.kwargs["page_size"] == _LIST_TABLES_PAGE_SIZE
+
+
+def _column_row(table_name: str, column_name: str, ordinal_position: int) -> Row:
+    values = {
+        "table_catalog": "p",
+        "table_schema": "ds",
+        "table_name": table_name,
+        "column_name": column_name,
+        "ordinal_position": ordinal_position,
+        "field_path": column_name,
+        "policy_tags": None,
+        "is_nullable": "YES",
+        "data_type": "STRING",
+        "comment": None,
+        "is_hidden": "NO",
+        "is_partitioning_column": "NO",
+        "clustering_ordinal_position": None,
+    }
+    return Row(tuple(values.values()), {k: i for i, k in enumerate(values)})
+
+
+def _spy_file_backed_dict() -> Tuple[MagicMock, List[FileBackedDict]]:
+    # Wraps FileBackedDict so tests can assert close() ran (and the temp sqlite
+    # file was released) without reaching into its internals.
+    created: List[FileBackedDict] = []
+
+    def _factory(*args: Any, **kwargs: Any) -> FileBackedDict:
+        inst: FileBackedDict = FileBackedDict(*args, **kwargs)
+        inst.close = MagicMock(wraps=inst.close)  # type: ignore[method-assign]
+        created.append(inst)
+        return inst
+
+    return MagicMock(side_effect=_factory), created
+
+
+def test_get_columns_for_dataset_closes_file_backed_dict_on_query_failure() -> None:
+    # If the column query itself fails we return None, and the file-backed dict's
+    # temp sqlite file must be closed rather than leaked.
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    schema_api.get_query_result = MagicMock(side_effect=Exception("query boom"))  # type: ignore[method-assign]
+
+    spy, created = _spy_file_backed_dict()
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema.FileBackedDict", spy
+    ):
+        result = schema_api.get_columns_for_dataset(
+            project_id="p",
+            dataset_name="ds",
+            column_limit=10,
+            report=BigQueryV2Report(),
+        )
+
+    assert result is None
+    assert len(created) == 1
+    created[0].close.assert_called_once()  # type: ignore[attr-defined]
+
+
+def test_get_columns_for_dataset_closes_file_backed_dict_on_stream_failure() -> None:
+    # A failure while streaming rows (after the dict is allocated) must also close
+    # the temp sqlite file and propagate, since the caller only closes on success.
+    def _raising_rows() -> Iterator[Row]:
+        yield _column_row("t1", "a", 1)
+        raise RuntimeError("stream boom")
+
+    schema_api = BigQuerySchemaApi(
+        report=BigQueryV2Report().schema_api_perf,
+        client=MagicMock(),
+        projects_client=MagicMock(),
+    )
+    schema_api.get_query_result = MagicMock(return_value=_raising_rows())  # type: ignore[method-assign]
+
+    spy, created = _spy_file_backed_dict()
+    with patch(
+        "datahub.ingestion.source.bigquery_v2.bigquery_schema.FileBackedDict", spy
+    ):
+        with pytest.raises(RuntimeError):
+            schema_api.get_columns_for_dataset(
+                project_id="p",
+                dataset_name="ds",
+                column_limit=10,
+                report=BigQueryV2Report(),
+            )
+
+    assert len(created) == 1
+    created[0].close.assert_called_once()  # type: ignore[attr-defined]
+
+
+@patch.object(BigQueryV2Config, "get_bigquery_client")
+@patch.object(BigQueryV2Config, "get_projects_client")
+def test_process_schema_closes_columns_when_processing_raises(
+    get_projects_client: MagicMock, get_bq_client_mock: MagicMock
+) -> None:
+    # _process_schema owns the file-backed column dict and must close it even when a
+    # downstream step (here get_tables_for_dataset) raises.
+    config = BigQueryV2Config.model_validate(
+        {"project_id": "test-project", "include_schema_metadata": True}
+    )
+    source = BigqueryV2Source(config=config, ctx=PipelineContext(run_id="test"))
+    schema_gen = source.bq_schema_extractor
+
+    columns: FileBackedDict[List[BigqueryColumn]] = FileBackedDict(
+        tablename="bigquery_columns", cache_max_size=1
+    )
+    columns.close = MagicMock(wraps=columns.close)  # type: ignore[method-assign]
+    schema_gen.schema_api.get_columns_for_dataset = MagicMock(return_value=columns)  # type: ignore[method-assign]
+    schema_gen.get_tables_for_dataset = MagicMock(  # type: ignore[method-assign]
+        side_effect=RuntimeError("table boom")
+    )
+
+    with pytest.raises(RuntimeError):
+        list(
+            schema_gen._process_schema(
+                project_id="test-project",
+                bigquery_dataset=BigqueryDataset(name="ds"),
+                db_tables={},
+                db_views={},
+                db_snapshots={},
+            )
+        )
+
+    columns.close.assert_called_once()  # type: ignore[attr-defined]
 
 
 def test_tables_for_dataset_with_partition_stats_query_exposes_mapper_aliases() -> None:

@@ -65,6 +65,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # mdPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
@@ -91,6 +92,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # githubActionsPrettierCheck dependsOn yarnInstall (full datahub-web-react deps).
       # Restore ~/.cache/yarn so the install is a warm no-op instead of a cold fetch.
@@ -133,6 +135,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       # Restore-only: this workflow is pull_request-only, so a save here would be
       # ref-scoped to the PR and never shared. The master-scoped entry is written
@@ -195,7 +198,7 @@ jobs:
       issues: write
     steps:
       - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-      - uses: reviewdog/action-actionlint@0d952c597ef8459f634d7145b0b044a9699e5e43 # v1
+      - uses: reviewdog/action-actionlint@619a81ec64ff8c0211cd6146eb2b21e8f1d7f440 # v1
         with:
           reporter: github-pr-review
 
@@ -444,6 +447,7 @@ jobs:
             ${{ runner.os }}-yarn-
       - uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           python: false
       - name: Run lint
         env:

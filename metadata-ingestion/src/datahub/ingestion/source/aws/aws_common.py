@@ -1,4 +1,5 @@
 import logging
+import re
 import threading
 from datetime import datetime, timedelta, timezone
 from enum import Enum
@@ -45,6 +46,12 @@ from datahub.configuration.source_common import EnvConfigMixin
 
 logger = logging.getLogger(__name__)
 
+DEFAULT_MAX_POOL_CONNECTIONS = 25
+
+# Assumed-role credentials are re-assumed once less than this remains before expiry.
+# This buffer avoids credentials expiring between the cache check and the AWS call.
+ASSUMED_ROLE_REFRESH_BUFFER = timedelta(minutes=5)
+
 if TYPE_CHECKING:
     from mypy_boto3_dynamodb import DynamoDBClient
     from mypy_boto3_glue import GlueClient
@@ -72,6 +79,15 @@ class AwsServicePrincipal(Enum):
     ECS = "ecs.amazonaws.com"
     ELASTIC_BEANSTALK = "elasticbeanstalk.amazonaws.com"
     EC2 = "ec2.amazonaws.com"
+
+
+# arn:{partition}:iam::{account}:role/{name}
+ROLE_ARN_PATTERN = re.compile(r"^arn:aws[a-z-]*:iam::(\d{12}):role/.+$")
+
+
+def account_id_from_role_arn(role_arn: str) -> Optional[str]:
+    match = ROLE_ARN_PATTERN.match(role_arn.strip())
+    return match.group(1) if match else None
 
 
 class AwsAssumeRoleConfig(PermissiveConfigModel):
@@ -283,6 +299,8 @@ class AwsConnectionConfig(ConfigModel):
 
     _credentials_expiration: Optional[datetime] = None
     _cached_credentials: Optional[dict] = None
+    # Access key of the assumed-role session the cached S3 clients were built with.
+    _s3_client_cache_access_key: Optional[str] = None
     # boto3 clients are thread-safe (Sessions are not), so cached clients may be
     # shared across threads; only construction is guarded by the lock.
     _s3_client_cache: Dict[Optional[Union[bool, str]], "S3Client"] = PrivateAttr(
@@ -342,7 +360,7 @@ class AwsConnectionConfig(ConfigModel):
 
     aws_advanced_config: Dict[str, Any] = Field(
         default_factory=dict,
-        description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html).",
+        description="Advanced AWS configuration options. These are passed directly to [botocore.config.Config](https://botocore.amazonaws.com/v1/documentation/api/latest/reference/config.html). `max_pool_connections` defaults to 25 rather than botocore's 10; raise it when more threads than that share one client, e.g. dbt `artifact_read_concurrency` above 25.",
     )
 
     def allowed_cred_refresh(self) -> bool:
@@ -361,6 +379,16 @@ class AwsConnectionConfig(ConfigModel):
                 AwsAssumeRoleConfig(RoleArn=role) if isinstance(role, str) else role
                 for role in self.aws_role
             ]
+
+    def with_chained_role(self, role: AwsAssumeRoleConfig) -> "AwsConnectionConfig":
+        """A copy that assumes ``role`` after this config's own roles.
+
+        Built from the set fields rather than with model_copy, which would share
+        the cached credentials and S3 clients of this config.
+        """
+        fields = {name: getattr(self, name) for name in self.model_fields_set}
+        fields["aws_role"] = [*self._normalized_aws_roles(), role]
+        return AwsConnectionConfig.model_validate(fields)
 
     def get_session(self) -> Session:
         if self.aws_access_key_id and self.aws_secret_access_key:
@@ -454,11 +482,8 @@ class AwsConnectionConfig(ConfigModel):
     def _should_refresh_credentials(self) -> bool:
         if self._credentials_expiration is None:
             return True
-        # Refresh credentials when less than 5 minutes remain before expiration.
-        # This buffer helps avoid race conditions where credentials expire between
-        # the cache check and actual AWS API usage.
         remaining_time = self._credentials_expiration - datetime.now(timezone.utc)
-        return remaining_time < timedelta(minutes=5)
+        return remaining_time < ASSUMED_ROLE_REFRESH_BUFFER
 
     def get_credentials(self) -> Dict[str, Optional[str]]:
         credentials = self.get_session().get_credentials()
@@ -471,6 +496,9 @@ class AwsConnectionConfig(ConfigModel):
         return {}
 
     def _aws_config(self) -> Config:
+        advanced_config = dict(self.aws_advanced_config)
+        # User-supplied aws_advanced_config wins if it sets max_pool_connections.
+        advanced_config.setdefault("max_pool_connections", DEFAULT_MAX_POOL_CONNECTIONS)
         return Config(
             proxies=self.aws_proxy,
             read_timeout=self.read_timeout,
@@ -478,7 +506,7 @@ class AwsConnectionConfig(ConfigModel):
                 "max_attempts": self.aws_retry_num,
                 "mode": self.aws_retry_mode,
             },
-            **self.aws_advanced_config,
+            **advanced_config,
         )
 
     def get_s3_client(
@@ -497,18 +525,33 @@ class AwsConnectionConfig(ConfigModel):
             # it rather than on aws_role merely being configured, else a role that
             # matches the ambient identity (never assumed, so no expiry recorded)
             # would rebuild the client on every call.
-            if (
-                self._cached_credentials is not None
-                and self._should_refresh_credentials()
+            # Another client getter (e.g. get_glue_client) may already have
+            # re-assumed the role through get_session, which swaps
+            # _cached_credentials and pushes the expiry out; the cached clients
+            # still hold the old keys then, so compare against the key they were
+            # built with. Dropped clients aren't closed: other threads may still
+            # be mid-request on them.
+            if self._cached_credentials is not None and (
+                self._should_refresh_credentials()
+                or self._cached_credentials.get("AccessKeyId")
+                != self._s3_client_cache_access_key
             ):
                 self._s3_client_cache.clear()
             if verify_ssl not in self._s3_client_cache:
-                self._s3_client_cache[verify_ssl] = self.get_session().client(
+                session = self.get_session()
+                self._s3_client_cache[verify_ssl] = session.client(
                     "s3",
                     endpoint_url=self.aws_endpoint_url,
                     config=self._aws_config(),
                     verify=verify_ssl,
                 )
+                if self._cached_credentials is not None:
+                    # Read from the session itself: another getter can swap
+                    # _cached_credentials while this client is being built.
+                    credentials = session.get_credentials()
+                    self._s3_client_cache_access_key = (
+                        credentials.access_key if credentials else None
+                    )
             return self._s3_client_cache[verify_ssl]
 
     def close_cached_s3_clients(self) -> None:
