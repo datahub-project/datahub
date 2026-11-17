@@ -13,27 +13,29 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 from datahub.ingestion.graph.filters import RemovedStatusFilter
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
-from datahub.ingestion.source.github_documents.github_api import (
-    make_dir_source_id,
-    make_file_source_id,
-    make_repo_source_id,
-    normalize_document_id,
-)
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
 from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
-    compute_file_content_hash,
-    compute_source_hash,
 )
 from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 from datahub.ingestion.source.repository_documents.okf_frontmatter import (
     parse_okf_frontmatter,
 )
 from datahub.ingestion.source.repository_documents.okf_mapping import MAPPING_VERSION
+from datahub.ingestion.source.repository_documents.paths import (
+    make_dir_source_id,
+    make_file_source_id,
+    make_repo_source_id,
+    normalize_document_id,
+)
 from datahub.ingestion.source.repository_documents.report import (
     RepositoryDocumentsSourceReport,
+)
+from datahub.ingestion.source.repository_documents.source import (
+    compute_file_content_hash,
+    compute_source_hash,
 )
 from datahub.metadata.schema_classes import (
     AuditStampClass,
@@ -356,7 +358,7 @@ def test_failed_download_without_graph_keeps_a_checkpointed_import(
     source.ctx.graph = None
     canonical_urn = (
         "urn:li:document:"
-        f"{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md'))}"
+        f"{normalize_document_id(make_file_source_id('acme/docs', 'docs/readme.md', source_prefix='github'))}"
     )
     handler = source.stale_entity_removal_handler
     handler.checkpointing_enabled = True
@@ -584,9 +586,13 @@ def test_nested_file_hierarchy_links_parent_documents(
     urns = _entity_urns_by_source_id(workunits)
     infos = _document_infos_by_source_id(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    guides_dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/setup.md", source_prefix="github"
+    )
 
     repo_info = infos[repo_source_id]
     guides_info = infos[guides_dir_source_id]
@@ -612,8 +618,10 @@ def test_top_level_file_parent_is_repo_root(source: GitHubDocumentsSource) -> No
     urns = _entity_urns_by_source_id(workunits)
     infos = _document_infos_by_source_id(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    file_source_id = make_file_source_id(owner_repo, "docs/readme.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/readme.md", source_prefix="github"
+    )
 
     file_parent = infos[file_source_id].parentDocument
     assert file_parent is not None
@@ -636,7 +644,9 @@ def test_configured_parent_document_urn_used_for_top_level_files() -> None:
 
     workunits = list(source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
 
     configured_parent = infos[file_source_id].parentDocument
     assert configured_parent is not None
@@ -654,9 +664,13 @@ def test_browse_path_emitted_for_nested_file(source: GitHubDocumentsSource) -> N
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
-    guides_dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
+    guides_dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Default flow: the repo-root document provides the repo entry (clickable),
@@ -679,7 +693,7 @@ def test_browse_path_not_emitted_for_repo_root(source: GitHubDocumentsSource) ->
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id(owner_repo)
+    repo_source_id = make_repo_source_id(owner_repo, source_prefix="github")
     # Repo-root document has no ancestors (org disabled), so no browse path.
     assert urns[repo_source_id] not in browse_paths
 
@@ -703,8 +717,12 @@ def test_browse_path_includes_repo_name_without_root_document() -> None:
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    guides_dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     assert [e.id for e in file_browse_path.path] == ["docs", "guides"]
@@ -730,8 +748,10 @@ def test_browse_path_includes_org_when_enabled() -> None:
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    repo_source_id = make_repo_source_id("acme/docs")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    repo_source_id = make_repo_source_id("acme/docs", source_prefix="github")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Org is the top-most entry; the repo-root document follows (clickable).
@@ -758,7 +778,9 @@ def test_browse_path_repo_can_be_disabled() -> None:
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
     file_browse_path = browse_paths[urns[file_source_id]]
     # No repo-root doc and repo entry disabled -> only folder ancestors.
     assert [e.id for e in file_browse_path.path] == ["guides"]
@@ -782,8 +804,12 @@ def test_browse_path_roots_under_configured_parent() -> None:
     urns = _entity_urns_by_source_id(workunits)
     browse_paths = _browse_paths_by_urn(workunits)
 
-    guides_dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    guides_dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
 
     file_browse_path = browse_paths[urns[file_source_id]]
     # Configured external parent roots the path, then the synthetic repo name
@@ -817,7 +843,9 @@ def test_browse_path_failure_reports_warning_and_still_emits(
 
     # Document is still emitted despite the browse-path failure.
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/guides/setup.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/guides/setup.md", source_prefix="github"
+    )
     assert file_source_id in infos
 
     # Failure surfaces as a structured warning -> "succeeded with warnings".
@@ -839,7 +867,9 @@ def test_file_document_includes_content_hash_and_blob_sha(
 
     workunits = list(source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    file_source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    file_source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     props = infos[file_source_id].customProperties
 
     assert props is not None
@@ -922,7 +952,9 @@ def test_skipping_unchanged_file_registers_entity_for_stale_removal(
 
     list(source.get_workunits_internal())
 
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     expected_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     source.stale_entity_removal_handler.add_entity_to_state.assert_called_once_with(
         "document",
@@ -993,7 +1025,9 @@ def test_reuses_existing_document_urn_from_import_source_id(
     source: GitHubDocumentsSource,
 ) -> None:
     existing_urn = "urn:li:document:native-uuid-1234"
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -1017,7 +1051,9 @@ def test_skip_unchanged_uses_resolved_existing_urn(
     existing_urn = "urn:li:document:native-uuid-1234"
     content = "# Hello"
     content_hash = compute_file_content_hash(content)
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/readme.md", size=12)],
@@ -1068,7 +1104,9 @@ def test_import_without_graph_still_uses_canonical_urn(
     source: GitHubDocumentsSource,
 ) -> None:
     """Regression: plain GitHub import (no graph) must keep deterministic URNs."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1085,7 +1123,9 @@ def test_import_with_empty_identity_lookup_uses_canonical_urn(
     source: GitHubDocumentsSource,
 ) -> None:
     """Regression: when no sync-back stamp exists, import still mints canonical URN."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1109,7 +1149,9 @@ def test_import_identity_lookup_failure_falls_back_to_canonical_urn(
     Reported via report.failure so StaleEntityRemovalHandler skips soft-deletion:
     falling back to the canonical URN could otherwise reap a stamped document.
     """
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1152,7 +1194,9 @@ def test_import_identity_fallback_lookup_failure_fails_run(
     source: GitHubDocumentsSource,
 ) -> None:
     """Fallback github_file_path search errors must not look like empty results."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1181,7 +1225,9 @@ def test_import_identity_fallback_lookup_failure_fails_run(
 def test_import_prefers_canonical_when_only_canonical_match_exists(
     source: GitHubDocumentsSource,
 ) -> None:
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1247,7 +1293,9 @@ def test_unchanged_file_resurrects_soft_deleted_document(
     The unchanged-file short-circuit returns before any DocumentInfo is emitted, so
     without an explicit Status the document would stay soft-deleted forever.
     """
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     content = "# Hello"
     _mock_github_client(
@@ -1377,9 +1425,15 @@ def test_same_name_file_remains_sibling_of_folder(
     infos = _document_infos_by_source_id(workunits)
     urns = _entity_urns_by_source_id(workunits)
 
-    file_source_id = make_file_source_id(owner_repo, "docs/guides/guides.md")
-    child_source_id = make_file_source_id(owner_repo, "docs/guides/child.md")
-    dir_source_id = make_dir_source_id(owner_repo, "docs/guides")
+    file_source_id = make_file_source_id(
+        owner_repo, "docs/guides/guides.md", source_prefix="github"
+    )
+    child_source_id = make_file_source_id(
+        owner_repo, "docs/guides/child.md", source_prefix="github"
+    )
+    dir_source_id = make_dir_source_id(
+        owner_repo, "docs/guides", source_prefix="github"
+    )
 
     assert dir_source_id in infos
     assert infos[dir_source_id].customProperties["is_folder_document"] == "true"
@@ -1400,7 +1454,9 @@ def test_identity_short_circuit_skips_search_for_canonical_match(
     source: GitHubDocumentsSource,
 ) -> None:
     """Classic imports at the canonical URN must not pay for a search round-trip."""
-    source_id = make_file_source_id("acme/docs", "docs/readme.md")
+    source_id = make_file_source_id(
+        "acme/docs", "docs/readme.md", source_prefix="github"
+    )
     canonical_urn = f"urn:li:document:{normalize_document_id(source_id)}"
     _mock_github_client(
         source,
@@ -1421,7 +1477,9 @@ def test_existing_folder_document_does_not_overwrite_body(
     source: GitHubDocumentsSource,
 ) -> None:
     existing_urn = "urn:li:document:native-folder"
-    dir_source_id = make_dir_source_id("acme/docs", "docs/guides")
+    dir_source_id = make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
     _mock_github_client(
         source,
         files=[RepositoryFileInfo(path="docs/guides/child.md", size=12)],
@@ -1655,7 +1713,11 @@ def test_non_okf_and_invalid_frontmatter_preserve_original(
     )
     workunits = list(okf_source.get_workunits())
     infos = _document_infos_by_source_id(workunits)
-    info = infos[make_file_source_id(okf_source.config.repository, "docs/readme.md")]
+    info = infos[
+        make_file_source_id(
+            okf_source.config.repository, "docs/readme.md", source_prefix="github"
+        )
+    ]
     assert info.title == "readme.md"
     assert info.contents.text == content
     assert not any(wu.get_aspect_of_type(OkfPropertiesClass) for wu in workunits)
@@ -2224,7 +2286,7 @@ def test_stopping_concept_clears_only_okf_metadata(
         assert len(operations) == 1 and operations[0]["op"] == "remove"
         assert "carol" not in operations[0]["path"]
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id("example-org/analytics", path)
+        make_file_source_id("example-org/analytics", path, source_prefix="github")
     ]
     assert info.contents.text == content
 
@@ -2330,8 +2392,13 @@ def test_unreadable_index_skips_only_its_concepts(
     infos = _document_infos_by_source_id(workunits)
     # Plain files import either way. A concept under an index that could not be
     # read keeps its previous import; an oversized index means no bundle.
-    assert make_file_source_id("example-org/analytics", plain) in infos
-    concept_id = make_file_source_id("example-org/analytics", concept)
+    assert (
+        make_file_source_id("example-org/analytics", plain, source_prefix="github")
+        in infos
+    )
+    concept_id = make_file_source_id(
+        "example-org/analytics", concept, source_prefix="github"
+    )
     assert (concept_id in infos) is not request_failed
     assert not any(
         wu.get_aspect_of_type(OkfPropertiesClass) is not None for wu in workunits
@@ -2478,7 +2545,9 @@ def test_reads_one_pinned_snapshot(okf_source: GitHubDocumentsSource) -> None:
     assert properties.revision.blobSha == "blob-at-head"
     assert properties.revision.ref == "feature/docs"
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id("example-org/analytics", "docs/mau.md")
+        make_file_source_id(
+            "example-org/analytics", "docs/mau.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == "Snapshot body"
     assert info.source is not None and info.source.externalUrl is not None
@@ -2587,7 +2656,9 @@ def test_mapping_bump_reimports_only_bundle_files(
                 content, bundle=applicable_bundle, enable_okf=True
             )
         }
-        source_id = make_file_source_id("example-org/analytics", path)
+        source_id = make_file_source_id(
+            "example-org/analytics", path, source_prefix="github"
+        )
         infos[f"urn:li:document:{normalize_document_id(source_id)}"] = info
     graph = MagicMock()
     graph.get_urns_by_filter.return_value = []
@@ -2611,9 +2682,17 @@ def test_mapping_bump_reimports_only_bundle_files(
     assert okf_source.report.files_processed == 1
     assert okf_source.report.files_skipped_unchanged == 1
     infos_emitted = _document_infos_by_source_id(workunits)
-    assert make_file_source_id("example-org/analytics", "docs/mau.md") in infos_emitted
     assert (
-        make_file_source_id("example-org/analytics", "outside.md") not in infos_emitted
+        make_file_source_id(
+            "example-org/analytics", "docs/mau.md", source_prefix="github"
+        )
+        in infos_emitted
+    )
+    assert (
+        make_file_source_id(
+            "example-org/analytics", "outside.md", source_prefix="github"
+        )
+        not in infos_emitted
     )
 
 
@@ -2686,7 +2765,9 @@ def test_default_import_preserves_frontmatter(
     source.client._index_file_paths = {"index.md"}
     workunits = list(source.get_workunits())
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id(source.config.repository, "docs/guide.md")
+        make_file_source_id(
+            source.config.repository, "docs/guide.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == content
     assert info.title == "guide.md"
@@ -2736,7 +2817,9 @@ def test_okf_opt_in_does_not_check_server_support(
     for aspect_name in ["ownership", "globalTags", "glossaryTerms"]:
         assert _okf_patch_operations(workunits, aspect_name)
     info = _document_infos_by_source_id(workunits)[
-        make_file_source_id(okf_source.config.repository, "docs/guide.md")
+        make_file_source_id(
+            okf_source.config.repository, "docs/guide.md", source_prefix="github"
+        )
     ]
     assert info.contents.text == "Body"
     assert okf_source.report.okf_files_processed == 1

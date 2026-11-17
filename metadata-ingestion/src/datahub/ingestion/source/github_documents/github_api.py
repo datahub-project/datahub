@@ -12,18 +12,9 @@ import requests
 
 from datahub.ingestion.source.repository_documents.client import (
     MAX_FILE_SIZE_BYTES,
-    RepositoryDocumentsClient as RepositoryDocumentsClient,
     RepositoryFileInfo,
 )
-from datahub.ingestion.source.repository_documents.paths import (
-    collect_intermediate_directories as collect_intermediate_directories,
-    make_dir_source_id as _make_dir_source_id,
-    make_file_source_id as _make_file_source_id,
-    make_repo_source_id as _make_repo_source_id,
-    matches_filters,
-    normalize_document_id as normalize_document_id,
-    resolve_parent_dir_source_id as _resolve_parent_dir_source_id,
-)
+from datahub.ingestion.source.repository_documents.paths import matches_filters
 
 logger = logging.getLogger(__name__)
 
@@ -280,41 +271,3 @@ class GitHubApiClient:
             self._last_api_error = f"GitHub API request failed: {exc}"
             logger.warning("Failed to download raw content from %s: %s", url, exc)
             return None
-
-
-# Kept so code built on the github-documents modules keeps importing.
-GitHubFileInfo = RepositoryFileInfo
-_matches_filters = matches_filters
-
-
-def make_file_source_id(
-    owner_repo: str, file_path: str, *, source_prefix: str = "github"
-) -> str:
-    return _make_file_source_id(owner_repo, file_path, source_prefix=source_prefix)
-
-
-def make_dir_source_id(
-    owner_repo: str, dir_path: str, *, source_prefix: str = "github"
-) -> str:
-    return _make_dir_source_id(owner_repo, dir_path, source_prefix=source_prefix)
-
-
-def make_repo_source_id(owner_repo: str, *, source_prefix: str = "github") -> str:
-    return _make_repo_source_id(owner_repo, source_prefix=source_prefix)
-
-
-def resolve_parent_dir_source_id(
-    owner_repo: str,
-    full_path: str,
-    path_prefix: str,
-    *,
-    repo_root_source_id: Optional[str] = None,
-    source_prefix: str = "github",
-) -> Optional[str]:
-    return _resolve_parent_dir_source_id(
-        owner_repo,
-        full_path,
-        path_prefix,
-        repo_root_source_id=repo_root_source_id,
-        source_prefix=source_prefix,
-    )

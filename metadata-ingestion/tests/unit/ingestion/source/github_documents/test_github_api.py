@@ -9,19 +9,21 @@ import pytest
 from datahub.ingestion.source.github_documents.github_api import (
     GitHubApiClient,
     StaticTokenProvider,
+    parse_repo_identifier,
+)
+from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
+from datahub.ingestion.source.repository_documents.paths import (
     collect_intermediate_directories,
     make_dir_source_id,
     make_file_source_id,
     make_repo_source_id,
     matches_filters,
     normalize_document_id,
-    parse_repo_identifier,
     resolve_parent_dir_source_id,
 )
-from datahub.ingestion.source.github_documents.github_documents_source import (
+from datahub.ingestion.source.repository_documents.source import (
     compute_file_content_hash,
 )
-from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
 
 
 def test_parse_repo_identifier_shorthand() -> None:
@@ -39,10 +41,13 @@ def test_parse_repo_identifier_invalid() -> None:
 
 def test_make_file_and_dir_source_ids() -> None:
     assert (
-        make_file_source_id("acme/docs", "guides/setup.md")
+        make_file_source_id("acme/docs", "guides/setup.md", source_prefix="github")
         == "github.acme.docs.guides.setup"
     )
-    assert make_dir_source_id("acme/docs", "guides") == "github.acme.docs.guides._dir"
+    assert (
+        make_dir_source_id("acme/docs", "guides", source_prefix="github")
+        == "github.acme.docs.guides._dir"
+    )
 
 
 def test_collect_intermediate_directories() -> None:
@@ -52,17 +57,22 @@ def test_collect_intermediate_directories() -> None:
 
 
 def test_resolve_parent_dir_source_id() -> None:
-    parent = resolve_parent_dir_source_id("acme/docs", "docs/guides/setup.md", "docs")
-    assert parent == make_dir_source_id("acme/docs", "docs/guides")
+    parent = resolve_parent_dir_source_id(
+        "acme/docs", "docs/guides/setup.md", "docs", source_prefix="github"
+    )
+    assert parent == make_dir_source_id(
+        "acme/docs", "docs/guides", source_prefix="github"
+    )
 
 
 def test_resolve_parent_dir_source_id_uses_repo_root() -> None:
-    repo_root = make_repo_source_id("acme/docs")
+    repo_root = make_repo_source_id("acme/docs", source_prefix="github")
     parent = resolve_parent_dir_source_id(
         "acme/docs",
         "readme.md",
         "",
         repo_root_source_id=repo_root,
+        source_prefix="github",
     )
     assert parent == repo_root
 
@@ -108,7 +118,10 @@ def test_list_matching_files_returns_truncated_flag() -> None:
 
 
 def test_make_repo_source_id() -> None:
-    assert make_repo_source_id("acme/docs") == "github.acme.docs._repo"
+    assert (
+        make_repo_source_id("acme/docs", source_prefix="github")
+        == "github.acme.docs._repo"
+    )
 
 
 def test_parse_repo_identifier_http_url() -> None:
