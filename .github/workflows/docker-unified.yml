@@ -488,6 +488,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           java: ${{ env.IMAGE_BUILD_MODULES != '' }}
           python: ${{ env.IMAGE_BUILD_MODULES != '' }}
 
@@ -1057,6 +1058,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
@@ -1309,6 +1311,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
@@ -1618,6 +1621,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
