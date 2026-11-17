@@ -49,6 +49,7 @@ server continues to work. Existing connection files and environment variables ke
 
 ### Other Notable Changes
 
+- **(Ingestion / system sources)** The bootstrapped `datahub-gc` and `datahub-documents` ingestion sources now default to the `bundled` CLI version when no version is supplied, so they always run the CLI shipped in the executor image and install nothing at run time; previously they fell back to the server's `defaultCliVersion`. **Action:** none for the standard images, which bundle both sources. Helm chart deployments are unaffected for now, since the chart always injects `defaultCliVersion` as `ingestion.version` for these sources; a chart follow-up will switch them to `bundled`. Custom executor images built without the bundled venvs must either add them or keep setting an explicit, pinned CLI version via `DATAHUB_GC_BOOTSTRAP_VALUES` / `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`, e.g. `'{"ingestion":{"version":"1.7.0.20"}}'`; avoid `latest`, which changes underneath you between runs.
 - #13726: Removed dgraph from tests
 - #13942: Upgraded secret encryption to AES-256-GCM. Recreate tokens take advantage of the new algorithm.
 - #13898: Deprecated DropWizard metrics, enabled Micrometer & Prometheus endpoint
