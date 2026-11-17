@@ -2349,8 +2349,25 @@ def _try_extract_select(
             insert_columns = statement.this.expressions
             select_expressions = select_statement.expressions
 
-            # Only apply mapping if column counts match
-            if len(insert_columns) == len(select_expressions):
+            # Only apply mapping if column counts match, and skip it when a
+            # SELECT expression is a star (`*` or `t.*`): the star has not
+            # been expanded yet, so with a one-column list the length check
+            # passes and the mapping would rename the star itself (`* AS a`),
+            # leaving the downstream column with no upstreams. Leaving the
+            # SELECT untouched keeps the lineage that star expansion
+            # produces under the source column names.
+            has_star_expression = any(
+                isinstance(expr, sqlglot.exp.Star)
+                or (
+                    isinstance(expr, sqlglot.exp.Column)
+                    and isinstance(expr.this, sqlglot.exp.Star)
+                )
+                for expr in select_expressions
+            )
+            if (
+                len(insert_columns) == len(select_expressions)
+                and not has_star_expression
+            ):
                 # Create new SELECT with INSERT column names as explicit Alias nodes
                 # This ensures the alias survives sqlglot's optimizer
                 new_selects = []

@@ -476,6 +476,58 @@ SELECT id, amount FROM my_db.my_schema.orders
     }
 
 
+@pytest.mark.parametrize(
+    "select_list",
+    [
+        "*",  # bare star parses as a Star expression
+        "s.*",  # qualified star parses as a Column wrapping a Star
+        "*, y",  # a star anywhere in the list skips the mapping
+    ],
+)
+def test_insert_column_list_mapping_skipped_for_star_select(
+    select_list: str,
+) -> None:
+    # The star has not been expanded when the mapping runs, so a one-column
+    # INSERT list passes the length check and the mapping would rename the
+    # star itself (`* AS a`), leaving the downstream column with no
+    # upstreams. The mapping is skipped instead, and lineage keeps the
+    # source column names produced by star expansion.
+    schemas = {
+        "my_db.my_schema.my_source": {"x": "NUMBER", "y": "NUMBER"},
+        "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
+    }
+    insert_columns = "(a)" if select_list != "*, y" else "(a, b)"
+    assert _column_upstreams(
+        f"""\
+INSERT INTO my_db.my_schema.my_target {insert_columns}
+SELECT {select_list} FROM my_db.my_schema.my_source s
+""",
+        platform="postgres",
+        schemas=schemas,
+    ) == {
+        "x": ["my_db.my_schema.my_source.x"],
+        "y": ["my_db.my_schema.my_source.y"],
+    }
+
+
+def test_insert_column_list_mapping_still_applies_for_count_star() -> None:
+    # A star inside a function is not a SELECT-list star: the mapping still
+    # applies, so the downstream column takes the INSERT list name. This
+    # guards against the star check growing into a find-any-star check,
+    # which would silently drop the mapping for aggregates.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (a)
+SELECT count(*) FROM my_db.my_schema.my_source
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_source": {"x": "NUMBER"},
+            "my_db.my_schema.my_target": {"a": "NUMBER"},
+        },
+    ) == {"a": []}
+
+
 def test_insert_into_table_function_does_not_map_arguments() -> None:
     # ClickHouse INSERT INTO FUNCTION: the target's expressions are function
     # arguments, not an INSERT column list, so the positional mapping must
