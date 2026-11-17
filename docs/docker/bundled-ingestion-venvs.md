@@ -18,7 +18,7 @@ A run uses a bundled venv only when the source's **CLI version** is set to **`bu
 
 The built-in system sources (`datahub-gc`, `datahub-documents`) are bootstrapped with **`bundled`** so they always run the CLI that ships in the executor image; override `ingestion.version` in their bootstrap values (`DATAHUB_GC_BOOTSTRAP_VALUES`, `DATAHUB_DOCUMENTS_BOOTSTRAP_VALUES`) if your image does not bundle them.
 
-If the requested plugin isn't bundled in the image, the run falls back to a dynamic venv. If the image does not have access to a PyPI repository or it is **locked** (it has `uv` and `pip` binaries deliberately removed), the run will fail.
+If a run requests `bundled` for a plugin the image does not bundle, it fails immediately with a `Bundled startup venv not found` error; there is no fallback to a dynamic venv. This is deliberate: a missing bundled venv is an image-build defect, so failing fast surfaces it instead of silently resolving packages at run time. Add the plugin to `BUNDLED_VENV_PLUGINS` when building the image, or request an explicit version instead of `bundled`. Runs that request an explicit version also fail on images that have no PyPI access or are **locked** (`uv` and `pip` binaries deliberately removed).
 
 ## Core (`datahub-actions`) vs Cloud (`datahub-executor`)
 
