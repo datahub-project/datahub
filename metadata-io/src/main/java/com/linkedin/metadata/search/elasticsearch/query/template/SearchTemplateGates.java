@@ -88,11 +88,16 @@ public final class SearchTemplateGates {
   private static final ObjectMapper JSON = new ObjectMapper();
 
   private final EmbeddingProfileRegistry profiles;
+  @Nullable private final SemanticSearchConfiguration semanticSearch;
   private final Set<String> advertised;
   private final Map<String, Set<String>> advertisedEntityTypes;
 
+  /**
+   * @param semanticSearch the deployment's semantic search settings, for {@code enabledEntities}
+   */
   public SearchTemplateGates(
       @Nonnull EmbeddingProfileRegistry profiles,
+      @Nullable SemanticSearchConfiguration semanticSearch,
       @Nonnull Set<String> advertised,
       @Nonnull Map<String, Set<String>> advertisedEntityTypes) {
     for (String name : advertised) {
@@ -101,20 +106,23 @@ public final class SearchTemplateGates {
       }
     }
     this.profiles = profiles;
+    this.semanticSearch = semanticSearch;
     this.advertised = Set.copyOf(advertised);
     this.advertisedEntityTypes = Map.copyOf(advertisedEntityTypes);
   }
 
-  /** This build's gates over the deployment's registry. */
+  /** This build's gates over the deployment's registry and semantic search settings. */
   @Nonnull
-  public static SearchTemplateGates of(@Nonnull EmbeddingProfileRegistry profiles) {
-    return new SearchTemplateGates(profiles, ADVERTISED, ADVERTISED_ENTITY_TYPES);
+  public static SearchTemplateGates of(
+      @Nonnull EmbeddingProfileRegistry profiles,
+      @Nullable SemanticSearchConfiguration semanticSearch) {
+    return new SearchTemplateGates(profiles, semanticSearch, ADVERTISED, ADVERTISED_ENTITY_TYPES);
   }
 
-  /** This build's gates with no registered profile. */
+  /** This build's gates with no registered profile and semantic search off. */
   @Nonnull
   public static SearchTemplateGates none() {
-    return of(EmbeddingProfileRegistry.empty());
+    return of(EmbeddingProfileRegistry.empty(), null);
   }
 
   @Nonnull
@@ -176,7 +184,8 @@ public final class SearchTemplateGates {
   @Nullable
   public String rejectionCode(@Nonnull MergedSearchTemplate template, boolean documentRerank) {
     Set<String> needs = required(template);
-    if (needs.contains(DOCUMENT_RERANK) && !reranks(documentRerank)) {
+    boolean selectionUnused = needs.contains(DOCUMENT_RERANK) && !reranks(documentRerank);
+    if (selectionUnused) {
       // keywordRerank keeps keyword order when this request cannot rerank, and only the rerank uses
       // the profile selection, so neither fails the search.
       needs.remove(DOCUMENT_RERANK);
@@ -196,14 +205,15 @@ public final class SearchTemplateGates {
             || (retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore())))) {
       return KEYWORD_PROFILES;
     }
-    return scopeRejection(template);
+    return selectionUnused ? null : scopeRejection(template);
   }
 
   /**
-   * Template failure that depends on the requested entity types, or null: their resolved profiles
-   * name more than one profile, or {@code minSimilarity} meets a profile that is not cosine. Only a
-   * vector leg this build runs is checked, and an entity that fails coverage is left out here and
-   * reported by {@link #entityGates}.
+   * Template failure that depends on the requested entity types, or null. Over the entities that
+   * join the vector leg (enabled, and run by this build for their profile class): the selection
+   * names more than one profile, even when one of them is unavailable here, or {@code
+   * minSimilarity} meets a covering profile that is not cosine. Only a vector leg this build runs
+   * for this request is checked. An entity that fails coverage is reported by {@link #entityGates}.
    */
   @Nullable
   public String bindingRejection(
@@ -215,16 +225,25 @@ public final class SearchTemplateGates {
       return null;
     }
     SearchTemplateProfiles selection = selection(template);
-    Set<String> resolved = new LinkedHashSet<>();
+    Set<String> selected = new LinkedHashSet<>();
+    Set<String> covering = new LinkedHashSet<>();
     for (String entityType : members(template, entityTypes)) {
-      resolved.addAll(profiles.resolve(selection, entityType, system).profileIds());
+      EmbeddingProfileRegistry.Resolution resolution =
+          profiles.resolve(selection, entityType, system);
+      if (joinGate(resolution, entityType) != null) {
+        continue;
+      }
+      selected.addAll(resolution.profileIds());
+      if (resolution.covered()) {
+        covering.addAll(resolution.profileIds());
+      }
     }
-    if (resolved.size() > 1 && !advertises(SEVERAL_PROFILES)) {
+    if (selected.size() > 1 && !advertises(SEVERAL_PROFILES)) {
       return SEVERAL_PROFILES;
     }
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     if (retrieval != null && retrieval.hasMinSimilarity()) {
-      for (String id : resolved) {
+      for (String id : covering) {
         EmbeddingProfile profile = profiles.profile(id);
         if (profile != null && !profile.cosine()) {
           return MIN_SIMILARITY;
@@ -242,22 +261,14 @@ public final class SearchTemplateGates {
   public Map<String, String> entityGates(
       @Nonnull MergedSearchTemplate template,
       @Nonnull Collection<String> entityTypes,
-      @Nullable String system,
-      @Nullable SemanticSearchConfiguration semanticSearch) {
+      @Nullable String system) {
     SearchTemplateProfiles selection = selection(template);
     Map<String, String> gates = new LinkedHashMap<>();
     for (String entityType : members(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
-      String reason = null;
-      if (!resolution.covered()) {
-        reason = resolution.failure();
-      } else if (!advertisedFor(resolution.profileIds(), entityType)) {
-        reason = ENTITY_NOT_ADVERTISED;
-      } else if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
-        reason = ENTITY_NOT_ENABLED;
-      }
-      gates.put(entityType, reason);
+      String reason = joinGate(resolution, entityType);
+      gates.put(entityType, reason == null ? resolution.failure() : reason);
     }
     return Collections.unmodifiableMap(gates);
   }
@@ -345,11 +356,28 @@ public final class SearchTemplateGates {
     return null;
   }
 
+  // The gates that decide whether an entity can join the vector leg at all, before coverage: it is
+  // enabled, and this build runs it for each selected profile's class.
+  @Nullable
+  private String joinGate(
+      @Nonnull EmbeddingProfileRegistry.Resolution resolution, @Nonnull String entityType) {
+    if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
+      return ENTITY_NOT_ENABLED;
+    }
+    if (!advertisedFor(resolution.profileIds(), entityType)) {
+      return ENTITY_NOT_ADVERTISED;
+    }
+    return null;
+  }
+
+  // An unknown id has no class here; coverage reports it.
   private boolean advertisedFor(@Nonnull List<String> profileIds, @Nonnull String entityType) {
     for (String id : profileIds) {
       EmbeddingProfile profile = profiles.profile(id);
-      Set<String> types =
-          profile == null ? null : advertisedEntityTypes.get(profile.profileClass());
+      if (profile == null) {
+        continue;
+      }
+      Set<String> types = advertisedEntityTypes.get(profile.profileClass());
       if (types == null || !types.contains(entityType)) {
         return false;
       }

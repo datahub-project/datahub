@@ -267,7 +267,11 @@ public class ElasticSearchServiceFactory {
         searchTemplateLoader,
         searchTemplateLadderExecutor,
         searchTemplateComponentRegistry,
-        SearchTemplateGates.of(embeddingProfileRegistry));
+        SearchTemplateGates.of(
+            embeddingProfileRegistry,
+            elasticSearchConfiguration.getEntityIndex() == null
+                ? null
+                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch()));
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")

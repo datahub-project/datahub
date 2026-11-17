@@ -135,69 +135,82 @@ public final class EmbeddingProfileRegistry {
   }
 
   /**
-   * Resolves a merged {@code profiles} selection for one entity type.
+   * The ids a selection names for one entity type, before availability is checked. A null selection
+   * is the entity default. {@code replace} sets the list, otherwise the entity default starts it,
+   * and {@code remove} and {@code add} patch it. A named profile that does not cover the entity is
+   * replaced by the entity default, once. An unknown id stays in the list.
    *
-   * <p>A null selection is the entity default. {@code replace} is the list; otherwise {@code add}
-   * and {@code remove} patch the entity default. A named profile that does not cover the entity is
-   * replaced by the entity default, once. A profile that is not available on {@code system} fails,
-   * and so does an id the registry does not know: neither falls back to the default.
+   * @return the ids, or null when the entity needs a default it does not have
+   */
+  @Nullable
+  public List<String> select(
+      @Nullable SearchTemplateProfiles selection, @Nonnull String entityType) {
+    String fallback = defaultFor(entityType);
+    List<String> requested = new ArrayList<>();
+    if (selection != null && selection.hasReplace() && selection.getReplace() != null) {
+      requested.addAll(selection.getReplace());
+    } else if (fallback != null) {
+      requested.add(fallback);
+    }
+    if (selection != null && selection.hasRemove() && selection.getRemove() != null) {
+      requested.removeAll(selection.getRemove());
+    }
+    if (selection != null && selection.hasAdd() && selection.getAdd() != null) {
+      requested.addAll(selection.getAdd());
+    }
+    Set<String> selected = new LinkedHashSet<>();
+    for (String id : requested) {
+      EmbeddingProfile profile = profiles.get(id);
+      if (profile != null && !profile.covers(entityType)) {
+        if (fallback == null) {
+          return null;
+        }
+        selected.add(fallback);
+      } else {
+        selected.add(id);
+      }
+    }
+    return List.copyOf(selected);
+  }
+
+  /**
+   * Resolves a merged {@code profiles} selection for one entity type: {@link #select}, then every
+   * selected profile must be registered and available on {@code system}. A failure keeps the
+   * selected ids and does not fall back to the default.
    */
   @Nonnull
   public Resolution resolve(
       @Nullable SearchTemplateProfiles selection,
       @Nonnull String entityType,
       @Nullable String system) {
-    String fallback = defaultFor(entityType);
-    List<String> requested = new ArrayList<>();
-    if (selection != null && selection.hasReplace() && selection.getReplace() != null) {
-      requested.addAll(selection.getReplace());
-    } else {
-      Set<String> removed =
-          selection != null && selection.hasRemove() && selection.getRemove() != null
-              ? Set.copyOf(selection.getRemove())
-              : Set.of();
-      if (fallback != null && !removed.contains(fallback)) {
-        requested.add(fallback);
-      }
-      if (selection != null && selection.hasAdd() && selection.getAdd() != null) {
-        requested.addAll(selection.getAdd());
-      }
-      if (requested.isEmpty()) {
-        return Resolution.failed(fallback == null ? NO_DEFAULT : EMPTY_SELECTION);
-      }
+    List<String> selected = select(selection, entityType);
+    if (selected == null) {
+      return new Resolution(List.of(), NO_DEFAULT);
     }
-    Set<String> resolved = new LinkedHashSet<>();
-    for (String id : requested) {
+    if (selected.isEmpty()) {
+      return new Resolution(
+          selected, defaultFor(entityType) == null ? NO_DEFAULT : EMPTY_SELECTION);
+    }
+    for (String id : selected) {
       EmbeddingProfile profile = profiles.get(id);
       if (profile == null) {
-        return Resolution.failed(UNKNOWN_PROFILE);
-      }
-      if (!profile.covers(entityType)) {
-        if (fallback == null) {
-          return Resolution.failed(NO_DEFAULT);
-        }
-        profile = profiles.get(fallback);
+        return new Resolution(selected, UNKNOWN_PROFILE);
       }
       if (!profile.availableOn(system)) {
-        return Resolution.failed(SYSTEM_UNAVAILABLE);
+        return new Resolution(selected, SYSTEM_UNAVAILABLE);
       }
-      resolved.add(profile.id());
     }
-    return new Resolution(List.copyOf(resolved), null);
+    return new Resolution(selected, null);
   }
 
   /**
-   * Profile ids for one entity, or the bounded reason it fails embedding profile coverage.
+   * The profile ids one entity selects, and the bounded reason it fails embedding profile coverage.
    *
+   * @param profileIds the selected ids, also when coverage fails
    * @param failure {@link #UNKNOWN_PROFILE}, {@link #SYSTEM_UNAVAILABLE}, {@link #NO_DEFAULT}, or
    *     {@link #EMPTY_SELECTION}; null when covered
    */
   public record Resolution(@Nonnull List<String> profileIds, @Nullable String failure) {
-    @Nonnull
-    static Resolution failed(@Nonnull String failure) {
-      return new Resolution(List.of(), failure);
-    }
-
     public boolean covered() {
       return failure == null;
     }

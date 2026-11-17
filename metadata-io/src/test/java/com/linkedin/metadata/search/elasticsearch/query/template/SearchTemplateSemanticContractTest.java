@@ -16,8 +16,11 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
+import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateProfiles;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
@@ -410,11 +413,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
             "l2",
             Set.of("dataset"),
             Set.of(EmbeddingProfileRegistry.OPENSEARCH));
-    SearchTemplateGates vectorBuild =
-        new SearchTemplateGates(
-            new EmbeddingProfileRegistry(List.of(datasetL2), Map.of("dataset", datasetL2.id())),
-            Set.of(SearchTemplateGates.VECTOR_RETRIEVAL),
-            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("dataset")));
+    SearchTemplateGates vectorBuild = datasetVectorBuild(datasetL2);
     SearchTemplateProperties root = body("Keyword", "{ \"match_all\": {} }", null);
     root.setLadder(stopLadder(1, "urn:li:searchTemplate:floorChild"));
     store("urn:li:searchTemplate:floorRoot", root);
@@ -440,6 +439,50 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertThrows(
         SearchTemplateException.class,
         () -> walk("urn:li:searchTemplate:floorRoot", "orders", null, 10, urn -> page(0)));
+  }
+
+  @Test
+  public void testBindAndPreviewCountTheProfilesTheRequestSelects() {
+    EmbeddingProfile datasetCosine =
+        new EmbeddingProfile(
+            "dataset_cosine",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("dataset"),
+            Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateProperties two = rung(r -> r.setCombine("vector"));
+    two.setProfiles(new SearchTemplateProfiles().setAdd(new StringArray(List.of("connector"))));
+    store("urn:li:searchTemplate:twoProfiles", two);
+    templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:twoProfiles"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            datasetVectorBuild(datasetCosine));
+
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(opContext, "customer orders", false, List.of("dataset")));
+    // An entity that does not join the vector leg selects nothing, so the request binds.
+    coordinator.bind(opContext, "customer orders", false, List.of("chart"));
+    SearchTemplateDryRender preview =
+        coordinator.preview(
+            opContext,
+            "customer orders",
+            List.of("dataset"),
+            false,
+            SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertTrue(
+        preview.capabilities().stream()
+            .anyMatch(
+                decision ->
+                    "sections".equals(decision.name())
+                        && !decision.accepted()
+                        && SearchTemplateGates.SEVERAL_PROFILES.equals(decision.detail())));
   }
 
   @Test
@@ -549,6 +592,21 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertEquals(read.getProfiles().getAdd(), List.of("a"));
     assertEquals(read.getScope().getEntityTypes(), List.of("x"));
     assertEquals(read.getRoutes().get(0).getMatch().getSurfaces(), List.of("semanticSearch"));
+  }
+
+  // A build that runs vector retrieval for Dataset text chunks, with semantic search on for
+  // Dataset.
+  private static SearchTemplateGates datasetVectorBuild(EmbeddingProfile datasetProfile) {
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("dataset"));
+    semanticSearch.setModels(Map.of(datasetProfile.id(), new ModelEmbeddingConfig()));
+    return new SearchTemplateGates(
+        new EmbeddingProfileRegistry(
+            List.of(datasetProfile), Map.of("dataset", datasetProfile.id())),
+        semanticSearch,
+        Set.of(SearchTemplateGates.VECTOR_RETRIEVAL),
+        Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("dataset")));
   }
 
   private SearchTemplateCoordinator coordinator(boolean semanticRead) {

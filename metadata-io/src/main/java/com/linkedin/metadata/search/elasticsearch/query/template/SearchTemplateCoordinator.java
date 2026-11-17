@@ -295,6 +295,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     String rejection =
         SearchTemplateCapabilities.rejectionCode(
             template, documentRerank, scroll, components, gates);
+    if (rejection == null) {
+      rejection =
+          gates.bindingRejection(
+              template, entityNames, EmbeddingProfileRegistry.system(engine), documentRerank);
+    }
     List<SearchTemplateDryRender.CapabilityDecision> capabilities = new ArrayList<>();
     for (String name : template.getCapabilities()) {
       boolean accepted = SearchTemplateCapabilities.SUPPORTED.contains(name);

@@ -50,22 +50,26 @@ public class SearchTemplateGatesTest {
           null,
           "cosine",
           Set.of("document"),
-          Set.of(ELASTICSEARCH, OPENSEARCH));
+          Set.of(OPENSEARCH));
   private static final EmbeddingProfileRegistry REGISTRY =
       new EmbeddingProfileRegistry(
           List.of(DOCUMENT_DEFAULT, DATASET_L2, CONNECTOR),
           Map.of("document", DOCUMENT_DEFAULT.id(), "dataset", DATASET_L2.id()));
 
-  /** A build that runs vector retrieval and partitioning for Document and Dataset text chunks. */
+  /** Semantic search on for Document and Dataset. */
+  private static final SemanticSearchConfiguration SEMANTIC = semantic("document", "dataset");
+
+  /** A build that runs vector retrieval, partitioning, and rerank for Document and Dataset. */
   private static final SearchTemplateGates VECTOR_BUILD =
       new SearchTemplateGates(
           REGISTRY,
+          SEMANTIC,
           Set.of(VECTOR_RETRIEVAL, ENTITY_PARTITION, DOCUMENT_RERANK),
-          Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
+          Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
   public void testThisBuildAdvertisesNoSemanticShapeYet() {
-    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY);
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC);
     assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
@@ -100,14 +104,17 @@ public class SearchTemplateGatesTest {
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
     // This build does not rerank, so the selection only the rerank uses does not fail the search.
-    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY);
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC);
     assertNull(gates.rejectionCode(rerank, true));
     assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
 
     // A build that reranks still keeps keyword order when this request cannot rerank.
     SearchTemplateGates reranking =
         new SearchTemplateGates(
-            REGISTRY, Set.of(DOCUMENT_RERANK), SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
+            REGISTRY,
+            SEMANTIC,
+            Set.of(DOCUMENT_RERANK),
+            SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
     assertNull(reranking.rejectionCode(rerank, false));
     assertNull(reranking.bindingRejection(rerank, List.of("document"), OPENSEARCH, false));
 
@@ -139,6 +146,7 @@ public class SearchTemplateGatesTest {
     SearchTemplateGates nativeBuild =
         new SearchTemplateGates(
             REGISTRY,
+            SEMANTIC,
             Set.of(SearchTemplateGates.NATIVE_MIXED_QUERY),
             SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
     MergedSearchTemplate mixed =
@@ -161,7 +169,7 @@ public class SearchTemplateGatesTest {
     assertEquals(
         VECTOR_BUILD.bindingRejection(vector, List.of("document", "dataset"), OPENSEARCH, true),
         SearchTemplateGates.SEVERAL_PROFILES);
-    // An entity that fails coverage adds no profile.
+    // An entity that does not join the leg adds no profile.
     assertNull(
         VECTOR_BUILD.bindingRejection(vector, List.of("document", "chart"), OPENSEARCH, true));
 
@@ -172,7 +180,7 @@ public class SearchTemplateGatesTest {
         SearchTemplateGates.MIN_SIMILARITY);
     // The same template on a build without vector retrieval fails earlier, by capability.
     assertNull(
-        SearchTemplateGates.of(REGISTRY)
+        SearchTemplateGates.of(REGISTRY, SEMANTIC)
             .bindingRejection(floor, List.of("dataset"), OPENSEARCH, true));
   }
 
@@ -199,39 +207,94 @@ public class SearchTemplateGatesTest {
 
   @Test
   public void testEntityGatesReportWhyAnEntityLeavesTheLeg() {
-    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
-    semanticSearch.setEnabled(true);
-    semanticSearch.setEnabledEntities(Set.of("document", "dataset"));
-    semanticSearch.setModels(Map.of(DOCUMENT_DEFAULT.id(), new ModelEmbeddingConfig()));
     MergedSearchTemplate vector = merged(retrieval("vector")).build();
+    SearchTemplateGates documentOnly =
+        new SearchTemplateGates(
+            REGISTRY,
+            SEMANTIC,
+            Set.of(VECTOR_RETRIEVAL),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
 
     Map<String, String> expected = new HashMap<>();
     expected.put("document", null);
     expected.put("dataset", SearchTemplateGates.ENTITY_NOT_ADVERTISED);
-    expected.put("chart", EmbeddingProfileRegistry.NO_DEFAULT);
+    expected.put("chart", SearchTemplateGates.ENTITY_NOT_ENABLED);
     assertEquals(
-        VECTOR_BUILD.entityGates(
-            vector, List.of("document", "dataset", "chart"), OPENSEARCH, semanticSearch),
+        documentOnly.entityGates(vector, List.of("document", "dataset", "chart"), OPENSEARCH),
         expected);
-
-    semanticSearch.setEnabledEntities(Set.of("dataset"));
+    // A profile that is not on this engine fails coverage and does not fall back.
     assertEquals(
-        VECTOR_BUILD
-            .entityGates(vector, List.of("document"), OPENSEARCH, semanticSearch)
+        documentOnly
+            .entityGates(
+                merged(retrieval("vector")).profiles(replace(CONNECTOR.id())).build(),
+                List.of("document"),
+                ELASTICSEARCH)
             .get("document"),
-        SearchTemplateGates.ENTITY_NOT_ENABLED);
+        EmbeddingProfileRegistry.SYSTEM_UNAVAILABLE);
     // A scope keeps only its own types.
     assertEquals(
-        VECTOR_BUILD
+        documentOnly
             .entityGates(
                 merged(retrieval("vector"))
                     .scope(new SearchTemplateScope().setEntityTypes(ids("document")))
                     .build(),
                 List.of("document", "dataset"),
-                OPENSEARCH,
-                semanticSearch)
+                OPENSEARCH)
             .keySet(),
         Set.of("document"));
+  }
+
+  @Test
+  public void testOnlyEntitiesThatJoinTheLegCountTowardOneProfile() {
+    MergedSearchTemplate vector = merged(retrieval("vector")).build();
+    // Dataset is not run by this build, so its default does not make a second profile.
+    SearchTemplateGates documentOnly =
+        new SearchTemplateGates(
+            REGISTRY,
+            SEMANTIC,
+            Set.of(VECTOR_RETRIEVAL),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
+    assertNull(
+        documentOnly.bindingRejection(vector, List.of("document", "dataset"), OPENSEARCH, true));
+    // Nor when semantic search does not enable it.
+    SearchTemplateGates documentEnabled =
+        new SearchTemplateGates(
+            REGISTRY,
+            semantic("document"),
+            Set.of(VECTOR_RETRIEVAL),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
+    assertNull(
+        documentEnabled.bindingRejection(vector, List.of("document", "dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testASecondSelectedProfileCountsEvenWhenItIsUnavailable() {
+    // The connector profile is on OpenSearch only; on Elasticsearch it still makes two profiles.
+    MergedSearchTemplate added =
+        merged(retrieval("vector"))
+            .profiles(new SearchTemplateProfiles().setAdd(ids(CONNECTOR.id())))
+            .build();
+    assertEquals(
+        VECTOR_BUILD.bindingRejection(added, List.of("document"), ELASTICSEARCH, true),
+        SearchTemplateGates.SEVERAL_PROFILES);
+    MergedSearchTemplate unknown =
+        merged(retrieval("vector"))
+            .profiles(new SearchTemplateProfiles().setAdd(ids("a", "b")))
+            .build();
+    assertEquals(
+        VECTOR_BUILD.bindingRejection(unknown, List.of("document"), OPENSEARCH, true),
+        SearchTemplateGates.SEVERAL_PROFILES);
+  }
+
+  @Test
+  public void testScopedKeywordRerankIgnoresItsSelectionWhileTheRequestCannotRerank() {
+    MergedSearchTemplate scoped =
+        merged(retrieval("keywordRerank"))
+            .scope(new SearchTemplateScope().setEntityTypes(ids("document")))
+            .profiles(replace("cohere_embed_v3"))
+            .build();
+    assertNull(VECTOR_BUILD.rejectionCode(scoped, false));
+    assertEquals(VECTOR_BUILD.rejectionCode(scoped, true), SearchTemplateGates.PROFILE_SCOPE);
   }
 
   @Test
@@ -273,7 +336,15 @@ public class SearchTemplateGatesTest {
   public void testAdvertisedNamesAreKnownCapabilities() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new SearchTemplateGates(REGISTRY, Set.of("teleport"), Map.of()));
+        () -> new SearchTemplateGates(REGISTRY, SEMANTIC, Set.of("teleport"), Map.of()));
+  }
+
+  private static SemanticSearchConfiguration semantic(String... entityTypes) {
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of(entityTypes));
+    semanticSearch.setModels(Map.of(DOCUMENT_DEFAULT.id(), new ModelEmbeddingConfig()));
+    return semanticSearch;
   }
 
   private static MergedSearchTemplate.MergedSearchTemplateBuilder merged(
