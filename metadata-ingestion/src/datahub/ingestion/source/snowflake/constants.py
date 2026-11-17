@@ -79,6 +79,37 @@ class SnowflakeShowKind(StrEnum):
     VIEWS = "VIEWS"
     STREAMS = "STREAMS"
     DYNAMIC_TABLES = "DYNAMIC TABLES"
+    ICEBERG_TABLES = "ICEBERG TABLES"
+
+
+# SHOW ICEBERG TABLES.iceberg_table_type. SNOWFLAKE: Snowflake owns the metadata.
+# UNMANAGED: another engine (e.g. Databricks UniForm, Spark) writes it, Snowflake only reads.
+# The raw value is kept on the table as well, so a type Snowflake adds later still surfaces.
+class SnowflakeIcebergTableType(StrEnum):
+    SNOWFLAKE = "SNOWFLAKE"
+    UNMANAGED = "UNMANAGED"
+
+
+# DESC EXTERNAL VOLUME rows: parent_property / property / property_value. The storage
+# locations sit under one parent, each as a JSON object, with ACTIVE naming the current one.
+EXTERNAL_VOLUME_STORAGE_LOCATIONS_PARENT = "STORAGE_LOCATIONS"
+EXTERNAL_VOLUME_ACTIVE_PROPERTY = "ACTIVE"
+EXTERNAL_VOLUME_STORAGE_LOCATION_PREFIX = "STORAGE_LOCATION_"
+EXTERNAL_VOLUME_LOCATION_NAME_KEY = "NAME"
+EXTERNAL_VOLUME_STORAGE_BASE_URL_KEY = "STORAGE_BASE_URL"
+
+# Custom properties added to Iceberg tables (upper-case like IS_ICEBERG / TARGET_LAG).
+ICEBERG_TABLE_TYPE_PROPERTY = "ICEBERG_TABLE_TYPE"
+ICEBERG_EXTERNAL_VOLUME_PROPERTY = "EXTERNAL_VOLUME"
+ICEBERG_BASE_LOCATION_PROPERTY = "BASE_LOCATION"
+ICEBERG_STORAGE_LOCATION_PROPERTY = "STORAGE_LOCATION"
+ICEBERG_CATALOG_INTEGRATION_PROPERTY = "CATALOG_INTEGRATION"
+ICEBERG_CATALOG_NAMESPACE_PROPERTY = "CATALOG_NAMESPACE"
+ICEBERG_CATALOG_TABLE_NAME_PROPERTY = "CATALOG_TABLE_NAME"
+
+# Custom property the Unity Catalog connector emits on external tables; the Iceberg
+# lineage lookup matches a Snowflake table's storage location against it.
+UNITY_CATALOG_STORAGE_LOCATION_PROPERTY = "storage_location"
 
 
 GENERIC_PERMISSION_ERROR_KEY = "permission-error"

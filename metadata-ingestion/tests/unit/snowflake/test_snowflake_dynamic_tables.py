@@ -681,6 +681,8 @@ def _make_gen_with_mocks():
     gen.identifiers.get_dataset_identifier_from_qualified_name = lambda n: n.lower()
     gen.filters = MagicMock()
     gen.filters.is_dataset_pattern_allowed = lambda ident, domain: True
+    gen.include_iceberg_metadata = False
+    gen.include_iceberg_external_lineage = False
     return gen
 
 

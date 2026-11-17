@@ -460,24 +460,29 @@
             "customProperties": {
                 "CLUSTERING_KEY": "LINEAR(COL_1)",
                 "IS_ICEBERG": "true",
-                "RETENTION_TIME": "1"
+                "RETENTION_TIME": "1",
+                "ICEBERG_TABLE_TYPE": "UNMANAGED",
+                "EXTERNAL_VOLUME": "TEST_VOLUME",
+                "BASE_LOCATION": "table_1/",
+                "STORAGE_LOCATION": "s3://test-bucket/iceberg/table_1",
+                "CATALOG_INTEGRATION": "TEST_OBJSTORE_CATALOG"
             },
             "externalUrl": "https://app.snowflake.com/ap-south-1.aws/abc12345/#/data/databases/TEST_DB/schemas/TEST_SCHEMA/table/TABLE_1/",
             "name": "TABLE_1",
             "qualifiedName": "TEST_DB.TEST_SCHEMA.TABLE_1",
             "description": "Comment for Table",
             "created": {
-                "time": 1623090600000
+                "time": 1623110400000
             },
             "lastModified": {
-                "time": 1623090600000
+                "time": 1623110400000
             },
             "tags": []
         }
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2026_01_29-14_58_22-d6gghl",
+        "runId": "snowflake-2021_03_11-06_16_28-ybvq5j",
         "lastRunId": "no-run-id-provided"
     }
 },
@@ -4648,6 +4653,18 @@
                         "time": 1654473600000,
                         "actor": "urn:li:corpuser:_ingestion"
                     },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD)",
+                    "type": "COPY"
+                },
+                {
+                    "auditStamp": {
+                        "time": 1615443388097,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
+                    "created": {
+                        "time": 1654473600000,
+                        "actor": "urn:li:corpuser:_ingestion"
+                    },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD)",
                     "type": "TRANSFORMED",
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
@@ -4683,6 +4700,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_1)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_1)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_1)",
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,other_db.other_schema.table_1,PROD),col_1)"
                     ],
@@ -4692,6 +4720,17 @@
                     ],
                     "confidenceScore": 1.0,
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_2)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_2)"
+                    ],
+                    "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4708,6 +4747,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_3)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_3)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_3)"
                     ],
                     "downstreamType": "FIELD",
@@ -4716,6 +4766,17 @@
                     ],
                     "confidenceScore": 1.0,
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_4)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_4)"
+                    ],
+                    "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4732,6 +4793,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_5)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_5)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_5)"
                     ],
                     "downstreamType": "FIELD",
@@ -4740,6 +4812,17 @@
                     ],
                     "confidenceScore": 1.0,
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_6)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_6)"
+                    ],
+                    "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4756,6 +4839,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_7)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_7)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_7)"
                     ],
                     "downstreamType": "FIELD",
@@ -4764,6 +4858,17 @@
                     ],
                     "confidenceScore": 1.0,
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_8)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_8)"
+                    ],
+                    "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4780,6 +4885,17 @@
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_9)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_9)"
+                    ],
+                    "confidenceScore": 1.0
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_2,PROD),col_9)"
                     ],
                     "downstreamType": "FIELD",
@@ -4788,6 +4904,17 @@
                     ],
                     "confidenceScore": 1.0,
                     "query": "urn:li:query:aec91b63e3ce03877b9d80dc77b915880fc2a5f8f3b5cdf66e9341830268776b"
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:s3,test-bucket/iceberg/table_1,PROD),col_10)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.table_1,PROD),col_10)"
+                    ],
+                    "confidenceScore": 1.0
                 },
                 {
                     "upstreamType": "FIELD_SET",
@@ -4806,7 +4933,7 @@
     },
     "systemMetadata": {
         "lastObserved": 1615443388097,
-        "runId": "snowflake-2025_01_28-00_01_52-5vkne0",
+        "runId": "snowflake-2021_03_11-06_16_28-ybvq5j",
         "lastRunId": "no-run-id-provided"
     }
 },

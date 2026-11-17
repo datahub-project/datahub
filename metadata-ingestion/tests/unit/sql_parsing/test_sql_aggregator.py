@@ -465,6 +465,61 @@ def test_known_lineage_mapping() -> None:
     )
 
 
+def test_known_lineage_mapping_column_casing_follows_upstream_schema() -> None:
+    aggregator = SqlParsingAggregator(
+        platform="snowflake",
+        generate_lineage=True,
+        generate_usage_statistics=False,
+        generate_operations=False,
+    )
+    upstream = DatasetUrn("databricks", "my_catalog.my_schema.events").urn()
+    downstream = DatasetUrn("snowflake", "my_db.my_schema.events").urn()
+    unrelated_upstream = DatasetUrn("s3", "my-bucket/events").urn()
+    unrelated_downstream = DatasetUrn("snowflake", "my_db.my_schema.raw").urn()
+    aggregator._schema_resolver.add_raw_schema_info(
+        urn=downstream, schema_info={"EVENT_ID": "int", "SF_ONLY": "int"}
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        urn=upstream, schema_info={"event_id": "int"}
+    )
+    aggregator._schema_resolver.add_raw_schema_info(
+        urn=unrelated_downstream, schema_info={"EVENT_ID": "int"}
+    )
+
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=upstream, downstream_urn=downstream
+    )
+    # No upstream schema registered: the downstream spelling is kept, as before.
+    aggregator.add_known_lineage_mapping(
+        upstream_urn=unrelated_upstream, downstream_urn=unrelated_downstream
+    )
+
+    cll = {
+        mcp.entityUrn: {
+            tuple(fgl.downstreams or []): fgl.upstreams
+            for fgl in mcp.aspect.fineGrainedLineages or []
+        }
+        for mcp in aggregator.gen_metadata()
+        if isinstance(mcp, MetadataChangeProposalWrapper)
+        and isinstance(mcp.aspect, UpstreamLineageClass)
+    }
+    assert cll[downstream] == {
+        (f"urn:li:schemaField:({downstream},EVENT_ID)",): [
+            f"urn:li:schemaField:({upstream},event_id)"
+        ],
+        # A column the upstream lacks keeps its own spelling.
+        (f"urn:li:schemaField:({downstream},SF_ONLY)",): [
+            f"urn:li:schemaField:({upstream},SF_ONLY)"
+        ],
+    }
+    assert cll[unrelated_downstream] == {
+        (f"urn:li:schemaField:({unrelated_downstream},EVENT_ID)",): [
+            f"urn:li:schemaField:({unrelated_upstream},EVENT_ID)"
+        ],
+    }
+    assert aggregator.report.num_known_mapping_columns_recased == 1
+
+
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_column_lineage_deduplication() -> None:
     aggregator = SqlParsingAggregator(

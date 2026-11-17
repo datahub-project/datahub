@@ -55,6 +55,8 @@ def test_snowflake_basic(pytestconfig, tmp_path, mock_time, mock_datahub_graph):
                         include_operational_stats=True,
                         incremental_lineage=False,
                         use_queries_v2=False,
+                        include_iceberg_metadata=True,
+                        include_iceberg_external_lineage=True,
                         start_time=datetime(2022, 6, 6, 0, 0, 0, 0).replace(
                             tzinfo=timezone.utc
                         ),
