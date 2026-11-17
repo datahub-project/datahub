@@ -1127,7 +1127,7 @@ public class EbeanEntityServiceTest
   @Test
   public void testPolicyChangeObserverRunsAfterPolicyWritesAndDeletes() throws Exception {
     List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
-    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+    _entityServiceImpl.setPolicyChangeObserver((urns, clientWrite) -> calls.add(urns));
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-test");
 
     ingestPolicy(policyUrn, "first");
@@ -1162,7 +1162,7 @@ public class EbeanEntityServiceTest
   @Test
   public void testTwoPoliciesInOneBatchNotifyOnceWithBothUrns() {
     List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
-    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+    _entityServiceImpl.setPolicyChangeObserver((urns, clientWrite) -> calls.add(urns));
     Urn first = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-batch-1");
     Urn second = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-batch-2");
     DataHubPolicyInfo info =
@@ -1202,7 +1202,7 @@ public class EbeanEntityServiceTest
     List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-aspect-delete");
     ingestPolicy(policyUrn, "to delete");
-    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+    _entityServiceImpl.setPolicyChangeObserver((urns, clientWrite) -> calls.add(urns));
 
     _entityServiceImpl.deleteAspect(
         clientContext(),
@@ -1216,22 +1216,25 @@ public class EbeanEntityServiceTest
   }
 
   @Test
-  public void testPolicyWriteWithoutARequestContextDoesNotNotify() {
-    List<Set<Urn>> calls = new CopyOnWriteArrayList<>();
-    _entityServiceImpl.setPolicyChangeObserver(calls::add);
+  public void testPolicyWriteWithoutARequestContextNotifiesAsNotAClientWrite() {
+    List<Boolean> clientWrites = new CopyOnWriteArrayList<>();
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-consumer");
+    ingestPolicy(policyUrn, "client");
+    _entityServiceImpl.setPolicyChangeObserver(
+        (urns, clientWrite) -> clientWrites.add(clientWrite));
 
     // How the MCE consumer commits a queued write: the system context, no request context.
     ingestPolicy(opContext, policyUrn, "queued");
     _entityServiceImpl.deleteUrn(opContext, policyUrn);
+    ingestPolicy(policyUrn, "client again");
 
-    assertEquals(calls, List.of());
+    assertEquals(clientWrites, List.of(false, false, true));
   }
 
   @Test
   public void testPolicyChangeObserverFailureDoesNotFailTheWrite() {
     _entityServiceImpl.setPolicyChangeObserver(
-        urns -> {
+        (urns, clientWrite) -> {
           throw new IllegalStateException("observer failure");
         });
     Urn policyUrn = UrnUtils.getUrn("urn:li:dataHubPolicy:observer-failure");

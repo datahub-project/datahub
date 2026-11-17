@@ -4127,17 +4127,16 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
-   * Only a write with a request context notifies. A queued write that the MCE consumer commits runs
-   * with the system operation context, which has none, so committing it never waits for a cache
-   * read.
+   * A queued write that the MCE consumer commits runs with the system operation context, which has
+   * no request context, so it is not a client write and the observer must not make it wait.
    */
   private void notifyPolicyChange(@Nonnull OperationContext opContext, @Nonnull Set<Urn> urns) {
     final PolicyChangeObserver observer = policyChangeObserver;
-    if (observer == null || urns.isEmpty() || opContext.getRequestContext() == null) {
+    if (observer == null || urns.isEmpty()) {
       return;
     }
     try {
-      observer.onPolicyChange(urns);
+      observer.onPolicyChange(urns, opContext.getRequestContext() != null);
     } catch (RuntimeException e) {
       // The write is already committed; a cache refresh failure must not fail it.
       log.warn("Policy change observer failed after a committed policy write.", e);

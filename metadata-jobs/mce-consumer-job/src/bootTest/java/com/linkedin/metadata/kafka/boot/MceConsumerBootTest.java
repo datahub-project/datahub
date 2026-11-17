@@ -1,8 +1,12 @@
 package com.linkedin.metadata.kafka.boot;
 
+import static org.testng.Assert.assertNull;
+
+import com.linkedin.gms.factory.policycache.PolicyChangeReceiver;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
 import com.linkedin.metadata.kafka.MceConsumerApplication;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.test.boot.BootContract;
@@ -46,6 +50,27 @@ public class MceConsumerBootTest {
   @Test
   public void bootsWithPgQueue() {
     boot(Messaging.PGQUEUE);
+  }
+
+  /**
+   * Deployments may set POLICY_CACHE_BROADCAST_ENABLED in an env file shared with the MCE consumer.
+   * It does not scan the GMS-only policy cache package, so it starts no policy change receiver and
+   * registers no policy write observer: the writes it commits reach GMS on the refresh timer.
+   */
+  @Test
+  public void bootsWithPolicyChangeBroadcast() {
+    try (ConfigurableApplicationContext ctx =
+        ProcessBoot.of(MceConsumerApplication.class)
+            .profiles("mce")
+            .web(WebApplicationType.SERVLET)
+            .messaging(Messaging.KAFKA)
+            .property("MCE_CONSUMER_ENABLED", "true")
+            .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
+            .start()) {
+      contract(Messaging.KAFKA).verify(ctx);
+      assertNull(ctx.getBeanProvider(PolicyChangeReceiver.class).getIfAvailable());
+      assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
+    }
   }
 
   private static void boot(Messaging messaging) {

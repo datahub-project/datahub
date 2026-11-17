@@ -1,9 +1,13 @@
 package com.linkedin.gms.boot;
 
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertTrue;
+
 import com.datahub.auth.authentication.AuthServiceController;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.graphql.GraphQLController;
 import com.linkedin.gms.GMSApplication;
+import com.linkedin.gms.factory.policycache.PolicyChangeReceiver;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.servlet.AuthServletConfig;
 import com.linkedin.gms.servlet.GraphQLServletConfig;
@@ -11,6 +15,7 @@ import com.linkedin.gms.servlet.IcebergCatalogServletConfig;
 import com.linkedin.gms.servlet.OpenAPIServletConfig;
 import com.linkedin.gms.servlet.RestliServletConfig;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
 import com.linkedin.metadata.search.SearchService;
 import io.datahubproject.iceberg.catalog.rest.open.PublicIcebergApiController;
 import io.datahubproject.iceberg.catalog.rest.secure.IcebergApiController;
@@ -57,6 +62,27 @@ public class GmsBootTest {
   @Test
   public void bootsWithPgQueue() {
     boot(Messaging.PGQUEUE);
+  }
+
+  /**
+   * POLICY_CACHE_BROADCAST_ENABLED starts the policy change receiver on the Hazelcast member of
+   * GMS, and registers the policy write observer.
+   */
+  @Test
+  public void bootsWithPolicyChangeBroadcast() {
+    try (ConfigurableApplicationContext ctx =
+        ProcessBoot.of(GMSApplication.class)
+            .web(WebApplicationType.SERVLET)
+            .messaging(Messaging.KAFKA)
+            .property("MAE_CONSUMER_ENABLED", "true")
+            .property("MCE_CONSUMER_ENABLED", "true")
+            .property("PE_CONSUMER_ENABLED", "true")
+            .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
+            .start()) {
+      contract(Messaging.KAFKA).verify(ctx);
+      assertTrue(ctx.getBean("policyChangeReceiver") instanceof PolicyChangeReceiver);
+      assertNotNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
+    }
   }
 
   private static void boot(Messaging messaging) {
