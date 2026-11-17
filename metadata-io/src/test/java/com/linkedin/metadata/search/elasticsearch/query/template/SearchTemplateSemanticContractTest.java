@@ -15,7 +15,6 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.embedding.EmbeddingProfile;
@@ -521,7 +520,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
     for (boolean hybridRead : List.of(false, true)) {
       ElasticSearchConfiguration elastic = v3Config();
-      elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+      elastic.getEntityIndex().setSemanticSearch(semanticSearch);
       SearchTemplateCoordinator coordinator =
           new SearchTemplateCoordinator(
               elastic,
@@ -674,8 +673,9 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   private SearchTemplateCoordinator coordinator(boolean semanticRead) {
     ElasticSearchConfiguration elastic = v3Config();
-    EntityIndexVersionConfiguration indexV3 = elastic.getEntityIndex().getV3();
-    indexV3.setSemanticReadEnabled(semanticRead);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(semanticRead);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     return new SearchTemplateCoordinator(
         elastic,
         null,
