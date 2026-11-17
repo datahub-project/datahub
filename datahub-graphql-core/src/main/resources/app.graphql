@@ -61,6 +61,12 @@ extend type Mutation {
   ): Boolean!
 
   """
+  Update the global settings for DataHub-hosted MCP (Model Context Protocol) servers.
+  Requires the 'Manage Platform Settings' Platform Privilege.
+  """
+  updateMcpSettings(input: UpdateMcpSettingsInput!): Boolean!
+
+  """
   Update the applications settings.
   """
   updateApplicationsSettings(input: UpdateApplicationsSettingsInput!): Boolean!

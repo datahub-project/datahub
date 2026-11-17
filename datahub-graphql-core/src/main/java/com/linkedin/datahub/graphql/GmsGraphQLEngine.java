@@ -260,6 +260,7 @@ import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.DocPropaga
 import com.linkedin.datahub.graphql.resolvers.settings.docPropagation.UpdateDocPropagationSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.homePage.GlobalHomePageSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.mcp.McpSettingsResolver;
+import com.linkedin.datahub.graphql.resolvers.settings.mcp.UpdateMcpSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserLocaleSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateCorpUserViewsSettingsResolver;
 import com.linkedin.datahub.graphql.resolvers.settings.user.UpdateUserHomePageSettingsResolver;
@@ -1816,6 +1817,9 @@ public class GmsGraphQLEngine {
               .dataFetcher(
                   "updateDocPropagationSettings",
                   new UpdateDocPropagationSettingsResolver(this.settingsService))
+              .dataFetcher(
+                  "updateMcpSettings",
+                  new UpdateMcpSettingsResolver(this.settingsService, this.featureFlags))
               .dataFetcher(
                   "updateApplicationsSettings",
                   new UpdateApplicationsSettingsResolver(this.settingsService))

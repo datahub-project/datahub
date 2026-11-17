@@ -1,7 +1,9 @@
 package com.linkedin.datahub.graphql.types.agent;
 
+import com.linkedin.agent.AIAgentToolRef;
 import com.linkedin.agent.AIAgentToolRefArray;
 import com.linkedin.agent.ToolRefType;
+import com.linkedin.datahub.graphql.generated.AgentToolRefInput;
 import java.util.List;
 import java.util.stream.Collectors;
 
@@ -29,6 +31,20 @@ public class AgentToolRefMapper {
         .collect(Collectors.toList());
   }
 
+  public static AIAgentToolRefArray toGms(final List<AgentToolRefInput> inputs) {
+    return new AIAgentToolRefArray(
+        inputs.stream()
+            .map(
+                t -> {
+                  final AIAgentToolRef ref = new AIAgentToolRef();
+                  ref.setRefType(toGmsRefType(t.getRefType()));
+                  ref.setToolId(t.getToolId());
+                  ref.setEnabled(t.getEnabled());
+                  return ref;
+                })
+            .collect(Collectors.toList()));
+  }
+
   private static com.linkedin.datahub.graphql.generated.ToolRefType toGraphqlRefType(
       final ToolRefType refType) {
     switch (refType) {
@@ -38,6 +54,21 @@ public class AgentToolRefMapper {
         return com.linkedin.datahub.graphql.generated.ToolRefType.AGENT;
       default:
         return com.linkedin.datahub.graphql.generated.ToolRefType.TOOL;
+    }
+  }
+
+  private static ToolRefType toGmsRefType(
+      final com.linkedin.datahub.graphql.generated.ToolRefType refType) {
+    if (refType == null) {
+      return ToolRefType.TOOL;
+    }
+    switch (refType) {
+      case GROUP:
+        return ToolRefType.GROUP;
+      case AGENT:
+        return ToolRefType.AGENT;
+      default:
+        return ToolRefType.TOOL;
     }
   }
 }
