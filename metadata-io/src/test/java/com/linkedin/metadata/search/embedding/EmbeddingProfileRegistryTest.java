@@ -80,6 +80,41 @@ public class EmbeddingProfileRegistryTest {
   }
 
   @Test
+  public void testNamedProfileOutsideItsTypesIsDroppedWhenTheEntityHasNoDefault() {
+    EmbeddingProfile chartCard =
+        new EmbeddingProfile(
+            "chartMetadata.v1",
+            "entityMetadata",
+            null,
+            "cosine",
+            Set.of("chart"),
+            Set.of(ELASTICSEARCH, OPENSEARCH));
+    EmbeddingProfileRegistry registry =
+        new EmbeddingProfileRegistry(
+            List.of(DATASET_CARD, chartCard), Map.of("dataset", DATASET_CARD.id()));
+
+    // Chart has no default: the dataset card does not cover it and is dropped, and the chart card
+    // still resolves.
+    EmbeddingProfileRegistry.Resolution mixed =
+        registry.resolve(
+            new SearchTemplateProfiles().setReplace(ids(DATASET_CARD.id(), chartCard.id())),
+            "chart",
+            OPENSEARCH);
+    assertTrue(mixed.covered());
+    assertEquals(mixed.profileIds(), List.of(chartCard.id()));
+
+    // With no selected profile covering it, the entity needs the default it does not have.
+    assertEquals(
+        registry
+            .resolve(
+                new SearchTemplateProfiles().setReplace(ids(DATASET_CARD.id())),
+                "chart",
+                OPENSEARCH)
+            .failure(),
+        EmbeddingProfileRegistry.NO_DEFAULT);
+  }
+
+  @Test
   public void testUncoveredSystemAndUnknownIdsDoNotFallBack() {
     SearchTemplateProfiles connector =
         new SearchTemplateProfiles().setReplace(ids("textChunks.v2"));

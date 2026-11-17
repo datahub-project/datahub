@@ -31,7 +31,7 @@ public final class EmbeddingProfileRegistry {
   /** A resolved profile is not available on this deployment's system. */
   public static final String SYSTEM_UNAVAILABLE = "systemUnavailable";
 
-  /** The entity needs its default profile and has none. */
+  /** The entity has no default profile, and no selected profile covers it. */
   public static final String NO_DEFAULT = "noDefault";
 
   /** The selection removes every profile, including the default. */
@@ -138,11 +138,10 @@ public final class EmbeddingProfileRegistry {
    * The ids a selection names for one entity type, before availability is checked. A null selection
    * is the entity default. {@code replace} sets the list, otherwise the entity default starts it,
    * and {@code remove} and {@code add} patch it. A named profile that does not cover the entity is
-   * replaced by the entity default, once. An unknown id stays in the list.
-   *
-   * @return the ids, or null when the entity needs a default it does not have
+   * replaced by the entity default, once, or dropped when the entity has no default, so the ids
+   * that do cover the entity still resolve. An unknown id stays in the list.
    */
-  @Nullable
+  @Nonnull
   public List<String> select(
       @Nullable SearchTemplateProfiles selection, @Nonnull String entityType) {
     String fallback = defaultFor(entityType);
@@ -162,10 +161,9 @@ public final class EmbeddingProfileRegistry {
     for (String id : requested) {
       EmbeddingProfile profile = profiles.get(id);
       if (profile != null && !profile.covers(entityType)) {
-        if (fallback == null) {
-          return null;
+        if (fallback != null) {
+          selected.add(fallback);
         }
-        selected.add(fallback);
       } else {
         selected.add(id);
       }
@@ -184,9 +182,6 @@ public final class EmbeddingProfileRegistry {
       @Nonnull String entityType,
       @Nullable String system) {
     List<String> selected = select(selection, entityType);
-    if (selected == null) {
-      return new Resolution(List.of(), NO_DEFAULT);
-    }
     if (selected.isEmpty()) {
       return new Resolution(
           selected, defaultFor(entityType) == null ? NO_DEFAULT : EMPTY_SELECTION);
