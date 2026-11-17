@@ -142,6 +142,28 @@ def test_task_list_renders_as_checkboxes() -> None:
     assert storage_to_markdown(html, _names) == "- [x] Ship it\n- [ ] Ask @Alex Doe"
 
 
+@pytest.mark.parametrize(
+    "child_list_position",
+    ["inside the parent task body", "next to the parent task"],
+)
+def test_nested_task_list_keeps_its_tasks(child_list_position: str) -> None:
+    child = (
+        "<ac:task-list><ac:task><ac:task-status>incomplete</ac:task-status>"
+        "<ac:task-body>Child</ac:task-body></ac:task></ac:task-list>"
+    )
+    parent_body = "Parent" + (child if child_list_position.startswith("inside") else "")
+    sibling = "" if child_list_position.startswith("inside") else child
+    html = (
+        "<ac:task-list><ac:task><ac:task-status>incomplete</ac:task-status>"
+        f"<ac:task-body>{parent_body}</ac:task-body></ac:task>{sibling}</ac:task-list>"
+    )
+
+    markdown = storage_to_markdown(html)
+
+    assert "[ ] Parent" in markdown
+    assert "[ ] Child" in markdown
+
+
 def test_template_placeholder_is_not_content() -> None:
     html = "<p><ac:placeholder>Type your summary here</ac:placeholder>Real text</p>"
 

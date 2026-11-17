@@ -149,6 +149,9 @@ DISCARD_MACROS = frozenset(
 # Content API settings shared by every page listing, so pages fetched by
 # space, by id and as children all carry the same fields.
 PAGE_EXPAND = "ancestors,version,history,space,body.storage"
+# Enough to tell that a page exists and can be viewed, without its body: the
+# connection test and the max_pages_per_space check don't need content.
+PAGE_PROBE_EXPAND = "space"
 PAGE_PAGE_SIZE = 100
 SPACE_PAGE_SIZE = 100
 

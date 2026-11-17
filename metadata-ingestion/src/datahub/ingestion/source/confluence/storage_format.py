@@ -194,8 +194,20 @@ class _StorageRewriter:
 
     def _rewrite_task_list(self, task_list: Tag) -> None:
         ul = self.soup.new_tag("ul")
-        for task in task_list.find_all(StorageTag.TASK, recursive=False):
+        for task in task_list.find_all(
+            [StorageTag.TASK, StorageTag.TASK_LIST], recursive=False
+        ):
             if not isinstance(task, Tag):
+                continue
+            if task.name == StorageTag.TASK_LIST:
+                # A sub-list stored next to its parent task rather than inside
+                # its body. Nest it under the previous task; it is rewritten in
+                # turn, since every task list is collected before any is rewritten.
+                parent_li = ul.contents[-1] if ul.contents else None
+                if isinstance(parent_li, Tag):
+                    parent_li.append(task.extract())
+                else:
+                    ul.append(task.extract())
                 continue
             status = _child(task, StorageTag.TASK_STATUS)
             done = (

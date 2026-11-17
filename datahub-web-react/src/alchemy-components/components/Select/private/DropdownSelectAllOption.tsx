@@ -30,6 +30,7 @@ export default function DropdownSelectAllOption({ label, selected, onClick, disa
                     isChecked={selected}
                     isDisabled={disabled}
                     onCheckboxChange={() => onClick?.()}
+                    aria-label={label}
                     size="sm"
                 />
             </LabelContainer>

@@ -50,7 +50,7 @@ test.describe('SearchV2 Features', () => {
     const typeFilterDropdown = page.getByTestId('filter-dropdown-Type');
     await typeFilterDropdown.click();
     await expect(searchPage.filterDropdownMenu).toBeVisible();
-    await expect(searchPage.updateFiltersButton).toBeVisible();
+    await expect(searchPage.filterOptions.first()).toBeVisible();
   });
 
   test('should toggle filters using More Filters dropdown', async () => {

@@ -9,6 +9,7 @@ from datahub.ingestion.source.confluence.config import (
 from datahub.ingestion.source.confluence.constants import (
     PAGE_CONTENT_TYPE,
     PAGE_EXPAND,
+    PAGE_PROBE_EXPAND,
 )
 from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
@@ -71,9 +72,11 @@ class ConfluenceClient:
         """Raises when the space does not exist or cannot be viewed."""
         self.api.get_space(space_key)
 
-    def list_space_pages(self, space_key: str, start: int, limit: int) -> PageBatch:
+    def list_space_pages(
+        self, space_key: str, start: int, limit: int, expand: str = PAGE_EXPAND
+    ) -> PageBatch:
         response = self.api.get_all_pages_from_space(
-            space=space_key, start=start, limit=limit, expand=PAGE_EXPAND
+            space=space_key, start=start, limit=limit, expand=expand
         )
         # atlassian-python-api returns a bare list of results in some
         # versions and the raw response in others.
@@ -86,8 +89,18 @@ class ConfluenceClient:
             pages=self._parse_pages(results), fetched=len(results), has_next=has_next
         )
 
-    def get_page(self, page_id: str) -> Optional[ConfluencePage]:
-        raw = self.api.get_page_by_id(page_id, expand=PAGE_EXPAND)
+    def has_more_space_pages(self, space_key: str, start: int) -> bool:
+        return (
+            self.list_space_pages(
+                space_key, start=start, limit=1, expand=PAGE_PROBE_EXPAND
+            ).fetched
+            > 0
+        )
+
+    def get_page(
+        self, page_id: str, expand: str = PAGE_EXPAND
+    ) -> Optional[ConfluencePage]:
+        raw = self.api.get_page_by_id(page_id, expand=expand)
         pages = self._parse_pages([raw]) if raw else []
         return pages[0] if pages else None
 
@@ -116,10 +129,14 @@ class ConfluenceClient:
             try:
                 pages.append(ConfluencePage.model_validate(raw))
             except ValidationError as e:
-                self.report.warning(
+                # A failure, not a warning: the page (and in a recursive crawl,
+                # everything under it) was not read, so stale removal must not
+                # soft-delete what was ingested for it before.
+                self.report.failure(
                     title="Skipped malformed page",
                     message="The Confluence API returned a page this source "
-                    "could not read, so it was not ingested.",
+                    "could not read, so it and any pages under it were not "
+                    "ingested. Stale removal is skipped for this run.",
                     context=str(raw.get("id")) if isinstance(raw, dict) else None,
                     exc=e,
                 )

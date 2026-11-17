@@ -1,9 +1,15 @@
 from typing import Any, Dict, Set
 
+import pytest
+
 from datahub.ingestion.source.confluence.documents import (
     ConfluenceDocumentBuilder,
 )
-from datahub.ingestion.source.confluence.models import ConfluencePage
+from datahub.ingestion.source.confluence.hierarchy import FolderNode
+from datahub.ingestion.source.confluence.models import (
+    ConfluencePage,
+    ConfluenceSpaceRef,
+)
 from datahub.metadata.schema_classes import (
     DataPlatformInstanceClass,
     DocumentInfoClass,
@@ -57,3 +63,24 @@ def test_platform_instance_aspect_matches_the_configured_instance() -> None:
     assert instance.instance is not None
     assert instance.instance.endswith(",prod-wiki)")
     assert builder.page_urn("1") == "urn:li:document:confluence-prod-wiki-1"
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://acme.atlassian.net/wiki",
+        "https://wiki.acme.com",
+        "https://wiki.acme.com/wiki",
+    ],
+)
+def test_folder_links_point_under_wiki(url: str) -> None:
+    # Only *.atlassian.net gets /wiki added by the config, but Cloud folders
+    # always live under it.
+    builder = ConfluenceDocumentBuilder(make_config(url=url))
+    folder = FolderNode(
+        id="f1", title="Area", parent_id=None, space=ConfluenceSpaceRef(key="TEAM")
+    )
+
+    assert builder.folder_url(folder) == (
+        f"{url.removesuffix('/wiki')}/wiki/spaces/TEAM/folder/f1"
+    )
