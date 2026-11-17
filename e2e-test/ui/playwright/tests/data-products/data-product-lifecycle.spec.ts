@@ -13,6 +13,7 @@
 
 import { test, expect } from '../../fixtures/base-test';
 import { DataProductPage } from '../../pages/data-product.page';
+import { SearchPage } from '../../pages/search.page';
 import { TIMEOUTS } from '../../utils/constants';
 import { withRandomSuffix } from '../../utils/random';
 import { DomainTag, TestTag } from '../../utils/test-tags';
@@ -21,7 +22,6 @@ test.use({ featureName: 'data-products' });
 
 const DOMAIN_URN = 'urn:li:domain:pw-data-product-domain';
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,pw_data_product_dataset,PROD)';
-const DATASET_NAME = 'pw_data_product_dataset';
 
 test.describe('Data product lifecycle', () => {
   test(
@@ -35,10 +35,10 @@ test.describe('Data product lifecycle', () => {
       const urn = await dataProductPage.createDataProduct(name);
       cleanup.track(urn);
 
-      await expect(page.getByText(name).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await dataProductPage.expectListedInDomain(urn);
 
       await dataProductPage.openProfile(urn);
-      await expect(page.getByText(name).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await dataProductPage.expectProfileName(name);
     },
   );
 
@@ -55,20 +55,15 @@ test.describe('Data product lifecycle', () => {
 
       await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}`);
       await page.waitForLoadState('networkidle');
-      await dataProductPage.attachFromAssetSidebar(name);
+      await dataProductPage.attachFromAssetSidebar(urn, name);
 
-      await dataProductPage.openProfile(urn, 'Assets');
-      await expect(page.getByText(DATASET_NAME).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
+      await dataProductPage.expectAssetListed(urn, DATASET_URN);
 
       await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}`);
       await page.waitForLoadState('networkidle');
       await dataProductPage.removeFromAssetSidebar(name);
 
-      // The Assets tab is search-backed, so reload until the removal is indexed.
-      await expect(async () => {
-        await dataProductPage.openProfile(urn, 'Assets');
-        await expect(page.getByText(DATASET_NAME)).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
-      }).toPass({ timeout: TIMEOUTS.LONG });
+      await dataProductPage.expectAssetNotListed(urn, DATASET_URN);
     },
   );
 
@@ -77,24 +72,27 @@ test.describe('Data product lifecycle', () => {
     { tag: [DomainTag.Catalog] },
     async ({ page, logger, cleanup }) => {
       const dataProductPage = new DataProductPage(page, logger);
+      const searchPage = new SearchPage(page, logger);
       const name = withRandomSuffix('PWSearchProduct');
 
       await dataProductPage.openDomainDataProductsTab(DOMAIN_URN);
       const urn = await dataProductPage.createDataProduct(name);
       cleanup.track(urn);
 
-      // Search indexing is asynchronous, so reload until the new data product is returned.
-      await expect(async () => {
-        await page.goto(`/search?query=${encodeURIComponent(name)}`);
-        await expect(page.getByText(name).first()).toBeVisible({ timeout: TIMEOUTS.SHORT });
-      }).toPass({ timeout: TIMEOUTS.LONG });
+      // Search indexing is asynchronous; the search page reloads until the new data product is returned.
+      await searchPage.navigateToHome();
+      await searchPage.search(name);
+      await searchPage.expectEntityInSearchResults(urn);
 
       await dataProductPage.openProfile(urn);
       await dataProductPage.deleteFromProfile();
 
+      // Re-run the search until the deleted data product drops out of the results. Each search waits for
+      // its own response, so an empty result set is the index's answer rather than a page still loading.
       await expect(async () => {
-        await page.goto(`/search?query=${encodeURIComponent(name)}`);
-        await expect(page.getByText(name)).toHaveCount(0, { timeout: TIMEOUTS.SHORT });
+        await searchPage.navigateToHome();
+        await searchPage.search(name);
+        await expect(searchPage.getEntityPreviewLocator(urn)).toHaveCount(0);
       }).toPass({ timeout: TIMEOUTS.LONG });
     },
   );
@@ -112,7 +110,6 @@ test.describe('Data product lifecycle', () => {
     await dataProductPage.renameFromProfile(newName);
 
     await dataProductPage.openProfile(urn);
-    await expect(page.getByText(newName).first()).toBeVisible({ timeout: TIMEOUTS.LONG });
-    await expect(page.getByText(name)).toHaveCount(0);
+    await dataProductPage.expectProfileName(newName);
   });
 });
