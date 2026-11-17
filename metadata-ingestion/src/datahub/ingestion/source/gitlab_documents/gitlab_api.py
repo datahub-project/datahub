@@ -240,6 +240,8 @@ class GitLabApiClient:
                 size,
                 MAX_FILE_SIZE_BYTES,
             )
+            # A skip is not a failed read; don't leave an earlier request's error.
+            self._last_api_error = None
             return None
         response = self._get(url, params={"ref": branch})
         node = self._json_or_none(response)

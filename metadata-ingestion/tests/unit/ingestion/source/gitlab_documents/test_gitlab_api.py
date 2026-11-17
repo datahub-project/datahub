@@ -122,6 +122,23 @@ def test_fetch_file_content_skips_large_file_before_downloading() -> None:
         assert not download.called
 
 
+def test_file_skipped_for_size_does_not_report_an_earlier_error() -> None:
+    client = GitLabApiClient("glpat-test")
+    with requests_mock.Mocker() as m:
+        m.head(requests_mock.ANY, status_code=404)
+        m.get(f"{API}/repository/files/docs%2Fa.md?ref=main", status_code=503)
+        m.head(
+            f"{API}/repository/files/docs%2Fbig.md?ref=main",
+            headers={"X-Gitlab-Size": "5000000"},
+        )
+        assert client.fetch_file_content("acme/data/docs", "docs/a.md", "main") is None
+        assert client.last_api_error is not None
+        assert (
+            client.fetch_file_content("acme/data/docs", "docs/big.md", "main") is None
+        )
+        assert client.last_api_error is None
+
+
 def test_get_latest_commit_sha_retries_once_on_rate_limit() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m, patch("time.sleep") as sleep:
