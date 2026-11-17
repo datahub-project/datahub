@@ -2247,10 +2247,13 @@ class TestEndToEndFailureHandling:
         # Pinned: the denial has to actually fire, or the counter below is zero
         # for the wrong reason and the test proves nothing.
         assert failed
-        # Only the distinct group goes one query per round trip -- six columns,
-        # and the re-route cannot help because every retry still touches c3.
-        # Without scoping the whole queue is demoted, which is every query.
-        assert report.uncombined_queries_issued == 6
+        # Only the distinct group is recovered -- six columns, and the re-route
+        # cannot help because every retry still touches c3. Bisection then
+        # finds c3's query, so it is the only one that runs alone. Without
+        # scoping the whole queue is demoted, which is every query; without
+        # bisection the whole distinct group runs one query per round trip.
+        assert report.failed_windows_bisected == 1
+        assert report.uncombined_queries_issued == 1
 
     def test_empty_table_with_a_failing_column_stops_at_the_count(self, tmp_path):
         # Merging the row count into the column batch used to mean an empty
@@ -2276,6 +2279,43 @@ class TestEndToEndFailureHandling:
         assert profiler.report.query_combiner.queries_skipped_empty_table > 0
         # An empty table is not an unreadable one.
         assert profiler.report.query_combiner.queries_skipped_after_gate == 0
+
+    @pytest.mark.parametrize("flatten", [False, True])
+    def test_one_unreadable_column_is_narrowed_down_not_serialized(
+        self, tmp_path, flatten
+    ):
+        # A per-column grant: every statement that touches c17 fails. The
+        # failing window used to go one query per round trip -- 86 statements
+        # for this table with flatten off, 83 with it on. Bisection finds c17's
+        # queries instead, and every other column still gets its stats.
+        engine, conn = self._db(tmp_path, columns=40, rows=10)
+        issued: List[str] = []
+
+        def deny_c17(c, cur, statement, *_):
+            text = " ".join(statement.split()).replace('"', "")
+            if "probe" in text and text.upper().startswith(("SELECT", "WITH")):
+                issued.append(text)
+                if "c17)" in text or "c17 " in text:
+                    raise sa.exc.OperationalError("denied", {}, Exception("denied"))
+
+        sa.event.listen(engine, "before_cursor_execute", deny_c17)
+
+        profiler, profile = self._profile(
+            conn, flatten, include_field_stddev_value=False
+        )
+
+        assert profile is not None
+        assert profile.rowCount == 10
+        by_path = {f.fieldPath: f for f in profile.fieldProfiles or []}
+        assert len(by_path) == 40
+        assert by_path["c17"].min is None
+        assert all(
+            by_path[f"c{i}"].min == "0" and by_path[f"c{i}"].max == "9"
+            for i in range(40)
+            if i != 17
+        )
+        assert profiler.report.query_combiner.failed_windows_bisected >= 1
+        assert len(issued) < 40, len(issued)
 
     def test_non_empty_table_with_a_failing_column_keeps_its_field_profiles(
         self, tmp_path
