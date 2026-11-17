@@ -34,6 +34,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import LifecycleStageModal from '@app/entityV2/shared/EntityDropdown/LifecycleStageModal';
 import MoveEntityModal from '@app/entityV2/shared/EntityDropdown/MoveEntityModal';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
+import useDataProductChildren from '@app/entityV2/shared/EntityDropdown/useDataProductChildren';
 import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import {
     DeprecationFormData,
@@ -41,6 +42,7 @@ import {
 } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import {
     canCreateTermVersion,
+    getChildDeletionWarningKey,
     getDeprecationMenuActions,
     isDeleteDisabled,
     isGlossaryTermVersion,
@@ -105,7 +107,7 @@ const EntityDropdown = (props: Props) => {
 
     const {
         urn,
-        entityData,
+        entityData: entityDataProp,
         entityType,
         menuItems,
         refetchForEntity,
@@ -117,6 +119,7 @@ const EntityDropdown = (props: Props) => {
         triggerType = ['click'],
         refetchDeprecation,
     } = props;
+    const { entityData, onMenuOpenChange } = useDataProductChildren(urn, entityType, entityDataProp);
     const { urn: entityProfileUrn, setDrawer } = useEntityContext();
     const onEntityProfile = entityProfileUrn === urn;
 
@@ -537,9 +540,7 @@ const EntityDropdown = (props: Props) => {
         const deleteDisabled = isDeleteDisabled(entityType, entityData, me.platformPrivileges);
         const entityName = entityRegistry.getEntityName(entityType);
         if (shouldDisplayChildDeletionWarning(entityType, entityData, me.platformPrivileges)) {
-            deleteTooltip = isDomainEntity
-                ? t('delete.cantDeleteSubDomain', { entityName })
-                : t('delete.cantDeleteChild', { entityName });
+            deleteTooltip = t(getChildDeletionWarningKey(entityType), { entityName });
         } else if (deleteDisabled) {
             deleteTooltip = t('delete.noPermission', { entityName });
         }
@@ -558,7 +559,12 @@ const EntityDropdown = (props: Props) => {
 
     return (
         <>
-            <Menu items={menuItemsList} trigger={triggerType} overlayStyle={{ minWidth: 150 }}>
+            <Menu
+                items={menuItemsList}
+                trigger={triggerType}
+                overlayStyle={{ minWidth: 150 }}
+                onOpenChange={onMenuOpenChange}
+            >
                 <DotsThreeVertical data-testid="MoreVertOutlinedIcon" size={20} weight="bold" />
             </Menu>
             {isCreateTermModalVisible && (
