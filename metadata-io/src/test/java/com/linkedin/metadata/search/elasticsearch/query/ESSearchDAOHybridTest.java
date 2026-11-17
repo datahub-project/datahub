@@ -17,9 +17,12 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertTrue;
 
+import com.datahub.util.RecordUtils;
 import com.google.common.util.concurrent.Uninterruptibles;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -30,9 +33,11 @@ import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.KeywordRerankExplanation;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
@@ -389,6 +394,66 @@ public class ESSearchDAOHybridTest {
                 0)),
         range(0, 10));
     rerankPlans(2);
+  }
+
+  @Test
+  public void testExplainNamesTheRerankOutcomeAndTheMinScoreDeprecation() throws IOException {
+    SearchResult mixed = result(100);
+    mixed
+        .getEntities()
+        .get(0)
+        .setEntity(UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,events,PROD)"));
+    OperationContext explained =
+        keywordRerankContext(KEEP_PLACES, true, 0.5f)
+            .withSearchFlags(flags -> flags.setIncludeExplain(true));
+
+    SearchResult applied =
+        dao.finishTemplateHybrid(explained, ENTITY_NAMES, "revenue", mixed, 0, 10, 100);
+
+    KeywordRerankExplanation explanation = applied.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    assertFalse(explanation.hasReason());
+    // The Dataset row keeps its keyword place
+    assertEquals(explanation.getEligibleRows().intValue(), 99);
+    assertEquals(explanation.getIneligibleRows().intValue(), 1);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    // It survives serialization with the rest of the metadata
+    assertEquals(
+        RecordUtils.toRecordTemplate(
+                SearchResultMetadata.class, RecordUtils.toJsonString(applied.getMetadata()))
+            .getKeywordRerank(),
+        explanation);
+
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenThrow(new IOException("provider unavailable"));
+    KeywordRerankExplanation kept =
+        dao.finishTemplateHybrid(
+                keywordRerankContext(KEEP_PLACES, true, null)
+                    .withSearchFlags(flags -> flags.setIncludeExplain(true)),
+                ENTITY_NAMES,
+                "revenue",
+                result(100),
+                0,
+                10,
+                100)
+            .getMetadata()
+            .getKeywordRerank();
+    assertEquals(kept.getOutcome(), SearchTemplateKeywordRerank.KEPT_KEYWORD_ORDER);
+    assertEquals(kept.getReason(), SearchTemplateKeywordRerank.FAILED);
+    assertTrue(kept.getDeprecations().isEmpty());
+    // Without the explain flag the search carries no explanation
+    assertFalse(
+        dao.finishTemplateHybrid(
+                keywordRerankContext(KEEP_PLACES, true, null),
+                ENTITY_NAMES,
+                "revenue",
+                result(100),
+                0,
+                10,
+                100)
+            .hasMetadata());
   }
 
   private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";

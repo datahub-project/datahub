@@ -14,6 +14,7 @@ import com.google.common.util.concurrent.ThreadFactoryBuilder;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.LongMap;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.ConfigUtils;
@@ -32,10 +33,12 @@ import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValueArray;
 import com.linkedin.metadata.search.IncidentStats;
+import com.linkedin.metadata.search.KeywordRerankExplanation;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
@@ -838,8 +841,47 @@ public class ESSearchDAO {
     if (reason != null && !SearchTemplateKeywordRerank.NOT_APPLICABLE.equals(reason)) {
       SearchTemplateMetrics.fallback(opContext, reason);
     }
+    if (flags != null && Boolean.TRUE.equals(flags.isIncludeExplain())) {
+      explainTemplateRerank(result, rows, plan, reason, minScore != null);
+    }
     result.setEntities(new SearchEntityArray(ranked));
     return hybridFetchSize == 0 ? result : sliceHybridWindow(result, from, size);
+  }
+
+  // Search-level, because the outcome is known only after the rerank, which follows extraction.
+  private static void explainTemplateRerank(
+      @Nonnull SearchResult result,
+      @Nonnull List<SearchEntity> rows,
+      @Nullable HybridRerankPlan plan,
+      @Nullable String reason,
+      boolean minScore) {
+    final KeywordRerankExplanation explanation =
+        new KeywordRerankExplanation()
+            .setOutcome(
+                reason == null
+                    ? SearchTemplateKeywordRerank.APPLIED
+                    : SearchTemplateKeywordRerank.KEPT_KEYWORD_ORDER)
+            .setReason(reason, SetMode.IGNORE_NULL);
+    if (plan != null) {
+      final int window = Math.min(HYBRID_RERANK_WINDOW, rows.size());
+      final int eligible =
+          (int)
+              rows.subList(0, window).stream()
+                  .filter(
+                      row ->
+                          row.getEntity() != null
+                              && plan.eligibleEntityNames()
+                                  .contains(row.getEntity().getEntityType()))
+                  .count();
+      explanation.setEligibleRows(eligible).setIneligibleRows(window - eligible);
+    }
+    if (minScore) {
+      explanation.setDeprecations(
+          new StringArray(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    }
+    final SearchResultMetadata metadata =
+        result.hasMetadata() ? result.getMetadata() : new SearchResultMetadata();
+    result.setMetadata(metadata.setKeywordRerank(explanation));
   }
 
   /**
