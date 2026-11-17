@@ -21,6 +21,16 @@ The `scripts/selective_ci_checks.py` script analyzes the list of changed files i
 
 Pull requests run every job on Python 3.11 only and skip `testPerformance`. Pushes to `master` and `releases/**`, published releases and manual runs keep the full matrix: `testQuick` on 3.11, 3.12 and 3.13, integration tests on 3.11 and 3.13, and `testPerformance` on 3.11. A problem that only shows on a newer Python is therefore caught after merge. To get the full matrix before merging, for example for a dependency bump or a change to version-specific code, add the `run-all-ingestion-tests` label to the PR.
 
+## Unit test shards
+
+`testQuick` runs as 4 parallel jobs per Python version (`QUICK_SHARDS` in the workflow). Each job sets `DATAHUB_UNIT_TEST_SHARD=<index>/<count>`, and `tests/conftest.py` gives every file under `tests/unit/` to exactly one shard. It balances them by the durations in `tests/integration_test_weights.json`, which the weekly Update Test Weights workflow refreshes from CI runs. A new file gets the median file weight until then. A shard does not import other shards' files. The repository-wide checks (lock file, generated JSON, connector mappings) run on shard 0 only.
+
+To reproduce one shard locally:
+
+```bash
+DATAHUB_UNIT_TEST_SHARD=1/4 pytest tests/unit -m 'not integration'
+```
+
 ## Connector discovery
 
 Connectors are discovered automatically through two complementary mechanisms:
