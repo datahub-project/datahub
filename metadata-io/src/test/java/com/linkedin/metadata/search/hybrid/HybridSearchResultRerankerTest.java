@@ -349,6 +349,7 @@ public class HybridSearchResultRerankerTest {
     when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
         .thenReturn(knnHits(Map.of(DOC_A, 0.1d, DOC_B, 0.5d, DOC_C, 0.9d)));
     List<SearchEntity> rows = List.of(row(DOC_A, 80), row(DOC_B, 60), row(DOC_C, 40));
+    assertEquals(reranker.modelEmbeddingKey(), "text_embedding_3_small");
     // A lexical-only blend keeps the keyword order the default blend would change
     HybridCandidateMerger lexicalOnly =
         new HybridCandidateMerger(

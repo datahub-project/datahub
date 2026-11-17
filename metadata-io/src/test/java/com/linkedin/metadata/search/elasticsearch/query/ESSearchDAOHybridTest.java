@@ -336,6 +336,17 @@ public class ESSearchDAOHybridTest {
         10,
         100);
     assertFallback(SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
+    // A stored blend this build cannot read
+    dao.finishTemplateHybrid(
+        keywordRerankContext("{ \"vectorWeight\": 2 }", true, null),
+        ENTITY_NAMES,
+        "revenue",
+        result(100),
+        0,
+        10,
+        100);
+    assertFallback(SearchTemplateKeywordRerank.FAILED);
     // No requested type has vectors
     when(reranker.vectorEntityNames(any(OperationContext.class), any())).thenReturn(Set.of());
     dao.finishTemplateHybrid(

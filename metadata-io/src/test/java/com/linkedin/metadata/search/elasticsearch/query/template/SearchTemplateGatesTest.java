@@ -141,6 +141,17 @@ public class SearchTemplateGatesTest {
     assertNull(entityGates.get("document"));
     assertEquals(entityGates.get("dataset"), SearchTemplateGates.ENTITY_NOT_ADVERTISED);
     assertEquals(gates.joinedProfileIds(rerank, mixed, OPENSEARCH), Set.of(DOCUMENT_DEFAULT.id()));
+    // The rerank runs only with a joined profile the query embedding service embeds.
+    assertNull(
+        SearchTemplateKeywordRerank.keptReason(
+            rerank, gates, mixed, OPENSEARCH, DOCUMENT_DEFAULT.id()));
+    assertEquals(
+        SearchTemplateKeywordRerank.keptReason(rerank, gates, mixed, OPENSEARCH, "another"),
+        SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
+    assertEquals(
+        SearchTemplateKeywordRerank.keptReason(
+            rerank, gates, List.of("dataset"), OPENSEARCH, DOCUMENT_DEFAULT.id()),
+        SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
   }
 
   @Test
