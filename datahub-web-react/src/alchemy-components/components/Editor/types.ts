@@ -12,6 +12,8 @@ export type EditorMentionsPickerProps = {
 export type EditorMentionViewProps = {
     urn: string;
     name: string;
+    /** Set in read-only content, where the chip links to the entity instead of being editable text. */
+    readOnly?: boolean;
 };
 
 export type EditorMentionsProviderProps = {

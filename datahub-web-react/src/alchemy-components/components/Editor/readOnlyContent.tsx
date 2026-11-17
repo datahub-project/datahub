@@ -34,6 +34,17 @@ const VOID_TAGS = new Set([
     'wbr',
 ]);
 
+// HTML boolean attributes are present with an empty value (`disabled=""`). React reads an empty
+// string as false, so the ones read-only markdown can produce are passed as booleans: task-list
+// checkboxes (`disabled`, `readonly`) and expanded `<details>` sections (`open`).
+const REACT_BOOLEAN_ATTR_NAMES: Record<string, string> = {
+    disabled: 'disabled',
+    readonly: 'readOnly',
+    open: 'open',
+};
+
+const CHECKABLE_INPUT_TYPES = new Set(['checkbox', 'radio']);
+
 const REACT_ATTR_NAMES: Record<string, string> = {
     class: 'className',
     for: 'htmlFor',
@@ -212,6 +223,10 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
     Array.from(element.attributes).forEach((attr) => {
         const name = urlAttributeName(attr);
         if (name.startsWith('on') || name === 'style') return;
+        if (Object.hasOwn(REACT_BOOLEAN_ATTR_NAMES, name)) {
+            props[REACT_BOOLEAN_ATTR_NAMES[name]] = true;
+            return;
+        }
         if (name === 'srcset') {
             const srcset = scrubSrcset(attr.value);
             if (srcset === null) return;
@@ -225,6 +240,12 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
         }
         props[REACT_ATTR_NAMES[name] ?? attr.name] = attr.value;
     });
+    // Controlled rather than defaultChecked: nodes are keyed by position, so an input reused for
+    // new content must take its checked state from that content.
+    if (element.tagName === 'INPUT' && CHECKABLE_INPUT_TYPES.has((element.getAttribute('type') ?? '').toLowerCase())) {
+        props.checked = element.hasAttribute('checked');
+        props.readOnly = true;
+    }
     const fontSize = fontSizeFromStyle(element.getAttribute('style') ?? '');
     if (fontSize) props.style = { fontSize };
     return props;
@@ -340,7 +361,7 @@ function nodeToReact(
                 key={key}
                 {...{ [DATAHUB_MENTION_ATTRS.urn]: mention.urn, [DATAHUB_MENTION_ATTRS.name]: mention.name }}
             >
-                <MentionView urn={mention.urn} name={mention.name} />
+                <MentionView urn={mention.urn} name={mention.name} readOnly />
             </span>
         );
     }

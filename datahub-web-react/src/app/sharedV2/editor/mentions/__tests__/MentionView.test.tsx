@@ -1,5 +1,6 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
+import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
 
@@ -14,7 +15,10 @@ vi.mock('@src/graphql/search.generated', () => ({
 }));
 
 vi.mock('@src/app/useEntityRegistry', () => ({
-    useEntityRegistry: () => ({ getDisplayName: (_type: string, entity: { name: string }) => entity.name }),
+    useEntityRegistry: () => ({
+        getDisplayName: (_type: string, entity: { name: string }) => entity.name,
+        getEntityUrl: (_type: string, urn: string) => `/user/${urn}`,
+    }),
 }));
 
 vi.mock('@app/searchV2/autoCompleteV2/components/icon/EntityIcon', () => ({
@@ -35,10 +39,15 @@ vi.mock('@app/sharedV2/hoverCard/EntityHoverCard', () => ({
     default: ({ entity }: { entity: { description?: string } }) => <span>{entity.description ?? 'no details'}</span>,
 }));
 
+type RenderOptions = {
+    batch?: MentionEntities | null;
+    cardResult?: { data?: unknown; loading: boolean };
+    readOnly?: boolean;
+};
+
 function renderNode(
     result: { data?: unknown; loading: boolean },
-    batch: MentionEntities | null = null,
-    cardResult: { data?: unknown; loading: boolean } = { loading: true },
+    { batch = null, cardResult = { loading: true }, readOnly = false }: RenderOptions = {},
 ) {
     const mentions = batch && { ready: true, observe: () => () => {}, batch };
     vi.mocked(useGetEntityMentionChipQuery).mockReturnValue(
@@ -48,11 +57,13 @@ function renderNode(
         cardResult as unknown as ReturnType<typeof useGetEntityMentionNodeQuery>,
     );
     return render(
-        <ThemeProvider theme={themeV2}>
-            <MentionEntitiesContext.Provider value={mentions}>
-                <MentionView urn="urn:li:corpuser:alice" name="Alice" />
-            </MentionEntitiesContext.Provider>
-        </ThemeProvider>,
+        <MemoryRouter>
+            <ThemeProvider theme={themeV2}>
+                <MentionEntitiesContext.Provider value={mentions}>
+                    <MentionView urn="urn:li:corpuser:alice" name="Alice" readOnly={readOnly} />
+                </MentionEntitiesContext.Provider>
+            </ThemeProvider>
+        </MemoryRouter>,
     );
 }
 
@@ -63,6 +74,8 @@ function batchOf(entities: Record<string, unknown>, loading = false): MentionEnt
         entitiesByUrn: new Map(Object.entries(entities)) as MentionEntities['entitiesByUrn'],
     };
 }
+
+const ALICE = { entity: { urn: 'urn:li:corpuser:alice', type: 'CORP_USER', name: 'Alice Smith' } };
 
 describe('MentionView', () => {
     it('shows the stored name while the entity loads', () => {
@@ -89,12 +102,37 @@ describe('MentionView', () => {
         expect(screen.getByTestId('entity-icon')).toBeInTheDocument();
     });
 
+    it('links a read-only chip to the entity page', () => {
+        renderNode({ loading: false, data: ALICE }, { readOnly: true });
+
+        expect(screen.getByRole('link')).toHaveAttribute('href', '/user/urn:li:corpuser:alice');
+    });
+
+    it('does not pass a read-only chip click to a clickable host', () => {
+        const onHostClick = vi.fn();
+        document.body.addEventListener('click', onHostClick);
+        renderNode({ loading: false, data: ALICE }, { readOnly: true });
+
+        fireEvent.click(screen.getByRole('link'));
+
+        document.body.removeEventListener('click', onHostClick);
+        expect(onHostClick).not.toHaveBeenCalled();
+    });
+
+    it('does not link a chip inside the editor', () => {
+        renderNode({ loading: false, data: ALICE });
+
+        expect(screen.queryByRole('link')).not.toBeInTheDocument();
+    });
+
     it('renders the entity from the batch without its own request', () => {
         renderNode(
             { loading: true },
-            batchOf({
-                'urn:li:corpuser:alice': { urn: 'urn:li:corpuser:alice', type: 'CORP_USER', name: 'Alice Smith' },
-            }),
+            {
+                batch: batchOf({
+                    'urn:li:corpuser:alice': { urn: 'urn:li:corpuser:alice', type: 'CORP_USER', name: 'Alice Smith' },
+                }),
+            },
         );
 
         expect(screen.getByText('Alice Smith')).toBeInTheDocument();
@@ -102,7 +140,7 @@ describe('MentionView', () => {
     });
 
     it('shows the stored name while the batch loads', () => {
-        renderNode({ loading: false }, batchOf({}, true));
+        renderNode({ loading: false }, { batch: batchOf({}, true) });
 
         expect(screen.getByText('Alice')).toBeInTheDocument();
         expect(screen.queryByTestId('entity-icon')).not.toBeInTheDocument();
@@ -114,10 +152,15 @@ describe('MentionView', () => {
         expect(screen.getByTestId('hover-card')).toHaveTextContent('no details');
         unmount();
 
-        renderNode({ loading: false, data: { entity: chip } }, null, {
-            loading: false,
-            data: { entity: { ...chip, description: 'Owns the sales data' } },
-        });
+        renderNode(
+            { loading: false, data: { entity: chip } },
+            {
+                cardResult: {
+                    loading: false,
+                    data: { entity: { ...chip, description: 'Owns the sales data' } },
+                },
+            },
+        );
         expect(screen.getByTestId('hover-card')).toHaveTextContent('Owns the sales data');
     });
 });
