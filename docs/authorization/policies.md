@@ -627,13 +627,20 @@ Some APIs authorize against **related** entities rather than only the URN in the
 
 | To...                   | You need                                                                   | Granted by default to           |
 | ----------------------- | -------------------------------------------------------------------------- | ------------------------------- |
-| Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | Admins and Editors              |
+| Create a document       | **Edit Entity** or **Create Entity** on documents, or **Manage Documents** | All users                       |
 | Edit or move a document | **Edit Entity** on the document, or **Manage Documents**                   | Admins, Editors, and its owners |
 | Delete a document       | **Delete** on the document, or **Manage Documents**                        | Admins and its owners           |
 | Manage any document     | **Manage Documents**                                                       | Admins                          |
 
-Editors can create and edit documents but cannot delete documents they don't own. Document owners
-can always delete their own documents.
+Every user can create a document, including users with no role. The user who creates a document
+becomes its owner. Owners can always edit and delete their own documents, and a group that owns a
+document gives the same access to its members. Editors can also edit documents they don't own, but
+cannot delete them.
+
+Three default policies grant this access: **All Users - Create Documents**, **Document Owners -
+Edit Documents**, and **Document Owners - Delete Documents**. These are system policies. You
+cannot edit or remove them, and DataHub restores them on every upgrade. To give more access, for
+example to let a group edit every document, add a policy of your own.
 
 #### Data Products
 
