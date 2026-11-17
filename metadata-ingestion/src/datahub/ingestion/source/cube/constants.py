@@ -28,7 +28,7 @@ CONTROL_PLANE_META_SYNC_TOKEN_PATH = (
     "api/v1/deployments/{deployment_id}/environments/{environment_id}/"
     "tokens-for-meta-sync"
 )
-# Metadata API scope that allows `include_private=true` (sent when include_hidden is set).
+# Metadata API token scope that allows `include_private=true`.
 META_PRIVATE_SCOPE = "meta-private"
 
 # Cube Cloud Platform API: lists saved reports (charts) and workbooks
@@ -55,7 +55,6 @@ HTTP_CONTENT_TYPE_JSON = "application/json"
 HTTP_RETRY_MAX_ATTEMPTS = 3
 HTTP_RETRY_BACKOFF_FACTOR = 1
 HTTP_RETRY_STATUS_CODES = [429, 500, 502, 503, 504]
-HTTP_STATUS_FORBIDDEN = 403
 
 # The Metadata API paginates /v1/entities/all; this is the page size we request.
 METADATA_API_PAGE_SIZE = 100

@@ -1,4 +1,4 @@
-from typing import Dict
+from typing import Dict, List
 
 import pytest
 import requests
@@ -28,26 +28,28 @@ def test_metadata_token_uses_api_token_without_control_plane() -> None:
     assert client._auth_header_value(bearer=False) == "data-token"
 
 
+_PRIVATE = {"include_hidden": True, "include_private": True}
+_MINT = "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync"
+_CONTROL_PLANE = {
+    "cloud_api_key": "cp-key",
+    "deployment_id": "123",
+    "environment_id": "456",
+}
+
+
 @pytest.mark.parametrize(
-    "include_hidden, expected_scopes",
-    [(False, {}), (True, {"scopes": ["meta-private"]})],
+    "private, expected_scopes",
+    [({}, {}), (_PRIVATE, {"scopes": ["meta-private"]})],
 )
 def test_metadata_token_minted_via_control_plane_and_cached(
     requests_mock: rm.Mocker,
-    include_hidden: bool,
+    private: Dict[str, object],
     expected_scopes: Dict[str, object],
 ) -> None:
     client = _client(
-        cloud_api_key="cp-key",
-        deployment_id="123",
-        environment_id="456",
-        security_context={"tenant_id": "acme"},
-        include_hidden=include_hidden,
+        **_CONTROL_PLANE, security_context={"tenant_id": "acme"}, **private
     )
-    matcher = requests_mock.post(
-        "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
-        json={"data": {"token": "minted-meta-token"}},
-    )
+    matcher = requests_mock.post(_MINT, json={"data": {"token": "minted-meta-token"}})
 
     assert client._metadata_api_token() == "minted-meta-token"
     # Subsequent calls reuse the cached token rather than re-minting.
@@ -65,24 +67,41 @@ def test_metadata_token_minted_via_control_plane_and_cached(
 
 
 @pytest.mark.parametrize(
-    "include_hidden, expected_body",
-    [(False, {}), (True, {"include_private": True})],
+    "private, expected_body",
+    [
+        ({}, {}),
+        ({"include_hidden": True}, {}),
+        (_PRIVATE, {"include_private": True}),
+    ],
 )
-def test_include_hidden_requests_private_entities(
+def test_cloud_entities_are_read_across_pages(
     requests_mock: rm.Mocker,
-    include_hidden: bool,
+    private: Dict[str, object],
     expected_body: Dict[str, object],
 ) -> None:
-    client = _client(include_hidden=include_hidden)
-    matcher = requests_mock.post(
-        _ENTITIES_ALL,
-        json={"data": []},
-    )
+    client = _client(**private)
+    pages = {
+        0: [{"type": "cube", "name": "orders"}, {"type": "cube", "name": "users"}],
+        2: [{"type": "view", "name": "orders_view"}],
+    }
 
-    client._get_cloud_entities_with_private_fallback()
+    def page(
+        request: rm.request._RequestObjectProxy, context: object
+    ) -> Dict[str, object]:
+        offset = int(request.qs["offset"][0])
+        return {
+            "data": pages[offset],
+            "pagination": {"offset": offset, "limit": 2, "total": 3},
+        }
 
-    assert matcher.last_request is not None
-    assert matcher.last_request.json() == expected_body
+    matcher = requests_mock.post(_ENTITIES_ALL, json=page)
+    requests_mock.get(_META, json={"cubes": []})
+
+    entities = client.get_entities()
+
+    assert sorted(e.name for e in entities) == ["orders", "orders_view", "users"]
+    assert [r.qs["offset"] for r in matcher.request_history] == [["0"], ["2"]]
+    assert [r.json() for r in matcher.request_history] == [expected_body] * 2
 
 
 def test_private_entities_refused_keeps_public_metadata_api_lineage(
@@ -90,8 +109,9 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
 ) -> None:
     # A token without the meta-private scope gets a 403 for include_private.
     # The connector retries without it, rather than dropping Metadata API
-    # lineage for public entities too.
-    client = _client(include_hidden=True)
+    # lineage for public entities too, and fails the run so stale removal
+    # keeps the private entities earlier runs ingested.
+    client = _client(**_PRIVATE)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(
         _ENTITIES_ALL,
@@ -108,20 +128,73 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
         {"include_private": True},
         {},
     ]
-    assert [w.title for w in client.report.warnings] == [
+    assert [f.title for f in client.report.failures] == [
         "Cube private entities unavailable"
+    ]
+    assert not client.report.warnings
+
+
+def test_private_entities_retry_refused_falls_back_to_core(
+    requests_mock: rm.Mocker,
+) -> None:
+    # A 403 on both requests (e.g. a revoked token) is not a scope refusal.
+    client = _client(**_PRIVATE)
+    requests_mock.get(_META, json={"cubes": []})
+    matcher = requests_mock.post(_ENTITIES_ALL, status_code=403)
+
+    assert client.get_entities() == []
+    assert matcher.call_count == 2
+    assert not client.report.failures
+    assert [w.title for w in client.report.warnings] == [
+        "Cube Metadata API unavailable"
     ]
 
 
+@pytest.mark.parametrize(
+    "responses",
+    [
+        pytest.param([{"status_code": 400}], id="other-status"),
+        pytest.param(
+            [
+                {
+                    "json": {
+                        "data": [{"name": "orders", "type": "cube"}],
+                        "pagination": {"offset": 0, "limit": 1, "total": 2},
+                    }
+                },
+                {"status_code": 403},
+            ],
+            id="403-after-first-page",
+        ),
+    ],
+)
 def test_private_entities_other_errors_fall_back_to_core(
-    requests_mock: rm.Mocker,
+    requests_mock: rm.Mocker, responses: List[Dict[str, object]]
 ) -> None:
-    client = _client(include_hidden=True)
+    client = _client(**_PRIVATE)
     requests_mock.get(_META, json={"cubes": []})
-    matcher = requests_mock.post(_ENTITIES_ALL, status_code=400)
+    matcher = requests_mock.post(_ENTITIES_ALL, responses)
 
     assert client.get_entities() == []
-    assert matcher.call_count == 1
+    assert matcher.call_count == len(responses)
+    assert not client.report.failures
+    assert [w.title for w in client.report.warnings] == [
+        "Cube Metadata API unavailable"
+    ]
+
+
+def test_private_entities_token_mint_refused_is_not_a_scope_refusal(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(**_CONTROL_PLANE, **_PRIVATE)
+    requests_mock.get(_META, json={"cubes": []})
+    mint = requests_mock.post(_MINT, status_code=403)
+    entities = requests_mock.post(_ENTITIES_ALL, json={"data": []})
+
+    assert client.get_entities() == []
+    assert mint.call_count == 1
+    assert entities.call_count == 0
+    assert not client.report.failures
     assert [w.title for w in client.report.warnings] == [
         "Cube Metadata API unavailable"
     ]
@@ -333,32 +406,6 @@ def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> N
     )
     with pytest.raises(ValueError):
         client._metadata_api_token()
-
-
-def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:
-    client = _client()
-    pages = {
-        0: [{"type": "cube", "name": "orders"}, {"type": "cube", "name": "users"}],
-        2: [{"type": "view", "name": "orders_view"}],
-    }
-
-    def page(request: requests.PreparedRequest, context: object) -> Dict[str, object]:
-        offset = int(request.qs["offset"][0])  # type: ignore[attr-defined]
-        return {
-            "data": pages[offset],
-            "pagination": {"offset": offset, "limit": 2, "total": 3},
-        }
-
-    requests_mock.post(_ENTITIES_ALL, json=page)
-    requests_mock.get(_META, json={"cubes": []})
-
-    entities = client.get_entities()
-
-    assert sorted(e.name for e in entities) == ["orders", "orders_view", "users"]
-    offsets = [
-        r.qs["offset"] for r in requests_mock.request_history if r.method == "POST"
-    ]
-    assert offsets == [["0"], ["2"]]
 
 
 def test_unusable_cloud_references_are_counted_and_warned(

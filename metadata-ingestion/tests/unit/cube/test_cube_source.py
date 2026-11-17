@@ -2,7 +2,6 @@ from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
-import requests
 import requests_mock as rm
 
 from datahub.ingestion.api.common import PipelineContext
@@ -28,6 +27,7 @@ from datahub.metadata.schema_classes import (
     OwnershipClass,
     UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
 
 
@@ -685,16 +685,30 @@ _PRIVATE_CUBE = {
 _PUBLIC_VIEW = {"type": "view", "name": "orders_view", "public": True}
 
 
-@pytest.mark.parametrize("include_hidden", [False, True])
-def test_view_over_private_cube_reaches_warehouse_only_with_include_hidden(
-    requests_mock: rm.Mocker, include_hidden: bool
+@pytest.mark.parametrize(
+    "include_private, expected_lineage",
+    [
+        (False, {}),
+        (
+            True,
+            {
+                "orders": ["public.orders"],
+                "orders_view": ["orders"],
+            },
+        ),
+    ],
+)
+def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
+    requests_mock: rm.Mocker,
+    include_private: bool,
+    expected_lineage: Dict[str, List[str]],
 ) -> None:
     # Cube Cloud leaves private cubes out of the Metadata API, and prunes the
     # view's references to them, unless include_private is requested.
     def entities(
-        request: requests.PreparedRequest, context: object
+        request: rm.request._RequestObjectProxy, context: object
     ) -> Dict[str, object]:
-        if request.json().get("include_private"):  # type: ignore[attr-defined]
+        if request.json().get("include_private"):
             data = [
                 _PRIVATE_CUBE,
                 {
@@ -704,7 +718,8 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_hidden(
             ]
         else:
             data = [_PUBLIC_VIEW]
-        return {"data": data, "pagination": {"offset": 0, "limit": 100, "total": 1}}
+        total = len(data)
+        return {"data": data, "pagination": {"offset": 0, "limit": 100, "total": total}}
 
     base = "https://demo.cubecloud.dev/cubejs-api"
     requests_mock.get(f"{base}/v1/meta", json={"cubes": []})
@@ -712,25 +727,17 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_hidden(
     source = _source(
         deployment_type="CLOUD",
         warehouse_platform="postgres",
-        include_hidden=include_hidden,
+        include_hidden=True,
+        include_private=include_private,
     )
 
     lineage: Dict[str, List[str]] = {}
     for wu in source.get_workunits_internal():
         aspect = wu.metadata.aspect  # type: ignore[union-attr]
         if isinstance(aspect, UpstreamLineageClass):
-            urn = wu.get_urn()
-            lineage[urn[urn.index(",") + 1 : urn.rindex(",")]] = [
-                u.dataset for u in aspect.upstreams
+            lineage[DatasetUrn.from_string(wu.get_urn()).name] = [
+                DatasetUrn.from_string(u.dataset).name for u in aspect.upstreams
             ]
 
-    if include_hidden:
-        assert lineage == {
-            "orders": [
-                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)"
-            ],
-            "orders_view": ["urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)"],
-        }
-    else:
-        assert lineage == {}
+    assert lineage == expected_lineage
     assert not source.report.warnings

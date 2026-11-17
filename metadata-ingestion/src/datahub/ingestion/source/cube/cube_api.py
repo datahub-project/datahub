@@ -1,4 +1,5 @@
 import logging
+from http import HTTPStatus
 from typing import Dict, Iterable, List, Mapping, Optional, Type, TypeVar, Union
 from urllib.parse import urlparse
 
@@ -28,7 +29,6 @@ from datahub.ingestion.source.cube.constants import (
     HTTP_RETRY_BACKOFF_FACTOR,
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
-    HTTP_STATUS_FORBIDDEN,
     META_PRIVATE_SCOPE,
     METADATA_API_PAGE_SIZE,
     PLATFORM_API_PAGE_SIZE,
@@ -54,6 +54,10 @@ logger = logging.getLogger(__name__)
 _PlatformResponse = TypeVar(
     "_PlatformResponse", CloudReportsResponse, CloudWorkbooksResponse
 )
+
+
+class PrivateEntitiesRefusedError(Exception):
+    pass
 
 
 class CubeAPIClient:
@@ -110,7 +114,7 @@ class CubeAPIClient:
             "security_context": self.config.security_context,
             "expires_in": self.config.meta_sync_token_expires_in,
         }
-        if self.config.include_hidden:
+        if self.config.include_private:
             body["scopes"] = [META_PRIVATE_SCOPE]
         response = self.session.post(
             url,
@@ -193,29 +197,30 @@ class CubeAPIClient:
         return merge_entities(core_entities, cloud_entities)
 
     def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
-        if not self.config.include_hidden:
+        if not self.config.include_private:
             return self._get_cloud_entities(include_private=False)
+        # Mint up front, so a Control Plane 403 goes to the "Metadata API
+        # unavailable" handler instead of being read as a refused scope.
+        self._metadata_api_token()
         try:
             return self._get_cloud_entities(include_private=True)
-        except requests.HTTPError as e:
+        except PrivateEntitiesRefusedError:
             # Cube Cloud silently drops the meta-private scope for callers who
-            # may not read the data model, then rejects include_private with a
-            # 403. Retry without it so public entities keep their warehouse
-            # lineage instead of the whole run falling back to /v1/meta.
-            if e.response is None or e.response.status_code != HTTP_STATUS_FORBIDDEN:
-                raise
-            self.report.warning(
+            # may not read the data model, then rejects include_private.
+            entities = self._get_cloud_entities(include_private=False)
+            # A failure, not a warning: private cubes and members ingested by
+            # earlier runs are missing from this one, and stale removal must
+            # not soft-delete them.
+            self.report.failure(
                 title="Cube private entities unavailable",
                 message=(
-                    "include_hidden is set, but the Metadata API refused to "
-                    "return private entities (HTTP 403). The token needs the meta-private scope, which "
-                    "Cube Cloud grants only to admins or users who can read the "
-                    "data model. Ingesting public entities only, so lineage "
-                    "through private cubes is cut off."
+                    "include_private is set, but Cube Cloud refused private "
+                    "entities (HTTP 403): the Metadata API token lacks the "
+                    "meta-private scope. Ingested public entities only; private "
+                    "cubes and members are missing."
                 ),
-                exc=e,
             )
-            return self._get_cloud_entities(include_private=False)
+            return entities
 
     def get_data_sources(self) -> List[CloudDataSource]:
         if self.config.deployment_type != CubeDeploymentType.CLOUD:
@@ -327,16 +332,30 @@ class CubeAPIClient:
 
     def _get_cloud_entities(self, include_private: bool) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
-        body = {"include_private": True} if include_private else {}
+        body: Dict[str, object] = {}
+        if include_private:
+            body["include_private"] = True
         offset = 0
         while True:
-            raw = self._request(
-                HTTP_METHOD_POST,
-                API_ENDPOINT_ENTITIES_ALL,
-                params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
-                json_body=body,
-                bearer=True,
-            )
+            try:
+                raw = self._request(
+                    HTTP_METHOD_POST,
+                    API_ENDPOINT_ENTITIES_ALL,
+                    params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
+                    json_body=body,
+                    bearer=True,
+                )
+            except requests.HTTPError as e:
+                # Only the first page can be a refused scope; a 403 after
+                # include_private already succeeded has another cause.
+                if (
+                    include_private
+                    and offset == 0
+                    and e.response is not None
+                    and e.response.status_code == HTTPStatus.FORBIDDEN
+                ):
+                    raise PrivateEntitiesRefusedError() from e
+                raise
             response = CloudEntitiesResponse.model_validate(raw)
             page = response.data
             for entity in page:
