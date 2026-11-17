@@ -77,12 +77,3 @@ def test_cloud_credentials_rejected_for_core_deployment() -> None:
     # must be rejected rather than silently ignored.
     with pytest.raises(ValueError):
         _config(deployment_type="CORE", cloud_api_key="k", deployment_id="1")
-    with pytest.raises(ValueError):
-        _config(deployment_type="CORE", include_private=True)
-
-
-def test_include_private_requires_metadata_api() -> None:
-    # Private entities come only from the Metadata API, so the option would
-    # otherwise silently do nothing.
-    with pytest.raises(ValueError):
-        _config(deployment_type="CLOUD", include_private=True, use_metadata_api=False)

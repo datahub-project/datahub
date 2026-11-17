@@ -242,18 +242,6 @@ class CubeSource(StatefulIngestionSourceBase, TestableSource):
     def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         self._resolve_warehouse_defaults()
 
-        if self.config.include_private and not self.config.include_hidden:
-            self.report.warning(
-                title="include_private is set without include_hidden",
-                message=(
-                    "Private cubes are fetched but, being hidden, are not "
-                    "ingested as datasets, so lineage from views stops at them. "
-                    "Set include_hidden: true for lineage through to warehouse "
-                    "tables."
-                ),
-                context="include_private=true",
-            )
-
         container = Container(
             self._container_key,
             display_name=self._deployment,

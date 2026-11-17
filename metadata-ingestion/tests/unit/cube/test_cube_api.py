@@ -26,12 +26,12 @@ def test_metadata_token_uses_api_token_without_control_plane() -> None:
 
 
 @pytest.mark.parametrize(
-    "include_private, expected_scopes",
+    "include_hidden, expected_scopes",
     [(False, {}), (True, {"scopes": ["meta-private"]})],
 )
 def test_metadata_token_minted_via_control_plane_and_cached(
     requests_mock: rm.Mocker,
-    include_private: bool,
+    include_hidden: bool,
     expected_scopes: Dict[str, object],
 ) -> None:
     client = _client(
@@ -39,7 +39,7 @@ def test_metadata_token_minted_via_control_plane_and_cached(
         deployment_id="123",
         environment_id="456",
         security_context={"tenant_id": "acme"},
-        include_private=include_private,
+        include_hidden=include_hidden,
     )
     matcher = requests_mock.post(
         "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
@@ -62,15 +62,15 @@ def test_metadata_token_minted_via_control_plane_and_cached(
 
 
 @pytest.mark.parametrize(
-    "include_private, expected_body",
+    "include_hidden, expected_body",
     [(False, {}), (True, {"include_private": True})],
 )
-def test_entities_all_passes_include_private(
+def test_include_hidden_requests_private_entities(
     requests_mock: rm.Mocker,
-    include_private: bool,
+    include_hidden: bool,
     expected_body: Dict[str, object],
 ) -> None:
-    client = _client(include_private=include_private)
+    client = _client(include_hidden=include_hidden)
     matcher = requests_mock.post(
         "https://demo.cubecloud.dev/cubejs-api/v1/entities/all",
         json={"data": {"entities": []}},
@@ -86,13 +86,13 @@ _ENTITIES_ALL_URL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
 _META_URL = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
 
 
-def test_include_private_refused_keeps_public_metadata_api_lineage(
+def test_private_entities_refused_keeps_public_metadata_api_lineage(
     requests_mock: rm.Mocker,
 ) -> None:
     # A token without the meta-private scope gets a 403 for include_private.
     # The connector retries without it, rather than dropping Metadata API
     # lineage for public entities too.
-    client = _client(include_private=True)
+    client = _client(include_hidden=True)
     requests_mock.get(_META_URL, json={"cubes": []})
     matcher = requests_mock.post(
         _ENTITIES_ALL_URL,
@@ -114,10 +114,10 @@ def test_include_private_refused_keeps_public_metadata_api_lineage(
     ]
 
 
-def test_include_private_other_errors_fall_back_to_core(
+def test_private_entities_other_errors_fall_back_to_core(
     requests_mock: rm.Mocker,
 ) -> None:
-    client = _client(include_private=True)
+    client = _client(include_hidden=True)
     requests_mock.get(_META_URL, json={"cubes": []})
     matcher = requests_mock.post(_ENTITIES_ALL_URL, status_code=400)
 

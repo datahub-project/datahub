@@ -109,7 +109,7 @@ class CubeAPIClient:
             "security_context": self.config.security_context,
             "expires_in": self.config.meta_sync_token_expires_in,
         }
-        if self.config.include_private:
+        if self.config.include_hidden:
             body["scopes"] = [META_PRIVATE_SCOPE]
         response = self.session.post(
             url,
@@ -192,7 +192,7 @@ class CubeAPIClient:
         return merge_entities(core_entities, cloud_entities)
 
     def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
-        if not self.config.include_private:
+        if not self.config.include_hidden:
             return self._get_cloud_entities(include_private=False)
         try:
             return self._get_cloud_entities(include_private=True)
@@ -206,8 +206,8 @@ class CubeAPIClient:
             self.report.warning(
                 title="Cube private entities unavailable",
                 message=(
-                    "include_private is set, but the Metadata API refused it "
-                    "(HTTP 403). The token needs the meta-private scope, which "
+                    "include_hidden is set, but the Metadata API refused to "
+                    "return private entities (HTTP 403). The token needs the meta-private scope, which "
                     "Cube Cloud grants only to admins or users who can read the "
                     "data model. Ingesting public entities only, so lineage "
                     "through private cubes is cut off."

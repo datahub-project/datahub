@@ -102,21 +102,6 @@ class CubeSourceConfig(
             "multi-tenancy rules."
         ),
     )
-    include_private: bool = Field(
-        default=False,
-        description=(
-            "Cube Cloud only. Request private (`public: false`) cubes, views, and "
-            "members from the Metadata API (`include_private=true`), so lineage "
-            "from public views through private cubes to warehouse tables is not "
-            "cut off. Requires a token with the `meta-private` scope: the minted "
-            "token requests it automatically, but Cube Cloud only grants it to "
-            "admins or users who can read the data model; a pre-supplied "
-            "`api_token` must already carry it; if the scope is refused, public "
-            "entities are still ingested. Private cubes are hidden, so also set "
-            "`include_hidden: true` for complete lineage: otherwise they are not "
-            "ingested as datasets and lineage from views stops at them."
-        ),
-    )
     meta_sync_token_expires_in: int = Field(
         default=86400,
         description="Expiry (in seconds) of the minted Metadata API token. Defaults to 24 hours.",
@@ -278,7 +263,13 @@ class CubeSourceConfig(
             "Whether to ingest cubes, views, and members that Cube marks as hidden "
             "(`public: false` / `isVisible: false`). Hidden cubes are typically "
             "excluded from Cube's own API consumers; enable this to surface them in "
-            "DataHub anyway."
+            "DataHub anyway. On Cube Cloud this also requests private entities "
+            "from the Metadata API, so lineage from views through private cubes "
+            "reaches warehouse tables. That needs the `meta-private` token scope, "
+            "which Cube Cloud grants only to admins or users who can read the data "
+            "model: a minted token requests it automatically, a pre-supplied "
+            "`api_token` must already carry it. If it is refused, the connector "
+            "warns and ingests public entities only."
         ),
     )
 
@@ -370,15 +361,6 @@ class CubeSourceConfig(
             raise ValueError(
                 "cloud_api_key, deployment_id, and environment_id are only valid "
                 "for deployment_type=CLOUD."
-            )
-        if self.include_private and (
-            self.deployment_type != CubeDeploymentType.CLOUD
-            or not self.use_metadata_api
-        ):
-            raise ValueError(
-                "include_private requires deployment_type=CLOUD and "
-                "use_metadata_api=true: private entities come only from the "
-                "Cube Cloud Metadata API."
             )
         # cloud_api_key + deployment_id together unlock the Platform API
         # (reports/workbooks) and are the prerequisite for minting a Metadata

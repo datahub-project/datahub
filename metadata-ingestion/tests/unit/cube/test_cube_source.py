@@ -1,8 +1,6 @@
 from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
-import pytest
-
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -399,24 +397,6 @@ def test_emit_semantic_model_entities_warns_about_ignored_config_options() -> No
         "Some config options do not apply in semantic-model mode" in (w.title or "")
         for w in source.report.warnings
     )
-
-
-@pytest.mark.parametrize("include_hidden, warns", [(False, True), (True, False)])
-def test_include_private_warns_when_private_cubes_not_emitted(
-    include_hidden: bool, warns: bool
-) -> None:
-    source = _source(
-        deployment_type="CLOUD", include_private=True, include_hidden=include_hidden
-    )
-    with (
-        patch.object(source.api_client, "get_entities", return_value=[]),
-        patch.object(source.api_client, "get_reports", return_value=[]),
-        patch.object(source.api_client, "get_workbooks", return_value=[]),
-        patch.object(source.api_client, "get_data_sources", return_value=[]),
-    ):
-        list(source.get_workunits_internal())
-    titles = [w.title for w in source.report.warnings]
-    assert ("include_private is set without include_hidden" in titles) == warns
 
 
 def test_view_definition_uses_sql_for_cube() -> None:
