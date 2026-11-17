@@ -1,0 +1,10 @@
+namespace com.linkedin.common
+
+/**
+ * What an embedding profile stores. A missing profile key means absent, so absent is not a value.
+ */
+enum SemanticVectorState {
+  READY
+  EXCLUDED
+  SKIPPED
+}

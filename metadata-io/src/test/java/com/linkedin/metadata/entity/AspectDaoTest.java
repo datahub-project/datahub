@@ -90,6 +90,14 @@ public class AspectDaoTest {
             AuditStampUtils.createDefaultAuditStamp());
   }
 
+  /**
+   * A stored row always carries aspectCreated, and applyUpsert copies it onto the write before the
+   * DAO compares the two system metadata. Mirror that so a no-op compares like with like.
+   */
+  private static void copyStoredAspectCreated(SystemAspect stored, SystemAspect proposed) {
+    proposed.getSystemMetadata().setAspectCreated(stored.getSystemMetadata().getAspectCreated());
+  }
+
   @Test
   public void testSaveLatestAspect_InitialInsert() {
     // Setup
@@ -167,6 +175,7 @@ public class AspectDaoTest {
     SystemAspect newAspect = createSystemAspect("1");
     SystemAspect dbAspect = createSystemAspect("1");
     currentAspect.setDatabaseAspect(dbAspect);
+    copyStoredAspectCreated(currentAspect.getDatabaseAspect().orElseThrow(), newAspect);
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =
@@ -256,6 +265,7 @@ public class AspectDaoTest {
     SystemAspect newAspect = createSystemAspect("1");
     SystemAspect dbAspect = createSystemAspect("1");
     currentAspect.setDatabaseAspect(dbAspect);
+    copyStoredAspectCreated(currentAspect.getDatabaseAspect().orElseThrow(), newAspect);
 
     // Execute
     Pair<Optional<EntityAspect>, Optional<EntityAspect>> result =

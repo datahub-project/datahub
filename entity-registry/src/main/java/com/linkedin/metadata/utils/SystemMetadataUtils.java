@@ -2,6 +2,7 @@ package com.linkedin.metadata.utils;
 
 import static com.linkedin.metadata.Constants.APP_SOURCE;
 import static com.linkedin.metadata.Constants.DEFAULT_RUN_ID;
+import static com.linkedin.metadata.Constants.SEMANTIC_APPLY_PROPERTY;
 import static com.linkedin.metadata.Constants.SYSTEM_ACTOR;
 import static com.linkedin.metadata.Constants.SYSTEM_UPDATE_SOURCE;
 
@@ -63,6 +64,55 @@ public class SystemMetadataUtils {
       return true;
     }
     return false;
+  }
+
+  /**
+   * Removes the apply marker from client-supplied system metadata. Only a system writer may keep
+   * it, and the profile validator treats a write without it as a connector write.
+   *
+   * @return {@code true} if the marker was stripped
+   */
+  public static boolean stripSemanticApply(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata == null || !systemMetadata.hasProperties()) {
+      return false;
+    }
+    StringMap properties = systemMetadata.getProperties();
+    if (properties.containsKey(SEMANTIC_APPLY_PROPERTY)) {
+      properties.remove(SEMANTIC_APPLY_PROPERTY);
+      return true;
+    }
+    return false;
+  }
+
+  /**
+   * Removes a client-supplied {@code aspectCreated}. The server stamps it on the first write and
+   * keeps it on every later one.
+   *
+   * @return {@code true} if it was stripped
+   */
+  public static boolean stripAspectCreated(@Nullable SystemMetadata systemMetadata) {
+    if (systemMetadata == null || !systemMetadata.hasAspectCreated()) {
+      return false;
+    }
+    systemMetadata.removeAspectCreated();
+    return true;
+  }
+
+  /**
+   * Copies the row's {@code createdOn} into {@code aspectCreated} when a stored row has none. Later
+   * writes keep the copied value.
+   */
+  public static void backfillAspectCreatedFromRow(
+      @Nullable SystemMetadata systemMetadata, @Nullable AuditStamp rowCreatedOn) {
+    if (systemMetadata == null || systemMetadata.hasAspectCreated() || rowCreatedOn == null) {
+      return;
+    }
+    AuditStamp createdOn =
+        new AuditStamp().setTime(rowCreatedOn.getTime()).setActor(rowCreatedOn.getActor());
+    if (rowCreatedOn.hasImpersonator()) {
+      createdOn.setImpersonator(rowCreatedOn.getImpersonator());
+    }
+    systemMetadata.setAspectCreated(createdOn);
   }
 
   /**

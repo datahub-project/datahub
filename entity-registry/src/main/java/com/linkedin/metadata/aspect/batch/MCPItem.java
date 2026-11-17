@@ -21,6 +21,14 @@ public interface MCPItem extends BatchItem {
       ImmutableSet.of(
           ChangeType.UPSERT, ChangeType.UPDATE, ChangeType.CREATE, ChangeType.CREATE_ENTITY);
 
+  String HTTP_HEADER_IF_MATCH = "If-Match";
+
+  /**
+   * {@code If-Match: *}: the aspect row must already exist. When it does not, the item is dropped
+   * as a successful no-op instead of creating the aspect, the entity key aspect, or other defaults.
+   */
+  String IF_MATCH_ANY = "*";
+
   @Nullable
   MetadataChangeProposal getMetadataChangeProposal();
 
@@ -50,6 +58,13 @@ public interface MCPItem extends BatchItem {
         .filter(entry -> entry.getKey().equalsIgnoreCase(headerName))
         .map(Map.Entry::getValue)
         .findAny();
+  }
+
+  /** True when this item carries {@code If-Match: *} and must not create a missing aspect. */
+  default boolean requiresExistingAspect() {
+    return getHeader(HTTP_HEADER_IF_MATCH)
+        .map(value -> IF_MATCH_ANY.equals(value.trim()))
+        .orElse(false);
   }
 
   /**

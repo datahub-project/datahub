@@ -4799,6 +4799,7 @@ public class UpdateIndicesV3StrategyTest {
     embeddings.put("model", "cohere_embed_v3");
     semanticDoc.set("embeddings", embeddings);
     semanticDoc.put("skipReason", "EMPTY_TEXT");
+    semanticDoc.set("refreshMarker", JsonNodeFactory.instance.objectNode().put("documentInfo", 5));
 
     when(searchDocumentTransformer.transformAspect(
             any(OperationContext.class),
@@ -4838,8 +4839,36 @@ public class UpdateIndicesV3StrategyTest {
     assertTrue(written.has("embeddings"));
     assertEquals(written.get("skipReason").asText(), "EMPTY_TEXT");
     assertFalse(written.has("resolvedTextSha256"));
+    assertTrue(written.has("refreshMarker"));
     assertFalse(written.get("_aspects").get("semanticContent").has("embeddings"));
     assertFalse(written.get("_aspects").get("semanticContent").has("skipReason"));
+    assertFalse(written.get("_aspects").get("semanticContent").has("refreshMarker"));
+  }
+
+  @Test
+  public void testLiftMovesRefreshMarkerToTheDocumentRoot() {
+    SemanticSearchConfiguration semanticConfig = new SemanticSearchConfiguration();
+    semanticConfig.setEnabled(true);
+    semanticConfig.setEnabledEntities(Set.of("document"));
+    semanticConfig.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+    UpdateIndicesV3Strategy lift =
+        UpdateIndicesV3Strategy.builder()
+            .v3Config(v3Config)
+            .elasticSearchService(elasticSearchService)
+            .searchDocumentTransformer(searchDocumentTransformer)
+            .timeseriesAspectService(timeseriesAspectService)
+            .semanticSearchConfiguration(semanticConfig)
+            .build();
+
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    ObjectNode semanticContent = document.putObject("_aspects").putObject("semanticContent");
+    semanticContent.set(
+        "refreshMarker", JsonNodeFactory.instance.objectNode().put("documentInfo", 5));
+
+    lift.liftSemanticEmbeddingsToRoot("document", document);
+
+    assertEquals(document.get("refreshMarker").get("documentInfo").asInt(), 5);
+    assertFalse(document.get("_aspects").get("semanticContent").has("refreshMarker"));
   }
 
   // testLiftsEmbeddingsToDocumentV3RootWhenSemanticEnabled.

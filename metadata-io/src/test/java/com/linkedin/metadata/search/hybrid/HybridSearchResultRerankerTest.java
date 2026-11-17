@@ -19,6 +19,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.config.search.SemanticProfilesConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
@@ -400,7 +401,8 @@ public class HybridSearchResultRerankerTest {
                     Map.of("text_embedding_3_small", new ModelEmbeddingConfig()),
                     null,
                     null,
-                    null)),
+                    null,
+                    new SemanticProfilesConfiguration())),
             new HybridScoreMapBuilder(
                 new HybridVectorScoreNormalizer(SearchEngineType.ELASTICSEARCH_8, "cosine")),
             new HybridCandidateMerger(

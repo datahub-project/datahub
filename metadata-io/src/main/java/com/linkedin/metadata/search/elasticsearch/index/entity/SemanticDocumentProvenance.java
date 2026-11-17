@@ -110,12 +110,21 @@ public final class SemanticDocumentProvenance {
    */
   private static final int NEXT_LINE = 0x85;
 
-  private static boolean isBlank(@Nullable final String value) {
+  public static boolean isBlank(@Nullable final String value) {
     return value == null
         || value
             .codePoints()
             .allMatch(
                 cp -> Character.isWhitespace(cp) || Character.isSpaceChar(cp) || cp == NEXT_LINE);
+  }
+
+  /** semanticText wins when it has content; otherwise the document body. Blank is missing. */
+  @Nonnull
+  public static String resolvedText(@Nullable String semanticText, @Nullable String documentBody) {
+    if (!isBlank(semanticText)) {
+      return semanticText;
+    }
+    return isBlank(documentBody) ? "" : documentBody;
   }
 
   @Nullable

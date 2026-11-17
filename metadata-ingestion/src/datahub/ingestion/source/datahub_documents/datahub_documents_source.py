@@ -15,11 +15,13 @@ import json
 import logging
 import re
 import time
-from dataclasses import field
+from dataclasses import dataclass, field
 from datetime import datetime
 from itertools import islice
 from pathlib import Path
-from typing import Any, Dict, Generator, Iterable, Optional, cast
+from typing import Any, Dict, Generator, Iterable, Mapping, Optional, cast
+
+import requests
 
 from datahub.configuration.common import GraphError, OperationalError
 from datahub.ingestion.api.common import PipelineContext
@@ -41,6 +43,7 @@ from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
+from datahub.ingestion.graph.openapi import EntityAspects
 from datahub.ingestion.source.datahub_documents.datahub_documents_config import (
     DataHubDocumentsSourceConfig,
 )
@@ -53,6 +56,17 @@ from datahub.ingestion.source.datahub_documents.document_embedding import (
 )
 from datahub.ingestion.source.datahub_documents.document_indexing_lock import (
     DocumentIndexingLock,
+)
+from datahub.ingestion.source.datahub_documents.source_markers import (
+    DOCUMENT_TEXT_WATCH_KEYS,
+    build_refresh_marker,
+    deletion_token,
+    marker_tokens,
+    profile_state,
+    refresh_due,
+    source_token,
+    unwrap_avro_union,
+    watch_key_tokens,
 )
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
     PartitionTimeoutError,
@@ -78,6 +92,7 @@ from datahub.ingestion.source.unstructured.embedding_target import (
     resolve_embedding_target,
 )
 from datahub.ingestion.source.unstructured.event_consumer import DocumentEventConsumer
+from datahub.metadata.schema_classes import SemanticSourceTokenClass
 
 logger = logging.getLogger(__name__)
 
@@ -93,11 +108,29 @@ DATAHUB_OWNED_SOURCE_TYPES = ("NATIVE", "SYSTEM")
 PARTITION_TIMEOUT_SKIP_REASON = "PARTITION_TIMEOUT"
 
 
+@dataclass(frozen=True)
+class _AspectRead:
+    """An aspect payload and the source token of the version that was read."""
+
+    value: dict[str, Any]
+    token: Optional[SemanticSourceTokenClass]
+
+
+@dataclass(frozen=True)
+class _OverrideRead:
+    """The standalone semanticText override as read. ``confirmed_absent`` is true only
+    when the read completed and found no aspect, so a failed read is never taken for a
+    deletion."""
+
+    read: Optional[_AspectRead]
+    confirmed_absent: bool
+
+
 class DocumentEnumerationError(Exception):
     """Raised when document enumeration or hydration breaks systemically.
 
-    Distinct from ``GraphError``, which hydration treats as a per-document data
-    problem worth retrying URN by URN. This one means the document set can no
+    Distinct from a single document failing to read, which hydration retries URN
+    by URN. This one means the document set can no
     longer be trusted, so the run must abort rather than embed a silent subset.
     """
 
@@ -485,7 +518,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 self.config.incremental.enabled
                 and not self.config.incremental.force_reprocess
             ):
-                if not self._should_process(doc["urn"], doc.get("text", "")):
+                if not self._should_process(
+                    doc["urn"], doc.get("text", ""), doc.get("refresh_due", False)
+                ):
                     logger.debug(
                         f"Skipping document {doc['urn']} (unchanged content hash)"
                     )
@@ -573,8 +608,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         Yields:
             MetadataWorkUnit objects for the document if it should be processed, empty otherwise
         """
-        entity_urn = event.get("entityUrn")
-        aspect_name = event.get("aspectName")
+        # Nullable MCL fields arrive Avro-JSON encoded, so a string is wrapped:
+        # {"string": "documentInfo"}. The consumer unwraps aspectName only to filter.
+        entity_urn = unwrap_avro_union(event.get("entityUrn"))
+        aspect_name = unwrap_avro_union(event.get("aspectName"))
         aspect_data = event.get("aspect")
 
         if not entity_urn or not aspect_name:
@@ -583,6 +620,10 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
         if aspect_name not in EMBED_SOURCE_ASPECT_NAMES:
             return
+
+        # Read before the source aspects below: the marker and profile must be no newer
+        # than the source reads they are compared with.
+        semantic = self._read_semantic_content(entity_urn)
 
         # Parse aspect data (handles Avro union wrapping)
         try:
@@ -594,15 +635,31 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             )
             return
 
+        # Tokens of the aspect versions the embedded text is read from, by aspect
+        # name. The event's own aspect is a read of that version. A delete has no
+        # system metadata of its own, so its token comes from the version it removed.
+        if unwrap_avro_union(event.get("changeType")) == "DELETE":
+            own_token = deletion_token(event.get("previousSystemMetadata"))
+        else:
+            own_token = source_token(event.get("systemMetadata"))
+        aspect_tokens: Dict[str, Optional[SemanticSourceTokenClass]] = {
+            aspect_name: own_token
+        }
+        # Watch-key tokens with no aspect read behind them: the deletion token of an
+        # override that is absent now (see _carried_override_token).
+        carried_tokens: Dict[str, SemanticSourceTokenClass] = {}
+
         if aspect_name == "semanticText":
             # The event carries the override; the document body and source type
             # live on documentInfo, so fetch it.
-            info_dict = self._fetch_document_info_dict(entity_urn)
-            if info_dict is None:
+            info_read = self._read_document_info(entity_urn)
+            if info_read is None:
                 logger.debug(
                     f"semanticText event for {entity_urn} without readable documentInfo, skipping"
                 )
                 return
+            info_dict = info_read.value
+            aspect_tokens["documentInfo"] = info_read.token
             raw_info_contents = info_dict.get("contents")
             override_text = aspect_dict.get("text")
             if raw_info_contents is None and not override_text:
@@ -620,15 +677,17 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             aspect_dict = info_dict
         else:
             # documentInfo event: the override (if any) lives in the standalone
-            # semanticText aspect, so fetch it.
+            # semanticText aspect, so fetch it. The marker is read before any source
+            # aspect, so a token it holds is no newer than the reads that follow.
+            prior_tokens = marker_tokens(semantic)
             raw_contents = aspect_dict.get("contents")
             if raw_contents is None:
                 # Partial event payload with no contents: fall back to fetching the full
                 # aspect (mirroring the semanticText branch) so a document whose only
                 # event was partial is not silently dropped until some later event.
-                info_dict = self._fetch_document_info_dict(entity_urn)
-                raw_contents = info_dict.get("contents") if info_dict else None
-                if info_dict is None or raw_contents is None:
+                info_read = self._read_document_info(entity_urn)
+                raw_contents = info_read.value.get("contents") if info_read else None
+                if info_read is None or raw_contents is None:
                     # Genuinely unreadable body: skip without stamping a skip marker from
                     # content we could not read.
                     logger.debug(
@@ -637,9 +696,21 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     )
                     return
                 # Downstream source-type filtering reads from the documentInfo shape.
-                aspect_dict = info_dict
+                aspect_dict = info_read.value
+                aspect_tokens["documentInfo"] = info_read.token
             contents = dict(raw_contents)
-            contents["semanticText"] = self._fetch_semantic_text(entity_urn)
+            override = self._read_semantic_text(entity_urn)
+            contents["semanticText"] = (
+                override.read.value.get("text") if override.read is not None else None
+            )
+            aspect_tokens["semanticText"] = (
+                override.read.token if override.read is not None else None
+            )
+            # Only a read that confirmed the override is gone carries its deletion token.
+            # A failed read says nothing about the override, so the body is embedded
+            # without one.
+            if override.confirmed_absent:
+                carried_tokens = self._carried_override_token(prior_tokens)
 
         # semanticText overrides text as the embedding source; see resolve_embed_text.
         # Empty text is NOT an early return: _process_single_document emits a skip marker
@@ -669,18 +740,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             self.report.report_document_skipped_existing_embeddings()
             return
 
+        source_tokens = {
+            **watch_key_tokens(aspect_tokens),
+            **carried_tokens,
+        }
+
         # Check if we should process (incremental mode)
         if (
             self.config.incremental.enabled
             and not self.config.incremental.force_reprocess
         ):
-            if not self._should_process(entity_urn, text):
+            if not self._should_process(entity_urn, text, self._refresh_due(semantic)):
                 logger.debug(f"Skipping document {entity_urn} (unchanged content hash)")
                 self.report.report_document_skipped_unchanged()
                 return
 
         # Build document dict
-        doc = {"urn": entity_urn, "text": text, "source_type": source_type}
+        doc = {
+            "urn": entity_urn,
+            "text": text,
+            "source_type": source_type,
+            "source_tokens": source_tokens,
+        }
         self.report.report_document_fetched()
 
         # Process document and yield work units
@@ -816,43 +897,101 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         else:
             return {}
 
-    def _fetch_semantic_text(self, document_urn: str) -> Optional[str]:
-        """Read the standalone semanticText aspect (curated embedding-source
-        override), or None when absent.
+    def _read_document_aspects(
+        self, document_urn: str, aspect_names: list[str]
+    ) -> EntityAspects:
+        """Read aspects with their system metadata in one OpenAPI v3 batchGet, so the
+        text and the token that describes its version come from the same read."""
+        return self.graph.get_entities(
+            "document", [document_urn], aspects=aspect_names, with_system_metadata=True
+        ).get(document_urn, {})
+
+    def _read_semantic_text(self, document_urn: str) -> _OverrideRead:
+        """Read the standalone semanticText aspect (curated embedding-source override).
 
         On read failure we fall back to embedding the document body: a transient
         wrong embed self-corrects on a later run because incremental state hashes
-        the embedded value.
+        the embedded value. The result says whether the absence was confirmed.
         """
-        from datahub.metadata.schema_classes import SemanticTextClass
-
         try:
-            aspect = self.graph.get_aspect(
-                entity_urn=document_urn, aspect_type=SemanticTextClass
-            )
+            aspects = self._read_document_aspects(document_urn, ["semanticText"])
         except Exception as e:
             logger.warning(
                 f"Failed to read semanticText for {document_urn}: {e}; "
                 "embedding document text."
             )
-            return None
-        return aspect.text if aspect else None
+            return _OverrideRead(read=None, confirmed_absent=False)
+        read = aspects.get("semanticText")
+        if read is None:
+            return _OverrideRead(read=None, confirmed_absent=True)
+        aspect, system_metadata = read
+        return _OverrideRead(
+            read=_AspectRead(aspect.to_obj(), source_token(system_metadata)),
+            confirmed_absent=False,
+        )
 
-    def _fetch_document_info_dict(self, document_urn: str) -> Optional[dict[str, Any]]:
+    def _read_document_info(self, document_urn: str) -> Optional[_AspectRead]:
         """Read the documentInfo aspect as a dict (the MCL payload shape), or
         None when absent or unreadable."""
-        from datahub.metadata.schema_classes import DocumentInfoClass
-
         try:
-            aspect = self.graph.get_aspect(
-                entity_urn=document_urn, aspect_type=DocumentInfoClass
-            )
+            aspects = self._read_document_aspects(document_urn, ["documentInfo"])
         except Exception as e:
             logger.warning(
                 f"Failed to read documentInfo for {document_urn}: {e}; skipping event."
             )
             return None
-        return aspect.to_obj() if aspect else None
+        read = aspects.get("documentInfo")
+        if read is None:
+            return None
+        aspect, system_metadata = read
+        return _AspectRead(aspect.to_obj(), source_token(system_metadata))
+
+    def _read_semantic_content(self, document_urn: str) -> Optional[Mapping[str, Any]]:
+        """The document's stored semanticContent, {} when it has none, or None when it
+        cannot be read. None makes the profile due for re-embedding: an unreadable
+        profile cannot be shown current."""
+        try:
+            aspects = self._read_document_aspects(document_urn, ["semanticContent"])
+        except Exception as e:
+            logger.warning(
+                f"Failed to read semanticContent for {document_urn}: {e}; "
+                "re-embedding the document this run."
+            )
+            return None
+        read = aspects.get("semanticContent")
+        if read is None:
+            return {}
+        return read[0].to_obj()
+
+    def _refresh_due(self, semantic: Optional[Mapping[str, Any]]) -> bool:
+        """Whether the stored profile must be re-embedded though its text is unchanged.
+
+        Checked outside the content hash, so a title-only version bump of the source
+        aspects does not re-embed, while a watched edit that moved the marker past the
+        profile does, even when the text is the same again (an A to B to A edit).
+        """
+        if semantic is None:
+            return True
+        model_key = self.chunking_source.get_model_embedding_key()
+        if model_key is None:
+            return False
+        return refresh_due(profile_state(semantic, model_key), marker_tokens(semantic))
+
+    @staticmethod
+    def _carried_override_token(
+        prior_tokens: Mapping[str, SemanticSourceTokenClass],
+    ) -> Dict[str, SemanticSourceTokenClass]:
+        """The override's watch key with the token the marker held before the source
+        aspects were read, for an override that is absent now.
+
+        A deleted override leaves its deletion token on the marker. Without it the
+        re-embedded body profile would not cover that key and would stay not current.
+        Only a token the marker already holds is carried, so a later edit still moves
+        the key forward and marks the profile not current.
+        """
+        key = DOCUMENT_TEXT_WATCH_KEYS["semanticText"]
+        token = prior_tokens.get(key)
+        return {key: token} if token is not None else {}
 
     def _extract_platform_from_aspect(
         self, aspect_dict: dict[str, Any]
@@ -1093,8 +1232,8 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 return parts[-1]
         return None
 
-    # URNs hydrated per GraphQL request. Kept modest so a single response stays
-    # within GMS's GraphQL limits even for large documents.
+    # URNs hydrated per batchGet request. Kept modest so a single response stays
+    # within GMS's response limits even for large documents.
     #
     # Deliberately fixed and independent of the configurable `scroll_batch_size`:
     # that one sizes an Elasticsearch page of URNs (cheap, tuned for scroll
@@ -1126,7 +1265,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             if self.config.document_urns and urn not in self.config.document_urns:
                 continue
 
-            # Extract text content (GraphQL returns null for missing aspects).
+            # Extract text content (a missing aspect leaves its field null).
             # semanticText overrides text as the embedding source; see resolve_embed_text.
             info = entity.get("info") or {}
             contents = info.get("contents")
@@ -1152,7 +1291,13 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
 
             num_documents += 1
             self.report.report_document_fetched()
-            yield {"urn": urn, "text": text, "source_type": source_type}
+            yield {
+                "urn": urn,
+                "text": text,
+                "source_type": source_type,
+                "source_tokens": entity.get("source_tokens") or {},
+                "refresh_due": entity.get("refresh_due", False),
+            }
 
         logger.info(
             f"Fetched {num_documents} documents with text content from platforms: {self.config.platform_filter}"
@@ -1319,6 +1464,106 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         # checkpoint commits even when the run fails, so this can't rely on that.
         self._enumeration_complete = not truncated
 
+    # Aspects a document's embed text, source type and platform are read from.
+    _HYDRATE_ASPECT_NAMES = ["documentInfo", "semanticText", "dataPlatformInstance"]
+
+    def _document_from_aspects(
+        self,
+        urn: str,
+        aspects: EntityAspects,
+        semantic: Optional[Mapping[str, Any]] = None,
+    ) -> dict[str, Any]:
+        """Shape batchGet aspects as the entity dict the batch-mode filters read,
+        plus the source tokens of the aspect versions the text came from and whether
+        the stored profile is due for re-embedding.
+
+        ``semantic`` is the stored semanticContent read before ``aspects``, None when it
+        could not be read. Its marker supplies the deletion token of an override that is
+        absent (see _carried_override_token)."""
+        entity: dict[str, Any] = {"urn": urn, "info": None}
+        aspect_tokens: Dict[str, Optional[SemanticSourceTokenClass]] = {}
+
+        info_read = aspects.get("documentInfo")
+        if info_read is not None:
+            info_aspect, info_metadata = info_read
+            info = info_aspect.to_obj()
+            contents = info.get("contents")
+            aspect_tokens["documentInfo"] = source_token(info_metadata)
+            semantic_read = aspects.get("semanticText")
+            if contents is not None and semantic_read is not None:
+                contents["semanticText"] = semantic_read[0].to_obj().get("text")
+                aspect_tokens["semanticText"] = source_token(semantic_read[1])
+            entity["info"] = info
+
+        platform_read = aspects.get("dataPlatformInstance")
+        if platform_read is not None:
+            entity["dataPlatformInstance"] = {
+                "platform": {"urn": platform_read[0].to_obj().get("platform")}
+            }
+
+        source_tokens = watch_key_tokens(aspect_tokens)
+        if semantic is not None and aspects.get("semanticText") is None:
+            source_tokens.update(self._carried_override_token(marker_tokens(semantic)))
+        entity["source_tokens"] = source_tokens
+        entity["refresh_due"] = self._refresh_due(semantic)
+        return entity
+
+    def _read_semantic_content_batch(
+        self, urns: list[str]
+    ) -> Optional[Dict[str, Mapping[str, Any]]]:
+        """The stored semanticContent of each URN, read before the source aspects.
+
+        None when the read fails, so every document in the batch is due for re-embedding.
+        A down GMS is still reported by the source-aspect read that follows.
+        """
+        try:
+            markers = self.graph.get_entities(
+                "document", urns, aspects=["semanticContent"]
+            )
+        except Exception as e:
+            logger.warning(
+                f"Failed to read semanticContent for {len(urns)} document(s): {e}; "
+                "re-embedding these documents this run."
+            )
+            return None
+        semantic: Dict[str, Mapping[str, Any]] = {}
+        for urn, aspects in markers.items():
+            read = aspects.get("semanticContent")
+            semantic[urn] = read[0].to_obj() if read is not None else {}
+        return semantic
+
+    def _read_documents(self, urns: list[str]) -> Dict[str, dict[str, Any]]:
+        """Read documents in one OpenAPI v3 batchGet, keyed by URN.
+
+        A URN with no stored aspects is absent from the result. Connection and
+        timeout failures raise ``OperationalError``; any other failure propagates
+        so the caller can retry the batch one URN at a time.
+        """
+        # Semantic state first: the source aspects below must be read no earlier than
+        # the marker that describes them (see _read_semantic_content_batch).
+        semantic_by_urn = self._read_semantic_content_batch(urns)
+        try:
+            entities = self.graph.get_entities(
+                "document",
+                urns,
+                aspects=self._HYDRATE_ASPECT_NAMES,
+                with_system_metadata=True,
+            )
+        except (requests.exceptions.ConnectionError, requests.exceptions.Timeout) as e:
+            raise OperationalError(
+                "Document hydration could not reach GMS", {"urns": len(urns)}
+            ) from e
+        requested = set(urns)
+        return {
+            urn: self._document_from_aspects(
+                urn,
+                aspects,
+                None if semantic_by_urn is None else semantic_by_urn.get(urn, {}),
+            )
+            for urn, aspects in entities.items()
+            if urn in requested
+        }
+
     def _hydrate_documents(self, urns: Iterable[str]) -> Iterable[dict[str, Any]]:
         """Resolve document URNs to entities in batches.
 
@@ -1326,40 +1571,14 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         catalog is never materialized: enumeration and hydration interleave, one
         batch at a time.
 
-        Uses the nullable ``entities(urns:)`` query: an orphaned URN comes back
-        as null and is counted and skipped, instead of aborting the run as the
-        non-null ``SearchResult.entity`` in ``scrollAcrossEntities`` would.
-        """
-        query = """
-        query hydrateDocuments($urns: [String!]!) {
-          entities(urns: $urns) {
-            urn
-            type
-            ... on Document {
-              info {
-                contents {
-                  text
-                  semanticText
-                }
-                customProperties {
-                  key
-                  value
-                }
-                source {
-                  sourceType
-                }
-              }
-              dataPlatformInstance {
-                platform {
-                  urn
-                }
-              }
-            }
-          }
-        }
+        Reads aspects through OpenAPI v3 batchGet rather than GraphQL, because only
+        it returns each aspect's system metadata, which holds the source tokens.
+        An orphaned URN has no stored aspects, so it is absent from the response;
+        it is counted and skipped instead of aborting the run as the non-null
+        ``SearchResult.entity`` in ``scrollAcrossEntities`` would.
         """
         urn_iter = iter(urns)
-        # Whether an all-null batch means a serving problem or just orphans can
+        # Whether an all-orphan batch means a serving problem or just orphans can
         # only be judged across the whole run, so track both run-wide.
         resolved_any = False
         first_all_null_urn: Optional[str] = None
@@ -1373,36 +1592,35 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 self.lock.heartbeat()
 
             try:
-                response = self.graph.execute_graphql(query, {"urns": batch})
+                entities_by_urn = self._read_documents(batch)
             except OperationalError:
                 # Transport/outage error — abort rather than silently skipping
                 # every document (which would report success with 0 embeddings).
                 raise
-            except GraphError as batch_error:
-                # One document with an unexpected null in a non-null field (e.g.
-                # DocumentContent.text) makes GMS fail the whole batch. Retry the
-                # batch one URN at a time so a single bad document can't drop the
-                # rest.
+            except Exception as batch_error:
+                # One document GMS cannot serialize fails the whole batch. Retry
+                # the batch one URN at a time so a single bad document can't drop
+                # the rest.
                 logger.warning(
                     f"Batch hydration failed for {len(batch)} URN(s); retrying individually"
                 )
                 hydrated_any = False
-                for entity in self._hydrate_individually(query, batch):
+                for entity in self._hydrate_individually(batch):
                     hydrated_any = True
                     resolved_any = True
                     yield entity
                 if not hydrated_any:
                     # Every URN in the batch failed the same way — a systemic
-                    # error (typically a GraphQL schema mismatch, e.g. the GMS is
-                    # missing a queried field), not per-document data. Abort:
-                    # continuing would repeat batch-fail plus a per-URN retry
-                    # storm for every remaining batch, hammering GMS with O(N)
-                    # doomed requests before the run finally ends.
+                    # error (an unsupported request or an authorization failure),
+                    # not per-document data. Abort: continuing would repeat
+                    # batch-fail plus a per-URN retry storm for every remaining
+                    # batch, hammering GMS with O(N) doomed requests before the
+                    # run finally ends.
                     self.report.failure(
                         title="Document hydration failed for an entire batch",
                         message="Every URN in a hydration batch failed to resolve; "
-                        "this usually means a GraphQL schema mismatch (the GMS is "
-                        "missing a queried field) rather than per-document issues.",
+                        "this usually means GMS is rejecting the request (for example "
+                        "an authorization failure) rather than per-document issues.",
                         context=batch[0],
                     )
                     raise DocumentEnumerationError(
@@ -1410,48 +1628,22 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                     ) from batch_error
                 continue
 
-            entities = response.get("entities") or []
-            if len(entities) != len(batch):
-                # GMS returns exactly one (possibly null) slot per requested URN —
-                # BatchGetEntitiesResolver sizes its array from the input list. Any
-                # other length means the response cannot be aligned with the
-                # request, so nothing in it is trustworthy. That includes an empty
-                # list, which would otherwise read as a batch of orphans.
-                self.report.failure(
-                    title="Document hydration returned an unexpected entity count",
-                    message="GMS returned a different number of entities than URNs "
-                    "requested, so the hydrated document set is incomplete.",
-                    context=f"requested={len(batch)}, returned={len(entities)}",
-                )
-                raise DocumentEnumerationError(
-                    "entities(urns:) length did not match the hydration batch"
-                )
-
-            # Match on each entity's own URN rather than zipping positionally: a
-            # reordered response would otherwise attribute one document's content
-            # to another URN. Requested URNs with no entity in the response are
-            # counted as orphans, never silently dropped.
-            entities_by_urn = {
-                entity["urn"]: entity
-                for entity in entities
-                if entity and entity.get("urn")
-            }
             if entities_by_urn:
                 resolved_any = True
             else:
-                # Right length, but every slot came back null. On its own this is
-                # orphan drift, not a serving problem: enumeration is ordered by
-                # URN, so orphans sharing a prefix (e.g. a family of documents
-                # hard-deleted together) are contiguous and can fill whole
-                # batches. Warn and keep going; whether it was really a serving
-                # problem is decided once the run has seen every batch, below.
+                # Nothing in the batch resolved. On its own this is orphan drift,
+                # not a serving problem: enumeration is ordered by URN, so orphans
+                # sharing a prefix (e.g. a family of documents hard-deleted
+                # together) are contiguous and can fill whole batches. Warn and
+                # keep going; whether it was really a serving problem is decided
+                # once the run has seen every batch, below.
                 if first_all_null_urn is None:
                     first_all_null_urn = batch[0]
                 self.report.warning(
                     title="Document hydration resolved nothing in a batch",
-                    message="Every URN in a hydration batch resolved to null "
-                    "(a contiguous run of orphaned index entries); the batch was "
-                    "skipped and the run continues.",
+                    message="No URN in a hydration batch resolved to a stored "
+                    "document (a contiguous run of orphaned index entries); the "
+                    "batch was skipped and the run continues.",
                     context=batch[0],
                 )
             for urn in batch:
@@ -1468,37 +1660,28 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             # embedded nothing.
             self.report.failure(
                 title="Document hydration resolved nothing",
-                message="Every enumerated document URN resolved to null, which is "
+                message="Every enumerated document URN resolved to nothing, which is "
                 "usually a serving problem rather than every document being "
                 "orphaned; nothing was embedded.",
                 context=first_all_null_urn,
             )
 
-    def _hydrate_individually(
-        self, query: str, urns: list[str]
-    ) -> Iterable[dict[str, Any]]:
+    def _hydrate_individually(self, urns: list[str]) -> Iterable[dict[str, Any]]:
         """Hydrate URNs one at a time so a single un-resolvable document is
         skipped instead of failing its whole batch."""
         for urn in urns:
             try:
-                response = self.graph.execute_graphql(query, {"urns": [urn]})
+                entity = self._read_documents([urn]).get(urn)
             except OperationalError:
                 raise
-            except GraphError:
+            except Exception:
                 self.report.warning(
                     title="Skipped document that failed to hydrate",
-                    message="A document's content could not be resolved from GMS "
-                    "(a non-null field returned null); it was skipped.",
+                    message="A document's content could not be read from GMS; "
+                    "it was skipped.",
                     context=urn,
                 )
                 continue
-            # Match by URN for the same reason the batch path does, rather than
-            # trusting the first slot to be the document we asked for.
-            entities = response.get("entities") or []
-            entity = next(
-                (e for e in entities if e and e.get("urn") == urn),
-                None,
-            )
             if entity is None:
                 self._skip_orphaned(urn)
                 continue
@@ -1516,12 +1699,23 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             context=urn,
         )
 
-    def _should_process(self, document_urn: str, text: str) -> bool:
-        """Check if document should be processed based on content hash."""
+    def _should_process(
+        self,
+        document_urn: str,
+        text: str,
+        refresh_due: bool = False,
+    ) -> bool:
+        """Check if document should be processed based on content hash.
+
+        ``refresh_due`` is the stored profile's freshness check (see _refresh_due). It
+        overrides the hash, since the hash covers only the text and processing config.
+        """
         if (
             not self.config.incremental.enabled
             or self.config.incremental.force_reprocess
         ):
+            return True
+        if refresh_due:
             return True
 
         current_hash = self._calculate_text_hash(text)
@@ -1615,8 +1809,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         1. Content changes (text is different)
         2. Processing config changes (chunking enabled, embedding model changed, etc.)
 
-        Args:
-            text: Document text content
+        Source-aspect versions are not hashed. A title-only edit moves the source
+        version but not the embedded text, and a watched edit that moves the refresh
+        marker is caught by _refresh_due instead.
 
         Returns:
             SHA256 hash hex string
@@ -1653,7 +1848,11 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             skip_empty_text=self.config.skip_empty_text,
         )
 
-    def _update_document_state(self, document_urn: str, text: str) -> None:
+    def _update_document_state(
+        self,
+        document_urn: str,
+        text: str,
+    ) -> None:
         """Update state after processing document."""
         content_hash = self._calculate_text_hash(text)
         last_processed = datetime.utcnow().isoformat()
@@ -1789,6 +1988,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
         Returns False when processing failed (the failure is swallowed and
         reported); returns True on success or a legitimate skip.
         """
+        # Source tokens are read with the document, so every profile this function writes,
+        # skips included, records the tokens its text was read at.
+        refresh_marker = build_refresh_marker(doc.get("source_tokens") or {})
         try:
             document_urn = doc["urn"]
             text = doc.get("text", "")
@@ -1805,6 +2007,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 yield self.chunking_source.build_skip_marker_workunit(
                     document_urn,
                     "EMPTY_TEXT" if not text else "BELOW_MIN_TEXT_LENGTH",
+                    refresh_marker=refresh_marker,
                 )
                 return True
 
@@ -1818,7 +2021,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 )
                 self.report.report_document_skipped()
                 yield self.chunking_source.build_skip_marker_workunit(
-                    document_urn, "NO_INDEXABLE_CONTENT"
+                    document_urn,
+                    "NO_INDEXABLE_CONTENT",
+                    refresh_marker=refresh_marker,
                 )
                 return True
 
@@ -1831,6 +2036,7 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
                 document_urn=document_urn,
                 elements=elements,
                 source_text_sha256=compute_source_text_sha256(text),
+                refresh_marker=refresh_marker,
             )
 
         except ServerEmbeddingRunError:
@@ -1851,7 +2057,9 @@ class DataHubDocumentsSource(StatefulIngestionSourceBase, TestableSource):
             # content the document no longer has.
             try:
                 marker = self.chunking_source.build_skip_marker_workunit(
-                    document_urn, PARTITION_TIMEOUT_SKIP_REASON
+                    document_urn,
+                    PARTITION_TIMEOUT_SKIP_REASON,
+                    refresh_marker=refresh_marker,
                 )
             except Exception as e:
                 self.report.report_document_failed()

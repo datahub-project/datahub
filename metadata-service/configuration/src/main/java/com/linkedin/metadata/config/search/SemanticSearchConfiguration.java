@@ -39,4 +39,7 @@ public class SemanticSearchConfiguration {
    * store given either of those names is ignored.
    */
   private Map<String, VectorStoreConfiguration> stores;
+
+  /** Per-profile staleness bindings and service ownership switch. */
+  private SemanticProfilesConfiguration profiles = new SemanticProfilesConfiguration();
 }

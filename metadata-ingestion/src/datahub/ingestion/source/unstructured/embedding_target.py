@@ -58,6 +58,9 @@ def resolve_embedding_target(
                 "configured. Ask your administrator to enable semantic search."
             )
         index = semantic.embedding_config
+        config._semantic_content_patch_supported = (
+            semantic.semantic_content_patch_supported
+        )
         served = service.embedding_service_model
         if served is not None and served != index.model_id:
             raise ServerEmbeddingModelMismatchError(

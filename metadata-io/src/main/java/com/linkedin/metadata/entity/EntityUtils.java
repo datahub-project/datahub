@@ -39,6 +39,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ReadPreference;
 import java.net.URISyntaxException;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -426,7 +427,8 @@ public class EntityUtils {
 
   /**
    * Use the precalculated next version from system metadata if it exists, otherwise lookup the next
-   * version the normal way from the database
+   * version the normal way from the database. After repeated duplicate-key failures, use the larger
+   * of the stored system metadata version and {@code max(version) + 1}.
    *
    * @param txContext
    * @param aspectDao database access
@@ -441,44 +443,53 @@ public class EntityUtils {
       Map<String, Map<String, T>> latestAspects,
       Map<String, Set<String>> urnAspects) {
 
-    final Map<String, Map<String, Long>> precalculatedVersions;
-    final Map<String, Set<String>> missingAspectVersions;
-    if (txContext.shouldFallbackToDatabaseMaxVersion()) {
+    // The value handed to incrementBatchVersion, which adds one. Normally that is the stored
+    // system metadata version. After repeated duplicate-key failures the column max can sit below
+    // that version (a rollback keeps the latest row at column 0), so the fallback takes the
+    // larger of the two. getNextVersions already returns column max + 1, and the history row is
+    // inserted at max(old token, new token - 1), so using that returned value keeps the insert
+    // above every stored column.
+    boolean duplicateKeyFallback = txContext.shouldFallbackToDatabaseMaxVersion();
+    if (duplicateKeyFallback) {
       log.warn(
-          "Retry failures reached fallback threshold and last error was DuplicateKey ({}); using database max(version)+1",
+          "Retry failures reached fallback threshold and last error was DuplicateKey ({}); next version is the larger of the stored system metadata version and database max(version)+1",
           TransactionContext.DUPLICATE_KEY_MAX_VERSION_FALLBACK_AFTER_FAILURES);
-      precalculatedVersions = Map.of();
-      missingAspectVersions = urnAspects;
-    } else {
-      precalculatedVersions =
-          latestAspects.entrySet().stream()
-              .map(
-                  entry ->
-                      Map.entry(
-                          entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
-              .filter(entry -> !entry.getValue().isEmpty())
-              .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
-
-      missingAspectVersions =
-          urnAspects.entrySet().stream()
-              .flatMap(
-                  entry ->
-                      entry.getValue().stream()
-                          .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
-              .filter(
-                  urnAspectName ->
-                      !precalculatedVersions
-                          .getOrDefault(urnAspectName.getKey(), Map.of())
-                          .containsKey(urnAspectName.getValue()))
-              .collect(
-                  Collectors.groupingBy(
-                      Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
     }
+
+    final Map<String, Map<String, Long>> precalculatedVersions =
+        latestAspects.entrySet().stream()
+            .map(
+                entry ->
+                    Map.entry(
+                        entry.getKey(), convertSystemAspectToNextVersionMap(entry.getValue())))
+            .filter(entry -> !entry.getValue().isEmpty())
+            .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue));
+
+    final Map<String, Set<String>> missingAspectVersions =
+        duplicateKeyFallback
+            ? urnAspects
+            : urnAspects.entrySet().stream()
+                .flatMap(
+                    entry ->
+                        entry.getValue().stream()
+                            .map(aspectName -> Pair.of(entry.getKey(), aspectName)))
+                .filter(
+                    urnAspectName ->
+                        !precalculatedVersions
+                            .getOrDefault(urnAspectName.getKey(), Map.of())
+                            .containsKey(urnAspectName.getValue()))
+                .collect(
+                    Collectors.groupingBy(
+                        Pair::getKey, Collectors.mapping(Pair::getValue, Collectors.toSet())));
 
     Map<String, Map<String, Long>> databaseVersions =
         missingAspectVersions.isEmpty()
             ? Map.of()
             : aspectDao.getNextVersions(opContext, txContext, missingAspectVersions, true);
+
+    if (duplicateKeyFallback) {
+      return largerVersion(precalculatedVersions, databaseVersions);
+    }
 
     // stitch back together the precalculated and database versions
     return Stream.concat(
@@ -490,6 +501,27 @@ public class EntityUtils {
                 (m1, m2) ->
                     Stream.concat(m1.entrySet().stream(), m2.entrySet().stream())
                         .collect(Collectors.toMap(Map.Entry::getKey, Map.Entry::getValue))));
+  }
+
+  /** Per aspect, the larger of the stored token and the database next version. */
+  private static Map<String, Map<String, Long>> largerVersion(
+      Map<String, Map<String, Long>> storedVersions,
+      Map<String, Map<String, Long>> databaseVersions) {
+    Map<String, Map<String, Long>> merged = new HashMap<>();
+    Stream.concat(storedVersions.keySet().stream(), databaseVersions.keySet().stream())
+        .distinct()
+        .forEach(
+            urn -> {
+              Map<String, Long> aspects = new HashMap<>();
+              storedVersions.getOrDefault(urn, Map.of()).forEach(aspects::put);
+              databaseVersions
+                  .getOrDefault(urn, Map.of())
+                  .forEach((aspect, version) -> aspects.merge(aspect, version, Math::max));
+              if (!aspects.isEmpty()) {
+                merged.put(urn, aspects);
+              }
+            });
+    return merged;
   }
 
   /**
