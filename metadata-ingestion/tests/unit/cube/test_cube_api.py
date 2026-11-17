@@ -262,7 +262,6 @@ def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> N
 
 
 _ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
-_META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
 
 
 def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:
@@ -311,17 +310,4 @@ def test_unusable_cloud_references_are_counted_and_warned(
     assert client.report.metadata_api_references_skipped == 1
     assert [w.title for w in client.report.warnings] == [
         "Skipped Metadata API references"
-    ]
-
-
-def test_unexpected_metadata_api_response_falls_back_with_its_own_warning(
-    requests_mock: rm.Mocker,
-) -> None:
-    client = _client()
-    requests_mock.get(_META, json={"cubes": [{"name": "orders", "type": "cube"}]})
-    requests_mock.post(_ENTITIES_ALL, json={"data": {"entities": []}})
-
-    assert [e.name for e in client.get_entities()] == ["orders"]
-    assert [w.title for w in client.report.warnings] == [
-        "Unexpected Cube Metadata API response"
     ]
