@@ -4,9 +4,11 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 #### Table and Column Descriptions
 
-Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database, and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
+Table and column comments are read from `information_schema.TABLES` and `information_schema.COLUMNS`, with one query each per database (two when an external catalog needs the retry below), and ingested as dataset and field descriptions. They are not taken from `SHOW CREATE TABLE`: Doris writes comments there in double quotes, which the MySQL DDL parser does not read.
 
-Comments of tables in an external catalog need Doris 2.1 or later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)).
+External catalogs, for example Paimon, Hive and Iceberg, are covered the same way on Doris 2.1 and later, where each catalog has its own `information_schema` ([apache/doris#28919](https://github.com/apache/doris/pull/28919)). On older versions `information_schema` has no rows for an external catalog's databases: those tables are ingested without descriptions, and the report shows a "Doris table and column comments not found" warning for each such database. Upgrading Doris fixes it; no grant does.
+
+When the global `show_full_dbname_in_info_schema_db` is enabled, an external catalog's rows are keyed by `catalog.database`. The source then retries with that name when the bare one returns nothing, and uses the qualified name first for the catalog's remaining databases.
 
 #### Migration from MySQL Connector
 
@@ -30,6 +32,10 @@ One run ingests one catalog, so a view that reads from a table in a different Do
 #### Truncated column comments
 
 Doris truncates `information_schema.COLUMNS.COLUMN_COMMENT` to `column_comment_length_limit` characters when that FE configuration is greater than zero. It defaults to `-1`, which means no limit; raise it or set it back to `-1` if long column descriptions arrive cut short.
+
+#### External catalog table comments
+
+Doris maps the Paimon table comment only from 3.1 onwards ([apache/doris#53405](https://github.com/apache/doris/pull/53405)), so Paimon tables on Doris 2.1 and 3.0 are ingested with column descriptions but no table description.
 
 ### Troubleshooting
 

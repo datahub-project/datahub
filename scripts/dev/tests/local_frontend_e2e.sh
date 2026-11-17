@@ -57,22 +57,10 @@ case "$1" in
             node_modules/.bin/playwright test --config=playwright.no-webserver.config.ts \
                 tests/auth/login.spec.ts --grep 'logs in successfully with valid credentials' "$@"
         }
-        # On a cold Vite cache the dependency scan cannot resolve the template-string theme import
-        # in useSetAppTheme.tsx, so Vite discovers dependencies while the first page loads and
-        # reloads it several times, outlasting the login helper's 30s wait. Repeat until a login
-        # passes so the checked run measures a warm dev server.
-        for attempt in 1 2 3 4; do
-            echo "Warm-up login attempt $attempt/4"
-            if login_test --output="test-results/warmup-$attempt"; then
-                echo "Warm-up login passed on attempt $attempt/4"
-                break
-            fi
-            echo "Warm-up login attempt $attempt/4 failed"
-            if [[ "$attempt" == 4 ]]; then
-                echo "Warm-up login did not converge after 4 attempts" >&2
-                exit 1
-            fi
-        done
+        # Vite compiles modules on first request, so the first login on a cold cache spends most of
+        # its time compiling (about 30s on CI runners, against the login helper's 30s wait). One
+        # untimed pass compiles them; the checked run then measures a warm dev server.
+        login_test --output=test-results/warmup >/dev/null 2>&1 || echo "warm-up login did not finish; running the check anyway"
         login_test --trace=on
         ;;
 esac
