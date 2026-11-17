@@ -1,6 +1,8 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
@@ -29,6 +31,8 @@ import com.linkedin.search.template.SearchTemplateRouteMatch;
 import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -63,7 +67,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
         assertEquals(resolved.getUrn(), RERANK);
         coordinator.armServed(bound, RERANK);
         assertFalse(resolved.isKnnApplied(), semanticRead + " " + entity);
-        assertTrue(resolved.isTemplateRerank(), semanticRead + " " + entity);
+        assertEquals(resolved.getTemplateRerank(), RERANK, semanticRead + " " + entity);
       }
     }
 
@@ -75,6 +79,80 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertThrows(
         SearchTemplateException.class,
         () -> coordinator(false).bind(opContext, "customer orders", false, List.of("dataset")));
+
+    // A knn that names both model and field with no combine is read as keywordRerank: it binds
+    // without document rerank, and the served rung owns its rerank instead of the legacy kNN leg.
+    String migratedUrn = "urn:li:searchTemplate:migrated";
+    SearchTemplateProperties migrated = parentOf("Migrated", SEARCH_TEMPLATE_FULLTEXT_URN);
+    migrated.setKnn(
+        "{ \"model\": \"text-embedding-3-small\", \"field\": \"embeddings.vector\", \"k\": 10 }");
+    store(migratedUrn, migrated);
+    templates.getDefaults().put("fulltext", Map.of("default", migratedUrn));
+    for (boolean semanticRead : List.of(false, true)) {
+      SearchTemplateCoordinator coordinator = coordinator(semanticRead);
+      OperationContext bound =
+          coordinator.bind(opContext, "customer orders", false, List.of("dataset", "document"));
+      coordinator.armServed(bound, migratedUrn);
+      ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+      assertFalse(resolved.isKnnApplied(), String.valueOf(semanticRead));
+      assertEquals(resolved.getTemplateRerank(), migratedUrn, String.valueOf(semanticRead));
+    }
+  }
+
+  @Test
+  public void testKeywordRerankCacheIdentityFollowsTheRerankInputs() {
+    store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties rerank = parentOf("Rerank", SEARCH_TEMPLATE_FULLTEXT_URN);
+    rerank.setApiVersion(2);
+    rerank.setRetrieval(retrieval(r -> r.setCombine("keywordRerank")));
+    store(RERANK, rerank);
+    templates.getDefaults().put("fulltext", Map.of("default", RERANK));
+    EmbeddingProfile documentDefault =
+        new EmbeddingProfile(
+            "text_embedding_3_small",
+            EmbeddingProfile.TEXT_CHUNKS,
+            "text-embedding-3-small",
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("document"));
+    semanticSearch.setModels(Map.of(documentDefault.id(), new ModelEmbeddingConfig()));
+    EmbeddingProfileRegistry registry =
+        new EmbeddingProfileRegistry(
+            List.of(documentDefault), Map.of("document", documentDefault.id()));
+    // The resolved profile must be available on the engine serving the search.
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    OperationContext searching = TestOperationContexts.withFixedSearchClient(opContext, client);
+    Set<String> identities = new HashSet<>();
+    for (boolean hybridRead : List.of(false, true)) {
+      ElasticSearchConfiguration elastic = v3Config();
+      elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+      SearchTemplateCoordinator coordinator =
+          new SearchTemplateCoordinator(
+              elastic,
+              null,
+              loader,
+              ForkJoinPool.commonPool(),
+              SearchTemplateComponentRegistry.empty(),
+              SearchTemplateGates.of(registry, semanticSearch, hybridRead));
+      for (List<String> entities : List.of(List.of("dataset"), List.of("document"))) {
+        String identity =
+            coordinator
+                .bind(searching, "customer orders", false, entities)
+                .getSearchContext()
+                .getResolvedSearchTemplate()
+                .cacheKeyComponent();
+        assertTrue(
+            identity.contains("~kr" + SearchTemplateKeywordRerank.EXECUTION_VERSION), identity);
+        identities.add(identity);
+      }
+    }
+    // Hybrid read, document rerank, and the resolved profile each move the key.
+    assertEquals(identities.size(), 4);
+    assertTrue(identities.stream().anyMatch(id -> id.contains(documentDefault.id())));
   }
 
   @Test

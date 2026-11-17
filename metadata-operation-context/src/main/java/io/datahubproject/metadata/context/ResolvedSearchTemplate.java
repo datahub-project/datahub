@@ -24,10 +24,10 @@ public class ResolvedSearchTemplate {
   private boolean knnApplied;
 
   /**
-   * True when the served rung declares {@code keywordRerank}. That rung owns the rerank of its
-   * keyword window, so the default entity hybrid reranker does not also run on it.
+   * URN of the served rung when it declares {@code keywordRerank}, else null. That rung owns the
+   * rerank of its keyword window, so the default entity hybrid reranker does not also run on it.
    */
-  private boolean templateRerank;
+  @Nullable private String templateRerank;
 
   /** Templates visited by the route walk. Not part of the result-cache identity. */
   @Nonnull private final List<String> routeChain = new ArrayList<>();
@@ -85,8 +85,8 @@ public class ResolvedSearchTemplate {
     this.knnK = knnK;
   }
 
-  public void setTemplateRerank(boolean templateRerank) {
-    this.templateRerank = templateRerank;
+  public void setTemplateRerank(@Nullable String servedUrn) {
+    this.templateRerank = servedUrn;
   }
 
   public void setExecutionCapabilities(

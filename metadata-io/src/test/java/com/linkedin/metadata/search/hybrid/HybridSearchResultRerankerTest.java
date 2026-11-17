@@ -6,6 +6,7 @@ import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
@@ -34,6 +35,7 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.TimeUnit;
 import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
@@ -100,7 +102,8 @@ public class HybridSearchResultRerankerTest {
                     row(CHART, 50),
                     row(DOC_C, 40)),
                 List.of("urn"),
-                inSeconds(60))
+                inSeconds(60),
+                defaultPlan())
             .orElseThrow();
 
     // The vector scores reorder the documents; the dataset and the chart keep their positions
@@ -143,7 +146,8 @@ public class HybridSearchResultRerankerTest {
                 "revenue",
                 List.of(row(DOC_A, 50), row(DOC_B, 50), row(DOC_C, 50)),
                 List.of("urn"),
-                inSeconds(60))
+                inSeconds(60),
+                defaultPlan())
             .orElseThrow();
 
     // DOC_A has no vector, e.g. not embedded yet, so it stays first while the others trade places
@@ -160,7 +164,13 @@ public class HybridSearchResultRerankerTest {
 
     assertEquals(
         reranker.rerank(
-            metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+            metered(metrics),
+            ENTITY_NAMES,
+            "revenue",
+            rows,
+            List.of("urn"),
+            inSeconds(60),
+            defaultPlan()),
         Optional.empty());
     verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1);
   }
@@ -170,7 +180,8 @@ public class HybridSearchResultRerankerTest {
     List<SearchEntity> rows = List.of(row(DATASET, 70), row(CHART, 50));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        reranker.rerank(
+            opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60), defaultPlan()),
         Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
@@ -181,7 +192,8 @@ public class HybridSearchResultRerankerTest {
     List<SearchEntity> rows = List.of(row(DOC_A, 70), row(DATASET, 50));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+        reranker.rerank(
+            opContext, ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60), defaultPlan()),
         Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
@@ -191,7 +203,8 @@ public class HybridSearchResultRerankerTest {
     List<SearchEntity> rows = List.of(row(DOC_A, 1));
 
     assertEquals(
-        reranker.rerank(opContext, ENTITY_NAMES, "*", rows, List.of("urn"), inSeconds(60)),
+        reranker.rerank(
+            opContext, ENTITY_NAMES, "*", rows, List.of("urn"), inSeconds(60), defaultPlan()),
         Optional.empty());
     verifyNoInteractions(embeddingProvider, v3Client);
   }
@@ -206,7 +219,13 @@ public class HybridSearchResultRerankerTest {
 
     assertEquals(
         reranker.rerank(
-            metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)),
+            metered(metrics),
+            ENTITY_NAMES,
+            "revenue",
+            rows,
+            List.of("urn"),
+            inSeconds(60),
+            defaultPlan()),
         Optional.empty());
     verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadNoVectors", 1);
   }
@@ -224,7 +243,13 @@ public class HybridSearchResultRerankerTest {
         IOException.class,
         () ->
             reranker.rerank(
-                metered(metrics), ENTITY_NAMES, "revenue", rows, List.of("urn"), inSeconds(60)));
+                metered(metrics),
+                ENTITY_NAMES,
+                "revenue",
+                rows,
+                List.of("urn"),
+                inSeconds(60),
+                defaultPlan()));
     verify(metrics).increment(HybridSearchResultReranker.class, "hybridReadPartial", 1);
   }
 
@@ -253,7 +278,8 @@ public class HybridSearchResultRerankerTest {
                 "revenue",
                 rows,
                 List.of("urn"),
-                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(100)));
+                System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(100),
+                defaultPlan()));
     verifyNoInteractions(v3Client);
   }
 
@@ -283,6 +309,81 @@ public class HybridSearchResultRerankerTest {
     OperationContext metered = spy(opContext);
     doReturn(Optional.of(metrics)).when(metered).getMetricUtils();
     return metered;
+  }
+
+  @Test
+  public void testFloorKeepsRowsBelowItInPlaceAndIsInclusive() throws Exception {
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(knnHits(Map.of(DOC_A, 0.1d, DOC_B, 0.5d, DOC_C, 0.9d)));
+    List<SearchEntity> rows = List.of(row(DOC_A, 80), row(DOC_B, 60), row(DOC_C, 40));
+
+    List<SearchEntity> reranked =
+        reranker
+            .rerank(
+                opContext,
+                ENTITY_NAMES,
+                "revenue",
+                rows,
+                List.of("urn"),
+                inSeconds(60),
+                new HybridRerankPlan(Set.of("document"), null, 0.5d))
+            .orElseThrow();
+
+    // DOC_A is under the floor and keeps first place; DOC_B sits on it and is still blended
+    assertEquals(urns(reranked), List.of(DOC_A, DOC_C, DOC_B));
+    // Just above DOC_B, only DOC_C passes, and one row has no other position to move into
+    assertEquals(
+        reranker.rerank(
+            opContext,
+            ENTITY_NAMES,
+            "revenue",
+            rows,
+            List.of("urn"),
+            inSeconds(60),
+            new HybridRerankPlan(Set.of("document"), null, 0.5000001d)),
+        Optional.empty());
+  }
+
+  @Test
+  public void testPlanBlendAndEligibleTypesReplaceTheDefaults() throws Exception {
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(knnHits(Map.of(DOC_A, 0.1d, DOC_B, 0.5d, DOC_C, 0.9d)));
+    List<SearchEntity> rows = List.of(row(DOC_A, 80), row(DOC_B, 60), row(DOC_C, 40));
+    // A lexical-only blend keeps the keyword order the default blend would change
+    HybridCandidateMerger lexicalOnly =
+        new HybridCandidateMerger(
+            new HybridLexicalScoreNormalizer(0d, 100d, 4d), new HybridScoreCombiner(0d));
+
+    assertEquals(
+        urns(
+            reranker
+                .rerank(
+                    opContext,
+                    ENTITY_NAMES,
+                    "revenue",
+                    rows,
+                    List.of("urn"),
+                    inSeconds(60),
+                    new HybridRerankPlan(Set.of("document"), lexicalOnly, null))
+                .orElseThrow()),
+        List.of(DOC_A, DOC_B, DOC_C));
+    // No eligible type: no embedding or kNN call
+    assertEquals(
+        reranker.rerank(
+            opContext,
+            ENTITY_NAMES,
+            "revenue",
+            rows,
+            List.of("urn"),
+            inSeconds(60),
+            new HybridRerankPlan(Set.of("dataset"), null, null)),
+        Optional.empty());
+    verify(embeddingProvider, times(1))
+        .embed(any(), any(), any(EmbeddingTaskType.class), any(Duration.class));
+  }
+
+  private HybridRerankPlan defaultPlan() {
+    return new HybridRerankPlan(reranker.vectorEntityNames(opContext, ENTITY_NAMES), null, null);
   }
 
   private static long inSeconds(long seconds) {

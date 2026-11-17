@@ -9,6 +9,7 @@ import static com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry.OP
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -69,7 +70,7 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesNoSemanticShapeYet() {
+  public void testThisBuildAdvertisesOnlyDocumentRerank() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
     assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
     // Anchor similarity needs vector retrieval and similarity.
@@ -104,32 +105,42 @@ public class SearchTemplateGatesTest {
         merged(retrieval("keywordRerank").setProfileScore("weightedSum"))
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
-    // This build does not rerank, so the selection only the rerank uses does not fail the search.
+    // This build reranks only when the request can, so while it cannot, the selection only the
+    // rerank uses does not fail the search.
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
-    assertNull(gates.rejectionCode(rerank, true));
-    assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
-
-    // A build that reranks still keeps keyword order when this request cannot rerank.
-    SearchTemplateGates reranking =
-        new SearchTemplateGates(
-            REGISTRY,
-            SEMANTIC,
-            true,
-            Set.of(DOCUMENT_RERANK),
-            SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
-    assertNull(reranking.rejectionCode(rerank, false));
-    assertNull(reranking.bindingRejection(rerank, List.of("document"), OPENSEARCH, false));
+    assertTrue(gates.advertises(DOCUMENT_RERANK));
+    assertNull(gates.rejectionCode(rerank, false));
+    assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, false));
+    // With hybrid read off it never reranks.
+    SearchTemplateGates hybridOff = SearchTemplateGates.of(REGISTRY, SEMANTIC, false);
+    assertNull(hybridOff.rejectionCode(rerank, true));
+    assertNull(hybridOff.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
 
     // When it can, combining several profiles is a capability it does not run.
-    assertEquals(reranking.rejectionCode(rerank, true), SearchTemplateGates.SEVERAL_PROFILES);
+    assertEquals(gates.rejectionCode(rerank, true), SearchTemplateGates.SEVERAL_PROFILES);
     MergedSearchTemplate twoProfiles =
         merged(retrieval("keywordRerank"))
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
-    assertNull(reranking.rejectionCode(twoProfiles, true));
+    assertNull(gates.rejectionCode(twoProfiles, true));
     assertEquals(
-        reranking.bindingRejection(twoProfiles, List.of("document"), OPENSEARCH, true),
+        gates.bindingRejection(twoProfiles, List.of("document"), OPENSEARCH, true),
         SearchTemplateGates.SEVERAL_PROFILES);
+  }
+
+  @Test
+  public void testKeywordRerankOverAMixedRequestGatesEachEntity() {
+    MergedSearchTemplate rerank = merged(retrieval("keywordRerank")).build();
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
+    List<String> mixed = List.of("document", "dataset");
+    assertNull(gates.rejectionCode(rerank, true));
+    assertNull(gates.bindingRejection(rerank, mixed, OPENSEARCH, true));
+    // Document joins the rerank; this build does not rerank Dataset rows, so they keep their
+    // places.
+    Map<String, String> entityGates = gates.entityGates(rerank, mixed, OPENSEARCH);
+    assertNull(entityGates.get("document"));
+    assertEquals(entityGates.get("dataset"), SearchTemplateGates.ENTITY_NOT_ADVERTISED);
+    assertEquals(gates.joinedProfileIds(rerank, mixed, OPENSEARCH), Set.of(DOCUMENT_DEFAULT.id()));
   }
 
   @Test
@@ -352,6 +363,26 @@ public class SearchTemplateGatesTest {
         SearchTemplateCapabilities.rejectionCode(
             legacy, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD),
         "knn");
+    assertNull(SearchTemplateCapabilities.effectiveCombine(legacy));
+
+    // With both model and field it is the earlier keywordRerank shape: no document rerank needed,
+    // and its names stay opaque, so it resolves the entity default.
+    MergedSearchTemplate migrated =
+        merged(null)
+            .knn("{ \"model\": \"dataset_l2\", \"field\": \"embeddings.vector\", \"k\": 10 }")
+            .build();
+    assertTrue(SearchTemplateCapabilities.keywordRerank(migrated));
+    assertNull(
+        SearchTemplateCapabilities.rejectionCode(
+            migrated, false, false, SearchTemplateComponentRegistry.empty(), VECTOR_BUILD));
+    assertNull(SearchTemplateGates.legacyProfileId(migrated));
+    assertEquals(
+        VECTOR_BUILD.joinedProfileIds(migrated, List.of("document"), OPENSEARCH),
+        Set.of(DOCUMENT_DEFAULT.id()));
+    // A blank model is not the migrated shape.
+    assertNull(
+        SearchTemplateCapabilities.effectiveCombine(
+            merged(null).knn("{ \"model\": \" \", \"field\": \"embeddings.vector\" }").build()));
   }
 
   @Test

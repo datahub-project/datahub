@@ -187,17 +187,16 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (resolved == null) {
       return;
     }
-    resolved.setTemplateRerank(false);
+    resolved.setTemplateRerank(null);
     if (servedUrn == null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
     MergedSearchTemplate template = loader.load(opContext, servedUrn);
-    // A keywordRerank rung owns the rerank of its window. This release reads that shape and does
-    // not execute it, so the rung keeps keyword order and the default hybrid reranker stays off.
-    // That is the expected result for the rung, so it is not counted as a fallback.
+    // A keywordRerank rung owns the rerank of its window, so the default hybrid reranker stays off.
+    // The search reranks, or reports why it kept keyword order, when it runs.
     if (SearchTemplateCapabilities.keywordRerank(template)) {
-      resolved.setTemplateRerank(true);
+      resolved.setTemplateRerank(servedUrn);
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
@@ -248,7 +247,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         entityNames,
         EmbeddingProfileRegistry.system(engineType(opContext)));
     try {
-      noteIdentity(opContext, resolved, scroll, documentRerank);
+      noteIdentity(opContext, resolved, scroll);
       SearchTemplateCapabilities.requireResolvable(
           loader.load(opContext, resolved.getUrn()),
           gates,
@@ -367,8 +366,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private void noteIdentity(
       @Nonnull OperationContext opContext,
       @Nonnull ResolvedSearchTemplate resolved,
-      boolean scroll,
-      boolean documentRerank) {
+      boolean scroll) {
     List<String> rungs = new ArrayList<>();
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
@@ -381,7 +379,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         new HashSet<>(),
         0,
         !scroll,
-        documentRerank,
+        resolved,
         scroll,
         nameAndValue,
         classpathBridge);
@@ -403,7 +401,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nonnull Set<String> seen,
       int depth,
       boolean followLadder,
-      boolean documentRerank,
+      @Nonnull ResolvedSearchTemplate resolved,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
       @Nonnull boolean[] classpathBridge) {
@@ -413,7 +411,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     MergedSearchTemplate template = loader.load(opContext, urn);
     if (depth == 0) {
       SearchTemplateCapabilities.requireSupported(
-          template, documentRerank, scroll, components, gates);
+          template, resolved.isDocumentRerank(), scroll, components, gates);
     }
     if (depth == 0) {
       classpathBridge[0] = template.isClasspathBridge();
@@ -425,7 +423,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         template.getUrn()
             + "@"
             + template.getLastModified()
-            + SearchTemplateComponents.cacheSuffix(template.getComponent()));
+            + SearchTemplateComponents.cacheSuffix(template.getComponent())
+            + rerankIdentity(template, resolved));
     append(bodies, template.getQuery());
     template.getQueryFragments().values().forEach(value -> append(bodies, value));
     append(bodies, template.getClauses());
@@ -465,7 +464,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             seen,
             depth + 1,
             true,
-            documentRerank,
+            resolved,
             false,
             nameAndValue,
             classpathBridge);
@@ -480,11 +479,35 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           seen,
           depth + 1,
           true,
-          documentRerank,
+          resolved,
           false,
           nameAndValue,
           classpathBridge);
     }
+  }
+
+  // A keywordRerank rung's order also depends on this build's rerank, the profile it resolves, and
+  // whether this request can rerank. The rung's lastModified covers its blend, and the search key
+  // covers SearchFlags.minScore.
+  @Nonnull
+  private String rerankIdentity(
+      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+    if (!SearchTemplateCapabilities.keywordRerank(template)) {
+      return "";
+    }
+    Set<String> profiles =
+        resolved.getEntityTypes() == null
+            ? Set.of()
+            : gates.joinedProfileIds(
+                template, resolved.getEntityTypes(), resolved.getSearchSystem());
+    return "~kr"
+        + SearchTemplateKeywordRerank.EXECUTION_VERSION
+        + ":"
+        + String.join(",", profiles)
+        + ":"
+        + resolved.isDocumentRerank()
+        + ":"
+        + gates.hybridRead();
   }
 
   private static void append(@Nonnull StringBuilder bodies, @Nullable String section) {

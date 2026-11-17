@@ -25,10 +25,10 @@ import javax.annotation.Nonnull;
 /**
  * Composes query embeddings, V3 kNN, and lexical-backed hybrid result reordering.
  *
- * <p>Only rows of the entity types that have vectors (documents by default) are reordered, and only
- * among the positions those rows already hold. Other entity types have no vector to compare, so
- * their rows keep their lexical positions and keyword search keeps ranking across entity types.
- * When every requested entity type has vectors, all rows are reordered.
+ * <p>Only rows of the plan's eligible entity types (by default those that have vectors) are
+ * reordered, and only among the positions those rows already hold. Other rows keep their lexical
+ * positions, so keyword search keeps ranking across entity types. When every requested entity type
+ * is eligible, all rows are reordered.
  */
 public class HybridSearchResultReranker {
 
@@ -55,15 +55,22 @@ public class HybridSearchResultReranker {
     return knnRequestBuilder.vectorEntityNames(opContext, entityNames);
   }
 
+  /** The embedding profile id the query embedding service embeds for. */
+  @Nonnull
+  public String modelEmbeddingKey() {
+    return queryEmbeddingService.getModelEmbeddingKey();
+  }
+
   /** Whether the embedding provider answered in time at or after {@code nanos}, a nanoTime. */
   public boolean providerSucceededSince(final long nanos) {
     return queryEmbeddingService.providerSucceededSince(nanos);
   }
 
   /**
-   * Returns {@code lexicalRows} with the rows of entity types that have vectors reordered by
+   * Returns {@code lexicalRows} with the rows of the plan's eligible entity types reordered by
    * combined lexical and vector score, each moved into a position such a row held before. Empty
-   * when fewer than two rows got a vector score, so the rows keep the keyword ranking.
+   * when fewer than two rows got a vector score that passes the plan's floor, so the rows keep the
+   * keyword ranking.
    *
    * @param deadlineNanos {@link System#nanoTime()} by which the embedding and kNN calls end
    */
@@ -74,18 +81,19 @@ public class HybridSearchResultReranker {
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
       @Nonnull final Collection<String> fieldsToFetch,
-      final long deadlineNanos)
+      final long deadlineNanos,
+      @Nonnull final HybridRerankPlan plan)
       throws IOException {
     final List<HybridCandidate> candidates =
-        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, deadlineNanos);
+        candidates(opContext, entityNames, query, lexicalRows, fieldsToFetch, deadlineNanos, plan);
     return candidates.isEmpty() ? Optional.empty() : Optional.of(reorder(lexicalRows, candidates));
   }
 
   /**
-   * Scores the rows that have vectors, highest combined score first. The kNN query scores only
-   * these rows. Empty when the query is a wildcard or fewer than two rows have an entity type with
-   * vectors, in which case no embedding or kNN request is made, and when fewer than two of them
-   * have a vector.
+   * Scores the plan's eligible rows that have vectors, highest combined score first. The kNN query
+   * scores only these rows. Empty when the query is a wildcard or fewer than two rows are eligible,
+   * in which case no embedding or kNN request is made, and when fewer than two of them have a
+   * vector that passes the plan's floor.
    *
    * @throws UncheckedTimeoutException when the deadline passes before the kNN call
    * @throws IOException when the kNN call fails or its response may be missing hits
@@ -97,15 +105,15 @@ public class HybridSearchResultReranker {
       @Nonnull final String query,
       @Nonnull final List<SearchEntity> lexicalRows,
       @Nonnull final Collection<String> fieldsToFetch,
-      final long deadlineNanos)
+      final long deadlineNanos,
+      @Nonnull final HybridRerankPlan plan)
       throws IOException {
     if (query.isBlank() || "*".equals(query) || lexicalRows.isEmpty()) {
       return List.of();
     }
-    final Set<String> vectorEntityNames =
-        knnRequestBuilder.vectorEntityNames(opContext, entityNames);
+    final Set<String> eligible = plan.eligibleEntityNames();
     final Map<Urn, Double> lexicalScores = scoreMapBuilder.lexicalScores(lexicalRows);
-    lexicalScores.keySet().removeIf(urn -> !vectorEntityNames.contains(urn.getEntityType()));
+    lexicalScores.keySet().removeIf(urn -> !eligible.contains(urn.getEntityType()));
     // A single row has no other position to move into
     if (lexicalScores.size() < 2) {
       return List.of();
@@ -142,13 +150,19 @@ public class HybridSearchResultReranker {
     final Map<Urn, Double> vectorScores = scoreMapBuilder.vectorScores(knnResponse);
     // A row without vectors, e.g. not embedded yet, has nothing to compare and keeps its position
     lexicalScores.keySet().retainAll(vectorScores.keySet());
+    final Double floor = plan.blendFloor();
+    if (floor != null) {
+      // A row under the floor is not blended and keeps its position; the floor never drops a row
+      lexicalScores.keySet().removeIf(urn -> vectorScores.get(urn) < floor);
+    }
     if (lexicalScores.size() < 2) {
       // e.g. the V3 document index has few embeddings yet: the embedding and kNN calls bought
       // nothing
       count(opContext, "hybridReadNoVectors");
       return List.of();
     }
-    return candidateMerger.merge(lexicalScores, vectorScores);
+    return (plan.merger() == null ? candidateMerger : plan.merger())
+        .merge(lexicalScores, vectorScores);
   }
 
   private static void count(@Nonnull final OperationContext opContext, @Nonnull String metric) {
