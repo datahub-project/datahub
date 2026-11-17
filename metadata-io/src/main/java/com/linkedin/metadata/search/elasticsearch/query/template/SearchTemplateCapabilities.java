@@ -123,6 +123,12 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> COMBINES =
       Set.of(COMBINE_VECTOR, COMBINE_KEYWORD_RERANK, "vectorThenKeyword", "vectorFilter");
 
+  /** A failed vector rung follows the ladder's {@code next}. */
+  public static final String ON_FAILURE_NEXT = "next";
+
+  /** Closed {@code retrieval.onFailure} values. Unset is {@code fail}: the search fails. */
+  public static final Set<String> ON_FAILURES = Set.of("fail", ON_FAILURE_NEXT);
+
   public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
   public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
   public static final String PROFILE_SCORE_WEIGHTED_SUM = "weightedSum";

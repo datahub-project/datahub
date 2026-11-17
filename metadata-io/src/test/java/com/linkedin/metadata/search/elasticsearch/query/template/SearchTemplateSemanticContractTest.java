@@ -232,10 +232,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     profiles.setProfiles(
         new SearchTemplateProfiles().setReplace(new StringArray(List.of("a", "b"))));
     SearchTemplateChecks.check(profiles, 1024);
+    SearchTemplateChecks.check(
+        rung(r -> r.setCombine("vector").setCandidateCap(1).setOnFailure("next")), 1024);
 
     List<Consumer<SearchTemplateRetrieval>> invalid =
         List.of(
             r -> r.setCombine("hybrid"),
+            r -> r.setCombine("vector").setCandidateCap(0),
+            r -> r.setCombine("vector").setOnFailure("degradeIfNative"),
             r -> r.setMode("vector").setCombine("keywordRerank"),
             r -> r.setCombine("keywordRerank").setMinSimilarity(0.5f),
             r -> r.setMode("keyword").setMinSimilarity(0.5f),
