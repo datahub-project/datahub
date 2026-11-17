@@ -20,8 +20,20 @@ import org.apache.commons.lang3.StringUtils;
  * declare.
  */
 public final class SearchTemplateCapabilities {
-  /** Template and Mustache-context contract this process implements. */
+  /** Template and Mustache-context contract stored when a write omits it. */
   public static final int API_VERSION = 1;
+
+  /**
+   * Contract that adds the semantic fields: retrieval {@code combine}, {@code querySource}, {@code
+   * anchor}, {@code profileScore}, {@code minSimilarity}, and {@code vectorBody}, plus {@code
+   * profiles}, {@code scope}, and route {@code match}. A template that sets one must resolve to
+   * this version, so a release that does not read those fields rejects the template instead of
+   * running it without them.
+   */
+  public static final int SEMANTIC_API_VERSION = 2;
+
+  /** Contracts this process implements. */
+  public static final Set<Integer> API_VERSIONS = Set.of(API_VERSION, SEMANTIC_API_VERSION);
 
   /**
    * Capability names a template may declare. A name outside this set is rejected at write and at
@@ -145,12 +157,14 @@ public final class SearchTemplateCapabilities {
 
   public static void requireDeclared(
       @Nullable Integer apiVersion, @Nullable Collection<String> capabilities) {
-    if (apiVersion != null && apiVersion != API_VERSION) {
+    if (apiVersion != null && !API_VERSIONS.contains(apiVersion)) {
       throw new SearchTemplateException(
           "Search template apiVersion "
               + apiVersion
               + " is not supported. This release implements "
-              + API_VERSION);
+              + API_VERSION
+              + " and "
+              + SEMANTIC_API_VERSION);
     }
     if (capabilities == null) {
       return;
@@ -331,6 +345,36 @@ public final class SearchTemplateCapabilities {
     }
     for (String fragment : template.getQueryFragments().values()) {
       if (citesEmbeddingPlaceholders(fragment)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Rejects a merged template that sets a semantic field but resolves to an earlier contract. */
+  public static void requireSemanticApiVersion(@Nonnull MergedSearchTemplate template) {
+    if (template.getApiVersion() < SEMANTIC_API_VERSION && usesSemanticFields(template)) {
+      throw new SearchTemplateException(
+          "Search template semantic fields require apiVersion " + SEMANTIC_API_VERSION);
+    }
+  }
+
+  private static boolean usesSemanticFields(@Nonnull MergedSearchTemplate template) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null
+        && ((retrieval.hasCombine() && StringUtils.isNotBlank(retrieval.getCombine()))
+            || (retrieval.hasQuerySource() && StringUtils.isNotBlank(retrieval.getQuerySource()))
+            || retrieval.hasAnchor()
+            || (retrieval.hasProfileScore() && StringUtils.isNotBlank(retrieval.getProfileScore()))
+            || retrieval.hasMinSimilarity()
+            || (retrieval.hasVectorBody() && StringUtils.isNotBlank(retrieval.getVectorBody())))) {
+      return true;
+    }
+    if (template.getProfiles() != null || template.getScope() != null) {
+      return true;
+    }
+    for (SearchTemplateRoutes.Compiled route : template.getRoutes()) {
+      if (route.match() != null) {
         return true;
       }
     }

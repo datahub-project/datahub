@@ -44,6 +44,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   public void testKeywordRerankBindsWithoutDocumentRerankAndKeepsKeywordOrder() {
     store(SEARCH_TEMPLATE_FULLTEXT_URN, body("Fulltext", "{ \"match_all\": {} }", null));
     SearchTemplateProperties rerank = parentOf("Rerank", SEARCH_TEMPLATE_FULLTEXT_URN);
+    rerank.setApiVersion(2);
     rerank.setRetrieval(retrieval(r -> r.setCombine("keywordRerank")));
     rerank.setKnn(BLEND);
     store(RERANK, rerank);
@@ -158,6 +159,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertMergedRejects("similarityNext", similarityNext);
 
     SearchTemplateProperties keywordProfiles = body("Keyword", "{ \"match_all\": {} }", null);
+    keywordProfiles.setApiVersion(2);
     keywordProfiles.setProfiles(
         new SearchTemplateProfiles().setReplace(new StringArray(List.of("a"))));
     assertMergedRejects("keywordProfiles", keywordProfiles);
@@ -165,6 +167,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     // A native mixed query cites the placeholders, so it is valid to store and fails at bind.
     SearchTemplateProperties nativeQuery =
         body("Native", "{ \"bool\": { \"should\": [ {{&embeddingClausesJson}} ] } }", null);
+    nativeQuery.setApiVersion(2);
     nativeQuery.setProfiles(new SearchTemplateProfiles().setReplace(new StringArray(List.of("a"))));
     store("urn:li:searchTemplate:nativeQuery", nativeQuery);
     MergedSearchTemplate nativeMerged = loader.load(opContext, "urn:li:searchTemplate:nativeQuery");
@@ -177,6 +180,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
     SearchTemplateProperties placeholderCombine =
         body("Native", "{ \"bool\": { \"should\": [ {{&embeddingClausesJson}} ] } }", null);
+    placeholderCombine.setApiVersion(2);
     placeholderCombine.setRetrieval(retrieval(r -> r.setCombine("keywordRerank")));
     assertMergedRejects("placeholderCombine", placeholderCombine);
   }
@@ -188,11 +192,13 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");
     SearchTemplateProperties scoped = body("Scoped", "{ \"match_all\": {} }", null);
+    scoped.setApiVersion(2);
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
     assertEquals(rejectionOf("scoped", scoped), "scope");
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
 
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
+    router.setApiVersion(2);
     SearchTemplateRoute conditional = route("^urn:.*", SEARCH_TEMPLATE_FULLTEXT_URN);
     conditional.setMatch(new SearchTemplateRouteMatch().setSemanticEligible(true));
     router.setRoutes(routes(conditional, route("^orders$", SEARCH_TEMPLATE_FULLTEXT_URN)));
@@ -207,6 +213,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   @Test
   public void testProfilesAndScopeMergeDownTheChain() {
     SearchTemplateProperties root = body("Root", "{ \"match_all\": {} }", null);
+    root.setApiVersion(2);
     root.setRetrieval(retrieval(r -> r.setCombine("vector")));
     root.setProfiles(
         new SearchTemplateProfiles()
@@ -265,6 +272,30 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
       properties.setProfiles(bad);
       assertRejects(bad.toString(), () -> SearchTemplateChecks.check(properties, 1024));
     }
+  }
+
+  @Test
+  public void testSemanticFieldsRequireTheSemanticApiVersion() {
+    SearchTemplateProperties earlier = rung(r -> r.setCombine("keywordRerank"));
+    earlier.setApiVersion(1);
+    assertRejects("earlierContract", () -> SearchTemplateChecks.checkMerged(merged(earlier), 1024));
+    store("urn:li:searchTemplate:earlierContract", earlier);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:earlierContract"));
+  }
+
+  private static MergedSearchTemplate merged(SearchTemplateProperties properties) {
+    return MergedSearchTemplate.builder()
+        .urn("urn:li:searchTemplate:mergedSemantic")
+        .dialect("ELASTICSEARCH")
+        .apiVersion(properties.getApiVersion())
+        .query(properties.getQuery())
+        .retrieval(properties.getRetrieval())
+        .queryFragments(Map.of())
+        .parameters(Map.of())
+        .chain(List.of("urn:li:searchTemplate:mergedSemantic"))
+        .build();
   }
 
   @Test
@@ -371,6 +402,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   private static SearchTemplateProperties rung(Consumer<SearchTemplateRetrieval> setup) {
     SearchTemplateProperties properties = body("Rung", "{ \"match_all\": {} }", null);
+    properties.setApiVersion(2);
     properties.setRetrieval(retrieval(setup));
     return properties;
   }

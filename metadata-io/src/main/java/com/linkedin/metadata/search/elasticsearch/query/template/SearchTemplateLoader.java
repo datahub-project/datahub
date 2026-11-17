@@ -387,6 +387,14 @@ public class SearchTemplateLoader {
       if (props.hasRanking()) {
         ranking = mergeRanking(ranking, props.getRanking(), addSatisfiedRemoves);
       }
+      if (props.hasRetrieval() && props.getRetrieval() != null) {
+        SearchTemplateRetrieval retrieval = props.getRetrieval();
+        requireKnownFields(retrieval, "retrieval");
+        requireKnownFields(
+            retrieval.hasAnchor() ? retrieval.getAnchor() : null, "retrieval.anchor");
+        requireKnownFields(
+            retrieval.hasBridge() ? retrieval.getBridge() : null, "retrieval.bridge");
+      }
       if (props.hasProfiles() && props.getProfiles() != null) {
         requireKnownFields(props.getProfiles(), "profiles");
         profiles = SearchTemplateProfilesPolicy.merge(profiles, props.getProfiles());
@@ -532,6 +540,7 @@ public class SearchTemplateLoader {
     builder.ranking(ranking);
     MergedSearchTemplate merged = builder.build();
     SearchTemplateCapabilities.requireContract(merged);
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
     return merged;
   }
 

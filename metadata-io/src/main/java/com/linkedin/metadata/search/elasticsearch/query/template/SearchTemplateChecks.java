@@ -118,6 +118,7 @@ public final class SearchTemplateChecks {
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
     run(
         true,
         compose(merged),
@@ -139,9 +140,7 @@ public final class SearchTemplateChecks {
    * that is not keywordRerank. A parent write runs them on each inheriting child.
    */
   public static void checkInheritedSections(@Nonnull MergedSearchTemplate merged) {
-    if (!SearchTemplateDialect.ELASTICSEARCH.name().equals(merged.getDialect())) {
-      return;
-    }
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
     SearchTemplateProperties composed = compose(merged);
     if (merged.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(merged.getProfiles());
@@ -150,7 +149,7 @@ public final class SearchTemplateChecks {
     SearchTemplatePolicyChecks.checkMergedSections(composed);
     SearchTemplatePolicyChecks.requireKeywordForRanking(composed);
     String knn = merged.getKnn();
-    if (knn != null) {
+    if (knn != null && SearchTemplateDialect.ELASTICSEARCH.name().equals(merged.getDialect())) {
       String rendered = render(knn, SearchTemplateMustache.validationContext(knn));
       if (rendered != null) {
         checkKnn(rendered, merged.getRetrieval(), true);

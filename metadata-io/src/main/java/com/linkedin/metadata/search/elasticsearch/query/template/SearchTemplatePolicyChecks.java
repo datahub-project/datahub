@@ -87,6 +87,13 @@ public final class SearchTemplatePolicyChecks {
       checkLadder(
           properties.getLadder(), properties.hasRetrieval() ? properties.getRetrieval() : null);
     }
+    if (properties.hasQueryFragments()
+        && properties.getQueryFragments() != null
+        && properties.getQueryFragments().containsKey(SearchTemplateHoles.EMBEDDING_CLAUSES_JSON)) {
+      throw new SearchTemplateException(
+          "Search template queryFragments cannot name "
+              + SearchTemplateHoles.EMBEDDING_CLAUSES_JSON);
+    }
     if (properties.hasProfiles() && properties.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(properties.getProfiles());
     }

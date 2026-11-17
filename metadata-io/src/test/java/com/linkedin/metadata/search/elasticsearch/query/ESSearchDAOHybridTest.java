@@ -319,6 +319,7 @@ public class ESSearchDAOHybridTest {
     template.setEditable(true);
     template.setQuery("{ \"match_all\": {} }");
     if (knn != null) {
+      template.setApiVersion(2);
       template.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
       template.setKnn(knn);
     }
