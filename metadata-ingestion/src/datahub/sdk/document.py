@@ -1253,6 +1253,23 @@ class Document(
         self._set_aspect(semantic_content)
         return self
 
+    def patch_semantic_profile(
+        self, profile_key: str, profile: models.EmbeddingModelDataClass
+    ) -> List[models.MetadataChangeProposalClass]:
+        """Patch one embedding profile. ``set_semantic_content`` replaces every profile."""
+        from datahub.specific.semantic_content import SemanticContentPatchBuilder
+
+        builder = SemanticContentPatchBuilder(str(self.urn)).set_profile(
+            profile_key, profile
+        )
+        # A full-aspect embed drops skipReason by replacement. A profile patch has to
+        # remove it. A skip or exclusion keeps an entity marker that is still accurate.
+        state = getattr(profile, "vectorState", None)
+        state_name = getattr(state, "name", state)
+        if state_name not in ("SKIPPED", "EXCLUDED"):
+            builder.clear_legacy_skip()
+        return builder.build()
+
     @property
     def is_native(self) -> bool:
         """Check if this is a native document (created in DataHub)."""

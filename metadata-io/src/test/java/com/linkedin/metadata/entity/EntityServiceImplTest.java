@@ -416,6 +416,114 @@ public class EntityServiceImplTest {
   }
 
   @Test
+  public void testTheFirstWriteStampsAspectCreatedAndIgnoresTheWritersValue() {
+    AuditStamp claimed =
+        new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:claimed"));
+    ChangeMCP changeMCP =
+        ChangeItemImpl.builder()
+            .urn(UrnUtils.getUrn("urn:li:corpuser:test"))
+            .aspectName("corpUserInfo")
+            .recordTemplate(AspectGenerationUtils.createCorpUserInfo("test@test.com"))
+            .systemMetadata(new SystemMetadata().setAspectCreated(claimed))
+            .auditStamp(TEST_AUDIT_STAMP)
+            .nextAspectVersion(1)
+            .build(opContext.getAspectRetriever());
+    // A copied aspectModified must not become the creation time, including on a system write.
+    changeMCP
+        .getSystemMetadata()
+        .setAspectModified(
+            new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:copied")));
+
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(changeMCP, null, Collections.emptyList(), null, opContext);
+
+    assertEquals(result.getSystemMetadata().getAspectCreated(), TEST_AUDIT_STAMP);
+    assertEquals(changeMCP.getSystemMetadata().getAspectCreated(), TEST_AUDIT_STAMP);
+  }
+
+  @Test
+  public void testASecondInsertInTheBatchKeepsTheFirstCreationTime() {
+    AuditStamp first =
+        new AuditStamp().setTime(20L).setActor(UrnUtils.getUrn("urn:li:corpuser:first"));
+    AuditStamp later =
+        new AuditStamp().setTime(5L).setActor(UrnUtils.getUrn("urn:li:corpuser:later"));
+    ChangeMCP firstWrite =
+        ChangeItemImpl.builder()
+            .urn(UrnUtils.getUrn("urn:li:corpuser:test"))
+            .aspectName("corpUserInfo")
+            .recordTemplate(AspectGenerationUtils.createCorpUserInfo("test@test.com"))
+            .systemMetadata(new SystemMetadata())
+            .auditStamp(first)
+            .nextAspectVersion(1)
+            .build(opContext.getAspectRetriever());
+    firstWrite
+        .getSystemMetadata()
+        .setAspectModified(
+            new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:copied")));
+
+    SystemAspect inserted =
+        EntityServiceImpl.applyUpsert(firstWrite, null, Collections.emptyList(), null, opContext);
+
+    ChangeMCP secondWrite =
+        ChangeItemImpl.builder()
+            .urn(UrnUtils.getUrn("urn:li:corpuser:test"))
+            .aspectName("corpUserInfo")
+            .recordTemplate(AspectGenerationUtils.createCorpUserInfo("other@test.com"))
+            .systemMetadata(new SystemMetadata())
+            .auditStamp(later)
+            .nextAspectVersion(2)
+            .build(opContext.getAspectRetriever());
+    secondWrite
+        .getSystemMetadata()
+        .setAspectModified(
+            new AuditStamp().setTime(9L).setActor(UrnUtils.getUrn("urn:li:corpuser:copied")));
+
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            secondWrite, inserted, Collections.emptyList(), null, opContext);
+
+    assertEquals(result.getSystemMetadata().getAspectCreated(), first);
+    assertEquals(secondWrite.getSystemMetadata().getAspectCreated(), first);
+  }
+
+  @Test
+  public void testALaterWriteKeepsTheStoredAspectCreated() {
+    AuditStamp original =
+        new AuditStamp().setTime(5L).setActor(UrnUtils.getUrn("urn:li:corpuser:original"));
+    SystemMetadata storedMetadata =
+        new SystemMetadata().setRunId("run-1").setVersion("1").setAspectCreated(original);
+    SystemAspect latestAspect =
+        EbeanSystemAspect.builder()
+            .forUpdate(
+                new EbeanAspectV2(
+                    OWNED_DATASET.toString(),
+                    OWNERSHIP_ASPECT_NAME,
+                    0L,
+                    RecordUtils.toJsonString(ownershipOf(ALICE)),
+                    new Timestamp(TEST_AUDIT_STAMP.getTime()),
+                    TEST_AUDIT_STAMP.getActor().toString(),
+                    null,
+                    RecordUtils.toJsonString(storedMetadata)),
+                testEntityRegistry);
+    ChangeMCP changeMCP =
+        ownershipWrite(ownershipOf(ALICE, UrnUtils.getUrn("urn:li:corpuser:bob")));
+    changeMCP
+        .getSystemMetadata()
+        .setAspectCreated(
+            new AuditStamp().setTime(1L).setActor(UrnUtils.getUrn("urn:li:corpuser:claimed")));
+
+    SystemAspect result =
+        EntityServiceImpl.applyUpsert(
+            changeMCP, latestAspect, Collections.emptyList(), null, opContext);
+
+    for (SystemMetadata metadata :
+        List.of(result.getSystemMetadata(), changeMCP.getSystemMetadata())) {
+      assertEquals(metadata.getAspectCreated().getTime(), original.getTime());
+      assertEquals(metadata.getAspectCreated().getActor(), original.getActor());
+    }
+  }
+
+  @Test
   public void testApplyUpsertMultiInsert() throws Exception {
     // Create new aspect via ChangeMCP
     SystemMetadata newMetadata = new SystemMetadata();

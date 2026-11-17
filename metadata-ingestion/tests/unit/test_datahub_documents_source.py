@@ -1,5 +1,6 @@
 """Unit tests for DataHub Documents Source."""
 
+import copy
 import hashlib
 import json
 import os
@@ -7,7 +8,7 @@ import signal
 import threading
 import time
 from pathlib import Path
-from typing import Any, Optional, Union
+from typing import Any, Callable, Mapping, Optional, Union
 from unittest.mock import Mock, patch
 
 import pytest
@@ -30,6 +31,8 @@ from datahub.ingestion.source.datahub_documents.datahub_documents_source import 
     EMBED_SOURCE_ASPECT_NAMES,
     DataHubDocumentsSource,
     DocumentEnumerationError,
+    _AspectRead,
+    _OverrideRead,
 )
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
     DocumentChunkingCheckpointState,
@@ -44,6 +47,11 @@ from datahub.ingestion.source.datahub_documents.document_embedding import (
 from datahub.ingestion.source.datahub_documents.markdown_link_guard import (
     NoInlineLinksExtension,
 )
+from datahub.ingestion.source.datahub_documents.source_markers import (
+    ProfileState,
+    profile_state,
+    refresh_due,
+)
 from datahub.ingestion.source.datahub_documents.text_partitioner import (
     PartitionTimeoutError,
     TextPartitioner,
@@ -57,17 +65,103 @@ from datahub.ingestion.source.unstructured.chunking_config import (
 from datahub.ingestion.source.unstructured.chunking_source import (
     compute_source_text_sha256,
 )
-from datahub.metadata.schema_classes import SemanticContentClass
+from datahub.metadata.schema_classes import (
+    AuditStampClass,
+    SemanticContentClass,
+    SemanticSourceTokenClass,
+    SystemMetadataClass,
+)
+
+
+class _StoredAspect:
+    """Stands in for a typed aspect: the source only reads it through `to_obj`."""
+
+    def __init__(self, obj: dict[str, Any]):
+        self._obj = obj
+
+    def to_obj(self) -> dict[str, Any]:
+        return copy.deepcopy(self._obj)
+
+
+def _system_metadata(
+    created_time: Optional[int] = 1_000, version: Optional[str] = "1"
+) -> SystemMetadataClass:
+    return SystemMetadataClass(
+        aspectCreated=(
+            AuditStampClass(time=created_time, actor="urn:li:corpuser:test")
+            if created_time is not None
+            else None
+        ),
+        version=version,
+    )
+
+
+def _stored_aspects(
+    entity: dict[str, Any],
+    info_metadata: Optional[SystemMetadataClass] = None,
+    semantic_metadata: Optional[SystemMetadataClass] = None,
+) -> dict[str, Any]:
+    """The batchGet aspects of a stored document, from the entity shape the
+    batch-mode filters read (`info`, `dataPlatformInstance`)."""
+    aspects: dict[str, Any] = {}
+    info = copy.deepcopy(entity.get("info"))
+    if info is not None:
+        contents = info.get("contents")
+        if contents is not None and contents.get("semanticText") is not None:
+            aspects["semanticText"] = (
+                _StoredAspect({"text": contents.pop("semanticText")}),
+                semantic_metadata or _system_metadata(2_000, "3"),
+            )
+        aspects["documentInfo"] = (
+            _StoredAspect(info),
+            info_metadata or _system_metadata(),
+        )
+    platform = (entity.get("dataPlatformInstance") or {}).get("platform")
+    if platform:
+        aspects["dataPlatformInstance"] = (
+            _StoredAspect({"platform": platform["urn"]}),
+            None,
+        )
+    return aspects
+
+
+def _batch_get(
+    stored: Mapping[str, dict[str, Any]],
+) -> Callable[..., dict[str, dict[str, Any]]]:
+    """A `get_entities` that, like batchGet, returns only the requested URNs that
+    have stored aspects."""
+
+    def get_entities(
+        entity_name: str,
+        urns: list[str],
+        aspects: Optional[list[str]] = None,
+        with_system_metadata: bool = False,
+    ) -> dict[str, dict[str, Any]]:
+        return {urn: stored[urn] for urn in urns if urn in stored}
+
+    return get_entities
+
+
+def _store_documents(
+    source: DataHubDocumentsSource, entities: list[Optional[dict[str, Any]]]
+) -> None:
+    """Serve `entities` (entity-shaped dicts; None entries are orphans and are
+    simply not stored) through `get_entities`."""
+    source.graph.get_entities = Mock(  # type: ignore[method-assign]
+        side_effect=_batch_get(
+            {e["urn"]: _stored_aspects(e) for e in entities if e and e.get("urn")}
+        )
+    )
 
 
 def _mock_fetch(source, entities, urns=None):
     """Wire a source so _fetch_documents_graphql enumerates `urns` and hydrates
-    them to `entities` (order preserved; a None entry is an orphan). URNs default
-    to the entities' own urns."""
+    them to `entities` (a None entry is an orphan). URNs default to the
+    entities' own urns."""
     if urns is None:
         urns = [e["urn"] for e in entities if e]
     source._scroll_document_urns = Mock(return_value=iter(urns))
-    source.graph.execute_graphql = Mock(return_value={"entities": entities})
+    _store_documents(source, entities)
 
 
 class TestTextPartitioner:
@@ -282,6 +376,32 @@ class TestDataHubDocumentsSource:
             assert source._calculate_text_hash(before) == source._calculate_text_hash(
                 after_body_edit
             )
+
+    def test_title_only_version_bump_keeps_the_hash(self, ctx, config):
+        """A title edit moves documentInfo's version but not the embedded text. The hash
+        covers only the text and config, so the recorded hash still matches."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.incremental.enabled = True
+            source._update_document_state("urn:li:document:1", "summary")
+
+            assert (
+                source._should_process("urn:li:document:1", "summary", False) is False
+            )
+
+    def test_refresh_due_reprocesses_when_the_hash_matches(self, ctx, config):
+        """A watched edit that moved the refresh marker leaves the text unchanged. The
+        stored profile is due for re-embedding, so the matching hash must not skip it."""
+        with patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        ):
+            source = DataHubDocumentsSource(ctx, config)
+            source.config.incremental.enabled = True
+            source._update_document_state("urn:li:document:1", "summary")
+
+            assert source._should_process("urn:li:document:1", "summary", True) is True
 
     def test_should_process_incremental_mode(self, ctx, config):
         """Test should_process logic in incremental mode."""
@@ -693,7 +813,7 @@ class TestEventModeFallback:
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # The document carries no standalone semanticText aspect.
-            mock_graph_cls.return_value.get_aspect.return_value = None
+            mock_graph_cls.return_value.get_entities.return_value = {}
             # Mock state handler with valid offset
             mock_state_handler = patch.object(source, "state_handler").start()
             mock_state_handler.is_checkpointing_enabled.return_value = True
@@ -976,7 +1096,9 @@ class TestStateStorage:
             mock_state_handler.get_document_hash.return_value = None
             mock_state_handler.update_document_state = Mock()
 
-            def _yield_then_fail(document_urn, elements, source_text_sha256=None):
+            def _yield_then_fail(
+                document_urn, elements, source_text_sha256=None, refresh_marker=None
+            ):
                 yield Mock()
                 raise RuntimeError("embedding provider unavailable")
 
@@ -1165,7 +1287,7 @@ class TestStateStorage:
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
             # The document carries no standalone semanticText aspect.
-            mock_graph_cls.return_value.get_aspect.return_value = None
+            mock_graph_cls.return_value.get_entities.return_value = {}
             source.config.event_mode.enabled = True
 
             # Mock state handler
@@ -2606,7 +2728,7 @@ class TestPartialEntityHandling:
         """Test _process_single_event when MCL aspect has contents: null."""
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
-            mock_graph_cls.return_value.get_aspect.return_value = None
+            mock_graph_cls.return_value.get_entities.return_value = {}
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:partial1",
@@ -2626,9 +2748,14 @@ class TestPartialEntityHandling:
 
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
-            mock_graph_cls.return_value.get_aspect.return_value = SemanticTextClass(
-                text="curated summary"
-            )
+            mock_graph_cls.return_value.get_entities.return_value = {
+                "urn:li:document:doc1": {
+                    "semanticText": (
+                        SemanticTextClass(text="curated summary"),
+                        _system_metadata(),
+                    )
+                }
+            }
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:doc1",
@@ -2650,21 +2777,22 @@ class TestPartialEntityHandling:
     ):
         """A semanticText aspect event re-embeds using the event's text, pulling
         body and source type from the fetched documentInfo."""
-        from datahub.metadata.schema_classes import DocumentInfoClass
-
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
 
-            mock_info = Mock()
-            mock_info.to_obj.return_value = {
-                "contents": {"text": "full body"},
-                "source": {"sourceType": "NATIVE"},
+            mock_graph_cls.return_value.get_entities.return_value = {
+                "urn:li:document:doc1": {
+                    "documentInfo": (
+                        _StoredAspect(
+                            {
+                                "contents": {"text": "full body"},
+                                "source": {"sourceType": "NATIVE"},
+                            }
+                        ),
+                        _system_metadata(),
+                    )
+                }
             }
-
-            def get_aspect(entity_urn: str, aspect_type: type) -> Optional[Mock]:
-                return mock_info if aspect_type is DocumentInfoClass else None
-
-            mock_graph_cls.return_value.get_aspect.side_effect = get_aspect
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:doc1",
@@ -2688,7 +2816,7 @@ class TestPartialEntityHandling:
         """A semanticText event for a document without readable documentInfo is skipped."""
         with mock_graph as mock_graph_cls:
             source = DataHubDocumentsSource(ctx, config)
-            mock_graph_cls.return_value.get_aspect.return_value = None
+            mock_graph_cls.return_value.get_entities.return_value = {}
 
             event: dict[str, Any] = {
                 "entityUrn": "urn:li:document:orphan",
@@ -2717,13 +2845,20 @@ class TestPartialEntityHandling:
             with (
                 patch.object(
                     source,
-                    "_fetch_document_info_dict",
-                    return_value={
-                        "source": {"sourceType": "NATIVE"},
-                        "contents": {"text": "full body from fetch"},
-                    },
+                    "_read_document_info",
+                    return_value=_AspectRead(
+                        {
+                            "source": {"sourceType": "NATIVE"},
+                            "contents": {"text": "full body from fetch"},
+                        },
+                        None,
+                    ),
                 ) as mock_fetch,
-                patch.object(source, "_fetch_semantic_text", return_value=None),
+                patch.object(
+                    source,
+                    "_read_semantic_text",
+                    return_value=_OverrideRead(read=None, confirmed_absent=True),
+                ),
                 patch.object(
                     source, "_process_document_with_throttle", return_value=iter([])
                 ) as mock_process,
@@ -2749,7 +2884,7 @@ class TestPartialEntityHandling:
                 "aspect": json.dumps({"contents": None}),
             }
 
-            with patch.object(source, "_fetch_document_info_dict", return_value=None):
+            with patch.object(source, "_read_document_info", return_value=None):
                 workunits = list(source._process_single_event(event))
 
         assert workunits == []
@@ -2866,6 +3001,37 @@ class TestSkipMarkersAndProvenance:
         assert isinstance(aspect, SemanticContentClass)
         assert aspect.skipReason == "BELOW_MIN_TEXT_LENGTH"
 
+    def test_skip_profile_is_not_due_against_the_tokens_it_was_read_at(
+        self, ctx, config, mock_graph
+    ):
+        """A skip records the source tokens its text was read at. Against the same entity
+        marker the stored skip is not due, so incremental mode does not rewrite it on every
+        run; a newer watched token makes it due again."""
+        token = SemanticSourceTokenClass(createdTime=1_000, version=4)
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, config)
+            source.chunking_source.config.embedding._semantic_content_patch_supported = True
+            model_key = source.chunking_source.get_model_embedding_key()
+            assert model_key is not None
+            wus, result = self._drain(
+                source._process_single_document(
+                    {
+                        "urn": "urn:li:document:short",
+                        "text": "tiny",
+                        "source_tokens": {"documentInfo#contents.text": token},
+                    }
+                )
+            )
+
+        assert result is True
+        (wu,) = wus
+        profile = json.loads(wu.metadata.aspect.value)[0]["value"]
+        stored = profile_state({"embeddings": {model_key: profile}}, model_key)
+        assert stored is not None
+        assert not refresh_due(stored, {"documentInfo#contents.text": token})
+        newer = SemanticSourceTokenClass(createdTime=1_000, version=5)
+        assert refresh_due(stored, {"documentInfo#contents.text": newer})
+
     def test_source_text_sha256_passed_to_chunking(self, ctx, config, mock_graph):
         text = "This document has enough content to be partitioned and embedded."
         with mock_graph:
@@ -2956,8 +3122,10 @@ class TestSkipMarkersAndProvenance:
             source = DataHubDocumentsSource(ctx, config)
             with patch.object(
                 source,
-                "_fetch_document_info_dict",
-                return_value={"source": {"sourceType": "NATIVE"}, "contents": None},
+                "_read_document_info",
+                return_value=_AspectRead(
+                    {"source": {"sourceType": "NATIVE"}, "contents": None}, None
+                ),
             ):
                 event: dict[str, Any] = {
                     "entityUrn": "urn:li:document:partial-override",
@@ -3805,7 +3973,11 @@ class TestIndexDelay:
             source = DataHubDocumentsSource(ctx, config)
             fake_wu = Mock()
 
-            def should_process(urn: str, text: str) -> bool:
+            def should_process(
+                urn: str,
+                text: str,
+                source_tokens: Optional[Mapping[str, Any]] = None,
+            ) -> bool:
                 return urn.endswith(":new")
 
             with (
@@ -4609,6 +4781,705 @@ class TestDocumentEventConsumerAspectFilter:
         assert [e.get("entityUrn") for e in yielded] == ["urn:li:document:d2"]
 
 
+class TestRefreshDue:
+    """A profile is due for re-embedding when the server would mark it not current, or
+    when it is not current already. Only watched body and override keys count."""
+
+    BODY_KEY = "documentInfo#contents.text"
+    OVERRIDE_KEY = "semanticText#text"
+
+    @staticmethod
+    def _token(created: int, version: int) -> SemanticSourceTokenClass:
+        return SemanticSourceTokenClass(createdTime=created, version=version)
+
+    def _profile(
+        self,
+        current: bool,
+        snapshot: Mapping[str, SemanticSourceTokenClass],
+    ) -> ProfileState:
+        return ProfileState(current=current, snapshot=snapshot)
+
+    def test_no_profile_is_not_due(self):
+        assert refresh_due(None, {self.BODY_KEY: self._token(2, 1)}) is False
+
+    def test_profile_marked_not_current_is_due(self):
+        profile = self._profile(False, {self.BODY_KEY: self._token(1, 1)})
+        assert refresh_due(profile, {self.BODY_KEY: self._token(1, 1)}) is True
+
+    def test_watched_marker_newer_than_snapshot_is_due(self):
+        profile = self._profile(True, {self.BODY_KEY: self._token(1, 1)})
+        assert refresh_due(profile, {self.BODY_KEY: self._token(1, 2)}) is True
+
+    def test_title_only_bump_is_not_due(self):
+        """The profile's snapshot is newer than the marker, because documentInfo moved
+        for a title edit the marker does not watch."""
+        profile = self._profile(True, {self.BODY_KEY: self._token(1, 3)})
+        assert refresh_due(profile, {self.BODY_KEY: self._token(1, 2)}) is False
+
+    def test_snapshot_missing_a_watched_override_is_due(self):
+        """A deleted override's token carried into the snapshot is what lets the profile
+        cover it. Without it the profile stays due until a read carries it."""
+        profile = self._profile(True, {self.BODY_KEY: self._token(1, 1)})
+        assert refresh_due(profile, {self.OVERRIDE_KEY: self._token(5, 2)}) is True
+
+    def test_unwatched_key_is_ignored(self):
+        profile = self._profile(True, {self.BODY_KEY: self._token(1, 1)})
+        assert (
+            refresh_due(profile, {"documentInfo#contents.title": self._token(9, 9)})
+            is False
+        )
+
+
+class TestRefreshMarkerTokens:
+    """The source names the version of each aspect it read the text from, so the
+    server can tell whether a later edit post-dates the vectors it writes."""
+
+    BODY_KEY = "documentInfo#contents.text"
+    OVERRIDE_KEY = "semanticText#text"
+    URN = "urn:li:document:tokens"
+
+    @pytest.fixture
+    def ctx(self):
+        return PipelineContext(run_id="test-run", pipeline_name="test-pipeline")
+
+    @pytest.fixture
+    def mock_graph(self):
+        return patch(
+            "datahub.ingestion.source.datahub_documents.datahub_documents_source.DataHubGraph"
+        )
+
+    @staticmethod
+    def _mcl_system_metadata(created_time: int, version: str) -> dict[str, Any]:
+        """System metadata as the events API serializes it (Avro JSON)."""
+        return {
+            "com.linkedin.pegasus2avro.mxe.SystemMetadata": {
+                "version": {"string": version},
+                "aspectCreated": {
+                    "com.linkedin.pegasus2avro.common.AuditStamp": {
+                        "time": created_time,
+                        "actor": "urn:li:corpuser:test",
+                    }
+                },
+            }
+        }
+
+    def _process_event(
+        self, source: DataHubDocumentsSource, event: dict[str, Any]
+    ) -> dict[str, Any]:
+        with patch.object(
+            source, "_process_document_with_throttle", return_value=iter([])
+        ) as mock_process:
+            list(source._process_single_event(event))
+        mock_process.assert_called_once()
+        return mock_process.call_args[0][0]
+
+    @staticmethod
+    def _tokens(doc: dict[str, Any]) -> dict[str, tuple[int, int]]:
+        return {
+            key: (token.createdTime, token.version)
+            for key, token in doc["source_tokens"].items()
+        }
+
+    def test_document_info_event_tokens_cover_an_override_that_was_not_embedded(
+        self, ctx, mock_graph
+    ):
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            # A blank override is ignored when resolving the text, but it was read,
+            # so an edit that gives it content must still mark these vectors stale.
+            mock_graph_cls.return_value.get_entities.return_value = {
+                self.URN: {
+                    "semanticText": (
+                        _StoredAspect({"text": "   "}),
+                        _system_metadata(2_000, "3"),
+                    )
+                }
+            }
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "documentInfo",
+                    "aspect": json.dumps({"contents": {"text": "body text"}}),
+                    "systemMetadata": self._mcl_system_metadata(1_000, "4"),
+                },
+            )
+
+        assert doc["text"] == "body text"
+        assert self._tokens(doc) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_000, 3),
+        }
+
+    def test_avro_wrapped_event_fields_are_processed(self, ctx, mock_graph):
+        """The events API encodes nullable strings as {"string": ...}. A wrapped
+        aspectName must not be dropped, and the URN must be the unwrapped string."""
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.return_value = {}
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": {"string": self.URN},
+                    "aspectName": {"string": "documentInfo"},
+                    "aspect": {
+                        "com.linkedin.pegasus2avro.mxe.GenericAspect": {
+                            "value": json.dumps({"contents": {"text": "body text"}})
+                        }
+                    },
+                    "systemMetadata": self._mcl_system_metadata(1_000, "4"),
+                },
+            )
+
+        assert doc["urn"] == self.URN
+        assert doc["text"] == "body text"
+        assert self._tokens(doc) == {self.BODY_KEY: (1_000, 4)}
+        args, kwargs = mock_graph_cls.return_value.get_entities.call_args
+        assert args[1] == [self.URN]
+        assert kwargs["with_system_metadata"] is True
+
+    def test_event_leaves_out_tokens_it_cannot_name(self, ctx, mock_graph):
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            # No override aspect was read, and the event's row predates aspectCreated.
+            mock_graph_cls.return_value.get_entities.return_value = {}
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "documentInfo",
+                    "aspect": json.dumps({"contents": {"text": "body text"}}),
+                    "systemMetadata": {"lastObserved": 1},
+                },
+            )
+
+        assert doc["source_tokens"] == {}
+
+    def test_semantic_text_event_pairs_its_token_with_the_document_info_read(
+        self, ctx, mock_graph
+    ):
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.return_value = {
+                self.URN: {
+                    "documentInfo": (
+                        _StoredAspect({"contents": {"text": "body text"}}),
+                        _system_metadata(1_000, "4"),
+                    )
+                }
+            }
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "semanticText",
+                    "aspect": json.dumps({"text": "curated summary"}),
+                    "systemMetadata": self._mcl_system_metadata(2_000, "3"),
+                },
+            )
+
+        assert doc["text"] == "curated summary"
+        assert self._tokens(doc) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_000, 3),
+        }
+
+    def test_batch_documents_carry_the_tokens_of_the_aspects_read(
+        self, ctx, mock_graph
+    ):
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            _mock_fetch(
+                source,
+                [
+                    {
+                        "urn": "urn:li:document:override",
+                        "info": {
+                            "contents": {
+                                "text": "body text",
+                                "semanticText": "curated summary",
+                            }
+                        },
+                    },
+                    {
+                        "urn": "urn:li:document:body-only",
+                        "info": {"contents": {"text": "body text"}},
+                    },
+                ],
+            )
+            docs = {d["urn"]: d for d in source._fetch_documents_graphql()}
+
+        assert self._tokens(docs["urn:li:document:override"]) == {
+            self.BODY_KEY: (1_000, 1),
+            self.OVERRIDE_KEY: (2_000, 3),
+        }
+        assert self._tokens(docs["urn:li:document:body-only"]) == {
+            self.BODY_KEY: (1_000, 1)
+        }
+
+    @pytest.mark.parametrize(
+        "metadata",
+        [
+            _system_metadata(created_time=None),
+            _system_metadata(version=None),
+            None,
+        ],
+        ids=["no-aspect-created", "no-version", "no-system-metadata"],
+    )
+    def test_batch_leaves_out_a_token_without_aspect_created_or_version(
+        self, ctx, mock_graph, metadata
+    ):
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            entity = {
+                "urn": self.URN,
+                "info": {"contents": {"text": "body text"}},
+            }
+            aspects = _stored_aspects(entity)
+            aspects["documentInfo"] = (aspects["documentInfo"][0], metadata)
+            source._scroll_document_urns = Mock(return_value=iter([self.URN]))  # type: ignore[method-assign]
+            source.graph.get_entities = Mock(  # type: ignore[method-assign]
+                side_effect=_batch_get({self.URN: aspects})
+            )
+            docs = list(source._fetch_documents_graphql())
+
+        assert docs[0]["source_tokens"] == {}
+
+    @staticmethod
+    def _marker_then_entity_graph(
+        marker: dict[str, Any], entity: dict[str, Any]
+    ) -> Callable[..., dict[str, dict[str, Any]]]:
+        """A get_entities that serves the marker read and the source read separately."""
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            stored = marker if aspects == ["semanticContent"] else entity
+            return {urn: stored[urn] for urn in urns if urn in stored}
+
+        return get_entities
+
+    def test_batch_carries_a_deleted_override_token_from_the_marker(
+        self, ctx, mock_graph
+    ):
+        """An absent override leaves its deletion token on the marker. The body's
+        profile must cover that token, or it stays not current after re-embedding."""
+        marker = {
+            self.URN: {
+                "semanticContent": (
+                    _StoredAspect(
+                        {
+                            "refreshMarker": {
+                                "sources": {
+                                    self.OVERRIDE_KEY: {
+                                        "createdTime": 2_500,
+                                        "version": 4,
+                                    }
+                                }
+                            }
+                        }
+                    ),
+                    None,
+                )
+            }
+        }
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source._scroll_document_urns = Mock(return_value=iter([self.URN]))  # type: ignore[method-assign]
+            source.graph.get_entities = Mock(  # type: ignore[method-assign]
+                side_effect=self._marker_then_entity_graph(marker, entity)
+            )
+            docs = list(source._fetch_documents_graphql())
+
+        assert self._tokens(docs[0]) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_500, 4),
+        }
+
+    def test_title_only_bump_hydrates_a_current_profile_as_not_due(
+        self, ctx, mock_graph
+    ):
+        """documentInfo moved for a title edit the marker does not watch. The entity
+        carries the newer snapshot token, and the current profile is not re-embedded."""
+        semantic = {
+            "embeddings": {
+                "cohere_embed_v3": {
+                    "current": True,
+                    "refreshMarker": {
+                        "sources": {self.BODY_KEY: {"createdTime": 1_000, "version": 4}}
+                    },
+                }
+            },
+            "refreshMarker": {
+                "sources": {self.BODY_KEY: {"createdTime": 1_000, "version": 4}}
+            },
+        }
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "5"),
+                )
+            }
+        }
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            if aspects == ["semanticContent"]:
+                return {
+                    self.URN: {
+                        "semanticContent": (
+                            _StoredAspect(semantic),
+                            _system_metadata(1_000, "4"),
+                        )
+                    }
+                }
+            return {urn: entity[urn] for urn in urns if urn in entity}
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.chunking_source = Mock()
+            source.chunking_source.get_model_embedding_key.return_value = (
+                "cohere_embed_v3"
+            )
+            source.graph.get_entities = Mock(side_effect=get_entities)  # type: ignore[method-assign]
+            (doc,) = list(source._hydrate_documents([self.URN]))
+
+        assert doc["refresh_due"] is False
+        assert self._tokens(doc) == {self.BODY_KEY: (1_000, 5)}
+
+    def test_marker_timeout_still_hydrates_without_the_override_token(
+        self, ctx, mock_graph
+    ):
+        """The marker read is optional. A timeout there must not abort embedding;
+        the document is hydrated without the deleted override's token."""
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            if aspects == ["semanticContent"]:
+                raise requests.Timeout("marker read timed out")
+            return {urn: entity[urn] for urn in urns if urn in entity}
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.graph.get_entities = Mock(side_effect=get_entities)  # type: ignore[method-assign]
+            docs = list(source._hydrate_documents([self.URN]))
+
+        assert len(docs) == 1
+        assert docs[0]["info"]["contents"]["text"] == "body text"
+        assert self._tokens(docs[0]) == {self.BODY_KEY: (1_000, 4)}
+
+    def test_source_read_timeout_aborts_hydration(self, ctx, mock_graph):
+        """A timeout reading the source aspects is a GMS outage and still aborts."""
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            if aspects == ["semanticContent"]:
+                return {}
+            raise requests.Timeout("source read timed out")
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.graph.get_entities = Mock(side_effect=get_entities)  # type: ignore[method-assign]
+            with pytest.raises(OperationalError):
+                list(source._hydrate_documents([self.URN]))
+
+    def test_batch_reads_the_marker_before_the_source_aspects(self, ctx, mock_graph):
+        calls: list[list[str]] = []
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            calls.append(list(aspects or []))
+            return {}
+
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.graph.get_entities = Mock(side_effect=get_entities)  # type: ignore[method-assign]
+            source._read_documents([self.URN])
+
+        assert calls[0] == ["semanticContent"]
+        assert "semanticText" in calls[1]
+
+    def test_document_info_event_carries_a_deleted_override_token(
+        self, ctx, mock_graph
+    ):
+        marker = {
+            self.URN: {
+                "semanticContent": (
+                    _StoredAspect(
+                        {
+                            "refreshMarker": {
+                                "sources": {
+                                    self.OVERRIDE_KEY: {
+                                        "createdTime": 2_500,
+                                        "version": 4,
+                                    }
+                                }
+                            }
+                        }
+                    ),
+                    None,
+                )
+            }
+        }
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.side_effect = (
+                self._marker_then_entity_graph(marker, {})
+            )
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "documentInfo",
+                    "aspect": json.dumps({"contents": {"text": "body text"}}),
+                    "systemMetadata": self._mcl_system_metadata(1_000, "4"),
+                },
+            )
+
+        assert self._tokens(doc) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_500, 4),
+        }
+
+    def test_semantic_text_delete_event_carries_the_deletion_token(
+        self, ctx, mock_graph
+    ):
+        """A delete has no system metadata of its own. Its token is the creation time
+        and last version of the override it removed, plus one."""
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.return_value = entity
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "semanticText",
+                    "changeType": "DELETE",
+                    "aspect": None,
+                    "previousSystemMetadata": self._mcl_system_metadata(2_500, "5"),
+                },
+            )
+
+        assert doc["text"] == "body text"
+        assert self._tokens(doc) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_500, 6),
+        }
+
+    def test_semantic_text_delete_without_previous_metadata_carries_no_token(
+        self, ctx, mock_graph
+    ):
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.return_value = entity
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "semanticText",
+                    "changeType": "DELETE",
+                    "aspect": None,
+                    "previousSystemMetadata": None,
+                },
+            )
+
+        assert self._tokens(doc) == {self.BODY_KEY: (1_000, 4)}
+
+    def test_failed_override_read_does_not_carry_the_deletion_token(
+        self, ctx, mock_graph
+    ):
+        """A failed read does not show the override is gone, so the body is embedded
+        without the deletion token the marker holds."""
+        marker = {
+            self.URN: {
+                "semanticContent": (
+                    _StoredAspect(
+                        {
+                            "refreshMarker": {
+                                "sources": {
+                                    self.OVERRIDE_KEY: {
+                                        "createdTime": 2_500,
+                                        "version": 4,
+                                    }
+                                }
+                            }
+                        }
+                    ),
+                    None,
+                )
+            }
+        }
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            if aspects == ["semanticContent"]:
+                return marker
+            if aspects == ["semanticText"]:
+                raise RuntimeError("read failed")
+            return {}
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.side_effect = get_entities
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "documentInfo",
+                    "aspect": json.dumps({"contents": {"text": "body text"}}),
+                    "systemMetadata": self._mcl_system_metadata(1_000, "4"),
+                },
+            )
+
+        assert doc["text"] == "body text"
+        assert self._tokens(doc) == {self.BODY_KEY: (1_000, 4)}
+
+    def test_marker_is_read_before_the_document_info_fallback(self, ctx, mock_graph):
+        marker = {
+            self.URN: {
+                "semanticContent": (
+                    _StoredAspect(
+                        {
+                            "refreshMarker": {
+                                "sources": {
+                                    self.OVERRIDE_KEY: {
+                                        "createdTime": 2_500,
+                                        "version": 4,
+                                    }
+                                }
+                            }
+                        }
+                    ),
+                    None,
+                )
+            }
+        }
+        entity = {
+            self.URN: {
+                "documentInfo": (
+                    _StoredAspect({"contents": {"text": "body text"}}),
+                    _system_metadata(1_000, "4"),
+                )
+            }
+        }
+        calls: list[list[str]] = []
+
+        def get_entities(
+            entity_name: str,
+            urns: list[str],
+            aspects: Optional[list[str]] = None,
+            with_system_metadata: bool = False,
+        ) -> dict[str, dict[str, Any]]:
+            calls.append(list(aspects or []))
+            if aspects == ["semanticContent"]:
+                return marker
+            if aspects == ["documentInfo"]:
+                return entity
+            return {}
+
+        with mock_graph as mock_graph_cls:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            mock_graph_cls.return_value.get_entities.side_effect = get_entities
+            doc = self._process_event(
+                source,
+                {
+                    "entityUrn": self.URN,
+                    "aspectName": "documentInfo",
+                    "aspect": json.dumps({"contents": None}),
+                    "systemMetadata": self._mcl_system_metadata(1_000, "4"),
+                },
+            )
+
+        assert calls[:2] == [["semanticContent"], ["documentInfo"]]
+        assert self._tokens(doc) == {
+            self.BODY_KEY: (1_000, 4),
+            self.OVERRIDE_KEY: (2_500, 4),
+        }
+
+    def test_tokens_reach_the_chunking_source_as_a_refresh_marker(
+        self, ctx, mock_graph
+    ):
+        text = "This document has enough content to be partitioned and embedded."
+        with mock_graph:
+            source = DataHubDocumentsSource(ctx, _make_config())
+            source.chunking_source = Mock()
+            source.chunking_source.process_elements_inline.return_value = iter([])
+            list(
+                source._process_single_document(
+                    {
+                        "urn": self.URN,
+                        "text": text,
+                        "source_tokens": {
+                            self.BODY_KEY: SemanticSourceTokenClass(
+                                createdTime=1_000, version=4
+                            )
+                        },
+                    }
+                )
+            )
+
+        marker = source.chunking_source.process_elements_inline.call_args.kwargs[
+            "refresh_marker"
+        ]
+        assert marker.sources[self.BODY_KEY].version == 4
+
+
 class TestOrphanedDocumentResilience:
     """Where the line sits between orphan drift and a broken document set.
 
@@ -4659,6 +5530,13 @@ class TestOrphanedDocumentResilience:
         source.graph.config.server = "http://test-server:8080"
         return source
 
+    def _store(self, source: DataHubDocumentsSource, urns: list[str]) -> None:
+        source.graph.get_entities = Mock(  # type: ignore[method-assign]
+            side_effect=_batch_get(
+                {u: _stored_aspects(self._native_notion_doc(u)) for u in urns}
+            )
+        )
+
     def test_orphaned_urn_is_skipped_not_fatal(self, ctx, config):
         source = self._make_source(ctx, config)
         urns = [
@@ -4667,25 +5545,15 @@ class TestOrphanedDocumentResilience:
             "urn:li:document:real-2",
         ]
 
-        def _graphql(query, variables=None):
-            if "scrollAcrossEntities" in query:
-                return {
-                    "scrollAcrossEntities": {
-                        "nextScrollId": None,
-                        "searchResults": [{"entity": {"urn": u}} for u in urns],
-                    }
-                }
-            # Hydration resolves the orphan to null (as GMS does for an index
-            # entry with no backing entity), the two real docs to full payloads.
-            return {
-                "entities": [
-                    self._native_notion_doc("urn:li:document:real-1"),
-                    None,
-                    self._native_notion_doc("urn:li:document:real-2"),
-                ]
+        source.graph.execute_graphql.return_value = {
+            "scrollAcrossEntities": {
+                "nextScrollId": None,
+                "searchResults": [{"entity": {"urn": u}} for u in urns],
             }
-
-        source.graph.execute_graphql.side_effect = _graphql
+        }
+        # An index entry with no backing entity has no stored aspects, so batchGet
+        # leaves it out of the response.
+        self._store(source, ["urn:li:document:real-1", "urn:li:document:real-2"])
 
         documents = list(source._fetch_documents_graphql())
 
@@ -4709,7 +5577,7 @@ class TestOrphanedDocumentResilience:
                 return {
                     "scrollAcrossEntities": {"nextScrollId": None, "searchResults": []}
                 }
-            return {"entities": []}
+            raise AssertionError(f"unexpected GraphQL query: {query}")
 
         source.graph.execute_graphql.side_effect = _graphql
 
@@ -4724,35 +5592,27 @@ class TestOrphanedDocumentResilience:
         # the second batch, exercising per-batch handling beyond the first page.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
-
-        batch1 = {"entities": [self._native_notion_doc(u) for u in urns[:100]]}
-        batch2_entities: list = [self._native_notion_doc(u) for u in urns[100:]]
-        batch2_entities[25] = None  # one orphan in the second batch
-        batch2 = {"entities": batch2_entities}
-        source.graph.execute_graphql.side_effect = [batch1, batch2]
+        self._store(source, [u for i, u in enumerate(urns) if i != 125])
 
         hydrated = list(source._hydrate_documents(urns))
 
-        assert source.graph.execute_graphql.call_count == 2
+        # Each batch reads its entity markers, then its source aspects.
+        assert source.graph.get_entities.call_count == 2 * 2
         assert len(hydrated) == 149
         assert source.report.num_documents_skipped_orphaned == 1
 
-    def test_batch_graph_error_falls_back_to_per_urn(self, ctx, config):
-        # A GraphError on the batch call (e.g. one document with a null in a
-        # non-null field) must not drop the whole batch: retry per-URN, yield the
-        # good ones, and skip only the offender.
+    def test_batch_read_error_falls_back_to_per_urn(self, ctx, config):
+        # One document GMS cannot serialize fails the whole batch call. Retry
+        # per-URN, yield the good ones, and skip only the offender.
         source = self._make_source(ctx, config)
-        good = self._native_notion_doc("urn:li:document:good")
+        good = _stored_aspects(self._native_notion_doc("urn:li:document:good"))
 
-        def _graphql(query, variables=None):
-            urns = variables["urns"]
-            if len(urns) > 1:
-                raise GraphError("NullValueInNonNullableField")
+        def _get_entities(entity_name, urns, aspects=None, with_system_metadata=False):
             if urns == ["urn:li:document:good"]:
-                return {"entities": [good]}
-            raise GraphError("NullValueInNonNullableField")
+                return {"urn:li:document:good": good}
+            raise requests.HTTPError("500 Server Error")
 
-        source.graph.execute_graphql.side_effect = _graphql
+        source.graph.get_entities = Mock(side_effect=_get_entities)
 
         hydrated = list(
             source._hydrate_documents(["urn:li:document:good", "urn:li:document:bad"])
@@ -4764,33 +5624,35 @@ class TestOrphanedDocumentResilience:
             for w in source.report.warnings
         )
 
-    def test_transport_error_aborts_not_swallowed(self, ctx, config):
-        # A transport/outage error (OperationalError) must abort the run, not be
-        # caught as a per-document skip — otherwise the run reports success with
-        # zero embeddings, the source's documented catastrophic mode.
+    @pytest.mark.parametrize(
+        "error",
+        [requests.ConnectionError("refused"), requests.Timeout("timed out")],
+    )
+    def test_transport_error_aborts_not_swallowed(self, ctx, config, error):
+        # A transport/outage error must abort the run, not be caught as a
+        # per-document skip — otherwise the run reports success with zero
+        # embeddings, the source's documented catastrophic mode.
         source = self._make_source(ctx, config)
-        source.graph.execute_graphql.side_effect = OperationalError(
-            "connection refused"
-        )
+        source.graph.get_entities = Mock(side_effect=error)
 
         with pytest.raises(OperationalError):
             list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
 
     def test_batch_all_urns_fail_reports_failure(self, ctx, config):
-        # If every URN in a batch fails identically (e.g. a GraphQL schema
-        # mismatch — GMS missing a queried field), the run must fail loudly, not
-        # report success with zero embeddings.
+        # If every URN in a batch fails identically (e.g. GMS rejecting the
+        # request), the run must fail loudly, not report success with zero
+        # embeddings.
         source = self._make_source(ctx, config)
-        source.graph.execute_graphql.side_effect = GraphError(
-            "Cannot query field 'semanticText'"
+        source.graph.get_entities = Mock(
+            side_effect=requests.HTTPError("403 Forbidden")
         )
 
         with pytest.raises(DocumentEnumerationError) as excinfo:
             list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
 
-        # The originating GraphError is kept as the cause so the GMS message
-        # (e.g. the missing field) survives in the traceback.
-        assert isinstance(excinfo.value.__cause__, GraphError)
+        # The originating error is kept as the cause so the GMS message survives
+        # in the traceback.
+        assert isinstance(excinfo.value.__cause__, requests.HTTPError)
         assert any(
             "entire batch" in (f.title or "").lower() for f in source.report.failures
         )
@@ -4800,45 +5662,34 @@ class TestOrphanedDocumentResilience:
         # batch would repeat the batch call plus a doomed per-URN retry for each
         # of its URNs, i.e. O(total URNs) failing requests on a large catalog.
         source = self._make_source(ctx, config)
-        source.graph.execute_graphql.side_effect = GraphError(
-            "Cannot query field 'semanticText'"
+        source.graph.get_entities = Mock(
+            side_effect=requests.HTTPError("403 Forbidden")
         )
         urns = [f"urn:li:document:doc-{i}" for i in range(250)]
 
         with pytest.raises(DocumentEnumerationError):
             list(source._hydrate_documents(urns))
 
-        # One batch call + one retry per URN in that batch — nothing beyond it.
-        assert source.graph.execute_graphql.call_count == 1 + 100
+        # One batch (marker read + source read) + a retry per URN in that batch, each
+        # retry also reading markers — nothing beyond the first batch.
+        assert source.graph.get_entities.call_count == 2 + 2 * 100
 
-    def test_hydration_matches_entities_by_urn_not_position(self, ctx, config):
-        # A reordered response must not shift one document's content onto
-        # another's URN, as a positional zip would.
+    def test_response_for_unrequested_urn_is_ignored(self, ctx, config):
         source = self._make_source(ctx, config)
-        source.graph.execute_graphql.return_value = {
-            "entities": [
-                self._native_notion_doc("urn:li:document:b"),
-                self._native_notion_doc("urn:li:document:a"),
-            ]
-        }
-
-        hydrated = list(
-            source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
+        source.graph.get_entities = Mock(
+            return_value={
+                u: _stored_aspects(self._native_notion_doc(u))
+                for u in ("urn:li:document:a", "urn:li:document:stray")
+            }
         )
 
-        assert sorted(e["urn"] for e in hydrated) == [
-            "urn:li:document:a",
-            "urn:li:document:b",
-        ]
-        assert source.report.num_documents_skipped_orphaned == 0
+        hydrated = list(source._hydrate_documents(["urn:li:document:a"]))
 
-    def test_full_length_response_with_null_slot_orphans(self, ctx, config):
-        # The contract-honouring shape: one slot per URN, null where the entity
-        # can't be resolved. That single null is orphan drift, not a failure.
+        assert [e["urn"] for e in hydrated] == ["urn:li:document:a"]
+
+    def test_orphan_beside_live_document_is_skipped_not_fatal(self, ctx, config):
         source = self._make_source(ctx, config)
-        source.graph.execute_graphql.return_value = {
-            "entities": [self._native_notion_doc("urn:li:document:a"), None]
-        }
+        self._store(source, ["urn:li:document:a"])
 
         hydrated = list(
             source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"])
@@ -4848,48 +5699,13 @@ class TestOrphanedDocumentResilience:
         assert source.report.num_documents_skipped_orphaned == 1
         assert not source.report.failures
 
-    def test_short_entity_response_is_fatal(self, ctx, config):
-        # GMS returns exactly one slot per requested URN, so a short list is a
-        # broken contract, not orphans. Booking the missing URNs as orphans would
-        # let the run finish SUCCESS having embedded only the returned subset.
-        source = self._make_source(ctx, config)
-        source.graph.execute_graphql.return_value = {
-            "entities": [self._native_notion_doc("urn:li:document:a")]
-        }
-
-        with pytest.raises(DocumentEnumerationError):
-            list(source._hydrate_documents(["urn:li:document:a", "urn:li:document:b"]))
-
-        assert source.report.num_documents_skipped_orphaned == 0
-        assert any(
-            "unexpected entity count" in (f.title or "").lower()
-            for f in source.report.failures
-        )
-
-    def test_empty_entity_response_is_fatal(self, ctx, config):
-        # An empty entity list for a non-empty batch is the degenerate short
-        # response: a serving problem, not a batch of orphans.
-        source = self._make_source(ctx, config)
-        source.graph.execute_graphql.return_value = {"entities": []}
-
-        with pytest.raises(DocumentEnumerationError):
-            list(source._hydrate_documents(["urn:li:document:a"]))
-
-        assert source.report.num_documents_skipped_orphaned == 0
-        assert any(
-            "unexpected entity count" in (f.title or "").lower()
-            for f in source.report.failures
-        )
-
-    def test_all_null_batch_warns_and_does_not_abort(self, ctx, config):
-        # Right length, every slot null, but a later batch resolves: the live
-        # catalog is being served, so the null batch is orphan drift. Warn, skip
-        # it, and keep the run green.
+    def test_all_orphan_batch_warns_and_does_not_abort(self, ctx, config):
+        # Nothing in the first batch is stored, but a later batch resolves: the
+        # live catalog is being served, so the empty batch is orphan drift. Warn,
+        # skip it, and keep the run green.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
-        batch1 = {"entities": [None] * 100}
-        batch2 = {"entities": [self._native_notion_doc(u) for u in urns[100:]]}
-        source.graph.execute_graphql.side_effect = [batch1, batch2]
+        self._store(source, urns[100:])
 
         hydrated = list(source._hydrate_documents(urns))
 
@@ -4909,35 +5725,21 @@ class TestOrphanedDocumentResilience:
         live_before = [f"urn:li:document:a-{i:03d}" for i in range(50)]
         orphans = [f"urn:li:document:proposed-{i:03d}" for i in range(250)]
         live_after = [f"urn:li:document:z-{i:03d}" for i in range(100)]
-        urns = live_before + orphans + live_after
-        resolvable = set(live_before + live_after)
+        self._store(source, live_before + live_after)
 
-        def hydrate(_query, variables):
-            return {
-                "entities": [
-                    self._native_notion_doc(u) if u in resolvable else None
-                    for u in variables["urns"]
-                ]
-            }
-
-        source.graph.execute_graphql.side_effect = hydrate
-
-        hydrated = list(source._hydrate_documents(urns))
+        hydrated = list(source._hydrate_documents(live_before + orphans + live_after))
 
         assert len(hydrated) == 150
         assert source.report.num_documents_skipped_orphaned == 250
         assert not source.report.failures
 
     def test_nothing_resolved_in_any_batch_fails(self, ctx, config):
-        # Every batch null across the whole run: nothing in the catalog is being
+        # Every batch empty across the whole run: nothing in the catalog is being
         # served, which is a serving problem, not orphans. The run must go red
         # rather than finish green having embedded nothing.
         source = self._make_source(ctx, config)
         urns = [f"urn:li:document:doc-{i}" for i in range(150)]
-        source.graph.execute_graphql.side_effect = [
-            {"entities": [None] * 100},
-            {"entities": [None] * 50},
-        ]
+        self._store(source, [])
 
         hydrated = list(source._hydrate_documents(urns))
 
@@ -4996,19 +5798,21 @@ class TestOrphanedDocumentResilience:
         calls: list[str] = []
 
         def _graphql(query, variables=None):
-            if "scrollAcrossEntities" in query:
-                page = len([c for c in calls if c == "scroll"])
-                calls.append("scroll")
-                return {
-                    "scrollAcrossEntities": {
-                        "nextScrollId": "cursor-1" if page == 0 else None,
-                        "searchResults": [{"entity": {"urn": u}} for u in pages[page]],
-                    }
+            page = len([c for c in calls if c == "scroll"])
+            calls.append("scroll")
+            return {
+                "scrollAcrossEntities": {
+                    "nextScrollId": "cursor-1" if page == 0 else None,
+                    "searchResults": [{"entity": {"urn": u}} for u in pages[page]],
                 }
+            }
+
+        def _get_entities(entity_name, urns, aspects=None, with_system_metadata=False):
             calls.append("hydrate")
-            return {"entities": [self._native_notion_doc(u) for u in variables["urns"]]}
+            return {u: _stored_aspects(self._native_notion_doc(u)) for u in urns}
 
         source.graph.execute_graphql.side_effect = _graphql
+        source.graph.get_entities = Mock(side_effect=_get_entities)
 
         hydrated = list(source._hydrate_documents(source._scroll_document_urns()))
 
@@ -5196,21 +6000,18 @@ class TestCheckpointPruning:
         live_doc = TestOrphanedDocumentResilience._native_notion_doc(self.LIVE)
 
         def _graphql(query: str, variables: Optional[dict] = None) -> dict:
-            if "scrollAcrossEntities" in query:
-                return {
-                    "scrollAcrossEntities": {
-                        "nextScrollId": None,
-                        "searchResults": [{"entity": {"urn": u}} for u in scroll_urns],
-                    }
-                }
-            assert variables is not None
+            assert "scrollAcrossEntities" in query
             return {
-                "entities": [
-                    live_doc if u == self.LIVE else None for u in variables["urns"]
-                ]
+                "scrollAcrossEntities": {
+                    "nextScrollId": None,
+                    "searchResults": [{"entity": {"urn": u}} for u in scroll_urns],
+                }
             }
 
         source.graph.execute_graphql.side_effect = _graphql  # type: ignore[attr-defined]
+        source.graph.get_entities = Mock(  # type: ignore[attr-defined,method-assign]
+            side_effect=_batch_get({self.LIVE: _stored_aspects(live_doc)})
+        )
 
     @staticmethod
     def _tracked_urns(source: DataHubDocumentsSource) -> set[str]:

@@ -191,12 +191,24 @@ public class V2SemanticSearchMappingsBuilderTest {
       assertEquals(method.get("engine"), "faiss", "Should use FAISS engine");
       assertEquals(method.get("space_type"), "cosinesimil", "Should use cosine similarity");
 
-      // chunks plus sourceTextSha256 (staleness digest); totalChunks/modelVersion/generatedAt are
-      // not mapped because they are not populated at index time.
+      // chunks, the staleness digest, and profile control fields. totalChunks and modelVersion
+      // stay unmapped because they are not queried.
       assertEquals(
           cohereModelProperties.keySet(),
-          Set.of("chunks", "sourceTextSha256"),
-          "Model mapping should contain chunks and sourceTextSha256");
+          Set.of(
+              "chunks",
+              "sourceTextSha256",
+              "vectorState",
+              "workState",
+              "stateReason",
+              "policyVersion",
+              "contentHash",
+              "current",
+              "partial",
+              "dirty",
+              "generatedAt",
+              "refreshMarker"),
+          "Model mapping should contain chunks, the staleness digest, and profile control fields");
       @SuppressWarnings("unchecked")
       Map<String, Object> sourceTextSha256 =
           (Map<String, Object>) cohereModelProperties.get("sourceTextSha256");

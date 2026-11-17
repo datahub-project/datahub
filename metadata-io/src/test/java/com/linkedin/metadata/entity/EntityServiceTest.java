@@ -710,6 +710,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+    futureSystemMetadata.setAspectCreated(simulatePullFromDB(TEST_AUDIT_STAMP, AuditStamp.class));
     futureSystemMetadata.setRunId("run-123");
     futureSystemMetadata.setLastRunId("run-123");
 
@@ -807,6 +808,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     SystemMetadata futureSystemMetadata =
         AspectGenerationUtils.createSystemMetadata(1, TEST_AUDIT_STAMP);
     futureSystemMetadata.setLastObserved(futureSystemMetadata.getLastObserved() + 1);
+    futureSystemMetadata.setAspectCreated(simulatePullFromDB(TEST_AUDIT_STAMP, AuditStamp.class));
     futureSystemMetadata.setRunId("run-123");
 
     MetadataChangeProposal mcp2 = new MetadataChangeProposal(mcp1.data().copy());

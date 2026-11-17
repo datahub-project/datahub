@@ -375,13 +375,24 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       SystemMetadata changeSystemMetadata =
           new SystemMetadata(changeMCP.getSystemMetadata().copy().data());
       changeSystemMetadata.setVersion(String.valueOf(rowNextVersion));
-      if (rowNextVersion == 1) {
-        // First version, we copy over modified audit stamp from where we have set it in initial
-        // MCPItem generation
-        changeSystemMetadata.setAspectCreated(
-            changeMCP.getSystemMetadata().getAspectModified(), SetMode.IGNORE_NULL);
-      }
       changeMCP.setSystemMetadata(changeSystemMetadata);
+
+      // aspectCreated is server-owned: a writer's value is never stored. Semantic refresh markers
+      // order a recreated aspect after the deleted one by this time.
+      AuditStamp created =
+          latestAspect != null && latestAspect.getSystemMetadata() != null
+              ? latestAspect.getSystemMetadata().getAspectCreated(GetMode.NULL)
+              : null;
+      if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
+        changeSystemMetadata.setAspectCreated(created, SetMode.REMOVE_IF_NULL);
+      } else {
+        // No stored row yet. An earlier upsert in this batch may already have stamped
+        // aspectCreated; that time stays. Otherwise use the audit stamp, not aspectModified.
+        if (created == null) {
+          created = changeMCP.getAuditStamp();
+        }
+        changeSystemMetadata.setAspectCreated(created, SetMode.IGNORE_NULL);
+      }
 
       if (latestAspect != null && latestAspect.getDatabaseAspect().isPresent()) {
         // update existing model
@@ -467,8 +478,6 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
           latestAspect.setAuditStamp(changeMCP.getAuditStamp());
           latestSystemMetadata.setAspectModified(
               changeSystemMetadata.getAspectModified(), SetMode.IGNORE_NULL);
-          latestSystemMetadata.setAspectCreated(
-              changeSystemMetadata.getAspectCreated(), SetMode.IGNORE_NULL);
         } else {
           // Do not increment version with the incoming change (match existing version)
           long matchVersion =
@@ -1502,16 +1511,85 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     StreamSupport.stream(iterable.spliterator(), false)
         .forEach(
             chunk -> {
-              long count =
-                  ingestProposalAsync(
-                          opContext,
-                          AspectsBatchImpl.builder()
-                              .items(chunk)
-                              .retrieverContext(opContext.getRetrieverContext())
-                              .build(opContext))
-                      .count();
-              log.debug("Generated {} MCP SideEffects for async processing", count);
+              List<MCPItem> refreshMarkers =
+                  chunk.stream()
+                      .filter(EntityServiceImpl::isSemanticRefreshMarker)
+                      .collect(Collectors.toList());
+              List<MCPItem> others =
+                  chunk.stream()
+                      .filter(item -> !isSemanticRefreshMarker(item))
+                      .collect(Collectors.toList());
+              if (!others.isEmpty()) {
+                long count =
+                    ingestProposalAsync(opContext, sideEffectBatch(opContext, others)).count();
+                log.debug("Generated {} MCP SideEffects for async processing", count);
+              }
+              if (!refreshMarkers.isEmpty()) {
+                produceRefreshMarkers(opContext, refreshMarkers);
+              }
             });
+  }
+
+  /**
+   * The only semanticContent MCP side effects are the refresh marker patches from {@code
+   * SemanticRefreshSideEffect}; the aspect check is what identifies them here.
+   */
+  private static boolean isSemanticRefreshMarker(@Nonnull MCPItem item) {
+    return SEMANTIC_CONTENT_ASPECT_NAME.equals(item.getAspectName());
+  }
+
+  @Nonnull
+  private static AspectsBatch sideEffectBatch(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> items) {
+    return AspectsBatchImpl.builder()
+        .items(items)
+        .retrieverContext(opContext.getRetrieverContext())
+        .build(opContext);
+  }
+
+  /**
+   * Produces the refresh marker patches of one chunk. When the produce fails, each marker is
+   * written synchronously on its own so a failure names the URN left unmarked. Without the marker
+   * the profile stays not current; the source write fails so the caller sees that the marker is
+   * missing.
+   */
+  private void produceRefreshMarkers(
+      @Nonnull OperationContext opContext, @Nonnull List<MCPItem> markers) {
+    try {
+      ingestProposalAsync(opContext, sideEffectBatch(opContext, markers)).count();
+      return;
+    } catch (RuntimeException e) {
+      log.warn(
+          "Refresh marker produce failed for {} URN(s); writing each marker synchronously.",
+          markers.size(),
+          e);
+    }
+    List<String> unmarked = new ArrayList<>();
+    for (MCPItem marker : markers) {
+      opContext
+          .getMetricUtils()
+          .ifPresent(
+              m -> m.increment(EntityServiceImpl.class, "semanticRefreshMarker.syncFallback", 1));
+      try {
+        ingestProposalSync(opContext, sideEffectBatch(opContext, List.of(marker))).count();
+      } catch (RuntimeException e) {
+        opContext
+            .getMetricUtils()
+            .ifPresent(
+                m ->
+                    m.increment(
+                        EntityServiceImpl.class, "semanticRefreshMarker.syncFallbackFailed", 1));
+        log.warn(
+            "Refresh marker sync fallback failed for urn={}; the marker stays missing until a"
+                + " consistency check repairs it.",
+            marker.getUrn(),
+            e);
+        unmarked.add(marker.getUrn().toString());
+      }
+    }
+    if (!unmarked.isEmpty()) {
+      throw new RuntimeException("Refresh marker could not be written for " + unmarked);
+    }
   }
 
   /**
@@ -4127,6 +4205,35 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
   }
 
   /**
+   * System metadata for the surviving row once a rollback restores it over the discarded latest
+   * row. The version moves one past the discarded row's, so the restore is a later change than the
+   * edit it undid, and the next write keeps climbing. The creation time is the later of the two
+   * rows': a legacy row without aspectCreated takes its own createdOn, which can be earlier than
+   * the discarded row's, and (createdTime, version) must still order after the discarded token.
+   */
+  @Nullable
+  static SystemMetadata restoredRowSystemMetadata(
+      @Nullable SystemMetadata surviving, @Nullable SystemMetadata discarded) {
+    if (surviving == null) {
+      return null;
+    }
+    if (discarded == null) {
+      return surviving;
+    }
+    String discardedVersion = discarded.getVersion(GetMode.NULL);
+    if (discardedVersion != null) {
+      surviving.setVersion(String.valueOf(Long.parseLong(discardedVersion) + 1));
+    }
+    AuditStamp discardedCreated = discarded.getAspectCreated(GetMode.NULL);
+    AuditStamp survivingCreated = surviving.getAspectCreated(GetMode.NULL);
+    if (discardedCreated != null
+        && (survivingCreated == null || discardedCreated.getTime() > survivingCreated.getTime())) {
+      surviving.setAspectCreated(discardedCreated);
+    }
+    return surviving;
+  }
+
+  /**
    * @param ceiling with a key-aspect hard delete: the entity goes only when every latest row of it,
    *     read under lock in the delete transaction, is at or below its captured version and none is
    *     new since the capture; otherwise nothing is deleted
@@ -4402,6 +4509,9 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                                 aspect.getAspectName(),
                                 aspect.getVersion()));
 
+                    // Read before the surviving row is copied over the latest row below.
+                    final RecordTemplate discardedValue = latest.getRecordTemplate();
+                    SystemMetadata restoredSystemMetadata = null;
                     if (survivingAspect != null) {
                       // if there was a surviving aspect, copy its information into the latest row
                       // eBean does not like us updating a pkey column (version) for the surviving
@@ -4409,8 +4519,11 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                       // as a result we copy information from survivingAspect to latest and delete
                       // survivingAspect
                       restoreStoredReferences(opContext, survivingAspect);
+                      restoredSystemMetadata =
+                          restoredRowSystemMetadata(
+                              survivingAspect.getSystemMetadata(), latestSystemMetadata);
                       latest.setRecordTemplate(survivingAspect.getRecordTemplate());
-                      latest.setSystemMetadata(survivingAspect.getSystemMetadata());
+                      latest.setSystemMetadata(restoredSystemMetadata);
                       latest.setAuditStamp(survivingAspect.getAuditStamp());
 
                       Optional<EntityAspect> survivingResult =
@@ -4547,10 +4660,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
                     // 6. Emit the Update
                     try {
-                      final RecordTemplate latestValue =
-                          latest == null ? null : latest.getRecordTemplate();
-                      final RecordTemplate previousValue =
-                          survivingAspect == null ? null : latest.getRecordTemplate();
+                      // Old is the discarded latest row; new is the row the rollback restored, if
+                      // any.
+                      final RecordTemplate newValue =
+                          survivingAspect == null ? null : survivingAspect.getRecordTemplate();
 
                       final Urn urnObj = Urn.createFromString(urn);
                       // We are not deleting key aspect if hardDelete has not been set so do not
@@ -4564,10 +4677,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
                               urnObj,
                               urnObj.getEntityType(),
                               latest.getAspectName(),
-                              latestValue,
-                              previousValue,
+                              discardedValue,
+                              newValue,
                               latestSystemMetadata,
-                              previousValue == null ? null : survivingAspect.getSystemMetadata(),
+                              newValue == null ? null : restoredSystemMetadata,
                               survivingAspect == null ? ChangeType.DELETE : ChangeType.UPSERT,
                               isKeyAspect,
                               additionalRowsDeleted));

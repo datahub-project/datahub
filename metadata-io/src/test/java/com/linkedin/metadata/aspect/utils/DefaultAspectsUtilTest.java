@@ -113,6 +113,40 @@ public class DefaultAspectsUtilTest {
 
   @Test
   public void testAdditionalChanges() {
+    MetadataChangeProposal proposal1 =
+        new DatasetPropertiesPatchBuilder()
+            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
+            .setDescription("something")
+            .setName("name")
+            .addCustomProperty("prop1", "propVal1")
+            .addCustomProperty("prop2", "propVal2")
+            .build();
+
+    Assert.assertEquals(proposal1.getChangeType(), ChangeType.PATCH);
+
+    List<MetadataChangeProposal> proposalList = additionalChanges(proposal1);
+    // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
+    Assert.assertEquals(proposalList.size(), 4);
+    Assert.assertEquals(
+        proposalList.stream()
+            .map(MetadataChangeProposal::getChangeType)
+            .collect(Collectors.toList()),
+        List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
+  }
+
+  @Test
+  public void testAnIfMatchPatchDoesNotCreateTheEntity() {
+    MetadataChangeProposal conditional =
+        new DatasetPropertiesPatchBuilder()
+            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
+            .setDescription("something")
+            .ifAspectExists()
+            .build();
+
+    Assert.assertTrue(additionalChanges(conditional).isEmpty());
+  }
+
+  private List<MetadataChangeProposal> additionalChanges(MetadataChangeProposal proposal) {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     server = EbeanTestUtils.createTestServer(DefaultAspectsUtilTest.class.getSimpleName());
     EbeanAspectDao aspectDao =
@@ -136,39 +170,20 @@ public class DefaultAspectsUtilTest {
             new EntityServiceConfiguration().setAlwaysEmitChangeLog(true).setEnableBrowseV2(false),
             mock(MetricUtils.class));
 
-    MetadataChangeProposal proposal1 =
-        new DatasetPropertiesPatchBuilder()
-            .urn(new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD))
-            .setDescription("something")
-            .setName("name")
-            .addCustomProperty("prop1", "propVal1")
-            .addCustomProperty("prop2", "propVal2")
-            .build();
-
-    Assert.assertEquals(proposal1.getChangeType(), ChangeType.PATCH);
-
-    List<MetadataChangeProposal> proposalList =
-        DefaultAspectsUtil.getAdditionalChanges(
-                opContext,
-                AspectsBatchImpl.builder()
-                    .mcps(
-                        List.of(proposal1),
-                        AuditStampUtils.createDefaultAuditStamp(),
-                        opContext.getRetrieverContext())
-                    .build(opContext)
-                    .getMCPItems(),
-                entityServiceImpl,
-                false)
-            .stream()
-            .map(MCPItem::getMetadataChangeProposal)
-            .collect(Collectors.toList());
-    // proposals for key aspect, browsePath, browsePathV2, dataPlatformInstance
-    Assert.assertEquals(proposalList.size(), 4);
-    Assert.assertEquals(
-        proposalList.stream()
-            .map(MetadataChangeProposal::getChangeType)
-            .collect(Collectors.toList()),
-        List.of(ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE, ChangeType.CREATE));
+    return DefaultAspectsUtil.getAdditionalChanges(
+            opContext,
+            AspectsBatchImpl.builder()
+                .mcps(
+                    List.of(proposal),
+                    AuditStampUtils.createDefaultAuditStamp(),
+                    opContext.getRetrieverContext())
+                .build(opContext)
+                .getMCPItems(),
+            entityServiceImpl,
+            false)
+        .stream()
+        .map(MCPItem::getMetadataChangeProposal)
+        .collect(Collectors.toList());
   }
 
   @AfterMethod
