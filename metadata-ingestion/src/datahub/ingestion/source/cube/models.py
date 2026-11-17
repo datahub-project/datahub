@@ -3,7 +3,7 @@ import logging
 import re
 from typing import Dict, List, Optional, Union
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.cube.constants import (
     CUBE_REFERENCE_TYPE_UPSTREAM,
@@ -72,7 +72,8 @@ def _names_from(items: List[object]) -> List[str]:
 class RawJoin(BaseModel):
     model_config = ConfigDict(extra="allow")
 
-    name: str
+    # /v1/meta keys the joined cube by "name", the Metadata API by "cube".
+    name: str = Field(validation_alias=AliasChoices("name", "cube"))
     relationship: Optional[str] = None
     sql: Optional[str] = None
 

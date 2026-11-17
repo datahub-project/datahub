@@ -392,3 +392,39 @@ def test_unusable_cloud_references_are_counted_and_warned(
     assert [w.title for w in client.report.warnings] == [
         "Skipped Metadata API references"
     ]
+
+
+def test_cloud_join_keyed_by_cube_keeps_metadata_api_lineage(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client()
+    requests_mock.post(
+        _ENTITIES_ALL,
+        json={
+            "data": [
+                {
+                    "type": "cube",
+                    "name": "orders",
+                    "table_references": [{"schema": "public", "table": "orders"}],
+                    "joins": [
+                        {
+                            "cube": "customers",
+                            "relationship": "many_to_one",
+                            "sql": "${CUBE}.customer_id = ${customers}.id",
+                        }
+                    ],
+                }
+            ],
+            "pagination": {"offset": 0, "limit": 100, "total": 1},
+        },
+    )
+    requests_mock.get(_META, json={"cubes": []})
+
+    entities = client.get_entities()
+
+    assert not client.report.warnings
+    [orders] = entities
+    assert [(t.schema_name, t.table) for t in orders.table_references] == [
+        ("public", "orders")
+    ]
+    assert [j.name for j in orders.joins] == ["customers"]
