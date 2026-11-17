@@ -73,11 +73,12 @@ class CubeSourceConfig(
             "Cube Cloud only. Request private (`public: false`) cubes, views, and "
             "members from the Metadata API, so lineage from public views through "
             "private cubes reaches warehouse tables. Requires `include_hidden: "
-            "true`. The token needs the `meta-private` scope, which Cube Cloud "
-            "grants only to admins or users who can read the data model: a minted "
-            "token requests it automatically, a pre-supplied `api_token` must "
-            "already carry it. If the Metadata API fails or refuses private "
-            "entities, the run reports a failure."
+            "true` and `use_metadata_api: true`. The token needs the "
+            "`meta-private` scope, which Cube Cloud grants only to admins or "
+            "users who can read the data model: a minted token requests it "
+            "automatically, a pre-supplied `api_token` must already carry it. If "
+            "the Metadata API fails or refuses private entities, the run reports "
+            "a failure."
         ),
     )
 

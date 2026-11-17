@@ -1,4 +1,4 @@
-from typing import Any, Dict, Iterator, List
+from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -25,6 +25,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    SchemaMetadataClass,
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import DatasetUrn
@@ -713,7 +714,7 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
     # Cube Cloud leaves private cubes out of the Metadata API, and prunes the
     # view's references to them, unless include_private is requested.
     def entities(
-        request: rm.request._RequestObjectProxy, context: Any
+        request: rm.request._RequestObjectProxy, context: rm.response._Context
     ) -> Dict[str, object]:
         if request.json().get("include_private"):
             if refuse_private:
@@ -754,3 +755,60 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
     # The source's own report is what stale removal checks.
     assert [f.title for f in source.report.failures] == expected_failures
     assert not source.report.warnings
+
+
+@pytest.mark.parametrize(
+    "include_private, expected_fields",
+    [(False, ["status"]), (True, ["revenue", "status"])],
+)
+def test_private_member_of_public_cube_is_ingested_with_include_private(
+    requests_mock: rm.Mocker, include_private: bool, expected_fields: List[str]
+) -> None:
+    def entities(
+        request: rm.request._RequestObjectProxy, context: rm.response._Context
+    ) -> Dict[str, object]:
+        measures = (
+            [{"name": "revenue", "public": False}]
+            if request.json().get("include_private")
+            else []
+        )
+        return {
+            "data": [
+                {
+                    "type": "cube",
+                    "name": "orders",
+                    "measures": measures,
+                    "dimensions": [{"name": "status"}],
+                }
+            ],
+            "pagination": {"offset": 0, "limit": 100, "total": 1},
+        }
+
+    requests_mock.get(
+        f"{_API_URL}/v1/meta",
+        json={
+            "cubes": [
+                {
+                    "name": "orders",
+                    "type": "cube",
+                    "dimensions": [{"name": "orders.status", "type": "string"}],
+                }
+            ]
+        },
+    )
+    requests_mock.post(f"{_API_URL}/v1/entities/all", json=entities)
+    source = _source(
+        deployment_type="CLOUD",
+        warehouse_platform="postgres",
+        include_hidden=True,
+        include_private=include_private,
+    )
+
+    [schema] = [
+        wu.metadata.aspect  # type: ignore[union-attr]
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata.aspect, SchemaMetadataClass)  # type: ignore[union-attr]
+    ]
+
+    assert [f.fieldPath for f in schema.fields] == expected_fields
+    assert not source.report.failures

@@ -9,7 +9,7 @@ from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 
 _ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
 _META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
-_PRIVATE = {"include_hidden": True, "include_private": True}
+_PRIVATE_CONFIG = {"include_hidden": True, "include_private": True}
 _MINT = "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync"
 _CONTROL_PLANE = {
     "cloud_api_key": "cp-key",
@@ -37,7 +37,7 @@ def test_metadata_token_uses_api_token_without_control_plane() -> None:
 
 @pytest.mark.parametrize(
     "private, expected_scopes",
-    [({}, {}), (_PRIVATE, {"scopes": ["meta-private"]})],
+    [({}, {}), (_PRIVATE_CONFIG, {"scopes": ["meta-private"]})],
 )
 def test_metadata_token_minted_via_control_plane_and_cached(
     requests_mock: rm.Mocker,
@@ -68,7 +68,7 @@ def test_metadata_token_minted_via_control_plane_and_cached(
     "private, expected_body",
     [
         ({}, {}),
-        (_PRIVATE, {"include_private": True}),
+        (_PRIVATE_CONFIG, {"include_private": True}),
     ],
 )
 def test_cloud_entities_are_read_across_pages(
@@ -83,7 +83,7 @@ def test_cloud_entities_are_read_across_pages(
     }
 
     def page(
-        request: rm.request._RequestObjectProxy, context: object
+        request: rm.request._RequestObjectProxy, context: rm.response._Context
     ) -> Dict[str, object]:
         offset = int(request.qs["offset"][0])
         return {
@@ -106,7 +106,7 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
 ) -> None:
     # A token without the meta-private scope gets a 403 for include_private.
     # Public entities keep their Metadata API lineage.
-    client = _client(**_PRIVATE)
+    client = _client(**_PRIVATE_CONFIG)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(
         _ENTITIES_ALL,
@@ -132,7 +132,7 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
 def test_private_entities_retry_refused_fails_and_falls_back_to_core(
     requests_mock: rm.Mocker,
 ) -> None:
-    client = _client(**_PRIVATE)
+    client = _client(**_PRIVATE_CONFIG)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(_ENTITIES_ALL, status_code=403)
 
@@ -166,7 +166,7 @@ def test_private_entities_retry_refused_fails_and_falls_back_to_core(
 def test_private_entities_other_errors_fail_and_fall_back_to_core(
     requests_mock: rm.Mocker, responses: List[Dict[str, object]]
 ) -> None:
-    client = _client(**_PRIVATE)
+    client = _client(**_PRIVATE_CONFIG)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(_ENTITIES_ALL, responses)
 
@@ -181,7 +181,7 @@ def test_private_entities_other_errors_fail_and_fall_back_to_core(
 def test_private_entities_token_mint_refused_fails_without_retry(
     requests_mock: rm.Mocker,
 ) -> None:
-    client = _client(**_CONTROL_PLANE, **_PRIVATE)
+    client = _client(**_CONTROL_PLANE, **_PRIVATE_CONFIG)
     requests_mock.get(_META, json={"cubes": []})
     mint = requests_mock.post(_MINT, status_code=403)
     entities = requests_mock.post(_ENTITIES_ALL, json={"data": []})
