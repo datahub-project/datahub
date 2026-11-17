@@ -151,7 +151,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     Set<String> identities = new HashSet<>();
     for (boolean hybridRead : List.of(false, true)) {
       ElasticSearchConfiguration elastic = v3Config();
-      elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+      elastic.getEntityIndex().setSemanticSearch(semanticSearch);
       SearchTemplateCoordinator coordinator =
           new SearchTemplateCoordinator(
               elastic,

@@ -628,11 +628,11 @@ public class ESSearchDAOHybridTest {
   private static SearchTemplateCoordinator documentRerankCoordinator(
       SearchTemplateFixtures.Harness harness) {
     ElasticSearchConfiguration elastic = harness.elastic();
-    elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
     semanticSearch.setModels(Map.of(MODEL_KEY, new ModelEmbeddingConfig()));
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     EmbeddingProfile document =
         new EmbeddingProfile(
             MODEL_KEY,
