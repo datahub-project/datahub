@@ -157,9 +157,11 @@ def wait_for_metric_delta(
     return delta
 
 
+# Polled every second, not every 3s: a gauge holds its value for only one flush
+# window (5s in the smoke stack) before the next flush overwrites it.
 @tenacity.retry(
-    stop=tenacity.stop_after_attempt(25),
-    wait=tenacity.wait_fixed(3),
+    stop=tenacity.stop_after_attempt(75),
+    wait=tenacity.wait_fixed(1),
     reraise=True,
 )
 def wait_for_metric_at_least(
