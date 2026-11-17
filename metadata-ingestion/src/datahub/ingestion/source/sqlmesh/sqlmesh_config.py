@@ -65,6 +65,11 @@ from datahub.utilities.perf_timer import PerfTimer
 SQLMESH_TO_DATAHUB_PLATFORM: Dict[str, str] = {
     "gcp_postgres": "postgres",
     "motherduck": "duckdb",
+    # SQL Server and Azure SQL share DataHub's mssql platform. "tsql" is the
+    # engine-adapter dialect both report on non-default gateways (Fabric reports
+    # "fabric").
+    "azuresql": "mssql",
+    "tsql": "mssql",
 }
 
 

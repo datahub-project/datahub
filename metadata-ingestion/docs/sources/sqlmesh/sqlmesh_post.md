@@ -19,6 +19,11 @@ lineage runs through SQLMesh from table to table:
 - Each external model (a `Source`) takes the table it declares as its upstream.
 - `skip_external_models_in_lineage: true` takes external models off the path: models
   read their warehouse tables directly, like dbt's `skip_sources_in_lineage`.
+- Outside `prod`, models link to their environment's views (for example
+  `analytics__dev.orders`). External models and undeclared tables keep their own
+  names, because SQLMesh doesn't create environment copies of them.
+- If the warehouse platform can't be resolved (no `target_platform`, and none detected
+  from the gateway), the warehouse links are skipped and the run reports a warning.
 
 The warehouse source plugin must also keep the SQLMesh edge. Snowflake and BigQuery
 default to `incremental_lineage: false`, which rewrites the table's lineage on every run

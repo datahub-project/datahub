@@ -88,19 +88,21 @@ class LineageMixin(SqlmeshSourceBase):
             )
             if count_undeclared:
                 self.report.num_undeclared_upstream_refs += 1
-            return self._make_warehouse_urn(dep_fqn, dep_effective)
+            return self._make_warehouse_urn(dep_fqn, dep_effective, managed=False)
 
         kind = getattr(dep_model, "kind", None)
         is_external = (
             str(getattr(kind, "model_kind_name", "")).upper() == MODEL_KIND_EXTERNAL
         )
         if is_external and self.config.skip_external_models_in_lineage:
-            return self._make_warehouse_urn(dep_fqn, dep_effective)
+            return self._make_warehouse_urn(dep_fqn, dep_effective, managed=False)
         if self._is_filtered_by_kind(dep_model):
             # Excluded from ingestion by model_kind_filter, so no sqlmesh entity
             # was emitted for it. Point at the warehouse table instead of a
             # sqlmesh URN that would dangle.
-            return self._make_warehouse_urn(dep_fqn, dep_effective)
+            return self._make_warehouse_urn(
+                dep_fqn, dep_effective, managed=not is_external
+            )
         return self._make_sqlmesh_urn(dep_fqn, dep_effective)
 
     def _build_upstreams(

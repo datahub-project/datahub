@@ -110,7 +110,7 @@ class SqlmeshSourceBase:
             # the report — not just a logger.warning that never reaches the summary.
             self.report.warning(
                 title="Could not auto-detect target_platform",
-                message="Falling back to 'unknown'; warehouse sibling URNs will be wrong. Set target_platform explicitly in your recipe config.",
+                message="Links between SQLMesh models and their warehouse tables (siblings and lineage) are skipped. Set target_platform explicitly in your recipe config.",
                 exc=e,
             )
             return UNKNOWN_PLATFORM
@@ -202,7 +202,7 @@ class SqlmeshSourceBase:
                 # sibling stitching for every model on this gateway. Surface it.
                 self.report.warning(
                     title="Unresolved target_platform for a gateway",
-                    message="Falling back to 'unknown'; warehouse sibling URNs for models on this gateway will be wrong. Set target_platform for it under gateway_overrides.",
+                    message="Links between SQLMesh models on this gateway and their warehouse tables (siblings and lineage) are skipped. Set target_platform for it under gateway_overrides.",
                     context=gw_key,
                 )
 
@@ -434,9 +434,13 @@ class SqlmeshSourceBase:
 
         return ".".join(parts)
 
-    def _make_warehouse_urn(self, fqn: str, effective: _EffectiveProjectConfig) -> str:
-        # Apply the environment suffix for non-prod before any other transforms.
-        name = self._apply_env_suffix(fqn, effective)
+    def _make_warehouse_urn(
+        self, fqn: str, effective: _EffectiveProjectConfig, *, managed: bool = True
+    ) -> str:
+        # Only tables SQLMesh builds get a per-environment view, so the environment
+        # suffix applies to managed models alone. External models and undeclared
+        # tables are read where they are, e.g. raw.customers in every environment.
+        name = self._apply_env_suffix(fqn, effective) if managed else fqn
 
         if not self.config.include_database_name:
             # Drop the catalog prefix for platforms like Athena that omit it.
@@ -449,6 +453,14 @@ class SqlmeshSourceBase:
             name=name,
             platform_instance=effective.target_platform_instance,
             env=self.config.env,
+        )
+
+    @staticmethod
+    def _has_resolved_platform(effective: _EffectiveProjectConfig) -> bool:
+        # With no resolvable platform, a warehouse URN names a dataset no warehouse
+        # connector will ever emit, so links to it would only add phantom nodes.
+        return bool(effective.target_platform) and (
+            effective.target_platform != UNKNOWN_PLATFORM
         )
 
     def _get_kind_name(self, model: "SqlmeshModel") -> Optional[str]:

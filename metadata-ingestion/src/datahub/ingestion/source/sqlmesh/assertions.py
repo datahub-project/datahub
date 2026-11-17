@@ -96,6 +96,39 @@ class AssertionMixin(SqlmeshSourceBase):
             )
             return []
 
+    def _audit_schema_column_names(
+        self, kw: Dict[str, Any], dialect: Optional[str]
+    ) -> Dict[str, str]:
+        """Map each audit column, as written, to the name SQLMesh gives that column
+        in the model's schema.
+
+        SQLMesh normalizes a model's column names for its dialect (Snowflake
+        upper-cases unquoted identifiers, DuckDB and Postgres lower-case them) but
+        keeps audit arguments as written, so on Snowflake ``columns := [psn]``
+        names the schema column ``PSN``. Quoted identifiers keep their case.
+        """
+        col_array = kw.get(AUDIT_KWARG_COLUMNS)
+        if col_array is None or not isinstance(dialect, str):
+            return {}
+        # Imported lazily: sqlglot isn't a base dependency.
+        from sqlglot.optimizer.normalize_identifiers import normalize_identifiers
+
+        names: Dict[str, str] = {}
+        for expr in getattr(col_array, "expressions", []):
+            raw = getattr(expr, "name", None)
+            if not raw:
+                continue
+            try:
+                names[raw] = normalize_identifiers(expr.copy(), dialect=dialect).name
+            except Exception:
+                logger.warning(
+                    "Could not normalize audit column %r for dialect %r; using it as written",
+                    raw,
+                    dialect,
+                    exc_info=True,
+                )
+        return names
+
     def _extract_literal_value(self, kw: Dict[str, Any], key: str) -> Optional[str]:
         expr = kw.get(key)
         if expr is None:
@@ -410,7 +443,12 @@ class AssertionMixin(SqlmeshSourceBase):
 
             try:
                 yield from self._emit_single_audit(
-                    audit_name, audit.arguments, params, sqlmesh_urn, effective
+                    audit_name,
+                    audit.arguments,
+                    params,
+                    sqlmesh_urn,
+                    effective,
+                    dialect=getattr(model, "dialect", None),
                 )
             except Exception as e:
                 self.report.num_assertions_failed += 1
@@ -589,9 +627,11 @@ class AssertionMixin(SqlmeshSourceBase):
         params: Optional[_AuditAssertionParams],
         dataset_urn: str,
         effective: _EffectiveProjectConfig,
+        dialect: Optional[str] = None,
     ) -> Iterable[MetadataWorkUnit]:
         # Unknown / custom audits (params is None) carry no columns or semantics.
         cols = self._extract_audit_columns(kw) if params is not None else []
+        schema_names = self._audit_schema_column_names(kw, dialect) if cols else {}
 
         # Derive suffixes from the same helper the run-event side uses, so a
         # definition and its run events always hash to the same assertion URN.
@@ -601,12 +641,19 @@ class AssertionMixin(SqlmeshSourceBase):
                 # Column-level: one assertion per column; the suffix is the
                 # single column name ("" when the audit named none).
                 if suffix:
-                    field_urns = [self._field_urn(dataset_urn, suffix, effective)]
+                    field_urns = [
+                        self._field_urn(
+                            dataset_urn, schema_names.get(suffix, suffix), effective
+                        )
+                    ]
             elif params is not None and cols:
                 # Dataset-level over specific columns (e.g.
                 # unique_combination_of_columns): one assertion covering all of
                 # them, so populate `fields`, not the singular `field`.
-                field_urns = [self._field_urn(dataset_urn, c, effective) for c in cols]
+                field_urns = [
+                    self._field_urn(dataset_urn, schema_names.get(c, c), effective)
+                    for c in cols
+                ]
 
             yield from self._emit_custom_audit(
                 audit_name,

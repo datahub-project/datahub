@@ -471,7 +471,11 @@ class SqlmeshSource(
         for fqn, model in sample:
             model_effective = self._effective_for_model(model)
             sqlmesh_urn = self._make_sqlmesh_urn(fqn, model_effective)
-            warehouse_urn = self._make_warehouse_urn(fqn, model_effective)
+            warehouse_urn = self._make_warehouse_urn(
+                fqn,
+                model_effective,
+                managed=self._get_kind_name(model) != MODEL_KIND_EXTERNAL,
+            )
             # Always show the gateway label so multi-gateway routing is
             # diagnosable. The default-gateway effective has gateway=None
             # because the top-level config field can be unset; fall back to
@@ -553,11 +557,13 @@ class SqlmeshSource(
             if key:
                 self._sqlmesh_urn_by_model_key[key] = sqlmesh_urn
 
+        is_external = kind_name == MODEL_KIND_EXTERNAL
         # EMBEDDED models have no warehouse object to link to.
         warehouse_urn = (
-            None if is_embedded else self._make_warehouse_urn(fqn, effective)
+            self._make_warehouse_urn(fqn, effective, managed=not is_external)
+            if not is_embedded and self._has_resolved_platform(effective)
+            else None
         )
-        is_external = kind_name == MODEL_KIND_EXTERNAL
 
         # Combine table- and column-level lineage into a single UpstreamLineage
         # aspect to avoid emitting two competing writes for the same aspect.

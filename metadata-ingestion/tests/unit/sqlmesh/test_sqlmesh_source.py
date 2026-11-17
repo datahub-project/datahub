@@ -11,6 +11,7 @@ from typing import Any, Iterable, List, Type, TypeVar
 from unittest.mock import MagicMock, patch
 
 import pytest
+from sqlglot import exp
 
 from datahub.emitter.mce_builder import make_schema_field_urn, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -37,6 +38,7 @@ from datahub.ingestion.source.sqlmesh.sqlmesh_config import (
     SqlmeshSourceConfig,
     _get_tobiko_token_file_cache,
     _read_tobiko_cloud_token_file,
+    map_sqlmesh_platform,
 )
 from datahub.ingestion.source.sqlmesh.sqlmesh_source import (
     SqlmeshSource,
@@ -612,6 +614,57 @@ class TestFreshnessAndVolumeSignals:
         assert info.customAssertion.field == make_schema_field_urn(
             "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)",
             "psn",
+        )
+
+    @pytest.mark.parametrize(
+        "dialect, extra_config, schema_column, audit_column",
+        [
+            # SQLMesh upper-cases unquoted Snowflake columns but keeps the audit
+            # argument as written; with lowercasing off the field stays PSN.
+            pytest.param(
+                "snowflake",
+                {"convert_column_urns_to_lowercase": False},
+                "PSN",
+                exp.column("psn"),
+                id="snowflake-unquoted",
+            ),
+            pytest.param(
+                "snowflake",
+                {"convert_column_urns_to_lowercase": False},
+                "Quoted_Col",
+                exp.column("Quoted_Col", quoted=True),
+                id="snowflake-quoted",
+            ),
+            # DuckDB lower-cases unquoted columns and nothing lowercases URNs.
+            pytest.param(
+                "duckdb",
+                {"target_platform": "duckdb"},
+                "psn",
+                exp.column("PSN"),
+                id="duckdb-unquoted",
+            ),
+        ],
+    )
+    def test_audit_field_matches_dialect_normalized_schema_column(
+        self, dialect, extra_config, schema_column, audit_column
+    ):
+        source = _make_source(extra_config)
+        model = _make_mock_model(
+            columns={schema_column: MagicMock(__str__=lambda s: "BIGINT")}
+        )
+        model.dialect = dialect
+        model.audits = [
+            ("not_null", {"columns": exp.Array(expressions=[audit_column])})
+        ]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        [info] = _aspects_of_type(workunits, AssertionInfoClass)
+        assert _schema_field_paths(workunits) == [schema_column]
+        assert info.customAssertion is not None
+        assert info.customAssertion.field == make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)",
+            schema_column,
         )
 
     def test_builtin_audit_carries_std_parameters(self):
@@ -1844,6 +1897,46 @@ class TestEnvironmentSuffix:
         assert "star__dev" in warehouse_urn
         assert "dim_developer" in warehouse_urn
 
+    def test_external_model_warehouse_urn_has_no_env_suffix(self):
+        """SQLMesh builds per-environment views only for models it manages, so in
+        dev an external model still reads raw.customers, not raw__dev.customers."""
+        external = _make_mock_model("raw.customers", kind_name="EXTERNAL")
+        managed = _make_mock_model("star.dim_developer", depends_on={"raw.customers"})
+        mock_ctx = _make_mock_context(
+            {"raw.customers": external, "star.dim_developer": managed}, {}
+        )
+        mock_ctx.config.environment_suffix_target = "schema"
+        mock_ctx.config.environment_catalog_mapping = {}
+        config = SqlmeshSourceConfig.model_validate(
+            {
+                "project_path": "/proj",
+                "environment": "dev",
+                "target_platform": "snowflake",
+            }
+        )
+        source = SqlmeshSource(config, PipelineContext(run_id="test"))
+
+        with patch(
+            "datahub.ingestion.source.sqlmesh.sqlmesh_source.SqlmeshContext",
+            return_value=mock_ctx,
+        ):
+            workunits = list(source._ingest_project())
+
+        warehouse_urns = {
+            urn
+            for aspect in _aspects_of_type(workunits, SiblingsClass)
+            for urn in aspect.siblings
+            if "snowflake" in urn
+        } | {
+            upstream.dataset
+            for aspect in _aspects_of_type(workunits, UpstreamLineageClass)
+            for upstream in aspect.upstreams
+            if "snowflake" in upstream.dataset
+        }
+        assert any("raw.customers" in u for u in warehouse_urns)
+        assert not any("raw__dev" in u for u in warehouse_urns)
+        assert any("star__dev.dim_developer" in u for u in warehouse_urns)
+
 
 class TestModelFiltering:
     def test_denied_model_emits_no_workunits_and_is_not_scanned(self):
@@ -2683,3 +2776,38 @@ class TestWarehouseLineageEdges:
         workunits = _run_project(source, {"star.dim_developer": model}, {})
 
         assert _warehouse_lineage_patches(workunits) == []
+
+
+class TestUnresolvedTargetPlatform:
+    def test_unknown_platform_emits_no_warehouse_links(self):
+        """With no target_platform and a connection type that maps to nothing, a
+        warehouse URN would name an urn:li:dataPlatform:unknown dataset that no
+        connector emits, so no siblings or lineage go to it."""
+        config = SqlmeshSourceConfig.model_validate({"project_path": "/proj"})
+        source = SqlmeshSource(config, PipelineContext(run_id="test"))
+        external = _make_mock_model("raw.customers", kind_name="EXTERNAL")
+        managed = _make_mock_model("star.dim_developer", depends_on={"raw.customers"})
+
+        workunits = _run_project(
+            source,
+            {"raw.customers": external, "star.dim_developer": managed},
+            {},
+            connection_type=None,  # type: ignore[arg-type]
+        )
+
+        assert _aspects_of_type(workunits, SiblingsClass) == []
+        assert not any(
+            "dataPlatform:unknown" in upstream.dataset
+            for aspect in _aspects_of_type(workunits, UpstreamLineageClass)
+            for upstream in aspect.upstreams
+        )
+        assert not any("dataPlatform:unknown" in wu.get_urn() for wu in workunits)
+        assert source.report.warnings
+
+
+@pytest.mark.parametrize(
+    "raw, platform",
+    [("azuresql", "mssql"), ("tsql", "mssql"), ("snowflake", "snowflake")],
+)
+def test_map_sqlmesh_platform(raw: str, platform: str) -> None:
+    assert map_sqlmesh_platform(raw) == platform
