@@ -2036,3 +2036,154 @@ class TestSchemaRecovery:
 
         assert self._fields(workunits, _chart_urn("chart")) == [self._self_ref()]
         self.get_schema.assert_called_once()
+
+
+class TestElementNameGuess:
+    """resolve_chart_refs_by_element_name: the last try for a column."""
+
+    def setup_method(self) -> None:
+        self.src = _make_source({"resolve_chart_refs_by_element_name": True})
+        self.src.reporter.chart_input_fields_recovered_from_schema = 0
+        self.src.reporter.chart_input_fields_resolved_by_element_name = 0
+        self.src.reporter.workbook_schema_incomplete = 0
+        self.src.dataset_upstream_urn_mapping = {}
+        self.src._get_element_input_details = MagicMock(  # type: ignore[method-assign]
+            return_value=({}, [])
+        )
+        self.src._build_workbook_warehouse_table_index = MagicMock(  # type: ignore[method-assign]
+            return_value=None
+        )
+        self.get_schema = MagicMock(return_value=None)
+        self.src.sigma_api.get_workbook_schema = self.get_schema  # type: ignore[method-assign]
+        # Not an upstream Sigma lists for the chart.
+        self.orders = _make_element("orders", "Orders", columns=["Revenue"])
+
+    @staticmethod
+    def _chart(chart_name: str = "Chart", column: str = "Total") -> Element:
+        return _make_element_with_formula(
+            "chart", chart_name, {column: "[Orders/Revenue]"}
+        )
+
+    def _total(self, chart: Element, *elements: Element) -> List[str]:
+        workbook = _make_workbook_with_elements([[chart], list(elements)])
+        workunits = list(self.src._gen_pages_workunit(workbook, paths=[]))
+        return TestSchemaRecovery._fields(workunits, _chart_urn(chart.elementId))
+
+    @staticmethod
+    def _self(column: str = "Total", element_id: str = "chart") -> List[str]:
+        return [f"urn:li:schemaField:({_chart_urn(element_id)},{column})"]
+
+    def _schema_with_total_reading(self, path: List[str]) -> Dict[str, object]:
+        return {
+            "sheets": {
+                "s-chart": {
+                    "columns": {
+                        "col-total": {"formula": {"type": "nameRef", "path": path}}
+                    }
+                },
+                "s-other": {"columns": {}},
+            },
+            "elements": {
+                "chart": {"viz": {"sheetId": "s-chart"}},
+                "orders": {"viz": {"sheetId": "s-orders"}},
+                "other": {"viz": {"sheetId": "s-other"}},
+            },
+        }
+
+    def test_the_sole_named_owner_of_the_column_is_the_upstream(self) -> None:
+        workbook = _make_workbook_with_elements([[self._chart()], [self.orders]])
+        workunits = list(self.src._gen_pages_workunit(workbook, paths=[]))
+
+        assert TestSchemaRecovery._fields(workunits, _chart_urn("chart")) == [
+            f"urn:li:schemaField:({_chart_urn('orders')},Revenue)"
+        ]
+        edges: List[str] = []
+        for wu in workunits:
+            info = wu.get_aspect_of_type(ChartInfoClass)
+            if wu.get_urn() == _chart_urn("chart") and info is not None:
+                edges.extend(edge.destinationUrn for edge in info.inputEdges or [])
+        assert edges == [_chart_urn("orders")]
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 1
+        assert self.src.reporter.chart_input_fields_resolved == 1
+
+    def test_off_by_default(self) -> None:
+        self.src.config.resolve_chart_refs_by_element_name = False
+        assert self._total(self._chart(), self.orders) == self._self()
+
+    def _other_with_amount(self) -> Element:
+        other = _make_element("other", "Other", columns=["Amount"])
+        other.column_id_by_name = {"Amount": "col-amount"}
+        return other
+
+    def test_schema_is_asked_first(self) -> None:
+        self.get_schema.return_value = self._schema_with_total_reading(
+            ["s-other", "col-amount"]
+        )
+        chart = self._chart()
+        chart.column_id_by_name = {"Total": "col-total"}
+
+        assert self._total(chart, self.orders, self._other_with_amount()) == [
+            f"urn:li:schemaField:({_chart_urn('other')},Amount)"
+        ]
+        assert self.src.reporter.workbook_schema_incomplete == 0
+        assert self.src.reporter.chart_input_fields_recovered_from_schema == 1
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_a_column_schema_covers_is_not_guessed(self) -> None:
+        # /schema answers, but with a sheet no element renders (a warehouse
+        # table or a Data Model), so there is no chart edge to emit.
+        self.get_schema.return_value = self._schema_with_total_reading(
+            ["s-warehouse", "col-x"]
+        )
+        chart = self._chart()
+        chart.column_id_by_name = {"Total": "col-total"}
+
+        assert self._total(chart, self.orders, self._other_with_amount()) == (
+            self._self()
+        )
+        assert self.src.reporter.workbook_schema_incomplete == 0
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_a_ref_naming_the_chart_itself_gives_nothing(self) -> None:
+        # Sigma names a warehouse-sourced element after its table.
+        chart = self._chart(chart_name="Orders", column="Revenue")
+        assert self._total(chart) == self._self("Revenue")
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_two_same_named_elements_do_not_read_each_other(self) -> None:
+        # Skipping only itself, each would find the other: a cycle.
+        a = _make_element_with_formula("a", "ORDERS", {"AMOUNT": "[ORDERS/AMOUNT]"})
+        b = _make_element_with_formula("b", "ORDERS", {"AMOUNT": "[ORDERS/AMOUNT]"})
+        workbook = _make_workbook_with_elements([[a], [b]])
+        workunits = list(self.src._gen_pages_workunit(workbook, paths=[]))
+
+        for element_id in ("a", "b"):
+            assert TestSchemaRecovery._fields(
+                workunits, _chart_urn(element_id)
+            ) == self._self("AMOUNT", element_id)
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_a_ref_naming_one_of_the_charts_own_sources_gives_nothing(
+        self,
+    ) -> None:
+        # The ref means the chart's warehouse table, not a page element that
+        # happens to share its name.
+        chart = self._chart()
+        chart.upstream_sources = {
+            "inode-t": WarehouseTableUpstream(url_id="t", name="ORDERS")
+        }
+        chart.upstream_sources_complete = True
+
+        assert self._total(chart, self.orders) == self._self()
+        assert self.src.reporter.chart_input_fields_resolved_by_element_name == 0
+
+    def test_two_owners_give_nothing(self) -> None:
+        twin = _make_element("orders-2", "orders", columns=["Revenue"])
+        assert self._total(self._chart(), self.orders, twin) == self._self()
+
+    @pytest.mark.parametrize("columns", [["Cost"], []], ids=["other-column", "unknown"])
+    def test_an_owner_without_the_column_gives_nothing(
+        self, columns: List[str]
+    ) -> None:
+        self.orders.columns = columns
+        assert self._total(self._chart(), self.orders) == self._self()
