@@ -1,7 +1,5 @@
 package com.linkedin.metadata.event;
 
-import static com.linkedin.metadata.Constants.POLICY_ENTITY_NAME;
-
 import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
@@ -29,10 +27,6 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public abstract class EventProducer {
 
-  // When set, each change log for a dataHubPolicy is also sent to this topic, so every GMS can read
-  // the changed policy into its cache (POLICY_CACHE_BROADCAST_ENABLED). Null: not sent.
-  @Nullable private volatile String policyChangeTopicName;
-
   /** Flush the producer * */
   @OperationContextExempt(reason = "Flush is a transport-level no-op with no per-event context.")
   public abstract void flush();
@@ -56,35 +50,8 @@ public abstract class EventProducer {
             metadataChangeLog.getSystemMetadata(),
             getMetadataChangeLogTopicName(aspectSpec)),
         SetMode.IGNORE_NULL);
-    final Future<?> result = produceMCL(opContext, urn, aspectSpec, metadataChangeLog);
-    final String policyTopic = policyChangeTopicName;
-    if (policyTopic != null && POLICY_ENTITY_NAME.equals(urn.getEntityType())) {
-      try {
-        producePolicyChange(opContext, urn, metadataChangeLog, policyTopic);
-      } catch (RuntimeException e) {
-        // The write and its change log already succeeded; other caches catch up on their timer.
-        log.warn("Failed to send the policy change for {} to {}.", urn, policyTopic, e);
-      }
-    }
-    return result;
+    return produceMCL(opContext, urn, aspectSpec, metadataChangeLog);
   }
-
-  @OperationContextExempt(
-      reason = "Startup wiring of a topic name; no per-event context exists at configuration time.")
-  public void setPolicyChangeTopicName(@Nullable String topicName) {
-    this.policyChangeTopicName = topicName;
-  }
-
-  /**
-   * Sends a policy change log to the policy change topic. Only called after {@link
-   * #setPolicyChangeTopicName} set a topic, which only the Kafka producer factory does, so the
-   * default does nothing.
-   */
-  protected void producePolicyChange(
-      @Nonnull OperationContext opContext,
-      @Nonnull Urn urn,
-      @Nonnull MetadataChangeLog metadataChangeLog,
-      @Nonnull String topicName) {}
 
   /**
    * Implementation hook for {@link #produceMetadataChangeLog}. Carries the per-event {@link

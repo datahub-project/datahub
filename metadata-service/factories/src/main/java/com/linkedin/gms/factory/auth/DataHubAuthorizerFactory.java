@@ -4,7 +4,6 @@ import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.SearchPolicyLoader;
 import com.linkedin.entity.client.SystemEntityClient;
-import com.linkedin.metadata.config.messaging.MessagingTransport;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import javax.annotation.Nonnull;
@@ -43,9 +42,6 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
   private Boolean changeBroadcastEnabled;
 
-  @Value("${" + MessagingTransport.PROPERTY + ":" + MessagingTransport.KAFKA + "}")
-  private String messagingTransport;
-
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
@@ -66,12 +62,6 @@ public class DataHubAuthorizerFactory {
       log.info(
           "POLICY_CACHE_BROADCAST_ENABLED=true turns on immediate policy cache updates"
               + " (POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED).");
-    }
-    if (broadcast && !MessagingTransport.KAFKA.equalsIgnoreCase(messagingTransport)) {
-      log.warn(
-          "POLICY_CACHE_BROADCAST_ENABLED=true is not supported with messaging transport {} yet;"
-              + " other processes refresh policies on their timer.",
-          messagingTransport);
     }
 
     final DataHubAuthorizer authorizer =

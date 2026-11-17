@@ -113,11 +113,11 @@ authorization:
       # After a synchronous policy write or delete, wait up to this long for GMS to read the changed
       # policy before the write returns.
       policyChangeWaitMillis: ${POLICY_CACHE_POLICY_CHANGE_WAIT_MILLIS:5000}
-    # Send each committed policy change over kafka.topics.policyChange, so every GMS reads the
-    # changed policy by key. Opt-in; also turns on immediateUpdate. The process that commits the
-    # write sends it: for an async write, that is the MCE consumer. With CDC mode
-    # (cdcModeChangeLog), the CDC consumer sends the change logs, so the broadcast arrives after
-    # the CDC lag. A synchronous write still updates the writing GMS before it returns.
+    # Tell every GMS about each committed policy change through the Hazelcast cluster that GMS
+    # members already form (the same one as access-token revocation), so each GMS reads the
+    # changed policy by key. Opt-in; also turns on immediateUpdate. GMS members must form one
+    # cluster (Kubernetes discovery, SEARCH_SERVICE_HAZELCAST_SERVICE_NAME). Writes committed by a
+    # standalone MCE consumer are not sent; other GMS members read them on the refresh timer.
     changeBroadcast:
       enabled: ${POLICY_CACHE_BROADCAST_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.
@@ -1563,19 +1563,6 @@ kafka:
       pollEnabled: true
       configProperties:
         retention.ms: 7776000000
-
-    policyChange:
-      name: ${POLICY_CHANGE_TOPIC_NAME:PolicyChange_v1}
-      displayName: PolicyChange_v1
-      # Created and used only with POLICY_CACHE_BROADCAST_ENABLED=true. Follows the authorizer
-      # property, so setting either the env var or that property gives the same result.
-      enabled: ${authorization.defaultAuthorizer.changeBroadcast.enabled:false}
-      # One partition keeps all policy changes in one order; the volume is tiny.
-      partitions: 1
-      replicationFactor: ${POLICY_CHANGE_TOPIC_REPLICATION_FACTOR:${REPLICATION_FACTOR:1}}
-      configProperties:
-        # 1 day. The policy change listener only reads from the end, so a short retention is safe.
-        retention.ms: 86400000
 
     platformEvent:
       name: ${PLATFORM_EVENT_TOPIC_NAME:PlatformEvent_v1}
