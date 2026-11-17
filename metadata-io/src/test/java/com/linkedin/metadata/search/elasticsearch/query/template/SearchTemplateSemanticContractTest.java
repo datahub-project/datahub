@@ -16,6 +16,8 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.search.template.SearchTemplateProfiles;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
@@ -27,6 +29,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.concurrent.ForkJoinPool;
 import java.util.function.Consumer;
 import org.testng.annotations.Test;
@@ -395,6 +398,48 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     store("urn:li:searchTemplate:sameNames", same);
     SearchTemplateChecks.checkMerged(
         loader.load(opContext, "urn:li:searchTemplate:sameNames"), 1024);
+  }
+
+  @Test
+  public void testEveryLadderRungResolvesItsProfiles() {
+    EmbeddingProfile datasetL2 =
+        new EmbeddingProfile(
+            "dataset_l2",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "l2",
+            Set.of("dataset"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateGates vectorBuild =
+        new SearchTemplateGates(
+            new EmbeddingProfileRegistry(List.of(datasetL2), Map.of("dataset", datasetL2.id())),
+            Set.of(SearchTemplateGates.VECTOR_RETRIEVAL),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("dataset")));
+    SearchTemplateProperties root = body("Keyword", "{ \"match_all\": {} }", null);
+    root.setLadder(stopLadder(1, "urn:li:searchTemplate:floorChild"));
+    store("urn:li:searchTemplate:floorRoot", root);
+    store(
+        "urn:li:searchTemplate:floorChild",
+        rung(r -> r.setCombine("vector").setMinSimilarity(0.5f)));
+    useRuntime(
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            vectorBuild));
+    ResolvedSearchTemplate resolved =
+        new ResolvedSearchTemplate("urn:li:searchTemplate:floorRoot", 1L, null, null);
+    resolved.setExecutionCapabilities(
+        false, false, List.of("dataset"), EmbeddingProfileRegistry.OPENSEARCH);
+    opContext = opContext.withResolvedSearchTemplate(resolved);
+
+    // The keyword root finds nothing, so the walk tries the vector rung, whose L2 profile cannot
+    // take a cosine floor.
+    assertThrows(
+        SearchTemplateException.class,
+        () -> walk("urn:li:searchTemplate:floorRoot", "orders", null, 10, urn -> page(0)));
   }
 
   @Test

@@ -157,8 +157,9 @@ public final class SearchTemplateGates {
     if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(template)) {
       needs.add(NATIVE_MIXED_QUERY);
     }
-    if ((retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore()))
-        || replaceSize(template.getProfiles()) > 1) {
+    // How the resolved set combines several profiles. The resolved set itself is counted at bind,
+    // because a named profile outside an entity's types falls back to that entity's default.
+    if (retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore())) {
       needs.add(SEVERAL_PROFILES);
     }
     return needs;
@@ -168,12 +169,15 @@ public final class SearchTemplateGates {
    * Bounded reason the template fails closed in this build, from its shape alone, or null: a
    * required capability this build does not advertise, a keyword rung that selects profiles, or a
    * named profile that does not cover every scoped entity type.
+   *
+   * @param documentRerank this request can run document rerank (semantic read on and the request
+   *     includes Document)
    */
   @Nullable
-  public String rejectionCode(@Nonnull MergedSearchTemplate template) {
+  public String rejectionCode(@Nonnull MergedSearchTemplate template, boolean documentRerank) {
     Set<String> needs = required(template);
-    if (needs.contains(DOCUMENT_RERANK) && !advertises(DOCUMENT_RERANK)) {
-      // keywordRerank keeps keyword order when this build cannot rerank, and only the rerank uses
+    if (needs.contains(DOCUMENT_RERANK) && !reranks(documentRerank)) {
+      // keywordRerank keeps keyword order when this request cannot rerank, and only the rerank uses
       // the profile selection, so neither fails the search.
       needs.remove(DOCUMENT_RERANK);
       needs.remove(SEVERAL_PROFILES);
@@ -205,8 +209,9 @@ public final class SearchTemplateGates {
   public String bindingRejection(
       @Nonnull MergedSearchTemplate template,
       @Nullable Collection<String> entityTypes,
-      @Nullable String system) {
-    if (entityTypes == null || !runsVectorLeg(template)) {
+      @Nullable String system,
+      boolean documentRerank) {
+    if (entityTypes == null || !runsVectorLeg(template, documentRerank)) {
       return null;
     }
     SearchTemplateProfiles selection = selection(template);
@@ -276,7 +281,8 @@ public final class SearchTemplateGates {
 
   /**
    * The profile id a semantic shape names through the deprecated {@code knn} or {@code retrieval}
-   * {@code model} and {@code field}, or null. Rejects names that disagree.
+   * {@code model} and {@code field}, or null. Rejects names that disagree. Any explicit combine
+   * reads them.
    */
   @Nullable
   public static String legacyProfileId(@Nonnull MergedSearchTemplate template) {
@@ -288,12 +294,10 @@ public final class SearchTemplateGates {
     Set<String> names = new LinkedHashSet<>();
     addName(names, retrieval.getModel());
     addName(names, retrieval.getField());
-    if (SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine)) {
-      JsonNode knn = readKnn(template.getKnn());
-      if (knn != null) {
-        addName(names, knn.path("model").isTextual() ? knn.path("model").asText() : null);
-        addName(names, knn.path("field").isTextual() ? knn.path("field").asText() : null);
-      }
+    JsonNode knn = readKnn(template.getKnn());
+    if (knn != null) {
+      addName(names, knn.path("model").isTextual() ? knn.path("model").asText() : null);
+      addName(names, knn.path("field").isTextual() ? knn.path("field").asText() : null);
     }
     if (names.size() > 1) {
       throw new SearchTemplateException(
@@ -302,16 +306,27 @@ public final class SearchTemplateGates {
     return names.isEmpty() ? null : names.iterator().next();
   }
 
-  private boolean runsVectorLeg(@Nonnull MergedSearchTemplate template) {
-    if (SearchTemplateCapabilities.combine(template.getRetrieval()) == null) {
+  // A combine or a native mixed query has a vector leg. It runs when this build advertises every
+  // capability the shape needs and, for keywordRerank, this request can rerank.
+  private boolean runsVectorLeg(@Nonnull MergedSearchTemplate template, boolean documentRerank) {
+    Set<String> needs = required(template);
+    if (SearchTemplateCapabilities.combine(template.getRetrieval()) == null
+        && !needs.contains(NATIVE_MIXED_QUERY)) {
       return false;
     }
-    for (String need : required(template)) {
+    if (needs.contains(DOCUMENT_RERANK) && !reranks(documentRerank)) {
+      return false;
+    }
+    for (String need : needs) {
       if (!advertises(need)) {
         return false;
       }
     }
     return true;
+  }
+
+  private boolean reranks(boolean documentRerank) {
+    return documentRerank && advertises(DOCUMENT_RERANK);
   }
 
   @Nullable
@@ -372,26 +387,24 @@ public final class SearchTemplateGates {
     return ids;
   }
 
-  private static int replaceSize(@Nullable SearchTemplateProfiles profiles) {
-    return profiles != null && profiles.hasReplace() && profiles.getReplace() != null
-        ? profiles.getReplace().size()
-        : 0;
-  }
-
   private static void addName(@Nonnull Set<String> names, @Nullable String name) {
     if (StringUtils.isNotBlank(name)) {
       names.add(name);
     }
   }
 
-  // A knn section that still holds Mustache tags is not JSON before rendering; it names no id.
+  // Rendered with the write-time sample context, as the write check renders it, so Mustache tags
+  // elsewhere in the section do not hide the names. A section that does not render to an object
+  // names no id; write rejects it.
   @Nullable
   private static JsonNode readKnn(@Nullable String knn) {
     if (knn == null || knn.isBlank()) {
       return null;
     }
     try {
-      JsonNode node = JSON.readTree(knn);
+      String rendered =
+          SearchTemplateMustache.render(knn, SearchTemplateMustache.validationContext(knn));
+      JsonNode node = rendered == null ? null : JSON.readTree(rendered);
       return node != null && node.isObject() ? node : null;
     } catch (Exception e) {
       return null;

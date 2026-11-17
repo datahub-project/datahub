@@ -240,14 +240,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         selector.select(opContext, query, fulltext, engineType(opContext));
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
-    resolved.setExecutionCapabilities(scroll, documentRerank);
+    resolved.setExecutionCapabilities(
+        scroll,
+        documentRerank,
+        entityNames,
+        EmbeddingProfileRegistry.system(engineType(opContext)));
     try {
       noteIdentity(opContext, resolved, scroll, documentRerank);
       SearchTemplateCapabilities.requireResolvable(
           loader.load(opContext, resolved.getUrn()),
           gates,
-          entityNames,
-          EmbeddingProfileRegistry.system(engineType(opContext)));
+          resolved.getEntityTypes(),
+          resolved.getSearchSystem(),
+          documentRerank);
     } catch (RuntimeException e) {
       SearchTemplateMetrics.renderFailure(opContext, "select");
       throw e;

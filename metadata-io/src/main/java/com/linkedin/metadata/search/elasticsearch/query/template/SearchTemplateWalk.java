@@ -456,12 +456,22 @@ public final class SearchTemplateWalk {
     SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     SearchTemplateComponentRegistry registry =
         coordinator == null ? SearchTemplateComponentRegistry.empty() : coordinator.components();
+    SearchTemplateGates gates =
+        coordinator == null ? SearchTemplateGates.none() : coordinator.gates();
+    boolean documentRerank = resolved != null && resolved.isDocumentRerank();
     SearchTemplateCapabilities.requireSupported(
         template,
-        resolved != null && resolved.isDocumentRerank(),
+        documentRerank,
         resolved != null && resolved.isCapabilityScroll(),
         registry,
-        coordinator == null ? SearchTemplateGates.none() : coordinator.gates());
+        gates);
+    // Every attempted rung, not only the selected root, resolves its profiles for the request.
+    SearchTemplateCapabilities.requireResolvable(
+        template,
+        gates,
+        resolved == null ? null : resolved.getEntityTypes(),
+        resolved == null ? null : resolved.getSearchSystem(),
+        documentRerank);
   }
 
   @Nonnull

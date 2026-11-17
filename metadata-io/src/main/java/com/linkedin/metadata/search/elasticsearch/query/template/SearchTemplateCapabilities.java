@@ -211,8 +211,9 @@ public final class SearchTemplateCapabilities {
       @Nonnull MergedSearchTemplate template,
       @Nonnull SearchTemplateGates gates,
       @Nullable Collection<String> entityTypes,
-      @Nullable String system) {
-    String code = gates.bindingRejection(template, entityTypes, system);
+      @Nullable String system,
+      boolean documentRerank) {
+    String code = gates.bindingRejection(template, entityTypes, system, documentRerank);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
     }
@@ -270,7 +271,7 @@ public final class SearchTemplateCapabilities {
         && "merge".equalsIgnoreCase(template.getLadder().getJoin())) {
       return "mergeJoin";
     }
-    String gate = gates.rejectionCode(template);
+    String gate = gates.rejectionCode(template, documentRerank);
     if (gate != null) {
       return gate;
     }
