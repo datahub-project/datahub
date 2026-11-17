@@ -200,12 +200,11 @@ def _now_ms() -> int:
 def _emit_and_wait(graph_client, mcp: MetadataChangeProposalWrapper) -> None:
     """Emit an MCP and wait for primary + search indexing to catch up.
 
-    Timeline reads go through search/history storage, so drain MCL (mae_only)
-    after the default sync — cheaper than relying only on assertion retries.
+    Timeline reads go through search/history storage; the default sync already
+    drains MCL, so no separate mae_only wait is needed.
     """
     graph_client.emit_mcp(mcp)
     wait_for_writes_to_sync()
-    wait_for_writes_to_sync(mae_only=True)
 
 
 def _get_timeline(

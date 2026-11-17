@@ -310,3 +310,37 @@ describe('read-only editor', () => {
         expect(await screen.findByTestId('editor-impl')).toBeInTheDocument();
     });
 });
+
+describe('read-only task lists', () => {
+    it('keeps a completed task checked and every task read-only', () => {
+        render(<>{readOnlyHtmlToReact(toReadOnlyHtml('- [x] Ship it\n- [ ] Test it')).nodes}</>);
+
+        const [done, open] = screen.getAllByRole('checkbox') as HTMLInputElement[];
+        expect(done.checked).toBe(true);
+        expect(open.checked).toBe(false);
+        expect(done.disabled).toBe(true);
+    });
+
+    it('keeps an expanded details section open', () => {
+        const markup = '<details open=""><summary>More</summary><p>Body</p></details>';
+        const { container } = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
+
+        expect(container.querySelector('details')?.open).toBe(true);
+    });
+
+    it('updates a checkbox when the content changes without remounting', () => {
+        const { rerender } = render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [x] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+
+        rerender(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [ ] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
+    });
+});
