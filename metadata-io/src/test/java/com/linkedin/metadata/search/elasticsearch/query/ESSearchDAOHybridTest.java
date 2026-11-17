@@ -556,6 +556,21 @@ public class ESSearchDAOHybridTest {
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
+  @Test
+  public void testPinnedKeywordRerankRungReranksThroughSearch() throws IOException {
+    SearchResult result =
+        searchRung(fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"), null);
+
+    // The search fetched the 100-row window; the mocked rerank reverses it, and the page is sliced
+    assertEquals(rowIds(result), range(99, 89));
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    HybridRerankPlan plan = rerankPlans(1).get(0);
+    assertEquals(plan.eligibleEntityNames(), Set.of("document"));
+    assertNotNull(plan.merger());
+    assertEquals(plan.blendFloor(), 0.6d);
+  }
+
   private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final String KEEP_PLACES = "{ \"others\": \"keepKeywordPlaces\" }";
@@ -586,9 +601,14 @@ public class ESSearchDAOHybridTest {
     return served;
   }
 
-  /** A coordinator on a build that reranks Document rows with {@link #MODEL_KEY}. */
+  /**
+   * A coordinator on a build that reranks Document rows with {@link #MODEL_KEY}, with semantic read
+   * on.
+   */
   private static SearchTemplateCoordinator documentRerankCoordinator(
       SearchTemplateFixtures.Harness harness) {
+    ElasticSearchConfiguration elastic = harness.elastic();
+    elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
     SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
     semanticSearch.setEnabled(true);
     semanticSearch.setEnabledEntities(Set.of("document"));
@@ -602,7 +622,7 @@ public class ESSearchDAOHybridTest {
             Set.of("document"),
             Set.of(EmbeddingProfileRegistry.OPENSEARCH));
     return new SearchTemplateCoordinator(
-        harness.elastic(),
+        elastic,
         null,
         harness.loader,
         ForkJoinPool.commonPool(),
@@ -766,6 +786,38 @@ public class ESSearchDAOHybridTest {
     OperationContext pinned =
         searching.withSearchFlags(flags -> flags.setSearchTemplate(UrnUtils.getUrn(template)));
     return dao.search(pinned, ENTITY_NAMES, "revenue", null, sort, 0, 10, List.of());
+  }
+
+  /**
+   * The first page of a search through the template executor with {@code template} pinned, on an
+   * OpenSearch build that reranks Document rows, with explain on.
+   */
+  private SearchResult searchRung(SearchTemplateProperties template, List<SortCriterion> sort)
+      throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    harness.store(RERANK_URN, template);
+    // Bind resolves the profiles' search system from the engine
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    SearchResponse keywordResponse = response(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(keywordResponse);
+    ESSearchDAO templated =
+        new ESSearchDAO(
+            false,
+            harness.elastic(),
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            false,
+            TEST_SEARCH_SERVICE_CONFIG,
+            new Sha256UrnEntityDocumentIdHasher(),
+            reranker);
+    templated.setHybridExecutor(hybridExecutor);
+    OperationContext searching =
+        TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+            .withSearchTemplateRuntime(documentRerankCoordinator(harness))
+            .withSearchFlags(flags -> flags.setFulltext(true).setIncludeExplain(true));
+    return search(templated, searching, RERANK_URN, sort);
   }
 
   private static SearchTemplateProperties fulltext(String knn) {
