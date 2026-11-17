@@ -32,6 +32,7 @@ from tests.e2e.privileges.utils import (
     set_view_dataset_sensitive_info_policy_status,
     set_view_entity_profile_privileges_policy_status,
     wait_until_graphql_auth_denied,
+    wait_until_graphql_authorized,
 )
 from tests.e2e.utils import (
     get_frontend_session,
@@ -464,7 +465,10 @@ def test_set_logical_parent_allowed_with_edit_entity_on_target_and_parent(auth_s
             }
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new setLogicalParent grant",
+    )
     assert res.get("data", {}).get("setLogicalParent") is True, res
 
     remove_policy(target_policy_urn, admin_session)
@@ -552,7 +556,10 @@ def test_set_logical_parent_schema_field_allowed_via_dataset_policies_only(
             }
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new setLogicalParent grant",
+    )
     assert res.get("data", {}).get("setLogicalParent") is True, res
 
     remove_policy(physical_policy_urn, admin_session)
@@ -591,7 +598,10 @@ def test_set_logical_parent_schema_field_allowed_with_mixed_dataset_and_field_gr
             }
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new setLogicalParent grant",
+    )
     assert res.get("data", {}).get("setLogicalParent") is True, res
 
     remove_policy(physical_policy_urn, admin_session)
@@ -646,7 +656,10 @@ def test_batch_set_data_product_allowed_with_manage_data_products_on_domain(
             "resourceUrns": [MEMBER_DATASET_URN],
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new batchSetDataProduct grant",
+    )
     assert res.get("data", {}).get("batchSetDataProduct") is True, res
 
     remove_policy(policy_urn, admin_session)
@@ -674,7 +687,10 @@ def test_batch_set_data_product_allowed_cross_domain_with_manage_on_product_doma
             "resourceUrns": [CROSS_DOMAIN_MEMBER_DATASET_URN],
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new batchSetDataProduct grant",
+    )
     assert res.get("data", {}).get("batchSetDataProduct") is True, res
 
     remove_policy(policy_urn, admin_session)
@@ -702,7 +718,10 @@ def test_batch_add_to_data_products_allowed_with_asset_side_privilege_only(
             "resourceUrns": [ASSET_SIDE_ADD_DATASET_URN],
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new batchAddToDataProducts grant",
+    )
     assert res.get("data", {}).get("batchAddToDataProducts") is True, res
 
     remove_policy(policy_urn, admin_session)
@@ -740,7 +759,10 @@ def test_batch_unset_data_product_allowed_with_asset_side_privilege_only(
         "query": BATCH_UNSET_DATA_PRODUCT_MUTATION,
         "variables": {"resourceUrns": [ASSET_SIDE_REMOVE_DATASET_URN]},
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new batchSetDataProduct grant",
+    )
     assert res.get("data", {}).get("batchSetDataProduct") is True, res
 
     remove_policy(asset_policy_urn, admin_session)
@@ -770,7 +792,10 @@ def test_batch_remove_from_data_products_allowed_with_asset_side_privilege_only(
             "resourceUrns": [ASSET_SIDE_REMOVE_DATASET_URN],
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new batchRemoveFromDataProducts grant",
+    )
     assert res.get("data", {}).get("batchRemoveFromDataProducts") is True, res
 
     remove_policy(asset_policy_urn, admin_session)
@@ -846,7 +871,10 @@ def test_update_data_product_name_allowed_with_manage_data_products_on_domain(
             }
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new updateName grant",
+    )
     assert res.get("data", {}).get("updateName") is True, res
 
     remove_policy(policy_urn, admin_session)
@@ -876,7 +904,10 @@ def test_update_data_product_name_allowed_with_edit_entity_on_data_product(
             }
         },
     }
-    res = _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload)
+    res = wait_until_graphql_authorized(
+        lambda: _post_graphql_as_user(TEST_USER_EMAIL, TEST_USER_PASSWORD, payload),
+        description="new updateName grant",
+    )
     assert res.get("data", {}).get("updateName") is True, res
 
     remove_policy(policy_urn, admin_session)

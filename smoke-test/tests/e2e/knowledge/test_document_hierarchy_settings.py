@@ -1,5 +1,4 @@
 import logging
-import time
 
 import pytest
 
@@ -9,6 +8,7 @@ from tests.e2e.knowledge.document_helpers import (
     execute_graphql,
     fetch_related_documents,
     unique_id,
+    wait_for_search_documents,
 )
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
@@ -314,9 +314,6 @@ class TestDocumentHierarchyAndSettings:
         )
         unpublished_urn = unpublished_res["data"]["createDocument"]
 
-        # Wait for search indexing
-        time.sleep(5)
-
         # Search without state filter - should return BOTH documents
         # (PUBLISHED because it's public, UNPUBLISHED because we own it)
         search_query = """
@@ -340,6 +337,9 @@ class TestDocumentHierarchyAndSettings:
                 "query": "smoke-search",  # Search for our test documents
             }
         }
+        wait_for_search_documents(
+            auth_session, search_vars["input"], [published_urn, unpublished_urn]
+        )
         search_res = execute_graphql(auth_session, search_query, search_vars)
 
         # Search can fail if index is not ready
@@ -394,7 +394,6 @@ class TestDocumentHierarchyAndSettings:
         assert publish_res["data"]["updateDocumentStatus"] is True
 
         wait_for_writes_to_sync(mae_only=True)
-        time.sleep(3)
 
         # Search again - both should still be visible (both PUBLISHED now)
         search_res2 = execute_graphql(auth_session, search_query, search_vars)
