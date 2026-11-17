@@ -257,6 +257,10 @@ def test_space_listing_honours_max_pages_per_space() -> None:
     assert client.get_all_pages_from_space.call_args_list[0].kwargs["limit"] == 2
     # Pages were left out, so this is a failure and stale removal is skipped.
     assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+    # The space is incomplete, so it counts as failed rather than processed.
+    assert source.report.failed_spaces == ["TEAM"]
+    assert source.report.spaces_failed == 1
+    assert source.report.spaces_processed == 0
 
 
 def test_space_one_page_past_max_pages_per_space_is_reported_as_cut_short() -> None:
@@ -269,6 +273,8 @@ def test_space_one_page_past_max_pages_per_space_is_reported_as_cut_short() -> N
 
     assert len(list(source.crawler._pages_in_space("TEAM"))) == 2
     assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+    assert source.report.failed_spaces == ["TEAM"]
+    assert source.report.spaces_processed == 0
 
 
 def test_space_with_exactly_max_pages_per_space_is_not_reported_as_cut_short() -> None:
@@ -281,6 +287,8 @@ def test_space_with_exactly_max_pages_per_space_is_not_reported_as_cut_short() -
     assert len(list(source.crawler._pages_in_space("TEAM"))) == 2
     assert not source.report.failures
     assert not source.report.warnings
+    assert source.report.failed_spaces == []
+    assert source.report.spaces_processed == 1
 
 
 def test_space_listing_accepts_a_bare_list_response() -> None:

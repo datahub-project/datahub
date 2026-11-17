@@ -363,6 +363,207 @@ public class LifecycleVersionSideEffectTest {
     assertVersionSetLatest(results.get(2), ENTITY_V2_URN);
   }
 
+  @Test
+  public void testReturnsFromHidden_missingFromSearch_stillPromoted() {
+    // V2 was created moments ago and is not in the search index yet; search returns only V1.
+    // V2 has the higher stored sortId, so publishing it must still demote V1 and promote V2.
+    VersionProperties v2Hidden =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("bbb")
+            .setIsLatest(false);
+    VersionProperties v1AsLatest =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setSortId("aaa")
+            .setIsLatest(true);
+
+    MockAspectRetriever aspectRetriever =
+        buildAspectRetriever(
+            Map.entry(ENTITY_V2_URN, v2Hidden), Map.entry(ENTITY_V1_URN, v1AsLatest));
+
+    SearchRetriever searchRetriever = stubSiblings(List.of(ENTITY_V1_URN));
+    RetrieverContext ctx = buildContext(aspectRetriever, searchRetriever);
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_V2_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(STATUS_ASPECT_NAME))
+            .recordTemplate(new Status())
+            .previousSystemAspect(
+                buildPreviousAspect(
+                    ENTITY_V2_URN, entitySpec, new Status().setLifecycleStage(HIDDEN_STAGE_URN)))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(aspectRetriever);
+
+    List<ChangeMCP> results = runSideEffect(changeItem, ctx);
+
+    assertEquals(results.size(), 3, "Expected demote V1 + promote V2 + set-latest update");
+    assertEquals(results.get(0).getUrn(), ENTITY_V1_URN);
+    assertFalse(results.get(0).getAspect(VersionProperties.class).isIsLatest());
+    assertEquals(results.get(1).getUrn(), ENTITY_V2_URN);
+    assertTrue(results.get(1).getAspect(VersionProperties.class).isIsLatest());
+    assertVersionSetLatest(results.get(2), ENTITY_V2_URN);
+  }
+
+  @Test
+  public void testReturnsFromHidden_softDeleted_noOp() {
+    // A soft-deleted V2 leaves its hidden stage; it must not take over as latest.
+    VersionProperties v2Hidden =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("bbb")
+            .setIsLatest(false);
+    VersionProperties v1AsLatest =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setSortId("aaa")
+            .setIsLatest(true);
+
+    MockAspectRetriever aspectRetriever =
+        buildAspectRetriever(
+            Map.entry(ENTITY_V2_URN, v2Hidden), Map.entry(ENTITY_V1_URN, v1AsLatest));
+    RetrieverContext ctx = buildContext(aspectRetriever, stubSiblings(List.of(ENTITY_V1_URN)));
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_V2_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(STATUS_ASPECT_NAME))
+            .recordTemplate(new Status().setRemoved(true))
+            .previousSystemAspect(
+                buildPreviousAspect(
+                    ENTITY_V2_URN,
+                    entitySpec,
+                    new Status().setRemoved(true).setLifecycleStage(HIDDEN_STAGE_URN)))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(aspectRetriever);
+
+    assertEquals(runSideEffect(changeItem, ctx).size(), 0);
+  }
+
+  @Test
+  public void testReturnsFromHidden_noVersionsInSearch_demotesStoredLatest() {
+    // Neither version is indexed yet, so search returns nothing. The set's stored latest (V1)
+    // must still be demoted when V2 is published, or both versions end up latest.
+    VersionProperties v2Hidden =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("bbb")
+            .setIsLatest(false);
+    VersionProperties v1AsLatest =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setSortId("aaa")
+            .setIsLatest(true);
+    VersionSetProperties setWithV1Latest =
+        new VersionSetProperties()
+            .setLatest(ENTITY_V1_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    MockAspectRetriever aspectRetriever =
+        buildAspectRetriever(
+            Map.entry(ENTITY_V2_URN, v2Hidden),
+            Map.entry(ENTITY_V1_URN, v1AsLatest),
+            Map.entry(VERSION_SET_URN, setWithV1Latest));
+    RetrieverContext ctx = buildContext(aspectRetriever, stubSiblings(List.of()));
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_V2_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(STATUS_ASPECT_NAME))
+            .recordTemplate(new Status())
+            .previousSystemAspect(
+                buildPreviousAspect(
+                    ENTITY_V2_URN, entitySpec, new Status().setLifecycleStage(HIDDEN_STAGE_URN)))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(aspectRetriever);
+
+    List<ChangeMCP> results = runSideEffect(changeItem, ctx);
+
+    assertEquals(results.size(), 3, "Expected demote V1 + promote V2 + set-latest update");
+    assertEquals(results.get(0).getUrn(), ENTITY_V1_URN);
+    assertFalse(results.get(0).getAspect(VersionProperties.class).isIsLatest());
+    assertEquals(results.get(1).getUrn(), ENTITY_V2_URN);
+    assertTrue(results.get(1).getAspect(VersionProperties.class).isIsLatest());
+    assertVersionSetLatest(results.get(2), ENTITY_V2_URN);
+  }
+
+  @Test
+  public void testReturnsFromHidden_storedLatestSoftDeleted_promotesReturningVersion() {
+    // V2 (higher sortId) is the stored latest but soft-deleted, so search omits it. Publishing
+    // V1 must promote V1 and demote V2, not treat the deleted V2 as the best visible version.
+    VersionProperties v2DeletedLatest =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v2"))
+            .setSortId("bbb")
+            .setIsLatest(true);
+    VersionProperties v1Hidden =
+        new VersionProperties()
+            .setVersionSet(VERSION_SET_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING)
+            .setVersion(new VersionTag().setVersionTag("v1"))
+            .setSortId("aaa")
+            .setIsLatest(false);
+    VersionSetProperties setWithV2Latest =
+        new VersionSetProperties()
+            .setLatest(ENTITY_V2_URN)
+            .setVersioningScheme(VersioningScheme.LEXICOGRAPHIC_STRING);
+
+    MockAspectRetriever aspectRetriever =
+        buildAspectRetriever(
+            Map.entry(ENTITY_V2_URN, v2DeletedLatest),
+            Map.entry(ENTITY_V2_URN, new Status().setRemoved(true)),
+            Map.entry(ENTITY_V1_URN, v1Hidden),
+            Map.entry(VERSION_SET_URN, setWithV2Latest));
+    RetrieverContext ctx = buildContext(aspectRetriever, stubSiblings(List.of(ENTITY_V1_URN)));
+
+    EntitySpec entitySpec = TEST_REGISTRY.getEntitySpec(DATASET_ENTITY_NAME);
+    ChangeItemImpl changeItem =
+        ChangeItemImpl.builder()
+            .urn(ENTITY_V1_URN)
+            .aspectName(STATUS_ASPECT_NAME)
+            .entitySpec(entitySpec)
+            .aspectSpec(entitySpec.getAspectSpec(STATUS_ASPECT_NAME))
+            .recordTemplate(new Status())
+            .previousSystemAspect(
+                buildPreviousAspect(
+                    ENTITY_V1_URN, entitySpec, new Status().setLifecycleStage(HIDDEN_STAGE_URN)))
+            .auditStamp(AuditStampUtils.createDefaultAuditStamp())
+            .build(aspectRetriever);
+
+    List<ChangeMCP> results = runSideEffect(changeItem, ctx);
+
+    assertEquals(results.size(), 3, "Expected demote V2 + promote V1 + set-latest update");
+    assertEquals(results.get(0).getUrn(), ENTITY_V2_URN);
+    assertFalse(results.get(0).getAspect(VersionProperties.class).isIsLatest());
+    assertEquals(results.get(1).getUrn(), ENTITY_V1_URN);
+    assertTrue(results.get(1).getAspect(VersionProperties.class).isIsLatest());
+    assertVersionSetLatest(results.get(2), ENTITY_V1_URN);
+  }
+
   private static void assertVersionSetLatest(MCPItem item, Urn expectedLatest) {
     assertEquals(item.getUrn(), VERSION_SET_URN);
     assertEquals(item.getAspectName(), VERSION_SET_PROPERTIES_ASPECT_NAME);
