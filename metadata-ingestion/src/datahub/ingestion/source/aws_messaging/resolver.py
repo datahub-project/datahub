@@ -40,6 +40,10 @@ class ResourceResolver:
         """The dataset URN for an ARN of this service that may be referenced, else None."""
         if arn is None or arn.service != self.service or not self.exists(arn):
             return None
+        return self.urn_of(arn)
+
+    def urn_of(self, arn: Arn) -> str:
+        """The dataset URN for an ARN of this service, known to exist or not."""
         if self.service == AwsService.SQS:
             return self.urns.queue_urn(arn)
         return self.urns.topic_urn(arn)

@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import logging
 from typing import Any, Dict, Literal, Optional
 
 from pydantic import Field, field_validator, model_validator
@@ -21,8 +20,6 @@ from datahub.pgqueue.sql import validate_pg_identifier
 from datahub.utilities.str_enum import StrEnum
 
 PayloadRouteKind = Literal["mcp", "mce", "mcl", "pe"]
-
-logger = logging.getLogger(__name__)
 
 
 def _default_payload_kinds() -> Dict[str, PayloadRouteKind]:
@@ -256,10 +253,6 @@ class PgQueueEmitterConfig(ConfigModel):
     @classmethod
     def validate_topic_routes(cls, v: Dict[str, str]) -> Dict[str, str]:
         assert MCP_KEY in v, f"topic_routes must contain a route for {MCP_KEY}"
-        if MCE_KEY not in v:
-            logger.warning(
-                "%s not configured in topic_routes; MCE emissions will fail.", MCE_KEY
-            )
         return v
 
 

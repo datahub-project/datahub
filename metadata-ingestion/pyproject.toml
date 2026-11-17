@@ -95,11 +95,13 @@ abs = [
     "azure-storage-file-datalake>=12.14.0,<13.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[azure]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
 ]
@@ -257,8 +259,10 @@ confluence = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest[confluence]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
+
+csv-enricher = []
 
 cube = [
     "requests<3.0.0",
@@ -275,6 +279,7 @@ databricks = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "tzdata>=2022.7,<2030",
 ]
 
 datahub = [
@@ -302,7 +307,7 @@ datahub-documents = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 datahub-gc = []
@@ -435,6 +440,8 @@ dynamodb = [
 ]
 
 elasticsearch = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
 ]
@@ -503,6 +510,7 @@ fivetran = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "tenacity>=8.0.1,<9.0.0",
+    "tzdata>=2022.7,<2030",
     "wcmatch>=10.1,<11.0.0",
 ]
 
@@ -521,11 +529,13 @@ gcs = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
 ]
@@ -535,11 +545,13 @@ gcs-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[gcs,s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
 ]
@@ -564,7 +576,7 @@ google-drive = [
     "markdownify>=0.14.1,<2.0.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 grafana = [
@@ -586,6 +598,12 @@ hana = [
 hex = [
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
+]
+
+hightouch = [
+    "requests<3.0.0",
+    "sqlglot[c]==30.22.0",
+    "sqlparse>=0.6.0,<1.0.0",
 ]
 
 hive = [
@@ -646,6 +664,7 @@ kafka = [
     "grpcio-tools>=1.44.0,<2.0.0",
     "grpcio>=1.84.0,<2.0.0",
     "networkx>=2.6.2,<4.0.0",
+    "sqlglot[c]==30.22.0",
 ]
 
 kafka-connect = [
@@ -718,6 +737,7 @@ metabase = [
 microstrategy = [
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
+    "sqlparse>=0.6.0,<1.0.0",
 ]
 
 mlflow = [
@@ -792,7 +812,7 @@ notion = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest[notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 odcs = [
@@ -894,8 +914,10 @@ pulsar = [
 ]
 
 qlik-sense = [
+    "parse>=1.19.0,<2.0.0",
     "requests<3.0.0",
     "sqlglot[c]==30.22.0",
+    "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
 ]
 
@@ -947,11 +969,13 @@ s3 = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
 ]
@@ -961,11 +985,13 @@ s3-slim = [
     "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "datasketches>=5.0.0,<6.0.0",
+    "fastavro>=1.2.0,<2.0.0",
     "more-itertools>=8.12.0,<11.0.0",
     "parse>=1.19.0,<2.0.0",
     "pyarrow>14.0.0,<24.0.0",
     "smart-open[s3]>=5.2.1,<8.0.0",
     "tableschema>=1.20.2,<2.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
 ]
@@ -1124,7 +1150,7 @@ superset = [
 ]
 
 sync-file-emitter = [
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
 ]
 
 tableau = [
@@ -1188,6 +1214,7 @@ unity-catalog = [
     "sqlalchemy>=2.0.0,<2.1",
     "sqlglot[c]==30.22.0",
     "sqlparse>=0.6.0,<1.0.0",
+    "tzdata>=2022.7,<2030",
 ]
 
 unstructured = [
@@ -1197,7 +1224,7 @@ unstructured = [
     "jsonpath-ng==1.7.0",
     "nltk!=3.10.1",
     "unstructured-ingest==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
 ]
 
 vertexai = [
@@ -1241,7 +1268,7 @@ all = [
     "dlt>=1.0.0,<2.0.0",
     "dnspython==2.7.0",
     "fastavro>=1.2.0,<2.0.0",
-    "filelock>=3.13.1,<4.0.0",
+    "filelock>=3.13.1,<5.0.0",
     "flatdict!=4.0.1",
     "GeoAlchemy2<0.19.0",
     "GitPython>=3.1.58,<4.0.0",
@@ -1331,6 +1358,7 @@ all = [
     "thoughtspot_rest_api>=2.0.0,<3.0.0",
     "thrift-sasl>=0.4.3,<1.0.0",
     "trino[sqlalchemy]>=0.308,<=0.336.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "wcmatch>=10.1,<11.0.0",
     "websocket-client<2.0.0",
@@ -1525,9 +1553,10 @@ dev = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
@@ -1723,9 +1752,10 @@ docs = [
     "types-ujson>=5.2.0,<6.0.0",
     "typing-inspect<0.10.0",
     "typing_extensions>=4.8.0,<5.0.0",
+    "tzdata>=2022.7,<2030",
     "ujson>=5.12.1,<6.0.0",
     "unstructured-ingest[confluence,notion]==1.4.28",
-    "unstructured[md]==0.24.1",
+    "unstructured[md]==0.27.37",
     "urllib3>=2.5.0,<3.0",
     "uvicorn<0.41.0",
     "wcmatch>=10.1,<11.0.0",
@@ -1955,6 +1985,7 @@ neo4j = "datahub.ingestion.source.neo4j.neo4j_source:Neo4jSource"
 odcs = "datahub.ingestion.source.odcs.odcs_source:ODCSSource"
 vertexai = "datahub.ingestion.source.vertexai.vertexai:VertexAISource"
 hex = "datahub.ingestion.source.hex.hex:HexSource"
+hightouch = "datahub.ingestion.source.hightouch.hightouch:HightouchSource"
 timescaledb = "datahub.ingestion.source.sql.timescaledb:TimescaleDBSource"
 omni = "datahub.ingestion.source.omni.omni:OmniSource"
 pinecone = "datahub.ingestion.source.pinecone.pinecone_source:PineconeSource"
@@ -2061,9 +2092,9 @@ constraint-dependencies = [
     # CVE-2026-102946: fixed in joserfc 1.7.4. Transitive via authlib, whose own floor
     # (joserfc>=1.6.8) still admits vulnerable versions.
     "joserfc>=1.7.4,<2.0.0",
-    # CVE-2026-114603: fixed in opentelemetry-api 1.45.1. Transitive via
-    # google-cloud-logging / mlflow-skinny.
-    "opentelemetry-api>=1.45.1",
+    # opentelemetry-api: CVE-2026-114603 (fixed in 1.45.1), CVE-2026-126360 (fixed in
+    # 1.45.2). Transitive via google-cloud-logging / mlflow-skinny.
+    "opentelemetry-api>=1.45.2",
     # CVE-2026-45409: DoS via idna.encode() on crafted inputs (bypass of CVE-2024-3651 fix).
     # Not in setup.py: Airflow constraints pin idna to older versions (e.g. 3.4, 3.10).
     # Enforced for Docker via docker/snippets/ingestion/constraints.txt.
@@ -2097,9 +2128,12 @@ constraint-dependencies = [
     # enforced here at lock time only.
     "click>=8.3.3,<9.0.0",
     # soupsieve: CVE-2026-85999, CVE-2026-86000 (ReDoS); also CVE-2026-49476/49477
-    # (fixed 2.8.4). Transitive via beautifulsoup4; not in setup.py. Docker
-    # snippet: docker/snippets/ingestion/constraints.txt.
+    # (fixed 2.8.4). CVE-2026-126190, CVE-2026-126191, CVE-2026-126193 are fixed only
+    # in 4.0.0, which requires Python >=3.11.5, so older interpreters stay on 2.x.
+    # Transitive via beautifulsoup4; not in setup.py. Docker snippet:
+    # docker/snippets/ingestion/constraints.txt.
     "soupsieve>=2.9.0",
+    "soupsieve>=4.0.0 ; python_full_version >= '3.11.5'",
     # aiohttp: CVE-2026-111064 / GHSA-2g87-pp6c-29x5; fixed in 3.14.4. setup.py stays
     # Airflow-satisfiable (aiohttp<4, no floor); enforced here at lock time and in
     # docker/snippets/ingestion/constraints.txt.

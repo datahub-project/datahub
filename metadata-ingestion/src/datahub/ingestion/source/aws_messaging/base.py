@@ -1,25 +1,64 @@
-from typing import Any, Callable, FrozenSet, Iterable, Optional
+from typing import Any, Callable, Dict, FrozenSet, Iterable, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
+from requests.exceptions import RequestException
 
+from datahub.configuration.common import GraphError
 from datahub.emitter.mcp_builder import gen_containers
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.source import CapabilityReport, TestableSource
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws.aws_common import aws_error_code
 from datahub.ingestion.source.aws_messaging.arn import UrnBuilder, parse_arn
-from datahub.ingestion.source.aws_messaging.config import AwsMessagingConfigBase
+from datahub.ingestion.source.aws_messaging.clients import (
+    CloudTrailLakeClient,
+    EventBridgeClient,
+    LambdaClient,
+    PipesClient,
+    S3NotificationClient,
+)
+from datahub.ingestion.source.aws_messaging.cloudtrail import ProducerLineage
+from datahub.ingestion.source.aws_messaging.config import (
+    AwsMessagingConfigBase,
+    GlueSchemaRegistryConfigBase,
+)
 from datahub.ingestion.source.aws_messaging.constants import (
+    CONSOLE_PATHS,
+    EVENTBRIDGE_PIPES_PLATFORM,
+    EVENTBRIDGE_PLATFORM,
+    LAMBDA_PLATFORM,
+    OBSERVED_PRODUCERS_PROPERTY,
     AwsService,
+    JobEdgeKind,
     LineageRelationship,
 )
-from datahub.ingestion.source.aws_messaging.lineage import DatasetLineageCollector
-from datahub.ingestion.source.aws_messaging.mapper import AwsRegionKey
+from datahub.ingestion.source.aws_messaging.eventbridge import EventBridgeLineage
+from datahub.ingestion.source.aws_messaging.jobs import JobEdgeTracker
+from datahub.ingestion.source.aws_messaging.lambda_lineage import LambdaLineage
+from datahub.ingestion.source.aws_messaging.lineage import (
+    DatasetLineageCollector,
+    SchemaLookup,
+    identity_field_lineage,
+)
+from datahub.ingestion.source.aws_messaging.mapper import (
+    AwsRegionKey,
+    secondary,
+)
 from datahub.ingestion.source.aws_messaging.report import AwsMessagingReportBase
 from datahub.ingestion.source.aws_messaging.resolver import ResourceResolver
+from datahub.ingestion.source.aws_messaging.s3_notifications import (
+    S3NotificationLineage,
+)
+from datahub.ingestion.source.aws_messaging.schema_registry import (
+    MessagingSchemaRegistry,
+)
 from datahub.ingestion.source.common.subtypes import GenericContainerSubTypes
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
+)
+from datahub.metadata.schema_classes import (
+    DatasetPropertiesClass,
+    SchemaMetadataClass,
 )
 
 
@@ -68,6 +107,187 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
             graph=ctx.graph if config.remove_stale_lineage else None,
             relationships=self.owned_relationships(),
         )
+        self.schemas = SchemaLookup(ctx.graph, report)
+        self.jobs = JobEdgeTracker(
+            report=report,
+            graph=ctx.graph if config.remove_stale_lineage else None,
+            instance=config.platform_instance,
+            region=self.region,
+            platform=self.platform,
+        )
+        if not config.lineage.lambda_functions:
+            self.jobs.mark_unknown(
+                LAMBDA_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
+        if not config.lineage.eventbridge_rules:
+            self.jobs.mark_unknown(EVENTBRIDGE_PLATFORM, JobEdgeKind.PRODUCES)
+        if not config.lineage.eventbridge_pipes:
+            self.jobs.mark_unknown(
+                EVENTBRIDGE_PIPES_PLATFORM, JobEdgeKind.CONSUMES, JobEdgeKind.PRODUCES
+            )
+        self.lambdas: Optional[LambdaLineage] = (
+            LambdaLineage(
+                config=config,
+                report=report,
+                client=LambdaClient(
+                    config.make_client(self.session, AwsService.LAMBDA), report
+                ),
+                urns=self.urns,
+                resolver=self.resolver,
+                region_key=self.region_key(LAMBDA_PLATFORM),
+                jobs=self.jobs,
+            )
+            if config.lineage.lambda_functions
+            else None
+        )
+        self.eventbridge = EventBridgeLineage(
+            config=config,
+            report=report,
+            events=EventBridgeClient(
+                config.make_client(self.session, AwsService.EVENTS), report
+            ),
+            pipes=PipesClient(
+                config.make_client(self.session, AwsService.PIPES), report
+            ),
+            urns=self.urns,
+            resolver=self.resolver,
+            schemas=self.schemas,
+            lambdas=self.lambdas,
+            region_key=self.region_key(EVENTBRIDGE_PLATFORM),
+            pipes_region_key=self.region_key(EVENTBRIDGE_PIPES_PLATFORM),
+            jobs=self.jobs,
+        )
+        producers_config = config.cloudtrail_producers
+        self.producers: Optional[ProducerLineage] = (
+            ProducerLineage(
+                config=producers_config,
+                report=report,
+                client=CloudTrailLakeClient(
+                    config.make_client(
+                        self.session,
+                        AwsService.CLOUDTRAIL,
+                        # Lake queries run in the event data store's own region.
+                        region=self._event_data_store_region(),
+                    ),
+                    report,
+                ),
+                urns=self.urns,
+                resolver=self.resolver,
+                lambdas=self.lambdas,
+            )
+            if producers_config.enabled
+            else None
+        )
+
+    def collect_producers(self) -> None:
+        """CloudTrail producers. Runs before `service_lineage_workunits`, which
+        emits the Lambda jobs this adds outputs to."""
+        if self.producers is None:
+            return
+        if self.producers.query():
+            self.producers.add_lambda_edges()
+            return
+        # Lambda outputs seen through CloudTrail are unknown this run.
+        self.jobs.mark_unknown(LAMBDA_PLATFORM, JobEdgeKind.PRODUCES)
+        if self.ctx.graph is None:
+            self.base_report.warning(
+                title="Observed producers not kept",
+                message=(
+                    "The CloudTrail query failed and there is no DataHub connection to "
+                    "read the previous observed_producers, so they are cleared until "
+                    "the next successful run."
+                ),
+            )
+
+    def dataset_custom_properties(
+        self, urn: str, properties: Dict[str, str]
+    ) -> Dict[str, str]:
+        """Adds observed_producers to this run's datasetProperties.
+
+        The query runs before the first dataset is written, so the full write
+        already holds this run's value. When it failed, nothing is known about
+        who sends, so the value DataHub already holds is kept."""
+        if self.producers is None:
+            return properties
+        if self.producers.query():
+            observed = self.producers.observed_producers(urn)
+        elif self.ctx.graph is not None:
+            try:
+                existing = self.ctx.graph.get_aspect(urn, DatasetPropertiesClass)
+            except (GraphError, RequestException) as e:
+                self.base_report.warning(
+                    title="Previous observed producers not read",
+                    message=(
+                        "The CloudTrail query failed and the value already in "
+                        "DataHub couldn't be read, so observed_producers is not "
+                        "written for this dataset this run."
+                    ),
+                    context=urn,
+                    exc=e,
+                )
+                existing = None
+            observed = (
+                (existing.customProperties or {}).get(OBSERVED_PRODUCERS_PROPERTY)
+                if existing is not None
+                else None
+            )
+        else:
+            observed = None
+        if not observed:
+            return properties
+        return {**properties, OBSERVED_PRODUCERS_PROPERTY: observed}
+
+    def _event_data_store_region(self) -> Optional[str]:
+        store = parse_arn(self.base_config.cloudtrail_producers.event_data_store)
+        return store.region if store is not None and store.region else None
+
+    def collect_s3_notifications(self) -> None:
+        if not self.base_config.lineage.s3_notifications:
+            return
+        s3_lineage = S3NotificationLineage(
+            client=S3NotificationClient(
+                self.base_config.make_client(self.session, AwsService.S3),
+                self.base_report,
+            ),
+            resolver=self.resolver,
+            graph=self.ctx.graph,
+            env=self.base_config.env,
+            s3=self.base_config.platform_map.get("s3"),
+            report=self.base_report,
+            target_allowed=self.resource_allowed,
+        )
+        if s3_lineage.collect(self.lineage):
+            # An S3 edge's upstream isn't this source's, so it can only be
+            # checked from the queue or topic side.
+            self.lineage.downstream_relationships[
+                LineageRelationship.S3_NOTIFICATION.value
+            ] = s3_lineage.can_retract
+
+    def service_lineage_workunits(self) -> Iterable[MetadataWorkUnit]:
+        """Lambda functions, EventBridge rules and Pipes around this source's
+        resources. Runs after every queue or topic is known."""
+        if self.lambdas is not None:
+            self.lambdas.collect()
+        if self.base_config.lineage.eventbridge_rules:
+            # The bus container may also come from the other source, so it is
+            # not this source's to delete either.
+            yield from self.with_region_container(
+                secondary(self.eventbridge.rule_workunits()),
+                EVENTBRIDGE_PLATFORM,
+            )
+        if self.base_config.lineage.eventbridge_pipes:
+            yield from self.with_region_container(
+                secondary(self.eventbridge.pipe_workunits()),
+                EVENTBRIDGE_PIPES_PLATFORM,
+            )
+        # Lambda jobs go last: rules and pipes add themselves as upstream jobs.
+        if self.lambdas is not None:
+            yield from self.with_region_container(
+                secondary(self.lambdas.workunits()), LAMBDA_PLATFORM
+            )
+        # Only datasets read in full: a topic whose subscriptions couldn't all be
+        # listed may still have the Lambda subscriptions this run didn't see.
+        yield from self.jobs.stale_workunits(self.lineage.complete)
 
     def owned_relationships(self) -> FrozenSet[LineageRelationship]:
         """Lineage relationships this source writes and reads in full each run.
@@ -78,6 +298,60 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
     def create_clients(self) -> None:
         """Builds the AWS clients from self.session, once the region is known and
         before the account id is read through them."""
+        raise NotImplementedError
+
+    def add_identity_column_lineage(
+        self, upstream_urn: str, downstream_urn: str
+    ) -> None:
+        """Field lineage for a hop that delivers the message unchanged, for fields
+        in both schemas. Without a schema on both sides the edge stays table-level."""
+        upstream_schema = self.schemas.get(upstream_urn)
+        downstream_schema = self.schemas.get(downstream_urn)
+        if upstream_schema is None or downstream_schema is None:
+            self.base_report.column_lineage_skipped["schema missing on one side"] += 1
+            self.lineage.fine_grained_unknown(
+                upstream=upstream_urn, downstream=downstream_urn
+            )
+            return
+        lineages = identity_field_lineage(
+            upstream_urn=upstream_urn,
+            upstream_schema=upstream_schema,
+            downstream_urn=downstream_urn,
+            downstream_schema=downstream_schema,
+        )
+        if not lineages:
+            self.base_report.column_lineage_skipped["no fields in common"] += 1
+        self.lineage.add_fine_grained(
+            upstream=upstream_urn, downstream=downstream_urn, lineages=lineages
+        )
+
+    def schema_registry(
+        self, config: GlueSchemaRegistryConfigBase
+    ) -> Optional[MessagingSchemaRegistry]:
+        if not config.enabled:
+            return None
+        return MessagingSchemaRegistry(
+            config=config,
+            glue_client=self.base_config.make_client(self.session, AwsService.GLUE),
+            platform=self.platform,
+            report=self.base_report,
+        )
+
+    def glue_schema(
+        self, registry: Optional[MessagingSchemaRegistry], name: str, urn: str
+    ) -> Optional[SchemaMetadataClass]:
+        """A queue or topic's Glue schema, remembered for column lineage."""
+        if registry is None:
+            return None
+        schema = registry.get_schema_metadata(name)
+        if schema is not None:
+            self.schemas.fetched[urn] = schema
+        elif name in registry.failed:
+            self.schemas.unreadable.add(urn)
+        return schema
+
+    def resource_allowed(self, name: str) -> bool:
+        """Whether the queue or topic pattern lets a resource of this name in."""
         raise NotImplementedError
 
     def first_resource_arn(self) -> Optional[str]:
@@ -144,15 +418,24 @@ class AwsMessagingSourceBase(StatefulIngestionSourceBase, TestableSource):
         first = True
         for workunit in workunits:
             if first:
-                yield from gen_containers(
-                    container_key=self.region_key(platform),
+                key = self.region_key(platform)
+                container = gen_containers(
+                    container_key=key,
                     name=self.region,
                     sub_types=[GenericContainerSubTypes.AWS_REGION.value],
                     external_url=(
-                        f"https://{self.region}.console.aws.amazon.com/{platform}/v3/home"
-                        f"?region={self.region}"
+                        f"https://{self.region}.console.aws.amazon.com/"
+                        f"{CONSOLE_PATHS[platform]}?region={self.region}"
                     ),
                 )
+                if platform == self.platform:
+                    yield from container
+                else:
+                    # Both sources emit the lambda and eventbridge region
+                    # containers, so neither may soft-delete them when its own
+                    # run stops placing anything there. gen_containers already
+                    # writes their status.
+                    yield from secondary(container)
                 first = False
             yield workunit
 

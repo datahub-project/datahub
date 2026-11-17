@@ -4,9 +4,10 @@ import { useLocation } from 'react-router';
 import { getSchemaFieldParentLink } from '@app/entityV2/schemaField/utils';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
+import { FeatureFlags } from '@src/appConfigContext';
 import { EntityRegistry } from '@src/entityRegistryContext';
 
-import { EntityType, FeatureFlagsConfig } from '@types';
+import { EntityType } from '@types';
 
 /**
  * Kept separate from `utils.tsx` so search previews and the entity registry can read
@@ -24,9 +25,9 @@ export function getDataForEntityType<T>({
 }: {
     data: T;
     entityType?: EntityType;
-    getOverrideProperties?: (T, flags?: FeatureFlagsConfig) => GenericEntityProperties;
+    getOverrideProperties?: (T, flags?: FeatureFlags) => GenericEntityProperties;
     isHideSiblingMode?: boolean;
-    flags?: FeatureFlagsConfig;
+    flags?: FeatureFlags;
 }): GenericEntityProperties | null {
     if (!entityData) {
         return null;

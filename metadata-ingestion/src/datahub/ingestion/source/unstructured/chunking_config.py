@@ -1,18 +1,36 @@
 """Configuration for Document Chunking and Embedding Source."""
 
+import logging
 import re
-from typing import Any, Literal, Optional
+from dataclasses import dataclass
+from typing import TYPE_CHECKING, Any, Literal, Optional, Tuple
 
 from pydantic import Field, field_validator
 
 from datahub.configuration import env_vars
 from datahub.configuration.common import ConfigModel, TransparentSecretStr
 
+if TYPE_CHECKING:
+    from datahub.ingestion.graph.config import DatahubClientConfig
+
+logger = logging.getLogger(__name__)
 _LOCAL_EMBEDDING_DEFAULT_ENDPOINT = "http://localhost:11434/v1/embeddings"
 
 # Default per-document chunk cap. Shared with the staleness fingerprint so the cap is
 # only fingerprinted when it deviates from this value (see get_processing_config_fingerprint).
 DEFAULT_MAX_CHUNKS_PER_DOCUMENT = 100
+
+
+@dataclass(frozen=True)
+class ResolvedEmbeddingTarget:
+    transport: Literal["datahub", "direct"]
+    model_provider: str
+    model_id: str
+    model_embedding_key: str
+    semantic_model_version: str
+    endpoint_path: Optional[str] = None
+    # The server does not advertise ONNX pooling, so transport equivalence is unknown.
+    onnx_pooling: Optional[str] = None
 
 
 class ServerEmbeddingConfig(ConfigModel):
@@ -66,11 +84,18 @@ class EmbeddingConfig(ConfigModel):
     # Core configuration (Optional - loaded from server if not set)
     provider: Optional[
         Literal[
-            "bedrock", "cohere", "openai", "local", "vertex_ai", "onnx", "classical"
+            "bedrock",
+            "cohere",
+            "openai",
+            "local",
+            "vertex_ai",
+            "onnx",
+            "classical",
+            "datahub",
         ]
     ] = Field(
         default=None,
-        description="Embedding provider. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
+        description="Embedding provider. 'datahub' uses the server's advertised embedding service and DataHub credentials. 'local' calls a locally-running OpenAI-compatible server (e.g. Ollama). 'vertex_ai' uses GCP. 'onnx' runs a local ONNX model in-process (matches the GMS built-in provider). 'classical' is a deterministic hashed-feature embedding with no external service (matches the GMS built-in provider). If not set, loads from server.",
     )
     endpoint: Optional[str] = Field(
         default=None,
@@ -121,7 +146,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Processing configuration (not from server)
     batch_size: int = Field(
-        default=25, description="Batch size for embedding API calls"
+        default=25, gt=0, description="Batch size for embedding API calls"
     )
     request_timeout: float = Field(
         default=60.0,
@@ -152,6 +177,7 @@ class EmbeddingConfig(ConfigModel):
 
     # Internal: cached server config after loading/validation
     _server_config: Optional[ServerEmbeddingConfig] = None
+    _resolved_target: Optional[ResolvedEmbeddingTarget] = None
 
     @field_validator("model_embedding_key")
     @classmethod
@@ -375,75 +401,43 @@ class EmbeddingConfig(ConfigModel):
         )
 
 
-def _get_default_gms_server() -> str:
-    """Get default GMS server URL with fallback to ~/.datahubenv.
+_LOCAL_GMS_SERVER = "http://localhost:8080"
 
-    Priority:
-    1. DATAHUB_GMS_URL environment variable
-    2. ~/.datahubenv file (via load_client_config)
-    3. http://localhost:8080 (hardcoded default)
 
-    Returns:
-        GMS server URL
+def _default_connection() -> Tuple[str, Optional[str]]:
+    """The server and token from the shared CLI resolver, as one pair.
+
+    Reading DATAHUB_GMS_URL/DATAHUB_GMS_TOKEN here independently would pair a
+    selected profile's server with an unrelated exported token and send that
+    bearer token to the wrong instance.
     """
-    # First try env var directly
-    url = env_vars.get_gms_url()
-    if url:
-        return url
+    from datahub.cli import config_utils
 
-    # Fall back to load_client_config which reads from ~/.datahubenv
     try:
-        from datahub.cli import config_utils
+        client_config: "DatahubClientConfig" = config_utils.load_client_config()
+        return client_config.server, client_config.token
+    except config_utils.MissingConfigError:
+        if config_utils.explicit_profile_selected():
+            # A named profile that is missing must fail, not fall back to localhost.
+            raise
+    except Exception as e:
+        if config_utils.explicit_profile_selected():
+            raise
+        logger.debug(f"Could not load DataHub client config: {e}")
+    # Nothing is configured: a local instance, with a token only if one is exported.
+    return _LOCAL_GMS_SERVER, env_vars.get_gms_token()
 
-        # Don't fail if config file doesn't exist - just use localhost
-        if not env_vars.get_skip_config():
-            try:
-                client_config = config_utils.load_client_config()
-                return client_config.server
-            except config_utils.MissingConfigError:
-                # Config file doesn't exist, use default
-                pass
-    except Exception:
-        # If anything goes wrong, fall back to default
-        pass
 
-    return "http://localhost:8080"
+def _get_default_gms_server() -> str:
+    """Default GMS server: the resolved CLI connection (DATAHUB_GMS_URL, a
+    selected profile, or ~/.datahubenv), else http://localhost:8080."""
+    return _default_connection()[0]
 
 
 def _get_default_gms_token() -> Optional[TransparentSecretStr]:
-    """Get default GMS token with fallback to ~/.datahubenv.
-
-    Priority:
-    1. DATAHUB_GMS_TOKEN environment variable
-    2. ~/.datahubenv file (via load_client_config)
-    3. None (no token)
-
-    Returns:
-        GMS token or None
-    """
-    # First try env var directly
-    token = env_vars.get_gms_token()
-    if token:
-        return TransparentSecretStr(token)
-
-    # Fall back to load_client_config which reads from ~/.datahubenv
-    try:
-        from datahub.cli import config_utils
-
-        # Don't fail if config file doesn't exist - just return None
-        if not env_vars.get_skip_config():
-            try:
-                client_config = config_utils.load_client_config()
-                if client_config.token:
-                    return TransparentSecretStr(client_config.token)
-            except config_utils.MissingConfigError:
-                # Config file doesn't exist, no token
-                pass
-    except Exception:
-        # If anything goes wrong, return None
-        pass
-
-    return None
+    """Default GMS token, paired with the server from `_get_default_gms_server`."""
+    token = _default_connection()[1]
+    return TransparentSecretStr(token) if token else None
 
 
 class DataHubConnectionConfig(ConfigModel):
@@ -451,9 +445,11 @@ class DataHubConnectionConfig(ConfigModel):
 
     Defaults are loaded in this priority:
     1. Explicitly configured values in the recipe
-    2. Environment variables (DATAHUB_GMS_URL, DATAHUB_GMS_TOKEN)
-    3. ~/.datahubenv file (created by `datahub init`)
-    4. Hardcoded defaults (http://localhost:8080, no token)
+    2. The DataHub CLI connection: DATAHUB_GMS_URL/DATAHUB_GMS_TOKEN, the
+       selected profile, or ~/.datahubenv (created by `datahub init`)
+    3. Hardcoded defaults (http://localhost:8080, no token)
+
+    The server and token defaults always come from the same source.
     """
 
     server: str = Field(

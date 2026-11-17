@@ -5,6 +5,7 @@ import { SEARCH_RESULTS_FILTERS_V2_INTRO } from '@app/onboarding/config/SearchOn
 import SearchFilters from '@app/searchV2/filters/SearchFilters';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
+import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
 import { FacetFilterInput, FacetMetadata } from '@types';
@@ -12,7 +13,8 @@ import { FacetFilterInput, FacetMetadata } from '@types';
 const Section = styled.div<{ removePadding?: boolean; $isShowNavBarRedesign?: boolean }>`
     padding: ${(props) => {
         if (props.$isShowNavBarRedesign) {
-            return props.removePadding ? '8px 20px 4px 20px' : '5px 5px 8px 5px';
+            // The app shell insets the page; keep only the page gap above the results row.
+            return props.removePadding ? '8px 20px 4px 20px' : `0 0 ${PAGE_GAP_PX}px 0`;
         }
         return props.removePadding ? '8px 20px 4px 20px' : '8px 12px 0px 12px';
     }};

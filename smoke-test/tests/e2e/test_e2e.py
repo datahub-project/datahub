@@ -1,6 +1,5 @@
 import concurrent.futures
 import logging
-import time
 import urllib
 from http import HTTPStatus
 from typing import Any, Dict, Optional
@@ -44,7 +43,6 @@ bq_sample_data = "./sample_bq_data.json"
 restli_default_headers = {
     "X-RestLi-Protocol-Version": "2.0.0",
 }
-async_messaging_post_ingestion_wait_sec = 30
 
 BQ_SAMPLE_DATASET_URN = (
     "urn:li:dataset:(urn:li:dataPlatform:bigquery,"
@@ -163,8 +161,9 @@ def fixture_ingestion_via_kafka(auth_session):
             },
         },
     )
-    # Kafka emission is asynchronous; allow consumers to catch up.
-    time.sleep(async_messaging_post_ingestion_wait_sec)
+    # The sink flushes its producer on close, so every MCP is in the topic now;
+    # the offset-checkpoint wait covers their consumption and the resulting MCLs.
+    wait_for_writes_to_sync()
 
 
 def fixture_ingestion_via_pgqueue(auth_session):

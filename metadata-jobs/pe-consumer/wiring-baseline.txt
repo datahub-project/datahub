@@ -1,0 +1,3 @@
+# Spring configuration classes in this module that no real-context test loads yet.
+# This list may only shrink. See gradle/wiring/README.md.
+com.datahub.event.config.PgQueuePePollerSourcesConfiguration

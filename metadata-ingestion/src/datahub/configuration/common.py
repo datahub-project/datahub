@@ -512,6 +512,19 @@ class AllowDenyPattern(ConfigModel):
         """
         return not self.deny and ".*" in self.allow
 
+    def with_deny(self, *rules: str) -> Self:
+        """A new pattern with `rules` added to the deny list, each listed once:
+        duplicates already in the deny list are collapsed too. Rebuilt rather
+        than mutated or model_copy'd: the copy would carry this instance's
+        compiled-regex caches.
+
+        The rebuild round-trips through `model_dump()`, so a subclass is only
+        preserved faithfully if its fields survive that: no excluded or
+        aliased fields.
+        """
+        deny = deduplicate_list([*self.deny, *rules])
+        return type(self).model_validate({**self.model_dump(), "deny": deny})
+
     def allowed(self, string: str) -> bool:
         if self.denied(string):
             return False

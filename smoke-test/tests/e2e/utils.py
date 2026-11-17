@@ -286,9 +286,23 @@ def with_test_retry(
     """
     sleep_sec, sleep_times = get_sleep_info()
     retry_count = max_attempts if max_attempts is not None else sleep_times
+    # Read-after-write checks usually pass a second or two after a miss, but a
+    # flat sleep_sec (20s by default) made every miss cost the full sleep. Back
+    # off from 1s up to sleep_sec instead, and stop only once both the attempt
+    # count and the old total sleep budget are spent, so no check gives up
+    # sooner than it did with fixed sleeps. The budget counts sleep time only
+    # (idle_for), not the checks' own run time, as the fixed sleeps did.
+    sleep_budget = sleep_sec * max(retry_count - 1, 0)
+
+    def _stop(retry_state: tenacity.RetryCallState) -> bool:
+        return (
+            retry_state.attempt_number >= retry_count
+            and retry_state.idle_for >= sleep_budget
+        )
+
     return tenacity.retry(
-        stop=tenacity.stop_after_attempt(retry_count),
-        wait=tenacity.wait_fixed(sleep_sec),
+        stop=_stop,
+        wait=tenacity.wait_exponential(multiplier=1, min=1, max=max(sleep_sec, 1)),
         retry=retry if retry is not None else tenacity.retry_if_exception_type(),
         reraise=True,
     )
@@ -921,6 +935,47 @@ def create_datahub_step_state_aspects(
         json.dump(aspects_dict, f, indent=2)
 
 
+_AUTH_DENIED_CODES = (401, 403)
+
+
+def _was_denied_before_write(url: str, response: Any) -> bool:
+    """True when GMS refused the request on authorization, so nothing was written.
+
+    Authorization runs before any write, so a 401/403 (HTTP status, or every
+    GraphQL error with no field returning data) leaves no change to wait for.
+    Authorization tests send many such calls; each used to pay a full sync wait.
+    """
+    status = getattr(response, "status_code", None)
+    if not isinstance(status, int):
+        return False
+    if status in _AUTH_DENIED_CODES:
+        return True
+    if "/graphql" not in url or status != 200:
+        return False
+    try:
+        body = response.json()
+    except ValueError:
+        return False
+    if not isinstance(body, dict):
+        return False
+    errors = body.get("errors")
+    if not errors or not isinstance(errors, list):
+        return False
+    data = body.get("data")
+    if isinstance(data, dict) and any(value is not None for value in data.values()):
+        return False
+    if data is not None and not isinstance(data, dict):
+        return False
+    # Only an error on the top-level field means the resolver itself was denied. An
+    # error deeper in the path can come from reading the result after a write.
+    return all(
+        isinstance(error, dict)
+        and (error.get("extensions") or {}).get("code") in _AUTH_DENIED_CODES
+        and len(error.get("path") or []) <= 1
+        for error in errors
+    )
+
+
 class TestSessionWrapper:
     """
     Many of the tests do not consider async writes. This
@@ -982,7 +1037,9 @@ class TestSessionWrapper:
                 result = attr(*args, **kwargs)
 
                 # Post-processing can be done here
-                if name in ("post", "put"):
+                if name in ("post", "put") and not _was_denied_before_write(
+                    args[0], result
+                ):
                     # Wait for sync if writing
                     # delete is excluded for efficient test clean-up
                     self._wait(*args, **kwargs)

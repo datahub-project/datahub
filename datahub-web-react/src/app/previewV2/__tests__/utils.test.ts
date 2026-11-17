@@ -30,4 +30,23 @@ describe('Preview V2 utils tests', () => {
         const result = getHighlightedTag();
         expect(result).toMatch('');
     });
+    it('getHighlightedTag -> skips soft-deleted tags', () => {
+        const [first, ...rest] = globalTags.tags ?? [];
+        const result = getHighlightedTag({
+            tags: [
+                {
+                    ...first,
+                    tag: {
+                        ...first.tag,
+                        urn: 'urn:li:tag:gone',
+                        properties: { name: 'gone' },
+                        status: { removed: true },
+                    },
+                },
+                first,
+                ...rest,
+            ],
+        });
+        expect(result).toBe('abc-sample-tag');
+    });
 });

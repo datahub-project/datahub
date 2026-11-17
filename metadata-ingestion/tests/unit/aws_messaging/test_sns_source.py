@@ -245,7 +245,9 @@ def test_all_unreadable_topics_still_emit_the_region_container(
 def stale_graph(downstream: str, upstream: str, relationship: str) -> MagicMock:
     graph = MagicMock()
     graph.get_related_entities.side_effect = lambda urn, types, direction: (
-        [MagicMock(urn=downstream)] if urn == upstream else []
+        [MagicMock(urn=downstream)]
+        if urn == upstream and "DownstreamOf" in types
+        else []
     )
     graph.get_aspect.return_value = UpstreamLineageClass(
         upstreams=[
@@ -310,9 +312,9 @@ def test_failed_subscription_listing_keeps_the_edges(
     topic, queue = urn("sns", "order-events"), urn("sqs", "orders")
 
     def throttled(
-        self: SnsClient, topic_arn: str, on_error: Callable[[], None]
+        self: SnsClient, topic_arn: str, on_error: Callable[[Any], None]
     ) -> Iterator[SnsSubscription]:
-        on_error()
+        on_error(ClientError({"Error": {"Code": "Throttling", "Message": "x"}}, "List"))
         yield from ()
 
     monkeypatch.setattr(SnsClient, "list_subscriptions", throttled)
@@ -323,11 +325,13 @@ def _failing_queue_listing(*urls: str) -> Callable[..., Iterator[str]]:
     def listing(
         self: SqsClient,
         optional: bool = False,
-        on_error: Optional[Callable[[], None]] = None,
+        on_error: Optional[Callable[[ClientError], None]] = None,
     ) -> Iterator[str]:
         yield from urls
         if on_error is not None:
-            on_error()
+            on_error(
+                ClientError({"Error": {"Code": "AccessDenied", "Message": "x"}}, "List")
+            )
 
     return listing
 
@@ -369,7 +373,9 @@ def test_failed_subscription_listing_keeps_subscription_properties(
     sns_client().create_topic(Name="order-events")
 
     def truncated(
-        self: SnsClient, topic_arn: str, on_error: Callable[[], None]
+        self: SnsClient,
+        topic_arn: str,
+        on_error: Callable[[ClientError], None],
     ) -> Iterator[SnsSubscription]:
         yield SnsSubscription(
             subscription_arn=f"{topic_arn}:sub-1",
@@ -377,7 +383,7 @@ def test_failed_subscription_listing_keeps_subscription_properties(
             protocol="https",
             endpoint="https://hooks.example.com/x",
         )
-        on_error()
+        on_error(ClientError({"Error": {"Code": "Throttling", "Message": "x"}}, "List"))
 
     monkeypatch.setattr(SnsClient, "list_subscriptions", truncated)
     topic = urn("sns", "order-events")

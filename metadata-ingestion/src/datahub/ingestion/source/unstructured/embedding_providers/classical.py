@@ -29,6 +29,7 @@ from collections import Counter
 from datahub.ingestion.source.unstructured.embedding_providers.base import (
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
 )
 
 # The model name carries the algorithm version and the vector width, e.g.
@@ -161,7 +162,8 @@ class ClassicalEmbeddingProvider(EmbeddingProvider):
         self.dimensions = parse_dimensions(model)
         self.model_id = f"classical/{model}"
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
+        # Hashed features are symmetric: queries and documents embed alike.
         return EmbeddingResult(embeddings=[self._embed_one(text) for text in texts])
 
     def _embed_one(self, text: str) -> list[float]:

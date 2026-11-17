@@ -20,6 +20,7 @@ import {
     DisplayProperties,
     Documentation,
     DomainAssociation,
+    EditablePrimaryKeys,
     EditableSchemaMetadata,
     EditableSchemaMetadataUpdate,
     Embed,
@@ -188,6 +189,7 @@ export type GenericEntityProperties = {
     entityTypeOverride?: Maybe<string>; // to indicate something is a Stream, View instead of Dataset... etc
     /** Dataset specific- TODO, migrate these out */
     editableSchemaMetadata?: Maybe<EditableSchemaMetadata>;
+    editablePrimaryKeys?: Maybe<EditablePrimaryKeys>;
     editableProperties?: Maybe<DatasetEditableProperties>;
     autoRenderAspects?: Maybe<Array<RawAspect>>;
     lineageUrn?: string; // If set, render this urn's lineage instead if not in separate siblings mode

@@ -104,6 +104,7 @@ export default function ColumnsModule(props: ModuleProps) {
                         rows={rows}
                         schemaMetadata={schemaMetadata}
                         editableSchemaMetadata={editableSchemaMetadata}
+                        editedPrimaryKeys={data?.dataset?.editablePrimaryKeys?.primaryKeys}
                         usageStats={usageStats}
                         expandedRowsFromFilter={expandedRowsFromFilter}
                         filterText=""

@@ -3,7 +3,10 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v3;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
@@ -17,7 +20,9 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.entity.Aspect;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -27,6 +32,7 @@ import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.structured.StructuredPropertyValueAssignment;
 import com.linkedin.structured.StructuredPropertyValueAssignmentArray;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RetrieverContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
@@ -129,6 +135,52 @@ public class StructuredPropertyUrnIdentityTest {
         operationContext(propertyUrn, definition), document, properties(propertyUrn));
 
     assertTrue(document.get("structuredProperties.steward__urn_name").isNull());
+  }
+
+  @Test
+  public void testReadsPropertyDefinitionThroughEntityClientCache() throws Exception {
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:steward");
+    StructuredPropertyDefinition definition =
+        new StructuredPropertyDefinition()
+            .setQualifiedName("steward")
+            .setEntityTypes(new UrnArray(UrnUtils.getUrn("urn:li:entityType:datahub.dataset")))
+            .setValueType(UrnUtils.getUrn("urn:li:dataType:datahub.urn"))
+            .setSearchConfiguration(new DataHubSearchConfig().setQueryByDefault(true));
+    AspectRetriever primary = mock(AspectRetriever.class);
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    when(entityClient.getLatestAspects(
+            any(),
+            eq(Set.of(propertyUrn)),
+            eq(Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)),
+            any()))
+        .thenReturn(
+            Map.of(
+                propertyUrn,
+                Map.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME, new Aspect(definition.data()))));
+    EntityClientAspectRetriever caching =
+        EntityClientAspectRetriever.builder().entityClient(entityClient).build();
+    RetrieverContext retrieverContext = mock(RetrieverContext.class);
+    when(retrieverContext.getCachingAspectRetriever()).thenReturn(caching);
+    EntityRegistry registry =
+        TestOperationContexts.systemContextNoSearchAuthorization().getEntityRegistry();
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.getEntityRegistry()).thenReturn(registry);
+    when(opContext.getAspectRetriever()).thenReturn(primary);
+    when(opContext.getRetrieverContext()).thenReturn(retrieverContext);
+    ObjectNode document = JsonNodeFactory.instance.objectNode();
+    document.putArray("structuredProperties.steward").add("urn:li:tag:Confidential");
+
+    StructuredPropertyUrnIdentity.project(opContext, document, properties(propertyUrn));
+
+    assertEquals(
+        document.get("structuredProperties.steward__urn_name").get(0).asText(), "Confidential");
+    verify(primary, never()).getLatestAspectObjects(any(), any(), any());
+    verify(entityClient, atLeastOnce())
+        .getLatestAspects(
+            any(),
+            eq(Set.of(propertyUrn)),
+            eq(Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)),
+            any());
   }
 
   private static StructuredPropertyDefinition urnDefinition() {

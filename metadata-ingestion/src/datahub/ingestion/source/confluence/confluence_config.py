@@ -7,6 +7,7 @@ from urllib.parse import urlparse
 from pydantic import Field, SecretStr, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
+from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -90,11 +91,17 @@ class PageFilterConfig(ConfigModel):
 
 
 class ConfluenceSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """Configuration for Confluence source connector."""
 
     # Confluence connection
+    datahub: Optional[DatahubClientConfig] = Field(
+        default=None,
+        description="DataHub connection for embedding capability checks. When omitted, "
+        "provider datahub uses the SDK connection defaults (environment or datahub init).",
+    )
+
     url: str = Field(
         description="Base URL of your Confluence instance. "
         "Examples: 'https://your-domain.atlassian.net/wiki' (Cloud) or "
@@ -152,13 +159,16 @@ class ConfluenceSourceConfig(
 
     max_spaces: int = Field(
         default=100,
-        description="Maximum number of spaces to ingest when auto-discovering (applies when urls is not set).",
+        description="Maximum number of spaces to ingest when auto-discovering (applies when urls is not set). "
+        "If a site has more spaces, the run reports a failure and skips stale removal, so pages in the "
+        "spaces left out are not soft-deleted.",
     )
 
     # Page configuration
     max_pages_per_space: int = Field(
         default=1000,
-        description="Maximum number of pages to ingest per space.",
+        description="Maximum number of pages to ingest per space. If a space has more pages, the run "
+        "reports a failure and skips stale removal, so the pages left out are not soft-deleted.",
     )
     recursive: bool = Field(
         default=True,

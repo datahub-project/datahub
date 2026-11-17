@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg xmlns="http://www.w3.org/2000/svg" version="1.1" id="sap_s4hana" x="0px" y="0px" viewBox="0 0 120 135" style="enable-background:new 0 0 120 135;" xml:space="preserve">
+  <defs>
+    <linearGradient id="s4Grad" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0%" stop-color="#1B90FF"/>
+      <stop offset="100%" stop-color="#0057D2"/>
+    </linearGradient>
+  </defs>
+  <style type="text/css">
+    .s4-bg{fill:url(#s4Grad);}
+    .s4-text{fill:#FFFFFF;font-family:Arial,Helvetica,sans-serif;font-weight:700;text-anchor:middle;}
+    .s4-line{fill:none;stroke:#FFFFFF;stroke-width:2.6;stroke-linecap:round;}
+  </style>
+  <!-- Hexagonal container matching the SAP platform-logo family -->
+  <path class="s4-bg" d="M52,4.6L9.6,29.2c-4.9,2.9-8,8.1-8,13.8v49c0,5.7,3,11,8,13.8L52,130.4c4.9,2.9,11,2.9,16,0l42.5-24.5 c4.9-2.9,8-8.1,8-13.8V43c0-5.7-3-11-8-13.8L68,4.6C63,1.8,57,1.8,52,4.6z"/>
+  <!-- S/4HANA wordmark -->
+  <text class="s4-text" x="60" y="70" font-size="36">S/4</text>
+  <line class="s4-line" x1="30" y1="80" x2="90" y2="80"/>
+  <text class="s4-text" x="60" y="100" font-size="17">HANA</text>
+</svg>

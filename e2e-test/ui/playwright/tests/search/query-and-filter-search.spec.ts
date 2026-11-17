@@ -26,7 +26,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by type: Dashboards', { tag: [TestTag.P0, DomainTag.Catalog] }, async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Dashboards');
     await searchPage.expectUrlContains('filter__entityType');
     await searchPage.clickEntityResult();
@@ -34,7 +34,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by type: ML Models', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'ML Models');
     await searchPage.expectUrlContains('filter__entityType');
     await searchPage.clickEntityResult();
@@ -42,7 +42,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by type: Pipelines', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Pipelines');
     await searchPage.expectUrlContains('filter__entityType');
     await searchPage.clickEntityResult();
@@ -50,7 +50,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by type: Glossary Terms', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Glossary Terms');
     await searchPage.expectUrlContains('filter__entityType');
     await searchPage.clickEntityResult();
@@ -58,7 +58,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by platform: Hive', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'Hive');
     await searchPage.expectUrlContains('filter_platform');
     await searchPage.clickEntityResult();
@@ -69,7 +69,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by platform: HDFS', async () => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'HDFS');
     await searchPage.expectUrlContains('filter_platform');
     await searchPage.clickEntityResult();
@@ -77,7 +77,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by platform: Airflow', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Platform', 'Airflow');
     await searchPage.expectUrlContains('filter_platform');
     await searchPage.clickEntityResult();
@@ -87,20 +87,23 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should filter by tag', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Tag', 'PlaywrightFeatureTag');
     await searchPage.expectUrlContains('filter_tags');
     await searchPage.clickEntityResult();
     await searchPage.expectTextVisible('Tags');
 
-    // Verify the specific tag element is visible (requires page directly).
-    const tagLocator = page.getByTestId('tag-PlaywrightFeatureTag');
+    // Verify the specific tag element is visible (requires page directly). Scoped to the
+    // sidebar Tags section: with datasetSummaryPageV1 on, the Summary tab's Properties panel
+    // renders its own chip with the same testid, so a bare page-level lookup is ambiguous.
+    // eslint-disable-next-line playwright/no-raw-locators -- HTML id set by EntityProfileCard; no data-testid equivalent
+    const tagLocator = page.locator('#entity-profile-tags').getByTestId('tag-PlaywrightFeatureTag');
     await expect(tagLocator).toBeVisible();
     await searchPage.expectTextVisible('PlaywrightFeatureTag');
   });
 
   test('should combine multiple filters and verify results', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');
     await searchPage.selectFilterOption('Platform', 'Hive');
@@ -115,7 +118,7 @@ test.describe('Query and Filter Search', () => {
   });
 
   test('should preserve filters when navigating back', async ({ page }) => {
-    await searchPage.searchAndWait('*', 2000);
+    await searchPage.search('*');
     await searchPage.selectFilterOption('Type', 'Datasets');
     await searchPage.expectActiveFilter('Datasets');
 

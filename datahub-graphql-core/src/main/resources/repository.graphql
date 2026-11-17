@@ -124,7 +124,7 @@ type Repository implements EntityWithRelationships & Entity {
 """
 Code-specific properties for a Repository entity.
 """
-type RepositoryProperties {
+type RepositoryProperties implements EntityProperties {
   """
   Display name of the repository.
   """

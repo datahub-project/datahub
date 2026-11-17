@@ -104,6 +104,9 @@ public class EntityAspect {
 
     @Nullable private Object operationContext;
 
+    /** See {@link SystemAspect#isFromNewerVersion()}; set when the stored row is read. */
+    @Setter @EqualsAndHashCode.Exclude private boolean fromNewerVersion;
+
     @Nonnull
     public String getUrnRaw() {
       return urn.toString();
@@ -197,7 +200,8 @@ public class EntityAspect {
             this.entitySpec,
             this.aspectSpec,
             this.systemAspectValidators,
-            this.operationContext);
+            this.operationContext,
+            this.fromNewerVersion);
       }
 
       public EntityAspect.EntitySystemAspect forInsert(

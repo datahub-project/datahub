@@ -2,6 +2,7 @@ import { Page, Locator, expect } from '@playwright/test';
 import { BasePage } from './base.page';
 import type { DataHubLogger } from '../utils/logger';
 import { TIMEOUTS } from '../utils/constants';
+import { GraphQLHelper } from '../helpers/graphql-helper';
 
 /**
  * Page object for Browse V2 sidebar functionality.
@@ -15,6 +16,7 @@ export class BrowseV2Page extends BasePage {
   readonly browseNodeExpandLocator: (nodeName: string) => Locator;
   readonly browsePlatformHeaderLocator: (platformName: string) => Locator;
   readonly entityHeaderBrowsePathLocator: Locator;
+  private readonly graphql: GraphQLHelper;
 
   constructor(page: Page, logger?: DataHubLogger, logDir?: string) {
     super(page, logger, logDir);
@@ -29,6 +31,12 @@ export class BrowseV2Page extends BasePage {
       page.getByTestId(`browse-platform-${platformName}`).filter({ hasNot: page.getByRole('button') });
     // Entity header breadcrumb area for browse paths
     this.entityHeaderBrowsePathLocator = page.getByTestId('entity-header-test-id');
+    this.graphql = new GraphQLHelper(page);
+  }
+
+  private async sidebarWidth(): Promise<number> {
+    const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
+    return parseInt(width, 10);
   }
 
   async expectBrowseV2Visible(): Promise<void> {
@@ -40,59 +48,38 @@ export class BrowseV2Page extends BasePage {
   }
 
   async expectSidebarExpanded(): Promise<void> {
-    const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
-    // Expanded state should have width > 100px (typically 260px+)
-    const widthValue = parseInt(width, 10);
-    expect(widthValue).toBeGreaterThan(100);
+    // Expanded state should have width > 100px (typically 260px+); polled through the 200ms transition
+    await expect.poll(() => this.sidebarWidth()).toBeGreaterThan(100);
   }
 
   async expectSidebarCollapsed(): Promise<void> {
-    // Wait for sidebar to actually collapse (width change)
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-    const width = await this.browseV2Container.evaluate((el) => window.getComputedStyle(el).width);
-    // Collapsed state should have width ~63px
-    const widthValue = parseInt(width, 10);
-    expect(widthValue).toBeLessThan(100);
+    // Collapsed state should have width ~63px; polled through the 200ms transition
+    await expect.poll(() => this.sidebarWidth()).toBeLessThan(100);
   }
 
   async toggleSidebar(): Promise<void> {
-    // Ensure the button is visible before clicking
-    await this.browseV2Toggle.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
-    // Click the toggle button
-    await this.browseV2Toggle.click();
-    // Wait for CSS transition animation and state change to propagate
-    // The sidebar animates for 200ms, plus buffer for state updates
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
-    // Give React state a moment to update
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
+    await this.browseV2Toggle.click({ timeout: TIMEOUTS.MEDIUM });
   }
 
   async clickBrowsePlatform(platformName: string): Promise<void> {
     const platformHeader = this.browsePlatformHeaderLocator(platformName);
     await platformHeader.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await platformHeader.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.QUICK);
   }
 
   async expandBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeExpandLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
     await locator.click({ force: true });
-    // Wait for animation and DOM updates
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
   }
 
+  /** Select or deselect a browse node, which re-runs the search with the new browse filters. */
   async clickBrowseNode(nodeName: string): Promise<void> {
     const locator = this.browseNodeLocator(nodeName);
     await locator.waitFor({ state: 'visible', timeout: TIMEOUTS.MEDIUM });
+    const searched = this.graphql.waitForGraphQLResponse('getSearchResultsForMultiple');
     await locator.click({ force: true });
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await this.page.waitForTimeout(TIMEOUTS.BETWEEN_OPS);
+    await searched;
   }
 
   async expectBrowseNodeVisible(nodeName: string): Promise<void> {

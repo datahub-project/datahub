@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
+import com.linkedin.datahub.graphql.types.common.mappers.util.KnownEntities;
 import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -103,6 +104,10 @@ public class SchemaFieldType
           .map(
               gmsResult ->
                   gmsResult == null
+                          // SchemaFieldEntity.parent is non-null: a field whose parent GraphQL
+                          // can't represent is returned as missing, like one whose parent's type
+                          // the registry doesn't know.
+                          || !KnownEntities.hasRepresentableParent(context, gmsResult.getUrn())
                       ? null
                       : DataFetcherResult.<SchemaFieldEntity>newResult()
                           .data(SchemaFieldMapper.map(context, gmsResult))

@@ -19,7 +19,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
 
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
 
     // Test v2 entity index - should return settings
     when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
@@ -50,7 +50,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
 
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
 
     // Test v2 entity index - should return settings
     when(indexConvention.isV2EntityIndexType(eq("datasetindex_v2"))).thenReturn(true);
@@ -86,7 +86,7 @@ public class V2LegacySettingsBuilderTest {
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
 
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should have basic settings
@@ -107,7 +107,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should have analysis configuration
@@ -137,7 +137,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     @SuppressWarnings("unchecked")
@@ -221,7 +221,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
 
     Map<String, Object> settings1 = builder.getSettings(indexConfiguration, "test_index");
     Map<String, Object> settings2 = builder.getSettings(indexConfiguration, "test_index");
@@ -234,7 +234,7 @@ public class V2LegacySettingsBuilderTest {
     // Test that the constructor handles null IndexConfiguration gracefully
     try {
       IndexConvention indexConvention = mock(IndexConvention.class);
-      V2LegacySettingsBuilder builder = new V2LegacySettingsBuilder(null, indexConvention);
+      V2LegacySettingsBuilder builder = new V2LegacySettingsBuilder(null, indexConvention, false);
       fail("Constructor should not accept null IndexConfiguration");
     } catch (Exception e) {
       // Expected behavior - constructor should not accept null
@@ -254,7 +254,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings
@@ -271,7 +271,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings
@@ -320,7 +320,7 @@ public class V2LegacySettingsBuilderTest {
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV2EntityIndexType(anyString())).thenReturn(true);
     V2LegacySettingsBuilder builder =
-        new V2LegacySettingsBuilder(indexConfiguration, indexConvention);
+        new V2LegacySettingsBuilder(indexConfiguration, indexConvention, false);
     Map<String, Object> settings = builder.getSettings(indexConfiguration, "test_index");
 
     // Should still build valid settings

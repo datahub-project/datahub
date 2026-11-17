@@ -8,6 +8,7 @@ from unittest.mock import MagicMock, create_autospec, patch
 import pytest
 
 from datahub.ingestion.api.source import CapabilityReport
+from datahub.ingestion.graph.embeddings import ServerEmbeddingRunError
 from datahub.ingestion.source.confluence.confluence_config import (
     ConfluenceSourceConfig,
 )
@@ -50,6 +51,43 @@ def test_space_discovery_with_no_results_yields_no_spaces() -> None:
     assert not source.report.failures
 
 
+def test_space_discovery_follows_next_links() -> None:
+    source = make_source()
+    client = as_mock(source.confluence_client)
+    client.get_all_spaces.side_effect = [
+        {"results": [{"key": "A"}, {"key": "B"}], "_links": {"next": "/next"}},
+        {"results": [{"key": "C"}], "_links": {}},
+    ]
+
+    assert source._get_spaces() == ["A", "B", "C"]
+    starts = [c.kwargs["start"] for c in client.get_all_spaces.call_args_list]
+    assert starts == [0, 2]
+    assert not source.report.warnings
+
+
+def test_space_discovery_stopped_at_max_spaces_is_a_failure() -> None:
+    # A failure, so stale removal does not soft-delete the spaces left out.
+    source = make_source(make_config(max_spaces=2))
+    as_mock(source.confluence_client).get_all_spaces.return_value = {
+        "results": [{"key": "A"}, {"key": "B"}],
+        "_links": {"next": "/next"},
+    }
+
+    assert source._get_spaces() == ["A", "B"]
+    assert "max_spaces=2" in log_contexts(source.report.failures)
+
+
+def test_space_discovery_failure_midway_keeps_spaces_already_listed() -> None:
+    source = make_source()
+    as_mock(source.confluence_client).get_all_spaces.side_effect = [
+        {"results": [{"key": "A"}], "_links": {"next": "/next"}},
+        Exception("503 unavailable"),
+    ]
+
+    assert source._get_spaces() == ["A"]
+    assert "Failed to discover spaces" in log_messages(source.report.failures)
+
+
 def test_space_discovery_api_error_is_reported_not_raised() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_all_spaces.side_effect = Exception(
@@ -81,8 +119,8 @@ def test_recursive_crawl_skips_page_the_api_cannot_return() -> None:
 
 
 def test_recursive_crawl_keeps_parent_when_child_listing_fails() -> None:
-    """A failing children endpoint must not discard the parent page that was
-    already fetched, and is not escalated to a run failure."""
+    """A failing children endpoint keeps the parent page that was already
+    fetched, and is a failure so stale removal does not delete the subtree."""
     source = make_source(make_config(recursive=True))
     client = as_mock(source.confluence_client)
     client.get_page_by_id.return_value = make_page("1")
@@ -91,7 +129,39 @@ def test_recursive_crawl_keeps_parent_when_child_listing_fails() -> None:
     pages = list(source._get_pages_recursively("1"))
 
     assert [p["id"] for p in pages] == ["1"]
-    assert not source.report.failures
+    assert "1" in log_contexts(source.report.failures)
+
+
+def test_recursive_crawl_reports_a_deep_failure_once_against_its_own_page() -> None:
+    source = make_source(make_config(recursive=True))
+    client = as_mock(source.confluence_client)
+    client.get_page_by_id.side_effect = lambda page_id, **_: make_page(page_id)
+    client.get_child_pages.side_effect = lambda page_id: (
+        [{"id": "2"}] if page_id == "1" else _raise(Exception("children 500"))
+    )
+
+    pages = list(source._get_pages_recursively("1"))
+
+    assert [p["id"] for p in pages] == ["1", "2"]
+    assert log_contexts(source.report.failures) == {"2"}
+
+
+def test_recursive_crawl_deep_failure_raises_when_not_continuing() -> None:
+    source = make_source(
+        make_config(recursive=True, advanced={"continue_on_failure": False})
+    )
+    client = as_mock(source.confluence_client)
+    client.get_page_by_id.side_effect = lambda page_id, **_: (
+        make_page(page_id) if page_id == "1" else _raise(Exception("403 on child"))
+    )
+    client.get_child_pages.return_value = [{"id": "2"}]
+
+    with pytest.raises(Exception, match="403 on child"):
+        list(source._get_pages_recursively("1"))
+
+
+def _raise(e: Exception) -> Any:
+    raise e
 
 
 def test_recursive_crawl_page_fetch_error_is_reported_when_continuing() -> None:
@@ -116,8 +186,9 @@ def test_recursive_crawl_page_fetch_error_raises_when_not_continuing() -> None:
 
 
 def test_space_listing_follows_next_links_and_stops_at_last_page() -> None:
-    """Pagination advances ``start`` by the page size while the response carries
-    a ``next`` link, and stops on the first response without one."""
+    """Pagination advances ``start`` by the number of pages returned while the
+    response carries a ``next`` link, so a server that caps the page size below
+    the requested limit skips nothing, and stops on a response without one."""
     source = make_source()
     client = as_mock(source.confluence_client)
     client.get_all_pages_from_space.side_effect = [
@@ -129,7 +200,7 @@ def test_space_listing_follows_next_links_and_stops_at_last_page() -> None:
 
     assert [p["id"] for p in pages] == ["1", "2"]
     starts = [c.kwargs["start"] for c in client.get_all_pages_from_space.call_args_list]
-    assert starts == [0, 100]
+    assert starts == [0, 1]
 
 
 def test_space_listing_honours_max_pages_per_space() -> None:
@@ -145,8 +216,41 @@ def test_space_listing_honours_max_pages_per_space() -> None:
     pages = list(source._get_pages_in_space("TEAM"))
 
     assert len(pages) == 2
-    assert client.get_all_pages_from_space.call_args.kwargs["limit"] == 2
-    assert client.get_all_pages_from_space.call_count == 1
+    assert client.get_all_pages_from_space.call_args_list[0].kwargs["limit"] == 2
+    # Pages were left out, so this is a failure and stale removal is skipped.
+    assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+    # The space is incomplete, so it counts as failed rather than processed.
+    assert source.report.failed_spaces == ["TEAM"]
+    assert source.report.spaces_failed == 1
+    assert source.report.spaces_processed == 0
+
+
+def test_space_one_page_past_max_pages_per_space_is_reported_as_cut_short() -> None:
+    source = make_source(make_config(max_pages_per_space=2))
+    client = as_mock(source.confluence_client)
+    pages_by_start = {0: [make_page("1"), make_page("2")], 2: [make_page("3")]}
+    client.get_all_pages_from_space.side_effect = lambda space, start, limit, **_: (
+        pages_by_start.get(start, [])[:limit]
+    )
+
+    assert len(list(source._get_pages_in_space("TEAM"))) == 2
+    assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+    assert source.report.failed_spaces == ["TEAM"]
+    assert source.report.spaces_processed == 0
+
+
+def test_space_with_exactly_max_pages_per_space_is_not_reported_as_cut_short() -> None:
+    source = make_source(make_config(max_pages_per_space=2))
+    as_mock(source.confluence_client).get_all_pages_from_space.side_effect = [
+        [make_page("1"), make_page("2")],
+        [],
+    ]
+
+    assert len(list(source._get_pages_in_space("TEAM"))) == 2
+    assert not source.report.failures
+    assert not source.report.warnings
+    assert source.report.failed_spaces == []
+    assert source.report.spaces_processed == 1
 
 
 def test_space_listing_accepts_a_bare_list_response() -> None:
@@ -177,6 +281,22 @@ def test_space_listing_error_marks_space_failed_without_raising() -> None:
 
     assert list(source._get_pages_in_space("TEAM")) == []
     assert source.report.failed_spaces == ["TEAM"]
+    # A failure, so stale removal does not soft-delete the unlisted pages.
+    assert "TEAM" in log_contexts(source.report.failures)
+
+
+def test_space_listing_failure_midway_keeps_earlier_pages_and_fails() -> None:
+    source = make_source()
+    as_mock(source.confluence_client).get_all_pages_from_space.side_effect = [
+        {"results": [make_page("1")], "_links": {"next": "/next"}},
+        Exception("timeout"),
+    ]
+
+    pages = list(source._get_pages_in_space("TEAM"))
+
+    assert [p["id"] for p in pages] == ["1"]
+    assert "TEAM" in log_contexts(source.report.failures)
+    assert source.report.spaces_processed == 0
 
 
 # --------------------------------------------------------------------------- #
@@ -359,6 +479,26 @@ def test_spaces_without_pages_produce_no_workunits() -> None:
     serve_space(as_mock(source.confluence_client), [])
 
     assert list(source.get_workunits_internal()) == []
+
+
+def test_server_wide_embedding_failure_stops_the_run() -> None:
+    """A server-wide embedding failure ends the run even with continue_on_failure,
+    instead of failing the same way for every remaining page."""
+    source = make_source(make_config(advanced={"continue_on_failure": True}))
+    serve_space(as_mock(source.confluence_client), [make_page("1"), make_page("2")])
+
+    with (
+        patch.object(
+            source,
+            "_create_document_entity",
+            side_effect=ServerEmbeddingRunError("embedding credits are exhausted"),
+        ) as create,
+        pytest.raises(ServerEmbeddingRunError),
+    ):
+        list(source.get_workunits_internal())
+
+    assert create.call_count == 1
+    assert not source.report.failures
 
 
 def test_duplicate_pages_across_listings_are_emitted_once() -> None:
@@ -592,27 +732,18 @@ def test_semantic_search_capability_delegates_to_resolved_config() -> None:
         report = ConfluenceSource._test_semantic_search_capability(make_config())
 
     assert report is expected
-    test_capability.assert_called_once_with(resolved)
+    test_capability.assert_called_once_with(resolved, graph=None)
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason=(
-        "Bug: _test_semantic_search_capability only builds a DataHubGraph when "
-        "`config.datahub.server` is set, but ConfluenceSourceConfig has no "
-        "`datahub` field, so the hasattr guard is always False and test_connection "
-        "resolves the embedding config without ever consulting the DataHub server."
-    ),
-)
 def test_semantic_search_capability_consults_configured_datahub_server() -> None:
-    # parse_obj_allow_extras so today's config (no `datahub` field) drops the
-    # block instead of rejecting the recipe; once the field exists it is kept.
-    config = ConfluenceSourceConfig.parse_obj_allow_extras(
+    config = ConfluenceSourceConfig.model_validate(
         cloud_config_dict(datahub={"server": "http://localhost:8080"})
     )
     with (
-        patch("datahub.ingestion.graph.client.DataHubGraph", autospec=True),
+        patch(
+            "datahub.ingestion.source.unstructured.chunking_source.DataHubGraph",
+            autospec=True,
+        ) as graph_class,
         patch.object(
             DocumentChunkingSource, "resolve_embedding_config", autospec=True
         ) as resolve,
@@ -621,9 +752,14 @@ def test_semantic_search_capability_consults_configured_datahub_server() -> None
             "test_embedding_capability",
             autospec=True,
             return_value=CapabilityReport(capable=True),
-        ),
+        ) as test_capability,
     ):
         ConfluenceSource._test_semantic_search_capability(config)
 
-    _embedding, graph = resolve.call_args.args
-    assert graph is not None
+    graph_class.assert_called_once_with(config=config.datahub)
+    graph = graph_class.return_value
+    _embedding, resolved_graph = resolve.call_args.args
+    assert resolved_graph is graph
+    assert test_capability.call_args.kwargs["graph"] is graph
+    # Created for the check, so closed after it.
+    graph.close.assert_called_once_with()

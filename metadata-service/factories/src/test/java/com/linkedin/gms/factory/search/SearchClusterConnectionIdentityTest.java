@@ -130,6 +130,24 @@ public class SearchClusterConnectionIdentityTest {
   }
 
   @Test
+  public void testDifferentEngineVersionIsADistinctConnection() {
+    SearchClusterSettings a =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .shim(ShimSettings.builder().engineVersion("2.19.0").build())
+            .build();
+    SearchClusterSettings b =
+        SearchClusterSettings.builder()
+            .uri("http://search:9200")
+            .shim(ShimSettings.builder().engineVersion("8.15.0").build())
+            .build();
+
+    assertNotEquals(
+        SearchClientShimFactory.connectionIdentity("primary", a),
+        SearchClientShimFactory.connectionIdentity("secondary", b));
+  }
+
+  @Test
   public void testDifferentExplicitProxyIsADistinctConnection() {
     SearchClusterSettings a =
         SearchClusterSettings.builder()

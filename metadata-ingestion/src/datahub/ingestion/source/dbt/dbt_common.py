@@ -1208,6 +1208,11 @@ _CONTRACT_FOR_RELATIONSHIP = "ContractFor"
 # dbt applies constraints only to these materializations; views and
 # ephemerals get the column/type preflight but no constraint DDL.
 _CONSTRAINT_MATERIALIZATIONS = frozenset({"table", "incremental"})
+# Materializations that store no data. Any other, custom ones included,
+# counts as materialized.
+_UNMATERIALIZED_MATERIALIZATIONS = frozenset(
+    {"view", "ephemeral", "semantic_view", "metric_view"}
+)
 _CONTRACT_PREFETCH_CHUNK_SIZE = 200
 
 
@@ -3340,14 +3345,10 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                             f"Exposure {exposure.unique_id} depends on {upstream_dbt_name} which was not found in nodes"
                         )
 
-                # Dashboard info aspect
-                # Use current ingestion time for audit stamps since dbt exposures
-                # don't have created/modified timestamps
-                current_timestamp = int(datetime.now().timestamp() * 1000)
-                audit_stamp = AuditStampClass(
-                    time=current_timestamp,
-                    actor=mce_builder.make_user_urn("dbt_ingestion"),
-                )
+                # dbt exposures have no created or modified time. Leave the
+                # schema default (time 0 / unknown actor) so an unchanged
+                # exposure does not allocate a new dashboardInfo version. A
+                # wall clock is not a real modification time.
                 yield MetadataChangeProposalWrapper(
                     entityUrn=exposure_urn,
                     aspect=DashboardInfoClass(
@@ -3355,10 +3356,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
                         description=exposure.description or "",
                         customProperties=custom_properties,
                         externalUrl=exposure.url,
-                        lastModified=ChangeAuditStampsClass(
-                            created=audit_stamp,
-                            lastModified=audit_stamp,
-                        ),
+                        lastModified=ChangeAuditStampsClass(),
                         datasets=upstream_urns if upstream_urns else None,
                     ),
                 )
@@ -5211,7 +5209,7 @@ class DBTSourceBase(StatefulIngestionSourceBase):
             )
             compiled_code = self._truncate_code(compiled_code, _DBT_MAX_SQL_LENGTH)
 
-        materialized = node.materialization in {"table", "incremental", "snapshot"}
+        materialized = node.materialization not in _UNMATERIALIZED_MATERIALIZATIONS
         view_properties = ViewPropertiesClass(
             materialized=materialized,
             viewLanguage="SQL",
