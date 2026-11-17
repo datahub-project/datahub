@@ -343,7 +343,9 @@ class SqlmeshSourceBase:
         self, model: "SqlmeshModel", effective: _EffectiveProjectConfig
     ) -> List[str]:
         """Column names for the model <-> warehouse table mapping edge, cased like
-        the schema field paths and column lineage."""
+        the schema field paths and column lineage. Empty when column lineage is off."""
+        if not self.config.include_column_lineage:
+            return []
         columns: Dict[str, Any] = getattr(model, "columns_to_types", None) or {}
         return [self._normalize_column_name(str(c), effective) for c in columns]
 

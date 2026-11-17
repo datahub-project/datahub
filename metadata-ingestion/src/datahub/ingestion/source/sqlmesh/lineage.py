@@ -226,7 +226,7 @@ class LineageMixin(SqlmeshSourceBase):
                 )
                 # upstream_cols is a set; sort for deterministic URN ordering.
                 for upstream_col in sorted(upstream_cols):
-                    up_col = self._normalize_column_name(upstream_col, effective)
+                    up_col = self._normalize_column_name(upstream_col, dep_effective)
                     upstream_field_urns.append(
                         make_schema_field_urn(upstream_dataset_urn, up_col)
                     )

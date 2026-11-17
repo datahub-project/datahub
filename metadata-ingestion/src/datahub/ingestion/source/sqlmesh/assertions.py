@@ -43,6 +43,7 @@ from datahub.ingestion.source.sqlmesh.constants import (
 from datahub.ingestion.source.sqlmesh.models import (
     AuditResultEntry,
     AuditResultsMetadata,
+    _EffectiveProjectConfig,
     parse_model_audits,
 )
 from datahub.metadata.schema_classes import (
@@ -401,6 +402,7 @@ class AssertionMixin(SqlmeshSourceBase):
         self,
         model: "SqlmeshModel",
         sqlmesh_urn: str,
+        effective: _EffectiveProjectConfig,
     ) -> Iterable[MetadataWorkUnit]:
         for audit in parse_model_audits(model):
             audit_name = audit.name.lower()
@@ -408,7 +410,7 @@ class AssertionMixin(SqlmeshSourceBase):
 
             try:
                 yield from self._emit_single_audit(
-                    audit_name, audit.arguments, params, sqlmesh_urn
+                    audit_name, audit.arguments, params, sqlmesh_urn, effective
                 )
             except Exception as e:
                 self.report.num_assertions_failed += 1
@@ -586,6 +588,7 @@ class AssertionMixin(SqlmeshSourceBase):
         kw: Dict[str, Any],
         params: Optional[_AuditAssertionParams],
         dataset_urn: str,
+        effective: _EffectiveProjectConfig,
     ) -> Iterable[MetadataWorkUnit]:
         # Unknown / custom audits (params is None) carry no columns or semantics.
         cols = self._extract_audit_columns(kw) if params is not None else []
@@ -598,12 +601,12 @@ class AssertionMixin(SqlmeshSourceBase):
                 # Column-level: one assertion per column; the suffix is the
                 # single column name ("" when the audit named none).
                 if suffix:
-                    field_urns = [make_schema_field_urn(dataset_urn, suffix)]
+                    field_urns = [self._field_urn(dataset_urn, suffix, effective)]
             elif params is not None and cols:
                 # Dataset-level over specific columns (e.g.
                 # unique_combination_of_columns): one assertion covering all of
                 # them, so populate `fields`, not the singular `field`.
-                field_urns = [make_schema_field_urn(dataset_urn, c) for c in cols]
+                field_urns = [self._field_urn(dataset_urn, c, effective) for c in cols]
 
             yield from self._emit_custom_audit(
                 audit_name,
@@ -613,6 +616,15 @@ class AssertionMixin(SqlmeshSourceBase):
                 assertion_urn=self._assertion_urn(dataset_urn, audit_name, suffix),
                 field_urns=field_urns,
             )
+
+    def _field_urn(
+        self, dataset_urn: str, column: str, effective: _EffectiveProjectConfig
+    ) -> str:
+        # Cased like the schema field paths, so the assertion points at a field
+        # that exists. The assertion URN keeps the raw name, so it doesn't move.
+        return make_schema_field_urn(
+            dataset_urn, self._normalize_column_name(column, effective)
+        )
 
     def _extract_expression_values(self, kw: Dict[str, Any], key: str) -> List[str]:
         expr = kw.get(key)

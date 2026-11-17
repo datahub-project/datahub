@@ -647,7 +647,7 @@ class SqlmeshSource(
         # dbt's model→table mapping. The SQLMesh URN is the only stable,
         # semantically meaningful target for the audit; siblings let users
         # navigate from the logical model to its current materialization.
-        yield from self._emit_assertions(model, sqlmesh_urn)
+        yield from self._emit_assertions(model, sqlmesh_urn, effective)
 
         # Freshness and volume monitoring is left to DataHub monitors the user
         # creates against these two timeseries aspects. We don't synthesise

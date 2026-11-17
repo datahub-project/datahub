@@ -29,6 +29,7 @@ from datahub.configuration.source_common import (
     LowerCaseDatasetUrnConfigMixin,
     PlatformInstanceConfigMixin,
 )
+from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_removal import pydantic_removed_field
 
 # is_s3_uri is pure-stdlib (safe to import with base deps); AwsConnectionConfig
@@ -483,10 +484,18 @@ class SqlmeshSourceConfig(
     incremental_lineage: bool = Field(
         default=True,
         description=(
-            "Use patch/incremental lineage mode for non-SQLMesh entities (e.g. external "
-            "warehouse tables referenced in lineage). When enabled, the plugin adds "
-            "lineage edges without overwriting edges the warehouse connector previously "
-            "discovered. Must match the warehouse connector's incremental_lineage setting."
+            "Deprecated and has no effect. Lineage on warehouse tables is always added "
+            "as a patch, so edges the warehouse connector stored are kept. To keep the "
+            "SQLMesh edges when the warehouse connector runs, set incremental_lineage: "
+            "true on the warehouse recipe instead."
+        ),
+    )
+    _incremental_lineage = pydantic_field_deprecated(
+        "incremental_lineage",
+        warn_if_value_is_not=True,
+        message=(
+            "incremental_lineage has no effect on the sqlmesh source: lineage on "
+            "warehouse tables is always added as a patch. Remove it from the recipe."
         ),
     )
     audit_results_path: Optional[str] = Field(

@@ -9,18 +9,27 @@ All SQLMesh model kinds are supported: `FULL`, `INCREMENTAL_BY_TIME_RANGE`,
 
 #### Lineage to warehouse tables
 
-As with dbt, each SQLMesh dataset is a sibling of its warehouse table and is linked into
-the lineage graph, so lineage runs through SQLMesh from table to table:
+As with dbt, each SQLMesh dataset except an `EMBEDDED` model (which has no warehouse
+object) is a sibling of its warehouse table and is linked into the lineage graph, so
+lineage runs through SQLMesh from table to table:
 
 - Each model that builds a table adds a `model → warehouse table` edge to it, with
-  column mappings. The edge is patched, so the warehouse source plugin's own lineage on that
-  table is kept.
+  column mappings when `include_column_lineage` is on. The edge is patched, so the
+  warehouse source plugin's own lineage on that table is kept.
 - Each external model (a `Source`) takes the table it declares as its upstream.
 - `skip_external_models_in_lineage: true` takes external models off the path: models
   read their warehouse tables directly, like dbt's `skip_sources_in_lineage`.
 
+The warehouse source plugin must also keep the SQLMesh edge. Snowflake and BigQuery
+default to `incremental_lineage: false`, which rewrites the table's lineage on every run
+and drops the `model → warehouse table` edge until SQLMesh is ingested again. Set
+`incremental_lineage: true` on the warehouse recipe, as for dbt.
+
 Column field paths use the same casing as column lineage: lowercased when
 `convert_urns_to_lowercase` is in effect, unless `convert_column_urns_to_lowercase: false`.
+The column mappings to the warehouse table use the same casing, so it must match the
+warehouse source plugin's field paths. Snowflake lowercases them unless
+`preserve_column_case` is set; keep the default lowercasing unless it is.
 
 #### Data quality assertions
 

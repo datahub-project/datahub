@@ -12,7 +12,7 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from datahub.emitter.mce_builder import make_user_urn
+from datahub.emitter.mce_builder import make_schema_field_urn, make_user_urn
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sqlmesh.compat import (
@@ -591,6 +591,28 @@ class TestFreshnessAndVolumeSignals:
         )
         assert infos[0].customAssertion.field == field_urn
         assert infos[0].customAssertion.fields == [field_urn]
+
+    def test_audit_field_uses_schema_field_casing(self):
+        """Snowflake lowercases field paths by default, so an audit naming PSN
+        must point at the psn field the schema emits."""
+        source = _make_source()
+        model = _make_mock_model(columns={"PSN": MagicMock(__str__=lambda s: "BIGINT")})
+        col = MagicMock()
+        col.name = "PSN"
+        model.audits = [("not_null", {"columns": MagicMock(expressions=[col])})]
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        [info] = [
+            wu.metadata.aspect
+            for wu in workunits
+            if isinstance(getattr(wu.metadata, "aspect", None), AssertionInfoClass)
+        ]
+        assert _schema_field_paths(workunits) == ["psn"]
+        assert info.customAssertion.field == make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)",
+            "psn",
+        )
 
     def test_builtin_audit_carries_std_parameters(self):
         """A built-in with bounds (accepted_range) emits structured
@@ -2582,6 +2604,69 @@ class TestWarehouseLineageEdges:
             entity_urn.replace(SQLMESH_PLATFORM, WAREHOUSE_PLATFORM)
         ]
         assert aspect.upstreams[0].type == "COPY"
+
+    @pytest.mark.parametrize(
+        "extra_config, expected_column",
+        [
+            # Snowflake lowercases by default, matching its connector's field paths
+            ({}, "psn"),
+            # Kept as SQLMesh names it, for warehouse recipes with preserve_column_case
+            ({"convert_column_urns_to_lowercase": False}, "PSN"),
+        ],
+    )
+    def test_warehouse_column_mappings_use_field_path_casing(
+        self, extra_config: dict, expected_column: str
+    ) -> None:
+        source = _make_source(extra_config)
+        model = _make_mock_model(columns={"PSN": MagicMock(__str__=lambda s: "BIGINT")})
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        [patch_wu] = _warehouse_lineage_patches(workunits)
+        warehouse_urn = str(patch_wu.metadata.entityUrn)
+        sqlmesh_urn = warehouse_urn.replace(WAREHOUSE_PLATFORM, SQLMESH_PLATFORM)
+        column_paths = [
+            op["path"]
+            for op in _json.loads(patch_wu.metadata.aspect.value)
+            if op["path"].startswith("/fineGrainedLineages/")
+        ]
+        # /fineGrainedLineages/<transform>/<downstream>/<query>/<upstream>
+        assert column_paths == [
+            f"/fineGrainedLineages/NONE/"
+            f"{make_schema_field_urn(warehouse_urn, expected_column)}/NONE/"
+            f"{make_schema_field_urn(sqlmesh_urn, expected_column)}"
+        ]
+        assert _schema_field_paths(workunits) == [expected_column]
+
+    def test_external_model_maps_columns_from_warehouse_table(self):
+        source = _make_source()
+        external_model = _make_mock_model(
+            "raw.source_table",
+            kind_name="EXTERNAL",
+            columns={"PSN": MagicMock(__str__=lambda s: "BIGINT")},
+        )
+
+        workunits = _run_project(source, {"raw.source_table": external_model}, {})
+
+        sqlmesh_urn = (
+            "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,raw.source_table,PROD)"
+        )
+        warehouse_urn = sqlmesh_urn.replace(SQLMESH_PLATFORM, WAREHOUSE_PLATFORM)
+        [fgl] = _column_lineage(workunits)
+        assert fgl.upstreams == [make_schema_field_urn(warehouse_urn, "psn")]
+        assert fgl.downstreams == [make_schema_field_urn(sqlmesh_urn, "psn")]
+
+    def test_column_mappings_skipped_when_column_lineage_disabled(self):
+        source = _make_source({"include_column_lineage": False})
+        model = _make_mock_model()
+
+        workunits = _run_project(source, {"star.dim_developer": model}, {})
+
+        [patch_wu] = _warehouse_lineage_patches(workunits)
+        ops = _json.loads(patch_wu.metadata.aspect.value)
+        assert [
+            op for op in ops if op["path"].startswith("/fineGrainedLineages/")
+        ] == []
 
     def test_skipped_when_lineage_disabled(self):
         source = _make_source({"include_lineage": False})
