@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
@@ -270,7 +271,7 @@ public class ESSearchDAOHybridTest {
             10,
             100);
     assertEquals(rowIds(failed), range(10, 20));
-    assertFallback(SearchTemplateKeywordRerank.FAILED);
+    assertKept(SearchTemplateKeywordRerank.FAILED);
 
     dao.setHybridTimeoutMillis(50);
     when(reranker.rerank(
@@ -291,7 +292,7 @@ public class ESSearchDAOHybridTest {
             10,
             100);
     assertEquals(rowIds(timedOut), range(10, 20));
-    assertFallback(SearchTemplateKeywordRerank.TIMEOUT);
+    assertKept(SearchTemplateKeywordRerank.TIMEOUT);
   }
 
   @Test
@@ -310,7 +311,7 @@ public class ESSearchDAOHybridTest {
                     10,
                     0)),
         range(0, 10));
-    assertFallback(SearchTemplateKeywordRerank.HYBRID_READ_OFF);
+    assertKept(SearchTemplateKeywordRerank.HYBRID_READ_OFF);
     // Semantic read off, and then a request without Document
     OperationContext noDocumentRerank = keywordRerankContext(KEEP_PLACES, false, null);
     assertEquals(
@@ -318,10 +319,10 @@ public class ESSearchDAOHybridTest {
             dao.finishTemplateHybrid(
                 noDocumentRerank, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100)),
         range(10, 20));
-    assertFallback(SearchTemplateKeywordRerank.SEMANTIC_READ_OFF);
+    assertKept(SearchTemplateKeywordRerank.SEMANTIC_READ_OFF);
     dao.finishTemplateHybrid(
         noDocumentRerank, List.of("dataset"), "revenue", null, result(100), 10, 10, 100);
-    assertFallback(SearchTemplateKeywordRerank.NO_DOCUMENT);
+    assertKept(SearchTemplateKeywordRerank.NO_DOCUMENT);
     // The window was not fetched because hybrid read was paused
     dao.finishTemplateHybrid(
         keywordRerankContext(KEEP_PLACES, true, null),
@@ -332,7 +333,7 @@ public class ESSearchDAOHybridTest {
         0,
         10,
         0);
-    assertFallback(SearchTemplateKeywordRerank.PAUSED);
+    assertKept(SearchTemplateKeywordRerank.PAUSED);
     // A profile the query embedding service does not embed
     when(reranker.modelEmbeddingKey()).thenReturn("another_model");
     dao.finishTemplateHybrid(
@@ -344,7 +345,7 @@ public class ESSearchDAOHybridTest {
         0,
         10,
         100);
-    assertFallback(SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
+    assertKept(SearchTemplateKeywordRerank.PROFILE_NOT_EMBEDDABLE);
     when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
     // A stored blend this build cannot read
     dao.finishTemplateHybrid(
@@ -356,7 +357,7 @@ public class ESSearchDAOHybridTest {
         0,
         10,
         100);
-    assertFallback(SearchTemplateKeywordRerank.FAILED);
+    assertKept(SearchTemplateKeywordRerank.FAILED);
     // No requested type has vectors
     when(reranker.vectorEntityNames(any(OperationContext.class), any())).thenReturn(Set.of());
     dao.finishTemplateHybrid(
@@ -368,7 +369,7 @@ public class ESSearchDAOHybridTest {
         0,
         10,
         0);
-    assertFallback(SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
+    assertKept(SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
     // A match-all query ranks no relevance window, which is not a fallback
     dao.finishTemplateHybrid(
         keywordRerankContext(KEEP_PLACES, true, null),
@@ -381,7 +382,10 @@ public class ESSearchDAOHybridTest {
         0);
     verify(metrics, never())
         .incrementMicrometer(
-            SearchTemplateMetrics.FALLBACK, 1, "kind", SearchTemplateKeywordRerank.NOT_APPLICABLE);
+            SearchTemplateMetrics.KEYWORD_RERANK_KEPT,
+            1,
+            "reason",
+            SearchTemplateKeywordRerank.NOT_APPLICABLE);
     verify(reranker, never())
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
@@ -623,8 +627,11 @@ public class ESSearchDAOHybridTest {
     return plans.getAllValues();
   }
 
-  private void assertFallback(String reason) {
-    verify(metrics).incrementMicrometer(SearchTemplateMetrics.FALLBACK, 1, "kind", reason);
+  private void assertKept(String reason) {
+    verify(metrics)
+        .incrementMicrometer(SearchTemplateMetrics.KEYWORD_RERANK_KEPT, 1, "reason", reason);
+    verify(metrics, never())
+        .incrementMicrometer(eq(SearchTemplateMetrics.FALLBACK), anyDouble(), any(String[].class));
   }
 
   private ESSearchDAO dao(HybridSearchResultReranker hybrid) {

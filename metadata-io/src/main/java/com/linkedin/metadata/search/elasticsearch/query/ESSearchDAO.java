@@ -857,7 +857,7 @@ public class ESSearchDAO {
       reason = window.keptReason();
     }
     if (reason != null && !SearchTemplateKeywordRerank.NOT_APPLICABLE.equals(reason)) {
-      SearchTemplateMetrics.fallback(opContext, reason);
+      SearchTemplateMetrics.keywordRerankKept(opContext, reason);
     }
     if (flags != null && Boolean.TRUE.equals(flags.isIncludeExplain())) {
       explainTemplateRerank(result, rows, plan, reason, minScore != null);
