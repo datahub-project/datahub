@@ -43,6 +43,7 @@ class DetailsSummaryExtensionClass extends NodeExtension {
 }
 
 const decoratedDetailsSummary = extension({
+    defaultOptions: {},
     staticKeys: [],
     handlerKeys: [],
     customHandlerKeys: [],
