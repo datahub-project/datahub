@@ -25,7 +25,7 @@ import requests
 from confluent_kafka import Consumer, KafkaError
 from dotenv import load_dotenv
 
-from tests.e2e.utils import get_kafka_broker_url
+from tests.e2e.utils import get_kafka_broker_url, with_test_retry
 from utilities import env_vars
 from utilities.domains import Domain
 from utilities.messaging_transport import is_pgqueue_transport
@@ -195,6 +195,16 @@ def _build_tracking_test_event(unique_id: str) -> dict:
     }
 
 
+@with_test_retry()
+def _search_until_hits(es_url: str, es_index: str, es_query: dict) -> requests.Response:
+    """Search until the event is indexed; a non-200 response is returned as is."""
+    response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
+    if response.status_code == 200:
+        assert response.json().get("hits", {}).get("hits"), "Event not indexed yet"
+    return response
+
+
+@with_test_retry()
 def _assert_tracking_event_in_elasticsearch(unique_id: str) -> None:
     es_url = env_vars.get_elasticsearch_url()
     es_index = env_vars.get_elasticsearch_index()
@@ -361,8 +371,6 @@ def test_tracking_api_pgqueue(auth_session):
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
     logger.info("Waiting for pgQueue publication and Elasticsearch indexing...")
-    time.sleep(10)
-
     _assert_tracking_event_in_elasticsearch(unique_id)
 
 
@@ -413,12 +421,7 @@ def test_tracking_api_elasticsearch(auth_session):
     # Verify the response
     assert response.status_code == 200, f"Failed to post event: {response.text}"
 
-    # Wait a moment for the event to be processed by Kafka and indexed in Elasticsearch
     logger.info("\nWaiting for event to be processed and indexed in Elasticsearch...")
-    time.sleep(10)  # Give more time for Elasticsearch indexing
-
-    # Query Elasticsearch to retrieve our test event
-    # This requires the Elasticsearch URL and credentials
     es_url = env_vars.get_elasticsearch_url()
     es_index = env_vars.get_elasticsearch_index()
 
@@ -436,7 +439,7 @@ def test_tracking_api_elasticsearch(auth_session):
     }
 
     try:
-        es_response = requests.post(f"{es_url}/{es_index}/_search", json=es_query)
+        es_response = _search_until_hits(es_url, es_index, es_query)
         logger.info(f"\nElasticsearch response status: {es_response.status_code}")
 
         if es_response.status_code == 200:
