@@ -79,6 +79,9 @@ const CompactEditor = styled(Editor)<{ limit: number | null; customStyle?: React
         }
 
         padding: 0 !important;
+        // The content root is also an antd Typography div, whose default 1em bottom margin
+        // otherwise leaves empty space under a one-line description.
+        margin-bottom: 0;
     }
 `;
 

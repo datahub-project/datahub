@@ -39,6 +39,8 @@ jobs:
           fetch-depth: 0
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
+        with:
+          node: true
       # Restore-only: ci-cache-warmup.yml warm-metadata-ingestion-uv-cache writes this
       # key on both cache backends from every default-branch push.
       - uses: actions/cache/restore@55cc8345863c7cc4c66a329aec7e433d2d1c52a9 # v6.1.0

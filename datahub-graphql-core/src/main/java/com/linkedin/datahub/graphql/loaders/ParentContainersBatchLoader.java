@@ -164,7 +164,7 @@ public final class ParentContainersBatchLoader {
   private static CompletableFuture<Map<Urn, Try<List<Urn>>>> resolveAncestors(
       final List<Urn> urns, final QueryContext queryContext) {
     final OperationContext opContext = queryContext.getOperationContext();
-    return HierarchyAncestorWalks.resolveConcurrently(
+    return HierarchyAncestorWalks.resolveBatch(
         urns,
         opContext,
         HierarchyBindings.containerSpec(opContext),

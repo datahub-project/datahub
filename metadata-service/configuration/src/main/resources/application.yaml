@@ -25,6 +25,12 @@ authentication:
 
   verboseAuthFailureLogging: ${AUTH_VERBOSE_LOGGING:false}
 
+  # When a token cannot be checked because the token store is unavailable (for example a database
+  # outage), protected paths answer 503 with this Retry-After (seconds) plus random jitter (percent
+  # of it), instead of 401.
+  unavailableRetryAfterSeconds: ${AUTH_UNAVAILABLE_RETRY_AFTER_SECONDS:3}
+  unavailableRetryAfterJitterPercent: ${AUTH_UNAVAILABLE_RETRY_AFTER_JITTER_PERCENT:50}
+
   # Required if enabled is true! A configurable chain of Authenticators
   authenticators:
     # Required for authenticating requests with DataHub-issued Access Tokens - best not to remove.
@@ -710,6 +716,11 @@ postgres:
       instanceConnectionName: ${INSTANCE_CONNECTION_NAME:#{null}}
   # PostgreSQL queue DDL + maintenance (SqlSetup when entity store is Postgres). At-least-once; requires pg_partman for the message table; optional pg_cron when enabled.
   pgQueue:
+    # Heap storage lets local development and tests run without a Postgres queue database.
+    store: ${DATAHUB_PGQUEUE_STORE:postgres}
+    # Optional spool path, exclusive to one live process: one writes on exit, then the next loads at startup.
+    # Overlapping processes sharing this path overwrite each other's snapshots.
+    inmemorySpoolFile: ${DATAHUB_PGQUEUE_INMEMORY_SPOOL_FILE:}
     enabled: ${DATAHUB_PGQUEUE_ENABLED:false}
     # When true (default), SqlSetup seeds postgres.pgQueue topic rows from kafka.topics.*; postgres.pgQueue.topics overlays or adds pg-only settings.
     inheritKafkaTopics: ${DATAHUB_PGQUEUE_INHERIT_KAFKA_TOPICS:true}
@@ -1130,8 +1141,11 @@ elasticsearch:
 
         # AWS Bedrock configuration (used when type is "aws-bedrock")
         bedrock:
-          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1)
-          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:us-west-2}
+          # AWS region where Bedrock is available (e.g., us-west-2, us-east-1).
+          # BEDROCK_EMBEDDING_AWS_REGION, then BEDROCK_AWS_REGION, then AWS_REGION.
+          # A blank value counts as unset when the config is bound, so an empty name does not
+          # stop the chain or the us-west-2 default.
+          awsRegion: ${BEDROCK_EMBEDDING_AWS_REGION:${BEDROCK_AWS_REGION:${AWS_REGION:us-west-2}}}
           # Bedrock model ID for embeddings (Cohere Embed v3: 1024 dimensions)
           model: ${BEDROCK_EMBEDDING_MODEL:cohere.embed-english-v3}
 
