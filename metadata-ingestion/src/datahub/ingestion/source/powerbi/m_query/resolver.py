@@ -211,27 +211,22 @@ def _walk(
         return
 
     # -- IfExpression (conditional data source selection, e.g. dev/prod switching) --
+    # Each branch gets its own snapshot of `seen`, taken before either is walked:
+    # both branches commonly reference the same step (`if c then Source else
+    # Table.FirstN(Source, 5)`), and sharing the set would flag the second visit
+    # as circular and drop that branch's tables.
     if kind == "IfExpression":
-        _walk(
-            node_map,
-            node.get("trueExpression"),
-            scopes,
-            accessor_chain,
-            results,
-            seen,
-            parameters,
-            column_rename_steps,
-        )
-        _walk(
-            node_map,
-            node.get("falseExpression"),
-            scopes,
-            accessor_chain,
-            results,
-            seen.copy(),
-            parameters,
-            column_rename_steps,
-        )
+        for branch in (node.get("trueExpression"), node.get("falseExpression")):
+            _walk(
+                node_map,
+                branch,
+                scopes,
+                accessor_chain,
+                results,
+                seen.copy(),
+                parameters,
+                column_rename_steps,
+            )
         return
 
     logger.debug("Unhandled node kind '%s', returning empty for this branch", kind)
@@ -336,6 +331,16 @@ def _walk_invoke(
         callee = head.get("identifier", {}).get("literal")
 
     if callee and callee in _RECOGNIZED_FUNCTIONS:
+        # Both arms of an `if` often reach the same call through the same
+        # navigation (`if c then Source else Table.FirstN(Source, 5)`); report
+        # it once so the table is not emitted as a duplicate upstream.
+        if any(
+            existing.arg_list.get("id") == invoke_node.get("id")
+            and existing.identifier_accessor == accessor_chain
+            and existing.column_rename_steps == column_rename_steps
+            for existing in results
+        ):
+            return
         results.append(
             DataAccessFunctionDetail(
                 arg_list=invoke_node,
