@@ -58,6 +58,10 @@ logger = logging.getLogger(__name__)
 _DATASET_SOURCES_NOT_FOUND_STATUSES = frozenset({404, 409})
 # Not-founds with zero successes before escalating from info to a warning.
 _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
+# /workbooks/{id}/schema statuses that may mean the endpoint is gone or refused
+# for this token, or only that one workbook is unreadable. 410 alone is
+# unambiguous; the rest latch after the not-found threshold above.
+_WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES = frozenset({403, 404, 410})
 
 
 # Sigma error bodies are short; the cap only guards against an HTML error page
@@ -349,6 +353,12 @@ class SigmaAPI:
         # later 404 should not be read as "nothing ever worked".
         self._dataset_sources_succeeded = False
         self._dataset_sources_not_found_warned = False
+        # /workbooks/{id}/schema is deprecated. A 410, or 403/404 from several
+        # workbooks, before any success latches it off; after one, a failure is
+        # that workbook's alone.
+        self._workbook_schema_succeeded = False
+        self._workbook_schema_refused_ids: Set[str] = set()
+        self._workbook_schema_unavailable = False
         self.session = requests.Session()
 
         # raise_on_status=False must stay False: get_data_model_by_url_id
@@ -1368,6 +1378,57 @@ class SigmaAPI:
             # every abort shares one title+message.
             self.report.column_formulas_fetch_partial += 1
         return result, col_ids
+
+    def get_workbook_schema(self, workbook_id: str) -> Optional[Dict[str, Any]]:
+        """GET /workbooks/{id}/schema: each column's formula as a tree whose
+        ``nameRef`` leaves name other columns by id, not by display name.
+
+        Deprecated by Sigma (2023-12) but still served, and nothing else
+        returns formula refs by id, so a failure only means no recovery.
+        """
+        if self._workbook_schema_unavailable:
+            self.report.workbook_schema_skipped += 1
+            return None
+        try:
+            response = self._get_api_call(
+                f"{self.config.api_url}/workbooks/{workbook_id}/schema"
+            )
+            response.raise_for_status()
+            payload = response.json()
+            if not isinstance(payload, dict):
+                raise TypeError("/schema body is not a JSON object")
+        except Exception as e:
+            detail = self._log_http_error(
+                message=f"Unable to fetch schema for workbook {workbook_id}.",
+                report_warning=False,
+            )
+            self.report.workbook_schema_fetch_failed += 1
+            status = _http_status(e)
+            if (
+                not self._workbook_schema_succeeded
+                and status in _WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES
+            ):
+                self._workbook_schema_refused_ids.add(workbook_id)
+                if (
+                    status == 410
+                    or len(self._workbook_schema_refused_ids)
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    self._workbook_schema_unavailable = True
+            self.report.warning(
+                title="Sigma workbook schema unavailable",
+                message="/workbooks/{id}/schema failed, so chart columns no "
+                "formula reference resolves by name keep pointing at "
+                "themselves in these workbooks. A 410, or a 403/404 from "
+                f"{_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD} workbooks, before "
+                "any workbook succeeded stops the call for the rest of the run; "
+                "workbook_schema_skipped counts the workbooks not asked.",
+                context=f"workbook {workbook_id} ({detail})",
+            )
+            return None
+        self._workbook_schema_succeeded = True
+        self.report.workbook_schema_fetched += 1
+        return payload
 
     def get_page_elements(
         self,
