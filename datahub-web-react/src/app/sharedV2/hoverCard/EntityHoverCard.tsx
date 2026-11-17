@@ -19,7 +19,7 @@ import HoverCardHeader from '@app/sharedV2/hoverCard/HoverCardHeader';
 import HoverCardLinks, { HoverCardLink } from '@app/sharedV2/hoverCard/HoverCardLinks';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import HoverCardStatusBadges from '@app/sharedV2/hoverCard/HoverCardStatusBadges';
-import useGroupMembers from '@app/sharedV2/hoverCard/useGroupMembers';
+import useGroupMemberCount from '@app/sharedV2/hoverCard/useGroupMemberCount';
 import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttributionDetails';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
@@ -120,7 +120,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
               undefined
             : undefined;
 
-    const { total: memberCount, members } = useGroupMembers(entity);
+    const memberCount = useGroupMemberCount(entity);
     const subtitle =
         jobTitle || (memberCount != null ? tTypes('shared.membersCount', { count: memberCount }) : undefined);
 
@@ -136,7 +136,7 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
             href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
             label: tTypes('businessAttribute.viewRelatedEntities'),
         });
-    } else if (memberCount != null && memberCount > members.length) {
+    } else if (memberCount != null && memberCount > 0) {
         relatedLinks.push({
             href: resolveRuntimePath(
                 `${entityRegistry.getEntityUrl(entity.type, entity.urn)}/${TabType.Members.toLowerCase()}`,
@@ -168,7 +168,6 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
     // section renders only for propagated attribution, not whenever attribution exists.
     const hasSections =
         !!description ||
-        members.length > 0 ||
         owners.length > 0 ||
         tags.length > 0 ||
         terms.length > 0 ||
@@ -222,22 +221,6 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
                     {ownershipRole && (
                         <HoverCardSection title={ownershipRole.name}>
                             {ownershipRole.description && <Text size="md">{ownershipRole.description}</Text>}
-                        </HoverCardSection>
-                    )}
-                    {members.length > 0 && (
-                        <HoverCardSection title={tTypes('group.tab.members')}>
-                            <PillRow>
-                                {members.map((member) => (
-                                    <Avatar
-                                        key={member.urn}
-                                        name={entityRegistry.getDisplayName(EntityType.CorpUser, member)}
-                                        imageUrl={member.editableProperties?.pictureLink}
-                                        type={AvatarType.user}
-                                        showInPill
-                                        size="sm"
-                                    />
-                                ))}
-                            </PillRow>
                         </HoverCardSection>
                     )}
                     {owners.length > 0 && (
