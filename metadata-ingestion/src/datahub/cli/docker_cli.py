@@ -269,7 +269,7 @@ _OPENSEARCH2_ENV = {
 
 
 def _opensearch2_kept_message(version: str) -> str:
-    # The steps repeat the requested version: an unversioned quickstart uses the v1.8.0 compose,
+    # The steps repeat the requested version: an unversioned quickstart uses the v1.9.0 compose,
     # which stays on OpenSearch 2.x, so step 3 must name the master compose the pin came from.
     return f"""
 Found OpenSearch 2.x data in the {OPENSEARCH2_VOLUME} volume, so this install stays on OpenSearch 2.x.
@@ -356,7 +356,7 @@ _SEARCH_ENV_QUICKSTART_VERSIONS = frozenset({"head", "quickstart"})
 def _quickstart_honors_search_env(version: Optional[str]) -> bool:
     """True when this quickstart uses master compose, which interpolates DATAHUB_SEARCH_*.
 
-    The no-version default downloads the v1.8.0 compose, which already runs OpenSearch 2.19.3 on
+    The no-version default downloads the v1.9.0 compose, which already runs OpenSearch 2.19.3 on
     osdata and does not read DATAHUB_SEARCH_*, so the pin does not apply to it.
     """
     if version is None:

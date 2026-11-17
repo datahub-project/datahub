@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -37,6 +38,7 @@ import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
@@ -60,6 +62,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.ConfigurableEnvironment;
 
 @Slf4j
 @Configuration
@@ -71,10 +74,6 @@ public class ElasticSearchServiceFactory {
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @Autowired
-  @Qualifier("settingsBuilder")
-  private SettingsBuilder settingsBuilder;
-
-  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
@@ -83,10 +82,33 @@ public class ElasticSearchServiceFactory {
   private SearchTemplateLoader searchTemplateLoader;
 
   @Bean
+  @Nonnull
+  protected SearchV3ReadHold searchV3ReadHold(
+      @Qualifier("searchClusterRegistry") final SearchClusterRegistry searchClusterRegistry,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
+          final IndexConvention indexConvention,
+      final ConfigurableEnvironment environment,
+      final ObjectProvider<SearchV3IndexRebuild> indexRebuild) {
+    return new SearchV3ReadHold(
+        searchClusterRegistry,
+        indexConvention,
+        entityRegistry,
+        environment,
+        indexRebuild.getIfAvailable() != null);
+  }
+
+  /**
+   * Every search consumer depends on this bean, so the read hold is applied before any of them read
+   * the V2 and V3 flags.
+   */
+  @Bean
   protected ElasticSearchConfiguration elasticSearchConfiguration(
-      final ConfigurationProvider configurationProvider) {
-    log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
-    return configurationProvider.getElasticSearch();
+      final ConfigurationProvider configurationProvider, final SearchV3ReadHold searchV3ReadHold) {
+    ElasticSearchConfiguration elasticSearchConfiguration =
+        configurationProvider.getElasticSearch();
+    searchV3ReadHold.applyTo(elasticSearchConfiguration);
+    log.info("Search configuration: {}", elasticSearchConfiguration.getSearch());
+    return elasticSearchConfiguration;
   }
 
   @Bean
