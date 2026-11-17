@@ -17,7 +17,9 @@ import static org.testng.Assert.assertTrue;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.EmbeddingTaskType;
@@ -381,6 +383,48 @@ public class HybridSearchResultRerankerTest {
         Optional.empty());
     verify(embeddingProvider, times(1))
         .embed(any(), any(), any(EmbeddingTaskType.class), any(Duration.class));
+  }
+
+  @Test
+  public void testKnnReadsOnlyTheIndicesOfThePlansEligibleTypes() throws Exception {
+    // Datasets have vectors on this deployment, but the plan leaves them out, as a template's
+    // entity gates can, so the kNN request does not read their index
+    HybridSearchResultReranker datasetsEnabled =
+        new HybridSearchResultReranker(
+            new HybridQueryEmbeddingService(
+                embeddingProvider, "text-embedding-3-small", "text_embedding_3_small"),
+            new V3HybridKnnRequestBuilder(
+                new SemanticSearchConfiguration(
+                    true,
+                    Set.of("document", "dataset"),
+                    Map.of("text_embedding_3_small", new ModelEmbeddingConfig()),
+                    null)),
+            new HybridScoreMapBuilder(
+                new HybridVectorScoreNormalizer(SearchEngineType.ELASTICSEARCH_8, "cosine")),
+            new HybridCandidateMerger(
+                new HybridLexicalScoreNormalizer(0d, 100d, 4d), new HybridScoreCombiner(0.5d)));
+    when(v3Client.searchKnn(any(OperationContext.class), any(KnnSearchRequest.class)))
+        .thenReturn(knnHits(Map.of(DOC_A, 0.1d, DOC_B, 0.9d)));
+
+    datasetsEnabled
+        .rerank(
+            opContext,
+            List.of("document", "dataset"),
+            "revenue",
+            List.of(row(DOC_A, 80), row(DATASET, 70), row(DOC_B, 60)),
+            List.of("urn"),
+            inSeconds(60),
+            new HybridRerankPlan(Set.of("document"), null, null))
+        .orElseThrow();
+
+    ArgumentCaptor<KnnSearchRequest> request = ArgumentCaptor.forClass(KnnSearchRequest.class);
+    verify(v3Client).searchKnn(any(OperationContext.class), request.capture());
+    assertEquals(
+        request.getValue().indexName(),
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, "document"));
   }
 
   private HybridRerankPlan defaultPlan() {

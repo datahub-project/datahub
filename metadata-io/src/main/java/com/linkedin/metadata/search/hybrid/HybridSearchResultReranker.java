@@ -125,10 +125,12 @@ public class HybridSearchResultReranker {
     if (remainingNanos <= 0) {
       throw new UncheckedTimeoutException("The hybrid deadline passed before the kNN call");
     }
+    // Only eligible types' indices are read. A type the plan leaves out, e.g. one a template's
+    // entity gates exclude, may have no vector mapping, and a failed shard fails the kNN read
     final Optional<KnnSearchRequest> knnRequest =
         knnRequestBuilder.build(
             opContext,
-            entityNames,
+            eligible,
             queryEmbedding.modelEmbeddingKey(),
             queryEmbedding.vector(),
             lexicalScores.keySet(),
