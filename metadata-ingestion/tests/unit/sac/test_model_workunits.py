@@ -1,13 +1,16 @@
 from typing import Any, Dict, List, Optional
 
+import pytest
 from requests_mock import Mocker
 
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.sac.sac import (
     ConnectionMappingConfig,
+    ExternalIdFormat,
     SACSource,
     SACSourceConfig,
+    SystemTypeMappingConfig,
 )
 from datahub.ingestion.source.sac.sac_common import ResourceModel
 from datahub.metadata.schema_classes import (
@@ -27,6 +30,7 @@ def _make_source(
     requests_mock: Mocker,
     platform_instance: Optional[str] = None,
     connection_mapping: Optional[Dict[str, ConnectionMappingConfig]] = None,
+    system_type_mapping: Optional[Dict[str, SystemTypeMappingConfig]] = None,
 ) -> SACSource:
     requests_mock.post(_TOKEN_URL, json={"access_token": "token", "expires_in": 3599})
     config = SACSourceConfig(
@@ -36,6 +40,7 @@ def _make_source(
         client_secret="bar",
         platform_instance=platform_instance,
         connection_mapping=connection_mapping or {},
+        system_type_mapping=system_type_mapping or {},
     )
     return SACSource(config, PipelineContext(run_id="sac-model-browse-path-unit"))
 
@@ -191,4 +196,123 @@ def test_get_model_workunits_malformed_hana_view_id_warns(requests_mock):
     workunits = list(source.get_model_workunits(_acquired_model_dataset_urn(), model))
 
     assert not _aspects(workunits, UpstreamLineageClass)
+    assert len(source.report.warnings) == 1
+
+
+def _live_model(system_type: str, external_id: str) -> ResourceModel:
+    return ResourceModel(
+        namespace="t.S",
+        model_id="LIVE_MODEL",
+        name="Live model",
+        description=None,
+        system_type=system_type,
+        connection_id="MY_CONNECTION",
+        external_id=external_id,
+        is_import=False,
+    )
+
+
+def _upstream_urns(workunits: List[MetadataWorkUnit]) -> List[str]:
+    return [
+        upstream.dataset
+        for lineage in _aspects(workunits, UpstreamLineageClass)
+        for upstream in lineage.upstreams
+    ]
+
+
+def test_get_model_workunits_resolves_user_mapped_system_type(requests_mock):
+    source = _make_source(
+        requests_mock,
+        system_type_mapping={
+            "MY_SYSTEM_TYPE": SystemTypeMappingConfig(
+                platform="my_platform", external_id_format=ExternalIdFormat.QUERY
+            )
+        },
+    )
+
+    workunits = list(
+        source.get_model_workunits(
+            _acquired_model_dataset_urn(),
+            _live_model("MY_SYSTEM_TYPE", "query:[][][MY_QUERY]"),
+        )
+    )
+
+    assert _upstream_urns(workunits) == [
+        "urn:li:dataset:(urn:li:dataPlatform:my_platform,MY_CONNECTION.QUERY/MY_QUERY,PROD)"
+    ]
+    assert not source.report.warnings
+
+
+@pytest.mark.parametrize(
+    "query, expected_urn",
+    [
+        # Prefixed: the generated view, on the mapping's platform, lower-cased.
+        (
+            "TQZMY_VIEW",
+            "urn:li:dataset:(urn:li:dataPlatform:my_platform,MY_CONNECTION.zmy_view,PROD)",
+        ),
+        # Unprefixed: an ordinary query in the embedded BW.
+        (
+            "ZQ_MY_QUERY",
+            "urn:li:dataset:(urn:li:dataPlatform:bw,MY_CONNECTION.QUERY/ZQ_MY_QUERY,PROD)",
+        ),
+    ],
+)
+def test_get_model_workunits_user_mapped_transient_query_prefix(
+    requests_mock: Mocker, query: str, expected_urn: str
+) -> None:
+    source = _make_source(
+        requests_mock,
+        system_type_mapping={
+            "MY_SYSTEM_TYPE": SystemTypeMappingConfig(
+                platform="my_platform",
+                external_id_format=ExternalIdFormat.QUERY,
+                transient_query_prefix="TQ",
+            )
+        },
+    )
+
+    workunits = list(
+        source.get_model_workunits(
+            _acquired_model_dataset_urn(),
+            _live_model("MY_SYSTEM_TYPE", f"query:[][][{query}]"),
+        )
+    )
+
+    assert _upstream_urns(workunits) == [expected_urn]
+
+
+def test_get_model_workunits_user_mapping_replaces_builtin(requests_mock):
+    source = _make_source(
+        requests_mock,
+        system_type_mapping={
+            "HANA": SystemTypeMappingConfig(
+                platform="my_hana", external_id_format=ExternalIdFormat.VIEW
+            )
+        },
+    )
+
+    workunits = list(
+        source.get_model_workunits(
+            _acquired_model_dataset_urn(),
+            _live_model("HANA", "view:[MY_SCHEMA][MY_SCHEMA.my.pkg][MY_VIEW]"),
+        )
+    )
+
+    assert _upstream_urns(workunits) == [
+        "urn:li:dataset:(urn:li:dataPlatform:my_hana,MY_CONNECTION.MY_SCHEMA.my.pkg::MY_VIEW,PROD)"
+    ]
+
+
+def test_get_model_workunits_warns_on_unmapped_system_type(requests_mock):
+    source = _make_source(requests_mock)
+
+    workunits = list(
+        source.get_model_workunits(
+            _acquired_model_dataset_urn(),
+            _live_model("MY_SYSTEM_TYPE", "query:[][][MY_QUERY]"),
+        )
+    )
+
+    assert not _upstream_urns(workunits)
     assert len(source.report.warnings) == 1
