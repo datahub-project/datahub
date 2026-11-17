@@ -6,8 +6,9 @@ import javax.annotation.Nonnull;
 
 /**
  * Called by {@link EntityServiceImpl} after a write or delete of a dataHubPolicy has been
- * committed. With POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED, GMS registers its authorizer here to read
- * the changed policies into its cache.
+ * committed. With POLICY_CACHE_IMMEDIATE_UPDATE_ENABLED, GMS registers an observer here that reads
+ * the changed policies into its cache and, with POLICY_CACHE_BROADCAST_ENABLED, signals them to the
+ * other GMS members.
  *
  * <p>{@code clientWrite} is true when the write has a request context. A client write may wait for
  * the cache read before it returns. A queued write that the MCE consumer embedded in GMS commits

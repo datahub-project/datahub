@@ -16,6 +16,7 @@ import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityServiceImpl;
+import com.linkedin.metadata.entity.PolicyChangeObserver;
 import io.datahubproject.test.boot.AspectMigrationMutators;
 import io.datahubproject.test.boot.BootContract;
 import io.datahubproject.test.boot.MessagingContract;
@@ -54,7 +55,7 @@ public class SystemUpdateBootTest {
 
   /**
    * Deployments may set POLICY_CACHE_BROADCAST_ENABLED in an env file shared with system-update. It
-   * has no policy cache, so it must boot without a policy change receiver.
+   * has no policy cache, so it must boot without a policy change receiver or observer.
    */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
@@ -62,6 +63,7 @@ public class SystemUpdateBootTest {
         process(Messaging.KAFKA).property("POLICY_CACHE_BROADCAST_ENABLED", "true").start()) {
       contract(Messaging.KAFKA).verify(ctx);
       assertNull(ctx.getBeanProvider(PolicyChangeReceiver.class).getIfAvailable());
+      assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
     }
   }
 
