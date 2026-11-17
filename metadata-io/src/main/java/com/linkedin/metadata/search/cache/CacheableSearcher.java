@@ -6,6 +6,7 @@ import static com.linkedin.metadata.utils.metrics.MetricUtils.CACHE_HIT_ATTR;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.api.trace.Span;
@@ -50,6 +51,7 @@ public class CacheableSearcher<K> {
           int batchId = 0;
           boolean foundStart = false;
           List<SearchEntity> resultEntities = new ArrayList<>();
+          SearchResultMetadata startMetadata = null;
           SearchResult batchedResult;
           // Use do-while to make sure we run at least one batch to fetch metadata
           do {
@@ -60,6 +62,9 @@ public class CacheableSearcher<K> {
               break;
             }
             if (resultsSoFar + currentBatchSize > from) {
+              if (!foundStart) {
+                startMetadata = batchedResult.getMetadata();
+              }
               int startInBatch = foundStart ? 0 : from - resultsSoFar;
               int endInBatch =
                   Math.min(currentBatchSize, startInBatch + size - resultEntities.size());
@@ -82,9 +87,18 @@ public class CacheableSearcher<K> {
             resultsSoFar += currentBatchSize;
             batchId++;
           } while (resultsSoFar < from + size);
+          SearchResultMetadata metadata = batchedResult.getMetadata();
+          // A rerank explains the batch it reordered, so a page that spans batches keeps the
+          // explanation of the batch that holds its first row
+          if (metadata != null
+              && startMetadata != null
+              && startMetadata != metadata
+              && startMetadata.hasKeywordRerank()) {
+            metadata.setKeywordRerank(startMetadata.getKeywordRerank());
+          }
           return new SearchResult()
               .setEntities(new SearchEntityArray(resultEntities))
-              .setMetadata(batchedResult.getMetadata())
+              .setMetadata(metadata)
               .setFrom(from)
               .setPageSize(size)
               .setNumEntities(batchedResult.getNumEntities());

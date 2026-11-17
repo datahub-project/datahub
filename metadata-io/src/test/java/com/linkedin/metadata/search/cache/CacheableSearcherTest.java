@@ -10,6 +10,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.KeywordRerankExplanation;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
@@ -43,6 +44,36 @@ public class CacheableSearcherTest {
     assertTrue(emptySearcher.getSearchResults(opContext, 0, 0).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(opContext, 0, 10).getEntities().isEmpty());
     assertTrue(emptySearcher.getSearchResults(opContext, 5, 10).getEntities().isEmpty());
+  }
+
+  @Test
+  public void testPageAcrossBatchesKeepsTheRerankExplanationOfItsFirstRow() {
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(mock(EntityRegistry.class));
+    CacheableSearcher<Integer> searcher =
+        new CacheableSearcher<>(
+            cacheManager.getCache("rerankAcrossBatches"),
+            10,
+            qs -> {
+              SearchResult batch = getSearchResult(qs, 10);
+              if (!batch.hasMetadata()) {
+                batch.setMetadata(new SearchResultMetadata());
+              }
+              // Only the first batch is inside the rerank window
+              batch
+                  .getMetadata()
+                  .setKeywordRerank(
+                      new KeywordRerankExplanation()
+                          .setOutcome(qs.getFrom() == 0 ? "applied" : "keptKeywordOrder"));
+              return batch;
+            },
+            CacheableSearcher.QueryPagination::getFrom,
+            true);
+
+    SearchResult page = searcher.getSearchResults(opContext, 5, 10);
+
+    assertEquals(page.getEntities().size(), 10);
+    assertEquals(page.getMetadata().getKeywordRerank().getOutcome(), "applied");
   }
 
   @Test
