@@ -84,7 +84,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
             .v3(
                 EntityIndexVersionConfiguration.builder()
                     .enabled(true)
-                    .semanticReadEnabled(true)
+                    .keywordReadEnabled(true)
                     .build())
             .semanticSearch(semanticSearch)
             .build();

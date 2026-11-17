@@ -1121,11 +1121,7 @@ public class ESIndexBuilder {
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
-    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
-        || (entityIndex != null
-            && entityIndex.getV3() != null
-            && entityIndex.getV3().isEnabled()
-            && entityIndex.getV3().isSemanticReadEnabled());
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex);
   }
 
   /** Whether a root field that the current mapping declares as an alias is a real field now. */
@@ -1163,9 +1159,14 @@ public class ESIndexBuilder {
           String.format("Input to reindexInPlaceAsync should be an alias. %s is not", indexAlias));
     }
 
-    // Point alias at new index
+    // Point alias at new index. The destination receives this index's documents, so it keeps the
+    // migration mark the target mappings do not carry.
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
-    createIndex(opContext, nextIndexName, config);
+    createIndex(
+        opContext,
+        nextIndexName,
+        IndexMigrationStamp.copyOnto(config.targetMappings(), config.currentMappings()),
+        config.targetSettings());
     renameReindexedIndices(
         searchClient, opContext, indexAlias, null, nextIndexName, false, requestOptionsLong);
     int targetShards = extractTargetShards(config);
@@ -1959,7 +1960,11 @@ public class ESIndexBuilder {
       @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
       throws IOException {
     try {
-      createIndex(opContext, destination, indexState);
+      createIndex(
+          opContext,
+          destination,
+          IndexMigrationStamp.copyOnto(indexState.targetMappings(), indexState.currentMappings()),
+          indexState.targetSettings());
     } catch (IOException | RuntimeException e) {
       // The destination would keep the index's differences from the definitions; these are the
       // ones ReindexConfig starts a reindex for.
@@ -1999,7 +2004,11 @@ public class ESIndexBuilder {
           e);
       try {
         createIndex(
-            opContext, destination, liveStructuredPropertyMappings, indexState.targetSettings());
+            opContext,
+            destination,
+            IndexMigrationStamp.copyOnto(
+                liveStructuredPropertyMappings, indexState.currentMappings()),
+            indexState.targetSettings());
       } catch (IOException | RuntimeException retryFailure) {
         if (retryFailure != e) {
           retryFailure.addSuppressed(e);

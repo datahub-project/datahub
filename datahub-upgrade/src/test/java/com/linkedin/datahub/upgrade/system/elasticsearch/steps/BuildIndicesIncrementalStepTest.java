@@ -7,7 +7,10 @@ import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyMap;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.doCallRealMethod;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.mock;
@@ -28,6 +31,7 @@ import com.linkedin.datahub.upgrade.Upgrade;
 import com.linkedin.datahub.upgrade.UpgradeContext;
 import com.linkedin.datahub.upgrade.UpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.elasticsearch.util.IndexUtils;
+import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.IngestResult;
@@ -54,6 +58,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import javax.annotation.Nullable;
 import org.mockito.ArgumentCaptor;
 import org.mockito.InOrder;
 import org.mockito.Mock;
@@ -67,6 +73,7 @@ public class BuildIndicesIncrementalStepTest {
   private static final String INDEX_NAME = "datasetindex_v2";
   private static final String NEXT_INDEX_NAME = "datasetindex_v2_0_14_0-0_1679000000000";
   private static final String V3_INDEX_NAME = "primaryindex_v3";
+  private static final String OTHER_INDEX_NAME = "chartindex_v3";
   private static final Urn SAMPLED_URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,sampled,PROD)");
   private static final String HASHED_ID =
@@ -154,6 +161,64 @@ public class BuildIndicesIncrementalStepTest {
             last.getAspect().getContentType(),
             DataHubUpgradeResult.class);
     return result.getResult();
+  }
+
+  private static Urn phase1Urn() {
+    return BootstrapStep.getUpgradeUrn(
+        IncrementalReindexState.UPGRADE_ID_PREFIX + "_" + UPGRADE_VERSION);
+  }
+
+  private static Urn catchUpUrn() {
+    return BootstrapStep.getUpgradeUrn(
+        IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX + "_" + UPGRADE_VERSION);
+  }
+
+  /**
+   * Phase 1 row for its URN, and a catch-up row only when {@code catchUpState} is non-null. One
+   * answer, because a later {@code any()} stub would hide an {@code eq()} stub.
+   */
+  private void stubUpgradeResults(
+      Map<String, String> phase1State, @Nullable Map<String, String> catchUpState) {
+    DataHubUpgradeResult phase1Result = mock(DataHubUpgradeResult.class);
+    when(phase1Result.getResult()).thenReturn(new StringMap(phase1State));
+    DataHubUpgradeResult catchUpResult = mock(DataHubUpgradeResult.class);
+    if (catchUpState != null) {
+      when(catchUpResult.getResult()).thenReturn(new StringMap(catchUpState));
+    }
+    String phase1 = phase1Urn().toString();
+    String catchUp = catchUpUrn().toString();
+    // The mock otherwise swallows Upgrade's default method, which is the upsert under test.
+    doCallRealMethod()
+        .when(upgrade)
+        .setUpgradeResult(any(), any(), any(), nullable(DataHubUpgradeState.class), any());
+    when(upgrade.getUpgradeResult(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Object urn = invocation.getArgument(1);
+              if (urn != null && phase1.equals(urn.toString())) {
+                return Optional.of(phase1Result);
+              }
+              if (catchUpState != null && urn != null && catchUp.equals(urn.toString())) {
+                return Optional.of(catchUpResult);
+              }
+              return Optional.empty();
+            });
+  }
+
+  private List<DataHubUpgradeResult> resultsFor(Urn urn) {
+    ArgumentCaptor<MetadataChangeProposal> proposals =
+        ArgumentCaptor.forClass(MetadataChangeProposal.class);
+    verify(entityService, atLeastOnce())
+        .ingestProposal(any(), proposals.capture(), any(), anyBoolean());
+    return proposals.getAllValues().stream()
+        .filter(proposal -> urn.toString().equals(String.valueOf(proposal.getEntityUrn())))
+        .map(
+            proposal ->
+                GenericRecordUtils.deserializeAspect(
+                    proposal.getAspect().getValue(),
+                    proposal.getAspect().getContentType(),
+                    DataHubUpgradeResult.class))
+        .toList();
   }
 
   @Test
@@ -596,6 +661,134 @@ public class BuildIndicesIncrementalStepTest {
     verify(indexBuilder, never())
         .pollReindexCompletion(
             any(OperationContext.class), any(), any(), any(), anyInt(), anyMap(), anyString());
+  }
+
+  @Test
+  public void testCompletedRowRecreatesAMissingIndex() throws Throwable {
+    // Upgrade history can outlive the cluster it describes. The OpenSearch 3 volume cutover keeps
+    // primary storage, so a COMPLETED row must not skip an index the new cluster does not have.
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+
+    Map<String, String> previousState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            V3_INDEX_NAME,
+            V3_INDEX_NAME + "_old",
+            null,
+            1679000000000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
+    previousState.put(
+        IncrementalReindexState.key(V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        "primaryindex_v3_previous");
+    Map<String, String> catchUpState =
+        IncrementalReindexState.setCatchUpStatus(
+            null, V3_INDEX_NAME, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    catchUpState.put(
+        IncrementalReindexState.key(V3_INDEX_NAME, IncrementalReindexState.CATCH_UP_LAST_URN),
+        "urn:li:dataset:(urn:li:dataPlatform:hive,orders,PROD)");
+    catchUpState =
+        IncrementalReindexState.setCatchUpStatus(
+            catchUpState, OTHER_INDEX_NAME, IncrementalReindexState.CatchUpStatus.COMPLETED);
+    stubUpgradeResults(previousState, catchUpState);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    verify(indexBuilder)
+        .createAliasedIndex(
+            any(OperationContext.class), eq(V3_INDEX_NAME), anyString(), eq(v3Config));
+    assertEquals(
+        IncrementalReindexState.get(
+            persistedState(), V3_INDEX_NAME, IncrementalReindexState.OLD_BACKING_INDEX_NAME),
+        Optional.empty(),
+        "a recreated index has no old generation, so the previous backing name is not a rollback target");
+
+    List<DataHubUpgradeResult> cleared = resultsFor(catchUpUrn());
+    assertEquals(cleared.size(), 1, "the replanned index's catch-up verdict is cleared once");
+    assertEquals(cleared.get(0).getState(), DataHubUpgradeState.IN_PROGRESS);
+    Map<String, String> clearedState = cleared.get(0).getResult();
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(clearedState, V3_INDEX_NAME), Optional.empty());
+    assertEquals(
+        IncrementalReindexState.get(
+            clearedState, V3_INDEX_NAME, IncrementalReindexState.CATCH_UP_LAST_URN),
+        Optional.empty());
+    assertEquals(
+        IncrementalReindexState.getCatchUpStatus(clearedState, OTHER_INDEX_NAME),
+        Optional.of(IncrementalReindexState.CatchUpStatus.COMPLETED),
+        "another index's catch-up verdict stays");
+  }
+
+  @Test
+  public void testRecreatedIndexRowIsNotCompletedWhileTheIndexIsCreated() throws Throwable {
+    // A crash after the index is created but before its fill row is checkpointed must not leave
+    // the COMPLETED row behind: the next run would skip the index and never fill it.
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+    Map<String, String> previousState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            V3_INDEX_NAME,
+            V3_INDEX_NAME + "_old",
+            null,
+            1679000000000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
+    stubUpgradeResults(previousState, null);
+    AtomicReference<Optional<IncrementalReindexState.Status>> statusWhenCreated =
+        new AtomicReference<>();
+    doAnswer(
+            invocation -> {
+              // persistedState() fails when nothing was checkpointed before the index was created,
+              // which is the state this test guards against.
+              statusWhenCreated.set(
+                  IncrementalReindexState.getStatus(persistedState(), V3_INDEX_NAME));
+              throw new RuntimeException("simulated crash after index creation");
+            })
+        .when(indexBuilder)
+        .createAliasedIndex(
+            any(OperationContext.class), eq(V3_INDEX_NAME), anyString(), eq(v3Config));
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.FAILED);
+    assertEquals(
+        statusWhenCreated.get(),
+        Optional.of(IncrementalReindexState.Status.FAILED),
+        "the row must not read COMPLETED while the index it guards is being created");
+  }
+
+  @Test
+  public void testRecreatedIndexWithoutCatchUpResultWritesNone() throws Throwable {
+    ReindexConfig v3Config = mockReindexConfig(V3_INDEX_NAME, false);
+    when(v3Config.exists()).thenReturn(false);
+    when(indexedService.buildReindexConfigs(any(), any())).thenReturn(List.of(v3Config));
+
+    Map<String, String> previousState =
+        IncrementalReindexState.setPhase1State(
+            null,
+            V3_INDEX_NAME,
+            V3_INDEX_NAME + "_old",
+            null,
+            1679000000000L,
+            0L,
+            null,
+            false,
+            IncrementalReindexState.Status.COMPLETED);
+    stubUpgradeResults(previousState, null);
+
+    UpgradeStepResult result = step.executable().apply(upgradeContext);
+
+    assertEquals(result.result(), DataHubUpgradeState.SUCCEEDED);
+    assertTrue(resultsFor(catchUpUrn()).isEmpty(), "no catch-up result is created");
   }
 
   @Test

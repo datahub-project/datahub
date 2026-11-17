@@ -1182,6 +1182,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "trace.pgqueue.peek-max-rounds",
           "trace.pollDurationMs",
           "trace.pollMaxAttempts",
+          "trace.searchCommitGraceMillis",
           "trace.timeout-seconds",
           "telemetry.enabledCli",
           "telemetry.enabledIngestion",
@@ -1290,7 +1291,6 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "elasticsearch.entityIndex.v3.mappingConfig",
           "elasticsearch.entityIndex.v3.cleanup",
           "elasticsearch.entityIndex.v3.keywordReadEnabled",
-          "elasticsearch.entityIndex.v3.semanticReadEnabled",
           "elasticsearch.entityIndex.v3.hybridReadEnabled",
           "elasticsearch.entityIndex.v3.maxFieldsLimit",
           // Semantic search configuration

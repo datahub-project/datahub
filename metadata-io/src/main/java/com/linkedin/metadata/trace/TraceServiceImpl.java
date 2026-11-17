@@ -55,17 +55,26 @@ public class TraceServiceImpl implements TraceService {
   private final McpPendingTracePort mcpTraceReader;
   private final McpFailedTracePort mcpFailedTraceReader;
 
+  /**
+   * How long a search write stays pending after its consumer offset is past, measured from the
+   * trace timestamp. Zero reports that offset as a failure immediately. The default covers the
+   * structured-property mapping put and one system-metadata refresh.
+   */
+  private final long searchCommitGraceMillis;
+
   public TraceServiceImpl(
       EntityRegistry entityRegistry,
       SystemMetadataService systemMetadataService,
       EntityService<?> entityService,
       McpPendingTracePort mcpTraceReader,
-      McpFailedTracePort mcpFailedTraceReader) {
+      McpFailedTracePort mcpFailedTraceReader,
+      long searchCommitGraceMillis) {
     this.entityRegistry = entityRegistry;
     this.systemMetadataService = systemMetadataService;
     this.entityService = entityService;
     this.mcpTraceReader = mcpTraceReader;
     this.mcpFailedTraceReader = mcpFailedTraceReader;
+    this.searchCommitGraceMillis = searchCommitGraceMillis;
   }
 
   /**
@@ -451,7 +460,9 @@ public class TraceServiceImpl implements TraceService {
         aspectsToResolve.put(urn, remaining);
       }
 
-      // Get remaining from Kafka
+      // The consumer that committed this offset may still be applying a structured-property mapping
+      // put, and system metadata is not visible until the next refresh. A recent write stays
+      // pending for that allowance instead of being reported as a drop.
       Map<Urn, Map<String, TraceStorageStatus>> kafkaResults =
           mcpTraceReader.tracePendingStatuses(
               aspectsToResolve, traceId, traceTimestampMillis, skipCache);
@@ -460,6 +471,7 @@ public class TraceServiceImpl implements TraceService {
       kafkaResults.forEach(
           (urn, statuses) ->
               finalResults.computeIfAbsent(urn, k -> new LinkedHashMap<>()).putAll(statuses));
+      deferSearchFailureWithinGrace(finalResults, traceTimestampMillis);
     }
 
     return finalResults;
@@ -515,6 +527,27 @@ public class TraceServiceImpl implements TraceService {
       return systemMetadata.getProperties().get(SystemTelemetryContext.TELEMETRY_TRACE_KEY);
     }
     return null;
+  }
+
+  private void deferSearchFailureWithinGrace(
+      @Nonnull Map<Urn, LinkedHashMap<String, TraceStorageStatus>> results,
+      long traceTimestampMillis) {
+    if (searchCommitGraceMillis <= 0) {
+      return;
+    }
+    long ageMillis = System.currentTimeMillis() - traceTimestampMillis;
+    if (ageMillis >= searchCommitGraceMillis) {
+      return;
+    }
+    for (LinkedHashMap<String, TraceStorageStatus> aspects : results.values()) {
+      aspects.replaceAll(
+          (aspectName, status) ->
+              status.getWriteStatus() == TraceWriteStatus.ERROR
+                      && TraceOffsetMessages.PROCESSED_PAST.equals(status.getWriteMessage())
+                  ? TraceStorageStatus.ok(
+                      TraceWriteStatus.PENDING, TraceOffsetMessages.SEARCH_VISIBILITY_GRACE)
+                  : status);
+    }
   }
 
   private static long extractTimestamp(@Nullable String traceId, long createOnMillis) {
