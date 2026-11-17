@@ -42,9 +42,26 @@ const Placeholder = styled.div`
 `;
 
 export function ReadOnlyEditor(props: EditorProps) {
-    const { content, className, placeholder, dataTestId, onKeyDown, onPaste, hideBorder, compact, mentionView } = props;
+    const {
+        content,
+        className,
+        placeholder,
+        dataTestId,
+        onKeyDown,
+        onPaste,
+        hideBorder,
+        compact,
+        mentionView,
+        mentionsProvider: MentionsProvider,
+    } = props;
     const html = useMemo(() => toReadOnlyHtml(content ?? ''), [content]);
-    const contentNodes = useMemo(() => readOnlyHtmlToReact(html, { mentionView }), [html, mentionView]);
+    const { nodes, mentionUrns } = useMemo(() => readOnlyHtmlToReact(html, { mentionView }), [html, mentionView]);
+    const contentNodes =
+        MentionsProvider && mentionUrns.length ? (
+            <MentionsProvider urns={mentionUrns}>{nodes}</MentionsProvider>
+        ) : (
+            nodes
+        );
     const isEmpty = !content?.trim();
     const contentClassName = `${EDITOR_CONTENT_CLASS} remirror-editor ant-typography`;
 

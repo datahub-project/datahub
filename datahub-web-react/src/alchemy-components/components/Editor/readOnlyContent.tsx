@@ -306,6 +306,7 @@ function nodeToReact(
     node: ChildNode,
     key: string,
     options: ReadOnlyRenderOptions,
+    mentionUrns: Set<string>,
     parentTag?: string,
 ): React.ReactNode {
     if (node.nodeType === Node.TEXT_NODE) {
@@ -331,6 +332,7 @@ function nodeToReact(
     const { mentionView: MentionView } = options;
     if (MentionView && node.hasAttribute(DATAHUB_MENTION_ATTRS.urn)) {
         const mention = mentionProps(node);
+        if (mention.urn) mentionUrns.add(mention.urn);
         // The wrapper keeps the mention attributes but not the `mentions` class: that class
         // styles the plain `@name` text, and the view draws its own chip.
         return (
@@ -355,16 +357,26 @@ function nodeToReact(
     if (VOID_TAGS.has(tag)) return React.createElement(tag, props);
 
     const children = Array.from(node.childNodes).map((child, index) =>
-        nodeToReact(child, `${key}-${index}`, options, tag),
+        nodeToReact(child, `${key}-${index}`, options, mentionUrns, tag),
     );
     return React.createElement(tag, props, children);
 }
 
+export type ReadOnlyContent = {
+    nodes: React.ReactNode;
+    /** URNs of the mentions rendered with `mentionView`, in document order, without duplicates. */
+    mentionUrns: string[];
+};
+
 /** Sanitized HTML, with file spans replaced by the file card and mention spans by `mentionView`. */
-export function readOnlyHtmlToReact(html: string, options: ReadOnlyRenderOptions = {}): React.ReactNode {
+export function readOnlyHtmlToReact(html: string, options: ReadOnlyRenderOptions = {}): ReadOnlyContent {
     if (typeof DOMParser === 'undefined') {
-        return <div dangerouslySetInnerHTML={{ __html: html }} />;
+        return { nodes: <div dangerouslySetInnerHTML={{ __html: html }} />, mentionUrns: [] };
     }
     const doc = new DOMParser().parseFromString(html, 'text/html');
-    return Array.from(doc.body.childNodes).map((node, index) => nodeToReact(node, `readonly-${index}`, options));
+    const mentionUrns = new Set<string>();
+    const nodes = Array.from(doc.body.childNodes).map((node, index) =>
+        nodeToReact(node, `readonly-${index}`, options, mentionUrns),
+    );
+    return { nodes, mentionUrns: Array.from(mentionUrns) };
 }

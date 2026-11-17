@@ -14,6 +14,12 @@ export type EditorMentionViewProps = {
     name: string;
 };
 
+export type EditorMentionsProviderProps = {
+    /** URNs of the mentions in the content, in document order, without duplicates. */
+    urns: string[];
+    children: React.ReactNode;
+};
+
 export type FileUploadSource = 'drag-and-drop' | 'button';
 
 export enum FileUploadFailureType {
@@ -78,6 +84,11 @@ export type EditorProps = {
     mentionsPicker?: React.ComponentType<EditorMentionsPickerProps>;
     /** Renders a mention, both while editing and in read-only mode. Without it a mention renders as `@name`. */
     mentionView?: React.ComponentType<EditorMentionViewProps>;
+    /**
+     * Read-only mode only: wraps content that has mentions and receives their URNs, so `mentionView`
+     * can read entities fetched once for the whole content instead of one request per mention.
+     */
+    mentionsProvider?: React.ComponentType<EditorMentionsProviderProps>;
     /** Lets the toolbar's image button upload files when `uploadFileProps.onFileUpload` is set. */
     imageUploadEnabled?: boolean;
 };
