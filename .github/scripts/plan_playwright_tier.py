@@ -13,6 +13,13 @@ The tier runs, instead of the whole suite:
   another directory's when listed in SEED_BORROWERS; check_playwright_p0.py fails
   on any spec that does neither, so this mapping can't drift.
 
+Smart testing (``--smart-mode active``): when classify_pr.py tagged the PR with
+product features, the specs carrying any of those tags in
+``.github/smart-testing/playwright/test_tags.yaml`` (plus its overlay) replace the
+``@p0`` tests; the affected and seed-data specs still run. With no feature tags,
+or none that any spec carries, the tier above is the fail-safe. ``shadow`` only
+records what the smart selection would have run.
+
 The full suite runs instead when a changed file matches FULL_SUITE_PATTERNS: the
 Playwright config, package files, the tier's own scripts and reusable workflows,
 global seed data (``test-data/``, loaded for every suite) and any other JSON under
@@ -48,6 +55,7 @@ cover only the selected tests and would pull the weights down.
 from __future__ import annotations
 
 import argparse
+import fnmatch
 import json
 import os
 import re
@@ -85,6 +93,17 @@ SEED_DATA = re.compile(rf"^{TESTS_DIR}/([^/]+)/fixtures/data\.json$")
 SEED_BORROWERS: dict[str, tuple[str, ...]] = {}
 
 P0_TAG = "p0"  # Playwright's JSON reporter lists tags without their leading '@'
+
+# Smart testing tag map: spec globs (repo-relative) -> taxonomy tags. The overlay
+# holds fork-only entries and is optional.
+TAG_FILES = (
+    ".github/smart-testing/playwright/test_tags.yaml",
+    ".github/smart-testing/playwright/test_tags.overlay.yaml",
+)
+# Mirror of smart_testing_constants.FEATURE_DIMENSIONS (a test keeps them equal):
+# only these dimensions select tests; the others describe or narrow.
+FEATURE_DIMENSIONS = ("feature-user", "feature-dev", "compound")
+SMART_MODES = ("off", "shadow", "active")
 # Measured: the "Run Playwright tests" step takes ~1.4x what the weights predict.
 WEIGHT_INFLATION = 1.4
 
@@ -128,12 +147,13 @@ def listed_tests(playwright_list: dict[str, Any]) -> list[ListedTest]:
 class Selection:
     """The P0 selection for a change: what it would run, whether or not the tier is on.
 
-    ``mode`` is "p0" (run the selected tests) or "full" (the change can't be narrowed).
-    Whether this CI run actually uses the selection is decided separately, in
-    plan_json(), from whether the tier was requested.
+    ``mode`` is "p0" (run the selected tests), "smart" (the specs tagged with the
+    PR's features instead of the ``@p0`` tests) or "full" (the change can't be
+    narrowed). Whether this CI run actually uses the selection is decided
+    separately, in plan_json(), from whether the tier was requested.
     """
 
-    mode: str  # "p0" or "full"
+    mode: str  # "p0", "smart" or "full"
     reason: str
     # spec path (relative to the tests dir) -> why it is selected
     reasons: dict[str, list[str]] = field(default_factory=dict)
@@ -144,12 +164,19 @@ class Selection:
 
 
 def decide(
-    tests: list[ListedTest], affected: list[ListedTest], changed: list[str]
+    tests: list[ListedTest],
+    affected: list[ListedTest],
+    changed: list[str],
+    pr_features: frozenset[str] = frozenset(),
+    spec_features: dict[str, frozenset[str]] | None = None,
 ) -> Selection:
-    """The P0 selection for a change.
+    """The P0 or smart selection for a change.
 
     ``affected`` is Playwright's ``--only-changed`` listing for the change, and
-    ``changed`` the repo paths it touches.
+    ``changed`` the repo paths it touches. ``pr_features`` are the PR's feature
+    tags from the classifier and ``spec_features`` each spec's (see
+    spec_feature_tags()); when some spec carries one of the PR's features, those
+    specs replace the ``@p0`` tests.
     """
     reasons: dict[str, list[str]] = {}
 
@@ -171,9 +198,27 @@ def decide(
         elif any(p.match(path) for p in FULL_SUITE_PATTERNS):
             return Selection("full", f"{path} affects every test")
 
-    for test in tests:
-        if P0_TAG in test.tags:
-            add(test.file, "p0")
+    mode, reason = "p0", "P0 tests plus the tests the change affects"
+    tagged = {
+        spec: sorted(features & pr_features)
+        for spec, features in (spec_features or {}).items()
+        if spec in specs and features & pr_features
+    }
+    if tagged:
+        mode = "smart"
+        reason = f"specs tagged {', '.join(sorted(pr_features))} plus the tests the change affects"
+        for spec, features in sorted(tagged.items()):
+            for feature in features:
+                add(spec, f"tagged {feature}")
+    else:
+        if pr_features:
+            reason = (
+                f"no spec is tagged {', '.join(sorted(pr_features))}, so "
+                "P0 tests plus the tests the change affects"
+            )
+        for test in tests:
+            if P0_TAG in test.tags:
+                add(test.file, "p0")
     changed_specs = {
         path.removeprefix(f"{TESTS_DIR}/") for path in changed if SPEC_FILE.match(path)
     }
@@ -182,10 +227,6 @@ def decide(
             test.file,
             "changed" if test.file in changed_specs else "affected by the change",
         )
-    # An empty selection would give playwright_test an empty matrix, which skips the
-    # job, so a PR could merge with no Playwright run at all.
-    if not reasons:
-        return Selection("full", "no @p0 test and no test affected by the change")
 
     totals: dict[str, int] = {}
     p0_lines: dict[str, list[str]] = {}
@@ -194,9 +235,7 @@ def decide(
         if P0_TAG in test.tags:
             p0_lines.setdefault(test.file, []).append(test.test_list_line)
 
-    selection = Selection(
-        "p0", "P0 tests plus the tests the change affects", reasons=reasons
-    )
+    selection = Selection(mode, reason, reasons=reasons)
     for spec, why in sorted(reasons.items()):
         if why == ["p0"]:
             selection.p0_only[spec] = p0_lines[spec]
@@ -209,7 +248,7 @@ def decide(
 def shard_count(
     selection: Selection, weights: dict[str, float], suite_shards: int
 ) -> tuple[int, float]:
-    if selection.mode != "p0" or not selection.reasons:
+    if selection.mode == "full" or not selection.reasons:
         return 0, 0.0
     predicted = (
         sum(scaled_spec_weights(selection.test_counts, weights).values())
@@ -219,10 +258,19 @@ def shard_count(
 
 
 def plan_json(
-    selection: Selection, tier_requested: bool, shards: int, predicted: float
+    selection: Selection,
+    tier_requested: bool,
+    shards: int,
+    predicted: float,
+    smart_mode: str = "off",
+    pr_features: frozenset[str] = frozenset(),
+    shadow: Selection | None = None,
 ) -> dict[str, Any]:
-    """The plan artifact: what this run does (``run*``) and what the selection decided (``selection*``)."""
-    return {
+    """The plan artifact: what this run does (``run*``) and what the selection decided (``selection*``).
+
+    ``shadow`` is the smart selection under ``--smart-mode shadow``: recorded, never run.
+    """
+    plan: dict[str, Any] = {
         "runMode": selection.mode if tier_requested else "full",
         "runReason": selection.reason
         if tier_requested
@@ -242,9 +290,18 @@ def plan_json(
                 "totalTests": selection.test_counts[spec][1],
             }
             for spec, why in sorted(selection.reasons.items())
-            if selection.mode == "p0"
+            if selection.mode != "full"
         ],
+        "smartMode": smart_mode,
+        "prFeatureTags": sorted(pr_features),
     }
+    if shadow is not None:
+        plan["smartShadow"] = {
+            "selectionMode": shadow.mode,
+            "selectionReason": shadow.reason,
+            "specs": sorted(shadow.reasons) if shadow.mode != "full" else [],
+        }
+    return plan
 
 
 def summary_markdown(plan: dict[str, Any]) -> str:
@@ -253,10 +310,21 @@ def summary_markdown(plan: dict[str, Any]) -> str:
         "",
         f"**This run:** `{plan['runMode']}` — {plan['runReason']}",
         "",
-        f"**P0 selection:** `{plan['selectionMode']}` — {plan['selectionReason']}",
+        f"**Selection:** `{plan['selectionMode']}` — {plan['selectionReason']}",
+        "",
+        f"**Smart testing:** `{plan.get('smartMode', 'off')}`, PR feature tags: "
+        f"{', '.join(plan.get('prFeatureTags') or []) or 'none'}",
         "",
     ]
-    if plan["selectionMode"] == "p0":
+    if shadow := plan.get("smartShadow"):
+        lines += [
+            (
+                f"**Smart selection (shadow, not run):** `{shadow['selectionMode']}` — "
+                f"{shadow['selectionReason']}; {len(shadow['specs'])} spec file(s)."
+            ),
+            "",
+        ]
+    if plan["selectionMode"] != "full":
         selected = sum(spec["selectedTests"] for spec in plan["specs"])
         lines += [
             (
@@ -274,7 +342,69 @@ def summary_markdown(plan: dict[str, Any]) -> str:
     return "\n".join(lines) + "\n"
 
 
-# ---- git and Playwright access (CI only; decide() above is pure) ----
+def feature_tags(smart_tags: str) -> frozenset[str]:
+    """The PR's feature tags from classify_pr.py's ``smart_tags`` (empty: no trusted tags)."""
+    if not smart_tags.strip():
+        return frozenset()
+    tags = json.loads(smart_tags)
+    if not isinstance(tags, dict):
+        raise ValueError(f"smart_tags must be a JSON object, got {smart_tags!r}")
+    return frozenset(tag for dim in FEATURE_DIMENSIONS for tag in tags.get(dim) or [])
+
+
+def rule_for(path: str, rules: list[dict[str, Any]]) -> dict[str, Any] | None:
+    """The tag rule for a repo path: an exact path wins, then the longest glob.
+
+    Same precedence as smart_testing.taxonomy.TagMap.tags_for, which tags pytest modules.
+    """
+    best: dict[str, Any] | None = None
+    for rule in rules:
+        pattern = rule["path"]
+        if pattern == path:
+            return rule
+        if fnmatch.fnmatch(path, pattern) and (
+            best is None or len(pattern) > len(best["path"])
+        ):
+            best = rule
+    return best
+
+
+def spec_feature_tags(
+    specs: set[str], rules: list[dict[str, Any]]
+) -> dict[str, frozenset[str]]:
+    """Each spec's feature tags (specs relative to the tests dir; untagged specs left out)."""
+    tagged = {}
+    for spec in specs:
+        rule = rule_for(f"{TESTS_DIR}/{spec}", rules)
+        tags = (rule or {}).get("tags") or {}
+        if features := frozenset(
+            tag for dim in FEATURE_DIMENSIONS for tag in tags.get(dim) or []
+        ):
+            tagged[spec] = features
+    return tagged
+
+
+# ---- git, Playwright and tag file access (CI only; the functions above are pure) ----
+
+
+def load_tag_rules(repo_root: Path) -> list[dict[str, Any]]:
+    """The Playwright tag rules, base file first, then the overlay when present."""
+    # Imported here, not at module scope: check_playwright_p0.py imports this module
+    # for SEED_BORROWERS and must stay stdlib-only (it runs as a pre-commit hook and
+    # in lint before anything is installed).
+    import yaml
+
+    rules: list[dict[str, Any]] = []
+    for name in TAG_FILES:
+        path = repo_root / name
+        if not path.exists() and name != TAG_FILES[0]:
+            continue
+        try:
+            data = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+        except yaml.YAMLError as exc:
+            raise ValueError(f"{name}: {exc}") from exc
+        rules.extend(data.get("tests") or [])
+    return rules
 
 
 def changed_files(repo_root: Path, base: str) -> list[str]:
@@ -338,9 +468,34 @@ def main(argv: list[str] | None = None) -> int:
         help="Shard count of the full-suite matrix; the tier uses the same",
     )
     parser.add_argument("--plan-out", type=Path, required=True)
+    parser.add_argument(
+        "--smart-mode",
+        choices=SMART_MODES,
+        default="off",
+        help="active: tagged specs replace the @p0 tests; shadow: only record that selection",
+    )
+    parser.add_argument(
+        "--smart-tags",
+        default="",
+        help="classify_pr.py's smart_tags output (JSON); empty means no trusted tags",
+    )
     args = parser.parse_args(argv)
     repo_root = args.repo_root.resolve()
     tier_requested = args.tier_requested == "true"
+
+    pr_features: frozenset[str] = frozenset()
+    tag_rules: list[dict[str, Any]] = []
+    if args.smart_mode != "off":
+        try:
+            pr_features = feature_tags(args.smart_tags)
+            if pr_features:
+                tag_rules = load_tag_rules(repo_root)
+        except (ValueError, OSError, ImportError) as exc:
+            reason = f"cannot read the smart testing tags: {exc}".splitlines()[0]
+            print(f"plan_playwright_tier: {reason}", file=sys.stderr)
+            print(f"::warning title=Playwright smart testing::{reason}; using the P0 tier")
+            pr_features = frozenset()
+    shadow: Selection | None = None
 
     try:
         full = listed_tests(playwright_list(repo_root))
@@ -353,7 +508,20 @@ def main(argv: list[str] | None = None) -> int:
             f"{len(affected)} affected by the change (--only-changed={args.base})",
             file=sys.stderr,
         )
-        selection = decide(full, affected, changed_files(repo_root, args.base))
+        changed = changed_files(repo_root, args.base)
+        selection = decide(full, affected, changed)
+        if pr_features:
+            smart = decide(
+                full,
+                affected,
+                changed,
+                pr_features=pr_features,
+                spec_features=spec_feature_tags({t.file for t in full}, tag_rules),
+            )
+            if args.smart_mode == "active":
+                selection = smart
+            else:
+                shadow = smart
     except (RuntimeError, subprocess.CalledProcessError, OSError) as exc:
         reason = f"planning failed: {exc}".splitlines()[0]
         print(
@@ -368,7 +536,15 @@ def main(argv: list[str] | None = None) -> int:
         str(repo_root / PLAYWRIGHT_DIR / "playwright_test_weights.json")
     )
     shards, predicted = shard_count(selection, weights, args.suite_shards)
-    plan = plan_json(selection, tier_requested, shards, predicted)
+    plan = plan_json(
+        selection,
+        tier_requested,
+        shards,
+        predicted,
+        smart_mode=args.smart_mode,
+        pr_features=pr_features,
+        shadow=shadow,
+    )
     args.plan_out.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
 
     if output := os.environ.get("GITHUB_OUTPUT"):
