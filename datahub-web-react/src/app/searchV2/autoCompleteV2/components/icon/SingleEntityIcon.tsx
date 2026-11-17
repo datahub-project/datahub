@@ -1,4 +1,3 @@
-import { Image } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,14 +8,12 @@ import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
 
-const ImageIcon = styled(Image)<{ $size: number }>`
-    /* antd 5 sizes .ant-image .ant-image-img with two classes; && keeps these sizes winning */
-    && {
-        height: ${(props) => props.$size}px;
-        width: ${(props) => props.$size}px;
-        object-fit: contain;
-        background-color: transparent;
-    }
+const ImageIcon = styled.img<{ $size: number }>`
+    display: block;
+    height: ${(props) => props.$size}px;
+    width: ${(props) => props.$size}px;
+    object-fit: contain;
+    background-color: transparent;
 `;
 
 const EntityIcon = styled.div`
@@ -48,7 +45,6 @@ export function SingleEntityIcon({ entity, size }: Props) {
     return (
         (platformLogoUrl && !isBrokenPlatformLogoUrl && (
             <ImageIcon
-                preview={false}
                 src={platformLogoUrl}
                 alt={platformName || ''}
                 $size={size}

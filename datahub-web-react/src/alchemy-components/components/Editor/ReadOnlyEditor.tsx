@@ -43,9 +43,9 @@ const Placeholder = styled.div`
 `;
 
 export function ReadOnlyEditor(props: EditorProps) {
-    const { content, className, placeholder, dataTestId, onKeyDown, onPaste, hideBorder, compact } = props;
+    const { content, className, placeholder, dataTestId, onKeyDown, onPaste, hideBorder, compact, mentionView } = props;
     const html = useMemo(() => toReadOnlyHtml(content ?? ''), [content]);
-    const contentNodes = useMemo(() => readOnlyHtmlToReact(html), [html]);
+    const contentNodes = useMemo(() => readOnlyHtmlToReact(html, { mentionView }), [html, mentionView]);
     const isEmpty = !content?.trim();
     const typographyClassNames = useEditorTypographyClassNames();
     const contentClassName = [EDITOR_CONTENT_CLASS, 'remirror-editor', ...typographyClassNames].join(' ');

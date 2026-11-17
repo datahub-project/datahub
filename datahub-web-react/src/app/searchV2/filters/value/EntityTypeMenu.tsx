@@ -4,13 +4,14 @@ import React, { useState } from 'react';
 import OptionsDropdownMenu from '@app/searchV2/filters/OptionsDropdownMenu';
 import { mapFilterOption } from '@app/searchV2/filters/mapFilterOption';
 import { FilterField, FilterValue, FilterValueOption } from '@app/searchV2/filters/types';
-import { OptionMenu } from '@app/searchV2/filters/value/styledComponents';
+import { OptionList } from '@app/searchV2/filters/value/styledComponents';
 import {
     deduplicateOptions,
     useFilterOptionsBySearchQuery,
     useLoadAggregationOptions,
 } from '@app/searchV2/filters/value/utils';
 import { ENTITY_SUB_TYPE_FILTER_NAME, FILTER_DELIMITER } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { EntityType } from '@src/types.generated';
 
 interface Props {
@@ -18,12 +19,11 @@ interface Props {
     values: FilterValue[];
     defaultOptions: FilterValueOption[];
     onChangeValues: (newValues: FilterValue[]) => void;
-    onApply: () => void;
-    type?: 'card' | 'default';
     includeSubTypes?: boolean;
     includeCount?: boolean;
     className?: string;
     aggregationsEntityTypes?: Array<EntityType>;
+    isRenderedInSubMenu?: boolean;
     showDefaultOptions?: boolean;
 }
 
@@ -31,21 +31,19 @@ export default function EntityTypeMenu({
     field,
     values,
     defaultOptions,
-    type = 'card',
     onChangeValues,
-    onApply,
     includeSubTypes = true,
     includeCount = false,
     className,
     aggregationsEntityTypes,
+    isRenderedInSubMenu,
     showDefaultOptions = true,
 }: Props) {
+    const entityRegistry = useEntityRegistry();
     const { displayName } = field;
 
-    // Ideally we would not have staged values, and filters would update automatically.
     const [searchQuery, setSearchQuery] = useState<string | undefined>(undefined);
 
-    // Here we optionally load the aggregation options, which are the options that are displayed by default.
     const { options: aggOptions, loading: aggLoading } = useLoadAggregationOptions({
         field,
         visible: showDefaultOptions,
@@ -57,11 +55,10 @@ export default function EntityTypeMenu({
 
     const localSearchOptions = useFilterOptionsBySearchQuery(allOptions, searchQuery);
 
-    // Compute the final options to show to the user.
     const finalOptions = searchQuery ? localSearchOptions : allOptions;
 
     const filterMenuOptions = finalOptions
-        .filter((option) => !option.value.includes(FILTER_DELIMITER)) // remove nested options
+        .filter((option) => !option.value.includes(FILTER_DELIMITER))
         .map((option) => {
             const nestedOptions = includeSubTypes
                 ? aggOptions
@@ -80,6 +77,7 @@ export default function EntityTypeMenu({
                     displayName: option.displayName,
                 },
                 includeCount,
+                entityRegistry,
                 selectedFilterOptions: values.map((value) => {
                     return { field: field.field, value: value.value };
                 }),
@@ -95,14 +93,19 @@ export default function EntityTypeMenu({
 
     return (
         <OptionsDropdownMenu
-            menu={<OptionMenu items={filterMenuOptions} />}
-            updateFilters={onApply}
+            menu={
+                <OptionList>
+                    {filterMenuOptions.map((opt) => (
+                        <React.Fragment key={opt.key}>{opt.label}</React.Fragment>
+                    ))}
+                </OptionList>
+            }
             searchQuery={searchQuery || ''}
             updateSearchQuery={setSearchQuery}
             isLoading={aggLoading}
             searchPlaceholder={displayName}
-            type={type}
             className={className}
+            isRenderedInSubMenu={isRenderedInSubMenu}
         />
     );
 }
