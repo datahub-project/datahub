@@ -486,6 +486,66 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testKeywordRerankChecksItsSelectionOnlyWithHybridRead() {
+    EmbeddingProfile documentDefault =
+        new EmbeddingProfile(
+            "doc_default",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+    EmbeddingProfile connector =
+        new EmbeddingProfile(
+            "doc_connector",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateProperties rerank = rung(r -> r.setCombine("keywordRerank"));
+    rerank.setProfiles(
+        new SearchTemplateProfiles()
+            .setReplace(new StringArray(List.of(documentDefault.id(), connector.id()))));
+    store("urn:li:searchTemplate:twoRerank", rerank);
+    templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:twoRerank"));
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setEnabledEntities(Set.of("document"));
+    semanticSearch.setModels(Map.of(documentDefault.id(), new ModelEmbeddingConfig()));
+    EmbeddingProfileRegistry registry =
+        new EmbeddingProfileRegistry(
+            List.of(documentDefault, connector), Map.of("document", documentDefault.id()));
+
+    for (boolean hybridRead : List.of(false, true)) {
+      ElasticSearchConfiguration elastic = v3Config();
+      elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+      SearchTemplateCoordinator coordinator =
+          new SearchTemplateCoordinator(
+              elastic,
+              null,
+              loader,
+              ForkJoinPool.commonPool(),
+              SearchTemplateComponentRegistry.empty(),
+              new SearchTemplateGates(
+                  registry,
+                  semanticSearch,
+                  hybridRead,
+                  Set.of(SearchTemplateGates.DOCUMENT_RERANK),
+                  Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document"))));
+      if (hybridRead) {
+        // The rerank runs here, and it cannot combine two profiles.
+        assertThrows(
+            SearchTemplateException.class,
+            () -> coordinator.bind(opContext, "customer orders", false, List.of("document")));
+      } else {
+        // Without hybrid read the rung keeps keyword order, so its selection does not matter.
+        coordinator.bind(opContext, "customer orders", false, List.of("document"));
+      }
+    }
+  }
+
+  @Test
   public void testSemanticFieldsRequireTheSemanticApiVersion() {
     SearchTemplateProperties earlier = rung(r -> r.setCombine("keywordRerank"));
     earlier.setApiVersion(1);
@@ -605,6 +665,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
         new EmbeddingProfileRegistry(
             List.of(datasetProfile), Map.of("dataset", datasetProfile.id())),
         semanticSearch,
+        true,
         Set.of(SearchTemplateGates.VECTOR_RETRIEVAL),
         Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("dataset")));
   }

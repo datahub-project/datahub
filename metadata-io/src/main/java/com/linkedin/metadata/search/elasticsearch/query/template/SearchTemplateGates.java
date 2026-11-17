@@ -89,15 +89,18 @@ public final class SearchTemplateGates {
 
   private final EmbeddingProfileRegistry profiles;
   @Nullable private final SemanticSearchConfiguration semanticSearch;
+  private final boolean hybridRead;
   private final Set<String> advertised;
   private final Map<String, Set<String>> advertisedEntityTypes;
 
   /**
    * @param semanticSearch the deployment's semantic search settings, for {@code enabledEntities}
+   * @param hybridRead this edition's hybrid read flag is on. keywordRerank reranks only with it.
    */
   public SearchTemplateGates(
       @Nonnull EmbeddingProfileRegistry profiles,
       @Nullable SemanticSearchConfiguration semanticSearch,
+      boolean hybridRead,
       @Nonnull Set<String> advertised,
       @Nonnull Map<String, Set<String>> advertisedEntityTypes) {
     for (String name : advertised) {
@@ -107,22 +110,25 @@ public final class SearchTemplateGates {
     }
     this.profiles = profiles;
     this.semanticSearch = semanticSearch;
+    this.hybridRead = hybridRead;
     this.advertised = Set.copyOf(advertised);
     this.advertisedEntityTypes = Map.copyOf(advertisedEntityTypes);
   }
 
-  /** This build's gates over the deployment's registry and semantic search settings. */
+  /** This build's gates over the deployment's registry, semantic search, and hybrid read. */
   @Nonnull
   public static SearchTemplateGates of(
       @Nonnull EmbeddingProfileRegistry profiles,
-      @Nullable SemanticSearchConfiguration semanticSearch) {
-    return new SearchTemplateGates(profiles, semanticSearch, ADVERTISED, ADVERTISED_ENTITY_TYPES);
+      @Nullable SemanticSearchConfiguration semanticSearch,
+      boolean hybridRead) {
+    return new SearchTemplateGates(
+        profiles, semanticSearch, hybridRead, ADVERTISED, ADVERTISED_ENTITY_TYPES);
   }
 
-  /** This build's gates with no registered profile and semantic search off. */
+  /** This build's gates with no registered profile, semantic search off, and hybrid read off. */
   @Nonnull
   public static SearchTemplateGates none() {
-    return of(EmbeddingProfileRegistry.empty(), null);
+    return of(EmbeddingProfileRegistry.empty(), null, false);
   }
 
   @Nonnull
@@ -179,7 +185,7 @@ public final class SearchTemplateGates {
    * named profile that does not cover every scoped entity type.
    *
    * @param documentRerank this request can run document rerank (semantic read on and the request
-   *     includes Document)
+   *     includes Document). keywordRerank also needs this edition's hybrid read flag.
    */
   @Nullable
   public String rejectionCode(@Nonnull MergedSearchTemplate template, boolean documentRerank) {
@@ -336,8 +342,9 @@ public final class SearchTemplateGates {
     return true;
   }
 
+  // keywordRerank reranks only with hybrid read on, the same flag that gates today's reranker.
   private boolean reranks(boolean documentRerank) {
-    return documentRerank && advertises(DOCUMENT_RERANK);
+    return documentRerank && hybridRead && advertises(DOCUMENT_RERANK);
   }
 
   @Nullable

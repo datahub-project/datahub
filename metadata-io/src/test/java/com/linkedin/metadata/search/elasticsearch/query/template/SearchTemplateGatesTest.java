@@ -64,12 +64,13 @@ public class SearchTemplateGatesTest {
       new SearchTemplateGates(
           REGISTRY,
           SEMANTIC,
+          true,
           Set.of(VECTOR_RETRIEVAL, ENTITY_PARTITION, DOCUMENT_RERANK),
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
   public void testThisBuildAdvertisesNoSemanticShapeYet() {
-    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC);
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
     assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
@@ -104,7 +105,7 @@ public class SearchTemplateGatesTest {
             .profiles(replace(DOCUMENT_DEFAULT.id(), CONNECTOR.id()))
             .build();
     // This build does not rerank, so the selection only the rerank uses does not fail the search.
-    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC);
+    SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
     assertNull(gates.rejectionCode(rerank, true));
     assertNull(gates.bindingRejection(rerank, List.of("document"), OPENSEARCH, true));
 
@@ -113,6 +114,7 @@ public class SearchTemplateGatesTest {
         new SearchTemplateGates(
             REGISTRY,
             SEMANTIC,
+            true,
             Set.of(DOCUMENT_RERANK),
             SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
     assertNull(reranking.rejectionCode(rerank, false));
@@ -147,6 +149,7 @@ public class SearchTemplateGatesTest {
         new SearchTemplateGates(
             REGISTRY,
             SEMANTIC,
+            true,
             Set.of(SearchTemplateGates.NATIVE_MIXED_QUERY),
             SearchTemplateGates.ADVERTISED_ENTITY_TYPES);
     MergedSearchTemplate mixed =
@@ -180,7 +183,7 @@ public class SearchTemplateGatesTest {
         SearchTemplateGates.MIN_SIMILARITY);
     // The same template on a build without vector retrieval fails earlier, by capability.
     assertNull(
-        SearchTemplateGates.of(REGISTRY, SEMANTIC)
+        SearchTemplateGates.of(REGISTRY, SEMANTIC, true)
             .bindingRejection(floor, List.of("dataset"), OPENSEARCH, true));
   }
 
@@ -212,6 +215,7 @@ public class SearchTemplateGatesTest {
         new SearchTemplateGates(
             REGISTRY,
             SEMANTIC,
+            true,
             Set.of(VECTOR_RETRIEVAL),
             Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
 
@@ -252,6 +256,7 @@ public class SearchTemplateGatesTest {
         new SearchTemplateGates(
             REGISTRY,
             SEMANTIC,
+            true,
             Set.of(VECTOR_RETRIEVAL),
             Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document")));
     assertNull(
@@ -261,6 +266,7 @@ public class SearchTemplateGatesTest {
         new SearchTemplateGates(
             REGISTRY,
             semantic("document"),
+            true,
             Set.of(VECTOR_RETRIEVAL),
             Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
     assertNull(
@@ -336,7 +342,7 @@ public class SearchTemplateGatesTest {
   public void testAdvertisedNamesAreKnownCapabilities() {
     assertThrows(
         IllegalArgumentException.class,
-        () -> new SearchTemplateGates(REGISTRY, SEMANTIC, Set.of("teleport"), Map.of()));
+        () -> new SearchTemplateGates(REGISTRY, SEMANTIC, true, Set.of("teleport"), Map.of()));
   }
 
   private static SemanticSearchConfiguration semantic(String... entityTypes) {

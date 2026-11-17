@@ -206,6 +206,14 @@ public class ElasticSearchServiceFactory {
         new HybridCandidateMerger(new HybridLexicalScoreNormalizer(), new HybridScoreCombiner()));
   }
 
+  // The OSS hybrid read flag. keywordRerank reranks only with it, as today's reranker does.
+  private static boolean hybridReadEnabled(@Nullable final EntityIndexConfiguration entityIndex) {
+    return entityIndex != null
+        && entityIndex.getV3() != null
+        && entityIndex.getV3().isEnabled()
+        && entityIndex.getV3().isHybridReadEnabled();
+  }
+
   private static IllegalStateException hybridConfigurationError(@Nonnull final String detail) {
     return new IllegalStateException(
         "elasticsearch.entityIndex.v3.hybridReadEnabled is on, but " + detail);
@@ -271,7 +279,8 @@ public class ElasticSearchServiceFactory {
             embeddingProfileRegistry,
             elasticSearchConfiguration.getEntityIndex() == null
                 ? null
-                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch()));
+                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch(),
+            hybridReadEnabled(elasticSearchConfiguration.getEntityIndex())));
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")
