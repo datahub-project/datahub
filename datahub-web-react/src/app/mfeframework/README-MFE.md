@@ -177,7 +177,7 @@ microFrontends:
           slot: entity.detail.tab
           entityTypes: [dataset] # REQUIRED opt-in (GraphQL EntityType names, case-insensitive)
           visibleWhen: [physicalDataset] # optional fine-grained rule (see Visibility)
-          after: Summary # optional tab position (see Tab position)
+          after: Summary # optional tab position, or `before: Columns` (see Tab position)
 ```
 
 `path` and `navIcon` are only required for `nav.page` entries, and `flags.showInNav` is nav-only. A slot
@@ -262,11 +262,20 @@ section directly above the built-in Logical Parent / Physical Children section.
 ### Tab position
 
 A slot tab is appended after every tab the host renders, unless `placement.after` names the tab it should
-follow. The value is that tab's stable URL segment — `Summary`, `Columns`, `Lineage`, `Properties` and so
-on, matched case-insensitively — never its translated caption. Several entries naming the same target keep
-their config order after it. A target the page does not have (for example `Columns` on a chart) falls back
-to last. Placement is resolved before visibility, so a target that is hidden on a particular entity still
-anchors the tab to where that target would be.
+follow or `placement.before` names the tab it should precede. The value is that tab's stable URL segment —
+`Summary`, `Columns`, `Lineage`, `Properties` and so on, matched case-insensitively — never its translated
+caption. Set one or the other, not both. Several entries naming the same target keep their config order
+next to it. A target the page does not have (for example `Columns` on a chart) falls back to last.
+Placement is resolved before visibility, so a target that is hidden on a particular entity still anchors
+the tab to where that target would be.
+
+`before` anchors to the tab you care about rather than to whatever happens to precede it. On a dataset,
+`before: Columns` puts the tab ahead of Columns whether or not the Summary tab is shown (it is off unless
+`DATASET_SUMMARY_PAGE_V1=true`); `after: Summary` only works while it is shown.
+
+A slot tab can also be the target: name it `mfe-<id>` (e.g. `after: mfe-physical-instances`). Entries are
+placed in config order, so the one named has to be listed above, in the same slot; otherwise the entry goes
+last and the loader logs a warning. Sidebar sections follow the same rules, with section keys as targets.
 
 ### Tab addressing
 

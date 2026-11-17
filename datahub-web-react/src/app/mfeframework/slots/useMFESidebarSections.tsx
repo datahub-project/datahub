@@ -4,7 +4,7 @@ import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntitySidebarSection } from '@app/entityV2/shared/types';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import { RegionEntry } from '@app/mfeframework/slots/MFEEntityRegion';
-import { insertAfterAnchors } from '@app/mfeframework/slots/insertAfterAnchors';
+import { insertAtAnchors } from '@app/mfeframework/slots/insertAtAnchors';
 import { isSlotTabVisible } from '@app/mfeframework/slots/slotVisibility';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
 
@@ -24,7 +24,8 @@ export function mfeConfigToSidebarSection(config: MFEConfig, entityType: string)
 
 /**
  * The entity's sidebar sections with those contributed by MFEs placed in the `entity.sidebar.section` slot
- * merged in, each right after the section whose `key` its `placement.after` names (else at the end).
+ * merged in, each right after (`placement.after`) or right before (`placement.before`) the section whose `key`
+ * it names, else at the end.
  */
 export function useMFESidebarSections(hostSections: EntitySidebarSection[]): EntitySidebarSection[] {
     const { entityType } = useEntityData();
@@ -35,8 +36,9 @@ export function useMFESidebarSections(hostSections: EntitySidebarSection[]): Ent
             configs.map((entry) => ({
                 item: mfeConfigToSidebarSection(entry, entityType),
                 after: entry.placement?.after,
+                before: entry.placement?.before,
             })),
         [configs, entityType],
     );
-    return insertAfterAnchors(hostSections, slotSections, (section) => section.key);
+    return insertAtAnchors(hostSections, slotSections, (section) => section.key);
 }

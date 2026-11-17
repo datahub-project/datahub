@@ -519,7 +519,7 @@ microFrontends:
     });
 });
 
-describe('slot tab position (placement.after)', () => {
+describe('slot tab position (placement.after / placement.before)', () => {
     const tab = (path: string) => ({ path, name: path, component: () => null }) as EntityTab;
     const host = [tab('Summary'), tab('Columns'), tab('Lineage')];
     const paths = (tabs: EntityTab[]) => tabs.map((t) => t.path);
@@ -577,6 +577,91 @@ microFrontends:
         expect(loadMFEConfigFromYAML(entry('Summary')).microFrontends).toHaveLength(1);
         expect(loadMFEConfigFromYAML(entry('42')).microFrontends).toHaveLength(0);
         expect(loadMFEConfigFromYAML(entry('"  "')).microFrontends).toHaveLength(0);
+    });
+
+    // `before` reaches ahead of Columns whether or not the dataset Summary tab is shown.
+    it('places tabs right before the named tab, in config order, with or without a tab ahead of it', () => {
+        const placements = [
+            { tab: tab('mfe-a'), before: 'columns' },
+            { tab: tab('mfe-b'), before: 'Columns' },
+        ];
+        expect(paths(insertSlotTabs(host, placements))).toEqual(['Summary', 'mfe-a', 'mfe-b', 'Columns', 'Lineage']);
+        expect(paths(insertSlotTabs([tab('Columns'), tab('Lineage')], placements))).toEqual([
+            'mfe-a',
+            'mfe-b',
+            'Columns',
+            'Lineage',
+        ]);
+    });
+
+    it('anchors to a slot tab listed earlier, and appends one that names a later or missing tab', () => {
+        const placed = insertSlotTabs(host, [
+            { tab: tab('mfe-a'), before: 'mfe-b' },
+            { tab: tab('mfe-b'), after: 'Summary' },
+            { tab: tab('mfe-c'), before: 'mfe-b' },
+            { tab: tab('mfe-d'), before: 'NoSuchTab' },
+        ]);
+        expect(paths(placed)).toEqual(['Summary', 'mfe-c', 'mfe-b', 'Columns', 'Lineage', 'mfe-a', 'mfe-d']);
+    });
+
+    it('useMFEEntityTabs honours placement.before', () => {
+        const positioned: MFESchema = {
+            ...SCHEMA,
+            microFrontends: [{ ...TAB, placement: { ...TAB.placement!, before: 'Columns' } }],
+        };
+        const positionedWrapper = ({ children }: { children: React.ReactNode }) => (
+            <MFEConfigContext.Provider value={{ provided: true, config: positioned, loading: false }}>
+                {children}
+            </MFEConfigContext.Provider>
+        );
+        const { result } = renderHook(() => useMFEEntityTabs('DATASET', host), { wrapper: positionedWrapper });
+        expect(paths(result.current)).toEqual(['Summary', 'mfe-access-tab', 'Columns', 'Lineage']);
+    });
+
+    it('rejects an entry with a blank placement.before or with both after and before', () => {
+        const entry = (lines: string) => `subNavigationMode: false
+microFrontends:
+  - id: tab
+    label: Tab
+    remoteEntry: http://r/remoteEntry.js
+    module: m/mount
+    flags:
+      enabled: true
+    placement:
+      slot: entity.detail.tab
+      contractVersion: "1.0.0"
+      entityTypes: [dataset]
+${lines}`;
+        expect(loadMFEConfigFromYAML(entry('      before: Columns')).microFrontends).toHaveLength(1);
+        expect(loadMFEConfigFromYAML(entry('      before: "  "')).microFrontends).toHaveLength(0);
+        expect(loadMFEConfigFromYAML(entry('      after: Summary\n      before: Columns')).microFrontends).toHaveLength(
+            0,
+        );
+    });
+
+    it('warns when an entry anchors to an MFE that is not listed above it in the same slot', () => {
+        const warn = vi.spyOn(console, 'warn').mockImplementation(() => {});
+        const tabEntry = (id: string, anchor: string) => `
+  - id: ${id}
+    label: ${id}
+    remoteEntry: http://r/remoteEntry.js
+    module: m/mount
+    flags:
+      enabled: true
+    placement:
+      slot: entity.detail.tab
+      contractVersion: "1.0.0"
+      entityTypes: [dataset]
+      ${anchor}`;
+        loadMFEConfigFromYAML(
+            `subNavigationMode: false\nmicroFrontends:${tabEntry('first', 'after: Summary')}${tabEntry('second', 'after: mfe-first')}`,
+        );
+        expect(warn).not.toHaveBeenCalled();
+        loadMFEConfigFromYAML(
+            `subNavigationMode: false\nmicroFrontends:${tabEntry('early', 'before: mfe-late')}${tabEntry('late', 'after: Summary')}`,
+        );
+        expect(warn).toHaveBeenCalledTimes(1);
+        warn.mockRestore();
     });
 });
 

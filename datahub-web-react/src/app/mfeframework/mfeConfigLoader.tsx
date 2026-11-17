@@ -77,6 +77,38 @@ function validatePlacement(placement: any, errors: string[]): void {
     if (placement.after !== undefined && (typeof placement.after !== 'string' || placement.after.trim().length === 0)) {
         errors.push('[MFE Loader] placement.after must be a non-empty string');
     }
+    if (
+        placement.before !== undefined &&
+        (typeof placement.before !== 'string' || placement.before.trim().length === 0)
+    ) {
+        errors.push('[MFE Loader] placement.before must be a non-empty string');
+    }
+    if (placement.after !== undefined && placement.before !== undefined) {
+        errors.push('[MFE Loader] placement.after and placement.before cannot both be set');
+    }
+}
+
+/**
+ * Entries are placed in config order, so one can only anchor to an MFE listed above it in the same slot. Naming
+ * one listed below (or in another slot) silently sends the entry to the end; say so instead.
+ */
+function warnOnUnreachableMfeAnchors(configs: MFEConfig[]): void {
+    configs.forEach((config, index) => {
+        const { placement } = config;
+        const target = (placement?.after ?? placement?.before)?.trim().toLowerCase();
+        if (!placement || !target?.startsWith('mfe-')) return;
+        const reachable = configs
+            .slice(0, index)
+            .some(
+                (earlier) => earlier.placement?.slot === placement.slot && `mfe-${earlier.id}`.toLowerCase() === target,
+            );
+        if (!reachable) {
+            console.warn(
+                `[MFE Loader] ${config.id}: placement anchor "${target}" is not an entry listed earlier in slot ` +
+                    `${placement.slot}; it will be placed last. List the entry it names above it.`,
+            );
+        }
+    });
 }
 
 /**
@@ -172,6 +204,7 @@ export function loadMFEConfigFromYAML(yamlString: string): MFESchema {
         parsed.microFrontends = parsed.microFrontends
             .map(validateMFEConfig)
             .filter((config): config is MFEConfig => config !== null);
+        warnOnUnreachableMfeAnchors(parsed.microFrontends);
         parsed.loadTimeoutMs = parseLoadTimeoutMs(parsed.loadTimeoutMs, 'the top-level config');
         return parsed;
     } catch (e) {

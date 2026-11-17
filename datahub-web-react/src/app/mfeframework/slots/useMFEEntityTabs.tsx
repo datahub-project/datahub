@@ -4,7 +4,7 @@ import { EntityTab } from '@app/entityV2/shared/types';
 import { getLazyIcon } from '@app/mfeframework/lazyIconRegistry';
 import { MFEConfig } from '@app/mfeframework/mfeConfigLoader';
 import MFEEntityTab from '@app/mfeframework/slots/MFEEntityTab';
-import { insertAfterAnchors } from '@app/mfeframework/slots/insertAfterAnchors';
+import { insertAtAnchors } from '@app/mfeframework/slots/insertAtAnchors';
 import { isSlotTabVisible } from '@app/mfeframework/slots/slotVisibility';
 import { useResolveSlot } from '@app/mfeframework/slots/useResolveSlot';
 
@@ -28,11 +28,17 @@ export function mfeConfigToEntityTab(config: MFEConfig, entityType: string): Ent
     };
 }
 
-/** Places each slot tab right after the host tab whose `path` its `placement.after` names (see insertAfterAnchors). */
-export function insertSlotTabs(hostTabs: EntityTab[], slotTabs: { tab: EntityTab; after?: string }[]): EntityTab[] {
-    return insertAfterAnchors(
+/**
+ * Places each slot tab right after, or right before, the tab whose `path` its `placement.after` or
+ * `placement.before` names (see insertAtAnchors).
+ */
+export function insertSlotTabs(
+    hostTabs: EntityTab[],
+    slotTabs: { tab: EntityTab; after?: string; before?: string }[],
+): EntityTab[] {
+    return insertAtAnchors(
         hostTabs,
-        slotTabs.map(({ tab, after }) => ({ item: tab, after })),
+        slotTabs.map(({ tab, after, before }) => ({ item: tab, after, before })),
         (tab) => tab.path,
     );
 }
@@ -50,6 +56,7 @@ export function useMFEEntityTabs(entityType: string, hostTabs: EntityTab[] = NO_
             configs.map((config) => ({
                 tab: mfeConfigToEntityTab(config, entityType),
                 after: config.placement?.after,
+                before: config.placement?.before,
             })),
         [configs, entityType],
     );

@@ -35,6 +35,13 @@ export type MFEPlacement = {
      * does not have => last. Ignored by other slots.
      */
     after?: string;
+    /**
+     * The mirror of `after`: the tab or sidebar section to come directly in front of, named the same way. Use it
+     * to place an entry ahead of a host item no matter what precedes that item, e.g. `before: Columns` on a
+     * dataset whose Summary tab may be off. Several entries naming the same target keep their config order.
+     * Cannot be combined with `after`. Ignored by other slots.
+     */
+    before?: string;
 };
 
 /**
