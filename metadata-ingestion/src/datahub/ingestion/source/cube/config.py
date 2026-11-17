@@ -70,17 +70,14 @@ class CubeSourceConfig(
     include_private: bool = Field(
         default=False,
         description=(
-            "Cube Cloud only. Ask the Metadata API for private (`public: false`) "
-            "cubes, views, and members (`include_private=true`), so lineage from "
-            "public views through private cubes reaches warehouse tables. "
-            "Requires `include_hidden: true`, because private entities are hidden "
-            "ones. The Metadata API token needs the higher-privilege "
-            "`meta-private` scope, which Cube Cloud grants only to admins or users "
-            "who can read the data model: a minted token requests it "
-            "automatically, a pre-supplied `api_token` must already carry it. If "
-            "Cube Cloud refuses it, the run ingests public entities only and "
-            "reports a failure, so stale removal does not delete private entities "
-            "ingested by earlier runs."
+            "Cube Cloud only. Request private (`public: false`) cubes, views, and "
+            "members from the Metadata API, so lineage from public views through "
+            "private cubes reaches warehouse tables. Requires `include_hidden: "
+            "true`. The token needs the `meta-private` scope, which Cube Cloud "
+            "grants only to admins or users who can read the data model: a minted "
+            "token requests it automatically, a pre-supplied `api_token` must "
+            "already carry it. If the Metadata API fails or refuses private "
+            "entities, the run reports a failure."
         ),
     )
 
@@ -386,13 +383,17 @@ class CubeSourceConfig(
                 "environment_id also requires cloud_api_key and deployment_id to "
                 "mint a Metadata API token via the Control Plane API."
             )
+        return self
+
+    @model_validator(mode="after")
+    def validate_include_private(self) -> "CubeSourceConfig":
+        # Private entities come back with public: false, so without
+        # include_hidden they would be fetched and then dropped as hidden.
         if self.include_private and not (
             self.deployment_type == CubeDeploymentType.CLOUD
             and self.use_metadata_api
             and self.include_hidden
         ):
-            # Private entities come back with public: false, so without
-            # include_hidden they would be fetched and then dropped as hidden.
             raise ValueError(
                 "include_private requires deployment_type=CLOUD, "
                 "use_metadata_api: true, and include_hidden: true."

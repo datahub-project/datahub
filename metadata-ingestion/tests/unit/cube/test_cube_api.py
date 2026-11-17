@@ -9,6 +9,13 @@ from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 
 _ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
 _META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
+_PRIVATE = {"include_hidden": True, "include_private": True}
+_MINT = "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync"
+_CONTROL_PLANE = {
+    "cloud_api_key": "cp-key",
+    "deployment_id": "123",
+    "environment_id": "456",
+}
 
 
 def _client(**overrides: object) -> CubeAPIClient:
@@ -26,15 +33,6 @@ def test_metadata_token_uses_api_token_without_control_plane() -> None:
     assert client._metadata_api_token() == "data-token"
     assert client._auth_header_value(bearer=True) == "Bearer data-token"
     assert client._auth_header_value(bearer=False) == "data-token"
-
-
-_PRIVATE = {"include_hidden": True, "include_private": True}
-_MINT = "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync"
-_CONTROL_PLANE = {
-    "cloud_api_key": "cp-key",
-    "deployment_id": "123",
-    "environment_id": "456",
-}
 
 
 @pytest.mark.parametrize(
@@ -70,7 +68,6 @@ def test_metadata_token_minted_via_control_plane_and_cached(
     "private, expected_body",
     [
         ({}, {}),
-        ({"include_hidden": True}, {}),
         (_PRIVATE, {"include_private": True}),
     ],
 )
@@ -108,9 +105,7 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
     requests_mock: rm.Mocker,
 ) -> None:
     # A token without the meta-private scope gets a 403 for include_private.
-    # The connector retries without it, rather than dropping Metadata API
-    # lineage for public entities too, and fails the run so stale removal
-    # keeps the private entities earlier runs ingested.
+    # Public entities keep their Metadata API lineage.
     client = _client(**_PRIVATE)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(
@@ -134,20 +129,20 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
     assert not client.report.warnings
 
 
-def test_private_entities_retry_refused_falls_back_to_core(
+def test_private_entities_retry_refused_fails_and_falls_back_to_core(
     requests_mock: rm.Mocker,
 ) -> None:
-    # A 403 on both requests (e.g. a revoked token) is not a scope refusal.
     client = _client(**_PRIVATE)
     requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(_ENTITIES_ALL, status_code=403)
 
     assert client.get_entities() == []
     assert matcher.call_count == 2
-    assert not client.report.failures
-    assert [w.title for w in client.report.warnings] == [
-        "Cube Metadata API unavailable"
+    assert [f.title for f in client.report.failures] == [
+        "Cube private entities unavailable",
+        "Cube Metadata API unavailable",
     ]
+    assert not client.report.warnings
 
 
 @pytest.mark.parametrize(
@@ -168,7 +163,7 @@ def test_private_entities_retry_refused_falls_back_to_core(
         ),
     ],
 )
-def test_private_entities_other_errors_fall_back_to_core(
+def test_private_entities_other_errors_fail_and_fall_back_to_core(
     requests_mock: rm.Mocker, responses: List[Dict[str, object]]
 ) -> None:
     client = _client(**_PRIVATE)
@@ -177,13 +172,13 @@ def test_private_entities_other_errors_fall_back_to_core(
 
     assert client.get_entities() == []
     assert matcher.call_count == len(responses)
-    assert not client.report.failures
-    assert [w.title for w in client.report.warnings] == [
+    assert [f.title for f in client.report.failures] == [
         "Cube Metadata API unavailable"
     ]
+    assert not client.report.warnings
 
 
-def test_private_entities_token_mint_refused_is_not_a_scope_refusal(
+def test_private_entities_token_mint_refused_fails_without_retry(
     requests_mock: rm.Mocker,
 ) -> None:
     client = _client(**_CONTROL_PLANE, **_PRIVATE)
@@ -194,10 +189,10 @@ def test_private_entities_token_mint_refused_is_not_a_scope_refusal(
     assert client.get_entities() == []
     assert mint.call_count == 1
     assert entities.call_count == 0
-    assert not client.report.failures
-    assert [w.title for w in client.report.warnings] == [
+    assert [f.title for f in client.report.failures] == [
         "Cube Metadata API unavailable"
     ]
+    assert not client.report.warnings
 
 
 def test_control_plane_base_can_be_overridden(requests_mock: rm.Mocker) -> None:
@@ -399,9 +394,9 @@ def test_get_data_sources_returns_empty_on_malformed_response(
 
 
 def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> None:
-    client = _client(cloud_api_key="cp-key", deployment_id="123", environment_id="456")
+    client = _client(**_CONTROL_PLANE)
     requests_mock.post(
-        "https://demo.cubecloud.dev/api/v1/deployments/123/environments/456/tokens-for-meta-sync",
+        _MINT,
         json={"data": {}},
     )
     with pytest.raises(ValueError):

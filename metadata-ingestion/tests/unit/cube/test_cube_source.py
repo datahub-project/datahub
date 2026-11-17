@@ -1,4 +1,4 @@
-from typing import Dict, Iterator, List
+from typing import Any, Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -30,10 +30,12 @@ from datahub.metadata.schema_classes import (
 from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
 
+_API_URL = "https://demo.cubecloud.dev/cubejs-api"
+
 
 def _source(**overrides: object) -> CubeSource:
     base: Dict[str, object] = {
-        "api_url": "https://demo.cubecloud.dev/cubejs-api",
+        "api_url": _API_URL,
         "api_token": "t",
     }
     base.update(overrides)
@@ -686,29 +688,37 @@ _PUBLIC_VIEW = {"type": "view", "name": "orders_view", "public": True}
 
 
 @pytest.mark.parametrize(
-    "include_private, expected_lineage",
+    "include_private, refuse_private, expected_lineage, expected_failures",
     [
-        (False, {}),
-        (
+        pytest.param(False, False, {}, [], id="off"),
+        pytest.param(
             True,
-            {
-                "orders": ["public.orders"],
-                "orders_view": ["orders"],
-            },
+            False,
+            {"orders": ["public.orders"], "orders_view": ["orders"]},
+            [],
+            id="on",
+        ),
+        pytest.param(
+            True, True, {}, ["Cube private entities unavailable"], id="refused"
         ),
     ],
 )
 def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
     requests_mock: rm.Mocker,
     include_private: bool,
+    refuse_private: bool,
     expected_lineage: Dict[str, List[str]],
+    expected_failures: List[str],
 ) -> None:
     # Cube Cloud leaves private cubes out of the Metadata API, and prunes the
     # view's references to them, unless include_private is requested.
     def entities(
-        request: rm.request._RequestObjectProxy, context: object
+        request: rm.request._RequestObjectProxy, context: Any
     ) -> Dict[str, object]:
         if request.json().get("include_private"):
+            if refuse_private:
+                context.status_code = 403
+                return {}
             data = [
                 _PRIVATE_CUBE,
                 {
@@ -718,12 +728,13 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
             ]
         else:
             data = [_PUBLIC_VIEW]
-        total = len(data)
-        return {"data": data, "pagination": {"offset": 0, "limit": 100, "total": total}}
+        return {
+            "data": data,
+            "pagination": {"offset": 0, "limit": 100, "total": len(data)},
+        }
 
-    base = "https://demo.cubecloud.dev/cubejs-api"
-    requests_mock.get(f"{base}/v1/meta", json={"cubes": []})
-    requests_mock.post(f"{base}/v1/entities/all", json=entities)
+    requests_mock.get(f"{_API_URL}/v1/meta", json={"cubes": []})
+    requests_mock.post(f"{_API_URL}/v1/entities/all", json=entities)
     source = _source(
         deployment_type="CLOUD",
         warehouse_platform="postgres",
@@ -740,4 +751,6 @@ def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
             ]
 
     assert lineage == expected_lineage
+    # The source's own report is what stale removal checks.
+    assert [f.title for f in source.report.failures] == expected_failures
     assert not source.report.warnings

@@ -82,8 +82,6 @@ def test_cloud_credentials_rejected_for_core_deployment() -> None:
 def test_include_private_requires_cloud_metadata_api_and_include_hidden() -> None:
     cloud = {"deployment_type": "CLOUD", "include_private": True}
     assert _config(**cloud, include_hidden=True).include_private is True
-    # Private entities are hidden ones: without include_hidden they would be
-    # fetched and then dropped.
     with pytest.raises(ValueError):
         _config(**cloud)
     with pytest.raises(ValueError):

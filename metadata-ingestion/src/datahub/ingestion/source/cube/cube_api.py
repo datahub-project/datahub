@@ -56,8 +56,8 @@ _PlatformResponse = TypeVar(
 )
 
 
-class PrivateEntitiesRefusedError(Exception):
-    pass
+class _PrivateEntitiesRefusedError(Exception):
+    """Cube Cloud answered the first include_private page with HTTP 403."""
 
 
 class CubeAPIClient:
@@ -183,7 +183,15 @@ class CubeAPIClient:
         try:
             cloud_entities = self._get_cloud_entities_with_private_fallback()
         except (requests.RequestException, ValueError) as e:
-            self.report.warning(
+            # Private entities only come from the Metadata API, so with
+            # include_private a failure is needed to stop stale removal from
+            # deleting the ones earlier runs ingested.
+            report = (
+                self.report.failure
+                if self.config.include_private
+                else self.report.warning
+            )
+            report(
                 title="Cube Metadata API unavailable",
                 message=(
                     "Using /v1/meta only; lineage to warehouse tables will be "
@@ -199,28 +207,27 @@ class CubeAPIClient:
     def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
         if not self.config.include_private:
             return self._get_cloud_entities(include_private=False)
-        # Mint up front, so a Control Plane 403 goes to the "Metadata API
-        # unavailable" handler instead of being read as a refused scope.
+        # The token is cached, so minting it here, outside the try, sends a
+        # Control Plane 403 to get_entities' handler instead of reading it as
+        # a refused scope.
         self._metadata_api_token()
         try:
             return self._get_cloud_entities(include_private=True)
-        except PrivateEntitiesRefusedError:
+        except _PrivateEntitiesRefusedError as e:
             # Cube Cloud silently drops the meta-private scope for callers who
             # may not read the data model, then rejects include_private.
-            entities = self._get_cloud_entities(include_private=False)
-            # A failure, not a warning: private cubes and members ingested by
-            # earlier runs are missing from this one, and stale removal must
-            # not soft-delete them.
+            # Reported before the retry, so a failing retry cannot skip it.
             self.report.failure(
                 title="Cube private entities unavailable",
                 message=(
                     "include_private is set, but Cube Cloud refused private "
-                    "entities (HTTP 403): the Metadata API token lacks the "
-                    "meta-private scope. Ingested public entities only; private "
-                    "cubes and members are missing."
+                    "entities (HTTP 403). Ingesting public entities only. Use a "
+                    "Cube Cloud API key or token for an admin or a user who can "
+                    "read the data model, or set include_private: false."
                 ),
+                exc=e.__cause__,
             )
-            return entities
+            return self._get_cloud_entities(include_private=False)
 
     def get_data_sources(self) -> List[CloudDataSource]:
         if self.config.deployment_type != CubeDeploymentType.CLOUD:
@@ -330,11 +337,9 @@ class CubeAPIClient:
         response = CoreMetaResponse.model_validate(raw)
         return [CubeEntity.from_core_cube(cube) for cube in response.cubes]
 
-    def _get_cloud_entities(self, include_private: bool) -> List[CubeEntity]:
+    def _get_cloud_entities(self, *, include_private: bool) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
-        body: Dict[str, object] = {}
-        if include_private:
-            body["include_private"] = True
+        body = {"include_private": True} if include_private else {}
         offset = 0
         while True:
             try:
@@ -354,7 +359,7 @@ class CubeAPIClient:
                     and e.response is not None
                     and e.response.status_code == HTTPStatus.FORBIDDEN
                 ):
-                    raise PrivateEntitiesRefusedError() from e
+                    raise _PrivateEntitiesRefusedError() from e
                 raise
             response = CloudEntitiesResponse.model_validate(raw)
             page = response.data
