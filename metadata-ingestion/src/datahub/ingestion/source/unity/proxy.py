@@ -9,7 +9,18 @@ import os
 from concurrent.futures import ThreadPoolExecutor
 from contextlib import closing
 from datetime import datetime
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Union, cast
+from typing import (
+    Any,
+    Dict,
+    Generator,
+    Iterable,
+    List,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+    cast,
+)
 from unittest.mock import patch
 
 import cachetools
@@ -77,6 +88,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     TableReference,
     escape_unity_name,
     make_schema,
+    qualified_table_name,
     usage_statement_types,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
@@ -323,6 +335,11 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
         self.usage_data_source = usage_data_source
         self.databricks_api_page_size = databricks_api_page_size
         self._connections_cache: Optional[Dict[str, ConnectionInfo]] = None
+        # Tables listed this run, so column lineage needs no API call for
+        # upstreams that are in scope. Only columns whose stored name differs
+        # from its casefold are kept, which is few or none for most tables.
+        self._listed_tables: Set[str] = set()
+        self._listed_column_case: Dict[str, Dict[str, str]] = {}
         # Initialize MLflow APIs
         self._experiments_api = ExperimentsAPI(self._workspace_client.api_client)
         self._files_api = FilesAPI(self._workspace_client.api_client)
@@ -1383,22 +1400,64 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
                     for column_name, future in zip(column_names, futures, strict=False)
                 }
 
+            # Databricks column names are case-insensitive, and lineage reports
+            # them in the case the query used, not the case the table stores.
+            lineage_by_column: Dict[str, List[dict]] = {}
+            for name, items in lineage.items():
+                lineage_by_column.setdefault(name.casefold(), []).extend(items)
             for column_name in column_names:
-                for item in lineage.get(column_name) or []:
+                for item in lineage_by_column.get(column_name.casefold()) or []:
                     table_ref = TableReference.create_from_lineage(
                         item,
                         table.schema.catalog.metastore,
                     )
                     if table_ref:
-                        table.upstreams.setdefault(table_ref, {}).setdefault(
-                            column_name, []
-                        ).append(item["name"])
+                        upstream_column = self._stored_column_name(
+                            table_ref.qualified_table_name, item["name"]
+                        )
+                        upstream_columns = table.upstreams.setdefault(
+                            table_ref, {}
+                        ).setdefault(column_name, [])
+                        if upstream_column not in upstream_columns:
+                            upstream_columns.append(upstream_column)
 
         except Exception as e:
             logger.warning(
                 f"Error getting column lineage on table {table.ref}: {e}",
                 exc_info=True,
             )
+
+    def _stored_column_name(self, full_name: str, reported: str) -> str:
+        """The name `full_name` stores the column `reported` under, so column
+        lineage uses the names the table's schema is emitted with. The listing
+        is checked on every call, since an upstream may be listed after a
+        downstream that reads it. Falls back to `reported` when an unlisted
+        table can't be read."""
+        folded = reported.casefold()
+        if full_name in self._listed_tables:
+            return self._listed_column_case.get(full_name, {}).get(folded, folded)
+        return self._fetch_column_names(full_name).get(folded, reported)
+
+    @cached(cachetools.LRUCache(maxsize=10_000))
+    def _fetch_column_names(self, full_name: str) -> Dict[str, str]:
+        """{casefolded name: stored name} for a table not listed this run."""
+        try:
+            columns = self._workspace_client.tables.get(
+                full_name=full_name, include_browse=True
+            ).columns
+        except Exception as e:
+            self.report.warning(
+                message="Unable to read upstream table columns for column lineage; "
+                "its column names are used as the lineage reports them",
+                context=full_name,
+                exc=e,
+                log=False,
+            )
+            return {}
+        if not columns:
+            # e.g. a browse-only table: the reported names are kept.
+            self.report.num_column_lineage_upstream_without_columns += 1
+        return {c.name.casefold(): c.name for c in columns or [] if c.name}
 
     @staticmethod
     def _escape_sequence(value: str) -> str:
@@ -1469,6 +1528,15 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             self.report.num_tables_missing_name += 1
             return None
         table_id = f"{schema.id}.{self._escape_sequence(obj.name)}"
+        full_name = qualified_table_name(schema.catalog.name, schema.name, obj.name)
+        self._listed_tables.add(full_name)
+        case = {
+            c.name.casefold(): c.name
+            for c in obj.columns or []
+            if c.name and c.name != c.name.casefold()
+        }
+        if case:
+            self._listed_column_case[full_name] = case
         return Table(
             name=obj.name,
             id=table_id,

@@ -294,6 +294,14 @@ DataHub extracts lineage when a query reads from a Snowflake Stream. Coverage de
 
 The Stream entity itself is also extracted as a top-level dataset; the lineage above is in addition to that.
 
+#### Materialized Views
+
+Materialized views come from `SHOW VIEWS` and are marked as materialized in their view properties. Their last-modified time comes from `SHOW MATERIALIZED VIEWS`: the newest base-table change the view holds (`refreshed_on` or `compacted_on`), or the creation time when the data has not changed since. It needs the same access as `SHOW VIEWS`, and no warehouse.
+
+With `include_operational_stats` and `include_technical_schema` enabled (the defaults), each run also emits one `UPDATE` operation at that time for a materialized view whose data changed after it was created, so operation-based freshness checks see the refresh.
+
+With `fetch_views_from_information_schema: true`, materialized views are not ingested, because `information_schema.views` does not list them.
+
 #### Metadata Pattern Pushdown
 
 When ingesting metadata from large Snowflake environments, you can improve performance by pushing down pattern filters directly to Snowflake SQL queries using the `push_down_metadata_patterns` configuration option.
