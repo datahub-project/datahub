@@ -179,7 +179,7 @@ def test_from_cloud_entity_captures_references() -> None:
             "type": "cube",
             "name": "orders",
             "table_references": [{"schema": "public", "table": "orders"}],
-            "cube_references": [{"cube": "users"}],
+            "cube_references": [{"type": "upstream", "cube": "users"}],
             "measures": [
                 {
                     "name": "count",
@@ -193,7 +193,7 @@ def test_from_cloud_entity_captures_references() -> None:
                 {
                     "name": "status",
                     "type": "string",
-                    "member_references": [{"member": "base.s"}],
+                    "member_references": [{"cube": "base", "member": "s"}],
                 }
             ],
         }
@@ -227,36 +227,39 @@ def test_cloud_entities_response_data_is_flat_list() -> None:
     assert response.pagination.total == 2
 
 
-def test_cloud_entity_cube_references_are_objects() -> None:
-    # cube_references come back as [{"cube": "<name>"}] objects, not bare strings.
+def test_cloud_references_skip_entries_that_are_not_lineage() -> None:
+    # Documented shapes: {"type": "upstream", "cube"} and {"cube", "member"}.
+    # Entries that can't name an upstream are dropped and counted, and a null
+    # value doesn't fail validation of the whole entity.
     entity = CloudEntity.model_validate(
         {
             "type": "view",
             "name": "orders_view",
-            "cube_references": [{"cube": "orders"}, {"cube": "users"}],
-        }
-    )
-    normalized = CubeEntity.from_cloud_entity(entity)
-    assert normalized.cube_references == ["orders", "users"]
-
-
-def test_cloud_member_member_references_are_objects() -> None:
-    # member_references come back as [{"member": "<name>"}] objects, not bare strings.
-    entity = CloudEntity.model_validate(
-        {
-            "type": "view",
-            "name": "orders_view",
+            "cube_references": [
+                {"type": "upstream", "cube": "orders"},
+                {"cube": "users"},
+                {"type": "downstream", "cube": "reports"},
+                {"type": "upstream", "cube": None},
+            ],
             "dimensions": [
                 {
                     "name": "status",
                     "type": "string",
-                    "member_references": [{"member": "base_orders.status"}],
+                    "member_references": [
+                        {"cube": "orders", "member": "status"},
+                        {"member": "status"},
+                        {"cube": "orders", "member": None},
+                    ],
                 }
             ],
         }
     )
+
     normalized = CubeEntity.from_cloud_entity(entity)
-    assert normalized.dimensions[0].member_references == ["base_orders.status"]
+
+    assert normalized.cube_references == ["orders", "users"]
+    assert normalized.dimensions[0].member_references == ["orders.status"]
+    assert entity.unusable_reference_count() == 4
 
 
 def test_core_cube_sql_backticks_are_stripped() -> None:
@@ -412,7 +415,7 @@ def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:
                         "type": "cube",
                         "name": "orders",
                         "table_references": [{"schema": "public", "table": "orders"}],
-                        "cube_references": [{"cube": "users"}],
+                        "cube_references": [{"type": "upstream", "cube": "users"}],
                         "measures": [
                             {
                                 "name": "count",

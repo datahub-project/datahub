@@ -259,3 +259,69 @@ def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> N
     )
     with pytest.raises(ValueError):
         client._metadata_api_token()
+
+
+_ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
+_META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
+
+
+def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:
+    client = _client()
+    pages = {
+        0: [{"type": "cube", "name": "orders"}, {"type": "cube", "name": "users"}],
+        2: [{"type": "view", "name": "orders_view"}],
+    }
+
+    def page(request: requests.PreparedRequest, context: object) -> Dict[str, object]:
+        offset = int(request.qs["offset"][0])  # type: ignore[attr-defined]
+        return {
+            "data": pages[offset],
+            "pagination": {"offset": offset, "limit": 2, "total": 3},
+        }
+
+    requests_mock.post(_ENTITIES_ALL, json=page)
+
+    entities = client._get_cloud_entities()
+
+    assert [e.name for e in entities] == ["orders", "users", "orders_view"]
+    offsets = [r.qs["offset"] for r in requests_mock.request_history]
+    assert offsets == [["0"], ["2"]]
+
+
+def test_unusable_cloud_references_are_counted_and_warned(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client()
+    requests_mock.post(
+        _ENTITIES_ALL,
+        json={
+            "data": [
+                {
+                    "type": "view",
+                    "name": "orders_view",
+                    "cube_references": [{"type": "downstream", "cube": "x"}],
+                }
+            ],
+            "pagination": {"offset": 0, "limit": 100, "total": 1},
+        },
+    )
+
+    client._get_cloud_entities()
+
+    assert client.report.metadata_api_references_skipped == 1
+    assert [w.title for w in client.report.warnings] == [
+        "Skipped Metadata API references"
+    ]
+
+
+def test_unexpected_metadata_api_response_falls_back_with_its_own_warning(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client()
+    requests_mock.get(_META, json={"cubes": [{"name": "orders", "type": "cube"}]})
+    requests_mock.post(_ENTITIES_ALL, json={"data": {"entities": []}})
+
+    assert [e.name for e in client.get_entities()] == ["orders"]
+    assert [w.title for w in client.report.warnings] == [
+        "Unexpected Cube Metadata API response"
+    ]

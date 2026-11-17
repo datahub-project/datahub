@@ -3,6 +3,7 @@ from typing import Dict, Iterable, List, Mapping, Optional, Type, TypeVar, Union
 from urllib.parse import urlparse
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -35,6 +36,7 @@ from datahub.ingestion.source.cube.models import (
     CloudDataSource,
     CloudDataSourcesResponse,
     CloudEntitiesResponse,
+    CloudEntity,
     CloudReportsResponse,
     CloudWorkbooksResponse,
     CoreMetaResponse,
@@ -172,6 +174,19 @@ class CubeAPIClient:
         # a lineage-only failure never aborts the whole ingestion.
         try:
             cloud_entities = self._get_cloud_entities()
+        except ValidationError as e:
+            # The API answered, but not in the shape this source expects, so
+            # credentials are not the problem.
+            self.report.warning(
+                title="Unexpected Cube Metadata API response",
+                message=(
+                    "Using /v1/meta only; lineage to warehouse tables will be "
+                    "unavailable. The /v1/entities/all response did not match "
+                    "the documented format."
+                ),
+                exc=e,
+            )
+            return core_entities
         except (requests.RequestException, ValueError) as e:
             self.report.warning(
                 title="Cube Metadata API unavailable",
@@ -294,6 +309,19 @@ class CubeAPIClient:
         response = CoreMetaResponse.model_validate(raw)
         return [CubeEntity.from_core_cube(cube) for cube in response.cubes]
 
+    def _report_unusable_references(self, entity: CloudEntity) -> None:
+        skipped = entity.unusable_reference_count()
+        if not skipped:
+            return
+        self.report.metadata_api_references_skipped += skipped
+        self.report.warning(
+            title="Skipped Metadata API references",
+            message="Some cube or member references could not be used for "
+            "lineage: a member reference without both cube and member, or a "
+            "cube reference that is not of type upstream.",
+            context=f"{entity.name}: {skipped} skipped",
+        )
+
     def _get_cloud_entities(self) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
         offset = 0
@@ -307,7 +335,9 @@ class CubeAPIClient:
             )
             response = CloudEntitiesResponse.model_validate(raw)
             page = response.data
-            entities.extend(CubeEntity.from_cloud_entity(entity) for entity in page)
+            for entity in page:
+                self._report_unusable_references(entity)
+                entities.append(CubeEntity.from_cloud_entity(entity))
 
             pagination = response.pagination
             if pagination is None:
