@@ -309,6 +309,43 @@ public class AspectResourceTest {
             isNull());
   }
 
+  /** An explicit limit must still be echoed in the response and passed to the service. */
+  @Test
+  public void testGetTimeseriesAspectValuesWithLimit() throws URISyntaxException {
+    TimeseriesAspectService timeseriesAspectService = mock(TimeseriesAspectService.class);
+    aspectResource.setTimeseriesAspectService(timeseriesAspectService);
+    Authentication mockAuthentication = mock(Authentication.class);
+    AuthenticationContext.setAuthentication(mockAuthentication);
+    when(mockAuthentication.getActor()).thenReturn(new Actor(ActorType.USER, "user"));
+    Urn urn = new DatasetUrn(new DataPlatformUrn("platform"), "name", FabricType.PROD);
+
+    GetTimeseriesAspectValuesResponse response =
+        awaitTask(
+            aspectResource.getTimeseriesAspectValues(
+                urn.toString(),
+                DATASET_ENTITY_NAME,
+                DATASET_USAGE_STATISTICS_ASPECT_NAME,
+                0L,
+                1000L,
+                5,
+                false,
+                null,
+                null));
+
+    assertEquals(response.getLimit().longValue(), 5L);
+    verify(timeseriesAspectService)
+        .getAspectValues(
+            any(OperationContext.class),
+            eq(urn),
+            eq(DATASET_ENTITY_NAME),
+            eq(DATASET_USAGE_STATISTICS_ASPECT_NAME),
+            eq(0L),
+            eq(1000L),
+            eq(5),
+            isNull(),
+            isNull());
+  }
+
   private static <T> T awaitTask(Task<T> task) {
     ScheduledExecutorService timerScheduler = Executors.newSingleThreadScheduledExecutor();
     Engine engine =
