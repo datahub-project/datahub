@@ -390,6 +390,7 @@ public final class SearchTemplateCapabilities {
       return true;
     }
     if (template.getProfiles() != null
+        || template.isProfilesSet()
         || template.getScope() != null
         || citesEmbeddingPlaceholders(template)) {
       return true;

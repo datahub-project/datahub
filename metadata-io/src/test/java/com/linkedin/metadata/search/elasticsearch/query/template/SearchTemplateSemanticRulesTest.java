@@ -165,6 +165,16 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testAProfilesResetNeedsTheSemanticVersion() {
+    SearchTemplateProperties reset = body("Reset", "{ \"match_all\": {} }", null);
+    reset.setProfiles(new SearchTemplateProfiles().setUseDefault(true));
+    store("urn:li:searchTemplate:resetV1", reset);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:resetV1"));
+  }
+
+  @Test
   public void testMergedChecksCoverInheritedProfilesScopeAndKnnShapes() {
     SearchTemplateProperties scoped = rung(r -> r.setCombine("vector"));
     scoped.setProfiles(new SearchTemplateProfiles().setReplace(ids("a")));
