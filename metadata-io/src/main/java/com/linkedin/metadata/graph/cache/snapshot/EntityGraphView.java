@@ -198,7 +198,8 @@ public class EntityGraphView {
   /**
    * Typed neighbor listing for membership-style reads. {@code direction} is relative to stored
    * edges: {@link TraversalDirection#FORWARD} follows source→destination; {@link
-   * TraversalDirection#REVERSE} follows destination→source.
+   * TraversalDirection#REVERSE} follows destination→source. A {@code count} of 0 returns the total
+   * and an empty page, which is how the group hover asks for a member total without the members.
    */
   @Nonnull
   public NeighborResult neighborsWithResult(
@@ -208,7 +209,7 @@ public class EntityGraphView {
       int maxDepth,
       int start,
       int count) {
-    if (maxDepth <= 0 || maxDepth > 1 || relationshipTypes.isEmpty() || count <= 0) {
+    if (maxDepth <= 0 || maxDepth > 1 || relationshipTypes.isEmpty() || count < 0) {
       return new NeighborResult(List.of(), 0);
     }
     if (!containsVertex(seedUrn)) {

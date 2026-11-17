@@ -74,7 +74,7 @@ public class EmbeddedOpenSearchStartupTest {
                   .put("transport.port", 0)
                   .put("discovery.type", "single-node")
                   .put("cluster.routing.allocation.disk.threshold_enabled", false));
-      EmbeddedOpenSearchMain.start(
+      OpenSearchLifecycle.start(
           runner,
           OpenSearchRunner.newConfigs().basePath(args[0]).numOfNode(1).clusterName("startup-test"),
           port,

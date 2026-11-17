@@ -25,6 +25,7 @@ import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
 from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import TableType
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -2107,7 +2108,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
     ) -> ViewProperties:
         assert table.view_definition
-        materialized = False
+        # Unity gives these a view definition too, but they store data.
+        materialized = table.table_type in (
+            TableType.MATERIALIZED_VIEW,
+            TableType.STREAMING_TABLE,
+        )
         if table.is_metric_view and self.config.include_metric_views:
             view_language = "YAML"
             if metric_view_spec is not None:

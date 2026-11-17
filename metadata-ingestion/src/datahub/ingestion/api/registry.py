@@ -114,6 +114,11 @@ class PluginRegistry(Generic[T]):
     ) -> None:
         self._aliases[alias] = (real_key, fn)
 
+    def get_alias_target(self, key: str) -> Optional[str]:
+        """Return the key that ``key`` is an alias of, or None if it isn't an alias."""
+        alias = self._aliases.get(key)
+        return alias[0] if alias else None
+
     def _ensure_not_lazy(self, key: str) -> Union[Type[T], Exception]:
         self._materialize_entrypoints()
 

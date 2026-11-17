@@ -16,11 +16,10 @@ export default function DownloadButton({ setShowDownloadAsCsvModal, isDownloadin
             <Button
                 onClick={() => setShowDownloadAsCsvModal(true)}
                 disabled={isDownloadingCsv || disabled}
-                isCircle
                 icon={{ icon: DownloadSimple }}
                 variant="text"
                 color="gray"
-                size="sm"
+                size="md"
                 data-testid="download-csv-button"
             >
                 {isDownloadingCsv ? t('downloading') : null}
