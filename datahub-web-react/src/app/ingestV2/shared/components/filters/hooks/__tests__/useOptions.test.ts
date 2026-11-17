@@ -1,6 +1,7 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import useOptions from '@app/ingestV2/shared/components/filters/hooks/useOptions';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 interface TestItem {
     id: string;

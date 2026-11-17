@@ -11,7 +11,7 @@ import styled from 'styled-components';
 import { ItemType } from '@components/components/Menu/types';
 import { StructuredPopover } from '@components/components/StructuredPopover';
 
-import { useEntityContext, useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityContext, useEntityData } from '@app/entityV2/shared/EntityContext';
 import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import { SimpleCopyLinkMenuItem } from '@app/sharedV2/share/v2/items/CopyLinkMenuItem';

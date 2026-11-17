@@ -1,4 +1,4 @@
-import type { XYPosition } from '@reactflow/core/dist/esm/types';
+import type { XYPosition } from 'reactflow';
 import { Edge, Node } from 'reactflow';
 
 import { DATA_FLOW_LINEAGE_CONTROL_NODE_NAME } from '@app/lineageV3/LineageBoundingBoxNode/DataFlowLineageControlNode';

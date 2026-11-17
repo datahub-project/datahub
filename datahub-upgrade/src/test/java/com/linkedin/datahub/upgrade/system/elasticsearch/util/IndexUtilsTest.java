@@ -300,6 +300,27 @@ public class IndexUtilsTest {
   }
 
   @Test
+  public void testGetAllReindexConfigsReadsDefinitionsOnlyOnACacheMiss() throws IOException {
+    ReindexConfig config = Mockito.mock(ReindexConfig.class);
+    Mockito.when(config.name()).thenReturn("cached_index");
+    ElasticSearchIndexed service = Mockito.mock(ElasticSearchIndexed.class);
+    Mockito.when(service.buildReindexConfigs(Mockito.any(), Mockito.any()))
+        .thenReturn(List.of(config));
+    IndexUtils.getAllReindexConfigs(operationContext, List.of(service), Set.of());
+
+    // The cached configs were built from the definitions, so a later step does not read them.
+    List<ReindexConfig> cached =
+        IndexUtils.getAllReindexConfigs(
+            operationContext,
+            List.of(service),
+            () -> {
+              throw new IllegalStateException("definitions were read");
+            });
+
+    Assert.assertEquals(cached, List.of(config));
+  }
+
+  @Test
   public void testGetIndicesNeedingReindexOrBuild_IncludesNonExistingIndex() throws IOException {
     // Fresh-install case: index has never been created. The filter must pick it up so
     // BuildIndicesIncrementalStep creates it on first boot, even though there is nothing

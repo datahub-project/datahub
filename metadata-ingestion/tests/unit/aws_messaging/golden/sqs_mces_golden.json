@@ -1,0 +1,546 @@
+[
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+    "changeType": "UPSERT",
+    "aspectName": "containerProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "platform": "sqs",
+                "instance": "123456789012",
+                "env": "PROD",
+                "region": "us-east-1"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/sqs/v3/home?region=us-east-1",
+            "name": "us-east-1",
+            "env": "PROD"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Region"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "container",
+    "entityUrn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:orders-dlq",
+                "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders-dlq",
+                "fifo": "false",
+                "visibility_timeout_seconds": "30",
+                "message_retention_seconds": "345600",
+                "delay_seconds": "0",
+                "max_message_size": "1048576",
+                "encryption": "sse-sqs"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/sqs/v3/home?region=us-east-1#/queues/https%3A%2F%2Fsqs.us-east-1.amazonaws.com%2F123456789012%2Forders-dlq",
+            "name": "orders-dlq",
+            "created": {
+                "time": 1793188800000
+            },
+            "lastModified": {
+                "time": 1793188800000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Queue"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+                },
+                {
+                    "id": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+                    "urn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:orders",
+                "url": "https://sqs.us-east-1.amazonaws.com/123456789012/orders",
+                "fifo": "false",
+                "visibility_timeout_seconds": "60",
+                "message_retention_seconds": "345600",
+                "delay_seconds": "0",
+                "max_message_size": "1048576",
+                "encryption": "sse-sqs",
+                "dead_letter_target": "arn:aws:sqs:us-east-1:123456789012:orders-dlq",
+                "max_receive_count": "5"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/sqs/v3/home?region=us-east-1#/queues/https%3A%2F%2Fsqs.us-east-1.amazonaws.com%2F123456789012%2Forders",
+            "name": "orders",
+            "created": {
+                "time": 1793188800000
+            },
+            "lastModified": {
+                "time": 1793188800000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Queue"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "arrayPrimaryKeys": {
+                "tags": [
+                    "attribution\u241fsource",
+                    "tag"
+                ]
+            },
+            "patch": [
+                {
+                    "op": "add",
+                    "path": "/tags//urn:li:tag:pii",
+                    "value": {
+                        "tag": "urn:li:tag:pii"
+                    }
+                },
+                {
+                    "op": "add",
+                    "path": "/tags//urn:li:tag:team:payments",
+                    "value": {
+                        "tag": "urn:li:tag:team:payments"
+                    }
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+                },
+                {
+                    "id": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+                    "urn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataPlatformInstance",
+    "aspect": {
+        "json": {
+            "platform": "urn:li:dataPlatform:sqs",
+            "instance": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "arn": "arn:aws:sqs:us-east-1:123456789012:events.fifo",
+                "url": "https://sqs.us-east-1.amazonaws.com/123456789012/events.fifo",
+                "fifo": "true",
+                "content_based_deduplication": "true",
+                "visibility_timeout_seconds": "30",
+                "message_retention_seconds": "345600",
+                "delay_seconds": "0",
+                "max_message_size": "1048576",
+                "encryption": "sse-sqs"
+            },
+            "externalUrl": "https://us-east-1.console.aws.amazon.com/sqs/v3/home?region=us-east-1#/queues/https%3A%2F%2Fsqs.us-east-1.amazonaws.com%2F123456789012%2Fevents.fifo",
+            "name": "events.fifo",
+            "created": {
+                "time": 1793188800000
+            },
+            "lastModified": {
+                "time": 1793188800000
+            },
+            "tags": []
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "container",
+    "aspect": {
+        "json": {
+            "container": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "subTypes",
+    "aspect": {
+        "json": {
+            "typeNames": [
+                "Queue"
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "browsePathsV2",
+    "aspect": {
+        "json": {
+            "path": [
+                {
+                    "id": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)",
+                    "urn": "urn:li:dataPlatformInstance:(urn:li:dataPlatform:sqs,123456789012)"
+                },
+                {
+                    "id": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232",
+                    "urn": "urn:li:container:a17ec7ec87d81dc5dd2f94815273f232"
+                }
+            ]
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "PATCH",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+        "json": [
+            {
+                "op": "add",
+                "path": "/upstreams/urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                "value": {
+                    "auditStamp": {
+                        "time": 0,
+                        "actor": "urn:li:corpuser:unknown"
+                    },
+                    "dataset": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+                    "type": "TRANSFORMED",
+                    "properties": {
+                        "relationship": "dead_letter"
+                    }
+                }
+            }
+        ]
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.events.fifo,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:sqs,123456789012.us-east-1.orders-dlq,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "status",
+    "aspect": {
+        "json": {
+            "removed": false
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1793188800000,
+        "runId": "sqs-test",
+        "lastRunId": "no-run-id-provided"
+    }
+}
+]

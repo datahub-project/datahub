@@ -6,7 +6,7 @@ import styled from 'styled-components';
 
 import { DomainsContext, UpdatedDomain } from '@app/domainV2/DomainsContext';
 import { DomainsList } from '@app/domainV2/DomainsList';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 const PageContainer = styled.div`
     padding-top: 20px;

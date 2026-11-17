@@ -108,6 +108,7 @@ public class LifecycleStageChangeEventGenerator extends EntityChangeEventGenerat
         .changeEvents(events)
         .timestamp(currentValue.getCreatedOn().getTime())
         .semVerChange(SemanticChangeType.NONE)
+        .actor(currentValue.getCreatedBy())
         .build();
   }
 

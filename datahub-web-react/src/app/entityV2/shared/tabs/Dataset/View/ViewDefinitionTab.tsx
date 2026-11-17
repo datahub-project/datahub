@@ -5,7 +5,7 @@ import styled from 'styled-components';
 
 import { CodeBlock } from '@components/components/CodeBlock';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import { InfoItem } from '@app/entityV2/shared/components/styled/InfoItem';
 import { DBT_URN } from '@app/ingest/source/builder/constants';
 

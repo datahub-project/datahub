@@ -2,7 +2,6 @@ import { Sigma } from '@phosphor-icons/react/dist/csr/Sigma';
 import i18next from 'i18next';
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { buildMetricContextParent } from '@app/entityV2/metric/MetricEntity.utils';
 import MetricPreview from '@app/entityV2/metric/preview/MetricPreview';
@@ -23,7 +22,7 @@ import {
     SidebarTagsSection,
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { useGetMetricQuery } from '@graphql/metric.generated';
 import { EntityType, Metric, SearchResult } from '@types';

@@ -1409,6 +1409,53 @@ get_tables_response_views = {
             },
         },
         {
+            # Athena view with output types Hive cannot represent: Glue stores a
+            # single `dummy` column, and the real columns live only in the Presto
+            # definition.
+            "Name": "placeholder_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id, CAST(name AS timestamp(3) with time zone) AS created_at, "
+                "CAST(name AS char(256)) AS name_padded FROM base_table",
+                [
+                    {"name": "id", "type": "varchar"},
+                    {"name": "created_at", "type": "timestamp(3) with time zone"},
+                    {"name": "name_padded", "type": "char(256)"},
+                ],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [{"Name": "dummy", "Type": "varchar"}],
+            },
+        },
+        {
+            "Name": "view_on_placeholder_view",
+            "DatabaseName": "my_db",
+            "CatalogId": "123412341234",
+            "CreateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "UpdateTime": datetime.datetime(2021, 6, 1, 14, 55, 2),
+            "TableType": "VIRTUAL_VIEW",
+            "ViewOriginalText": _presto_view_text(
+                "SELECT id, CAST(created_at AS varchar) AS created_at_text "
+                "FROM placeholder_view",
+                [
+                    {"name": "id", "type": "varchar"},
+                    {"name": "created_at_text", "type": "varchar"},
+                ],
+            ),
+            "ViewExpandedText": "/* Presto View */",
+            "StorageDescriptor": {
+                "Columns": [
+                    {"Name": "id", "Type": "string"},
+                    {"Name": "created_at_text", "Type": "string"},
+                ],
+            },
+        },
+        {
             # Raw (non-Presto) view authored by Spark/Hive: SQL is stored verbatim
             # with backtick-quoted identifiers, which parse under the Spark/Hive
             # dialect but NOT under Trino — so resolving its lineage proves per-view

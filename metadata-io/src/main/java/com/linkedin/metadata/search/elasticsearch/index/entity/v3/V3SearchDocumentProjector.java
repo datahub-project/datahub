@@ -7,9 +7,11 @@ import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ArrayNode;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.aspect.batch.MCLItem;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
@@ -18,8 +20,10 @@ import com.linkedin.metadata.models.annotation.SearchableAnnotation;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
+import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
 import java.net.URISyntaxException;
 import java.util.Iterator;
@@ -29,15 +33,21 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import java.util.concurrent.ConcurrentHashMap;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 
 /** Projects transformed searchable aspect fields into the consolidated V3 entity document. */
+@Slf4j
 public class V3SearchDocumentProjector {
 
   public static final String URN_FIELD = MappingConstants.URN_FIELD;
   public static final String ENTITY_TYPE_FIELD = MappingConstants.ENTITY_TYPE_FIELD;
+  public static final String EMBEDDINGS_FIELD = "embeddings";
   public static final String SYSTEM_METADATA_FIELD = "_systemMetadata";
+  public static final String REMOVED_FIELD = "removed";
+  public static final String TOMBSTONE_FIELD = MappingConstants.TOMBSTONE_FIELD;
 
   /**
    * Aspect JSON stored in {@code _source} and not indexed. This is the same serialization written
@@ -46,12 +56,38 @@ public class V3SearchDocumentProjector {
   public static final String ASPECT_JSON_FIELD = "_aspectJson";
 
   private static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
+  private static final String PRIMARY_SEARCH_GROUP = "primary";
 
   private final SearchDocumentTransformer searchDocumentTransformer;
+  private final boolean vectorProjectionEnabled;
+  private final Map<String, Integer> expectedVectorDimensions;
+  private final Set<String> semanticEntityNames;
+
+  // A systemic dimension mismatch fails validation for every document, so an unbounded per-doc log
+  // floods the logs. Log each rejected model once and rely on the vectorModelDropped metric for
+  // ongoing volume. Bounded by the (small) number of configured models.
+  private final Set<String> loggedInvalidModels = ConcurrentHashMap.newKeySet();
 
   public V3SearchDocumentProjector(
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer) {
+    this(searchDocumentTransformer, false, Map.of(), Set.of());
+  }
+
+  public V3SearchDocumentProjector(
+      @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
+      final boolean vectorProjectionEnabled) {
+    this(searchDocumentTransformer, vectorProjectionEnabled, Map.of(), Set.of());
+  }
+
+  public V3SearchDocumentProjector(
+      @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
+      final boolean vectorProjectionEnabled,
+      @Nonnull final Map<String, Integer> expectedVectorDimensions,
+      @Nonnull final Set<String> semanticEntityNames) {
     this.searchDocumentTransformer = searchDocumentTransformer;
+    this.vectorProjectionEnabled = vectorProjectionEnabled;
+    this.expectedVectorDimensions = Map.copyOf(expectedVectorDimensions);
+    this.semanticEntityNames = Set.copyOf(semanticEntityNames);
   }
 
   public ObjectNode newEntityDocument(
@@ -69,6 +105,14 @@ public class V3SearchDocumentProjector {
     if (entityRegistry != null) {
       putParsedUrnName(document, urn, entityRegistry);
     }
+    return document;
+  }
+
+  public ObjectNode newTombstoneDocument(
+      @Nonnull final Urn urn, @Nonnull final EntitySpec entitySpec) {
+    final ObjectNode document = newEntityDocument(urn, entitySpec);
+    document.put(REMOVED_FIELD, true);
+    document.put(TOMBSTONE_FIELD, true);
     return document;
   }
 
@@ -119,10 +163,11 @@ public class V3SearchDocumentProjector {
 
     final ProjectedAspect projected =
         buildProjectedAspect(
-            aspectSpec.getName(),
+            aspectSpec,
             projectedFields,
             event.getSystemMetadata(),
             STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
+            event.getEntitySpec(),
             sharedHasValues,
             parsedUrnNames,
             event.getUrn(),
@@ -136,6 +181,119 @@ public class V3SearchDocumentProjector {
       }
     }
     return Optional.of(projected);
+  }
+
+  public Optional<ProjectedAspect> projectSystemAspect(
+      @Nonnull final OperationContext opContext, @Nonnull final SystemAspect systemAspect) {
+    final RecordTemplate recordTemplate = systemAspect.getRecordTemplate();
+    final AspectSpec aspectSpec = systemAspect.getAspectSpec();
+    if (aspectSpec == null) {
+      throw new IllegalStateException(
+          "Cannot project latest V3 aspect without an aspect specification");
+    }
+    if (recordTemplate == null) {
+      throw new IllegalStateException("Cannot project latest V3 aspect without an aspect record");
+    }
+
+    try {
+      SearchDocumentTransformer.beginV3Projection();
+      final AuditStamp auditStamp = systemAspect.getAuditStamp();
+      return searchDocumentTransformer
+          .transformAspect(
+              opContext, systemAspect.getUrn(), recordTemplate, aspectSpec, false, auditStamp)
+          .map(
+              objectNode ->
+                  auditStamp == null
+                      ? objectNode
+                      : SearchDocumentTransformer.withSystemCreated(
+                          objectNode,
+                          ChangeType.CREATE,
+                          systemAspect.getEntitySpec(),
+                          aspectSpec,
+                          auditStamp))
+          .map(
+              objectNode ->
+                  buildStoredProjectedAspect(
+                      systemAspect.getUrn(),
+                      systemAspect.getEntitySpec(),
+                      aspectSpec,
+                      recordTemplate,
+                      objectNode,
+                      systemAspect.getSystemMetadata(),
+                      opContext));
+    } catch (Exception e) {
+      throw propagate(
+          "Failed to transform latest V3 aspect "
+              + aspectSpec.getName()
+              + " for "
+              + systemAspect.getUrn(),
+          e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+  }
+
+  public Optional<ProjectedAspect> projectStoredAspect(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate recordTemplate,
+      @Nullable final SystemMetadata systemMetadata) {
+    try {
+      SearchDocumentTransformer.beginV3Projection();
+      return searchDocumentTransformer
+          .transformAspect(opContext, urn, recordTemplate, aspectSpec, false, null)
+          .map(
+              objectNode ->
+                  buildStoredProjectedAspect(
+                      urn,
+                      entitySpec,
+                      aspectSpec,
+                      recordTemplate,
+                      objectNode,
+                      systemMetadata,
+                      opContext));
+    } catch (Exception e) {
+      throw propagate(
+          "Failed to transform latest V3 aspect " + aspectSpec.getName() + " for " + urn, e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+  }
+
+  private ProjectedAspect buildStoredProjectedAspect(
+      @Nonnull final Urn urn,
+      @Nonnull final EntitySpec entitySpec,
+      @Nonnull final AspectSpec aspectSpec,
+      @Nonnull final RecordTemplate recordTemplate,
+      @Nonnull final ObjectNode projectedFields,
+      @Nullable final SystemMetadata systemMetadata,
+      @Nonnull final OperationContext opContext) {
+    if (STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      StructuredPropertyUrnIdentity.project(opContext, projectedFields, recordTemplate);
+    }
+    omitV3ExcludedFields(aspectSpec, projectedFields);
+    // A rebuild replaces the document. Aspects that keep their body in search, such as
+    // searchTemplateProperties, are read back from this field, so the stored path writes the same
+    // JSON the live path writes.
+    storeAspectJson(aspectSpec, recordTemplate, projectedFields);
+    final Set<String> sharedHasValues = placeSharedHasValues(aspectSpec, projectedFields);
+    final EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    final List<EntitySpec> indexGroup =
+        V3SearchFields.indexGroupSpecs(entityRegistry, List.of(entitySpec));
+    final ParsedUrnNames parsedUrnNames =
+        parsedUrnNames(entityRegistry, aspectSpec, projectedFields, indexGroup);
+    return buildProjectedAspect(
+        aspectSpec,
+        projectedFields,
+        systemMetadata,
+        STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName()),
+        entitySpec,
+        sharedHasValues,
+        parsedUrnNames,
+        urn,
+        opContext);
   }
 
   public void applyProjection(
@@ -170,6 +328,7 @@ public class V3SearchDocumentProjector {
       @Nonnull final MCLItem event,
       @Nonnull final AspectSpec aspectSpec) {
     try {
+      SearchDocumentTransformer.beginV3Projection();
       final boolean isDelete = ChangeType.DELETE.equals(event.getChangeType());
       Optional<ObjectNode> transformed =
           searchDocumentTransformer
@@ -194,6 +353,8 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform V3 aspect " + aspectSpec.getName() + " for " + event.getUrn(), e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
     }
   }
 
@@ -224,6 +385,7 @@ public class V3SearchDocumentProjector {
       return Optional.empty();
     }
     try {
+      SearchDocumentTransformer.beginV3Projection();
       Optional<ObjectNode> transformed =
           searchDocumentTransformer.transformAspect(
               opContext, urn, previousAspect, aspectSpec, false, event.getAuditStamp());
@@ -231,6 +393,27 @@ public class V3SearchDocumentProjector {
     } catch (Exception e) {
       throw propagate(
           "Failed to transform previous V3 aspect " + aspectSpec.getName() + " for " + urn, e);
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+  }
+
+  /**
+   * A field with no searchLabel does not index a has* boolean. Drop the value the V2 transformer
+   * wrote, and do not null the root: a partial update must not clear a name this index no longer
+   * maps.
+   */
+  private static void omitDedicatedHasValues(
+      @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode aspectFields) {
+    for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
+      final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
+      if (!resolved.isV3Searchable() || resolved.indexedFieldName().isPresent()) {
+        continue;
+      }
+      final Optional<String> declared = resolved.getHasValuesFieldName();
+      if (declared != null && declared.isPresent()) {
+        aspectFields.remove(declared.get());
+      }
     }
   }
 
@@ -319,7 +502,7 @@ public class V3SearchDocumentProjector {
     final Map<String, ArrayNode> names = new LinkedHashMap<>();
     final Set<String> rootFields = new LinkedHashSet<>();
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-      if (!V3SearchFields.contributesParsedUrn(fieldSpec)) {
+      if (!V3SearchFields.keepsAspectParsedName(fieldSpec, searchableEntities)) {
         continue;
       }
       final SearchableAnnotation annotation = fieldSpec.getSearchableAnnotation().resolvedForV3();
@@ -393,15 +576,25 @@ public class V3SearchDocumentProjector {
       @Nonnull final MCLItem event,
       @Nonnull final AspectSpec aspectSpec,
       @Nonnull final ObjectNode projectedFields) {
+    storeAspectJson(
+        aspectSpec,
+        ChangeType.DELETE.equals(event.getChangeType()) ? null : event.getRecordTemplate(),
+        projectedFields);
+  }
+
+  private static void storeAspectJson(
+      @Nonnull final AspectSpec aspectSpec,
+      @Nullable final RecordTemplate recordTemplate,
+      @Nonnull final ObjectNode projectedFields) {
     if (aspectSpec.getAspectAnnotation() == null
         || !aspectSpec.getAspectAnnotation().isAspectJson()) {
       return;
     }
-    if (ChangeType.DELETE.equals(event.getChangeType()) || event.getRecordTemplate() == null) {
+    if (recordTemplate == null) {
       projectedFields.putNull(ASPECT_JSON_FIELD);
       return;
     }
-    projectedFields.put(ASPECT_JSON_FIELD, RecordUtils.toJsonString(event.getRecordTemplate()));
+    projectedFields.put(ASPECT_JSON_FIELD, RecordUtils.toJsonString(recordTemplate));
   }
 
   /**
@@ -420,21 +613,25 @@ public class V3SearchDocumentProjector {
     return stored.isTextual() ? stored.asText() : stored.toString();
   }
 
-  private static ProjectedAspect buildProjectedAspect(
-      @Nonnull final String aspectName,
+  private ProjectedAspect buildProjectedAspect(
+      @Nonnull final AspectSpec aspectSpec,
       @Nonnull final ObjectNode projectedFields,
       @Nullable final SystemMetadata systemMetadata,
       final boolean rootOnly,
+      @Nonnull final EntitySpec entitySpec,
       @Nonnull final Set<String> sharedHasValues,
       @Nonnull final ParsedUrnNames parsedUrns,
       @Nonnull final Urn urn,
       @Nonnull final OperationContext opContext) {
+    final String aspectName = aspectSpec.getName();
     final ObjectNode rootFields = projectedFields.deepCopy();
     rootFields.remove(URN_FIELD);
     rootFields.remove(ASPECT_JSON_FIELD);
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
+    omitDedicatedHasValues(aspectSpec, rootFields);
+    omitDedicatedHasValues(aspectSpec, aspectFields);
     for (String name : sharedHasValues) {
       // Drop a stored root true or false. The indexed term comes from copy_to.
       rootFields.putNull(name);
@@ -458,15 +655,95 @@ public class V3SearchDocumentProjector {
     }
 
     if (SEMANTIC_CONTENT_ASPECT_NAME.equals(aspectName)) {
-      // Vectors stay under _aspects; UpdateIndicesV3Strategy lifts them to the root only for
-      // entities with semantic search enabled, whose V3 index maps a root embeddings field.
-      final ObjectNode semanticRoot = JsonNodeFactory.instance.objectNode();
-      putParsedUrnName(semanticRoot, urn, opContext.getEntityRegistry());
-      return new ProjectedAspect(aspectName, semanticRoot, aspectFields, false);
+      aspectFields.remove(EMBEDDINGS_FIELD);
+      if (shouldProjectRootEmbeddings(entitySpec)) {
+        filterRetiredModelsAndValidateVectorDimensions(opContext, rootFields);
+      } else {
+        rootFields.remove(EMBEDDINGS_FIELD);
+      }
+      putParsedUrnName(rootFields, urn, opContext.getEntityRegistry());
+      return new ProjectedAspect(aspectName, rootFields, aspectFields, true);
     }
 
     putParsedUrnName(rootFields, urn, opContext.getEntityRegistry());
     return new ProjectedAspect(aspectName, rootFields, aspectFields, rootOnly);
+  }
+
+  private static boolean isPrimaryEntity(@Nonnull final EntitySpec entitySpec) {
+    return PRIMARY_SEARCH_GROUP.equals(V3IndexKeys.resolve(entitySpec));
+  }
+
+  /**
+   * Semantic search being on for this entity is the whole gate. The V3 index maps a root embeddings
+   * field for exactly the entities semantic search is enabled for, so a separate projection switch
+   * would only drop vectors the mapping already expects.
+   */
+  private boolean shouldProjectRootEmbeddings(@Nonnull final EntitySpec entitySpec) {
+    return isPrimaryEntity(entitySpec) || semanticEntityNames.contains(entitySpec.getName());
+  }
+
+  private void filterRetiredModelsAndValidateVectorDimensions(
+      @Nonnull final OperationContext opContext, @Nonnull final ObjectNode rootFields) {
+    final JsonNode embeddings = rootFields.get(EMBEDDINGS_FIELD);
+    if (!(embeddings instanceof ObjectNode embeddingsObject)) {
+      return;
+    }
+    final Iterator<Map.Entry<String, JsonNode>> models = embeddingsObject.fields();
+    while (models.hasNext()) {
+      if (!expectedVectorDimensions.containsKey(models.next().getKey())) {
+        models.remove();
+      }
+    }
+    expectedVectorDimensions.forEach(
+        (modelKey, expectedDimension) -> {
+          final JsonNode model = embeddingsObject.get(modelKey);
+          if (model == null) {
+            return;
+          }
+          final String rejection = invalidModelReason(model, expectedDimension);
+          if (rejection != null) {
+            // Drop only this model's vectors so the lexical document still indexes; throwing
+            // here would fail the whole MCL batch and poison-pill the entity into endless
+            // retries over one bad embedding.
+            opContext
+                .getMetricUtils()
+                .ifPresent(
+                    metricUtils ->
+                        metricUtils.increment(
+                            V3SearchDocumentProjector.class, "vectorModelDropped", 1));
+            if (loggedInvalidModels.add(modelKey)) {
+              log.warn(
+                  "Dropping semantic embeddings for model '{}' from search document: {} "
+                      + "(further occurrences for this model are suppressed; see the "
+                      + "vectorModelDropped metric for volume)",
+                  modelKey,
+                  rejection);
+            }
+            embeddingsObject.remove(modelKey);
+          }
+        });
+  }
+
+  @Nullable
+  private static String invalidModelReason(
+      @Nonnull final JsonNode model, @Nullable final Integer expectedDimension) {
+    if (expectedDimension == null || expectedDimension <= 0) {
+      return "configured vector dimension must be positive";
+    }
+    final JsonNode chunks = model.get("chunks");
+    if (chunks == null || !chunks.isArray()) {
+      return "missing chunks array";
+    }
+    for (JsonNode chunk : chunks) {
+      final JsonNode vector = chunk.get("vector");
+      if (vector == null || !vector.isArray() || vector.size() != expectedDimension) {
+        return "vector has "
+            + (vector != null && vector.isArray() ? vector.size() : 0)
+            + " dimensions; configured mapping expects "
+            + expectedDimension;
+      }
+    }
+    return null;
   }
 
   private static void putParsedUrnName(
@@ -500,10 +777,33 @@ public class V3SearchDocumentProjector {
 
   private static RuntimeException propagate(
       @Nonnull final String message, @Nonnull final Exception exception) {
+    // A GMS read can fail transiently. Wrapping it as a plain illegal state makes the live
+    // batch skip the aspect and commit the offset, so the write is never retried.
+    if (hasRetryableRead(exception)) {
+      return exception instanceof RetryableIndexingException retryable
+          ? retryable
+          : new RetryableIndexingException(message, exception);
+    }
     if (exception instanceof RuntimeException runtimeException) {
       return runtimeException;
     }
     return new IllegalStateException(message, exception);
+  }
+
+  private static boolean hasRetryableRead(@Nonnull final Throwable exception) {
+    Throwable current = exception;
+    while (current != null) {
+      if (current instanceof RemoteInvocationException
+          || current instanceof RetryableIndexingException) {
+        return true;
+      }
+      Throwable cause = current.getCause();
+      if (cause == current) {
+        break;
+      }
+      current = cause;
+    }
+    return false;
   }
 
   private static ObjectNode getOrCreateObject(

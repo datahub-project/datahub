@@ -157,13 +157,41 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
   }
 
   @Test
+  public void testSemanticSearchMatchesEveryOrGroup() {
+    // A view with "any of" rules sends one OR group per rule, next to the latest-version clause
+    // that every search filter carries.
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", NEAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(NEAR_URN, FAR_URN));
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", FAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(FAR_URN));
+  }
+
+  @Test
   public void testAspectFieldFilterMatchesV3Documents() {
     if (!SemanticEntitySearchService.supportsV3SemanticFilters(getSearchClient())) {
       throw new SkipException(
           "DataHub refuses V3 semantic reads on OpenSearch before 3.5, where they are not"
               + " validated; this test builds the service directly");
     }
-    // V3 root fields carry the .keyword subfields V2 filters read
+    // A domains filter reads the full URN field
     SearchResult byDomain =
         service.search(
             opContext, List.of("document"), "query", filter("domains", DOMAIN_URN), null, 0, 10);
@@ -181,14 +209,13 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
                 .extraRootProperties("document"));
     properties.put("urn", Map.of("type", "keyword"));
     properties.put("_entityType", Map.of("type", "keyword"));
-    // A URN field at the root and under _aspects, with the .keyword subfield V3 root fields carry
-    // (this index has no analyzers, so the analyzed subfields are left out)
-    Map<String, Object> domains =
-        Map.of("type", "keyword", "fields", Map.of("keyword", Map.of("type", "keyword")));
+    // The full URN is domains_urn. The root domains field is the parsed name.
+    Map<String, Object> keyword = Map.of("type", "keyword");
     properties.put(
         "_aspects",
-        Map.of("properties", Map.of("domains", Map.of("properties", Map.of("domains", domains)))));
-    properties.put("domains", domains);
+        Map.of("properties", Map.of("domains", Map.of("properties", Map.of("domains", keyword)))));
+    properties.put("domains", keyword);
+    properties.put("domains_urn", keyword);
     Map<String, Object> indexSettings = new HashMap<>();
     indexSettings.put("number_of_shards", 1);
     indexSettings.put("number_of_replicas", 0);
@@ -218,6 +245,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         Map.of(MODEL_KEY, Map.of("chunks", List.of(chunk))));
     if (domain != null) {
       document.put("domains", List.of(domain));
+      document.put("domains_urn", List.of(domain));
       document.put("_aspects", Map.of("domains", Map.of("domains", List.of(domain))));
     }
     lowLevel("PUT", "/" + index + "/_doc/" + urn.hashCode(), document);
@@ -247,6 +275,14 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+  }
+
+  private static Filter anyOf(Filter... filters) {
+    ConjunctiveCriterionArray groups = new ConjunctiveCriterionArray();
+    for (Filter filter : filters) {
+      groups.addAll(filter.getOr());
+    }
+    return new Filter().setOr(groups);
   }
 
   private static List<String> urns(SearchResult result) {

@@ -293,3 +293,9 @@ BEGIN
 END$$
 
 DELIMITER ;
+
+-- profile_table_row_count_estimate_only reads information_schema.tables.table_rows,
+-- which comes from InnoDB persistent statistics. Those are recalculated in the
+-- background after the inserts above, so without this the estimate depends on
+-- timing: CI has seen both 0 and 2 for the 5 customers. ANALYZE makes it exact.
+ANALYZE TABLE `northwind`.`customers`, `northwind`.`orders`;

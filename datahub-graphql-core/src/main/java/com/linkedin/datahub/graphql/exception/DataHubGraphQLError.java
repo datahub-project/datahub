@@ -27,17 +27,30 @@ public class DataHubGraphQLError implements GraphQLError {
       ResultPath path,
       SourceLocation sourceLocation,
       DataHubGraphQLErrorCode errorCode) {
+    this(message, path, sourceLocation, errorCode, null);
+  }
+
+  public DataHubGraphQLError(
+      String message,
+      ResultPath path,
+      SourceLocation sourceLocation,
+      DataHubGraphQLErrorCode errorCode,
+      String errorSource) {
     this.path = assertNotNull(path).toList();
     this.errorCode = assertNotNull(errorCode);
     this.locations = Collections.singletonList(sourceLocation);
     this.message = message;
-    this.extensions = buildExtensions(errorCode);
+    this.extensions = buildExtensions(errorCode, errorSource);
   }
 
-  private Map<String, Object> buildExtensions(DataHubGraphQLErrorCode errorCode) {
+  private Map<String, Object> buildExtensions(
+      DataHubGraphQLErrorCode errorCode, String errorSource) {
     final Map<String, Object> extensions = new LinkedHashMap<>();
     extensions.put("code", errorCode.getCode());
     extensions.put("type", errorCode.toString());
+    if (errorSource != null) {
+      extensions.put("errorSource", errorSource);
+    }
     return extensions;
   }
 

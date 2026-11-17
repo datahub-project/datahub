@@ -8,7 +8,7 @@ import {
     getAttributionOrigin,
     isExternal,
     usePropagationDetails,
-} from '@app/entity/shared/propagation/utils';
+} from '@app/entityV2/shared/propagation/utils';
 import AutoCompleteEntityItem from '@app/searchV2/autoCompleteV2/AutoCompleteEntityItem';
 import HoverCardSection from '@app/sharedV2/hoverCard/HoverCardSection';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';

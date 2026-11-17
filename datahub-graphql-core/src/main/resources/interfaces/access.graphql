@@ -1,0 +1,13 @@
+"""
+An entity with access roles
+"""
+interface HasAccess {
+  """
+  Roles and the properties to access the entity
+  """
+  access: Access
+}
+
+extend type Container implements HasAccess
+extend type Dashboard implements HasAccess
+extend type Dataset implements HasAccess

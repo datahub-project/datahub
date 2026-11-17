@@ -1,0 +1,24 @@
+plugins {
+  id 'java-library'
+}
+
+// Test-only recorder for the wiring ratchet (gradle/wiring/README.md). Every Java module gets it
+// on its test runtime classpath. Spring is compileOnly so it adds nothing to that classpath: the
+// recorder only activates where Spring is already present.
+// Java 17 bytecode (the Spring 7 baseline) so modules pinned to 17, e.g. the Spark lineage agent,
+// can resolve it.
+ext.javaClassVersionOverride = 17
+dependencies {
+  compileOnly externalDependency.springBootTest
+  testImplementation externalDependency.springBootTest
+  testImplementation externalDependency.testng
+  testImplementation externalDependency.mockito
+}
+
+// Self-test: point the recorder at a scratch directory (the ratchet itself skips this module).
+test {
+  def recorderArgs = objects.newInstance(io.datahubproject.wiring.WiringCoverageRecorderArgs)
+  recorderArgs.dir.set(layout.buildDirectory.dir('wiring-coverage/self-test'))
+  jvmArgumentProviders.add(recorderArgs)
+  doFirst { recorderArgs.dir.get().asFile.deleteDir() }
+}

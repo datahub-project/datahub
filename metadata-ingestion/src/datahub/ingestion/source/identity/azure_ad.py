@@ -4,7 +4,7 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List, Optional
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set
 
 import click
 import requests
@@ -43,22 +43,37 @@ from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionConfigBase,
     StatefulIngestionSourceBase,
 )
-from datahub.metadata.com.linkedin.pegasus2avro.metadata.snapshot import (
-    CorpGroupSnapshot,
-    CorpUserSnapshot,
-)
-from datahub.metadata.com.linkedin.pegasus2avro.mxe import MetadataChangeEvent
 from datahub.metadata.schema_classes import (
     CorpGroupInfoClass,
     CorpUserInfoClass,
+    CorpUserStatusClass,
     GroupMembershipClass,
     OriginClass,
     OriginTypeClass,
     StatusClass,
+    _Aspect,
 )
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
+
+# Graph user properties read when mapping users, requested with $select on
+# /users and /groups/{id}/members. $select replaces Graph's default property
+# set, so every property the mapping reads must be listed; accountEnabled and
+# usageLocation are only returned when selected (see
+# https://learn.microsoft.com/en-us/graph/api/resources/user). Nested groups
+# among group members only need `id`.
+_USER_SELECT_PROPERTIES = (
+    "id",
+    "userPrincipalName",
+    "displayName",
+    "givenName",
+    "surname",
+    "mail",
+    "jobTitle",
+    "accountEnabled",
+    "usageLocation",
+)
 
 
 class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -161,9 +176,23 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 @dataclass
 class AzureADSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
+    users_missing_account_enabled: int = 0
 
     def report_filtered(self, name: str) -> None:
         self.filtered.append(name)
+
+
+@dataclass
+class AzureADGroupAspects:
+    urn: str
+    info: CorpGroupInfoClass
+
+
+@dataclass
+class AzureADUserAspects:
+    urn: str
+    info: CorpUserInfoClass
+    status: CorpUserStatusClass
 
 
 # Source that extracts Azure AD users, groups and group memberships using Microsoft Graph REST API
@@ -222,6 +251,8 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
+        # A set, because a user in several groups is mapped once per membership.
+        self.urns_missing_account_enabled: Set[str] = set()
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -252,35 +283,25 @@ class AzureADSource(StatefulIngestionSourceBase):
             # 1) the groups
             for azure_ad_groups in self._get_azure_ad_groups():
                 logger.info("Processing another groups batch...")
-                datahub_corp_group_snapshots = self._map_azure_ad_groups(
-                    azure_ad_groups
-                )
-                for group_count, datahub_corp_group_snapshot in enumerate(
-                    datahub_corp_group_snapshots
+                for group_count, group in enumerate(
+                    self._map_azure_ad_groups(azure_ad_groups)
                 ):
-                    mce = MetadataChangeEvent(
-                        proposedSnapshot=datahub_corp_group_snapshot
+                    group_key = (
+                        group_count + 1 if self.config.mask_group_id else group.urn
                     )
-                    wu_id = (
-                        f"group-{group_count + 1}"
-                        if self.config.mask_group_id
-                        else datahub_corp_group_snapshot.urn
+                    yield from self._entity_workunits(
+                        urn=group.urn,
+                        aspects=[group.info],
+                        # Unmasked, the group's aspect ids start with the bare URN (no
+                        # "group-" prefix), unlike its Origin/Status ids and user ids.
+                        aspects_wu_id_prefix=(
+                            f"group-{group_count + 1}"
+                            if self.config.mask_group_id
+                            else group.urn
+                        ),
+                        origin_wu_id=f"group-origin-{group_key}",
+                        status_wu_id=f"group-status-{group_key}",
                     )
-                    yield MetadataWorkUnit(id=wu_id, mce=mce)
-
-                    group_origin_mcp = MetadataChangeProposalWrapper(
-                        entityUrn=datahub_corp_group_snapshot.urn,
-                        aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
-                    )
-                    group_origin_wu_id = f"group-origin-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    yield MetadataWorkUnit(id=group_origin_wu_id, mcp=group_origin_mcp)
-
-                    group_status_mcp = MetadataChangeProposalWrapper(
-                        entityUrn=datahub_corp_group_snapshot.urn,
-                        aspect=StatusClass(removed=False),
-                    )
-                    group_status_wu_id = f"group-status-{group_count + 1 if self.config.mask_group_id else datahub_corp_group_snapshot.urn}"
-                    yield MetadataWorkUnit(id=group_status_wu_id, mcp=group_status_mcp)
 
         # Populate GroupMembership Aspects for CorpUsers
         datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass] = (
@@ -314,11 +335,9 @@ class AzureADSource(StatefulIngestionSourceBase):
         ):
             # 3) the users
             # getting infos about the users belonging to the found groups
-            datahub_corp_user_snapshots = self._map_azure_ad_users(
-                self.azure_ad_groups_users
-            )
             yield from self.ingest_ad_users(
-                datahub_corp_user_snapshots, datahub_corp_user_urn_to_group_membership
+                self._map_azure_ad_users(self.azure_ad_groups_users),
+                datahub_corp_user_urn_to_group_membership,
             )
 
         # Create MetadataWorkUnits for CorpUsers
@@ -326,11 +345,21 @@ class AzureADSource(StatefulIngestionSourceBase):
             # 3) the users
             for azure_ad_users in self._get_azure_ad_users():
                 # azure_ad_users = next(self._get_azure_ad_users())
-                datahub_corp_user_snapshots = self._map_azure_ad_users(azure_ad_users)
                 yield from self.ingest_ad_users(
-                    datahub_corp_user_snapshots,
+                    self._map_azure_ad_users(azure_ad_users),
                     datahub_corp_user_urn_to_group_membership,
                 )
+
+        if self.report.users_missing_account_enabled:
+            # Without accountEnabled every user maps to ACTIVE, so disabled
+            # accounts would silently keep DataHub access.
+            self.report.warning(
+                message="Azure AD did not return accountEnabled, so these users are treated as active",
+                context=(
+                    f"{self.report.users_missing_account_enabled} user(s). Grant the app "
+                    "registration the User.Read.All application permission."
+                ),
+            )
 
     def _add_group_members_to_group_membership(
         self,
@@ -385,37 +414,52 @@ class AzureADSource(StatefulIngestionSourceBase):
 
     def ingest_ad_users(
         self,
-        datahub_corp_user_snapshots: Generator[CorpUserSnapshot, Any, None],
-        datahub_corp_user_urn_to_group_membership: dict,
+        users: Iterable[AzureADUserAspects],
+        datahub_corp_user_urn_to_group_membership: Dict[str, GroupMembershipClass],
     ) -> Generator[MetadataWorkUnit, Any, None]:
-        for user_count, datahub_corp_user_snapshot in enumerate(
-            datahub_corp_user_snapshots
-        ):
+        for user_count, user in enumerate(users):
             # TODO: Refactor common code between this and Okta to a common base class or utils
-            # Add group membership aspect
-            datahub_group_membership: GroupMembershipClass = (
-                datahub_corp_user_urn_to_group_membership[
-                    datahub_corp_user_snapshot.urn
-                ]
+            user_key = user_count + 1 if self.config.mask_user_id else user.urn
+            yield from self._entity_workunits(
+                urn=user.urn,
+                aspects=[
+                    user.info,
+                    user.status,
+                    datahub_corp_user_urn_to_group_membership[user.urn],
+                ],
+                aspects_wu_id_prefix=f"user-snapshot-{user_key}",
+                origin_wu_id=f"user-origin-{user_key}",
+                status_wu_id=f"user-status-{user_key}",
             )
-            datahub_corp_user_snapshot.aspects.append(datahub_group_membership)
-            mce = MetadataChangeEvent(proposedSnapshot=datahub_corp_user_snapshot)
-            wu_id = f"user-snapshot-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            yield MetadataWorkUnit(id=wu_id, mce=mce)
 
-            user_origin_mcp = MetadataChangeProposalWrapper(
-                entityUrn=datahub_corp_user_snapshot.urn,
+    def _entity_workunits(
+        self,
+        urn: str,
+        aspects: Sequence[_Aspect],
+        aspects_wu_id_prefix: str,
+        origin_wu_id: str,
+        status_wu_id: str,
+    ) -> Iterable[MetadataWorkUnit]:
+        # Explicit ids instead of as_workunit(): masked ids must not contain the URN,
+        # and the existing user-snapshot-/-origin-/-status- prefixes are kept.
+        for aspect in aspects:
+            yield MetadataWorkUnit(
+                id=f"{aspects_wu_id_prefix}-{aspect.ASPECT_NAME}",
+                mcp=MetadataChangeProposalWrapper(entityUrn=urn, aspect=aspect),
+            )
+        yield MetadataWorkUnit(
+            id=origin_wu_id,
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=urn,
                 aspect=OriginClass(OriginTypeClass.EXTERNAL, "AZURE_AD"),
-            )
-            user_origin_wu_id = f"user-origin-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            yield MetadataWorkUnit(id=user_origin_wu_id, mcp=user_origin_mcp)
-
-            user_status_mcp = MetadataChangeProposalWrapper(
-                entityUrn=datahub_corp_user_snapshot.urn,
-                aspect=StatusClass(removed=False),
-            )
-            user_status_wu_id = f"user-status-{user_count + 1 if self.config.mask_user_id else datahub_corp_user_snapshot.urn}"
-            yield MetadataWorkUnit(id=user_status_wu_id, mcp=user_status_mcp)
+            ),
+        )
+        yield MetadataWorkUnit(
+            id=status_wu_id,
+            mcp=MetadataChangeProposalWrapper(
+                entityUrn=urn, aspect=StatusClass(removed=False)
+            ),
+        )
 
     def get_report(self) -> SourceReport:
         return self.report
@@ -423,12 +467,21 @@ class AzureADSource(StatefulIngestionSourceBase):
     def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/groups")
 
+    def _user_select_query(self) -> str:
+        properties = dict.fromkeys(
+            [
+                *_USER_SELECT_PROPERTIES,
+                self.config.azure_ad_response_to_username_attr,
+            ]
+        )
+        return "$select=" + ",".join(properties)
+
     def _get_azure_ad_users(self) -> Iterable[List]:
-        yield from self._get_azure_ad_data(kind="/users")
+        yield from self._get_azure_ad_data(kind=f"/users?{self._user_select_query()}")
 
     def _get_azure_ad_group_members(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
-        kind = f"/groups/{group_id}/members"
+        kind = f"/groups/{group_id}/members?{self._user_select_query()}"
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
@@ -455,11 +508,24 @@ class AzureADSource(StatefulIngestionSourceBase):
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
+                hint = ""
+                # Graph answers an unknown $select property with 400; 401/403
+                # are permission problems and must not point at this setting.
+                if response.status_code == 400 and "$select=" in str(url):
+                    hint = (
+                        " If Graph rejected a selected property, check that "
+                        "azure_ad_response_to_username_attr "
+                        f"({self.config.azure_ad_response_to_username_attr!r}) "
+                        "is a Microsoft Graph user property."
+                    )
                 self.report.failure(
                     message="Failed to get data from Azure AD Graph API",
-                    context=error_str,
+                    context=error_str + hint,
                 )
-                raise Exception(f"Unable to get {url}, error {response.status_code}")
+                raise Exception(
+                    f"Unable to get {url}, error {response.status_code}: "
+                    f"{response.text}{hint}"
+                )
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None
@@ -481,7 +547,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             )
         return result, error_str
 
-    def _map_azure_ad_groups(self, azure_ad_groups):
+    def _map_azure_ad_groups(
+        self, azure_ad_groups: Iterable[dict]
+    ) -> Iterable[AzureADGroupAspects]:
         for azure_ad_group in azure_ad_groups:
             try:
                 yield from self._map_azure_ad_group(azure_ad_group)
@@ -492,7 +560,9 @@ class AzureADSource(StatefulIngestionSourceBase):
                     exc=e,
                 )
 
-    def _map_azure_ad_group(self, azure_ad_group):
+    def _map_azure_ad_group(
+        self, azure_ad_group: dict
+    ) -> Iterable[AzureADGroupAspects]:
         # Resolve group name and apply filters before building the URN.
         # This avoids false report_failure entries for groups that are
         # intentionally excluded by the user's configuration.
@@ -527,13 +597,10 @@ class AzureADSource(StatefulIngestionSourceBase):
         # URN construction is safe here: group_name is already validated above.
         corp_group_urn = make_group_urn(urllib.parse.quote(group_name))
         self.selected_azure_ad_groups.append(azure_ad_group)
-        corp_group_snapshot = CorpGroupSnapshot(
+        yield AzureADGroupAspects(
             urn=corp_group_urn,
-            aspects=[],
+            info=self._map_azure_ad_group_to_corp_group(azure_ad_group),
         )
-        corp_group_info = self._map_azure_ad_group_to_corp_group(azure_ad_group)
-        corp_group_snapshot.aspects.append(corp_group_info)
-        yield corp_group_snapshot
 
     # Converts Azure group profile into DataHub CorpGroupInfoClass Aspect
     def _map_azure_ad_group_to_corp_group(self, group):
@@ -562,7 +629,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             self.config.azure_ad_response_to_groupname_regex,
         )
 
-    def _map_azure_ad_users(self, azure_ad_users):
+    def _map_azure_ad_users(
+        self, azure_ad_users: Iterable[dict]
+    ) -> Iterable[AzureADUserAspects]:
         for user in azure_ad_users:
             corp_user_urn, error_str = self._map_identity_to_urn(
                 self._map_azure_ad_user_to_urn, user, "azure_ad_user_mapping", "user"
@@ -572,15 +641,18 @@ class AzureADSource(StatefulIngestionSourceBase):
             if not self.config.users_pattern.allowed(corp_user_urn):
                 self.report.report_filtered(f"{corp_user_urn}.*")
                 continue
-            corp_user_snapshot = CorpUserSnapshot(
+            if user.get("accountEnabled") is None:
+                self.urns_missing_account_enabled.add(corp_user_urn)
+                self.report.users_missing_account_enabled = len(
+                    self.urns_missing_account_enabled
+                )
+            yield AzureADUserAspects(
                 urn=corp_user_urn,
-                aspects=[],
+                info=self._map_azure_ad_user_to_corp_user(user),
+                status=make_corp_user_status_aspect(
+                    derive_corp_user_status_from_azure_ad(user)
+                ),
             )
-            corp_user_info = self._map_azure_ad_user_to_corp_user(user)
-            corp_user_snapshot.aspects.append(corp_user_info)
-            user_status = derive_corp_user_status_from_azure_ad(user)
-            corp_user_snapshot.aspects.append(make_corp_user_status_aspect(user_status))
-            yield corp_user_snapshot
 
     def _map_azure_ad_user_to_user_name(self, azure_ad_user):
         return self._extract_regex_match_from_dict_value(
@@ -596,7 +668,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             return None
         return make_user_urn(user_name)
 
-    def _map_azure_ad_user_to_corp_user(self, azure_ad_user):
+    def _map_azure_ad_user_to_corp_user(
+        self, azure_ad_user: Dict[str, Any]
+    ) -> CorpUserInfoClass:
         full_name = (
             str(azure_ad_user.get("givenName", ""))
             + " "
@@ -606,12 +680,12 @@ class AzureADSource(StatefulIngestionSourceBase):
         return CorpUserInfoClass(
             active=corp_user_info_active_from_status(user_status),
             displayName=azure_ad_user.get("displayName", full_name),
-            firstName=azure_ad_user.get("givenName", None),
-            lastName=azure_ad_user.get("surname", None),
+            firstName=azure_ad_user.get("givenName"),
+            lastName=azure_ad_user.get("surname"),
             fullName=full_name,
             email=azure_ad_user.get("mail"),
-            title=azure_ad_user.get("jobTitle", None),
-            countryCode=azure_ad_user.get("mobilePhone", None),
+            title=azure_ad_user.get("jobTitle"),
+            countryCode=azure_ad_user.get("usageLocation"),
         )
 
     def _extract_regex_match_from_dict_value(

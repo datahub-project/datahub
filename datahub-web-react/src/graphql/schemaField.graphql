@@ -41,31 +41,19 @@ fragment schemaFieldEntityFields on SchemaFieldEntity {
         urn
         type
         ...entityDisplayNameFields
-        ... on Dataset {
+        ... on HasPlatform {
             platform {
                 ...platformFields
             }
+        }
+        ... on HasSubTypes {
             subTypes {
                 typeNames
             }
+        }
+        ... on Dataset {
             privileges {
                 ...entityPrivileges
-            }
-        }
-        ... on Dashboard {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
-            }
-        }
-        ... on Chart {
-            platform {
-                ...platformFields
-            }
-            subTypes {
-                typeNames
             }
         }
     }

@@ -1,5 +1,6 @@
 import logging
 import time
+from contextlib import AbstractContextManager
 from typing import Dict, Iterable, List, Optional, Union
 
 from datahub.configuration.common import ConfigModel, DynamicTypedConfig
@@ -8,6 +9,7 @@ from datahub.ingestion.api.common import PipelineContext, RecordEnvelope
 from datahub.ingestion.api.sink import NoopWriteCallback, Sink
 from datahub.ingestion.sink.sink_registry import sink_registry
 from datahub.lite.lite_local import (
+    AspectVersion,
     Browseable,
     DataHubLiteLocal,
     Searchable,
@@ -36,12 +38,26 @@ class DataHubLiteWrapper(DataHubLiteLocal):
             MetadataChangeEventClass,
             MetadataChangeProposalWrapper,
         ],
-    ) -> None:
-        self.lite.write(record)
+        *,
+        if_version_match: Optional[int] = None,
+    ) -> Dict[str, int]:
+        versions = self.lite.write(record, if_version_match=if_version_match)
         record_envelope = RecordEnvelope(record=record, metadata={})
         self.forward_to.write_record_async(
             record_envelope=record_envelope, write_callback=NoopWriteCallback()
         )
+        return versions
+
+    def transaction(self) -> AbstractContextManager[None]:
+        raise NotImplementedError("Transactions are not supported with forwarding")
+
+    def get_aspect(
+        self, urn: str, aspect_name: str, version: Optional[int] = None
+    ) -> Optional[AspectVersion]:
+        return self.lite.get_aspect(urn, aspect_name, version)
+
+    def list_versions(self, urn: str, aspect_name: str) -> List[AspectVersion]:
+        return self.lite.list_versions(urn, aspect_name)
 
     def close(self) -> None:
         self.lite.close()

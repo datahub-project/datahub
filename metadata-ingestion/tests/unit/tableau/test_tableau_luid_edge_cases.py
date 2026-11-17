@@ -22,7 +22,7 @@ from datahub.metadata.schema_classes import (
     ContainerPropertiesClass,
     DatasetPropertiesClass,
 )
-from tests.unit.tableau.test_tableau_config import default_config
+from tests.unit.tableau.conftest import default_config
 
 FROZEN_TIME = "2021-12-07T07:00:00Z"
 

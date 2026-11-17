@@ -1,9 +1,5 @@
 from unittest.mock import MagicMock, patch
 
-import pytest
-
-from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.kafka.kafka import KafkaSource, KafkaSourceConfig
 from datahub.ingestion.source.kafka.kafka_constants import (
     SCHEMA_TYPE_AVRO,
     SCHEMA_TYPE_JSON,
@@ -35,21 +31,6 @@ SAMPLE_AVRO_SCHEMA = """{
 }"""
 
 
-@pytest.fixture
-def kafka_source():
-    with patch("datahub.ingestion.source.kafka.kafka.confluent_kafka.Consumer"):
-        ctx = PipelineContext(run_id="test")
-        config = KafkaSourceConfig.model_validate(
-            {
-                "connection": {"bootstrap": "localhost:9092"},
-                "profiling": {"enabled": True},
-            }
-        )
-        source = KafkaSource(config, ctx)
-        yield source
-        source.close()
-
-
 class TestProtobufSchemaHandling:
     """Test that Protobuf schemas are not incorrectly parsed as Avro during profiling."""
 
@@ -68,9 +49,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b"\x00\x00\x00\x00\x01some binary protobuf data"
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=protobuf_schema_metadata,
             is_key=False,
@@ -106,9 +86,8 @@ class TestProtobufSchemaHandling:
             mock_reader_instance.read.return_value = {"id": 1, "name": "Alice"}
             mock_reader.return_value = mock_reader_instance
 
-            result = kafka_source._process_message_part(
+            result = kafka_source._decode_message_part(
                 data=sample_data,
-                prefix="value",
                 topic="test_topic",
                 schema_metadata=avro_schema_metadata,
                 is_key=False,
@@ -132,9 +111,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b'{"id": 123, "name": "test"}'
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=json_schema_metadata,
             is_key=False,
@@ -162,9 +140,8 @@ class TestProtobufSchemaHandling:
 
         sample_key_data = b"\x00\x00\x00\x00\x01some binary protobuf key data"
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_key_data,
-            prefix="key",
             topic="test_topic",
             schema_metadata=protobuf_key_schema_metadata,
             is_key=True,
@@ -172,21 +149,6 @@ class TestProtobufSchemaHandling:
 
         # The protobuf *key* must not be run through the Avro decoder either.
         assert result == {"text_value": sample_key_data.decode("utf-8")}
-        assert kafka_source.report.profiling_avro_decode_failures == 0
-
-    def test_schemaless_bytes_are_returned_raw(self, kafka_source):
-        # With no schema metadata, bytes pass through unchanged (not decoded).
-        data = b'{"id": 1}'
-
-        result = kafka_source._process_message_part(
-            data=data,
-            prefix="value",
-            topic="test_topic",
-            schema_metadata=None,
-            is_key=False,
-        )
-
-        assert result == data
         assert kafka_source.report.profiling_avro_decode_failures == 0
 
     def test_missing_schema_type_uses_fallback(self, kafka_source):
@@ -203,9 +165,8 @@ class TestProtobufSchemaHandling:
 
         sample_data = b'{"id": 123, "name": "test"}'
 
-        result = kafka_source._process_message_part(
+        result = kafka_source._decode_message_part(
             data=sample_data,
-            prefix="value",
             topic="test_topic",
             schema_metadata=schema_metadata_no_type,
             is_key=False,

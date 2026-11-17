@@ -3,7 +3,7 @@ import { Button, Checkbox } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { generateColor } from '@app/entity/shared/components/styled/StyledTag';
+import { generateColor } from '@app/entityV2/shared/components/styled/StyledTag';
 import ParentEntities from '@app/search/filters/ParentEntities';
 import { IconSpacer, Label } from '@app/search/filters/styledComponents';
 import { FilterOptionType } from '@app/search/filters/types';

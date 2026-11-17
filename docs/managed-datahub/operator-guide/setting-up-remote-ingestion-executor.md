@@ -280,7 +280,7 @@ Monitor the stack events to track update progress.
 
 Update your module inputs and re-apply:
 
-- **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently.
+- **New executor version** — set `datahub.image_tag` (e.g. `"v2.4.2-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.4.2-cloud`) are versioned independently.
 - **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
 
 Then run `terraform apply` — it shows a plan of exactly what will change before you confirm.
@@ -496,8 +496,8 @@ Both reports need DataHub 2.4.0 or later. On an older version, the executor send
 After you have created an Executor Pool and deployed the Remote Executor within your environment, you are now ready to configure an Ingestion Source to run in that Pool.
 
 1. Navigate to **Manage Data Sources** in DataHub Cloud
-2. Edit an existing Source or click **Create new source**
-3. In the **Finish Up** step, expand the **Advanced** to select your desired **Executor Pool**
+2. Edit an existing Source, or click **Create Source** and choose a data source
+3. On the **Connection Details** page, expand **Advanced Settings** and select your desired **Executor Pool**
 
 <p align="center">
   <img width="80%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/ingestion-select-executor-pool.png?raw=true"/>
@@ -507,7 +507,7 @@ After you have created an Executor Pool and deployed the Remote Executor within 
 New Ingestion Sources will automatically use your designated Default Pool if you have assigned one. You can override this assignment when creating or editing an Ingestion Source at any time.
 :::
 
-5. Click **Save & Run**. The task should show as 'Running' if properly configured.
+4. Click **Save and Run** at the top of the page. The task should show as 'Running' if properly configured.
 
 <p align="center">
   <img width="90%"  src="https://github.com/datahub-project/static-assets/blob/main/imgs/remote-executor/view-ingestion-running.png?raw=true"/>
@@ -750,7 +750,7 @@ GMS enforces a caller guard on `SecretService` decryption. The default is **secu
 
 `ENFORCE` prevents humans and user PATs from fetching secret values via GraphQL, but **does not** block an **embedded executor** from resolving UI secrets. To avoid UI secrets entirely, do not create them and use local backends above.
 
-See [Environment Variables](../../deploy/environment-vars.md) and [Updating DataHub](../../how/updating-datahub.md) for migration details.
+See [Environment Variables](../../deploy/environment-vars.md) and [Breaking Changes](../../how/breaking-changes.md) for migration details.
 
 ## Advanced: Performance Settings and Task Weight-Based Queuing
 

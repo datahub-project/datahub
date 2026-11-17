@@ -871,5 +871,5 @@ A: You can change `normalIndexCostThreshold` before upgrade, but it will reclass
 ## See Also
 
 - [ElasticSearch Reindex API](https://www.elastic.co/guide/en/elasticsearch/reference/current/docs-reindex.html)
-- [DataHub System Upgrade Guide](../how/updating-datahub.md)
+- [Upgrading DataHub](../how/upgrading-datahub.md)
 - [Circuit Breaker Pattern](https://martinfowler.com/bliki/CircuitBreaker.html)

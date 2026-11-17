@@ -67,7 +67,7 @@ Otto will say so. If the docs and code don't cover something, it won't guess. In
 
 ## Should I still tag `@Herald` or `@RunLLM`?
 
-No — `@Otto the Otter` is your bot for DataHub community questions going forward. Herald is still around, but Otto is where we're focusing for the community. RunLLM was renamed to Herald a while back.
+`@Otto the Otter` is your bot for DataHub community questions. Herald has been retired from the community workspace — RunLLM was renamed to Herald a while back, and Otto has taken over from both.
 
 ## What if Otto gets something wrong?
 

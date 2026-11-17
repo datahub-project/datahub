@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { EntityLinkList } from '@src/app/homeV2/reference/sections/EntityLinkList';
 
 type Props = {

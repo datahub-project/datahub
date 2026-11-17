@@ -1,7 +1,7 @@
 import isEqual from 'lodash/isEqual';
 import { useEffect } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useMetricsEntityContext } from '@app/metrics/context/MetricsEntityContext';
 import { mapProfileToMetricsEntityData } from '@app/metrics/utils/metricsEntityData';
 import usePrevious from '@app/sharedV2/usePrevious';

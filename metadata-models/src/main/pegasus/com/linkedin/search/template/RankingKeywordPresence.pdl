@@ -1,0 +1,17 @@
+namespace com.linkedin.search.template
+
+/**
+ * Whether a keyword field is present. A stored token is present. A missing field or an empty list
+ * is not.
+ */
+enum RankingKeywordPresence {
+  /**
+   * The field has at least one token.
+   */
+  EXISTS
+
+  /**
+   * The field has no token.
+   */
+  NOT_EXISTS
+}

@@ -4,6 +4,7 @@ import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafk
 
 import com.datahub.metadata.dao.throttle.KafkaThrottleSensor;
 import com.datahub.metadata.dao.throttle.PgQueueThrottleSensor;
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.MetadataChangeProposalConfig;
 import com.linkedin.metadata.config.kafka.KafkaConfiguration;
@@ -12,6 +13,7 @@ import com.linkedin.metadata.dao.throttle.NoOpSensor;
 import com.linkedin.metadata.dao.throttle.ThrottleSensor;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.queue.MetadataQueueStore;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.Topics;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -21,10 +23,16 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 import org.springframework.core.env.Environment;
 
 @Slf4j
 @Configuration
+// The throttle admin client applies MSK IAM, which needs the shared AWS credentials installed
+// first.
+@Import(AwsClientFactory.class)
+@DependsOn("defaultAwsCredentialsProvider")
 public class KafkaThrottleFactory {
 
   @Value("${METADATA_CHANGE_LOG_KAFKA_CONSUMER_GROUP_ID:generic-mae-consumer-job-client}")
@@ -43,7 +51,8 @@ public class KafkaThrottleFactory {
       @Qualifier("configurationProvider") ConfigurationProvider provider,
       final KafkaProperties kafkaProperties,
       final EntityRegistry entityRegistry,
-      @Nullable MetadataQueueStore metadataQueueStore) {
+      @Nullable MetadataQueueStore metadataQueueStore,
+      @Nullable MetricUtils metricUtils) {
 
     MetadataChangeProposalConfig mcpConfig = provider.getMetadataChangeProposal();
     if (mcpConfig.getThrottle().getUpdateIntervalMs() <= 0) {
@@ -65,6 +74,7 @@ public class KafkaThrottleFactory {
           .mclConsumerGroupId(maeConsumerGroupId)
           .timeseriesTopicName(timeseriesTopicName)
           .versionedTopicName(versionedTopicName)
+          .metricUtils(metricUtils)
           .build()
           .start();
     }
@@ -91,6 +101,7 @@ public class KafkaThrottleFactory {
         .mclConsumerGroupId(maeConsumerGroupId)
         .timeseriesTopicName(timeseriesTopicName)
         .versionedTopicName(versionedTopicName)
+        .metricUtils(metricUtils)
         .build()
         .start();
   }

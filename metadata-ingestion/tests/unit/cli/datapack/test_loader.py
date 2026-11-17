@@ -1,14 +1,18 @@
 """Tests for the data pack loader."""
 
+import base64
 import hashlib
 import json
 import os
 import pathlib
+import shutil
 from datetime import datetime, timezone
+from typing import BinaryIO, Dict, Iterator, List, Optional
 from unittest.mock import MagicMock, patch
 
 import click
 import pytest
+import requests
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -22,8 +26,12 @@ from datahub.cli.datapack.loader import (
     _cached_path,
     _datapack_emit_mode,
     _DatapackSinkConfig,
+    _fetch_url_to_path,
     _run_pipeline_for_file,
     _sha256_file,
+    actor_urn_from_client,
+    actor_urn_from_token,
+    attribute_certifications,
     check_trust,
     download_pack,
     get_load_record,
@@ -50,6 +58,72 @@ class TestFetchSession:
         assert {429, 500, 502, 503, 504}.issubset(set(retry.status_forcelist or []))
         assert retry.total is not None and retry.total >= 1
         assert retry.backoff_factor > 0
+
+
+class TestFetchUrlToPathHttp:
+    @staticmethod
+    def _mock_session(
+        chunks: List[bytes],
+        headers: Dict[str, str],
+        error: Optional[Exception] = None,
+    ) -> MagicMock:
+        def iter_content(chunk_size: int) -> Iterator[bytes]:
+            yield from chunks
+            if error is not None:
+                raise error
+
+        response = MagicMock()
+        response.headers = headers
+        response.iter_content.side_effect = iter_content
+        session = MagicMock()
+        session.__enter__.return_value = session
+        session.get.return_value = response
+        return session
+
+    @pytest.mark.parametrize(
+        "headers",
+        [
+            pytest.param({"content-length": "6"}, id="with_content_length"),
+            pytest.param({}, id="without_content_length"),
+        ],
+    )
+    def test_replaces_existing_file(
+        self, tmp_path: pathlib.Path, headers: Dict[str, str]
+    ) -> None:
+        dest = tmp_path / "cache" / "data.json"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old")
+        session = self._mock_session([b"abc", b"def"], headers)
+
+        with patch(
+            "datahub.cli.datapack.loader._build_fetch_session", return_value=session
+        ):
+            _fetch_url_to_path("https://example.com/data.json", dest)
+
+        assert dest.read_bytes() == b"abcdef"
+        assert list(dest.parent.iterdir()) == [dest]
+
+    def test_failure_mid_stream_keeps_existing_file(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        dest = tmp_path / "cache" / "data.json"
+        dest.parent.mkdir()
+        dest.write_bytes(b"old")
+        session = self._mock_session(
+            [b"ne"], {}, error=requests.ConnectionError("connection reset")
+        )
+
+        with (
+            patch(
+                "datahub.cli.datapack.loader._build_fetch_session",
+                return_value=session,
+            ),
+            pytest.raises(requests.ConnectionError),
+        ):
+            _fetch_url_to_path("https://example.com/data.json", dest)
+
+        assert dest.read_bytes() == b"old"
+        assert list(dest.parent.iterdir()) == [dest]
 
 
 class TestDatapackSinkConfig:
@@ -959,7 +1033,7 @@ class TestIndexFileResolution:
         data_file.write_text(json.dumps(data))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{data_file}")
-        entries = _resolve_index_file(data_file, pack, no_cache=False)
+        entries = _resolve_index_file(data_file, pack, no_cache=False).entries
         assert len(entries) == 1
         assert entries[0].path == data_file
         assert not entries[0].wait_for_completion
@@ -980,7 +1054,7 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 2
         assert all(e.path.exists() for e in entries)
@@ -1004,13 +1078,15 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 2
         assert entries[0].wait_for_completion is True
         assert entries[1].wait_for_completion is False
 
-    def test_index_skips_missing_files(self, tmp_path: pathlib.Path) -> None:
+    def test_index_skips_missing_files(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
 
         (tmp_path / "exists.json").write_text(
@@ -1023,9 +1099,10 @@ class TestIndexFileResolution:
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{index_file}")
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
-            entries = _resolve_index_file(index_file, pack, no_cache=False)
+            entries = _resolve_index_file(index_file, pack, no_cache=False).entries
 
         assert len(entries) == 1
+        assert "missing.json" in capsys.readouterr().out
 
     def test_unknown_object_passes_through(self, tmp_path: pathlib.Path) -> None:
         from datahub.cli.datapack.loader import _resolve_index_file
@@ -1035,7 +1112,7 @@ class TestIndexFileResolution:
         obj_file.write_text(json.dumps(obj))
 
         pack = DataPackInfo(name="test", description="t", url=f"file://{obj_file}")
-        entries = _resolve_index_file(obj_file, pack, no_cache=False)
+        entries = _resolve_index_file(obj_file, pack, no_cache=False).entries
         assert len(entries) == 1
         assert entries[0].path == obj_file
 
@@ -1135,6 +1212,109 @@ class TestIndexVersionCache:
         with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
             entries = download_pack(pack)
             assert len(entries) == 1
+
+    @staticmethod
+    def _seed_cache_at_version(
+        pack: DataPackInfo, child_url: str, version: str, child_content: str
+    ) -> pathlib.Path:
+        """Populate the cache as a client that loaded `version` earlier would have it."""
+        from datahub.cli.datapack.loader import _save_index_version
+
+        cached_index = _cached_path(pack)
+        cached_index.parent.mkdir(parents=True, exist_ok=True)
+        cached_index.write_text(
+            json.dumps({"version": version, "files": ["04-queries.json"]})
+        )
+        cached_child = cached_index.parent / f"{_cache_key(child_url)}.json"
+        cached_child.write_text(child_content)
+        _save_index_version(pack, version)
+        return cached_child
+
+    @pytest.mark.parametrize(
+        "remote_version, expected_content",
+        [
+            pytest.param("5", "new", id="version_changed_refetches_child"),
+            pytest.param("4", "old", id="version_unchanged_keeps_cached_child"),
+        ],
+    )
+    def test_child_file_fixed_under_same_name(
+        self, tmp_path: pathlib.Path, remote_version: str, expected_content: str
+    ) -> None:
+        """A data file republished under its old name reaches clients only on a version bump."""
+        remote = tmp_path / "remote"
+        remote.mkdir()
+        (remote / "index.json").write_text(
+            json.dumps({"version": remote_version, "files": ["04-queries.json"]})
+        )
+        (remote / "04-queries.json").write_text("new")
+
+        pack = DataPackInfo(
+            name="upgraded", description="t", url=f"file://{remote / 'index.json'}"
+        )
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(tmp_path / "cache")):
+            cached_child = self._seed_cache_at_version(
+                pack,
+                child_url=f"file://{remote / '04-queries.json'}",
+                version="4",
+                child_content="old",
+            )
+
+            entries = download_pack(pack)
+
+        assert [e.path for e in entries] == [cached_child]
+        assert cached_child.read_text() == expected_content
+
+    def test_failed_refetch_falls_back_to_cache_and_retries(
+        self, tmp_path: pathlib.Path, capsys: pytest.CaptureFixture[str]
+    ) -> None:
+        """A failed refetch loads the intact cached copy, reports it, and is retried next load."""
+        from datahub.cli.datapack.loader import _cached_index_version
+
+        remote = tmp_path / "remote"
+        remote.mkdir()
+        (remote / "index.json").write_text(
+            json.dumps({"version": "5", "files": ["01-data.json", "04-queries.json"]})
+        )
+        (remote / "01-data.json").write_text("data")
+        (remote / "04-queries.json").write_text("new")
+
+        pack = DataPackInfo(
+            name="upgraded", description="t", url=f"file://{remote / 'index.json'}"
+        )
+        real_copyfileobj = shutil.copyfileobj
+
+        def fail_on_queries(src: BinaryIO, dst: BinaryIO) -> None:
+            if src.name.endswith("04-queries.json"):
+                dst.write(b"ne")
+                raise OSError("connection reset")
+            real_copyfileobj(src, dst)
+
+        cache_dir = tmp_path / "cache"
+        with patch("datahub.cli.datapack.loader.CACHE_DIR", str(cache_dir)):
+            cached_child = self._seed_cache_at_version(
+                pack,
+                child_url=f"file://{remote / '04-queries.json'}",
+                version="4",
+                child_content="old",
+            )
+
+            with patch(
+                "datahub.cli.datapack.loader.shutil.copyfileobj",
+                side_effect=fail_on_queries,
+            ):
+                entries = download_pack(pack)
+
+            assert cached_child in [e.path for e in entries]
+            assert cached_child.read_text() == "old"
+            assert "04-queries.json" in capsys.readouterr().out
+            assert _cached_index_version(pack) == "4"
+            assert not [p for p in cache_dir.iterdir() if p.name.startswith(".")]
+
+            entries = download_pack(pack)
+
+            assert cached_child in [e.path for e in entries]
+            assert cached_child.read_text() == "new"
+            assert _cached_index_version(pack) == "5"
 
     def test_non_index_pack_unchanged(self, tmp_path: pathlib.Path) -> None:
         """Non-index packs (direct data files) use existing cache behavior."""
@@ -1303,3 +1483,118 @@ class TestReferentialIntegrity:
         _check_referential_integrity(pack_path)
         captured = capsys.readouterr()
         assert "dangling" not in captured.out
+
+
+def _unsigned_jwt(claims: dict[str, object]) -> str:
+    header = base64.urlsafe_b64encode(b'{"alg":"none"}').decode().rstrip("=")
+    payload = (
+        base64.urlsafe_b64encode(json.dumps(claims, separators=(",", ":")).encode())
+        .decode()
+        .rstrip("=")
+    )
+    return f"{header}.{payload}.sig"
+
+
+class TestCertificationAttribution:
+    def test_actor_urn_from_token(self) -> None:
+        assert actor_urn_from_token(None) is None
+        assert actor_urn_from_token("tok") is None
+        assert actor_urn_from_token(_unsigned_jwt({})) is None
+        assert actor_urn_from_token(_unsigned_jwt({"actorId": "bad urn"})) is None
+        assert (
+            actor_urn_from_token(_unsigned_jwt({"actorId": "admin"}))
+            == "urn:li:corpuser:admin"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt({"iss": "https://login.example.com", "sub": "app-1"})
+            )
+            == "urn:li:corpuser:__oauth_login_example_com_app-1"
+        )
+        assert (
+            actor_urn_from_token(
+                _unsigned_jwt(
+                    {
+                        "actorId": "admin",
+                        "iss": "https://login.example.com",
+                        "sub": "app-1",
+                    }
+                )
+            )
+            == "urn:li:corpuser:admin"
+        )
+
+    def test_oauth_subject_keeps_characters_gms_allows(self) -> None:
+        k8s_actor = actor_urn_from_token(
+            _unsigned_jwt(
+                {
+                    "iss": "https://kubernetes.default.svc",
+                    "sub": "system:serviceaccount:ns:sa",
+                }
+            )
+        )
+        assert k8s_actor == (
+            "urn:li:corpuser:__oauth_kubernetes_default_svc_system:serviceaccount:ns:sa"
+        )
+        auth0_actor = actor_urn_from_token(
+            _unsigned_jwt({"iss": "https://login.example.com", "sub": "auth0|abc"})
+        )
+        assert auth0_actor == "urn:li:corpuser:__oauth_login_example_com_auth0|abc"
+
+    def test_actor_urn_from_client_reads_auth_provider(self) -> None:
+        from datahub.ingestion.auth.registry import AuthConfig
+        from datahub.ingestion.graph.config import DatahubClientConfig
+
+        token = _unsigned_jwt({"actorId": "admin"})
+        config = DatahubClientConfig(
+            server="http://localhost:8080",
+            auth=AuthConfig(type="static", config={"token": token}),
+        )
+        assert actor_urn_from_client(config) == "urn:li:corpuser:admin"
+
+    def test_attribute_certifications_rewrites_only_certification_stamps(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        source = tmp_path / "pack.json"
+        source.write_text(
+            json.dumps(
+                [
+                    {
+                        "aspectName": "certification",
+                        "aspect": {
+                            "json": {
+                                "current": {
+                                    "certified": {
+                                        "time": 0,
+                                        "actor": "urn:li:corpuser:datahub",
+                                    }
+                                },
+                                "lastModified": {
+                                    "time": 0,
+                                    "actor": "urn:li:corpuser:datahub",
+                                },
+                            }
+                        },
+                    },
+                    {
+                        "aspectName": "datasetProperties",
+                        "aspect": {
+                            "json": {
+                                "name": "kept",
+                                "actor": "urn:li:corpuser:datahub",
+                            }
+                        },
+                    },
+                ]
+            )
+        )
+
+        rewritten = attribute_certifications(source, "urn:li:corpuser:admin")
+
+        assert rewritten != source
+        data = json.loads(rewritten.read_text())
+        certification = data[0]["aspect"]["json"]
+        assert certification["lastModified"]["actor"] == "urn:li:corpuser:admin"
+        assert certification["current"]["certified"]["actor"] == "urn:li:corpuser:admin"
+        assert data[1]["aspect"]["json"]["actor"] == "urn:li:corpuser:datahub"
+        assert attribute_certifications(rewritten, "urn:li:corpuser:admin") == rewritten

@@ -1,7 +1,7 @@
 import React from 'react';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import { DashboardStatsSummary } from '@app/entityV2/dashboard/shared/DashboardStatsSummary';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 
 import { GetDashboardQuery } from '@graphql/dashboard.generated';
 import { DashboardStatsSummary as DashboardStatsSummaryObj } from '@types';

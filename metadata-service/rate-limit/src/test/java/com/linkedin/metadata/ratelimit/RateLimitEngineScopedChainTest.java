@@ -10,7 +10,9 @@ import com.hazelcast.core.HazelcastInstance;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.ratelimit.model.RateLimitDecision;
 import io.datahubproject.metadata.context.ObjectMapperContext;
+import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeClass;
 import org.testng.annotations.Test;
 
 /**
@@ -23,12 +25,23 @@ public class RateLimitEngineScopedChainTest {
   private static final String ALICE = "urn:li:corpuser:alice";
   private static final String BOB = "urn:li:corpuser:bob";
 
+  // One member for the whole class; maps are reset between methods (see HazelcastTestSupport).
   private HazelcastInstance hazelcastInstance;
 
-  @AfterMethod
-  public void tearDown() {
+  @BeforeClass
+  public void startCluster() {
+    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
+  }
+
+  @AfterClass(alwaysRun = true)
+  public void stopCluster() {
     HazelcastTestSupport.shutdown(hazelcastInstance);
     hazelcastInstance = null;
+  }
+
+  @AfterMethod(alwaysRun = true)
+  public void clearBuckets() {
+    HazelcastTestSupport.resetAllMaps(hazelcastInstance);
   }
 
   @Test
@@ -233,7 +246,6 @@ public class RateLimitEngineScopedChainTest {
 
   @Test
   public void testTenantScopedBucketsIsolatedAcrossTenants() {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
 
     RateLimitProperties tenant1 = scopedConfig();
     tenant1.setTenantId("tenant-1");
@@ -407,7 +419,6 @@ public class RateLimitEngineScopedChainTest {
   }
 
   private RateLimitEngine engine(RateLimitProperties config) {
-    hazelcastInstance = HazelcastTestSupport.createIsolatedInstance();
     return new RateLimitEngine(
         config, "", null, hazelcastInstance, ObjectMapperContext.defaultMapper);
   }

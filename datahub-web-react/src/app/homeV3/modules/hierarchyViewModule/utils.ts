@@ -1,4 +1,4 @@
-import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 import {
     ASSET_TYPE_DOMAINS,
     ASSET_TYPE_GLOSSARY,

@@ -75,6 +75,7 @@ source:
     #   MYNEWCONNECTOR:        # Dremio source type (case-insensitive)
     #     platform: myplatform # DataHub platform name to emit
     #     category: database   # optional: "database" or "file_object_storage"
+    #     database_in_path: true # optional: path starts with the database
 
     # Optional: restrict ingestion to specific schemas or datasets
     schema_pattern:

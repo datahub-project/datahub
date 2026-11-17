@@ -4,7 +4,6 @@ from typing import List, Optional
 
 from pydantic import Field, SecretStr, field_validator, model_validator
 
-from datahub.configuration.common import ConfigModel
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -27,7 +26,7 @@ from datahub.ingestion.source.unstructured.config import (
 
 
 class NotionSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """
     Notion ingestion configuration.

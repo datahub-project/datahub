@@ -79,8 +79,9 @@ public class AspectMappingBuilder {
 
               addParsedUrnFields(aspectSpec, aspectFields, indexGroup);
 
-              if (!rootOnly) {
-                // Add system metadata to each aspect using the projector's serialized field name.
+              if (!rootOnly && hasSearchables(aspectSpec)) {
+                // System metadata copies into the root _system fields. An aspect with nothing
+                // searchable does not join the document, so it does not get this tree.
                 aspectFields.put(
                     V3SearchDocumentProjector.SYSTEM_METADATA_FIELD, createSystemMetadataMapping());
               }
@@ -102,9 +103,19 @@ public class AspectMappingBuilder {
     return aspectsMappings;
   }
 
+  private static boolean hasSearchables(
+      @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec) {
+    return hasSpecs(aspectSpec.getSearchableFieldSpecs())
+        || hasSpecs(aspectSpec.getSearchableRefFieldSpecs());
+  }
+
+  private static boolean hasSpecs(@Nullable List<?> specs) {
+    return specs != null && !specs.isEmpty();
+  }
+
   /**
-   * One indexed keyword per URN field. {@code copy_to} follows the field's degree-qualified label,
-   * or {@code other} when the URN is included in full text and has no label.
+   * Parsed-name keyword for a URN that {@code copy_to}s a search label or {@code other}. A
+   * dedicated root does not get this field.
    */
   private static void addParsedUrnFields(
       @Nonnull com.linkedin.metadata.models.AspectSpec aspectSpec,
@@ -115,18 +126,25 @@ public class AspectMappingBuilder {
         continue;
       }
       String fieldName = fieldSpec.getSearchableAnnotation().resolvedForV3().getFieldName();
-      List<String> destinations = V3SearchFields.parsedNameDestinations(fieldSpec, indexGroup);
-      aspectFields.put(
-          V3SearchFields.parsedUrnField(fieldName),
-          V3SearchFields.parsedUrnKeywordMapping(
-              destinations,
-              destinations.isEmpty() && V3SearchFields.contributesFullTextUrn(fieldSpec)));
       List<String> fullUrnTargets = V3SearchFields.fullUrnCopyTargets(fieldSpec, indexGroup);
       if (!fullUrnTargets.isEmpty() && aspectFields.get(fieldName) instanceof Map) {
         @SuppressWarnings("unchecked")
         Map<String, Object> rawField = (Map<String, Object>) aspectFields.get(fieldName);
         rawField.put(COPY_TO, fullUrnTargets);
       }
+      if (!V3SearchFields.keepsAspectParsedName(fieldSpec, indexGroup)) {
+        continue;
+      }
+      List<String> destinations =
+          V3SearchFields.parsedNameDestinations(fieldSpec, indexGroup).stream()
+              .filter(
+                  destination -> !V3SearchFields.dedicatedParsedNameRoot(destination, indexGroup))
+              .toList();
+      aspectFields.put(
+          V3SearchFields.parsedUrnField(fieldName),
+          V3SearchFields.parsedUrnKeywordMapping(
+              destinations,
+              destinations.isEmpty() && V3SearchFields.contributesFullTextUrn(fieldSpec)));
     }
   }
 
@@ -172,10 +190,9 @@ public class AspectMappingBuilder {
    * Creates the mapping structure for the _systemMetadata field that appears in each aspect. This
    * replaces the need for a dynamic template by explicitly defining the structure.
    *
-   * <p>Timestamps and actor info copy into the root {@code _system} object where that object has a
-   * field, and stay indexed here. A searchable field projected to the document root leaves its
-   * {@code _aspects} copy unindexed; these fields do not. {@code impersonator} has no root field
-   * and stays indexed on the aspect.
+   * <p>Only created and modified actor and time are mapped. They copy into the root {@code
+   * _system.created} and {@code _system.modified} fields and stay indexed here. Run ids, last
+   * observed, and impersonator stay in the aspect document and are not mapped.
    *
    * @return mapping configuration for _systemMetadata field
    */
@@ -184,47 +201,22 @@ public class AspectMappingBuilder {
     mapping.put(TYPE, "object");
 
     Map<String, Object> properties = new HashMap<>();
-
-    properties.put("lastObserved", indexedSystemField("date", "_system.lastObserved"));
-
-    // runId field
-    Map<String, Object> runId = new HashMap<>();
-    runId.put(TYPE, "keyword");
-    runId.put("copy_to", List.of("_system.runId"));
-    properties.put("runId", runId);
-
-    // lastRunId field
-    Map<String, Object> lastRunId = new HashMap<>();
-    lastRunId.put(TYPE, "keyword");
-    lastRunId.put("copy_to", List.of("_system.lastRunId"));
-    properties.put("lastRunId", lastRunId);
-
-    // aspectCreated field
-    Map<String, Object> aspectCreated = new HashMap<>();
-    aspectCreated.put(TYPE, "object");
-    Map<String, Object> aspectCreatedProperties = new HashMap<>();
-
-    aspectCreatedProperties.put("time", indexedSystemField("date", "_system.created.time"));
-    aspectCreatedProperties.put("actor", indexedSystemField("keyword", "_system.created.actor"));
-    aspectCreatedProperties.put("impersonator", indexedSystemField("keyword", null));
-
-    aspectCreated.put(PROPERTIES, aspectCreatedProperties);
-    properties.put("aspectCreated", aspectCreated);
-
-    // aspectModified field
-    Map<String, Object> aspectModified = new HashMap<>();
-    aspectModified.put(TYPE, "object");
-    Map<String, Object> aspectModifiedProperties = new HashMap<>();
-
-    aspectModifiedProperties.put("time", indexedSystemField("date", "_system.modified.time"));
-    aspectModifiedProperties.put("actor", indexedSystemField("keyword", "_system.modified.actor"));
-    aspectModifiedProperties.put("impersonator", indexedSystemField("keyword", null));
-
-    aspectModified.put(PROPERTIES, aspectModifiedProperties);
-    properties.put("aspectModified", aspectModified);
+    properties.put("aspectCreated", auditStampMapping("_system.created"));
+    properties.put("aspectModified", auditStampMapping("_system.modified"));
 
     mapping.put(PROPERTIES, properties);
     return mapping;
+  }
+
+  /** Actor and time for one audit stamp, copied into the matching root {@code _system} object. */
+  private static Map<String, Object> auditStampMapping(@Nonnull String rootPrefix) {
+    Map<String, Object> stamp = new HashMap<>();
+    stamp.put(TYPE, "object");
+    Map<String, Object> properties = new HashMap<>();
+    properties.put("time", indexedSystemField("date", rootPrefix + ".time"));
+    properties.put("actor", indexedSystemField("keyword", rootPrefix + ".actor"));
+    stamp.put(PROPERTIES, properties);
+    return stamp;
   }
 
   /**

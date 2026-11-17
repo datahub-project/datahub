@@ -163,6 +163,7 @@ export function SelectFilterValuesTab({ selectedUrns, onChangeSelectedUrns }: Pr
                         size="xs"
                         isChecked={selectedUrns.includes(entity.urn)}
                         onCheckboxChange={() => handleCheckboxChange(entity.urn)}
+                        aria-label={entityRegistry.getDisplayName(entity.type, entity)}
                         data-testid="filter-value-selection-checkbox"
                     />
                 </ItemDetailsContainer>

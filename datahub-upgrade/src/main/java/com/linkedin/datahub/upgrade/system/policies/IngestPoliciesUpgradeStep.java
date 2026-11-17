@@ -57,18 +57,21 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
   private final SearchDocumentTransformer _searchDocumentTransformer;
   private final Resource _policiesResource;
   private final boolean _enabled;
+  private final boolean _v2EntityIndexEnabled;
 
   public IngestPoliciesUpgradeStep(
       @Nonnull final EntityService<?> entityService,
       @Nonnull final EntitySearchService entitySearchService,
       @Nonnull final SearchDocumentTransformer searchDocumentTransformer,
       @Nonnull final Resource policiesResource,
-      final boolean enabled) {
+      final boolean enabled,
+      final boolean v2EntityIndexEnabled) {
     _entityService = entityService;
     _entitySearchService = entitySearchService;
     _searchDocumentTransformer = searchDocumentTransformer;
     _policiesResource = policiesResource;
     _enabled = enabled;
+    _v2EntityIndexEnabled = v2EntityIndexEnabled;
   }
 
   @Override
@@ -148,11 +151,27 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
       }
     }
 
-    // If search index for policies is empty, update the policy index with the ingested policies.
-    // Directly update the ES index, does not produce MCLs.
-    // Postgres-backed EntitySearchService doesn't support direct writes
-    // (UnsupportedOperationException) — skip gracefully so the step doesn't crash on
-    // Postgres-only profiles.
+    maybeUpdatePolicyIndex(systemOperationContext);
+    log.info("Successfully ingested default access policies.");
+  }
+
+  /**
+   * The direct write targets the V2 policy index. {@code docCount} reads the index currently
+   * served, which is empty until the V3 bulk flush. With V2 disabled, {@code
+   * ESWriteDAO.upsertDocument} already skips that write, so this guard only avoids listing and
+   * transforming the policies. V3 documents are already written by {@code ingestProposal}.
+   */
+  void maybeUpdatePolicyIndex(@Nonnull final OperationContext systemOperationContext)
+      throws Exception {
+    if (!_v2EntityIndexEnabled) {
+      log.info(
+          "Search V2 entity indices are disabled, so policy bootstrap does not write"
+              + " datahubpolicyindex_v2.");
+      return;
+    }
+    // If the V2 policy index is empty, push the ingested policies into it. This does not produce
+    // MCLs. A search service without direct writes (Postgres) is skipped so the step still
+    // succeeds.
     try {
       if (_entitySearchService.docCount(
               systemOperationContext.withSkipTemplateExecution(true), Constants.POLICY_ENTITY_NAME)
@@ -164,7 +183,6 @@ public class IngestPoliciesUpgradeStep implements UpgradeStep {
           "Skipping policy search-index update; current EntitySearchService does not support direct writes ({}).",
           e.getMessage());
     }
-    log.info("Successfully ingested default access policies.");
   }
 
   private void updatePolicyIndex(@Nonnull final OperationContext systemOperationContext)

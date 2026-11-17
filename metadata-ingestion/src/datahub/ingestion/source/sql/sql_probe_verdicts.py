@@ -13,15 +13,12 @@ from datahub.configuration.common import ConfigModel
 from datahub.configuration.pattern_utils import is_schema_allowed
 from datahub.ingestion.agent.declarations import declared_qualifier
 from datahub.ingestion.agent.pattern_path import pattern_at
-from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
-from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-
-_NEEDS_PARENT_WARNING = (
-    "this source matches containers on a qualified name and could not tell "
-    "which one you mean, so these were judged on their bare names and will "
-    "mostly read as excluded; pass --parent to get the verdict ingestion "
-    "actually makes"
+from datahub.ingestion.agent.verdicts import (
+    Verdict,
+    VerdictContext,
+    require_container,
 )
+from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
 
 
 def _in_defaults(config: ConfigModel, hook: str, name: str) -> bool:
@@ -64,7 +61,9 @@ def qualified_table_target(
 
     None after warning when the container is unknown, leaving the shim to
     judge `schema.entity`: an invented container would judge another
-    database's object. The warning names no object, so it shows once.
+    database's object. Returning None is also what opts the kind into the
+    container rule -- `sql_probe` applies it to a declared target of None,
+    with the field it resolved for the kind, which this hook is not told.
     """
     if container:
         return f"{container}.{schema}.{entity}"
@@ -79,16 +78,23 @@ def _qualified_schema_verdict(
     schema_pattern against once match_fully_qualified_names is on."""
     if not getattr(config, "match_fully_qualified_names", False):
         return None
-    container = qualifying_container(config, ctx.parent_path)
-    if container is None:
-        # The bare name is judged against a pattern written for qualified
-        # names. Names no object, so it shows once.
-        ctx.warn(_NEEDS_PARENT_WARNING)
-        return None
+    # Resolved before the container: a kind nothing filters must not be refused
+    # for want of a container that would decide nothing.
     if ctx.pattern_field is None:
         return None
     pattern = pattern_at(config, ctx.pattern_field)
     if pattern is None:
+        return None
+    container = require_container(
+        qualifying_container(config, ctx.parent_path),
+        config=config,
+        kind=ctx.kind,
+        pattern_field=ctx.pattern_field,
+        shape="<container>.<schema>",
+        warn=ctx.warn,
+        note=ctx.note_container,
+    )
+    if container is None:
         return None
     included = is_schema_allowed(pattern, ctx.name, container, True)
     return Verdict(

@@ -43,9 +43,18 @@ interface Props {
     hideLink?: boolean;
     propagationDetails?: AttributionDetails;
     onClick?: () => void;
+    hideHoverCard?: boolean;
 }
 
-export default function ActorPill({ actor, isProposed, onClose, hideLink, propagationDetails, onClick }: Props) {
+export default function ActorPill({
+    actor,
+    isProposed,
+    onClose,
+    hideLink,
+    propagationDetails,
+    onClick,
+    hideHoverCard,
+}: Props) {
     const entityRegistry = useEntityRegistry();
     const name = actor && entityRegistry.getDisplayName(actor.type, actor);
     const avatarUrl = (actor && 'editableProperties' in actor && actor.editableProperties?.pictureLink) || undefined;
@@ -56,7 +65,12 @@ export default function ActorPill({ actor, isProposed, onClose, hideLink, propag
     const avatarType = actor.type === EntityType.CorpGroup ? AvatarType.group : AvatarType.user;
 
     return (
-        <HoverEntityTooltip entity={actor} showArrow={false} previewContext={{ propagationDetails }}>
+        <HoverEntityTooltip
+            entity={actor}
+            canOpen={!hideHoverCard}
+            showArrow={false}
+            previewContext={{ propagationDetails }}
+        >
             <Link
                 to={hideLink ? null : `${entityRegistry.getEntityUrl(actor.type, actor.urn)}`}
                 data-testid={`owner-${actor.urn}`}

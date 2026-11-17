@@ -509,6 +509,121 @@ lite:
     server: "http://datahub-gms:8080
 ```
 
+## Versioned aspects and transactions
+
+Both SQLite and DuckDB support versioned reads and atomic writes through the Python
+API. These operations do not require an existing database to be migrated, and do
+not add HTTP server endpoints.
+
+```python
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.lite.lite_util import get_datahub_lite
+from datahub.metadata.schema_classes import DatasetPropertiesClass
+
+lite = get_datahub_lite({"type": "sqlite", "config": {"file": "catalog.db"}})
+urn = "urn:li:dataset:(urn:li:dataPlatform:mysql,my_db.my_schema.events,PROD)"
+try:
+    versions = lite.write(
+        MetadataChangeProposalWrapper(
+            entityUrn=urn,
+            aspect=DatasetPropertiesClass(name="Events"),
+        ),
+        if_version_match=-1,
+    )
+    base_version = versions["datasetProperties"]
+    with lite.transaction():
+        lite.write(
+            MetadataChangeProposalWrapper(
+                entityUrn=urn,
+                aspect=DatasetPropertiesClass(name="Updated events"),
+            ),
+            if_version_match=base_version,
+        )
+        # Additional writes, including other URNs, join this transaction.
+        staged = lite.get_aspect(urn, "datasetProperties")
+        assert staged is not None and staged.version == base_version + 1
+
+    base = lite.get_aspect(urn, "datasetProperties", version=base_version)
+    history = lite.list_versions(urn, "datasetProperties")
+finally:
+    lite.close()
+```
+
+### Version and metadata semantics
+
+Version numbers start at 1, independently for each URN and aspect. A change adds a
+numbered row; repeating the current value keeps its version. Returning to an older
+value after an intervening change adds another version. Use content comparison,
+rather than version equality, to determine whether an edit returns to its base.
+
+`get_aspect(urn, aspect_name, version=None)` returns an `AspectVersion` containing
+`value` (a typed aspect), `version`, `system_metadata`, and `createdon`. Omitting the
+version selects the highest numbered row. Explicit versions must be positive;
+missing aspects or versions return `None`. `list_versions(urn, aspect_name)`
+returns all numbered snapshots, oldest first, or an empty list. Returned typed
+values and system metadata are detached, mutable copies: editing them does not
+change persisted history or subsequent reads.
+
+Numbered rows retain their original metadata. `createdon` is the supplied
+`systemMetadata.lastObserved`, or the write time when it is absent. It is an
+observation timestamp, not a transaction commit timestamp. The aspect number is
+also recorded in `system_metadata.properties["sysVersion"]`.
+
+The internal version-0 row holds the current value. On a changed write, its value
+and `createdon` match the new numbered row. A repeated value updates only the live
+row's `lastObserved`; `get(details=True)` exposes that live metadata, while
+`get_aspect()` retains the numbered snapshot's original observation time.
+Existing version-0 timestamps are corrected when a changed value is written.
+
+Free-text and exact search return current values only. An old name no longer
+matches free-text search after a rename. Browse, entity iteration, and export
+continue to expose current values; use the history API for earlier values.
+
+### Atomic and conditional writes
+
+Each standalone `write()` is atomic across all aspects in its MCP or MCE and their
+edge updates. `with lite.transaction():` groups multiple writes into one commit.
+Reads inside the block see its writes. Any failed write, including an invalid
+write argument, or failed database statement (including reads) makes the block
+rollback-only: even if the caller catches the error, later writes are rejected and
+leaving the block raises `LiteTransactionError`. An exception escaping the block
+rolls it back. Versions returned before the block commits are provisional.
+Reindexing rebuilds the browse edges in one transaction; a failed rebuild leaves
+the previous index intact.
+
+Transactions cannot be nested. Calling `reindex()`, `close()`, or `destroy()` inside
+a transaction raises. A Lite instance is single-threaded; do not share it across
+threads. SQLite acquires its write lock when the transaction begins, including
+before a conditional write's version check. Another writer may wait or receive a
+database lock-timeout error; keep transactions short and perform network calls
+outside them. DuckDB's normal connection and writer-conflict restrictions apply.
+
+`write(mcp, if_version_match=N)` succeeds only if the current aspect version is N.
+Use `-1` to require that the aspect does not exist. A mismatch raises
+`LiteVersionConflict`, with `expected_version` and `current_version` attributes;
+`current_version` is `-1` for an absent aspect. The condition is checked even if the
+payload is unchanged. MCEs cannot carry a version condition. `write()` returns a
+mapping from aspect names to their resulting version numbers.
+
+With `forward_to` configured, successful standalone writes are forwarded after
+local persistence, and failed local writes are not forwarded. Explicit
+transactions are unsupported and raise `NotImplementedError`. Version conditions
+apply to the local store only. Local persistence and delivery to the forwarding
+sink are not a distributed transaction.
+
+### Version history from the CLI
+
+```shell
+datahub lite get --urn 'urn:li:tag:example' --aspect tagProperties --version 1
+datahub lite history --urn 'urn:li:tag:example' --aspect tagProperties
+```
+
+Versioned `get` requires one URN and exactly one aspect, and cannot be combined with
+`--path` or `--asof`. It returns JSON with `version`, `value`, `systemMetadata`, and
+`createdon`, or `null` for a missing version. `history` returns an array of those
+objects in ascending version order, or `[]` for a missing aspect. Ordinary `get`
+continues to return the current value.
+
 ## Admin Commands
 
 ### Export Metadata (export)

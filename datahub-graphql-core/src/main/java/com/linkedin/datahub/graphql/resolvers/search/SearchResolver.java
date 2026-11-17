@@ -32,7 +32,6 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
   private static final SearchFlags SEARCH_RESOLVER_DEFAULTS =
       new SearchFlags()
           .setFulltext(true)
-          .setMaxAggValues(20)
           .setSkipCache(false)
           .setSkipAggregates(false)
           .setSkipHighlighting(false)
@@ -80,13 +79,19 @@ public class SearchResolver implements DataFetcher<CompletableFuture<SearchResul
                 count,
                 searchFlags);
 
+            com.linkedin.metadata.query.filter.Filter filter =
+                ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters());
             return UrnSearchResultsMapper.map(
                 context,
                 _entityClient.search(
-                    context.getOperationContext().withSearchFlags(flags -> searchFlags),
+                    context
+                        .getOperationContext()
+                        .withSearchFlags(flags -> searchFlags)
+                        .withCallerOptionalFilterFields(
+                            DefaultEntityFiltersUtil.callerOptionalFilterFields(filter)),
                     entityName,
                     sanitizedQuery,
-                    ResolverUtils.buildFilter(input.getFilters(), input.getOrFilters()),
+                    filter,
                     Collections.emptyList(),
                     start,
                     count));

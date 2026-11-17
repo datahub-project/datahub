@@ -1,0 +1,30 @@
+"""
+An entity that belongs to a data platform
+"""
+interface HasPlatform {
+  """
+  The platform the entity belongs to
+  """
+  platform: DataPlatform
+}
+
+extend type Assertion implements HasPlatform
+extend type Chart implements HasPlatform
+extend type Container implements HasPlatform
+extend type Dashboard implements HasPlatform
+extend type DataFlow implements HasPlatform
+extend type DataHubConnection implements HasPlatform
+extend type DataJob implements HasPlatform
+extend type DataPlatformInstance implements HasPlatform
+extend type DataProcessInstance implements HasPlatform
+extend type Dataset implements HasPlatform
+extend type Document implements HasPlatform
+extend type MLFeatureTable implements HasPlatform
+extend type MLModel implements HasPlatform
+extend type MLModelGroup implements HasPlatform
+extend type Metric implements HasPlatform
+extend type Notebook implements HasPlatform
+extend type QueryEntity implements HasPlatform
+extend type Repository implements HasPlatform
+extend type SemanticModel implements HasPlatform
+extend type VersionedDataset implements HasPlatform

@@ -1,0 +1,49 @@
+# Types implement EntityProperties in their own definitions, not via `extend type`: graphql-java < 26.1 ignores
+# interfaces added by extensions when checking that HasProperties.properties is satisfied.
+# On graphql-java >= 26.1, move each `implements EntityProperties` here as `extend type X implements EntityProperties`.
+"""
+Properties aspect shared by entities with a name and description
+"""
+interface EntityProperties {
+  """
+  Name of the entity
+  """
+  name: String
+
+  """
+  Description of the entity
+  """
+  description: String
+}
+
+"""
+An entity whose properties aspect has a name and description
+"""
+interface HasProperties {
+  """
+  Properties of the entity
+  """
+  properties: EntityProperties
+}
+
+extend type Api implements HasProperties
+extend type Application implements HasProperties
+extend type BusinessAttribute implements HasProperties
+extend type Chart implements HasProperties
+extend type Container implements HasProperties
+extend type Dashboard implements HasProperties
+extend type DataFlow implements HasProperties
+extend type DataJob implements HasProperties
+extend type DataPlatformInstance implements HasProperties
+extend type DataProduct implements HasProperties
+extend type Dataset implements HasProperties
+extend type Domain implements HasProperties
+extend type GlossaryNode implements HasProperties
+extend type GlossaryTerm implements HasProperties
+extend type MLModel implements HasProperties
+extend type MLModelGroup implements HasProperties
+extend type QueryEntity implements HasProperties
+extend type Repository implements HasProperties
+extend type Role implements HasProperties
+extend type Tag implements HasProperties
+extend type VersionedDataset implements HasProperties

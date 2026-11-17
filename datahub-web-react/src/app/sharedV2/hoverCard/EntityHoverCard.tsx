@@ -23,6 +23,7 @@ import HoverCardAttributionDetails from '@app/sharedV2/propagation/HoverCardAttr
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { hasPropagationDetails } from '@app/sharedV2/propagation/utils';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -137,8 +138,8 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
     }
 
     const owners = properties?.ownership?.owners ?? [];
-    const tags = properties?.globalTags?.tags ?? [];
-    const terms = properties?.glossaryTerms?.terms ?? [];
+    const tags = (properties?.globalTags?.tags ?? []).filter((tag) => !isRemovedAssociation(tag));
+    const terms = (properties?.glossaryTerms?.terms ?? []).filter((term) => !isRemovedAssociation(term));
     const domain = properties?.domain?.domain;
     const dataProduct = properties?.dataProduct?.relationships?.[0]?.entity;
 

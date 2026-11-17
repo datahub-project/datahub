@@ -11,7 +11,7 @@ import styled from 'styled-components/macro';
 import { AvatarType } from '@components/components/AvatarStack/types';
 import { ItemType } from '@components/components/Menu/types';
 
-import useDeleteEntity from '@app/entity/shared/EntityDropdown/useDeleteEntity';
+import useDeleteEntity from '@app/entityV2/shared/EntityDropdown/useDeleteEntity';
 import SelectRole from '@app/identity/user/SelectRole';
 import ViewResetTokenModal from '@app/identity/user/ViewResetTokenModal';
 import { USERS_ASSIGN_ROLE_ID } from '@app/onboarding/config/UsersOnboardingConfig';
@@ -108,7 +108,14 @@ export default function UserListItem({
     const userRole = userRelationships && userRelationships.length > 0 && (userRelationships[0]?.entity as DataHubRole);
     const userRoleUrn = userRole && userRole.urn;
 
-    const { onDeleteEntity } = useDeleteEntity(user.urn, EntityType.CorpUser, user, onDelete, false, true);
+    const { onDeleteEntity, DeleteConfirmationModal } = useDeleteEntity(
+        user.urn,
+        EntityType.CorpUser,
+        user,
+        onDelete,
+        false,
+        true,
+    );
 
     const getUserStatusToolTip = (userStatus: CorpUserStatus) => {
         switch (userStatus) {
@@ -211,6 +218,7 @@ export default function UserListItem({
                     </MenuTriggerButton>
                 </Menu>
             </ButtonGroup>
+            {DeleteConfirmationModal}
             <ViewResetTokenModal
                 open={isViewingResetToken}
                 userUrn={user.urn}

@@ -1,0 +1,46 @@
+{
+  "metadata": {
+    "dbt_schema_version": "https://schemas.getdbt.com/dbt/run-results/v6.json",
+    "dbt_version": "1.9.3",
+    "generated_at": "2025-05-08T15:51:04.000000Z",
+    "invocation_id": "contracts-build-invocation"
+  },
+  "args": {
+    "which": "build"
+  },
+  "elapsed_time": 0.5,
+  "results": [
+    {
+      "status": "success",
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2025-05-08T15:51:03.100000Z",
+          "completed_at": "2025-05-08T15:51:03.300000Z"
+        }
+      ],
+      "thread_id": "Thread-1",
+      "execution_time": 0.2,
+      "adapter_response": {},
+      "message": "OK",
+      "failures": null,
+      "unique_id": "model.contract_fixture.orders"
+    },
+    {
+      "status": "pass",
+      "timing": [
+        {
+          "name": "execute",
+          "started_at": "2025-05-08T15:51:03.400000Z",
+          "completed_at": "2025-05-08T15:51:03.500000Z"
+        }
+      ],
+      "thread_id": "Thread-1",
+      "execution_time": 0.2,
+      "adapter_response": {},
+      "message": null,
+      "failures": 0,
+      "unique_id": "test.contract_fixture.not_null_orders_ID.2c01be0ba6"
+    }
+  ]
+}

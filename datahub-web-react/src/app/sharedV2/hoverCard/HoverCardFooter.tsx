@@ -1,11 +1,11 @@
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityCapabilityType } from '@app/entityV2/Entity';
 import SidebarPopularityHeaderSection, {
     hasPopularityStats,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarPopularityHeaderSection';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     DashboardLastUpdatedMs,
     DatasetLastUpdatedMs,

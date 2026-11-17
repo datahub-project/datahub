@@ -7,6 +7,7 @@ from datahub.ingestion.source.unstructured.embedding_providers.base import (
     DEFAULT_HTTP_TIMEOUT_SECONDS,
     EmbeddingProvider,
     EmbeddingResult,
+    EmbeddingTask,
     build_retrying_session,
     post_json,
 )
@@ -40,13 +41,18 @@ class CohereEmbeddingProvider(EmbeddingProvider):
             }
         )
 
-    def embed(self, texts: list[str]) -> EmbeddingResult:
+    def close(self) -> None:
+        self._session.close()
+
+    def embed(self, texts: list[str], *, task: EmbeddingTask) -> EmbeddingResult:
         payload = post_json(
             COHERE_API_URL,
             body={
                 "texts": texts,
                 "model": self._model,
-                "input_type": "search_document",
+                "input_type": "search_query"
+                if task is EmbeddingTask.QUERY
+                else "search_document",
             },
             session=self._session,
             timeout=self._timeout,

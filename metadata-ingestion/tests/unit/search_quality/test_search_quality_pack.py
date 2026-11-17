@@ -48,11 +48,16 @@ def test_bootstrap_platforms_keep_registry_info() -> None:
     assert matched == {
         "bigquery",
         "dbt",
+        "hdfs",
+        "hive",
+        "kafka",
         "looker",
         "mongodb",
         "postgres",
         "powerbi",
         "s3",
+        "sagemaker",
+        "sigma",
         "snowflake",
         "tableau",
     }
@@ -153,8 +158,21 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "catalog-quoted",
         "catalog-property",
         "identity-name-qualified-parity",
+        "identity-name-id-parity",
         "identity-bounded-qualified-path",
         "identity-earlier-qualified-segment",
+        "description-contain-stacked-token",
+        "shared-token-name",
+        "shared-token-name-quoted",
+        "ui-filter-full-names",
+        "ui-filter-shared-token",
+        "tag-four-part-name",
+        "label-tool",
+        "label-id",
+        "label-text",
+        "label-description",
+        "label-name",
+        "label-custom-properties",
     ]
     for item in longtail:
         grades = [grade["relevance"] for grade in item["grades"]]
@@ -221,12 +239,24 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         if item["id"] == "identity-name-qualified-parity"
     )
     assert identity_parity["containsInTop"] == {
-        "n": 2,
+        "n": 3,
         "values": [
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_only,PROD)",
             "urn:li:dataset:(urn:li:dataPlatform:catalogprobe,identity_name_and_qualified,PROD)",
         ],
     }
+    identity_id_parity = next(
+        item for item in keyword_probes if item["id"] == "identity-name-id-parity"
+    )
+    assert identity_id_parity["entityTypes"] == ["dataFlow"]
+    assert identity_id_parity["scoreRatioAtMost"] == {
+        "max": 1.02,
+        "numerator": "urn:li:dataFlow:(catalogprobe,identityprobe_parity,prod)",
+        "denominator": "urn:li:dataFlow:(catalogprobe,flow_name_only,prod)",
+    }
+    assert next(item for item in keyword_probes if item["id"] == "label-tool")[
+        "expectNoHits"
+    ]
     identity_path = next(
         item
         for item in keyword_probes
@@ -247,14 +277,18 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "entity-boost-domain",
     ]
     term = boosts[0]
-    assert term["orderedContains"] == ["dataProduct:entityboost"]
+    assert "orderedContains" not in term
     assert boosts[1]["orderedContains"] == [
         "dataProduct:entityboost",
         "glossaryNode:entityboost",
     ]
     assert term["containsInTop"] == {
         "n": 3,
-        "values": ["dataProduct:entityboost", "catalogprobe,entityboost"],
+        "values": [
+            "glossaryTerm:entityboost",
+            "dataProduct:entityboost",
+            "catalogprobe,entityboost",
+        ],
     }
     assert "orderedContains" not in boosts[2]
     assert set(boosts[2]["present"]) == {
@@ -269,6 +303,40 @@ def test_longtail_catalog_judgments_cover_the_catalog_scenarios() -> None:
         "entity-search-group",
     ]
     assert all(item["exactTopHit"].startswith("urn:li:") for item in searchable)
+
+
+def test_quickstart_search_judgments_are_recorded_not_gated() -> None:
+    judgments = json.loads((pack_dir() / "judgments.json").read_text())
+    quickstart = [
+        item for item in judgments["judgments"] if item["group"] == "quickstart-search"
+    ]
+    assert [item["id"] for item in quickstart] == [
+        "quickstart-sample-datasets",
+        "quickstart-sample-across-entities",
+    ]
+    urns = [
+        "urn:li:dataset:(urn:li:dataPlatform:kafka,SampleKafkaDataset,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hdfs,SampleHdfsDataset,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)",
+    ]
+    for item in quickstart:
+        assert item["query"] == "sample"
+        assert item["surfaces"] == ["keyword"]
+        assert item["containsInTop"] == {"n": 10, "values": urns}
+    assert quickstart[0]["entityTypes"] == ["dataset"]
+    assert quickstart[1]["entityTypes"] == []
+
+    catalog_probes = json.loads((pack_dir() / "05-catalog-probes.json").read_text())
+    names = {
+        item["entityUrn"]: item["aspect"]["json"]["name"]
+        for item in catalog_probes
+        if item["aspectName"] == "datasetProperties" and item["entityUrn"] in urns
+    }
+    assert names == {
+        urns[0]: "SampleKafkaDataset",
+        urns[1]: "SampleHdfsDataset",
+        urns[2]: "SampleHiveDataset",
+    }
 
 
 def test_cranfield_grades_invert_onto_a_gain_scale() -> None:
