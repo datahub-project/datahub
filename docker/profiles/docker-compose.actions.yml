@@ -1,3 +1,8 @@
+# Host sources are variables so datahub-dev can substitute an empty placeholder when the host has
+# no ~/.aws; otherwise Docker creates the missing directory as root.
+x-aws-config-mount: &aws-config-mount "${DATAHUB_DEV_AWS_DIR:-${HOME}/.aws}:/home/datahub/.aws:ro"
+x-aws-sso-cache-mount: &aws-sso-cache-mount "${DATAHUB_DEV_AWS_DIR:-${HOME}/.aws}/sso/cache:/home/datahub/.aws/sso/cache:rw"
+
 x-search-datastore-elasticsearch-env: &search-datastore-env
   ELASTICSEARCH_HOST: search
   ELASTICSEARCH_PORT: 9200
@@ -24,8 +29,8 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
     - ./datahub-actions/start.sh:/start_datahub_actions.sh
     - ../../metadata-ingestion/src:/metadata-ingestion/src
     - ../../datahub-actions/src:/datahub-actions/src
-    - ${HOME}/.aws:/home/datahub/.aws:ro
-    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+    - *aws-config-mount
+    - *aws-sso-cache-mount
   environment:
     <<: *search-datastore-env
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}
@@ -38,8 +43,8 @@ x-datahub-actions-service-dev: &datahub-actions-service-dev
 x-datahub-actions-quickstart-service: &datahub-actions-quickstart-service
   <<: *datahub-actions-service
   volumes:
-    - ${HOME}/.aws:/home/datahub/.aws:ro
-    - ${HOME}/.aws/sso/cache:/home/datahub/.aws/sso/cache:rw
+    - *aws-config-mount
+    - *aws-sso-cache-mount
   environment:
     <<: *search-datastore-env
     ACTIONS_EXTRA_PACKAGES: ${ACTIONS_EXTRA_PACKAGES:-}

@@ -1,7 +1,7 @@
 from unittest.mock import MagicMock
 
 import pytest
-from atlassian.errors import ApiNotFoundError
+from atlassian.errors import ApiNotFoundError, ApiPermissionError
 from requests import HTTPError
 
 from datahub.ingestion.source.confluence.confluence_html import UserRef
@@ -75,14 +75,36 @@ def test_repeated_transient_failures_give_up_after_the_attempt_limit() -> None:
     assert len(report.warnings) == 1
 
 
-@pytest.mark.parametrize("status", [401, 403, 404])
-def test_permanent_http_errors_are_not_retried(status: int) -> None:
-    response = MagicMock(status_code=status)
+def test_missing_user_is_not_retried() -> None:
     client = MagicMock()
-    client.get_user_details_by_accountid.side_effect = HTTPError(response=response)
+    client.get_user_details_by_accountid.side_effect = HTTPError(
+        response=MagicMock(status_code=404)
+    )
     resolver = ConfluenceUserResolver(client, ConfluenceSourceReport())
 
     resolver(UserRef(account_id="557058:aaaa"))
     resolver(UserRef(account_id="557058:aaaa"))
 
     client.get_user_details_by_accountid.assert_called_once()
+
+
+@pytest.mark.parametrize(
+    "error",
+    [
+        HTTPError(response=MagicMock(status_code=401)),
+        HTTPError(response=MagicMock(status_code=403)),
+        ApiPermissionError("no browse users"),
+    ],
+)
+def test_access_denied_stops_all_lookups_with_one_warning(error: Exception) -> None:
+    client = MagicMock()
+    client.get_user_details_by_accountid.side_effect = error
+    report = ConfluenceSourceReport()
+    resolver = ConfluenceUserResolver(client, report)
+
+    for account_id in ["557058:aaaa", "557058:bbbb", "557058:cccc"]:
+        assert resolver(UserRef(account_id=account_id)) is None
+
+    client.get_user_details_by_accountid.assert_called_once()
+    assert len(report.warnings) == 1
+    assert report.mentions_unresolved == 3

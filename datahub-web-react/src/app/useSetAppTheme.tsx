@@ -34,12 +34,20 @@ export function useSetAppTheme() {
     useEffect(() => {
         if (customThemeId && customThemeId.endsWith('.json')) {
             if (import.meta.env.DEV) {
-                import(/* @vite-ignore */ `./conf/theme/${customThemeId}`)
+                // A glob Vite can analyse statically: a template-string import() breaks the dev server's
+                // dependency pre-scan, so every cold start rediscovers dependencies while the page loads.
+                const devThemes = import.meta.glob<Theme>('../conf/theme/*.json', { import: 'default' });
+                const loadTheme = devThemes[`../conf/theme/${customThemeId}`];
+                if (!loadTheme) {
+                    console.error(`Theme '${customThemeId}' not found in src/conf/theme`);
+                    return;
+                }
+                loadTheme()
                     .then((theme) => {
                         updateTheme(ensureThemeColors(theme));
                     })
                     .catch((error) => {
-                        console.error(`Failed to load theme from './conf/theme/${customThemeId}':`, error);
+                        console.error(`Failed to load theme from 'src/conf/theme/${customThemeId}':`, error);
                     });
             } else {
                 fetch(`assets/conf/theme/${customThemeId}`)

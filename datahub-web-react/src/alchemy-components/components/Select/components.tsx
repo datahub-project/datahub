@@ -1,5 +1,7 @@
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import styled from 'styled-components';
 
+import { Button } from '@components/components/Button';
 import { Icon } from '@components/components/Icon';
 import { SelectLabelVariants, SelectSizeOptions, SelectStyleProps } from '@components/components/Select/types';
 import {
@@ -13,7 +15,7 @@ import {
     inputPlaceholderTextStyles,
     inputValueTextStyles,
 } from '@components/components/commonStyles';
-import { radius, spacing, transition, typography, zIndices } from '@components/theme';
+import { radius, shadows, spacing, transition, typography, zIndices } from '@components/theme';
 
 const sharedTransition = `${transition.property.colors} ${transition.easing['ease-in-out']} ${transition.duration.normal}`;
 
@@ -219,4 +221,26 @@ export { Checkbox as StyledCheckbox } from '@components/components/Checkbox';
 
 export const Required = styled.span(({ theme }) => ({
     color: theme.colors.textError,
+}));
+
+export const ClearButton = styled(Button).attrs({
+    variant: 'text',
+    icon: { icon: X, size: 'md' },
+    isCircle: true,
+})(({ theme }) => ({
+    color: theme?.colors?.text,
+    padding: '0px',
+
+    '&:hover': {
+        border: 'none',
+        backgroundColor: 'transparent',
+        borderColor: 'transparent',
+        boxShadow: shadows.none,
+    },
+
+    '&:focus': {
+        border: 'none',
+        backgroundColor: 'transparent',
+        boxShadow: `0 0 0 2px ${theme?.colors?.bg}, 0 0 0 4px ${theme?.colors?.borderBrand}`,
+    },
 }));

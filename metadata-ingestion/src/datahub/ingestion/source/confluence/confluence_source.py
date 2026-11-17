@@ -985,11 +985,11 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract parent URN
         parent_urn = self._extract_parent_urn(page, ingested_page_ids)
 
-        # Build custom properties, including a content_hash that encodes both
-        # the raw page body and the extraction algo version. The chunking source
-        # reads this hash to decide whether to re-embed a document; bumping
-        # EXTRACTION_ALGO_VERSION invalidates every document's hash and forces
-        # a full re-ingest on the next run.
+        # content_hash covers the raw page body and the extraction algo version.
+        # The inline chunking source (unstructured/chunking_source.py) re-embeds
+        # a document when this hash changes, so bumping EXTRACTION_ALGO_VERSION
+        # re-embeds every page. The separate datahub-documents source hashes the
+        # extracted text instead, so it only re-embeds pages whose text changed.
         import json as _json
 
         raw_body = page.get("body", {}).get("storage", {}).get("value", "") or ""
