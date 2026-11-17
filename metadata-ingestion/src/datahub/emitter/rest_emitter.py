@@ -860,7 +860,7 @@ class DataHubRestEmitter(Closeable, Emitter):
 
     def _emit_mce(self, mce: MetadataChangeEvent, emit_mode: EmitMode) -> None:
         """Sends the MCE's aspects in one batch so GMS stamps them as one change; oversized MCEs are split across requests."""
-        # Deferred to break the cycle mcp_builder -> ingestion.api.common -> graph.client -> rest_emitter.
+        # Deferred to break the cycle mcp_builder -> ingestion.api.workunit -> ingestion.api.common -> graph.client -> rest_emitter.
         from datahub.emitter.mcp_builder import mcps_from_mce
 
         _warn_mce_deprecated()
