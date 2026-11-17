@@ -35,6 +35,17 @@ os.environ["DATAHUB_REST_EMITTER_DEFAULT_RETRY_MAX_TIMES"] = "1"
 # budget makes that vanishingly unlikely while still bounding a pathological parse.
 os.environ["SQL_LINEAGE_TIMEOUT_SECONDS"] = "300"
 
+# Never look for cloud credentials on the instance metadata server. A test that
+# builds a boto3 client or calls google.auth.default() without credentials makes
+# botocore query the EC2 metadata endpoint and google-auth probe the GCE one
+# (3 attempts x 3s). Where 169.254.169.254 refuses at once, as on a laptop, that
+# costs nothing; where it drops packets, as on some CI runners, each of those
+# tests waits out the timeouts, and the unit suite grows from ~20 to ~45 min.
+# The lookups find no credentials either way, so the outcome is unchanged.
+# google-auth reads NO_GCE_CHECK at import, so this has to stay above the imports.
+os.environ["AWS_EC2_METADATA_DISABLED"] = "true"
+os.environ["NO_GCE_CHECK"] = "true"
+
 # Installs the sys.meta_path finder that provides a pkg_resources shim when
 # setuptools>=82 has removed it, before any test imports the redshift/cockroachdb
 # dialects (which import pkg_resources at load).
