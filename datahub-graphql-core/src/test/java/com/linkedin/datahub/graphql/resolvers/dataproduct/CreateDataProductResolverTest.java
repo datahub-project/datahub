@@ -35,6 +35,7 @@ import org.testng.annotations.Test;
 
 public class CreateDataProductResolverTest {
 
+  private static final Urn DATA_PRODUCT_URN = UrnUtils.getUrn("urn:li:dataProduct:product");
   private static final Urn DOMAIN_URN = UrnUtils.getUrn("urn:li:domain:finance");
   private static final Urn PARENT_URN = UrnUtils.getUrn("urn:li:dataProduct:parent");
   private static final Urn CHILD_URN = UrnUtils.getUrn("urn:li:dataProduct:child");
@@ -192,6 +193,113 @@ public class CreateDataProductResolverTest {
 
     resolver.get(environment).join();
     verify(dataProductService, times(1)).createDataProduct(any(), any(), any(), any(), any());
+  }
+
+  @Test
+  public void testBlankDomainUrnIsTreatedAsNoDomain() throws Exception {
+    DataProductService dataProductService = mockDataProductService();
+    CreateDataProductResolver resolver =
+        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+    CreateDataProductInput input = createInputWithoutDomain();
+    input.setDomainUrn("  ");
+
+    resolver.get(mockEnvironment(input, getMockAllowContext())).join();
+
+    verify(dataProductService, never()).verifyEntityExists(any(), any());
+    verify(dataProductService, times(1)).createDataProduct(any(), any(), any(), any(), any());
+    verify(dataProductService, never()).setDomain(any(), any(), any());
+  }
+
+  @Test
+  public void testCreatesWithDomain() throws Exception {
+    DataProductService dataProductService = mockDataProductService();
+    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
+    CreateDataProductResolver resolver =
+        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+
+    DataProduct result =
+        resolver.get(mockEnvironment(createInputWithDomain(), getMockAllowContext())).join();
+
+    assertNotNull(result);
+    verify(dataProductService, times(1)).setDomain(any(), eq(DATA_PRODUCT_URN), eq(DOMAIN_URN));
+  }
+
+  @Test
+  public void testCreatesWithDomainWithOnlyManageAllDataProducts() throws Exception {
+    DataProductService dataProductService = mockDataProductService();
+    // The mocked context cannot run the mapper's view check, so skip mapping the result.
+    when(dataProductService.getDataProductEntityResponse(any(), any())).thenReturn(null);
+    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
+    CreateDataProductResolver resolver =
+        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+
+    resolver
+        .get(
+            mockEnvironment(
+                createInputWithDomain(),
+                contextGranting(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType())))
+        .join();
+
+    verify(dataProductService, times(1)).setDomain(any(), eq(DATA_PRODUCT_URN), eq(DOMAIN_URN));
+  }
+
+  @Test
+  public void testRejectsMissingDomainBeforeWriting() {
+    DataProductService dataProductService = mockDataProductService();
+    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(false);
+    CreateDataProductResolver resolver =
+        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+
+    assertThrows(
+        CompletionException.class,
+        () -> resolver.get(mockEnvironment(createInputWithDomain(), getMockAllowContext())).join());
+    verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
+    verify(dataProductService, never()).setDomain(any(), any(), any());
+  }
+
+  @Test
+  public void testRejectsWithDomainWhenUnauthorized() {
+    DataProductService dataProductService = mockDataProductService();
+    when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);
+    CreateDataProductResolver resolver =
+        new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+
+    CompletionException exception =
+        expectThrows(
+            CompletionException.class,
+            () ->
+                resolver
+                    .get(mockEnvironment(createInputWithDomain(), getMockDenyContext()))
+                    .join());
+    assertHasAuthorizationCause(exception);
+    verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
+  }
+
+  private static DataProductService mockDataProductService() {
+    DataProductService dataProductService = mock(DataProductService.class);
+    when(dataProductService.createDataProduct(any(), any(), any(), any(), any()))
+        .thenReturn(DATA_PRODUCT_URN);
+    when(dataProductService.getDataProductEntityResponse(any(), eq(DATA_PRODUCT_URN)))
+        .thenReturn(
+            new EntityResponse()
+                .setUrn(DATA_PRODUCT_URN)
+                .setEntityName("dataProduct")
+                .setAspects(new EnvelopedAspectMap()));
+    return dataProductService;
+  }
+
+  private static void assertHasAuthorizationCause(Throwable exception) {
+    Throwable cause = exception.getCause();
+    while (cause != null && !(cause instanceof AuthorizationException)) {
+      cause = cause.getCause();
+    }
+    assertNotNull(cause, "Expected an AuthorizationException in the cause chain");
+  }
+
+  private static CreateDataProductInput createInputWithDomain() {
+    CreateDataProductInput input = createInputWithoutDomain();
+    input.setDomainUrn(DOMAIN_URN.toString());
+    return input;
   }
 
   private static QueryContext contextGranting(String privilege) {

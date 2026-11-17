@@ -1,4 +1,5 @@
 import { MockedProvider } from '@apollo/client/testing';
+import { toast } from '@components';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
@@ -6,6 +7,7 @@ import CreateMarketplaceDataProductModal from '@app/marketplace/CreateMarketplac
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { CreateDataProductDocument } from '@graphql/dataProduct.generated';
+import { EntityType } from '@types';
 
 vi.mock('@app/entityV2/shared/DomainSelector/DomainSelector', () => ({
     default: ({ onDomainsChange }: { onDomainsChange: (urns: string[]) => void }) => (
@@ -89,5 +91,67 @@ describe('CreateMarketplaceDataProductModal', () => {
         fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'My data product' } });
         fireEvent.click(screen.getByTestId('submit-button'));
         await waitFor(() => expect(mutationResult).toHaveBeenCalled());
+    });
+    it('passes the created data product to the caller and closes on success', async () => {
+        const created = { urn: 'urn:li:dataProduct:new', type: EntityType.DataProduct };
+        const mocks = [
+            {
+                request: { query: CreateDataProductDocument },
+                variableMatcher: () => true,
+                result: { data: { createDataProduct: created } },
+            },
+        ];
+        const onClose = vi.fn();
+        const onCreateDataProduct = vi.fn();
+
+        render(
+            <MockedProvider mocks={mocks} addTypename={false}>
+                <TestPageContainer>
+                    <CreateMarketplaceDataProductModal
+                        open
+                        onClose={onClose}
+                        onCreateDataProduct={onCreateDataProduct}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'My data product' } });
+        fireEvent.click(screen.getByTestId('submit-button'));
+
+        await waitFor(() => expect(onCreateDataProduct).toHaveBeenCalledWith(expect.objectContaining(created)));
+        expect(onClose).toHaveBeenCalled();
+    });
+
+    it('stays open when the mutation fails', async () => {
+        const mocks = [
+            {
+                request: { query: CreateDataProductDocument },
+                variableMatcher: () => true,
+                error: new Error('Unauthorized'),
+            },
+        ];
+        const toastError = vi.spyOn(toast, 'error');
+        const onClose = vi.fn();
+        const onCreateDataProduct = vi.fn();
+
+        render(
+            <MockedProvider mocks={mocks}>
+                <TestPageContainer>
+                    <CreateMarketplaceDataProductModal
+                        open
+                        onClose={onClose}
+                        onCreateDataProduct={onCreateDataProduct}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        fireEvent.change(screen.getByTestId('name-input'), { target: { value: 'My data product' } });
+        fireEvent.click(screen.getByTestId('submit-button'));
+
+        await waitFor(() => expect(toastError).toHaveBeenCalled());
+        expect(onCreateDataProduct).not.toHaveBeenCalled();
+        expect(onClose).not.toHaveBeenCalled();
     });
 });

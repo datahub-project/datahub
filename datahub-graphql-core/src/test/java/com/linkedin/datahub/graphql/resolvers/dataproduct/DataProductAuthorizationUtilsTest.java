@@ -80,6 +80,15 @@ public class DataProductAuthorizationUtilsTest {
   }
 
   @Test
+  public void testCreateWithoutDomainRequiresManageAllDataProducts() {
+    assertFalse(
+        DataProductAuthorizationUtils.isAuthorizedToCreateDataProductWithoutDomain(context));
+
+    grantManageAllDataProducts(true);
+    assertTrue(DataProductAuthorizationUtils.isAuthorizedToCreateDataProductWithoutDomain(context));
+  }
+
+  @Test
   public void testDomainPrivilegeRequiredWithoutManageAllDataProducts() {
     try (MockedStatic<AuthorizationUtils> auth = Mockito.mockStatic(AuthorizationUtils.class)) {
       auth.when(() -> AuthorizationUtils.isAuthorized(any(), any(), any(), any()))
