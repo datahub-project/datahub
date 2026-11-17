@@ -37,6 +37,7 @@ from datahub.ingestion.source.cube.models import (
     CloudDataSource,
     CloudDataSourcesResponse,
     CloudEntitiesResponse,
+    CloudEntity,
     CloudReportsResponse,
     CloudWorkbooksResponse,
     CoreMetaResponse,
@@ -337,8 +338,10 @@ class CubeAPIClient:
                 bearer=True,
             )
             response = CloudEntitiesResponse.model_validate(raw)
-            page = response.data.entities
-            entities.extend(CubeEntity.from_cloud_entity(entity) for entity in page)
+            page = response.data
+            for entity in page:
+                self._report_unusable_references(entity)
+                entities.append(CubeEntity.from_cloud_entity(entity))
 
             pagination = response.pagination
             if pagination is None:
@@ -347,3 +350,16 @@ class CubeAPIClient:
             if offset >= pagination.total or not page:
                 break
         return entities
+
+    def _report_unusable_references(self, entity: CloudEntity) -> None:
+        skipped = entity.unusable_reference_count()
+        if not skipped:
+            return
+        self.report.metadata_api_references_skipped += skipped
+        self.report.warning(
+            title="Skipped Metadata API references",
+            message="Some cube or member references could not be used for "
+            "lineage: a member reference without both cube and member, or a "
+            "cube reference that is not of type upstream.",
+            context=f"{entity.name}: {skipped} skipped",
+        )

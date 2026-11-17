@@ -26,6 +26,12 @@ to GMS. `frontend.log` contains startup and HMR output; use `tail -f <data-dir>/
   GMS port. Ports use the Docker registry's `base + slot * 1000` scheme. Every GMS
   port is reserved in the shared registry, including additional processes.
 
+- `--opensearch 2|3`: select the embedded engine for a new stack. The default comes
+  from `embeddedOpenSearchDefault` in root `gradle.properties` (currently 2), with
+  `EMBEDDED_OPENSEARCH_VERSION` as an override. Restarts retain the recorded major.
+  Changing an existing stack's major requires `--fresh`; its old indices are removed
+  on the old node before starting with fresh H2 and search data. Unmarked legacy
+  stacks retain major 3.
 - `--no-frontend`: start only the backend. Restarts retain this choice; `--frontend` re-enables Vite.
 - `--skip-build`: require existing GMS, upgrade and OpenSearch artifacts.
 - `--fresh`: reset this stack's data and indices before starting, including env overrides.
@@ -48,8 +54,11 @@ to GMS. `frontend.log` contains startup and HMR output; use `tail -f <data-dir>/
 
 Persistent stack data lives in `~/.datahub/local/stacks/<worktree-id>/`. The registry
 and each stack's `instance.json` record `local_owner: datahub-dev-oss-local-v1` and
-`opensearch_dir`. Only matching entries and data directories can be changed. The
-wrapper always uses `~/.datahub/local/opensearch-3/` for the shared search node.
+`opensearch_dir` and `opensearch_version`. Only matching entries and data directories
+can be changed. The wrapper uses `~/.datahub/local/opensearch-<major>/` for the shared
+search node. The two majors can run side by side; their data is never shared.
+`status` shows the recorded major. The unversioned `~/.datahub/local/opensearch/`
+directory is reserved for another tool and is never used.
 Stop and nuke leave that node running for other stacks; its manager checks process
 identity and major version before reusing it. Index deletion enumerates exact
 names under this stack's launcher-derived prefixes.
@@ -79,9 +88,6 @@ select a profile explicitly for another GMS instance:
 ```bash
 datahub --profile local-<worktree-id>-gms-1 graphql --query '{ me { corpUser { urn } } }'
 ```
-
-Local mode starts the backend only. Frontend development continues to use the
-Docker workflow.
 
 Run the offline tests and lint through Gradle:
 

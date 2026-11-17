@@ -66,6 +66,8 @@ MAX_REQUEST_TIMEOUT_WARNING_THRESHOLD = 300
 # Entity discriminator returned by both APIs.
 ENTITY_TYPE_CUBE = "cube"
 ENTITY_TYPE_VIEW = "view"
+# The only cube_references type Cube documents (Metadata API).
+CUBE_REFERENCE_TYPE_UPSTREAM = "upstream"
 
 # Cube member data types (the `type` field on a dimension/measure) mapped to
 # DataHub schema field types. Cube's primitive set is small and stable.

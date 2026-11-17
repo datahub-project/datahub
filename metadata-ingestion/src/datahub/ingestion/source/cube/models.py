@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Union
 from pydantic import BaseModel, ConfigDict, Field
 
 from datahub.ingestion.source.cube.constants import (
+    CUBE_REFERENCE_TYPE_UPSTREAM,
     ENTITY_TYPE_VIEW,
 )
 
@@ -164,6 +165,38 @@ class CloudTableRef(BaseModel):
     table: str
 
 
+class CloudMemberReference(BaseModel):
+    """An upstream member a member is derived from, e.g. cube "orders" and
+    member "count". Fields are optional so one malformed entry is skipped and
+    reported rather than failing the whole Metadata API page."""
+
+    model_config = ConfigDict(extra="allow")
+
+    cube: Optional[str] = None
+    member: Optional[str] = None
+
+    @property
+    def qualified_name(self) -> Optional[str]:
+        # Lineage resolves "cube.member"; a bare member can't be resolved.
+        return f"{self.cube}.{self.member}" if self.cube and self.member else None
+
+
+class CloudCubeReference(BaseModel):
+    """A relationship to another cube. Cube documents ``type`` as currently
+    always "upstream"; any other type is not lineage and is skipped."""
+
+    model_config = ConfigDict(extra="allow")
+
+    type: Optional[str] = None
+    cube: Optional[str] = None
+
+    @property
+    def upstream_cube(self) -> Optional[str]:
+        if self.type not in (None, CUBE_REFERENCE_TYPE_UPSTREAM):
+            return None
+        return self.cube or None
+
+
 class CloudMember(BaseModel):
     model_config = ConfigDict(populate_by_name=True, extra="allow")
 
@@ -174,7 +207,7 @@ class CloudMember(BaseModel):
     agg_type: Optional[str] = Field(default=None, alias="aggType")
     is_primary_key: bool = False
     column_references: List[CloudColumnRef] = Field(default_factory=list)
-    member_references: List[str] = Field(default_factory=list)
+    member_references: List[CloudMemberReference] = Field(default_factory=list)
     meta: Optional[Dict[str, object]] = None
     public: Optional[bool] = None
     is_visible: Optional[bool] = Field(default=None, alias="isVisible")
@@ -192,7 +225,7 @@ class CloudEntity(BaseModel):
     title: Optional[str] = None
     description: Optional[str] = None
     table_references: List[CloudTableRef] = Field(default_factory=list)
-    cube_references: List[str] = Field(default_factory=list)
+    cube_references: List[CloudCubeReference] = Field(default_factory=list)
     measures: List[CloudMember] = Field(default_factory=list)
     dimensions: List[CloudMember] = Field(default_factory=list)
     public: Optional[bool] = None
@@ -206,6 +239,17 @@ class CloudEntity(BaseModel):
         default_factory=list, alias="preAggregations"
     )
 
+    def unusable_reference_count(self) -> int:
+        """References that can't become lineage: a member reference without
+        both cube and member, or a cube reference that isn't an upstream cube."""
+        members = self.measures + self.dimensions
+        return sum(
+            1
+            for member in members
+            for ref in member.member_references
+            if ref.qualified_name is None
+        ) + sum(1 for ref in self.cube_references if ref.upstream_cube is None)
+
 
 class CloudPagination(BaseModel):
     offset: int = 0
@@ -213,12 +257,8 @@ class CloudPagination(BaseModel):
     total: int = 0
 
 
-class CloudEntitiesPayload(BaseModel):
-    entities: List[CloudEntity] = Field(default_factory=list)
-
-
 class CloudEntitiesResponse(BaseModel):
-    data: CloudEntitiesPayload = Field(default_factory=CloudEntitiesPayload)
+    data: List[CloudEntity] = Field(default_factory=list)
     pagination: Optional[CloudPagination] = None
 
 
@@ -550,7 +590,11 @@ class CubeEntity(BaseModel):
                 is_measure=is_measure,
                 title=member.title,
                 is_primary_key=member.is_primary_key,
-                member_references=list(member.member_references),
+                member_references=[
+                    ref.qualified_name
+                    for ref in member.member_references
+                    if ref.qualified_name
+                ],
                 column_references=[
                     CubeColumnReference(
                         schema_name=ref.schema_name,
@@ -575,7 +619,9 @@ class CubeEntity(BaseModel):
                 CubeTableReference(schema_name=ref.schema_name, table=ref.table)
                 for ref in entity.table_references
             ],
-            cube_references=list(entity.cube_references),
+            cube_references=[
+                ref.upstream_cube for ref in entity.cube_references if ref.upstream_cube
+            ],
             joins=_build_joins(entity.joins),
             hierarchies=_build_hierarchies(entity.hierarchies),
             folders=_build_folders(entity.folders, entity.nested_folders),
