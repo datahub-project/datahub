@@ -1,0 +1,23 @@
+{
+  "_comment": "Test classes that check_new_tests_ran.py may see added/modified without them executing in CI. Key: FQCN, python module or repo path (fnmatch patterns allowed); value: why it does not run in CI. Keep this list short: a class that should run belongs in a suite, not here.",
+  "datahub.client.patch.PatchTest": "Every method is @Ignore'd: examples that target a GMS on localhost.",
+  "com.linkedin.metadata.search.embedding.CohereEmbeddingProviderIntegrationTest": "Calls the Cohere API; skips without an API key, which CI does not have.",
+  "com.linkedin.metadata.search.embedding.OpenAIEmbeddingProviderIntegrationTest": "Calls the OpenAI API; skips without an API key, which CI does not have.",
+  "com.linkedin.metadata.search.embedding.OnnxBenchmarkTest": "Manual benchmark; skips unless explicitly enabled.",
+  "com.linkedin.metadata.search.SemanticSearchServiceIT": "Class-level @Test(enabled = false): needs a live OpenSearch with semantic indices.",
+  "com.linkedin.metadata.search.semantic.SemanticEntitySearchIT": "Class-level @Test(enabled = false): needs a live OpenSearch with semantic indices.",
+  "io.datahubproject.test.fixtures.search.SearchFixtureUtils": "Manual fixture-capture tool; its @Test methods are @Ignore'd on purpose.",
+  "com.linkedin.datahub.upgrade.system.elasticsearch.migration.SearchV3FreshInstallTest": "Opt-in :datahub-upgrade:searchV3MigrationTest task only (SEARCH_V3_MIGRATION_TEST=true); not wired into CI on purpose, see datahub-upgrade/build.gradle.",
+  "com.linkedin.datahub.upgrade.system.elasticsearch.migration.SearchV3MigrationScenarios": "Opt-in :datahub-upgrade:searchV3MigrationTest task only (SEARCH_V3_MIGRATION_TEST=true); not wired into CI on purpose, see datahub-upgrade/build.gradle.",
+  "com.linkedin.datahub.upgrade.system.elasticsearch.migration.SearchV3SameClusterMigrationTest": "Opt-in :datahub-upgrade:searchV3MigrationTest task only (SEARCH_V3_MIGRATION_TEST=true); not wired into CI on purpose, see datahub-upgrade/build.gradle.",
+  "com.linkedin.datahub.upgrade.system.elasticsearch.migration.SearchV3SplitClusterMigrationTest": "Opt-in :datahub-upgrade:searchV3MigrationTest task only (SEARCH_V3_MIGRATION_TEST=true); not wired into CI on purpose, see datahub-upgrade/build.gradle.",
+  "tests.integration.hive-metastore.test_hive_metastore_catalog": "HMS 3.x docker environment is skipped in CI by design; run with RUN_HMS3_TESTS=1 or HMS3_EXTERNAL=1.",
+  "tests.integration.informix.test_informix": "Skipped when is_ci(): the Informix developer image cannot start on CI runners (PAM/sudo). Run locally.",
+  "tests.integration.notion.test_notion_integration": "Needs a live Notion workspace (NOTION_* env vars) that CI does not have.",
+  "tests.integration.pgqueue.test_pgqueue_optional_it": "Module-level skip: needs Postgres with pg_partman + SqlSetup DDL, not wired in CI.",
+  "tests.integration.vertica.test_vertica": "Module-level skip until vertica/vertica-containers#64 is fixed.",
+  "tests.unit.utilities.test_cli_logging": "Module-level skip: reconfiguring logging breaks pytest's own capture.",
+  "com.linkedin.metadata.config.usage.cigate.GraphqlUsageRegistryCiGateTest": "Change-gated CI check (:metadata-service:configuration:*UsageRegistryCheck): it throws SkipException unless its watched registry inputs changed, so editing only the test class cannot make it run.",
+  "com.linkedin.metadata.config.usage.cigate.OpenApiUsageRegistryCiGateTest": "Change-gated CI check (:metadata-service:configuration:*UsageRegistryCheck): it throws SkipException unless its watched registry inputs changed, so editing only the test class cannot make it run.",
+  "com.linkedin.metadata.config.usage.cigate.RestliUsageRegistryCiGateTest": "Change-gated CI check (:metadata-service:configuration:*UsageRegistryCheck): it throws SkipException unless its watched registry inputs changed, so editing only the test class cannot make it run."
+}

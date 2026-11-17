@@ -330,6 +330,22 @@ jobs:
             exit 1
           fi
 
+  # Fails when a pytest module added or modified under metadata-ingestion/tests did not execute
+  # (wrong/missing marker, module-level skip, a path no batch collects).
+  new-tests-ran:
+    needs: [detect, ci]
+    if: ${{ !cancelled() && github.event_name == 'pull_request' }}
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    uses: ./.github/workflows/reusable-new-tests-ran.yml
+    with:
+      artifact-pattern: "metadata-ingestion-test-results-*"
+      language: python
+      include: |
+        metadata-ingestion/tests/*
+
   event-file:
     runs-on: ubuntu-24.04
     steps:

@@ -1,0 +1,94 @@
+name: Reusable - New tests ran
+
+# Fails when a test class added or modified by the PR has no executed test case in the calling
+# run's JUnit XML: a class a TestNG suite or Gradle filter does not select, a JUnit 5 class in a
+# TestNG module, a name a --tests filter misses, a skipped job. Each calling workflow scopes the
+# check to the tests it runs. Logic: .github/scripts/check_new_tests_ran.py; opt-outs:
+# .github/new-tests-ran-optout.json.
+#
+# Call it from a job that `needs` the test jobs, with `if: !cancelled()` and the permissions below.
+
+on:
+  workflow_call:
+    inputs:
+      artifact-pattern:
+        description: "download-artifact pattern matching this run's JUnit XML artifacts"
+        required: true
+        type: string
+      language:
+        description: "java (Java/Kotlin/Groovy) or python"
+        required: false
+        default: java
+        type: string
+      include:
+        description: "Newline-separated fnmatch globs of changed paths to check (empty: all)"
+        required: false
+        default: ""
+        type: string
+      exclude:
+        description: "Newline-separated fnmatch globs of changed paths to skip"
+        required: false
+        default: ""
+        type: string
+      runs-on:
+        description: >-
+          Runner for the check. Empty: depot-ubuntu-24.04-small for internal PRs (or community
+          PRs with the 'depot' label) when Depot is configured, ubuntu-24.04 otherwise, the same
+          rule as .github/actions/determine-runners.
+        required: false
+        default: ""
+        type: string
+
+jobs:
+  new-tests-ran:
+    runs-on: >-
+      ${{ inputs.runs-on != '' && inputs.runs-on
+      || (vars.DEPOT_PROJECT_ID != ''
+          && (github.event.pull_request.head.repo.full_name == github.repository
+              || contains(github.event.pull_request.labels.*.name, 'depot'))
+          && 'depot-ubuntu-24.04-small')
+      || 'ubuntu-24.04' }}
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      actions: read
+      pull-requests: read
+    steps:
+      - name: Check out the repo
+        uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Download this run's JUnit results
+        # No matching artifact (e.g. the test jobs were skipped) leaves the dir empty, and the
+        # check below then reports every changed test class in scope as not run: fail-safe.
+        continue-on-error: true
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
+        with:
+          pattern: ${{ inputs.artifact-pattern }}
+          path: ${{ runner.temp }}/junit
+      - name: List files changed by the PR
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          gh api --paginate "repos/$REPO/pulls/$PR_NUMBER/files" \
+            --jq '.[] | select(.status != "removed") | .filename' > "$RUNNER_TEMP/changed-files.txt"
+          echo "$(wc -l < "$RUNNER_TEMP/changed-files.txt") changed files"
+      - name: Check that added/modified test classes ran
+        env:
+          LANGUAGE: ${{ inputs.language }}
+          INCLUDE: ${{ inputs.include }}
+          EXCLUDE: ${{ inputs.exclude }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/junit"
+          args=(--language "$LANGUAGE")
+          while IFS= read -r glob; do
+            if [ -n "$glob" ]; then args+=(--include "$glob"); fi
+          done <<< "$INCLUDE"
+          while IFS= read -r glob; do
+            if [ -n "$glob" ]; then args+=(--exclude "$glob"); fi
+          done <<< "$EXCLUDE"
+          python3 .github/scripts/check_new_tests_ran.py \
+            --changed-files-from "$RUNNER_TEMP/changed-files.txt" \
+            --results-dir "$RUNNER_TEMP/junit" \
+            "${args[@]}" \
+            --github-annotations
