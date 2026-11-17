@@ -6,9 +6,10 @@ Two behaviors diverge intentionally from :func:`auto_incremental_properties`:
    types (datasets, containers, charts, dashboards, glossary terms, ML models,
    …). The patch path uses ``create_dataset_owners_patch_builder`` →
    ``DatasetPatchBuilder``, which is dataset-specific. We therefore filter
-   explicitly by ``entityType == "dataset"``; non-dataset ownership passes
-   through as UPSERT. Compare ``auto_incremental_lineage``, which dispatches
-   across dataset/chart/dashboard patch builders for the same reason.
+   explicitly by dataset URN (MCE) / ``entityType == "dataset"`` (MCPW);
+   non-dataset ownership passes through as UPSERT. Compare
+   ``auto_incremental_lineage``, which dispatches across
+   dataset/chart/dashboard patch builders for the same reason.
 
 2. Empty owners are dropped silently. ``create_dataset_owners_patch_builder``
    emits one patch op per owner, so an empty ``owners`` list yields zero ops
