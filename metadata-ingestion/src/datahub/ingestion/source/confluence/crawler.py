@@ -120,7 +120,8 @@ class ConfluenceCrawler:
             else:
                 # The 4.x client returns a bare list with no next link, so a
                 # space with exactly `cap` pages looks the same as a larger one.
-                if self.client.has_more_space_pages(space_key, start + batch.fetched):
+                # start already points past the last batch.
+                if self.client.has_more_space_pages(space_key, start):
                     # A failure rather than a warning: stale removal would
                     # otherwise soft-delete the pages beyond the cap.
                     self.report.failure(
