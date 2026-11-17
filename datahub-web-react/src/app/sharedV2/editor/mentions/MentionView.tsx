@@ -7,9 +7,11 @@ import { Pill } from '@components/components/Pills';
 import { Tooltip } from '@components/components/Tooltip';
 
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
+import { useBatchedMentionEntity } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
+import EntityHoverCard from '@app/sharedV2/hoverCard/EntityHoverCard';
 import { HoverEntityTooltip } from '@src/app/recommendations/renderer/component/HoverEntityTooltip';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
-import { useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
+import { useGetEntityMentionChipQuery, useGetEntityMentionNodeQuery } from '@src/graphql/search.generated';
 import type { Entity } from '@src/types.generated';
 
 /** Matches Avatar `sm` / mention chip icon slot. */
@@ -54,6 +56,19 @@ const InvalidEntityText = styled.span`
 `;
 
 /**
+ * The chip query carries only the name and icon fields, so the hover card fetches the full entity
+ * when it opens. Until that arrives it shows what the chip already has.
+ */
+function MentionHoverCard({ entity }: { entity: Entity }) {
+    const { data } = useGetEntityMentionNodeQuery({
+        // The card needs neither lineage nor siblings; the query fetches both unless skipped.
+        variables: { urn: entity.urn, skipLineage: true, skipSiblingsSearch: true },
+        fetchPolicy: 'cache-first',
+    });
+    return <EntityHoverCard entity={(data?.entity as Entity | undefined) ?? entity} />;
+}
+
+/**
  * Renders a mention chip, in the editor and in read-only documentation, via alchemy {@link Pill}
  * (`squareFilled`) and the same {@link EntityIcon} treatment as the @-mention picker.
  */
@@ -61,11 +76,16 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
     const { t } = useTranslation('entity.profile.editor');
 
     const registry = useEntityRegistry();
-    const { data, loading } = useGetEntityMentionNodeQuery({
-        // A chip needs neither lineage nor siblings; the query fetches both unless skipped.
-        variables: { urn, skipLineage: true, skipSiblingsSearch: true },
+    // Read-only content fetches all its mentions at once; the editor fetches each mention itself.
+    const batched = useBatchedMentionEntity(urn);
+    const { data, loading: queryLoading } = useGetEntityMentionChipQuery({
+        // A chip needs no siblings; the query fetches them unless skipped.
+        variables: { urn, skipSiblingsSearch: true },
         fetchPolicy: 'cache-first',
+        skip: !!batched,
     });
+    const loading = batched ? batched.loading : queryLoading;
+    const fetchedEntity = batched ? batched.entity : data?.entity;
 
     const renderIcon = useCallback(
         (entity: Entity): React.ReactNode => (
@@ -80,7 +100,7 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
         return <span>{name}</span>;
     }
 
-    if (!data || !data.entity) {
+    if (!fetchedEntity) {
         return (
             <Tooltip title={t('mentions.notFound')}>
                 <InvalidEntityText>{name}</InvalidEntityText>
@@ -88,11 +108,11 @@ export const MentionView = ({ urn, name }: EditorMentionViewProps) => {
         );
     }
 
-    const entity = data.entity as Entity;
+    const entity = fetchedEntity as Entity;
     const displayName = registry.getDisplayName(entity.type, entity);
 
     return (
-        <HoverEntityTooltip entity={entity}>
+        <HoverEntityTooltip entity={entity} card={<MentionHoverCard entity={entity} />}>
             <ChipWrap>
                 <Pill
                     label={displayName}

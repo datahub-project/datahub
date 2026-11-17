@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorProps } from '@components/components/Editor/types';
 
 import { Editor } from '@app/sharedV2/editor/Editor';
+import { MentionEntitiesContext } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
 const mentionsUi = vi.hoisted(() => ({ fails: false, failedPicker: false, failedMentionView: false }));
@@ -85,6 +86,20 @@ describe('Editor', () => {
         expect(screen.getByText('Alice')).toBeInTheDocument();
         expect(screen.queryByTestId('mentions-picker')).not.toBeInTheDocument();
         expect(screen.getByTestId('content')).toBeInTheDocument();
+    });
+
+    it('shows the mention name, not the chip, until read-only mentions are ready', async () => {
+        vi.mocked(useIsDocumentationFileUploadV1Enabled).mockReturnValue(false);
+        const observe = vi.fn(() => () => {});
+        render(
+            <MentionEntitiesContext.Provider value={{ ready: false, observe, batch: null }}>
+                <Editor content="Hello" />
+            </MentionEntitiesContext.Provider>,
+        );
+
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+        expect(observe).toHaveBeenCalledWith(screen.getByText('Alice'));
+        await expect(screen.findByTestId('mention-view', {}, { timeout: 100 })).rejects.toThrow();
     });
 
     it.each([true, false])('passes the documentation file upload flag (%s) as imageUploadEnabled', (flag) => {
