@@ -619,16 +619,10 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             else:
                 # start already points past the last batch.
                 if self._space_has_more_pages(space_key, start):
-                    # A failure rather than a warning: stale removal would
-                    # otherwise soft-delete the pages beyond the cap.
-                    self.report.failure(
-                        title="Space stopped at max_pages_per_space",
-                        message="Pages beyond max_pages_per_space were not "
-                        "ingested, so stale removal is skipped for this run. "
-                        "Raise max_pages_per_space to ingest the whole space.",
-                        context=f"{space_key}: max_pages_per_space="
-                        f"{self.config.max_pages_per_space}",
+                    self.report.report_space_truncated(
+                        space_key, self.config.max_pages_per_space
                     )
+                    return
         except Exception as e:
             self.report.report_space_failed(space_key, e)
             return

@@ -72,6 +72,20 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
             exc=exc,
         )
 
+    def report_space_truncated(self, space_key: str, max_pages: int) -> None:
+        """Record a space cut short at max_pages_per_space. It counts as failed,
+        not processed: a failure rather than a warning, because stale removal
+        would otherwise soft-delete the pages beyond the cap."""
+        self.spaces_failed += 1
+        self.failed_spaces.append(space_key)
+        self.failure(
+            title="Space stopped at max_pages_per_space",
+            message="Pages beyond max_pages_per_space were not ingested, so "
+            "stale removal is skipped for this run. Raise max_pages_per_space "
+            "to ingest the whole space.",
+            context=f"{space_key}: max_pages_per_space={max_pages}",
+        )
+
     def report_page_scanned(self) -> None:
         """Record that a page was scanned."""
         self.pages_scanned += 1
