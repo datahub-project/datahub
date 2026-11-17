@@ -234,8 +234,16 @@ class LauncherSafetyTest(unittest.TestCase):
                 parents.pop()
             parents.append((len(indent), key))
             names = tuple(re.findall(r"\$\{([A-Z_0-9]+):", value))
+            path = ".".join(key for _, key in parents)
+            # Bedrock keeps the host region. The line still names AWS_REGION, which the
+            # search-cluster and pgCron entries clear, so it would otherwise match here.
+            if path == (
+                "elasticsearch.entityIndex.semanticSearch"
+                ".embeddingProvider.bedrock.awsRegion"
+            ):
+                continue
             if placeholders.intersection(names):
-                found[".".join(key for _, key in parents)] = names
+                found[path] = names
         expected = {
             path: names
             for path, (names, _) in stack.SEARCH_CONNECTION_PROPERTIES.items()
