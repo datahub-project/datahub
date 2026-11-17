@@ -488,10 +488,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             # below the requested limit.
             start += len(results)
 
-        self.report.warning(
+        # A failure rather than a warning: stale removal would otherwise
+        # soft-delete every page in the spaces beyond the cap.
+        self.report.failure(
             title="Space discovery stopped at max_spaces",
-            message="Spaces beyond max_spaces were not ingested. Raise max_spaces "
-            "or list the spaces to ingest in spaces.allow.",
+            message="Spaces beyond max_spaces were not ingested, so stale "
+            "removal is skipped for this run. Raise max_spaces or list the "
+            "spaces to ingest in spaces.allow.",
             context=f"max_spaces={self.config.max_spaces}",
         )
         return spaces
@@ -520,59 +523,53 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         visited.add(page_id)
 
         try:
-            # Fetch the page itself with full metadata
             page = self.confluence_client.get_page_by_id(
                 page_id,
                 expand=PAGE_EXPAND,
             )
-
-            if not page:
-                logger.warning(f"Page {page_id} not found or not accessible")
-                return
-
-            logger.debug(f"Fetched page: {page_id} - {page.get('title', 'Unknown')}")
-            self.report.report_page_scanned()
-            yield page
-
-            # If recursive mode enabled, fetch child pages
-            if self.config.recursive:
-                try:
-                    # Get direct child pages (convert generator to list for length check)
-                    children_response = list(
-                        self.confluence_client.get_child_pages(page_id)
-                    )
-
-                    # The response is a list of page objects
-                    if children_response:
-                        child_count = len(children_response)
-                        logger.debug(
-                            f"Found {child_count} child pages for page {page_id}"
-                        )
-
-                        # Recursively process each child
-                        for child_page in children_response:
-                            child_id = str(child_page.get("id", ""))
-                            if child_id:
-                                yield from self._get_pages_recursively(
-                                    child_id, visited
-                                )
-
-                except Exception as e:
-                    # The subtree under this page was not read; as a failure this
-                    # also stops stale removal from soft-deleting it.
-                    self.report.failure(
-                        title="Failed to list child pages",
-                        message="Pages under this page were not ingested.",
-                        context=page_id,
-                        exc=e,
-                    )
-
         except Exception as e:
             logger.error(f"Failed to fetch page {page_id}: {e}")
             self.report.failure(message="Failed to fetch page", context=page_id, exc=e)
-
             if not self.config.advanced.continue_on_failure:
                 raise
+            return
+
+        if not page:
+            logger.warning(f"Page {page_id} not found or not accessible")
+            return
+
+        logger.debug(f"Fetched page: {page_id} - {page.get('title', 'Unknown')}")
+        self.report.report_page_scanned()
+        yield page
+
+        if self.config.recursive:
+            yield from self._get_child_pages_recursively(page_id, visited)
+
+    def _get_child_pages_recursively(
+        self, page_id: str, visited: Set[str]
+    ) -> Iterable[Dict[str, Any]]:
+        # Only the listing is guarded: a failure further down the tree is
+        # reported against that page, and still raises without
+        # continue_on_failure.
+        try:
+            children = list(self.confluence_client.get_child_pages(page_id))
+        except Exception as e:
+            # The subtree under this page was not read; as a failure this also
+            # stops stale removal from soft-deleting it.
+            self.report.failure(
+                title="Failed to list child pages",
+                message="Pages under this page were not ingested.",
+                context=page_id,
+                exc=e,
+            )
+            if not self.config.advanced.continue_on_failure:
+                raise
+            return
+        logger.debug(f"Found {len(children)} child pages for page {page_id}")
+        for child_page in children:
+            child_id = str(child_page.get("id", ""))
+            if child_id:
+                yield from self._get_pages_recursively(child_id, visited)
 
     def _get_pages_in_space(self, space_key: str) -> Iterable[Dict[str, Any]]:
         """
@@ -620,17 +617,32 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 # skip the pages in between.
                 start += len(pages)
             else:
-                self.report.warning(
-                    title="Space stopped at max_pages_per_space",
-                    message="Pages beyond max_pages_per_space were not ingested.",
-                    context=f"{space_key}: max_pages_per_space="
-                    f"{self.config.max_pages_per_space}",
-                )
+                if self._space_has_more_pages(space_key, start + len(pages)):
+                    # A failure rather than a warning: stale removal would
+                    # otherwise soft-delete the pages beyond the cap.
+                    self.report.failure(
+                        title="Space stopped at max_pages_per_space",
+                        message="Pages beyond max_pages_per_space were not "
+                        "ingested, so stale removal is skipped for this run. "
+                        "Raise max_pages_per_space to ingest the whole space.",
+                        context=f"{space_key}: max_pages_per_space="
+                        f"{self.config.max_pages_per_space}",
+                    )
         except Exception as e:
             self.report.report_space_failed(space_key, e)
             return
 
         self.report.report_space_processed(space_key)
+
+    def _space_has_more_pages(self, space_key: str, start: int) -> bool:
+        # The 4.x client returns a bare list with no next link, so a space with
+        # exactly max_pages_per_space pages looks the same as a larger one.
+        response = self.confluence_client.get_all_pages_from_space(
+            space=space_key, start=start, limit=1
+        )
+        if isinstance(response, list):
+            return bool(response)
+        return bool((response or {}).get("results"))
 
     def _get_pages_from_spaces(self, space_keys: List[str]) -> Iterable[Dict[str, Any]]:
         """
