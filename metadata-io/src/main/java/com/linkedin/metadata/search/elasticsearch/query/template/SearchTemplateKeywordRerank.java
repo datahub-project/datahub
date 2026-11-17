@@ -80,14 +80,25 @@ public final class SearchTemplateKeywordRerank {
                 eligible.add(entityType);
               }
             });
-    SearchTemplateRerankKnn knn =
-        SearchTemplateJson.parseRerankKnn(template.getKnn() == null ? "{}" : template.getKnn());
+    SearchTemplateRerankKnn knn = SearchTemplateJson.parseRerankKnn(renderedKnn(template.getKnn()));
     HybridCandidateMerger merger =
         new HybridCandidateMerger(
             new HybridLexicalScoreNormalizer(
                 knn.lexicalInputMin(), knn.lexicalInputMax(), knn.lexicalSteepness()),
             new HybridScoreCombiner(knn.vectorWeight()));
     return new HybridRerankPlan(eligible, merger, floor(knn.blendFloor(), minScore));
+  }
+
+  // Rendered with the write-time sample context, as the write check renders it, so a Mustache value
+  // in the blend reads the way it was validated.
+  @Nonnull
+  static String renderedKnn(@Nullable String knn) {
+    if (knn == null || knn.isBlank()) {
+      return "{}";
+    }
+    String rendered =
+        SearchTemplateMustache.render(knn, SearchTemplateMustache.validationContext(knn));
+    return rendered == null ? knn : rendered;
   }
 
   // Both are inclusive gates on the same engine [0, 1] score and a row must pass both, so the

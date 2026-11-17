@@ -129,6 +129,18 @@ public class SearchTemplateGatesTest {
   }
 
   @Test
+  public void testKeywordRerankPlansFromTheRenderedBlend() {
+    // The write check renders a Mustache value in the blend, so the rerank reads it the same way.
+    MergedSearchTemplate templated =
+        merged(retrieval("keywordRerank")).knn("{ \"vectorWeight\": {{partialFactor}} }").build();
+    assertTrue(
+        SearchTemplateKeywordRerank.plan(
+                    templated, VECTOR_BUILD, List.of("document"), OPENSEARCH, null)
+                .merger()
+            != null);
+  }
+
+  @Test
   public void testKeywordRerankOverAMixedRequestGatesEachEntity() {
     MergedSearchTemplate rerank = merged(retrieval("keywordRerank")).build();
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
