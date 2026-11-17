@@ -10,6 +10,7 @@ e2e-test/ui/playwright/
 ├── fixtures/                     # Modular test fixtures (composed via mergeTests)
 │   ├── base-test.ts              # Import for authenticated tests (most tests)
 │   ├── login-test.ts             # Import for login UI tests (unauthenticated)
+│   ├── unit-test.ts              # Import for framework unit specs (no browser, no DataHub)
 │   ├── login.fixture.ts          # Per-worker auth state management
 │   ├── logger.fixture.ts         # Winston logger (auto-injected into every test)
 │   ├── mocking.fixture.ts        # apiMock fixture for route interception
@@ -113,6 +114,7 @@ yarn playwright show-report
 | ---------------------------------------------------------------------------- | --------------------------- |
 | Needs an authenticated session (search, entities, business-attributes, etc.) | `../../fixtures/base-test`  |
 | Tests the login UI itself (unauthenticated context)                          | `../../fixtures/login-test` |
+| Checks a framework helper against stubs (no browser, no DataHub)             | `../../fixtures/unit-test`  |
 
 Never import directly from `@playwright/test` in spec files.
 
