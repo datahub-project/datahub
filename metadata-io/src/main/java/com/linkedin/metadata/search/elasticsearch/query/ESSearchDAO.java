@@ -695,7 +695,14 @@ public class ESSearchDAO {
               requestSize,
               facets);
       return finishTemplateHybrid(
-          searched.context(), entityNames, input, searched.result(), from, size, hybridFetchSize);
+          searched.context(),
+          entityNames,
+          input,
+          sortCriteria,
+          searched.result(),
+          from,
+          size,
+          hybridFetchSize);
     }
 
     // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page
@@ -768,6 +775,7 @@ public class ESSearchDAO {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
       @Nonnull SearchResult result,
       int from,
       @Nullable Integer size,
@@ -776,7 +784,15 @@ public class ESSearchDAO {
     // A keywordRerank rung owns the rerank of its window, so the default reranker stays off.
     if (resolved != null && resolved.getTemplateRerank() != null) {
       return rerankTemplate(
-          opContext, resolved, entityNames, input, result, from, size, hybridFetchSize);
+          opContext,
+          resolved,
+          entityNames,
+          input,
+          sortCriteria,
+          result,
+          from,
+          size,
+          hybridFetchSize);
     }
     if (hybridFetchSize == 0) {
       return result;
@@ -799,6 +815,7 @@ public class ESSearchDAO {
       @Nonnull ResolvedSearchTemplate resolved,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
       @Nonnull SearchResult result,
       int from,
       @Nullable Integer size,
@@ -808,7 +825,8 @@ public class ESSearchDAO {
     final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
     final Float minScore = flags != null && flags.hasMinScore() ? flags.getMinScore() : null;
     String reason =
-        templateRerankSkip(opContext, resolved, entityNames, input, from, size, hybridFetchSize);
+        templateRerankSkip(
+            opContext, resolved, entityNames, input, sortCriteria, from, size, hybridFetchSize);
     HybridRerankPlan plan = null;
     if (reason == null) {
       try {
@@ -895,10 +913,11 @@ public class ESSearchDAO {
       @Nonnull ResolvedSearchTemplate resolved,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size,
       int hybridFetchSize) {
-    if (!rankingWindowApplies(opContext, input, from, size)) {
+    if (!rankingWindowApplies(opContext, input, sortCriteria, from, size)) {
       return SearchTemplateKeywordRerank.NOT_APPLICABLE;
     }
     if (hybridSearchResultReranker == null) {
@@ -932,8 +951,7 @@ public class ESSearchDAO {
       int from,
       @Nullable Integer size) {
     if (hybridSearchResultReranker == null
-        || !isRelevanceSort(sortCriteria)
-        || !rankingWindowApplies(opContext, input, from, size)
+        || !rankingWindowApplies(opContext, input, sortCriteria, from, size)
         || hybridSearchResultReranker.vectorEntityNames(opContext, entityNames).isEmpty()) {
       return 0;
     }
@@ -945,17 +963,20 @@ public class ESSearchDAO {
   }
 
   /**
-   * Whether the request ranks a relevance window a rerank can reorder: it asks for rows on a page
-   * that starts inside the window, its input is a full-text query that is not empty, match-all,
-   * structured, or an exact lookup, and the window fits the result limit.
+   * Whether the request ranks a relevance window a rerank can reorder: it sorts by relevance, asks
+   * for rows on a page that starts inside the window, its input is a full-text query that is not
+   * empty, match-all, structured, or an exact lookup, and the window fits the result limit.
    */
   private boolean rankingWindowApplies(
       @Nonnull OperationContext opContext,
       @Nonnull String input,
+      @Nullable List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size) {
     // A count has no hits to rerank. The lexical query and facets still run.
-    if ((size != null && size == 0) || from >= HYBRID_RERANK_WINDOW) {
+    if ((size != null && size == 0)
+        || from >= HYBRID_RERANK_WINDOW
+        || !isRelevanceSort(sortCriteria)) {
       return false;
     }
     final int pageSize = ConfigUtils.applyLimit(searchServiceConfig, size);

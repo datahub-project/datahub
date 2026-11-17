@@ -189,7 +189,8 @@ public class ESSearchDAOHybridTest {
     OperationContext templated = opContext.withResolvedSearchTemplate(resolved);
 
     SearchResult result =
-        dao.finishTemplateHybrid(templated, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+        dao.finishTemplateHybrid(
+            templated, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100);
 
     assertEquals(rowIds(result), range(10, 20));
     assertEquals(result.getFrom().intValue(), 10);
@@ -204,7 +205,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }", true, null);
 
     SearchResult result =
-        dao.finishTemplateHybrid(served, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+        dao.finishTemplateHybrid(served, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100);
 
     // The mocked rerank reverses the window, and the page is sliced from it
     assertEquals(rowIds(result), range(89, 79));
@@ -222,6 +223,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext("{ \"blendFloor\": 0.6 }", true, 0.7f),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -230,6 +232,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext("{ \"blendFloor\": 0.6 }", true, 0.5f),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -238,6 +241,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext(KEEP_PLACES, true, 0.5f),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -260,6 +264,7 @@ public class ESSearchDAOHybridTest {
             keywordRerankContext(KEEP_PLACES, true, null),
             ENTITY_NAMES,
             "revenue",
+            null,
             result(100),
             10,
             10,
@@ -280,6 +285,7 @@ public class ESSearchDAOHybridTest {
             keywordRerankContext(KEEP_PLACES, true, null),
             ENTITY_NAMES,
             "revenue",
+            null,
             result(100),
             10,
             10,
@@ -298,6 +304,7 @@ public class ESSearchDAOHybridTest {
                     keywordRerankContext(KEEP_PLACES, true, null),
                     ENTITY_NAMES,
                     "revenue",
+                    null,
                     result(10),
                     0,
                     10,
@@ -309,17 +316,18 @@ public class ESSearchDAOHybridTest {
     assertEquals(
         rowIds(
             dao.finishTemplateHybrid(
-                noDocumentRerank, ENTITY_NAMES, "revenue", result(100), 10, 10, 100)),
+                noDocumentRerank, ENTITY_NAMES, "revenue", null, result(100), 10, 10, 100)),
         range(10, 20));
     assertFallback(SearchTemplateKeywordRerank.SEMANTIC_READ_OFF);
     dao.finishTemplateHybrid(
-        noDocumentRerank, List.of("dataset"), "revenue", result(100), 10, 10, 100);
+        noDocumentRerank, List.of("dataset"), "revenue", null, result(100), 10, 10, 100);
     assertFallback(SearchTemplateKeywordRerank.NO_DOCUMENT);
     // The window was not fetched because hybrid read was paused
     dao.finishTemplateHybrid(
         keywordRerankContext(KEEP_PLACES, true, null),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(10),
         0,
         10,
@@ -331,6 +339,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext(KEEP_PLACES, true, null),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -342,6 +351,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext("{ \"vectorWeight\": 2 }", true, null),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -353,6 +363,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext(KEEP_PLACES, true, null),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(10),
         0,
         10,
@@ -360,7 +371,14 @@ public class ESSearchDAOHybridTest {
     assertFallback(SearchTemplateKeywordRerank.NO_ELIGIBLE_ROWS);
     // A match-all query ranks no relevance window, which is not a fallback
     dao.finishTemplateHybrid(
-        keywordRerankContext(KEEP_PLACES, true, null), ENTITY_NAMES, "*", result(10), 0, 10, 0);
+        keywordRerankContext(KEEP_PLACES, true, null),
+        ENTITY_NAMES,
+        "*",
+        null,
+        result(10),
+        0,
+        10,
+        0);
     verify(metrics, never())
         .incrementMicrometer(
             SearchTemplateMetrics.FALLBACK, 1, "kind", SearchTemplateKeywordRerank.NOT_APPLICABLE);
@@ -380,6 +398,7 @@ public class ESSearchDAOHybridTest {
         keywordRerankContext(KEEP_PLACES, true, null),
         ENTITY_NAMES,
         "revenue",
+        null,
         result(100),
         0,
         10,
@@ -399,6 +418,7 @@ public class ESSearchDAOHybridTest {
                 keywordRerankContext(KEEP_PLACES, true, null),
                 ENTITY_NAMES,
                 "revenue",
+                null,
                 result(10),
                 0,
                 10,
@@ -419,7 +439,7 @@ public class ESSearchDAOHybridTest {
             .withSearchFlags(flags -> flags.setIncludeExplain(true));
 
     SearchResult applied =
-        dao.finishTemplateHybrid(explained, ENTITY_NAMES, "revenue", mixed, 0, 10, 100);
+        dao.finishTemplateHybrid(explained, ENTITY_NAMES, "revenue", null, mixed, 0, 10, 100);
 
     KeywordRerankExplanation explanation = applied.getMetadata().getKeywordRerank();
     assertEquals(explanation.getOutcome(), SearchTemplateKeywordRerank.APPLIED);
@@ -445,6 +465,7 @@ public class ESSearchDAOHybridTest {
                     .withSearchFlags(flags -> flags.setIncludeExplain(true)),
                 ENTITY_NAMES,
                 "revenue",
+                null,
                 result(100),
                 0,
                 10,
@@ -460,11 +481,37 @@ public class ESSearchDAOHybridTest {
                 keywordRerankContext(KEEP_PLACES, true, null),
                 ENTITY_NAMES,
                 "revenue",
+                null,
                 result(100),
                 0,
                 10,
                 100)
             .hasMetadata());
+  }
+
+  @Test
+  public void testSortedSearchExplainsThatTheRerankDoesNotApply() throws IOException {
+    List<SortCriterion> byName =
+        List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING));
+    SearchResult sorted =
+        dao.finishTemplateHybrid(
+            keywordRerankContext(KEEP_PLACES, true, 0.5f)
+                .withSearchFlags(flags -> flags.setIncludeExplain(true)),
+            ENTITY_NAMES,
+            "revenue",
+            byName,
+            result(10),
+            0,
+            10,
+            0);
+
+    assertEquals(rowIds(sorted), range(0, 10));
+    KeywordRerankExplanation explanation = sorted.getMetadata().getKeywordRerank();
+    assertEquals(explanation.getReason(), SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(
+        explanation.getDeprecations(), List.of(SearchTemplateKeywordRerank.MIN_SCORE_DEPRECATION));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
   private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";

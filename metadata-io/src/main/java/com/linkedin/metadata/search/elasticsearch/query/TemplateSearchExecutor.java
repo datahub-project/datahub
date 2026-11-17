@@ -245,7 +245,9 @@ final class TemplateSearchExecutor {
     if (current != null) {
       current.setHighlightFields(served.highlights());
     }
-    coordinator.armServed(bound, ESSearchDAO.isRelevanceSort(sortCriteria) ? served.urn() : null);
+    // Every sort records the served rung, so a keywordRerank search can report that its rerank does
+    // not apply. Whether it applies is decided where the page is ranked.
+    coordinator.armServed(bound, served.urn());
     return new BoundSearch(bound, served.page());
   }
 
