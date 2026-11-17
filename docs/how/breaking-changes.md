@@ -24,6 +24,22 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Deleting a Data Product that has children
+
+A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously
+the delete succeeded and the children were left pointing at a parent that no longer existed. The
+delete now fails with an error saying the product has children. Delete the children, or move them to
+another parent, before deleting the parent. This applies to the UI, GraphQL, OpenAPI,
+Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and children together may
+reject some parents on the first pass; run it again, or delete the children first. Rolling back an
+ingestion run is not affected.
+
+### Rest.li status codes for rejected writes
+
+When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as
+deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
+preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
+
 <!--
 
 ## <version number>

@@ -4,6 +4,8 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mockStatic;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertTrue;
 import static org.testng.Assert.expectThrows;
@@ -14,6 +16,12 @@ import com.datahub.authentication.Authentication;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.RetryLimitReached;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
 import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
@@ -184,6 +192,44 @@ public class RestliUtilsTest {
 
     assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
     assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+  }
+
+  @Test
+  public void testToTask_WrappedValidation_Returns422WithMessage() {
+    // A delete rejected by a validator reaches toTask wrapped in a RuntimeException.
+    ValidationException validation = new ValidationException("has child Data Products");
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw new RuntimeException("Failed to delete", validation);
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_422_UNPROCESSABLE_ENTITY);
+    assertEquals(thrown.getMessage(), validation.getMessage());
+  }
+
+  @Test
+  public void testToTask_AuthorizationValidation_Returns403() {
+    BatchItem item = mock(BatchItem.class);
+    when(item.getUrn()).thenReturn(UrnUtils.getUrn("urn:li:dataProduct:dp"));
+    when(item.getChangeType()).thenReturn(ChangeType.DELETE);
+    ValidationExceptionCollection collection = ValidationExceptionCollection.newCollection();
+    collection.addException(AspectValidationException.forAuth(item, "Unauthorized"));
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw new ValidationException(collection);
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_403_FORBIDDEN);
   }
 
   @Test
