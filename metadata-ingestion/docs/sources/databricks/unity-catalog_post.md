@@ -90,6 +90,32 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
+#### Metric views as Semantic Models and Metrics
+
+With `include_metric_views: true`, metric views can be ingested as [Semantic Models and Metrics](https://docs.datahub.com/docs/features/feature-guides/metrics-and-semantic-models) instead of `Metric View` datasets. `emit_semantic_model_entities` controls this, the same way as the Snowflake source's setting for semantic views:
+
+| Value            | Behavior                                                                                                                                                                                             |
+| ---------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `null` (default) | On DataHub Cloud 2.1.0 or later with Metrics enabled, emits Semantic Models and Metrics. Elsewhere (older Cloud, OSS without an explicit opt-in, or runs with no DataHub connection) emits datasets. |
+| `true`           | Request Semantic Models and Metrics. On OSS, the server must register these entities.                                                                                                                |
+| `false`          | Always emit `Metric View` datasets.                                                                                                                                                                  |
+
+Each metric view then becomes:
+
+- A **Semantic Model** holding the YAML as its definition and the `joins` as relationships.
+- A **logical dataset** (subtype `Semantic Model Dataset`) named `<metric view>.source` for the `source` table, and one named `<metric view>.<join name>` per join, nested joins included. Each has upstream lineage to the table it reads, with column-level lineage when `include_column_lineage` is on. A subquery `source` becomes the logical dataset's view definition instead.
+- **Dimensions** as fields on the logical dataset their `expr` reads. Unqualified columns read `source`. A dimension reading columns from several tables is placed on `source`, the grain the metric view is computed at, and the report counts it.
+- A **Metric** per measure, upstream of the logical datasets its `expr` reads (`COUNT(1)` reads `source`). `MEASURE(name)` references become metric-to-metric `derivedFrom` lineage. The view's `filter` and a measure's `window` are kept as trailing comments on the expression, since neither is part of `expr`.
+
+A join becomes a relationship when its `on` condition compares columns qualified with the two tables' names (for example `source.customer_id = customer.id`) or when it has a `using` list. The join columns are added as fields when no dimension covers them. A join whose condition uses unqualified columns does not say which table each column belongs to, so it is left out of the relationships and reported.
+
+In this mode:
+
+- Previously ingested `Metric View` datasets are removed by stateful ingestion. Edits made to them in DataHub are not moved to the new entities.
+- Usage statistics and profiling are not collected for metric views.
+- Genie agents that use a metric view get lineage to its logical datasets.
+- A metric view whose YAML cannot be read is still emitted as a `Metric View` dataset, and the report says so.
+
 #### Usage statistics
 
 Usage is enabled by default (`include_usage_statistics: true`). Choose how query history is read with `usage_data_source`:

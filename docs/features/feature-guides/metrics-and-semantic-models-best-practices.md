@@ -131,7 +131,7 @@ Ingestion from BI tools will populate these edges automatically as those connect
 
 The order of preference, in descending order:
 
-1. **Native semantic-layer ingestion — the primary path.** Supported today for Snowflake Semantic Views and dbt, with Cube and MicroStrategy in alpha. Databricks metric views, AtScale, and LookML are on the roadmap.
+1. **Native semantic-layer ingestion — the primary path.** Supported today for Snowflake Semantic Views and dbt, with Cube, MicroStrategy and Databricks Unity Catalog metric views in alpha. AtScale and LookML are on the roadmap.
 2. **Python SDK — only when ingestion doesn't yet cover your source.** For in-house semantic layers, custom YAML registries, or sources we don't ingest yet. Treat this as a stopgap that lets you run ahead of native connector coverage, not as the long-term home for your definitions. See the [Python SDK section of the feature guide](./metrics-and-semantic-models.md#from-the-datahub-python-sdk) and the full [SDK tutorial](../../api/tutorials/semantic-models.md) for code.
 3. **DataHub UI edits — only for business metadata.** Owners, descriptions, tags, glossary term links, structured property values, deprecation.
 
