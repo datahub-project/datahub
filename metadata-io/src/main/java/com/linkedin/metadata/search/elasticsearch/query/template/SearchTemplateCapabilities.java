@@ -352,7 +352,8 @@ public final class SearchTemplateCapabilities {
   }
 
   // Every body section is scanned: a citation outside the native query sections never renders,
-  // so it must fail closed rather than serve an empty value.
+  // so it must fail closed rather than serve an empty value. The write check in
+  // SearchTemplatePolicyChecks scans the same sections.
   private static boolean citesEmbeddingPlaceholders(@Nonnull MergedSearchTemplate template) {
     if (citesEmbeddingPlaceholders(template.getQuery())
         || citesEmbeddingPlaceholders(template.getClauses())

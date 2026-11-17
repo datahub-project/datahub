@@ -24,6 +24,7 @@ import com.linkedin.search.template.StructuredPropertyQuery;
 import java.util.Collection;
 import java.util.LinkedHashSet;
 import java.util.Set;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -144,10 +145,18 @@ public final class SearchTemplatePolicyChecks {
     }
   }
 
+  // Scans the same sections as the bind check in SearchTemplateCapabilities, so a template that
+  // bind would reject is rejected when it is written.
   private static boolean citesEmbeddingPlaceholders(@Nonnull SearchTemplateProperties properties) {
-    if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getQuery())
-        || SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getClauses())
-        || SearchTemplateCapabilities.citesEmbeddingPlaceholders(properties.getRescore())) {
+    if (Stream.of(
+            properties.getQuery(),
+            properties.getClauses(),
+            properties.getFunctionScore(),
+            properties.getRescore(),
+            properties.getKnn(),
+            properties.getAggregations(),
+            properties.getSort())
+        .anyMatch(SearchTemplateCapabilities::citesEmbeddingPlaceholders)) {
       return true;
     }
     if (properties.getQueryFragments() != null) {

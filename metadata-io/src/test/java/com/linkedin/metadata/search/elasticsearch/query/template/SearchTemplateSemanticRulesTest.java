@@ -19,6 +19,7 @@ import com.linkedin.search.template.SearchTemplateRetrieval;
 import com.linkedin.search.template.SearchTemplateRoute;
 import com.linkedin.search.template.SearchTemplateRouteMatch;
 import com.linkedin.search.template.SearchTemplateScope;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Consumer;
@@ -199,6 +200,52 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
                     ChangeType.UPSERT,
                     named))
             .isEmpty());
+  }
+
+  @Test
+  public void testPlaceholderInAnySectionFailsAKeywordRerankWrite() {
+    Map<String, Consumer<SearchTemplateProperties>> citations =
+        Map.of(
+            "functionScore",
+            p ->
+                p.setFunctionScore(
+                    "{ \"functions\": [ { \"filter\": { \"exists\": { \"field\":"
+                        + " \"{{embeddingField}}\" } }, \"weight\": 2 } ] }"),
+            "knn",
+            p -> p.setKnn("{ \"field\": \"{{embeddingField}}\", \"k\": 10 }"),
+            "aggregations",
+            p ->
+                p.setAggregations(
+                    "{ \"vectors\": { \"value_count\": { \"field\": \"{{embeddingField}}\" } } }"),
+            "sort",
+            p -> p.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]"));
+    List<String> accepted = new ArrayList<>();
+    citations.forEach(
+        (section, cite) -> {
+          // The same citation on a keyword rung is the native query shape, which still writes.
+          SearchTemplateProperties keyword = body("Native", "{ \"match_all\": {} }", null);
+          keyword.setApiVersion(2);
+          cite.accept(keyword);
+          assertTrue(write(section + "Keyword", keyword).isEmpty(), section);
+
+          SearchTemplateProperties rerank = rung(r -> r.setCombine("keywordRerank"));
+          cite.accept(rerank);
+          if (write(section + "Rerank", rerank).isEmpty()) {
+            accepted.add(section);
+          }
+        });
+    assertEquals(accepted, List.of());
+  }
+
+  private List<?> write(String name, SearchTemplateProperties properties) {
+    return validate(
+        templateValidator(),
+        holeContext(),
+        item(
+            UrnUtils.getUrn("urn:li:searchTemplate:" + name),
+            SYSTEM,
+            ChangeType.UPSERT,
+            properties));
   }
 
   private void assertRouteMatch(SearchTemplateRouteMatch match, boolean valid) {

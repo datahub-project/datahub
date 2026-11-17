@@ -185,8 +185,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     MergedSearchTemplate template = loader.load(opContext, servedUrn);
     // A keywordRerank rung owns the rerank of its window. This release reads that shape and does
     // not execute it, so the rung keeps keyword order and the default hybrid reranker stays off.
+    // That is the expected result for the rung, so it is not counted as a fallback.
     if (SearchTemplateCapabilities.keywordRerank(template)) {
-      SearchTemplateMetrics.fallback(opContext, "keywordRerankNotRun");
       resolved.setTemplateRerank(true);
       resolved.setKnn(false, 1f, 1f, 100);
       return;

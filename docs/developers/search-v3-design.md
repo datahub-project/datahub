@@ -175,7 +175,7 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 
 ### Capabilities
 
-`apiVersion` is the template contract. This release implements 1. Unset inherits the parent version, or resolves to 1 when no ancestor sets it. Any other value is rejected when the template is written and when it is loaded.
+`apiVersion` is the template contract. This release implements 1 and 2. A template that sets a semantic field must resolve to 2. The merged version is the highest in the parent chain, so a child cannot lower it, and it is 1 when no template in the chain sets it. Any other value is rejected when the template is written and when it is loaded.
 
 `capabilities` names the sections this body declares. Unset keeps the parent list. An empty list drops it. A non-empty list replaces it. Declaring a name does not turn a section on. Any other name is rejected when the template is written and when it is loaded.
 
