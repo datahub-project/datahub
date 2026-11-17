@@ -24,7 +24,10 @@ export default {
     ],
     // preview-head.html loads Mulish from ../src/fonts. The dev server serves that path from the
     // project, but a static build doesn't, so copy the fonts to the same path in the output.
-    staticDirs: [{ from: '../src/fonts', to: '/src/fonts' }],
+    // Build only: in dev the static mapping would answer Vite's `/src/fonts/*.ttf?import` module
+    // requests with the raw font, and the preview fails to load.
+    staticDirs: async (dirs, { configType }) =>
+        configType === 'PRODUCTION' ? [...(dirs ?? []), { from: '../src/fonts', to: '/src/fonts' }] : (dirs ?? []),
     typescript: {
         reactDocgen: 'react-docgen-typescript',
     },

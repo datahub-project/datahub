@@ -37,6 +37,7 @@ from datahub.ingestion.source.aws_messaging.clients import (
 )
 from datahub.ingestion.source.aws_messaging.config import SnsSourceConfig
 from datahub.ingestion.source.aws_messaging.constants import (
+    OBSERVED_PRODUCERS_PROPERTY,
     QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     TRUE_STRING,
@@ -166,6 +167,7 @@ class SnsSource(AwsMessagingSourceBase):
             if self.queues_listed and str(topic.arn) not in self.incomplete_topics:
                 self.lineage.complete.add(self.urns.topic_urn(topic.arn))
         self.collect_s3_notifications()
+        self.collect_producers()
         yield from self.service_lineage_workunits()
         yield from self.lineage.workunits()
 
@@ -237,11 +239,14 @@ class SnsSource(AwsMessagingSourceBase):
                 subtype=DatasetSubTypes.TOPIC.value,
                 parent_container=self.region_key(),
                 external_url=topic_console_url(topic),
-                custom_properties=topic_properties(
-                    topic,
-                    self.subscriptions.get(str(topic.arn), [])
-                    if subscriptions_listed
-                    else [],
+                custom_properties=self.dataset_custom_properties(
+                    urn,
+                    topic_properties(
+                        topic,
+                        self.subscriptions.get(str(topic.arn), [])
+                        if subscriptions_listed
+                        else [],
+                    ),
                 ),
                 domain=domain_for(topic.name, self.config.domain),
                 schema=schema,
@@ -280,6 +285,14 @@ class SnsSource(AwsMessagingSourceBase):
             patch.set_external_url(properties.externalUrl)
         for key, value in sorted(properties.customProperties.items()):
             patch.add_custom_property(key, value)
+        if (
+            OBSERVED_PRODUCERS_PROPERTY not in properties.customProperties
+            and self.producers is not None
+            and self.producers.query()
+        ):
+            # A successful query that saw no role senders clears the value, as the
+            # full write on the other path does.
+            patch.remove_custom_property(OBSERVED_PRODUCERS_PROPERTY)
         for mcp in patch.build():
             yield MetadataWorkUnit(id=f"{urn}-datasetProperties-patch", mcp_raw=mcp)
 

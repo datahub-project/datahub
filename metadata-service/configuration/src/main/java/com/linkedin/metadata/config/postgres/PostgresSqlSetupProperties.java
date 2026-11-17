@@ -545,6 +545,7 @@ public class PostgresSqlSetupProperties {
   }
 
   private void validatePgQueueConfig() {
+    PgQueue.normalizeStore(pgQueue.getStore());
     normalizedPgQueueSchema();
     normalizedPgQueueTablePrefix();
     PgQueue.TopicDefaults t = pgQueue.getTopicDefaults();
@@ -688,6 +689,20 @@ public class PostgresSqlSetupProperties {
   @Setter
   public static class PgQueue {
     private boolean enabled;
+    private String store;
+    private String inmemorySpoolFile;
+
+    /** Shared by SqlSetup validation and Spring conditions, before store beans are created. */
+    public static String normalizeStore(@Nullable String store) {
+      if (store == null || store.isBlank() || "postgres".equalsIgnoreCase(store)) {
+        return "postgres";
+      }
+      if ("inmemory".equalsIgnoreCase(store)) {
+        return "inmemory";
+      }
+      throw new IllegalStateException(
+          "postgres.pgQueue.store must be one of [postgres, inmemory] (got: " + store + ").");
+    }
 
     /**
      * PostgreSQL schema for pgQueue SqlSetup objects (tables, functions). Default in {@code

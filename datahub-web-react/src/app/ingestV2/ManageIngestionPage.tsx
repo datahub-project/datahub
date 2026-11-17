@@ -1,4 +1,4 @@
-import { Button, PageTitle, Tabs, Tooltip } from '@components';
+import { Button, PageTitle, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import * as QueryString from 'query-string';
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
@@ -20,6 +20,7 @@ import {
     INGESTION_REFRESH_SOURCES_ID,
 } from '@app/onboarding/config/IngestionOnboardingConfig';
 import { NoPageFound } from '@app/sharedV2/NoPageFound';
+import { Tabs } from '@app/sharedV2/tabs/Tabs';
 import { useUrlQueryParam } from '@app/sharedV2/useUrlQueryParam';
 import { useAppConfig } from '@app/useAppConfig';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';

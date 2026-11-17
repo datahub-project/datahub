@@ -90,6 +90,7 @@ The API credentials must have:
 - **Read access** to all spaces and pages you want to ingest
 - For Cloud: User must be added to spaces or have site-wide read access
 - For Data Center: User must have "View" permissions on spaces
+- To show @mentions as names, the user needs permission to view user profiles ("Browse users and groups" on Cloud, "Can use" with user browsing on Data Center). Without it, mentions are ingested as `@user`.
 
 #### 3. Embedding Provider (Optional)
 

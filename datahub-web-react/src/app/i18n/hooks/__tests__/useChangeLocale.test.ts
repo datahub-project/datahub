@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import i18next from 'i18next';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import { useChangeLocale } from '@app/i18n/hooks/useChangeLocale';
 import { useUpdateUserLocaleSettings } from '@app/i18n/hooks/useUpdateUserLocaleSettings';
 import { useUserLanguage } from '@app/sharedV2/hooks/useUserLanguage';
 import { setDayjsLocale } from '@utils/dayjs';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/analytics', () => ({
     __esModule: true,

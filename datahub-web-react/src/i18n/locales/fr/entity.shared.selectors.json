@@ -10,5 +10,12 @@
     "customOwnershipType": "Type de propriété personnalisé",
     "ingestionSource": "Source d'ingestion",
     "groupBy.displayValue": "Grouper par {{label}}",
-    "groupBy.group": "Grouper"
+    "groupBy.group": "Grouper",
+    "selectItems.addMoreSection": "Ajouter plus",
+    "selectItems.entitiesLabel": "entités",
+    "selectItems.itemsLabel": "éléments",
+    "selectItems.noEntityFound": "Aucun {{entityName}} trouvé",
+    "selectItems.removeAll": "Tout retirer",
+    "selectItems.searchForEntity": "Rechercher {{entityName}}...",
+    "selectItems.selectedSection": "Sélectionnés"
 }

@@ -549,11 +549,11 @@ public interface AspectDao {
       int limit);
 
   /**
-   * Stream aspects for the given entity / aspect name.
+   * Stream the latest version of the given aspect for every entity of the given entity name.
    *
    * @param entityName the entity name (urn-type prefix)
    * @param aspectName the aspect to stream
-   * @return stream of aspects; caller is responsible for closing
+   * @return stream of latest-version aspects; caller is responsible for closing
    */
   @Nonnull
   @OperationContextExempt(

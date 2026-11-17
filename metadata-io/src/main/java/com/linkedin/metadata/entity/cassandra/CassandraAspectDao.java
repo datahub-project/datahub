@@ -777,6 +777,8 @@ public class CassandraAspectDao implements AspectDao, AspectMigrationsDao {
                             "|")))) // this is used for slicing prefixes with alpha characters
             .whereColumn(CassandraAspect.ASPECT_COLUMN)
             .isEqualTo(literal(aspectName))
+            .whereColumn(CassandraAspect.VERSION_COLUMN)
+            .isEqualTo(literal(ASPECT_LATEST_VERSION))
             .allowFiltering() // performance impact, however # of properties expected to be
             // relatively small
             .build();

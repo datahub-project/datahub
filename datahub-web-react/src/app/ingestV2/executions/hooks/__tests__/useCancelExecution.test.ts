@@ -1,8 +1,9 @@
 import { toast } from '@components';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useCancelExecution from '@app/ingestV2/executions/hooks/useCancelExecution';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useCancelIngestionExecutionRequestMutation } from '@graphql/ingestion.generated';
 

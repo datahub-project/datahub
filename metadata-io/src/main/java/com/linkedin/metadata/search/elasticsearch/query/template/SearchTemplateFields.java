@@ -4,6 +4,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.search.template.HighlightFieldOverrides;
 import com.linkedin.search.template.SearchFieldBoost;
@@ -114,6 +115,12 @@ public final class SearchTemplateFields {
   @Nonnull
   public static String keywordPath(@Nonnull String indexedName) {
     return indexedName;
+  }
+
+  /** Case-folded keyword of a name, the same value a whole-name prefix reads. */
+  @Nonnull
+  public static String lowercaseKeywordPath(@Nonnull String indexedName) {
+    return indexedName + "." + V3SearchFields.LOWERCASE;
   }
 
   @Nonnull

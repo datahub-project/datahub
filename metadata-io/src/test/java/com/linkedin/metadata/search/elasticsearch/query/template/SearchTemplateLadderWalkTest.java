@@ -500,6 +500,7 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                       new ArrayList<>(result.getEntities()),
                       List.of(),
                       urn.equals(shard),
+                      null,
                       null);
                 },
                 (first, entities, total) -> {

@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
 
 /**
  * Sections this process can run. Keyword retrieval and engine rescore are supported. A stored
@@ -49,8 +50,53 @@ public final class SearchTemplateCapabilities {
               "rankingSignals",
               "rankingFormula"));
 
-  public static final Set<String> PRESETS = Set.of("none", "usage", "usageAndMatchTier");
-  public static final Set<String> SIZERS = Set.of("fixed", "tokenCurve");
+  /** Stored ranking preset. The wire value is what a template writes. */
+  public enum Preset {
+    NONE("none"),
+    USAGE("usage"),
+    USAGE_AND_MATCH_TIER("usageAndMatchTier");
+
+    private final String wire;
+
+    Preset(String wire) {
+      this.wire = wire;
+    }
+
+    @Nonnull
+    public String wire() {
+      return wire;
+    }
+
+    public boolean is(@Nullable String value) {
+      return wire.equals(value);
+    }
+  }
+
+  /** How a ranking window is chosen. The wire value is what a template writes. */
+  public enum WindowSizer {
+    FIXED("fixed"),
+    TOKEN_CURVE("tokenCurve");
+
+    private final String wire;
+
+    WindowSizer(String wire) {
+      this.wire = wire;
+    }
+
+    @Nonnull
+    public String wire() {
+      return wire;
+    }
+
+    public boolean is(@Nullable String value) {
+      return wire.equals(value);
+    }
+  }
+
+  public static final Set<String> PRESETS =
+      Set.of(Preset.NONE.wire(), Preset.USAGE.wire(), Preset.USAGE_AND_MATCH_TIER.wire());
+  public static final Set<String> SIZERS =
+      Set.of(WindowSizer.FIXED.wire(), WindowSizer.TOKEN_CURVE.wire());
   public static final Set<String> FUSIONS =
       Set.of("interleave", "weightedBlend", "fillFreeSlots", "keywordPreferred");
   public static final Set<String> FACETS = Set.of("firstMember", "patchFromMembers", "candidates");
@@ -123,7 +169,7 @@ public final class SearchTemplateCapabilities {
     com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
     if (!SearchTemplateComponents.empty(component)) {
       registry
-          .require(component.getName(), component.getVersion())
+          .require(component.getName(), component.getVersion(), component.getMode())
           .validate(component.getMode(), SearchTemplateComponents.config(component));
     }
   }
@@ -160,11 +206,11 @@ public final class SearchTemplateCapabilities {
       boolean signals =
           ranking.hasSignals() && ranking.getSignals() != null && !ranking.getSignals().isEmpty();
       String preset = ranking.hasPreset() ? ranking.getPreset() : null;
-      if (!signals && preset != null && !preset.isBlank() && !"none".equals(preset)) {
+      if (!signals && StringUtils.isNotBlank(preset) && !Preset.NONE.is(preset)) {
         return "rankingPreset";
       }
       String sizer = ranking.hasWindowSizer() ? ranking.getWindowSizer() : null;
-      if (!signals && sizer != null && !sizer.isBlank() && !"fixed".equals(sizer)) {
+      if (!signals && StringUtils.isNotBlank(sizer) && !WindowSizer.FIXED.is(sizer)) {
         return "rankingWindow";
       }
     }

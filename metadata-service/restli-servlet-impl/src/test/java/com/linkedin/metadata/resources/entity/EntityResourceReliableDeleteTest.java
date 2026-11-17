@@ -1,27 +1,39 @@
 package com.linkedin.metadata.resources.entity;
 
+import static com.linkedin.metadata.Constants.ASSERTION_ENTITY_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.ASSERTION_RUN_EVENT_ASPECT_NAME;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authorization.AuthUtil;
 import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.plugins.auth.authorization.Authorizer;
+import com.linkedin.assertion.AssertionInfo;
+import com.linkedin.assertion.AssertionType;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.entity.DeleteCeiling;
 import com.linkedin.metadata.entity.DeleteEntityService;
 import com.linkedin.metadata.entity.EntityService;
@@ -39,14 +51,19 @@ import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.parseq.Engine;
 import com.linkedin.parseq.EngineBuilder;
 import com.linkedin.parseq.Task;
+import com.linkedin.restli.common.HttpStatus;
+import com.linkedin.restli.server.RestLiServiceException;
 import com.linkedin.timeseries.DeleteAspectValuesResult;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ScheduledExecutorService;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -59,6 +76,7 @@ import org.testng.annotations.Test;
 public class EntityResourceReliableDeleteTest {
   private static final Urn URN =
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,my_db.my_table,PROD)");
+  private static final Urn ASSERTION_URN = UrnUtils.getUrn("urn:li:assertion:my-assertion");
   private static final DeleteCeiling CEILING = new DeleteCeiling(Map.of("datasetKey", 1L), 1L);
 
   private final OperationContext systemOpContext =
@@ -242,6 +260,97 @@ public class EntityResourceReliableDeleteTest {
     verifyNoInteractions(dispatcher);
     verify(deleteEntityService).deleteReferencesTo(any(), eq(URN), eq(true));
     assertEquals(response.getTotal().intValue(), 3);
+  }
+
+  /**
+   * After its only target was hard deleted, an assertion and its run history can be deleted
+   * without the privilege on that target, whose policy fields can no longer be resolved.
+   */
+  @Test
+  public void assertionDeleteSkipsATargetThatNoLongerExists() throws Exception {
+    use(false, null);
+    useAssertionTargeting(false);
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      await(resource.deleteEntity(ASSERTION_URN.toString(), null, null, null));
+    }
+
+    verify(entityService).deleteUrn(any(OperationContext.class), eq(ASSERTION_URN));
+    verify(timeseriesAspectService)
+        .deleteAspectValues(
+            any(), eq(ASSERTION_ENTITY_NAME), eq(ASSERTION_RUN_EVENT_ASPECT_NAME), any());
+  }
+
+  /** A live target without the privilege refuses the delete before anything is deleted. */
+  @Test
+  public void assertionDeleteWithoutPrivilegeOnLiveTargetDeletesNothing() {
+    use(false, null);
+    useAssertionTargeting(true);
+
+    try (MockedStatic<AuthUtil> authUtil =
+        Mockito.mockStatic(AuthUtil.class, CALLS_REAL_METHODS)) {
+      authUtil.when(AuthUtil::isRestApiAuthorizationEnabled).thenReturn(true);
+      final Throwable thrown =
+          expectThrows(
+              Throwable.class,
+              () -> await(resource.deleteEntity(ASSERTION_URN.toString(), null, null, null)));
+      Throwable cause = thrown;
+      while (cause != null && !(cause instanceof RestLiServiceException)) {
+        cause = cause.getCause();
+      }
+      assertNotNull(cause);
+      assertEquals(((RestLiServiceException) cause).getStatus(), HttpStatus.S_403_FORBIDDEN);
+    }
+
+    verify(entityService, never()).deleteUrn(any(OperationContext.class), any(Urn.class));
+    verify(timeseriesAspectService, never()).deleteAspectValues(any(), any(), any(), any());
+  }
+
+  /**
+   * An assertion on {@link #URN}, with the dataset existing or not, and an actor denied Edit
+   * Assertions and Edit Entity on that dataset but allowed everything else.
+   */
+  private void useAssertionTargeting(final boolean datasetExists) {
+    final AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(systemOpContext.getEntityRegistry());
+    when(aspectRetriever.getLatestAspectObjects(
+            any(), eq(Set.of(ASSERTION_URN)), eq(Set.of(ASSERTION_INFO_ASPECT_NAME))))
+        .thenReturn(
+            Map.of(
+                ASSERTION_URN,
+                Map.of(
+                    ASSERTION_INFO_ASPECT_NAME,
+                    new Aspect(
+                        new AssertionInfo()
+                            .setType(AssertionType.DATASET)
+                            .setEntityUrn(URN)
+                            .data()))));
+    when(aspectRetriever.entityExists(any(), eq(Set.of(URN))))
+        .thenReturn(Map.of(URN, datasetExists));
+    resource.setSystemOperationContext(
+        TestOperationContexts.systemContextNoSearchAuthorization(aspectRetriever));
+
+    final Set<String> deniedOnDataset =
+        Set.of(
+            PoliciesConfig.EDIT_ENTITY_PRIVILEGE.getType(),
+            PoliciesConfig.EDIT_ENTITY_ASSERTIONS_PRIVILEGE.getType());
+    final Authorizer authorizer = mock(Authorizer.class);
+    when(authorizer.authorize(any(AuthorizationRequest.class)))
+        .thenAnswer(
+            invocation -> {
+              final AuthorizationRequest request = invocation.getArgument(0);
+              final boolean denied =
+                  deniedOnDataset.contains(request.getPrivilege())
+                      && request.getResourceSpec().isPresent()
+                      && URN.toString().equals(request.getResourceSpec().get().getEntity());
+              return new AuthorizationResult(
+                  request,
+                  denied ? AuthorizationResult.Type.DENY : AuthorizationResult.Type.ALLOW,
+                  "");
+            });
+    resource.setAuthorizer(authorizer);
   }
 
   private void use(final boolean reliableHardDelete, final HardDeleteDispatcher hardDispatcher) {

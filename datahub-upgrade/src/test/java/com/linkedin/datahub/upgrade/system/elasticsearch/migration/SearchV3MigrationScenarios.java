@@ -873,7 +873,7 @@ abstract class SearchV3MigrationScenarios {
         harness.opContext,
         harness.entityService,
         List.of(harness.searchService),
-        Set.of(),
+        Set::of,
         deployVersion,
         harness.buildIndicesConfig,
         loader,
@@ -901,7 +901,7 @@ abstract class SearchV3MigrationScenarios {
         harness.entityService,
         harness.aspectDao,
         List.of(harness.searchService),
-        Set.of(),
+        Set::of,
         deployVersion,
         harness.buildIndicesConfig,
         harness.updateIndicesService);

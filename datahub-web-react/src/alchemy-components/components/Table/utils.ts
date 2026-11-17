@@ -1,23 +1,11 @@
-import { Column, SortingState } from '@components/components/Table/types';
+import { Column, SortingState, TableRowGroup, TableSortState } from '@components/components/Table/types';
 
-export const handleActiveSort = (
-    key: string,
-    sortColumn: string | null,
-    setSortColumn: React.Dispatch<React.SetStateAction<string | null>>,
-    setSortOrder: React.Dispatch<React.SetStateAction<SortingState>>,
-) => {
-    if (sortColumn === key) {
-        // Toggle sort order
-        setSortOrder((prevOrder) => {
-            if (prevOrder === SortingState.ASCENDING) return SortingState.DESCENDING;
-            if (prevOrder === SortingState.DESCENDING) return SortingState.ORIGINAL;
-            return SortingState.ASCENDING;
-        });
-    } else {
-        // Set new column and default sort order
-        setSortColumn(key);
-        setSortOrder(SortingState.ASCENDING);
-    }
+/** Header click cycles a column through ascending, descending and back to the original order. */
+export const getNextSortState = (key: string, { sortColumn, sortOrder }: TableSortState): TableSortState => {
+    if (sortColumn !== key) return { sortColumn: key, sortOrder: SortingState.ASCENDING };
+    if (sortOrder === SortingState.ASCENDING) return { sortColumn: key, sortOrder: SortingState.DESCENDING };
+    if (sortOrder === SortingState.DESCENDING) return { sortColumn: key, sortOrder: SortingState.ORIGINAL };
+    return { sortColumn: key, sortOrder: SortingState.ASCENDING };
 };
 
 export const getSortedData = <T>(
@@ -71,4 +59,27 @@ export const getRowKey = <T>(record: T, index: number, rowKey?: string | ((recor
     if (typeof rowKey === 'function') return rowKey(record);
     if (typeof rowKey === 'string') return record[rowKey];
     return index.toString();
+};
+
+/**
+ * Splits rows into groups, keeping the incoming (already sorted) row order inside each group.
+ * Without a comparator, groups follow the order in which their first row appears.
+ */
+export const getGroupedRows = <T>(
+    rows: T[],
+    getGroupKey: (record: T) => string,
+    groupOrder?: (a: TableRowGroup<T>, b: TableRowGroup<T>) => number,
+): TableRowGroup<T>[] => {
+    const groupsByKey = new Map<string, TableRowGroup<T>>();
+    rows.forEach((row) => {
+        const key = getGroupKey(row);
+        const group = groupsByKey.get(key);
+        if (group) {
+            group.rows.push(row);
+        } else {
+            groupsByKey.set(key, { key, rows: [row] });
+        }
+    });
+    const groups = Array.from(groupsByKey.values());
+    return groupOrder ? groups.sort(groupOrder) : groups;
 };

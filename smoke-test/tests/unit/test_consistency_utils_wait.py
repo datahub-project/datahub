@@ -94,3 +94,52 @@ def test_auth_retry_window_resets_after_success(lag_env, monkeypatch):
     with pytest.raises(RuntimeError, match="VIEW_SYSTEM_STATUS"):
         wait_for_writes_to_sync(legacy_wait=True, max_timeout_in_sec=30)
     assert lag_env.t >= 5
+
+
+def _lag_envelope(partitions):
+    return {"consumerGroups": {"group": {"topic": {"partitions": partitions}}}}
+
+
+def test_offset_wait_skips_polling_when_consumers_have_caught_up(monkeypatch):
+    from utilities import consistency_utils
+
+    fetches: list[str] = []
+
+    def fetch(gms_url, endpoint):
+        fetches.append(endpoint)
+        return _lag_envelope({"0": {"offset": 7, "lag": 0}})
+
+    sleeps: list[float] = []
+    monkeypatch.setattr(consistency_utils, "_fetch_detailed_lag_envelope", fetch)
+    monkeypatch.setattr(consistency_utils, "_get_gms_url", lambda: "http://gms")
+    monkeypatch.setattr(consistency_utils.time, "sleep", sleeps.append)
+
+    assert consistency_utils.wait_for_offsets_to_be_consumed(["mcp", "mcl"])
+
+    # One checkpoint fetch per consumer and nothing to poll afterwards.
+    assert len(fetches) == 2
+    assert sleeps == []
+
+
+def test_offset_wait_polls_until_the_checkpoint_is_passed(monkeypatch):
+    from utilities import consistency_utils
+
+    responses = iter(
+        [
+            _lag_envelope({"0": {"offset": 5, "lag": 2}}),  # checkpoint: 7
+            _lag_envelope({"0": {"offset": 6, "lag": 1}}),
+            _lag_envelope({"0": {"offset": 7, "lag": 0}}),
+        ]
+    )
+    sleeps: list[float] = []
+    monkeypatch.setattr(
+        consistency_utils,
+        "_fetch_detailed_lag_envelope",
+        lambda gms_url, endpoint: next(responses),
+    )
+    monkeypatch.setattr(consistency_utils, "_get_gms_url", lambda: "http://gms")
+    monkeypatch.setattr(consistency_utils.time, "sleep", sleeps.append)
+
+    assert consistency_utils.wait_for_offsets_to_be_consumed(["mcl"])
+
+    assert len(sleeps) == 1

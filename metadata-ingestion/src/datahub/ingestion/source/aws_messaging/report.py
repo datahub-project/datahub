@@ -28,6 +28,8 @@ class AwsMessagingReportBase(StaleEntityRemovalSourceReport):
     lambda_functions_emitted: int = 0
     eventbridge_rules_emitted: int = 0
     eventbridge_pipes_emitted: int = 0
+    producer_lambda_edges: int = 0
+    producer_roles_recorded: int = 0
     column_lineage_edges_removed: int = 0
     # Reason -> count for edges that got table-level lineage only.
     column_lineage_skipped: Dict[str, int] = field(

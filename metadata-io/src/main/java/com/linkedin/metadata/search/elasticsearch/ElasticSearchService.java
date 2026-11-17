@@ -21,6 +21,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.*;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
@@ -48,6 +49,7 @@ import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.client.indices.GetMappingsRequest;
 import org.opensearch.cluster.metadata.MappingMetadata;
+import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 @RequiredArgsConstructor
@@ -385,6 +387,25 @@ public class ElasticSearchService implements EntitySearchService, ElasticSearchI
         write.docId(),
         write.kind());
     esWriteDAO.writeV3SearchDocument(opContext, write);
+  }
+
+  public Optional<Map<String, Object>> getV3DocumentSourceBySearchGroup(
+      @Nonnull OperationContext opContext,
+      @Nonnull final String searchGroup,
+      @Nonnull final String docId)
+      throws IOException {
+    return esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, searchGroup, docId);
+  }
+
+  @Nonnull
+  public ESWriteDAO.DeleteByQueryResult deleteV3Tombstones(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    log.info("Removing V3 tombstones from index '{}'", indexName);
+    return esWriteDAO.deleteByQuerySync(
+        opContext,
+        indexName,
+        QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
+        null);
   }
 
   /**

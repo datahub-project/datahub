@@ -168,7 +168,7 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             mock(UpdateIndicesService.class));
@@ -247,6 +247,7 @@ public class IncrementalReindexFlowTest {
               } else {
                 when(mockAspect.getUrn()).thenReturn("urn:li:chart:ch1");
               }
+              when(mockAspect.getAspect()).thenReturn("testAspect");
               when(mockAspect.getMetadata()).thenReturn("{}");
               PartitionedStream<EbeanAspectV2> mockStream = mock(PartitionedStream.class);
               when(mockStream.partition(anyInt())).thenReturn(Stream.of(Stream.of(mockAspect)));
@@ -261,7 +262,7 @@ public class IncrementalReindexFlowTest {
             entityService,
             aspectDao,
             List.of(),
-            Set.of(),
+            Set::of,
             UPGRADE_VERSION,
             new BuildIndicesConfiguration(),
             mock(UpdateIndicesService.class));

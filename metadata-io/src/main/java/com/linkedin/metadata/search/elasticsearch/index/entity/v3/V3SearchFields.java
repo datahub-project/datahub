@@ -1264,7 +1264,11 @@ public final class V3SearchFields {
   }
 
   private static boolean declaresText(@Nonnull final Collection<SearchableFieldSpec> fieldSpecs) {
-    return labelSubfields(fieldSpecs).contains(TEXT);
+    return labelSubfields(fieldSpecs).contains(TEXT)
+        || fieldSpecs.stream()
+            .map(SearchableFieldSpec::getSearchableAnnotation)
+            .map(SearchableAnnotation::resolvedForV3)
+            .anyMatch(annotation -> annotation.getFieldType() == FieldType.RICH_TEXT);
   }
 
   private static boolean declaresText(@Nonnull final SearchableFieldSpec fieldSpec) {

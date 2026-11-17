@@ -154,11 +154,8 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
         },
     ];
 
-    const finalSidebarTabs = useFinalSidebarTabs(
-        sidebarTabs,
-        sidebarSections,
-        isCompact ? TabContextType.SEARCH_SIDEBAR : TabContextType.PROFILE_SIDEBAR,
-    );
+    const sidebarContextType = isCompact ? TabContextType.SEARCH_SIDEBAR : TabContextType.PROFILE_SIDEBAR;
+    const finalSidebarTabs = useFinalSidebarTabs(sidebarTabs, sidebarSections, sidebarContextType);
 
     if (!document) {
         return null;
@@ -185,7 +182,13 @@ export const DocumentNativeProfile: React.FC<Props> = ({ urn, document, loading 
                     lineage: undefined,
                 }}
             >
-                <EntityProfileSidebar tabs={finalSidebarTabs} type="card" focused width={hostSidebarWidth} />
+                <EntityProfileSidebar
+                    tabs={finalSidebarTabs}
+                    type="card"
+                    focused
+                    contextType={sidebarContextType}
+                    width={hostSidebarWidth}
+                />
             </EntityContext.Provider>
         );
     }

@@ -109,6 +109,9 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
   /**
    * Determines the write status of a trace by comparing consumer offset with message offset.
    *
+   * <p>The committed offset is the next record the group will read, so an offset equal to the
+   * message is still unprocessed.
+   *
    * @return PENDING if the message exists but hasn't been consumed yet, UNKNOWN if no consumer
    *     offset exists, ERROR in other cases
    */
@@ -487,7 +490,7 @@ public abstract class KafkaTraceReader<T extends RecordTemplate> {
                     Pair<ConsumerRecord<String, GenericRecord>, SystemMetadata> message =
                         messages.get(aspectName);
                     if (message != null
-                        && offsetMetadata.get().offset() < message.getFirst().offset()) {
+                        && offsetMetadata.get().offset() <= message.getFirst().offset()) {
                       return TraceStorageStatus.ok(
                           TraceWriteStatus.PENDING, "Consumer has not processed offset.");
                     }

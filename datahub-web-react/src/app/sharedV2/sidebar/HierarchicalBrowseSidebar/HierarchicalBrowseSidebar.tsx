@@ -103,6 +103,10 @@ type Props = {
      * Prefer omitting this so drag-resize + persistence stay enabled.
      */
     width?: number;
+    /** Starting width before the user drags (internal width only); defaults to viewport × 0.2. */
+    defaultWidth?: number;
+    /** localStorage key for the dragged width (internal width only); defaults to the shared key. */
+    widthStorageKey?: string;
     /** Fired when the user resizes (and on mount with the resolved width). */
     onWidthChange?: (width: number) => void;
     className?: string;
@@ -138,11 +142,16 @@ export default function HierarchicalBrowseSidebar({
     expandTooltip,
     collapseTooltip,
     width: widthOverride,
+    defaultWidth,
+    widthStorageKey,
     onWidthChange,
     className,
 }: Props) {
     const isShowNavBarRedesign = useShowNavBarRedesign();
-    const { width: resizableWidth, setWidth } = useHierarchicalBrowseSidebarWidth();
+    const { width: resizableWidth, setWidth } = useHierarchicalBrowseSidebarWidth({
+        defaultWidth,
+        storageKey: widthStorageKey,
+    });
     const width = widthOverride ?? resizableWidth;
     const canResize = widthOverride == null;
 

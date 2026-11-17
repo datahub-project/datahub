@@ -24,6 +24,15 @@ EVENTBRIDGE_RULE_JOB_ID = "route"
 EVENTBRIDGE_PIPE_JOB_ID = "pipe"
 
 
+GOVCLOUD_REGION_PREFIX = "us-gov-"
+
+
+class AwsPartition(StrEnum):
+    AWS = "aws"
+    CHINA = "aws-cn"
+    GOVCLOUD = "aws-us-gov"
+
+
 class AwsService(StrEnum):
     SQS = "sqs"
     SNS = "sns"
@@ -33,6 +42,7 @@ class AwsService(StrEnum):
     EVENTS = "events"
     PIPES = "pipes"
     S3 = "s3"
+    CLOUDTRAIL = "cloudtrail"
 
 
 QUEUE_URL_PATTERN = re.compile(r"/(?P<account>\d{12})/(?P<name>[^/?#]+)/?$")
@@ -119,9 +129,43 @@ S3_SOURCE_COMPRESSIONS = frozenset({"gz", "bz2", "gzip", "zip"})
 # Bucket-wide notifications on a big data lake would otherwise link thousands.
 MAX_S3_DATASETS_PER_NOTIFICATION = 100
 
+OBSERVED_PRODUCERS_PROPERTY = "observed_producers"
+
+# CloudTrail Lake column aliases used in the producer query.
+PRODUCER_COLUMN = "producer"
+RESOURCE_COLUMN = "resource"
+
+ASSUMED_ROLE_PATTERN = re.compile(
+    r"^arn:aws[a-z-]*:sts::(?P<account>\d{12}):assumed-role/(?P<role>[^/]+)/(?P<session>.+)$"
+)
+
+
+class QueryStatus(StrEnum):
+    QUEUED = "QUEUED"
+    RUNNING = "RUNNING"
+    FINISHED = "FINISHED"
+
+
+QUERY_POLL_SECONDS = 2
+
+# SQS queue URL hosts: `sqs.<region>.amazonaws.com[.cn]`, the legacy
+# `<region>.queue.amazonaws.com`, and `queue.amazonaws.com` for us-east-1.
+QUEUE_URL_HOST_PATTERN = re.compile(
+    r"^(?:sqs\.(?P<region>[a-z0-9-]+)|(?P<legacy_region>[a-z0-9-]+)\.queue|(?P<global>queue))"
+    r"\.amazonaws\.com(?P<china>\.cn)?$"
+)
+LEGACY_GLOBAL_QUEUE_REGION = "us-east-1"
+
 BUCKET_REGION_PARAMETER = "BucketRegion"
 # botocore 1.35.42 added ListBuckets' bucket-region filter (pagination came in 1.34.162).
 MIN_BOTOCORE_FOR_BUCKET_REGION = "1.35.42"
+
+# Values interpolated into the CloudTrail Lake SQL are checked against these
+# first, so nothing from the recipe can change the query's shape.
+AWS_REGION_PATTERN = re.compile(r"^[a-z]+(?:-[a-z]+)+-\d+\Z")
+EVENT_DATA_STORE_PATTERN = re.compile(
+    r"^(?:arn:aws[a-z-]*:cloudtrail:[a-z0-9-]+:\d{12}:eventdatastore/)?[A-Za-z0-9-]{1,128}\Z"
+)
 
 ACCESS_DENIED_CODES = frozenset({"AccessDenied", "AccessDeniedException"})
 

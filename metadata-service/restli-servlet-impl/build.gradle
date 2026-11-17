@@ -5,25 +5,7 @@ plugins {
 
 apply from: '../../gradle/coverage/java-coverage.gradle'
 
-sourceSets {
-  integTest {
-    compileClasspath += sourceSets.main.output
-    runtimeClasspath += sourceSets.main.output
-  }
-}
-
-idea {
-  module {
-    testSources.from(file('src/integTest/java'))
-    scopes.TEST.plus += [ configurations.integTestCompileOnly ]
-  }
-}
-
-
 configurations {
-  integTestImplementation.extendsFrom implementation
-  integTestRuntimeOnly.extendsFrom runtimeOnly
-  integTestCompileOnly.extendsFrom compileOnly
   modelValidation
 }
 
@@ -63,25 +45,9 @@ dependencies {
   testImplementation externalDependency.mockito
   testImplementation externalDependency.testng
 
-  integTestImplementation externalDependency.junitJupiterApi
-  integTestRuntimeOnly externalDependency.junitJupiterEngine
-
-  integTestCompileOnly externalDependency.junitJupiterApi
-  integTestCompileOnly externalDependency.junitJupiterParams
-
   modelValidation project(path: ':metadata-models-validator')
   dataModel project(path: ':metadata-models', configuration: 'dataTemplate')
   dataModel project(path: ':li-utils', configuration: 'dataTemplate')
-}
-
-task integrationTest(type: Test) {
-  description = 'Runs integration tests.'
-  group = 'verification'
-  useJUnitPlatform()
-
-  testClassesDirs = sourceSets.integTest.output.classesDirs
-  classpath = sourceSets.integTest.runtimeClasspath
-  shouldRunAfter test
 }
 
 task validateModels(type: JavaExec) {
@@ -95,8 +61,6 @@ task validateModels(type: JavaExec) {
 }
 
 compileJava.dependsOn validateModels
-check.dependsOn integrationTest
-integrationTest.enabled = false
 
 // Generate IDLs
 pegasus.main.idlOptions.addIdlItem([

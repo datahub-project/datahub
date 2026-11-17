@@ -13,7 +13,7 @@ Use the **Important Capabilities** table above as the source of truth for suppor
 
 :::warning Considerations
 
-For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings.
+For connectors not listed in the supported connector table above, use the `generic_connectors` configuration to provide explicit lineage mappings. A `generic_connectors` entry also overrides the built-in handling of a supported source or sink connector with the same name.
 Some advanced connector-specific features may not be fully supported
 :::
 
@@ -187,6 +187,8 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Cloud PostgreSQL CDC**<br/>`PostgresCdcSource`                                 | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Cloud PostgreSQL CDC V2**<br/>`PostgresCdcSourceV2`                            | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Cloud MySQL Source**<br/>`MySqlSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
+| **Cloud PostgreSQL Source**<br/>`PostgresSource`                                 | ❌ Not supported    | ✅ Partial              | Config-based                | Table → Topic mapping          |
+| **S3 Source**<br/>`io.confluent.connect.s3.source.S3SourceConnector`, `S3Source` | ✅ Partial          | ✅ Partial              | Runtime API / Config-based  | S3 folder → Topic mapping      |
 | **Cloud MySQL CDC**<br/>`MySqlCdcSource`                                         | ✅ Full             | ✅ Full                 | Runtime API / Config-based  | Table → Topic mapping          |
 | **Debezium MySQL**<br/>`io.debezium.connector.mysql.MySqlConnector`              | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
 | **Debezium PostgreSQL**<br/>`io.debezium.connector.postgresql.PostgresConnector` | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Database → Topic CDC mapping   |
@@ -197,6 +199,36 @@ transforms.RegexRouter.replacement: "events.$1"
 | **Debezium Vitess**<br/>`io.debezium.connector.vitess.VitessConnector`           | ✅ Full             | ✅ Partial              | Runtime API / Config-based  | Table → Topic CDC mapping      |
 | **MongoDB Source**<br/>`com.mongodb.kafka.connect.MongoSourceConnector`          | ✅ Full             | 🔧 Config Required      | Runtime API / Manual config | Collection → Topic mapping     |
 | **Generic Connectors**                                                           | 🔧 Config Required  | 🔧 Config Required      | User-defined mapping        | Custom lineage mapping         |
+
+**Cloud PostgreSQL Source** (`PostgresSource`): topics are `<topic.prefix><table>`, then any
+`RegexRouter` / `TopicRegexRouter` transform. Each `table.include.list` entry must be a literal
+`schema.table` (for example `public.orders`) to get lineage. Tables matched by `table.exclude.list`
+are left out, as the connector does. Its entries are Java regular expressions that must match the
+whole `schema.table` name: `orders` does not exclude `public.orders`, but `.*\.orders` does.
+Lineage is skipped, with a warning, for:
+
+- regular-expression entries;
+- entries without a schema;
+- tables with the same name in two schemas, which write the same topic;
+- connectors that use a custom `query`;
+- connectors with topic-routing transforms that cannot be predicted, such as Debezium's
+  `EventRouter`;
+- connectors whose `table.exclude.list` cannot be evaluated (a pattern Java cannot compile,
+  or no Java runtime), since excluded tables cannot be told apart.
+
+**S3 Source**: lineage needs the S3 folder behind each topic.
+
+- `RESTORE_BACKUP` mode (the self-hosted default) reads back what the S3 sink wrote, so each
+  topic the connector reports maps to `<bucket>/<topics.dir>/<topic>`.
+- `GENERIC` mode, and the managed `S3Source`, route objects whose full key matches a
+  `topic.regex.list` regex. Only a regex pinned to a folder, such as `orders:raw/orders/.*`,
+  gives an edge (`<bucket>/raw/orders` to `orders`). Patterns such as `.*\.json` can match
+  objects anywhere in the bucket, so they are skipped with a warning.
+- With a topic-routing transform (`RegexRouter`, `TopicRegexRouter`, `EventRouter`) the topic
+  is renamed after the connector produces it, so no lineage is emitted in either mode.
+
+For both connectors, only connector properties known not to hold credentials are shown on the
+DataHub pipeline.
 
 #### Supported Sink Connectors
 

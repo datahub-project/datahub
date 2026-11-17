@@ -91,7 +91,7 @@ class PageFilterConfig(ConfigModel):
 
 
 class ConfluenceSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     """Configuration for Confluence source connector."""
 
@@ -159,13 +159,16 @@ class ConfluenceSourceConfig(
 
     max_spaces: int = Field(
         default=100,
-        description="Maximum number of spaces to ingest when auto-discovering (applies when urls is not set).",
+        description="Maximum number of spaces to ingest when auto-discovering (applies when urls is not set). "
+        "If a site has more spaces, the run reports a failure and skips stale removal, so pages in the "
+        "spaces left out are not soft-deleted.",
     )
 
     # Page configuration
     max_pages_per_space: int = Field(
         default=1000,
-        description="Maximum number of pages to ingest per space.",
+        description="Maximum number of pages to ingest per space. If a space has more pages, the run "
+        "reports a failure and skips stale removal, so the pages left out are not soft-deleted.",
     )
     recursive: bool = Field(
         default=True,
