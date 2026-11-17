@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.policycache;
 
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
@@ -9,11 +10,18 @@ import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 
 import com.datahub.authorization.DataHubAuthorizer;
+import com.datahub.authorization.PolicyChangeMap;
+import com.hazelcast.core.HazelcastInstance;
+import com.hazelcast.map.IMap;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.PolicyChangeObserver;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.wiring.WiringCoverage;
+import java.util.Set;
+import java.util.concurrent.CompletableFuture;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
 import org.testng.annotations.Test;
@@ -93,6 +101,26 @@ public class PolicyChangeObserverFactoryTest {
                 false));
 
     verify(authorizer, never()).setPolicyWritesObserved(true);
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testBroadcastSignalsThroughTheHazelcastMap() {
+    DataHubAuthorizer authorizer = authorizer(true);
+    EntityServiceImpl service = mock(EntityServiceImpl.class);
+    HazelcastInstance hazelcast = mock(HazelcastInstance.class);
+    IMap<Object, Object> changes = mock(IMap.class);
+    when(hazelcast.getMap(PolicyChangeMap.NAME)).thenReturn(changes);
+    when(changes.setAsync(any(), any())).thenReturn(CompletableFuture.completedFuture(null));
+    Urn policy = UrnUtils.getUrn("urn:li:dataHubPolicy:signalled");
+
+    PolicyChangeObserver observer =
+        new PolicyChangeObserverFactory()
+            .policyChangeObserver(
+                provider(authorizer), provider(service), provider(hazelcast), 5000L, true);
+    observer.onPolicyChange(Set.of(policy), false);
+
+    verify(changes).setAsync(eq(policy.toString()), any());
   }
 
   @Test

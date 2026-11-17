@@ -17,6 +17,8 @@ import com.linkedin.gms.factory.common.HazelcastSerializationFilter;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.testng.annotations.AfterClass;
 import org.testng.annotations.AfterMethod;
 import org.testng.annotations.BeforeClass;
@@ -61,13 +63,20 @@ public class PolicyChangeReceiverClusterTest {
   @Test
   public void testChangeOnOneMemberIsReadOnTheOther() {
     receiver2.start();
-    Urn policy = UrnUtils.getUrn("urn:li:dataHubPolicy:changed-on-member-1");
+    // Many keys, so their partitions are owned by both members: a listener that only saw keys owned
+    // by its own member would miss some of them.
+    Set<Urn> policies =
+        IntStream.range(0, 50)
+            .mapToObj(i -> UrnUtils.getUrn("urn:li:dataHubPolicy:changed-on-member-1-" + i))
+            .collect(Collectors.toSet());
 
     new ClusterPolicyChangeObserver(
             mock(DataHubAuthorizer.class), PolicyChangeMap.get(member1), null)
-        .onPolicyChange(Set.of(policy), true);
+        .onPolicyChange(policies, true);
 
-    verify(authorizer2, timeout(WAIT_MILLIS)).requestUpdate(containing(policy));
+    for (Urn policy : policies) {
+      verify(authorizer2, timeout(WAIT_MILLIS)).requestUpdate(containing(policy));
+    }
   }
 
   @Test
