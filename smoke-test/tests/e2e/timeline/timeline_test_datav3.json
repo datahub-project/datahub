@@ -1,131 +1,150 @@
 [
-  {
-    "auditHeader": null,
-    "proposedSnapshot": {
-      "com.linkedin.pegasus2avro.metadata.snapshot.DatasetSnapshot": {
-        "urn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
-        "aspects": [
-          {
-            "com.linkedin.pegasus2avro.dataset.DatasetProperties": {
-              "description": "A description 2",
-              "uri": null,
-              "tags": [],
-              "customProperties": {
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+        "json": {
+            "customProperties": {
                 "prop1": "fakeprop",
                 "prop2": "yoshi"
-              }
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.GlobalTags": {
-              "tags": [{ "tag": "urn:li:tag:Legacy" }, { "tag": "urn:li:tag:NeedsDocumentation"}]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.Ownership": {
-              "owners": [
+            },
+            "description": "A description 2",
+            "tags": []
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "globalTags",
+    "aspect": {
+        "json": {
+            "tags": [
                 {
-                  "owner": "urn:li:corpuser:jdoe",
-                  "type": "DATAOWNER",
-                  "source": null
+                    "tag": "urn:li:tag:Legacy"
                 },
                 {
-                  "owner": "urn:li:corpuser:datahub",
-                  "type": "DATAOWNER",
-                  "source": null
+                    "tag": "urn:li:tag:NeedsDocumentation"
                 }
-              ],
-              "lastModified": {
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:jdoe",
+                    "type": "DATAOWNER"
+                },
+                {
+                    "owner": "urn:li:corpuser:datahub",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
                 "time": 1581407189001,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              }
+                "actor": "urn:li:corpuser:jdoe"
             }
-          },
-          {
-            "com.linkedin.pegasus2avro.common.InstitutionalMemory": {
-              "elements": [
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "institutionalMemory",
+    "aspect": {
+        "json": {
+            "elements": [
                 {
-                  "url": "https://www.google.com",
-                  "description": "Google",
-                  "createStamp": {
-                    "time": 1581407189000,
-                    "actor": "urn:li:corpuser:jdoe",
-                    "impersonator": null
-                  }
-                }
-              ]
-            }
-          },
-          {
-            "com.linkedin.pegasus2avro.schema.SchemaMetadata": {
-              "schemaName": "SampleKafkaSchema",
-              "platform": "urn:li:dataPlatform:kafka",
-              "version": 0,
-              "created": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "lastModified": {
-                "time": 1581407189000,
-                "actor": "urn:li:corpuser:jdoe",
-                "impersonator": null
-              },
-              "deleted": null,
-              "dataset": null,
-              "cluster": null,
-              "hash": "",
-              "platformSchema": {
-                "com.linkedin.pegasus2avro.schema.KafkaSchema": {
-                  "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
-                }
-              },
-              "fields": [
-                {
-                  "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Foo field description"
-                  },
-                  "type": {
-                    "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
+                    "url": "https://www.google.com",
+                    "description": "Google",
+                    "createStamp": {
+                        "time": 1581407189000,
+                        "actor": "urn:li:corpuser:jdoe"
                     }
-                  },
-                  "nativeDataType": "varchar(100)",
-                  "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
-                  },
-                  "recursive": false
+                }
+            ]
+        }
+    }
+},
+{
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:kafka,test-timeline-sample-kafka,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+        "json": {
+            "schemaName": "SampleKafkaSchema",
+            "platform": "urn:li:dataPlatform:kafka",
+            "version": 0,
+            "created": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+            },
+            "lastModified": {
+                "time": 1581407189000,
+                "actor": "urn:li:corpuser:jdoe"
+            },
+            "hash": "",
+            "platformSchema": {
+                "com.linkedin.schema.KafkaSchema": {
+                    "documentSchema": "{\"type\":\"record\",\"name\":\"SampleKafkaSchema\",\"namespace\":\"com.linkedin.dataset\",\"doc\":\"Sample Kafka dataset\",\"fields\":[{\"name\":\"field_foo\",\"type\":[\"string\"]},{\"name\":\"field_bar\",\"type\":[\"boolean\"]}]}"
+                }
+            },
+            "fields": [
+                {
+                    "fieldPath": "[version=2.0].[type=boolean].field_foo_2",
+                    "nullable": false,
+                    "description": "Foo field description",
+                    "type": {
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:NeedsDocumentation"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
                 },
                 {
-                  "fieldPath": "[version=2.0].[type=boolean].field_foo_3",
-                  "jsonPath": null,
-                  "nullable": false,
-                  "description": {
-                    "string": "Foo field description"
-                  },
-                  "type": {
+                    "fieldPath": "[version=2.0].[type=boolean].field_foo_3",
+                    "nullable": false,
+                    "description": "Foo field description",
                     "type": {
-                      "com.linkedin.pegasus2avro.schema.BooleanType": {}
-                    }
-                  },
-                  "nativeDataType": "varchar(100)",
-                  "globalTags": {
-                    "tags": [{ "tag": "urn:li:tag:NeedsDocumentation" }]
-                  },
-                  "recursive": false
+                        "type": {
+                            "com.linkedin.schema.BooleanType": {}
+                        }
+                    },
+                    "nativeDataType": "varchar(100)",
+                    "recursive": false,
+                    "globalTags": {
+                        "tags": [
+                            {
+                                "tag": "urn:li:tag:NeedsDocumentation"
+                            }
+                        ]
+                    },
+                    "isPartOfKey": false
                 }
-              ],
-              "primaryKeys": null,
-              "foreignKeysSpecs": null
-            }
-          }
-        ]
-      }
-    },
-    "proposedDelta": null
-  }
+            ]
+        }
+    }
+}
 ]

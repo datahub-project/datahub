@@ -859,7 +859,7 @@ class DataHubRestEmitter(Closeable, Emitter):
         self._emit_mce(mce, self._default_emit_mode)
 
     def _emit_mce(self, mce: MetadataChangeEvent, emit_mode: EmitMode) -> None:
-        """Not atomic: if emitting aspect k raises, the aspects before it were already sent and the rest are not."""
+        """Sends the MCE's aspects in one batch so GMS stamps them as one change; oversized MCEs are split across requests."""
         # Deferred to break the cycle mcp_builder -> ingestion.api.common -> graph.client -> rest_emitter.
         from datahub.emitter.mcp_builder import mcps_from_mce
 
@@ -867,8 +867,8 @@ class DataHubRestEmitter(Closeable, Emitter):
         mcps = list(mcps_from_mce(mce))
         if not mcps:
             logger.warning(f"MCE for {mce.proposedSnapshot.urn} produced zero MCPs")
-        for mcp in mcps:
-            self.emit_mcp(mcp, emit_mode=emit_mode)
+            return
+        self.emit_mcps(mcps, emit_mode=emit_mode)
 
     @overload
     @deprecated("Use emit_mode instead of async_flag")

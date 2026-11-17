@@ -55,28 +55,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 ),
             ),
-            "/aspects?action=ingestProposal",
+            "/aspects?action=ingestProposalBatch",
             {
                 "async": "false",
-                "proposal": {
-                    "entityType": "dataset",
-                    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
-                    "changeType": "UPSERT",
-                    "aspectName": "upstreamLineage",
-                    "aspect": {
-                        "value": '{"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}',
-                        "contentType": "application/json",
-                    },
-                    "systemMetadata": {
-                        "lastObserved": FROZEN_TIME,
-                        "lastRunId": "no-run-id-provided",
-                        "properties": {
-                            "clientId": "acryl-datahub",
-                            "clientVersion": "1!0.0.0.dev0",
+                "proposals": [
+                    {
+                        "entityType": "dataset",
+                        "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:bigquery,downstream,PROD)",
+                        "changeType": "UPSERT",
+                        "aspectName": "upstreamLineage",
+                        "aspect": {
+                            "value": '{"upstreams": [{"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream1,PROD)", "type": "TRANSFORMED"}, {"auditStamp": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "dataset": "urn:li:dataset:(urn:li:dataPlatform:bigquery,upstream2,PROD)", "type": "TRANSFORMED"}]}',
+                            "contentType": "application/json",
                         },
-                        "runId": "no-run-id-provided",
-                    },
-                },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
+                    }
+                ],
             },
         ),
         (
@@ -97,28 +99,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "/aspects?action=ingestProposal",
+            "/aspects?action=ingestProposalBatch",
             {
                 "async": "false",
-                "proposal": {
-                    "entityType": "chart",
-                    "entityUrn": "urn:li:chart:(superset,227)",
-                    "changeType": "UPSERT",
-                    "aspectName": "chartInfo",
-                    "aspect": {
-                        "value": '{"customProperties": {}, "title": "Weekly Messages", "description": "", "lastModified": {"created": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}}, "type": "SCATTER"}',
-                        "contentType": "application/json",
-                    },
-                    "systemMetadata": {
-                        "lastObserved": FROZEN_TIME,
-                        "lastRunId": "no-run-id-provided",
-                        "properties": {
-                            "clientId": "acryl-datahub",
-                            "clientVersion": "1!0.0.0.dev0",
+                "proposals": [
+                    {
+                        "entityType": "chart",
+                        "entityUrn": "urn:li:chart:(superset,227)",
+                        "changeType": "UPSERT",
+                        "aspectName": "chartInfo",
+                        "aspect": {
+                            "value": '{"customProperties": {}, "title": "Weekly Messages", "description": "", "lastModified": {"created": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}, "lastModified": {"time": 1618987484580, "actor": "urn:li:corpuser:datahub"}}, "type": "SCATTER"}',
+                            "contentType": "application/json",
                         },
-                        "runId": "no-run-id-provided",
-                    },
-                },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
+                    }
+                ],
             },
         ),
         (
@@ -135,28 +139,30 @@ basicAuditStamp = models.AuditStampClass(
                     ],
                 )
             ),
-            "/aspects?action=ingestProposal",
+            "/aspects?action=ingestProposalBatch",
             {
                 "async": "false",
-                "proposal": {
-                    "entityType": "dataJob",
-                    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
-                    "changeType": "UPSERT",
-                    "aspectName": "dataJobInfo",
-                    "aspect": {
-                        "value": '{"customProperties": {}, "name": "User Deletions", "description": "Constructs the fct_users_deleted from logging_events", "type": {"string": "SQL"}}',
-                        "contentType": "application/json",
-                    },
-                    "systemMetadata": {
-                        "lastObserved": FROZEN_TIME,
-                        "lastRunId": "no-run-id-provided",
-                        "properties": {
-                            "clientId": "acryl-datahub",
-                            "clientVersion": "1!0.0.0.dev0",
+                "proposals": [
+                    {
+                        "entityType": "dataJob",
+                        "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,dag_abc,PROD),task_456)",
+                        "changeType": "UPSERT",
+                        "aspectName": "dataJobInfo",
+                        "aspect": {
+                            "value": '{"customProperties": {}, "name": "User Deletions", "description": "Constructs the fct_users_deleted from logging_events", "type": {"string": "SQL"}}',
+                            "contentType": "application/json",
                         },
-                        "runId": "no-run-id-provided",
-                    },
-                },
+                        "systemMetadata": {
+                            "lastObserved": FROZEN_TIME,
+                            "lastRunId": "no-run-id-provided",
+                            "properties": {
+                                "clientId": "acryl-datahub",
+                                "clientVersion": "1!0.0.0.dev0",
+                            },
+                            "runId": "no-run-id-provided",
+                        },
+                    }
+                ],
             },
         ),
         (

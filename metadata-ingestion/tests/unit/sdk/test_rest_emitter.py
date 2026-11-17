@@ -3105,16 +3105,18 @@ def test_emit_mce_method_is_deprecated_and_uses_default_emit_mode(
         )
     )
     with (
-        patch.object(mce_emitter, "emit_mcp") as emit_mcp,
+        patch.object(mce_emitter, "emit_mcps") as emit_mcps,
         pytest.warns(DataHubDeprecationWarning),
     ):
         mce_emitter.emit_mce(mce)
 
-    emit_mcp.assert_called_once()
-    assert emit_mcp.call_args.kwargs["emit_mode"] == EmitMode.ASYNC
+    emit_mcps.assert_called_once()
+    assert emit_mcps.call_args.kwargs["emit_mode"] == EmitMode.ASYNC
 
 
-def test_emit_mce_posts_to_ingest_proposal(mce_emitter: DataHubRestEmitter) -> None:
+def test_emit_mce_posts_one_ingest_proposal_batch(
+    mce_emitter: DataHubRestEmitter,
+) -> None:
     mce = MetadataChangeEventClass(
         proposedSnapshot=DatasetSnapshotClass(
             urn=_MCE_URN,
@@ -3134,18 +3136,20 @@ def test_emit_mce_posts_to_ingest_proposal(mce_emitter: DataHubRestEmitter) -> N
     ):
         mce_emitter.emit(mce, callback=callback, emit_mode=EmitMode.SYNC_PRIMARY)
 
-    urls = [c.args[0] for c in emit_generic.call_args_list]
-    assert urls == [f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposal"] * 2
-    payloads = [json.loads(c.args[1]) for c in emit_generic.call_args_list]
-    proposals = [p["proposal"] for p in payloads]
+    # One request, so GMS stamps every aspect with the same time (one timeline change).
+    emit_generic.assert_called_once()
+    url, body = emit_generic.call_args.args
+    assert url == f"{MOCK_GMS_ENDPOINT}/aspects?action=ingestProposalBatch"
+    payload = json.loads(body)
+    proposals = payload["proposals"]
     assert [p["aspectName"] for p in proposals] == ["status", "datasetProperties"]
     assert [p["systemMetadata"]["runId"] for p in proposals] == ["run-1"] * 2
     # The fixture's default is ASYNC, so "false" shows the explicit emit_mode won.
-    assert [p["async"] for p in payloads] == ["false"] * 2
+    assert payload["async"] == "false"
     callback.assert_called_once_with(None, "success")
 
 
-def test_emit_mce_failure_stops_and_reaches_callback(
+def test_emit_mce_failure_reaches_callback(
     mce_emitter: DataHubRestEmitter,
 ) -> None:
     mce = MetadataChangeEventClass(
@@ -3157,13 +3161,13 @@ def test_emit_mce_failure_stops_and_reaches_callback(
     error = OperationalError("rejected")
     callback = Mock()
     with (
-        patch.object(mce_emitter, "emit_mcp", side_effect=error) as emit_mcp,
+        patch.object(mce_emitter, "emit_mcps", side_effect=error) as emit_mcps,
         pytest.warns(DataHubDeprecationWarning),
         pytest.raises(OperationalError),
     ):
         mce_emitter.emit(mce, callback=callback)
 
-    emit_mcp.assert_called_once()
+    emit_mcps.assert_called_once()
     callback.assert_called_once_with(error, str(error))
 
 
@@ -3176,7 +3180,7 @@ def test_mce_deprecation_logged_once_per_process(
         )
     )
     with (
-        patch.object(mce_emitter, "emit_mcp"),
+        patch.object(mce_emitter, "emit_mcps"),
         pytest.warns(DataHubDeprecationWarning),
     ):
         mce_emitter.emit(mce)
