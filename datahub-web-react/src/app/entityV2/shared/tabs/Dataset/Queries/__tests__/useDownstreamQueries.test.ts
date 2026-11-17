@@ -1,7 +1,7 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import useDownstreamQueries from '@app/entityV2/shared/tabs/Dataset/Queries/useDownstreamQueries';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useSearchAcrossLineageForQueriesQuery } from '@graphql/query.generated';
 import { EntityType } from '@types';
