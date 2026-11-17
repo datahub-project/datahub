@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
@@ -40,7 +41,10 @@ import java.util.ArrayList;
 import java.util.Collection;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import org.springframework.beans.factory.ObjectProvider;
 import org.testng.annotations.Test;
 
 public class MappingsBuilderFactoryTest {
@@ -80,7 +84,7 @@ public class MappingsBuilderFactoryTest {
     MappingsBuilder legacy = factory.createLegacyMappingsBuilder(configProvider, registry);
     MappingsBuilder semantic =
         factory.createSemanticSearchMappingsBuilder(
-            configProvider, legacy, IndexConventionImpl.noPrefix("MD5", entityIndex), registry);
+            configProvider, IndexConventionImpl.noPrefix("MD5", entityIndex), registry);
 
     assertConfiguredIgnoreAbove(legacy);
     assertConfiguredIgnoreAbove(semantic);
@@ -214,5 +218,67 @@ public class MappingsBuilderFactoryTest {
       children.forEach(child -> found.addAll(searchAsYouTypeFields(child)));
     }
     return found;
+  }
+
+  /**
+   * The legacy bean exists whenever V2 or V3 is on, and the semantic bean also needs semantic
+   * search. A fresh install leaves them out of the index build, and a hold that flips the live V2
+   * flag includes them.
+   */
+  @Test
+  public void testV3DefaultOmitsV2MappingsUntilTheLiveFlagIsOn() {
+    MappingsBuilder legacy = mappingNamed("datasetindex_v2");
+    MappingsBuilder v3 = mappingNamed("datasetindex_v3");
+    MappingsBuilder semantic = mappingNamed("datasetindex_v2_semantic");
+    ElasticSearchConfiguration config =
+        ElasticSearchConfiguration.builder()
+            .entityIndex(
+                EntityIndexConfiguration.builder()
+                    .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+                    .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+                    .build())
+            .build();
+
+    ConfigurationProvider configurationProvider = mock(ConfigurationProvider.class);
+    when(configurationProvider.getElasticSearch()).thenReturn(config);
+    ObjectProvider<ElasticSearchConfiguration> liveConfig = absentElasticSearchBean();
+
+    MappingsBuilderFactory factory = new MappingsBuilderFactory();
+    assertEquals(
+        indexNames(factory.getInstance(configurationProvider, liveConfig, legacy, v3, semantic)),
+        Set.of("datasetindex_v3"));
+
+    config.getEntityIndex().getV2().setEnabled(true);
+    assertEquals(
+        indexNames(factory.getInstance(configurationProvider, liveConfig, legacy, v3, semantic)),
+        Set.of("datasetindex_v2", "datasetindex_v3", "datasetindex_v2_semantic"));
+  }
+
+  /** No ElasticSearchConfiguration bean, as in tests that do not load the search factory. */
+  @SuppressWarnings("unchecked")
+  private static ObjectProvider<ElasticSearchConfiguration> absentElasticSearchBean() {
+    ObjectProvider<ElasticSearchConfiguration> provider = mock(ObjectProvider.class);
+    when(provider.getIfAvailable(any()))
+        .thenAnswer(
+            invocation -> {
+              Supplier<ElasticSearchConfiguration> fallback = invocation.getArgument(0);
+              return fallback.get();
+            });
+    return provider;
+  }
+
+  private static MappingsBuilder mappingNamed(String indexName) {
+    MappingsBuilder builder = mock(MappingsBuilder.class);
+    IndexMapping mapping = IndexMapping.builder().indexName(indexName).mappings(Map.of()).build();
+    doReturn(List.of(mapping)).when(builder).getIndexMappings(any(OperationContext.class), any());
+    return builder;
+  }
+
+  private static Set<String> indexNames(MappingsBuilder builder) {
+    return builder
+        .getIndexMappings(TestOperationContexts.systemContextNoSearchAuthorization())
+        .stream()
+        .map(IndexMapping::getIndexName)
+        .collect(Collectors.toSet());
   }
 }

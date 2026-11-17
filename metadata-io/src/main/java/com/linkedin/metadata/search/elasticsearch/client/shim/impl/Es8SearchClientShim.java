@@ -1038,7 +1038,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       @Nonnull CreateIndexRequest createIndexRequest,
       @Nonnull RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder esCreateIndex =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
             .index(createIndexRequest.index())
             .mappings(
@@ -1049,8 +1049,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 createIndexRequest.settings() != null
                         && !Settings.EMPTY.equals(createIndexRequest.settings())
                     ? convertIndexSettings(createIndexRequest.settings())
-                    : null)
-            .build();
+                    : null);
+    if (createIndexRequest.aliases() != null && !createIndexRequest.aliases().isEmpty()) {
+      Map<String, co.elastic.clients.elasticsearch.indices.Alias> aliases = new LinkedHashMap<>();
+      for (org.opensearch.action.admin.indices.alias.Alias alias : createIndexRequest.aliases()) {
+        aliases.put(
+            alias.name(), co.elastic.clients.elasticsearch.indices.Alias.of(builder -> builder));
+      }
+      esCreateIndex.aliases(aliases);
+    }
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+        esCreateIndex.build();
     co.elastic.clients.elasticsearch.indices.CreateIndexResponse esCreateResponse =
         withTransportOptions(options).indices().create(esCreateIndexRequest);
     return new CreateIndexResponse(

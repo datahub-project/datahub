@@ -7,7 +7,7 @@ from typing import Any, Dict, List, Optional
 import pytest
 import tenacity
 
-from tests.e2e.utils import delete_urns_from_file, ingest_file_via_rest
+from tests.e2e.utils import delete_urns_from_file, ingest_file_via_rest, reads_search_v3
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -138,15 +138,25 @@ def verify_search_index_fields_via_openapi(
         document = raw_documents[dataset_urn]
         logger.info(f"Raw document for {dataset_urn}: {document}")
 
+        # Search V3 stores the booleans under the aspect and fills the root field through
+        # copy_to, so the stored root value is null and absent here. Search V2 keeps them at the
+        # root.
+        if reads_search_v3(auth_session):
+            upstream_lineage = document.get("_aspects", {}).get("upstreamLineage", {})
+        else:
+            upstream_lineage = document
+
         # Check hasUpstreams field
-        has_upstreams = document.get("hasUpstreams", False)
+        has_upstreams = upstream_lineage.get("hasUpstreams", False)
         logger.info(f"hasUpstreams field: {has_upstreams}")
         assert has_upstreams == expected_has_upstreams, (
             f"Expected hasUpstreams={expected_has_upstreams}, got {has_upstreams}"
         )
 
         # Check hasFineGrainedUpstreams field
-        has_fine_grained_upstreams = document.get("hasFineGrainedUpstreams", False)
+        has_fine_grained_upstreams = upstream_lineage.get(
+            "hasFineGrainedUpstreams", False
+        )
         logger.info(f"hasFineGrainedUpstreams field: {has_fine_grained_upstreams}")
         assert has_fine_grained_upstreams == expected_has_fine_grained_upstreams, (
             f"Expected hasFineGrainedUpstreams={expected_has_fine_grained_upstreams}, got {has_fine_grained_upstreams}"
@@ -154,7 +164,7 @@ def verify_search_index_fields_via_openapi(
 
         # Check fineGrainedUpstreams field if expected
         if expected_fine_grained_upstreams is not None:
-            fine_grained_upstreams = document.get("fineGrainedUpstreams", [])
+            fine_grained_upstreams = upstream_lineage.get("fineGrainedUpstreams", [])
             logger.info(f"fineGrainedUpstreams field: {fine_grained_upstreams}")
             assert set(fine_grained_upstreams) == set(
                 expected_fine_grained_upstreams
