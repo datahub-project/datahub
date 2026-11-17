@@ -338,7 +338,7 @@ describe('getDisplayedNodes', () => {
                 ],
             );
 
-            const { displayedNodes } = getDisplayedNodes(table, ordered(context, [view]), context);
+            const { displayedNodes } = getDisplayedNodes(table, ordered(context, [source, model, view]), context);
 
             expect(displayedNodes.map((n) => n.id)).toEqual([table, model, view]);
         });
