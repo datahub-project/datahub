@@ -39,8 +39,12 @@ from datahub.ingestion.source.confluence.confluence_hierarchy import (
     ConfluenceHierarchyExtractor,
     FolderNode,
 )
-from datahub.ingestion.source.confluence.confluence_html import html_storage_to_markdown
+from datahub.ingestion.source.confluence.confluence_html import (
+    storage_to_markdown,
+    strip_html_tags,
+)
 from datahub.ingestion.source.confluence.confluence_report import ConfluenceSourceReport
+from datahub.ingestion.source.confluence.confluence_users import ConfluenceUserResolver
 from datahub.ingestion.source.documents.document_import_mode import DocumentImportMode
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
@@ -59,7 +63,7 @@ logger = logging.getLogger(__name__)
 # Bump this when the page extraction algorithm changes (e.g. HTML→Markdown
 # conversion, macro stripping, text normalization) to force re-ingestion of
 # all pages on the next run regardless of whether the raw Confluence body changed.
-EXTRACTION_ALGO_VERSION = "2"
+EXTRACTION_ALGO_VERSION = "3"
 
 
 @platform_name("Confluence")
@@ -323,6 +327,7 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         # Initialize Confluence API client
         self.confluence_client = self._create_confluence_client()
+        self.user_resolver = ConfluenceUserResolver(self.confluence_client, self.report)
 
         # Initialize document builder
         self.document_builder = DocumentEntityBuilder(
@@ -704,9 +709,22 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             if isinstance(storage, dict):
                 value = storage.get("value", "")
                 if value:
-                    text_parts.append(html_storage_to_markdown(value))
+                    text_parts.append(self._storage_to_text(page, value))
 
         return "\n\n".join(text_parts)
+
+    def _storage_to_text(self, page: Dict[str, Any], storage: str) -> str:
+        try:
+            return storage_to_markdown(storage, user_resolver=self.user_resolver)
+        except Exception as e:
+            self.report.warning(
+                title="Page converted as plain text",
+                message="Markdown conversion failed, so the page's formatting, "
+                "links and mentions were dropped from its text.",
+                context=str(page.get("id")),
+                exc=e,
+            )
+            return strip_html_tags(storage)
 
     def _build_page_urn(self, page_id: str) -> str:
         """
@@ -951,11 +969,11 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
         # Extract parent URN
         parent_urn = self._extract_parent_urn(page, ingested_page_ids)
 
-        # Build custom properties, including a content_hash that encodes both
-        # the raw page body and the extraction algo version. The chunking source
-        # reads this hash to decide whether to re-embed a document; bumping
-        # EXTRACTION_ALGO_VERSION invalidates every document's hash and forces
-        # a full re-ingest on the next run.
+        # content_hash covers the raw page body and the extraction algo version.
+        # The inline chunking source (unstructured/chunking_source.py) re-embeds
+        # a document when this hash changes, so bumping EXTRACTION_ALGO_VERSION
+        # re-embeds every page. The separate datahub-documents source hashes the
+        # extracted text instead, so it only re-embeds pages whose text changed.
         import json as _json
 
         raw_body = page.get("body", {}).get("storage", {}).get("value", "") or ""

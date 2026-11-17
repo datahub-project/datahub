@@ -35,6 +35,10 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     total_chunks_generated: int = 0
     total_embeddings_generated: int = 0
 
+    # User mentions, resolved to display names through the user API
+    mentions_resolved: int = 0
+    mentions_unresolved: int = 0
+
     # Embedding statistics (from chunking source)
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
