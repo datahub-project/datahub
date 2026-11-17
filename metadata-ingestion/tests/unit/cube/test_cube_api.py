@@ -7,6 +7,9 @@ import requests_mock as rm
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 
+_ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
+_META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
+
 
 def _client(**overrides: object) -> CubeAPIClient:
     base: Dict[str, object] = {
@@ -72,18 +75,14 @@ def test_include_hidden_requests_private_entities(
 ) -> None:
     client = _client(include_hidden=include_hidden)
     matcher = requests_mock.post(
-        "https://demo.cubecloud.dev/cubejs-api/v1/entities/all",
-        json={"data": {"entities": []}},
+        _ENTITIES_ALL,
+        json={"data": []},
     )
 
     client._get_cloud_entities_with_private_fallback()
 
     assert matcher.last_request is not None
     assert matcher.last_request.json() == expected_body
-
-
-_ENTITIES_ALL_URL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
-_META_URL = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
 
 
 def test_private_entities_refused_keeps_public_metadata_api_lineage(
@@ -93,12 +92,12 @@ def test_private_entities_refused_keeps_public_metadata_api_lineage(
     # The connector retries without it, rather than dropping Metadata API
     # lineage for public entities too.
     client = _client(include_hidden=True)
-    requests_mock.get(_META_URL, json={"cubes": []})
+    requests_mock.get(_META, json={"cubes": []})
     matcher = requests_mock.post(
-        _ENTITIES_ALL_URL,
+        _ENTITIES_ALL,
         [
             {"status_code": 403},
-            {"json": {"data": {"entities": [{"name": "orders", "type": "cube"}]}}},
+            {"json": {"data": [{"name": "orders", "type": "cube"}]}},
         ],
     )
 
@@ -118,8 +117,8 @@ def test_private_entities_other_errors_fall_back_to_core(
     requests_mock: rm.Mocker,
 ) -> None:
     client = _client(include_hidden=True)
-    requests_mock.get(_META_URL, json={"cubes": []})
-    matcher = requests_mock.post(_ENTITIES_ALL_URL, status_code=400)
+    requests_mock.get(_META, json={"cubes": []})
+    matcher = requests_mock.post(_ENTITIES_ALL, status_code=400)
 
     assert client.get_entities() == []
     assert matcher.call_count == 1
@@ -334,10 +333,6 @@ def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> N
     )
     with pytest.raises(ValueError):
         client._metadata_api_token()
-
-
-_ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
-_META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
 
 
 def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:

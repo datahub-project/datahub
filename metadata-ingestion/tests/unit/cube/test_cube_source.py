@@ -1,6 +1,10 @@
 from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+import requests
+import requests_mock as rm
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -22,6 +26,7 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    UpstreamLineageClass,
 )
 from datahub.sdk.container import Container
 
@@ -669,3 +674,63 @@ def test_build_dashboard_no_warning_when_reports_disabled() -> None:
     )
     assert dashboard.charts == []
     assert len(source.report.warnings) == 0
+
+
+_PRIVATE_CUBE = {
+    "type": "cube",
+    "name": "orders",
+    "public": False,
+    "table_references": [{"schema": "public", "table": "orders"}],
+}
+_PUBLIC_VIEW = {"type": "view", "name": "orders_view", "public": True}
+
+
+@pytest.mark.parametrize("include_hidden", [False, True])
+def test_view_over_private_cube_reaches_warehouse_only_with_include_hidden(
+    requests_mock: rm.Mocker, include_hidden: bool
+) -> None:
+    # Cube Cloud leaves private cubes out of the Metadata API, and prunes the
+    # view's references to them, unless include_private is requested.
+    def entities(
+        request: requests.PreparedRequest, context: object
+    ) -> Dict[str, object]:
+        if request.json().get("include_private"):  # type: ignore[attr-defined]
+            data = [
+                _PRIVATE_CUBE,
+                {
+                    **_PUBLIC_VIEW,
+                    "cube_references": [{"type": "upstream", "cube": "orders"}],
+                },
+            ]
+        else:
+            data = [_PUBLIC_VIEW]
+        return {"data": data, "pagination": {"offset": 0, "limit": 100, "total": 1}}
+
+    base = "https://demo.cubecloud.dev/cubejs-api"
+    requests_mock.get(f"{base}/v1/meta", json={"cubes": []})
+    requests_mock.post(f"{base}/v1/entities/all", json=entities)
+    source = _source(
+        deployment_type="CLOUD",
+        warehouse_platform="postgres",
+        include_hidden=include_hidden,
+    )
+
+    lineage: Dict[str, List[str]] = {}
+    for wu in source.get_workunits_internal():
+        aspect = wu.metadata.aspect  # type: ignore[union-attr]
+        if isinstance(aspect, UpstreamLineageClass):
+            urn = wu.get_urn()
+            lineage[urn[urn.index(",") + 1 : urn.rindex(",")]] = [
+                u.dataset for u in aspect.upstreams
+            ]
+
+    if include_hidden:
+        assert lineage == {
+            "orders": [
+                "urn:li:dataset:(urn:li:dataPlatform:postgres,public.orders,PROD)"
+            ],
+            "orders_view": ["urn:li:dataset:(urn:li:dataPlatform:cube,orders,PROD)"],
+        }
+    else:
+        assert lineage == {}
+    assert not source.report.warnings
