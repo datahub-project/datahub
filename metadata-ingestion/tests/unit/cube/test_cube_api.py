@@ -262,6 +262,7 @@ def test_metadata_token_mint_missing_token_raises(requests_mock: rm.Mocker) -> N
 
 
 _ENTITIES_ALL = "https://demo.cubecloud.dev/cubejs-api/v1/entities/all"
+_META = "https://demo.cubecloud.dev/cubejs-api/v1/meta"
 
 
 def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:
@@ -279,11 +280,14 @@ def test_cloud_entities_are_read_across_pages(requests_mock: rm.Mocker) -> None:
         }
 
     requests_mock.post(_ENTITIES_ALL, json=page)
+    requests_mock.get(_META, json={"cubes": []})
 
-    entities = client._get_cloud_entities()
+    entities = client.get_entities()
 
-    assert [e.name for e in entities] == ["orders", "users", "orders_view"]
-    offsets = [r.qs["offset"] for r in requests_mock.request_history]
+    assert sorted(e.name for e in entities) == ["orders", "orders_view", "users"]
+    offsets = [
+        r.qs["offset"] for r in requests_mock.request_history if r.method == "POST"
+    ]
     assert offsets == [["0"], ["2"]]
 
 
@@ -305,7 +309,9 @@ def test_unusable_cloud_references_are_counted_and_warned(
         },
     )
 
-    client._get_cloud_entities()
+    requests_mock.get(_META, json={"cubes": []})
+
+    client.get_entities()
 
     assert client.report.metadata_api_references_skipped == 1
     assert [w.title for w in client.report.warnings] == [
