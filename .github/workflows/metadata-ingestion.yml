@@ -179,6 +179,12 @@ jobs:
       - name: Install package
         if: ${{ matrix.command == 'testQuick' }}
         run: ./gradlew :metadata-ingestion:installPackageOnly
+      # Unit tests also need the integration-tests extras (Azure SDK, vcrpy, ...).
+      # Before sharding they arrived via connectorRegistry below, which now runs on
+      # shard 0 only, so every shard installs them here.
+      - name: Install dev test environment
+        if: ${{ matrix.command == 'testQuick' }}
+        run: ./gradlew :metadata-ingestion:installDevTest
       # Repository-wide checks run once per Python version, on the first testQuick shard.
       - name: Check lock file is up-to-date
         if: ${{ matrix.command == 'testQuick' && matrix.shard == 0 }}
