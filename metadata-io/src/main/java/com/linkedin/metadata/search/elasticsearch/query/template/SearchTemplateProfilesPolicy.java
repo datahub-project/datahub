@@ -64,17 +64,19 @@ public final class SearchTemplateProfilesPolicy {
   }
 
   /**
-   * Applies {@code child} to the inherited selection. {@code useDefault} and an empty section drop
-   * it. {@code replace} sets the list, then {@code add} and {@code remove} patch that list, the
-   * inherited list, or, when none was set, the entity default. {@code override} weights merge with
-   * the child's winning.
+   * Applies {@code child} to the inherited selection. {@code useDefault} drops it, and a section
+   * with no operation keeps it. {@code replace} sets the list, then {@code add} and {@code remove}
+   * patch that list, the inherited list, or, when none was set, the entity default. {@code
+   * override} weights merge with the child's winning.
    */
   @Nullable
   public static SearchTemplateProfiles merge(
       @Nullable SearchTemplateProfiles parent, @Nonnull SearchTemplateProfiles child) {
-    if (SearchTemplateLoader.emptyProfiles(child)
-        || (child.hasUseDefault() && Boolean.TRUE.equals(child.isUseDefault()))) {
+    if (child.hasUseDefault() && Boolean.TRUE.equals(child.isUseDefault())) {
       return null;
+    }
+    if (SearchTemplateLoader.emptyProfiles(child)) {
+      return parent;
     }
     Set<String> replace = null;
     Set<String> add = new LinkedHashSet<>();

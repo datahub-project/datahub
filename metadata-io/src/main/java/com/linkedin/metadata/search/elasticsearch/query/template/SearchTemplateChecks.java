@@ -143,6 +143,9 @@ public final class SearchTemplateChecks {
       return;
     }
     SearchTemplateProperties composed = compose(merged);
+    if (merged.getProfiles() != null) {
+      SearchTemplateProfilesPolicy.check(merged.getProfiles());
+    }
     SearchTemplatePolicyChecks.checkMergedSections(composed);
     SearchTemplatePolicyChecks.requireKeywordForRanking(composed);
     String knn = merged.getKnn();

@@ -118,11 +118,8 @@ public final class SearchTemplateRoutes {
   }
 
   private static boolean emptyMatch(@Nullable SearchTemplateRouteMatch match) {
-    return match == null
-        || ((!match.hasEntityTypes() || match.getEntityTypes() == null)
-            && (!match.hasSurfaces() || match.getSurfaces() == null)
-            && (!match.hasSemanticEligible() || match.isSemanticEligible() == null)
-            && (!match.hasAnySemanticEligible() || match.isAnySemanticEligible() == null));
+    // Judged from the stored data, so a condition this release does not know still fails closed.
+    return match == null || match.data().isEmpty();
   }
 
   /** Each name is non-blank and listed once. */

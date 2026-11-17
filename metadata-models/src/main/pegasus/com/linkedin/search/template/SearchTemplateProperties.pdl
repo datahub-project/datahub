@@ -181,8 +181,8 @@ record SearchTemplateProperties {
    * {@code vector_weight}. {@code k} and {@code num_candidates} are unused; the candidates are the
    * keyword rows already returned. Unset means this template stays in keyword order. An explicit
    * empty value drops an inherited section, so a child keeps the parent's clauses and
-   * functionScore. A section with no {@code combine} applies only when semantic read is on and the
-   * request includes document entities.
+   * functionScore. A section with no {@code combine} fails the search unless semantic read is on
+   * and the request includes document entities.
    */
   knn: optional string
 

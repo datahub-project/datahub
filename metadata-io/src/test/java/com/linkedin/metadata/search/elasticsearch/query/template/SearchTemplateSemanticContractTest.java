@@ -171,6 +171,10 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     SearchTemplateChecks.checkMerged(nativeMerged, 1024);
     assertEquals(rejection(nativeMerged), "nativeQuery");
 
+    SearchTemplateProperties scorePlaceholder =
+        body("Native", "{ \"match_all\": {} }", "{ \"functions\": [ {{&embeddingClausesJson}} ] }");
+    assertRejects("scorePlaceholder", () -> SearchTemplateChecks.check(scorePlaceholder, 1024));
+
     SearchTemplateProperties placeholderCombine =
         body("Native", "{ \"bool\": { \"should\": [ {{&embeddingClausesJson}} ] } }", null);
     placeholderCombine.setRetrieval(retrieval(r -> r.setCombine("keywordRerank")));
@@ -222,6 +226,18 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertEquals(
         loader.load(opContext, "urn:li:searchTemplate:root").getScope().getEntityTypes(),
         List.of("document"));
+
+    SearchTemplateProperties keep = parentOf("Keep", "urn:li:searchTemplate:child");
+    keep.setProfiles(new SearchTemplateProfiles().setAdd(new StringArray()));
+    store("urn:li:searchTemplate:keep", keep);
+    assertEquals(
+        loader.load(opContext, "urn:li:searchTemplate:keep").getProfiles().getReplace(),
+        List.of("a", "b"));
+
+    SearchTemplateProperties router = body("Router", null, null);
+    router.setDefaultRoute(defaultTo(SEARCH_TEMPLATE_FULLTEXT_URN));
+    router.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("x"))));
+    assertRejects("routerScope", () -> SearchTemplateChecks.check(router, 1024));
 
     SearchTemplateProperties reset = parentOf("Reset", "urn:li:searchTemplate:child");
     reset.setProfiles(new SearchTemplateProfiles().setUseDefault(true));

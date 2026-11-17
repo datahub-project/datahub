@@ -231,8 +231,8 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
             && DEPRECATED_KNN_NAME.matcher(properties.getKnn()).find();
     if (retrievalNames || knnNames) {
       log.warn(
-          "Search template {} names an embedding model or vector field, which is deprecated. Use"
-              + " profiles.",
+          "Search template {} names an embedding model or vector field. These names are deprecated"
+              + " and still read; profiles replace them once this release runs embedding profiles.",
           urn);
     }
   }
@@ -271,36 +271,22 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
     validateRoutes(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateLadder(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateFilledHoles(operationContext, urn, properties, retrieverContext, batch, deleted);
-    validateInheritedSections(operationContext, urn, properties, retrieverContext, batch, deleted);
+    validateInheritedSections(operationContext, urn, retrieverContext, batch, deleted);
   }
 
   /**
    * Some rules span sections a child inherits separately: the {@code knn} shape follows the
    * inherited {@code combine}, similarity rejects an inherited {@code knn} or {@code next}, and a
-   * keyword rung rejects inherited {@code profiles}. A parent write that sets one of those sections
-   * runs those rules on every inheriting child, so the parent cannot break a child that was valid.
-   * Other child checks are unchanged; the hole walk keeps its own stop rule.
+   * keyword rung rejects inherited {@code profiles}. Every write, including a new parent or a
+   * removed section, runs those rules on every inheriting child, so the parent cannot break a child
+   * that was valid. Other child checks are unchanged; the hole walk keeps its own stop rule.
    */
   private void validateInheritedSections(
       OperationFingerprint operationContext,
       Urn urn,
-      SearchTemplateProperties properties,
       RetrieverContext retrieverContext,
       @Nonnull Map<String, SearchTemplateProperties> batch,
       @Nonnull Set<String> deleted) {
-    boolean inherited =
-        properties.hasRetrieval()
-            || properties.hasKnn()
-            || properties.hasProfiles()
-            || properties.hasLadder()
-            || properties.hasRanking()
-            || properties.hasQuery()
-            || properties.hasClauses()
-            || properties.hasRescore()
-            || properties.hasQueryFragments();
-    if (!inherited) {
-      return;
-    }
     revalidateChildren(operationContext, urn, batch, deleted, retrieverContext, new HashSet<>(), 0);
   }
 

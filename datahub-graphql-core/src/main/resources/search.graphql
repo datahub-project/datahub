@@ -239,8 +239,9 @@ input SearchFlags {
 
   On semantic search, a hit below this score is dropped, letting an agent abstain instead of
   returning weak matches. On document rerank, a row below it is not blended and keeps its keyword
-  position; the row is not dropped. A search template's retrieval.minSimilarity, a raw cosine,
-  replaces it on the vector leg, and knn.blendFloor replaces it on rerank.
+  position; the row is not dropped. Search templates add retrieval.minSimilarity, a raw cosine, on
+  the vector leg and knn.blendFloor on rerank. Until this flag is removed, a hit or row must pass
+  both it and those controls.
   """
   minScore: Float
 
