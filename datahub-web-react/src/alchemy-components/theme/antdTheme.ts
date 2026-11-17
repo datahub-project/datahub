@@ -26,8 +26,7 @@ export const antdTheme: ThemeConfig = {
         // antd 4 left font-family to inheritance; antd 5 sets it on every component root, which would
         // override the V2 layout's Mulish. The body font stack is set in global-overrides.less.
         fontFamily: 'inherit',
-        // Only Typography's code, kbd and pre use this. antd 4 gave them no font of their own, so the
-        // V2 layout's Mulish applied; a monospace stack here would override it.
+        // Typography's code, kbd and pre had no font of their own in antd 4, so they kept Mulish
         fontFamilyCode: 'inherit',
         fontSize: 12,
         fontSizeSM: 10,
@@ -50,17 +49,23 @@ export const antdTheme: ThemeConfig = {
         },
         Input: { colorBorder: INPUT_BORDER_COLOR },
         InputNumber: { colorBorder: INPUT_BORDER_COLOR },
-        // antd 5 pads options and menu items to fill the control height around the text; antd 4 used a
-        // fixed 5px padding and 22px line, so taller custom option content grew by ~3px a row
+        // antd 4's fixed option padding and line; antd 5 pads to the control height, adding ~3px a row
         Select: {
             colorBorder: INPUT_BORDER_COLOR,
             optionPadding: '5px 12px',
             optionLineHeight: '22px',
         },
-        // The menu items' 22px line is set in global-overrides.less: a lineHeight token here would also
-        // change the line height of custom dropdown content
+        // Menu item line height is in global-overrides.less; a token would also change custom content
         Dropdown: { paddingBlock: 5 },
         DatePicker: { colorBorder: INPUT_BORDER_COLOR },
+        // antd 4's heading line heights, scoped to Typography so Modal and Result keep theirs
+        Typography: {
+            lineHeightHeading1: 1.23,
+            lineHeightHeading2: 1.35,
+            lineHeightHeading3: 1.35,
+            lineHeightHeading4: 1.4,
+            lineHeightHeading5: 1.5,
+        },
         // Modal padding isn't tokenized until antd 6; see global-overrides.less
         Modal: {
             titleFontSize: 14,
@@ -80,13 +85,24 @@ export const antdTheme: ThemeConfig = {
     },
 };
 
-/**
- * Light mode keeps the antd 4 values above. antd 5 paints its components from these tokens at runtime,
- * at a specificity GlobalThemeStyles can't always beat, so dark mode has to reach antd through its
- * tokens too: the dark algorithm derives fills and hovers, and the app's own colors pin the rest.
- */
+// GlobalThemeStyles sets these colors, but antd 5's more specific rules win, so pass them as tokens
+function getThemedComponents(colors: Theme['colors']): ThemeConfig['components'] {
+    return {
+        Checkbox: { colorBorder: colors.borderCheckbox },
+        Divider: { colorSplit: colors.border },
+        Form: { labelColor: colors.text },
+        Progress: { defaultColor: colors.buttonFillBrand, remainingColor: colors.bgSurfaceDisabled },
+        Tabs: { itemColor: colors.textSecondary },
+        Timeline: { tailColor: colors.border },
+    };
+}
+
+// Dark mode also maps the app's colors onto antd tokens; the dark algorithm derives fills and hovers
 export function getAntdTheme(theme: Theme | undefined): ThemeConfig {
-    if (!theme || theme.id !== 'themeV2Dark') return antdTheme;
+    if (!theme) return antdTheme;
+    if (theme.id !== 'themeV2Dark') {
+        return { ...antdTheme, components: { ...antdTheme.components, ...getThemedComponents(theme.colors) } };
+    }
     const { colors } = theme;
     return {
         algorithm: antdThemeApi.darkAlgorithm,
@@ -120,12 +136,12 @@ export function getAntdTheme(theme: Theme | undefined): ThemeConfig {
         },
         components: {
             ...antdTheme.components,
+            ...getThemedComponents(colors),
             Button: { ...antdTheme.components?.Button, defaultBorderColor: colors.borderInput, defaultShadow: 'none' },
             Input: { colorBorder: colors.borderInput },
             InputNumber: { colorBorder: colors.borderInput },
             Select: { ...antdTheme.components?.Select, colorBorder: colors.borderInput },
             DatePicker: { colorBorder: colors.borderInput },
-            Checkbox: { colorBorder: colors.borderCheckbox },
             Layout: {
                 ...antdTheme.components?.Layout,
                 headerBg: colors.bg,

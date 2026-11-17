@@ -87,7 +87,6 @@ const LabelCountWrapper = styled.span`
 `;
 
 const ArrowButton = styled(Button)<{ isOpen: boolean }>`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         margin-left: 4px;
         background-color: transparent;

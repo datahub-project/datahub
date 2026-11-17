@@ -6,7 +6,6 @@ import styled from 'styled-components/macro';
 const STYLE_NO_SHADOW: CSSProperties = { boxShadow: 'none' };
 
 const StyledButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         width: 100%;
         text-align: center;

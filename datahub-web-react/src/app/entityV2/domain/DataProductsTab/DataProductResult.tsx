@@ -10,7 +10,6 @@ import { useEntityContext } from '@src/app/entityV2/shared/EntityContext';
 import { DataProduct, EntityType } from '@types';
 
 const TransparentButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         color: ${(props) => props.theme.colors.textError};
         font-size: 12px;

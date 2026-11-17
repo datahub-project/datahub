@@ -48,8 +48,7 @@ const StyledTabsPrimary = styled(AntTabs)<{
         ${({ $tabBorderRadius }) => $tabBorderRadius && `border-radius: ${$tabBorderRadius};`};
     }
 
-    /* Matches the .ant-tabs .ant-tabs-tab:hover rules (antd 5's and GlobalThemeStyles') so tabs keep
-       this colour on hover */
+    /* Matches the .ant-tabs .ant-tabs-tab:hover specificity so the colour holds on hover */
     && .ant-tabs-tab {
         color: ${(props) => props.theme.colors.textSecondary};
     }
@@ -146,8 +145,7 @@ const StyledTabsSecondary = styled(AntTabs)<{
         font-size: 14px;
     }
 
-    /* Matches the .ant-tabs .ant-tabs-tab:hover rules (antd 5's and GlobalThemeStyles') so tabs keep
-       this colour on hover */
+    /* Matches the .ant-tabs .ant-tabs-tab:hover specificity so the colour holds on hover */
     && .ant-tabs-tab {
         color: ${(props) => props.theme.colors.textSecondary};
     }

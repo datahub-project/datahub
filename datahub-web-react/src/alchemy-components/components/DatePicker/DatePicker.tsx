@@ -65,9 +65,8 @@ export function DatePicker({
         () =>
             forwardRef<HTMLElement, React.InputHTMLAttributes<HTMLInputElement>>((props, ref) => {
                 const holderRef = useRef<HTMLSpanElement>(null);
-                // rc-picker focuses this ref on click and compares it with the mousedown target, so it has to
-                // be the focusable element the variant rendered (the variants don't forward refs themselves).
-                // The input wins over a focusable wrapper; the date switcher has no input, only a tabindex.
+                // rc-picker focuses this ref on click, so it must be the variant's focusable element: its input,
+                // else a tabindex element (the date switcher has no input)
                 useImperativeHandle(ref, () => {
                     const holder = holderRef.current;
                     return (holder?.querySelector<HTMLElement>('input') ??

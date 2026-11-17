@@ -41,7 +41,6 @@ const ConfirmButtonWrapper = styled.div`
 `;
 
 const ConfirmButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         border-radius: 15px;
         border: 1px solid ${(props) => props.theme.colors.text};

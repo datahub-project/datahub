@@ -102,7 +102,6 @@ const SearchBarContainer = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 `;
 
 const StyledButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         color: ${(props) => props.theme.colors.textSecondary};
         text-align: center;

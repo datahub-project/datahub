@@ -9,7 +9,6 @@ import styled from 'styled-components';
  * Supports both enabled (request) and disabled (granted) states.
  */
 export const AccessButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         background-color: ${(props) => props.theme.colors.buttonFillBrand};
         color: ${(props) => props.theme.colors.textOnFillBrand};

@@ -81,15 +81,14 @@ body {
     font-weight: 600;
 }
 
-// antd 4 forced borderless selects clear with !important; without it the themed select border, fill
-// and focus shadow in GlobalThemeStyles show on them
+// antd 4 cleared borderless selects with !important, over GlobalThemeStyles' border and fill
 .ant-select-borderless .ant-select-selector {
     background-color: transparent !important;
     border-color: transparent !important;
     box-shadow: none !important;
 }
 
-// antd 4 menu items used a fixed 22px line (see the Dropdown token in antdTheme)
+// antd 4 menu items used a fixed 22px line
 .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-item,
 .ant-dropdown .ant-dropdown-menu .ant-dropdown-menu-submenu-title,
 .ant-dropdown-menu-submenu .ant-dropdown-menu .ant-dropdown-menu-item,
@@ -132,8 +131,7 @@ body {
     margin-top: 0;
     border-top: 1px solid #f0f0f0;
 }
-// antd 4 centered the close icon in a 54px square in the corner, with no hover background. The square
-// is sized on the inner element as in antd 4, so modals that resize it keep their own placement.
+// antd 4's close icon: a 54px corner square on the inner element, with no hover background
 .ant-modal .ant-modal-close {
     top: 0;
     inset-inline-end: 0;
@@ -167,7 +165,7 @@ body {
 }
 
 // antd 5 has no title-weight token: titles share fontWeightStrong with <strong>, which should stay 600
-// The descendant forms cover headings in markdown rendered inside Typography (e.g. the document editor)
+// The descendant forms cover markdown headings inside Typography, e.g. the editor
 h1.ant-typography,
 h2.ant-typography,
 h3.ant-typography,

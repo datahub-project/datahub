@@ -18,7 +18,6 @@ export const Label = styled.div`
 `;
 
 const StyledButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         color: ${ANTD_GRAY[7]};
         margin: 10px 0 0 30px;

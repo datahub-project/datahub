@@ -49,8 +49,7 @@ export const PaginationContainer = styled.div`
         font-weight: 700;
     }
 
-    /* Matches antd 5's three-class selector, which sets display: block and a 10px font (the carets are
-       1em) */
+    /* Outranks antd 5's display: block and 10px font on the arrow links */
     .ant-pagination .ant-pagination-item-link {
         display: flex;
         align-items: center;

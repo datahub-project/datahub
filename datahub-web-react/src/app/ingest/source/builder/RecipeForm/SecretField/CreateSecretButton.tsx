@@ -10,7 +10,6 @@ import { SecretBuilderState } from '@app/ingestV2/secret/types';
 import { useCreateSecretMutation } from '@graphql/ingestion.generated';
 
 const CreateButton = styled(Button)`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         align-items: center;
         display: flex;

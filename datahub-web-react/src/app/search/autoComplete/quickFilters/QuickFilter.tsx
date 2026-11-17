@@ -10,7 +10,6 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    /* antd 5 styles button variants with two classes; && keeps these overrides ahead */
     && {
         border: 1px solid ${(props) => props.theme.colors.border};
         border-radius: 16px;
