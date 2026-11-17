@@ -29,7 +29,7 @@ source:
 sink:
   type: file
   config:
-    filename: ./path/to/mce/file.json
+    filename: ./path/to/metadata/file.json
 ```
 
 ## Config details

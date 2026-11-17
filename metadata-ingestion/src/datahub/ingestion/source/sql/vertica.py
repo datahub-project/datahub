@@ -355,23 +355,7 @@ class VerticaSource(SQLAlchemySource):
         view: str,
         sql_config: SQLCommonConfig,
     ) -> Iterable[MetadataWorkUnit]:
-        """
-        This function is used for performing operation and gets data for every view inside a schema
-
-        Args:
-            dataset_name (str)
-            inspector (Inspector)
-            schema (str): schema name
-            view (str): name of the view to inspect
-            sql_config (SQLCommonConfig)
-            table_tags (Dict[str, str], optional) Defaults to dict().
-
-        Returns:
-            Iterable[MetadataWorkUnit]
-
-        Yields:
-            Iterator[Iterable[MetadataWorkUnit]]
-        """
+        """Yield the work units for one view in a schema."""
 
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,

@@ -17,6 +17,7 @@ from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform, pre_json_transform
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.run.pipeline import Pipeline
+from datahub.ingestion.sink.file import write_metadata_file
 from datahub.ingestion.source.file import (
     FileSourceConfig,
     GenericFileSource,
@@ -72,23 +73,52 @@ def test_serde_to_json(
     )
 
 
-def test_file_source_converts_mces_to_mcps(pytestconfig: pytest.Config) -> None:
-    json_path = pytestconfig.rootpath / "tests/unit/serde/test_serde_large.json"
+def test_file_source_converts_mces_to_mcps(
+    pytestconfig: pytest.Config, tmp_path: pathlib.Path
+) -> None:
+    serde_dir = pytestconfig.rootpath / "tests/unit/serde"
+    mce_file = tmp_path / "mces.json"
+    shutil.copy(serde_dir / "test_serde_large.json", mce_file)
+    shutil.copy(serde_dir / "test_serde_patch.json", tmp_path / "mcps.json")
     source = GenericFileSource(
         ctx=PipelineContext(run_id="file-source-mce"),
-        config=FileSourceConfig(path=str(json_path)),
+        config=FileSourceConfig(path=str(tmp_path)),
     )
     expected = [
         mcp
-        for mce in read_metadata_file(json_path)
+        for mce in read_metadata_file(mce_file)
         if isinstance(mce, MetadataChangeEventClass)
         for mcp in mcps_from_mce(mce)
     ]
 
     workunits = list(source.get_workunits_internal())
 
-    assert [wu.metadata for wu in workunits] == expected
-    assert len(source.report.warnings) == 1
+    assert [
+        wu.metadata for wu in workunits if wu.id.startswith(str(mce_file))
+    ] == expected
+    # One warning, naming only the file that holds MCEs.
+    assert [list(w.context) for w in source.report.warnings] == [[str(mce_file)]]
+
+
+def test_file_source_reports_mce_without_aspects(tmp_path: pathlib.Path) -> None:
+    json_path = tmp_path / "empty_mce.json"
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=mce_builder.make_dataset_urn("hive", "db.table"), aspects=[]
+                )
+            )
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-empty-mce"),
+        config=FileSourceConfig(path=str(json_path)),
+    )
+
+    assert list(source.get_workunits_internal()) == []
+    assert len(source.report.failures) == 1
 
 
 @pytest.mark.parametrize(
