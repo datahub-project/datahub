@@ -388,7 +388,8 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:child"));
     assertThrows(
         SearchTemplateException.class,
@@ -398,7 +399,8 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
                     null,
                     loader,
                     ForkJoinPool.commonPool(),
-                    SearchTemplateComponentRegistry.empty())
+                    SearchTemplateComponentRegistry.empty(),
+                    SearchTemplateGates.none())
                 .bind(opContext, "customer orders"));
     OperationContext semanticBound =
         semanticCoordinator.bind(opContext, "customer orders", false, List.of("document"));
@@ -451,7 +453,8 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertNotNull(
         coordinator
             .bind(opContext, "customer orders")

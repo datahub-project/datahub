@@ -460,7 +460,8 @@ public final class SearchTemplateWalk {
         template,
         resolved != null && resolved.isDocumentRerank(),
         resolved != null && resolved.isCapabilityScroll(),
-        registry);
+        registry,
+        coordinator == null ? SearchTemplateGates.none() : coordinator.gates());
   }
 
   @Nonnull

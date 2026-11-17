@@ -119,6 +119,7 @@ public final class SearchTemplateChecks {
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
     run(
         true,
         compose(merged),
@@ -136,11 +137,13 @@ public final class SearchTemplateChecks {
   /**
    * The rules over sections a child inherits separately, on one merged template: the {@code knn}
    * shape by the effective combine, similarity with {@code knn} or {@code next}, the native
-   * embedding placeholders, {@code profiles} on a keyword rung, and ranking beside a {@code knn}
-   * that is not keywordRerank. A parent write runs them on each inheriting child.
+   * embedding placeholders, {@code profiles} on a keyword rung, ranking beside a {@code knn} that
+   * is not keywordRerank, and deprecated {@code model} and {@code field} names that disagree. A
+   * parent write runs them on each inheriting child.
    */
   public static void checkInheritedSections(@Nonnull MergedSearchTemplate merged) {
     SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
     SearchTemplateProperties composed = compose(merged);
     if (merged.getProfiles() != null) {
       SearchTemplateProfilesPolicy.check(merged.getProfiles());

@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateLadder;
@@ -39,6 +40,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   private final SearchTemplateRenderer renderer;
   private final ExecutorService ladderExecutor;
   private final SearchTemplateComponentRegistry components;
+  private final SearchTemplateGates gates;
   private final AtomicInteger shadowRenders = new AtomicInteger();
   @Nullable private volatile String lastShadowDsl;
 
@@ -47,11 +49,13 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nullable CustomSearchConfiguration customSearchConfiguration,
       @Nonnull SearchTemplateLoader loader,
       @Nonnull ExecutorService ladderExecutor,
-      @Nonnull SearchTemplateComponentRegistry components) {
+      @Nonnull SearchTemplateComponentRegistry components,
+      @Nonnull SearchTemplateGates gates) {
     this.elasticSearchConfiguration = elasticSearchConfiguration;
     this.loader = loader;
     this.ladderExecutor = ladderExecutor;
     this.components = components;
+    this.gates = gates;
     SearchTemplateConfiguration templates = templates(elasticSearchConfiguration);
     this.selector = new SearchTemplateSelector(templates, loader);
     this.queryBuilder =
@@ -165,6 +169,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   @Nonnull
+  public SearchTemplateGates gates() {
+    return gates;
+  }
+
+  @Nonnull
   public ExecutorService ladderExecutor() {
     return ladderExecutor;
   }
@@ -234,6 +243,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     resolved.setExecutionCapabilities(scroll, documentRerank);
     try {
       noteIdentity(opContext, resolved, scroll, documentRerank);
+      SearchTemplateCapabilities.requireResolvable(
+          loader.load(opContext, resolved.getUrn()),
+          gates,
+          entityNames,
+          EmbeddingProfileRegistry.system(engineType(opContext)));
     } catch (RuntimeException e) {
       SearchTemplateMetrics.renderFailure(opContext, "select");
       throw e;
@@ -274,7 +288,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
     String rejection =
-        SearchTemplateCapabilities.rejectionCode(template, documentRerank, scroll, components);
+        SearchTemplateCapabilities.rejectionCode(
+            template, documentRerank, scroll, components, gates);
     List<SearchTemplateDryRender.CapabilityDecision> capabilities = new ArrayList<>();
     for (String name : template.getCapabilities()) {
       boolean accepted = SearchTemplateCapabilities.SUPPORTED.contains(name);
@@ -385,7 +400,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     MergedSearchTemplate template = loader.load(opContext, urn);
     if (depth == 0) {
-      SearchTemplateCapabilities.requireSupported(template, documentRerank, scroll, components);
+      SearchTemplateCapabilities.requireSupported(
+          template, documentRerank, scroll, components, gates);
     }
     if (depth == 0) {
       classpathBridge[0] = template.isClasspathBridge();

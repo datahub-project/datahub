@@ -172,7 +172,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     store("urn:li:searchTemplate:nativeQuery", nativeQuery);
     MergedSearchTemplate nativeMerged = loader.load(opContext, "urn:li:searchTemplate:nativeQuery");
     SearchTemplateChecks.checkMerged(nativeMerged, 1024);
-    assertEquals(rejection(nativeMerged), "nativeQuery");
+    assertEquals(rejection(nativeMerged), "nativeMixedQuery");
 
     SearchTemplateProperties scorePlaceholder =
         body("Native", "{ \"match_all\": {} }", "{ \"functions\": [ {{&embeddingClausesJson}} ] }");
@@ -187,14 +187,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   @Test
   public void testDeferredSectionsFailClosedAtBind() {
-    assertEquals(rejectionOf("vector", rung(r -> r.setCombine("vector"))), "retrievalCombine");
+    assertEquals(rejectionOf("vector", rung(r -> r.setCombine("vector"))), "vectorRetrieval");
     assertEquals(
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");
     SearchTemplateProperties scoped = body("Scoped", "{ \"match_all\": {} }", null);
     scoped.setApiVersion(2);
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
-    assertEquals(rejectionOf("scoped", scoped), "scope");
+    assertEquals(rejectionOf("scoped", scoped), "entityPartition");
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
     // This release skips the rerank and keeps keyword order, so the selection does not block bind.
     SearchTemplateProperties rerankProfiles =
@@ -206,7 +206,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     SearchTemplateProperties sortPlaceholder = body("Native", "{ \"match_all\": {} }", null);
     sortPlaceholder.setApiVersion(2);
     sortPlaceholder.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]");
-    assertEquals(rejectionOf("sortPlaceholder", sortPlaceholder), "nativeQuery");
+    assertEquals(rejectionOf("sortPlaceholder", sortPlaceholder), "nativeMixedQuery");
     SearchTemplateProperties sortPlaceholderV1 = body("Native", "{ \"match_all\": {} }", null);
     sortPlaceholderV1.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]");
     assertThrows(
@@ -373,14 +373,28 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
                   loader.load(opContext, "urn:li:searchTemplate:" + section + "V2"),
                   true,
                   false,
-                  SearchTemplateComponentRegistry.empty()),
-              "nativeQuery",
+                  SearchTemplateComponentRegistry.empty(),
+                  SearchTemplateGates.none()),
+              "nativeMixedQuery",
               section);
 
           SearchTemplateProperties legacy = body("Native", "{ \"match_all\": {} }", null);
           cite.accept(legacy);
           assertMergedRejects(section + "V1", legacy);
         });
+  }
+
+  @Test
+  public void testDeprecatedModelAndFieldMustNameOneProfileAtWrite() {
+    SearchTemplateProperties split = rung(r -> r.setCombine("keywordRerank"));
+    split.setKnn("{ \"model\": \"a\", \"field\": \"b\" }");
+    assertMergedRejects("splitNames", split);
+
+    SearchTemplateProperties same = rung(r -> r.setCombine("keywordRerank"));
+    same.setKnn("{ \"model\": \"a\", \"field\": \"a\" }");
+    store("urn:li:searchTemplate:sameNames", same);
+    SearchTemplateChecks.checkMerged(
+        loader.load(opContext, "urn:li:searchTemplate:sameNames"), 1024);
   }
 
   @Test
@@ -497,7 +511,12 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration indexV3 = elastic.getEntityIndex().getV3();
     indexV3.setSemanticReadEnabled(semanticRead);
     return new SearchTemplateCoordinator(
-        elastic, null, loader, ForkJoinPool.commonPool(), SearchTemplateComponentRegistry.empty());
+        elastic,
+        null,
+        loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.none());
   }
 
   private void assertMergedRejects(String name, SearchTemplateProperties properties) {
@@ -523,7 +542,11 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   private static String rejection(MergedSearchTemplate template) {
     return SearchTemplateCapabilities.rejectionCode(
-        template, false, false, SearchTemplateComponentRegistry.empty());
+        template,
+        false,
+        false,
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.none());
   }
 
   private static SearchTemplateProperties similarity() {

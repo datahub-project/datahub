@@ -66,7 +66,8 @@ public class SearchTemplateOperationsTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     opContext = opContext.withSearchTemplateRuntime(coordinator);
   }
 
@@ -191,7 +192,8 @@ public class SearchTemplateOperationsTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertFalse(disabled.active());
     assertNull(disabled.bind(opContext, "orders").getSearchContext().getResolvedSearchTemplate());
 
@@ -207,7 +209,8 @@ public class SearchTemplateOperationsTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .active());
     assertTrue(
         new SearchTemplateCoordinator(
@@ -215,7 +218,8 @@ public class SearchTemplateOperationsTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .active());
   }
 

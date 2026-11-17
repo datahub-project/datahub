@@ -25,8 +25,10 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
 import com.linkedin.metadata.search.hybrid.HybridCandidateMerger;
@@ -226,13 +228,34 @@ public class ElasticSearchServiceFactory {
     return new SearchTemplateComponentRegistry(components);
   }
 
+  /**
+   * Embedding profiles the semantic templates resolve. The Document default is the embeddings map
+   * key that semantic search derives from the configured model, so it names the stored vectors.
+   */
+  @Bean
+  protected EmbeddingProfileRegistry embeddingProfileRegistry(
+      final ElasticSearchConfiguration elasticSearchConfiguration) {
+    final SemanticSearchConfiguration semanticSearch =
+        elasticSearchConfiguration.getEntityIndex() == null
+            ? null
+            : elasticSearchConfiguration.getEntityIndex().getSemanticSearch();
+    final String modelId =
+        semanticSearch == null || semanticSearch.getEmbeddingProvider() == null
+            ? null
+            : semanticSearch.getEmbeddingProvider().getModelId();
+    return EmbeddingProfileRegistry.fromSemanticSearch(
+        semanticSearch,
+        SemanticEntitySearchServiceFactory.deriveModelEmbeddingKeyFromModelId(modelId));
+  }
+
   @Bean
   @Nullable
   protected SearchTemplateCoordinator searchTemplateCoordinator(
       final ElasticSearchConfiguration elasticSearchConfiguration,
       @Nullable final CustomSearchConfiguration customSearchConfiguration,
       @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
-      final SearchTemplateComponentRegistry searchTemplateComponentRegistry) {
+      final SearchTemplateComponentRegistry searchTemplateComponentRegistry,
+      final EmbeddingProfileRegistry embeddingProfileRegistry) {
     if (searchTemplateLoader == null) {
       return null;
     }
@@ -243,7 +266,8 @@ public class ElasticSearchServiceFactory {
         customSearchConfiguration,
         searchTemplateLoader,
         searchTemplateLadderExecutor,
-        searchTemplateComponentRegistry);
+        searchTemplateComponentRegistry,
+        SearchTemplateGates.of(embeddingProfileRegistry));
   }
 
   @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")

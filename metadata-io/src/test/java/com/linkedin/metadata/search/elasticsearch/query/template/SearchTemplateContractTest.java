@@ -149,14 +149,22 @@ public class SearchTemplateContractTest {
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                version, false, SearchTemplateComponentRegistry.empty()));
+                version,
+                false,
+                false,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
 
     MergedSearchTemplate capability = merged().capabilities(List.of("merge")).build();
     expectThrows(
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                capability, false, true, SearchTemplateComponentRegistry.empty()));
+                capability,
+                false,
+                true,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
   }
 
   @Test

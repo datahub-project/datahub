@@ -1,0 +1,400 @@
+package com.linkedin.metadata.search.elasticsearch.query.template;
+
+import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
+
+import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
+import com.linkedin.search.template.SearchTemplateProfiles;
+import com.linkedin.search.template.SearchTemplateRetrieval;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Collections;
+import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
+import org.apache.commons.lang3.StringUtils;
+
+/**
+ * Bind-time gates for the semantic template shapes.
+ *
+ * <p>Template level: a shape needs capabilities, and a build that does not advertise one fails the
+ * template closed. keywordRerank is the exception: without {@code documentRerank} the rung keeps
+ * keyword order, so neither the missing capability nor the profile selection only the rerank uses
+ * fails it.
+ *
+ * <p>Entity level: a requested entity type joins the vector leg only when this build runs it for
+ * the resolved profile class, it is in {@code enabledEntities}, and its resolved embedding profile
+ * covers it on this deployment's system. An entity that fails is left out of the vector leg, or
+ * keeps its keyword place under keywordRerank.
+ */
+public final class SearchTemplateGates {
+  public static final String DOCUMENT_RERANK = "documentRerank";
+  public static final String VECTOR_RETRIEVAL = "vectorRetrieval";
+  public static final String SIMILARITY = "similarity";
+  public static final String ENTITY_PARTITION = "entityPartition";
+  public static final String VECTOR_THEN_KEYWORD = "vectorThenKeyword";
+  public static final String VECTOR_FILTER = "vectorFilter";
+  public static final String SEVERAL_PROFILES = "severalProfiles";
+  public static final String VECTOR_BODY = "vectorBody";
+  public static final String NATIVE_MIXED_QUERY = "nativeMixedQuery";
+
+  /** Capability names a shape can require. */
+  public static final Set<String> CAPABILITIES =
+      Set.of(
+          DOCUMENT_RERANK,
+          VECTOR_RETRIEVAL,
+          SIMILARITY,
+          ENTITY_PARTITION,
+          VECTOR_THEN_KEYWORD,
+          VECTOR_FILTER,
+          SEVERAL_PROFILES,
+          VECTOR_BODY,
+          NATIVE_MIXED_QUERY);
+
+  /**
+   * Capabilities this build runs. The pull request that executes a shape advertises its name, so a
+   * build never binds a shape it cannot run.
+   */
+  public static final Set<String> ADVERTISED = Set.of();
+
+  /** Entity types this build runs for each embedding profile class. */
+  public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
+      Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of(DOCUMENT_ENTITY_NAME));
+
+  /** A keyword rung selects profiles it never queries. */
+  public static final String KEYWORD_PROFILES = "profiles";
+
+  /** A named profile does not cover every scoped entity type. */
+  public static final String PROFILE_SCOPE = "profileScope";
+
+  /** {@code minSimilarity} is a raw cosine floor and a resolved profile is not cosine. */
+  public static final String MIN_SIMILARITY = "minSimilarity";
+
+  /** This build does not run the entity type for the resolved profile class. */
+  public static final String ENTITY_NOT_ADVERTISED = "entityNotAdvertised";
+
+  /** The entity type is not in {@code semanticSearch.enabledEntities}. */
+  public static final String ENTITY_NOT_ENABLED = "entityNotEnabled";
+
+  private static final ObjectMapper JSON = new ObjectMapper();
+
+  private final EmbeddingProfileRegistry profiles;
+  private final Set<String> advertised;
+  private final Map<String, Set<String>> advertisedEntityTypes;
+
+  public SearchTemplateGates(
+      @Nonnull EmbeddingProfileRegistry profiles,
+      @Nonnull Set<String> advertised,
+      @Nonnull Map<String, Set<String>> advertisedEntityTypes) {
+    for (String name : advertised) {
+      if (!CAPABILITIES.contains(name)) {
+        throw new IllegalArgumentException("Unknown search template capability " + name);
+      }
+    }
+    this.profiles = profiles;
+    this.advertised = Set.copyOf(advertised);
+    this.advertisedEntityTypes = Map.copyOf(advertisedEntityTypes);
+  }
+
+  /** This build's gates over the deployment's registry. */
+  @Nonnull
+  public static SearchTemplateGates of(@Nonnull EmbeddingProfileRegistry profiles) {
+    return new SearchTemplateGates(profiles, ADVERTISED, ADVERTISED_ENTITY_TYPES);
+  }
+
+  /** This build's gates with no registered profile. */
+  @Nonnull
+  public static SearchTemplateGates none() {
+    return of(EmbeddingProfileRegistry.empty());
+  }
+
+  @Nonnull
+  public EmbeddingProfileRegistry profiles() {
+    return profiles;
+  }
+
+  public boolean advertises(@Nonnull String capability) {
+    return advertised.contains(capability);
+  }
+
+  /** Capabilities the merged template's shape needs. */
+  @Nonnull
+  public static Set<String> required(@Nonnull MergedSearchTemplate template) {
+    Set<String> needs = new LinkedHashSet<>();
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    if (combine != null) {
+      needs.add(
+          switch (combine) {
+            case SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK -> DOCUMENT_RERANK;
+            case SearchTemplateCapabilities.COMBINE_VECTOR -> VECTOR_RETRIEVAL;
+            case VECTOR_THEN_KEYWORD -> VECTOR_THEN_KEYWORD;
+            case VECTOR_FILTER -> VECTOR_FILTER;
+            // Write rejects any other value; a stored one still fails closed under its own name.
+            default -> combine;
+          });
+    }
+    if (retrieval != null
+        && SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(
+            retrieval.getQuerySource())) {
+      needs.add(SIMILARITY);
+    }
+    if (template.getScope() != null) {
+      needs.add(ENTITY_PARTITION);
+    }
+    if (retrieval != null && StringUtils.isNotBlank(retrieval.getVectorBody())) {
+      needs.add(VECTOR_BODY);
+    }
+    if (SearchTemplateCapabilities.citesEmbeddingPlaceholders(template)) {
+      needs.add(NATIVE_MIXED_QUERY);
+    }
+    if ((retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore()))
+        || replaceSize(template.getProfiles()) > 1) {
+      needs.add(SEVERAL_PROFILES);
+    }
+    return needs;
+  }
+
+  /**
+   * Bounded reason the template fails closed in this build, from its shape alone, or null: a
+   * required capability this build does not advertise, a keyword rung that selects profiles, or a
+   * named profile that does not cover every scoped entity type.
+   */
+  @Nullable
+  public String rejectionCode(@Nonnull MergedSearchTemplate template) {
+    Set<String> needs = required(template);
+    if (needs.contains(DOCUMENT_RERANK) && !advertises(DOCUMENT_RERANK)) {
+      // keywordRerank keeps keyword order when this build cannot rerank, and only the rerank uses
+      // the profile selection, so neither fails the search.
+      needs.remove(DOCUMENT_RERANK);
+      needs.remove(SEVERAL_PROFILES);
+    }
+    for (String need : needs) {
+      if (!advertises(need)) {
+        return need;
+      }
+    }
+    // A keyword rung has no vector leg. A native mixed query is not a keyword rung: its
+    // placeholders use the selection.
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (SearchTemplateCapabilities.combine(retrieval) == null
+        && !needs.contains(NATIVE_MIXED_QUERY)
+        && (template.getProfiles() != null
+            || (retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore())))) {
+      return KEYWORD_PROFILES;
+    }
+    return scopeRejection(template);
+  }
+
+  /**
+   * Template failure that depends on the requested entity types, or null: their resolved profiles
+   * name more than one profile, or {@code minSimilarity} meets a profile that is not cosine. Only a
+   * vector leg this build runs is checked, and an entity that fails coverage is left out here and
+   * reported by {@link #entityGates}.
+   */
+  @Nullable
+  public String bindingRejection(
+      @Nonnull MergedSearchTemplate template,
+      @Nullable Collection<String> entityTypes,
+      @Nullable String system) {
+    if (entityTypes == null || !runsVectorLeg(template)) {
+      return null;
+    }
+    SearchTemplateProfiles selection = selection(template);
+    Set<String> resolved = new LinkedHashSet<>();
+    for (String entityType : members(template, entityTypes)) {
+      resolved.addAll(profiles.resolve(selection, entityType, system).profileIds());
+    }
+    if (resolved.size() > 1 && !advertises(SEVERAL_PROFILES)) {
+      return SEVERAL_PROFILES;
+    }
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null && retrieval.hasMinSimilarity()) {
+      for (String id : resolved) {
+        EmbeddingProfile profile = profiles.profile(id);
+        if (profile != null && !profile.cosine()) {
+          return MIN_SIMILARITY;
+        }
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Entity-level gate for each requested type the template covers, in request order: null when the
+   * entity joins the vector leg, else the bounded reason it is left out.
+   */
+  @Nonnull
+  public Map<String, String> entityGates(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Collection<String> entityTypes,
+      @Nullable String system,
+      @Nullable SemanticSearchConfiguration semanticSearch) {
+    SearchTemplateProfiles selection = selection(template);
+    Map<String, String> gates = new LinkedHashMap<>();
+    for (String entityType : members(template, entityTypes)) {
+      EmbeddingProfileRegistry.Resolution resolution =
+          profiles.resolve(selection, entityType, system);
+      String reason = null;
+      if (!resolution.covered()) {
+        reason = resolution.failure();
+      } else if (!advertisedFor(resolution.profileIds(), entityType)) {
+        reason = ENTITY_NOT_ADVERTISED;
+      } else if (!SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
+        reason = ENTITY_NOT_ENABLED;
+      }
+      gates.put(entityType, reason);
+    }
+    return Collections.unmodifiableMap(gates);
+  }
+
+  /**
+   * The profiles selection the vector leg resolves. {@code profiles} wins. Otherwise a semantic
+   * shape that names an embedding through the deprecated {@code model} or {@code field} selects
+   * that id, with no alias. A legacy knn with no combine keeps its field as opaque syntax and
+   * resolves to the entity default.
+   */
+  @Nullable
+  static SearchTemplateProfiles selection(@Nonnull MergedSearchTemplate template) {
+    if (template.getProfiles() != null) {
+      return template.getProfiles();
+    }
+    String named = legacyProfileId(template);
+    return named == null
+        ? null
+        : new SearchTemplateProfiles().setReplace(new StringArray(List.of(named)));
+  }
+
+  /**
+   * The profile id a semantic shape names through the deprecated {@code knn} or {@code retrieval}
+   * {@code model} and {@code field}, or null. Rejects names that disagree.
+   */
+  @Nullable
+  public static String legacyProfileId(@Nonnull MergedSearchTemplate template) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    if (combine == null) {
+      return null;
+    }
+    Set<String> names = new LinkedHashSet<>();
+    addName(names, retrieval.getModel());
+    addName(names, retrieval.getField());
+    if (SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine)) {
+      JsonNode knn = readKnn(template.getKnn());
+      if (knn != null) {
+        addName(names, knn.path("model").isTextual() ? knn.path("model").asText() : null);
+        addName(names, knn.path("field").isTextual() ? knn.path("field").asText() : null);
+      }
+    }
+    if (names.size() > 1) {
+      throw new SearchTemplateException(
+          "Search template model and field name different embedding profiles: " + names);
+    }
+    return names.isEmpty() ? null : names.iterator().next();
+  }
+
+  private boolean runsVectorLeg(@Nonnull MergedSearchTemplate template) {
+    if (SearchTemplateCapabilities.combine(template.getRetrieval()) == null) {
+      return false;
+    }
+    for (String need : required(template)) {
+      if (!advertises(need)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Nullable
+  private String scopeRejection(@Nonnull MergedSearchTemplate template) {
+    if (template.getScope() == null || template.getScope().getEntityTypes() == null) {
+      return null;
+    }
+    for (String id : named(selection(template))) {
+      EmbeddingProfile profile = profiles.profile(id);
+      for (String entityType : template.getScope().getEntityTypes()) {
+        if (profile == null || !profile.covers(entityType)) {
+          return PROFILE_SCOPE;
+        }
+      }
+    }
+    return null;
+  }
+
+  private boolean advertisedFor(@Nonnull List<String> profileIds, @Nonnull String entityType) {
+    for (String id : profileIds) {
+      EmbeddingProfile profile = profiles.profile(id);
+      Set<String> types =
+          profile == null ? null : advertisedEntityTypes.get(profile.profileClass());
+      if (types == null || !types.contains(entityType)) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  @Nonnull
+  private static List<String> members(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    if (template.getScope() == null || template.getScope().getEntityTypes() == null) {
+      return List.copyOf(new LinkedHashSet<>(entityTypes));
+    }
+    List<String> members = new ArrayList<>();
+    for (String entityType : new LinkedHashSet<>(entityTypes)) {
+      if (template.getScope().getEntityTypes().contains(entityType)) {
+        members.add(entityType);
+      }
+    }
+    return members;
+  }
+
+  @Nonnull
+  private static Set<String> named(@Nullable SearchTemplateProfiles selection) {
+    Set<String> ids = new LinkedHashSet<>();
+    if (selection == null) {
+      return ids;
+    }
+    if (selection.hasReplace() && selection.getReplace() != null) {
+      ids.addAll(selection.getReplace());
+    }
+    if (selection.hasAdd() && selection.getAdd() != null) {
+      ids.addAll(selection.getAdd());
+    }
+    return ids;
+  }
+
+  private static int replaceSize(@Nullable SearchTemplateProfiles profiles) {
+    return profiles != null && profiles.hasReplace() && profiles.getReplace() != null
+        ? profiles.getReplace().size()
+        : 0;
+  }
+
+  private static void addName(@Nonnull Set<String> names, @Nullable String name) {
+    if (StringUtils.isNotBlank(name)) {
+      names.add(name);
+    }
+  }
+
+  // A knn section that still holds Mustache tags is not JSON before rendering; it names no id.
+  @Nullable
+  private static JsonNode readKnn(@Nullable String knn) {
+    if (knn == null || knn.isBlank()) {
+      return null;
+    }
+    try {
+      JsonNode node = JSON.readTree(knn);
+      return node != null && node.isObject() ? node : null;
+    } catch (Exception e) {
+      return null;
+    }
+  }
+}
