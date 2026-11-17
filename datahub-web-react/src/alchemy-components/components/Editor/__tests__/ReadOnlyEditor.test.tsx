@@ -321,6 +321,13 @@ describe('read-only task lists', () => {
         expect(done.disabled).toBe(true);
     });
 
+    it('keeps an expanded details section open', () => {
+        const markup = '<details open=""><summary>More</summary><p>Body</p></details>';
+        const { container } = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
+
+        expect(container.querySelector('details')?.open).toBe(true);
+    });
+
     it('updates a checkbox when the content changes without remounting', () => {
         const { rerender } = render(
             <ThemeProvider theme={themeV2}>

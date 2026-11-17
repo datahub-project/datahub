@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react';
+import { fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { MemoryRouter } from 'react-router-dom';
 import { ThemeProvider } from 'styled-components';
@@ -106,6 +106,17 @@ describe('MentionView', () => {
         renderNode({ loading: false, data: ALICE }, { readOnly: true });
 
         expect(screen.getByRole('link')).toHaveAttribute('href', '/user/urn:li:corpuser:alice');
+    });
+
+    it('does not pass a read-only chip click to a clickable host', () => {
+        const onHostClick = vi.fn();
+        document.body.addEventListener('click', onHostClick);
+        renderNode({ loading: false, data: ALICE }, { readOnly: true });
+
+        fireEvent.click(screen.getByRole('link'));
+
+        document.body.removeEventListener('click', onHostClick);
+        expect(onHostClick).not.toHaveBeenCalled();
     });
 
     it('does not link a chip inside the editor', () => {

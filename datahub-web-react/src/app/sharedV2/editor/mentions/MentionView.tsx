@@ -56,6 +56,10 @@ const InvalidEntityText = styled.span`
     color: ${(props) => props.theme.colors.textDisabled};
 `;
 
+function stopPropagation(event: React.MouseEvent) {
+    event.stopPropagation();
+}
+
 /**
  * The chip query carries only the name and icon fields, so the hover card fetches the full entity
  * when it opens. Until that arrives it shows what the chip already has.
@@ -123,11 +127,18 @@ export const MentionView = ({ urn, name, readOnly }: EditorMentionViewProps) => 
         />
     );
 
-    // In the editor a click places the cursor, so only read-only chips navigate.
+    // In the editor a click places the cursor, so only read-only chips navigate. Read-only content
+    // can sit inside a clickable host (a table row, a card), so the click stops at the chip.
     return (
         <HoverEntityTooltip entity={entity} card={<MentionHoverCard entity={entity} />}>
             <ChipWrap>
-                {readOnly ? <Link to={registry.getEntityUrl(entity.type, entity.urn)}>{chip}</Link> : chip}
+                {readOnly ? (
+                    <Link to={registry.getEntityUrl(entity.type, entity.urn)} onClick={stopPropagation}>
+                        {chip}
+                    </Link>
+                ) : (
+                    chip
+                )}
             </ChipWrap>
         </HoverEntityTooltip>
     );

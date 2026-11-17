@@ -35,10 +35,12 @@ const VOID_TAGS = new Set([
 ]);
 
 // HTML boolean attributes are present with an empty value (`disabled=""`). React reads an empty
-// string as false, so they are passed as booleans.
+// string as false, so the ones read-only markdown can produce are passed as booleans: task-list
+// checkboxes (`disabled`, `readonly`) and expanded `<details>` sections (`open`).
 const REACT_BOOLEAN_ATTR_NAMES: Record<string, string> = {
     disabled: 'disabled',
     readonly: 'readOnly',
+    open: 'open',
 };
 
 const CHECKABLE_INPUT_TYPES = new Set(['checkbox', 'radio']);
@@ -221,7 +223,7 @@ function elementAttributes(element: HTMLElement): Record<string, unknown> {
     Array.from(element.attributes).forEach((attr) => {
         const name = urlAttributeName(attr);
         if (name.startsWith('on') || name === 'style') return;
-        if (name in REACT_BOOLEAN_ATTR_NAMES) {
+        if (Object.hasOwn(REACT_BOOLEAN_ATTR_NAMES, name)) {
             props[REACT_BOOLEAN_ATTR_NAMES[name]] = true;
             return;
         }
