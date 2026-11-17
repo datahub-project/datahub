@@ -576,6 +576,20 @@ def test_duplicate_pages_across_listings_are_emitted_once() -> None:
     assert len(infos) == 1
 
 
+def test_folder_discovery_failure_does_not_block_page_ingestion() -> None:
+    source = make_source()
+    serve_space(as_mock(source.confluence_client), [make_page("1")])
+
+    with patch(
+        "datahub.ingestion.source.confluence.source.collect_folder_nodes",
+        side_effect=Exception("ancestry parse failed"),
+    ):
+        infos = document_infos(source.get_workunits_internal())
+
+    assert len(infos) == 1
+    assert source.report.folders_failed == 1
+
+
 def test_folder_emission_failure_does_not_block_page_ingestion() -> None:
     folder = {"id": "f1", "type": "folder", "title": "Folder"}
     source = make_source()

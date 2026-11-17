@@ -113,7 +113,12 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
 
         folders: Dict[str, FolderNode] = {}
         if self.config.ingest_folders:
-            folders = collect_folder_nodes(pages)
+            try:
+                folders = collect_folder_nodes(pages)
+            except Exception as e:
+                # Folders only reconstruct the hierarchy; failing to find them
+                # must not stop the pages from being ingested.
+                self.report.report_folder_failed("<discovery>", str(e))
             ingested_ids |= set(folders)
 
         # Folders first, so the parents exist before the pages that reference them.
