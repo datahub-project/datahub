@@ -2,7 +2,7 @@ package com.linkedin.metadata.kafka.boot;
 
 import static org.testng.Assert.assertNull;
 
-import com.linkedin.gms.factory.policycache.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeReceiver;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
 import com.linkedin.metadata.entity.EntityServiceImpl;
@@ -53,9 +53,9 @@ public class MceConsumerBootTest {
   }
 
   /**
-   * POLICY_CACHE_BROADCAST_ENABLED is set on the MCE consumer too, so it sends the policy changes
-   * it commits. It does not scan the GMS-only policy cache package, so it starts no policy change
-   * listener and registers no policy write observer; its own Rest.li endpoints keep the timer.
+   * Deployments may set POLICY_CACHE_BROADCAST_ENABLED in an env file shared with the MCE consumer.
+   * It does not scan the GMS-only policy cache package, so it starts no policy change receiver and
+   * registers no policy write observer: the writes it commits reach GMS on the refresh timer.
    */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
@@ -68,7 +68,7 @@ public class MceConsumerBootTest {
             .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
             .start()) {
       contract(Messaging.KAFKA).verify(ctx);
-      assertNull(ctx.getBeanProvider(PolicyChangeListener.class).getIfAvailable());
+      assertNull(ctx.getBeanProvider(PolicyChangeReceiver.class).getIfAvailable());
       assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
     }
   }

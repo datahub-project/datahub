@@ -7,7 +7,7 @@ import com.datahub.auth.authentication.AuthServiceController;
 import com.datahub.authorization.AuthorizerChain;
 import com.datahub.graphql.GraphQLController;
 import com.linkedin.gms.GMSApplication;
-import com.linkedin.gms.factory.policycache.PolicyChangeListener;
+import com.linkedin.gms.factory.policycache.PolicyChangeReceiver;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.servlet.AuthServletConfig;
 import com.linkedin.gms.servlet.GraphQLServletConfig;
@@ -65,8 +65,8 @@ public class GmsBootTest {
   }
 
   /**
-   * POLICY_CACHE_BROADCAST_ENABLED starts the policy change listener in GMS, and registers the
-   * policy write observer.
+   * POLICY_CACHE_BROADCAST_ENABLED starts the policy change receiver on the Hazelcast member of
+   * GMS, and registers the policy write observer.
    */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
@@ -80,7 +80,7 @@ public class GmsBootTest {
             .property("POLICY_CACHE_BROADCAST_ENABLED", "true")
             .start()) {
       contract(Messaging.KAFKA).verify(ctx);
-      assertTrue(ctx.getBean("policyChangeListener") instanceof PolicyChangeListener);
+      assertTrue(ctx.getBean("policyChangeReceiver") instanceof PolicyChangeReceiver);
       assertNotNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
     }
   }

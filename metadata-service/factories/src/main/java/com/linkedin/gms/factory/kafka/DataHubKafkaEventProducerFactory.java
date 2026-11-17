@@ -43,8 +43,6 @@ public class DataHubKafkaEventProducerFactory {
     if (configurationProvider.getDatahub().isReadOnly()) {
       kafkaEventProducer.setWritable(false);
     }
-    PolicyChangeTopic.enabledTopicName(configurationProvider)
-        .ifPresent(kafkaEventProducer::setPolicyChangeTopicName);
 
     return kafkaEventProducer;
   }

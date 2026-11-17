@@ -12,6 +12,7 @@ import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.PolicyChangeObserver;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.datahubproject.test.wiring.WiringCoverage;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
@@ -29,6 +30,8 @@ public class PolicyChangeObserverFactoryTest {
   private static DataHubAuthorizer authorizer(boolean immediateUpdate) {
     DataHubAuthorizer authorizer = mock(DataHubAuthorizer.class);
     when(authorizer.isImmediateUpdateEnabled()).thenReturn(immediateUpdate);
+    when(authorizer.getSystemOpContext())
+        .thenReturn(TestOperationContexts.systemContextNoSearchAuthorization());
     return authorizer;
   }
 
@@ -58,7 +61,8 @@ public class PolicyChangeObserverFactoryTest {
 
     assertNull(
         new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(authorizer(false)), provider(service), 5000L));
+            .policyChangeObserver(
+                provider(authorizer(false)), provider(service), provider(null), 5000L, false));
 
     verify(service, never()).setPolicyChangeObserver(any());
   }
@@ -70,7 +74,7 @@ public class PolicyChangeObserverFactoryTest {
 
     assertNull(
         new PolicyChangeObserverFactory()
-            .policyChangeObserver(provider(null), provider(service), 5000L));
+            .policyChangeObserver(provider(null), provider(service), provider(null), 5000L, false));
 
     verify(service, never()).setPolicyChangeObserver(any());
   }
@@ -82,8 +86,25 @@ public class PolicyChangeObserverFactoryTest {
     assertNull(
         new PolicyChangeObserverFactory()
             .policyChangeObserver(
-                provider(authorizer), provider(mock(EntityService.class)), 5000L));
+                provider(authorizer),
+                provider(mock(EntityService.class)),
+                provider(null),
+                5000L,
+                false));
 
     verify(authorizer, never()).setPolicyWritesObserved(true);
+  }
+
+  @Test
+  public void testBroadcastWithoutHazelcastStillUpdatesTheLocalCache() {
+    DataHubAuthorizer authorizer = authorizer(true);
+    EntityServiceImpl service = mock(EntityServiceImpl.class);
+
+    assertNotNull(
+        new PolicyChangeObserverFactory()
+            .policyChangeObserver(
+                provider(authorizer), provider(service), provider(null), 5000L, true));
+
+    verify(service).setPolicyChangeObserver(any());
   }
 }

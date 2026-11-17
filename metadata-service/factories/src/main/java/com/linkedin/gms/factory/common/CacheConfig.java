@@ -1,6 +1,7 @@
 package com.linkedin.gms.factory.common;
 
 import com.datahub.authentication.token.TokenRevocationMap;
+import com.datahub.authorization.PolicyChangeMap;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.EvictionConfig;
@@ -224,6 +225,14 @@ public class CacheConfig {
   @Conditional(HazelcastInstanceBootstrapCondition.class)
   public MapConfig accessTokenRevocationMapConfig() {
     return TokenRevocationMap.mapConfig();
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig policyChangeMapConfig(
+      @Value("${authorization.defaultAuthorizer.immediateUpdate.recentChangeWindowSeconds:600}")
+          int recentChangeWindowSeconds) {
+    return PolicyChangeMap.mapConfig(recentChangeWindowSeconds);
   }
 
   @Bean

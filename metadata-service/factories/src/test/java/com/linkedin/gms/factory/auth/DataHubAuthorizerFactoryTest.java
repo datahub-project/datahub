@@ -33,7 +33,6 @@ public class DataHubAuthorizerFactoryTest {
     ReflectionTestUtils.setField(factory, "immediateUpdateEnabled", immediateUpdate);
     ReflectionTestUtils.setField(factory, "recentChangeWindowSeconds", 600L);
     ReflectionTestUtils.setField(factory, "changeBroadcastEnabled", broadcast);
-    ReflectionTestUtils.setField(factory, "messagingTransport", "kafka");
     // An empty search result, so the startup load succeeds at once.
     client = mock(SystemEntityClient.class);
     try {
