@@ -1,11 +1,10 @@
-import { Avatar, Pagination, Pill, SearchBar, Table, Text, Tooltip } from '@components';
+import { Avatar, Pagination, Pill, SearchBar, Table, Text, Tooltip, toast } from '@components';
 import * as QueryString from 'query-string';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import AvatarStackWithHover from '@components/components/AvatarStack/AvatarStackWithHover';
 import { AvatarItemProps } from '@components/components/AvatarStack/types';
 
 import DataAccessRoleDetailsModal from '@app/permissions/dataAccessRoles/DataAccessRoleDetailsModal';
@@ -14,8 +13,8 @@ import {
     getDataAccessRoleGroupAvatars,
     getDataAccessRoleUserAvatars,
 } from '@app/permissions/dataAccessRoles/dataAccessRoles.utils';
-import { DEBOUNCE_SEARCH_MS } from '@app/shared/constants';
-import { ToastType, showToastMessage } from '@app/sharedV2/toastMessageUtils';
+import AvatarStackWithHover from '@app/sharedV2/avatar/AvatarStackWithHover';
+import { DEBOUNCE_SEARCH_MS } from '@app/sharedV2/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useListDataAccessRolesQuery } from '@graphql/dataAccessRole.generated';
@@ -90,6 +89,12 @@ export const ManageDataAccessRoles = () => {
         },
         fetchPolicy: (query?.length || 0) > 0 ? 'no-cache' : 'cache-first',
     });
+
+    useEffect(() => {
+        if (error) {
+            toast.error(t('dataAccessRoles.loadError'), { duration: 3, key: 'manage-data-access-roles-load-error' });
+        }
+    }, [error, t]);
 
     const totalRoles = data?.search?.total || 0;
     const roles = useMemo(
@@ -179,7 +184,6 @@ export const ManageDataAccessRoles = () => {
 
     return (
         <PageContainer>
-            {error && showToastMessage(ToastType.ERROR, t('dataAccessRoles.loadError'), 3)}
             <SearchBar
                 placeholder={t('dataAccessRoles.searchPlaceholder')}
                 value={query || ''}

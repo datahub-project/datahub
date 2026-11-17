@@ -4,7 +4,6 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { mapAvatarTypeToEntityType } from '@components/components/Avatar/utils';
 import { AvatarItemProps } from '@components/components/AvatarStack/types';
 
 import {
@@ -12,8 +11,9 @@ import {
     getDataAccessRoleGroupAvatars,
     getDataAccessRoleUserAvatars,
 } from '@app/permissions/dataAccessRoles/dataAccessRoles.utils';
-import { safeUrl } from '@app/shared/urlUtils';
+import { mapAvatarTypeToEntityType } from '@app/sharedV2/avatar/avatar.utils';
 import { useEntityRegistry } from '@app/useEntityRegistry';
+import { safeUrl } from '@utils/urlUtils';
 
 type Props = {
     role?: DataAccessRole;

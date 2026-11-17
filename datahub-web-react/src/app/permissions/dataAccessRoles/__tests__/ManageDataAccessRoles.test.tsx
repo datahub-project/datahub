@@ -7,11 +7,11 @@ import { ManageDataAccessRoles } from '@app/permissions/dataAccessRoles/ManageDa
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 const mockUseListDataAccessRolesQuery = vi.hoisted(() => vi.fn());
-const mockShowToastMessage = vi.hoisted(() => vi.fn());
+const mockToastError = vi.hoisted(() => vi.fn());
 
-vi.mock('@app/sharedV2/toastMessageUtils', async (importOriginal) => {
-    const actual = await importOriginal<typeof import('@app/sharedV2/toastMessageUtils')>();
-    return { ...actual, showToastMessage: mockShowToastMessage };
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return { ...actual, toast: { ...actual.toast, error: mockToastError } };
 });
 
 vi.mock('@graphql/dataAccessRole.generated', async (importOriginal) => {
@@ -73,7 +73,7 @@ function renderPage() {
 describe('ManageDataAccessRoles', () => {
     beforeEach(() => {
         mockUseListDataAccessRolesQuery.mockReset();
-        mockShowToastMessage.mockReset();
+        mockToastError.mockReset();
     });
 
     it('renders the role, access type, and provisioned actors', () => {
@@ -130,7 +130,7 @@ describe('ManageDataAccessRoles', () => {
 
         renderPage();
 
-        expect(mockShowToastMessage).toHaveBeenCalled();
+        expect(mockToastError).toHaveBeenCalled();
         expect(screen.queryByText('No data access roles!')).not.toBeInTheDocument();
     });
 
