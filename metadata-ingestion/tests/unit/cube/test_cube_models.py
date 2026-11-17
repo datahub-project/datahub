@@ -1,4 +1,5 @@
 import logging
+from typing import Dict, Optional
 
 import pytest
 
@@ -355,6 +356,24 @@ def test_core_cube_captures_structural_metadata_and_visibility() -> None:
     # `public: false` / `isVisible: false` mark members hidden.
     assert measure.is_hidden is True
     assert entity.dimensions[0].is_hidden is True
+
+
+# The Metadata API keys a join by "cube", not "name", and can omit "sql" when a
+# data access policy governs either cube.
+@pytest.mark.parametrize("sql", ["${CUBE}.customer_id = ${customers}.id", None])
+def test_from_cloud_entity_parses_join_keyed_by_cube(sql: Optional[str]) -> None:
+    join: Dict[str, str] = {"cube": "customers", "relationship": "many_to_one"}
+    if sql is not None:
+        join["sql"] = sql
+    entity = CloudEntity.model_validate(
+        {"type": "cube", "name": "orders", "joins": [join]}
+    )
+
+    normalized = CubeEntity.from_cloud_entity(entity)
+
+    assert [(j.name, j.relationship, j.sql) for j in normalized.joins] == [
+        ("customers", "many_to_one", sql)
+    ]
 
 
 def test_hidden_cube_flag() -> None:
