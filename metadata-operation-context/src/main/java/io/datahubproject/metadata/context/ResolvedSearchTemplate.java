@@ -29,6 +29,12 @@ public class ResolvedSearchTemplate {
    */
   @Nullable private String templateRerank;
 
+  /**
+   * True when the served rung's own sort ordered the request, so its window is not in relevance
+   * order. Not part of the result-cache identity.
+   */
+  private boolean templateSortApplied;
+
   /** Templates visited by the route walk. Not part of the result-cache identity. */
   @Nonnull private final List<String> routeChain = new ArrayList<>();
 
@@ -87,6 +93,10 @@ public class ResolvedSearchTemplate {
 
   public void setTemplateRerank(@Nullable String servedUrn) {
     this.templateRerank = servedUrn;
+  }
+
+  public void setTemplateSortApplied(boolean applied) {
+    this.templateSortApplied = applied;
   }
 
   public void setExecutionCapabilities(

@@ -546,7 +546,7 @@ public class ESSearchDAOHybridTest {
             reranker);
 
     // Through the template executor, which records the served rung for every sort
-    SearchResult sorted = search(dao, searching, RERANK_URN, byName);
+    SearchResult sorted = search(dao, searching, RERANK_URN, "revenue", byName);
 
     KeywordRerankExplanation explanation = sorted.getMetadata().getKeywordRerank();
     assertEquals(explanation.getReason(), SearchTemplateKeywordRerank.NOT_APPLICABLE);
@@ -559,7 +559,7 @@ public class ESSearchDAOHybridTest {
   @Test
   public void testPinnedKeywordRerankRungReranksThroughSearch() throws IOException {
     SearchResult result =
-        searchRung(fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"), null);
+        searchRung(fulltext("{ \"vectorWeight\": 0.3, \"blendFloor\": 0.6 }"), "revenue", null);
 
     // The search fetched the 100-row window; the mocked rerank reverses it, and the page is sliced
     assertEquals(rowIds(result), range(99, 89));
@@ -579,7 +579,7 @@ public class ESSearchDAOHybridTest {
     sorted.setSort("[ { \"name\": \"asc\" } ]");
 
     // With no sort in the request, the engine orders the window by the rung's sort
-    SearchResult unsorted = searchRung(sorted, null);
+    SearchResult unsorted = searchRung(sorted, "revenue", null);
     assertEquals(rowIds(unsorted), range(0, 10));
     assertEquals(
         unsorted.getMetadata().getKeywordRerank().getReason(),
@@ -587,7 +587,30 @@ public class ESSearchDAOHybridTest {
     // A request sorted by score replaces the rung's sort, so its window is reranked
     List<SortCriterion> byScore =
         List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
-    assertEquals(rowIds(searchRung(sorted, byScore)), range(99, 89));
+    assertEquals(rowIds(searchRung(sorted, "revenue", byScore)), range(99, 89));
+    rerankPlans(1);
+  }
+
+  @Test
+  public void testRungSortThatRendersEmptyForTheQueryStillReranks() throws IOException {
+    SearchTemplateProperties conditional = fulltext(null);
+    conditional.setApiVersion(2);
+    conditional.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    // Sorts by name only for a query of four or more words
+    conditional.setSort("[{{#longQuery}}{\"name\":\"asc\"}{{/longQuery}}]");
+
+    // A short query renders an empty sort, so the engine keeps score order and the window is
+    // reranked
+    SearchResult scored = searchRung(conditional, "revenue", null);
+    assertEquals(rowIds(scored), range(99, 89));
+    assertEquals(
+        scored.getMetadata().getKeywordRerank().getOutcome(), SearchTemplateKeywordRerank.APPLIED);
+    // A long query renders the name sort, which orders the window, so the rerank does not apply
+    SearchResult sorted = searchRung(conditional, "monthly revenue by region", null);
+    assertEquals(rowIds(sorted), range(0, 10));
+    assertEquals(
+        sorted.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
     rerankPlans(1);
   }
 
@@ -783,9 +806,9 @@ public class ESSearchDAOHybridTest {
                 new Sha256UrnEntityDocumentIdHasher(),
                 hybrid);
         if (expected == null) {
-          expected = search(dao, searching, keywordOnly, byScore);
+          expected = search(dao, searching, keywordOnly, "revenue", byScore);
         }
-        SearchResult served = search(dao, searching, keywordRerank, byScore);
+        SearchResult served = search(dao, searching, keywordRerank, "revenue", byScore);
         // The mocked engine ignores size. Hybrid read on fetches the window and slices the page.
         int page = served.getEntities().size();
         assertEquals(page, hybrid == null ? 100 : 10);
@@ -802,17 +825,22 @@ public class ESSearchDAOHybridTest {
   }
 
   private static SearchResult search(
-      ESSearchDAO dao, OperationContext searching, String template, List<SortCriterion> sort) {
+      ESSearchDAO dao,
+      OperationContext searching,
+      String template,
+      String query,
+      List<SortCriterion> sort) {
     OperationContext pinned =
         searching.withSearchFlags(flags -> flags.setSearchTemplate(UrnUtils.getUrn(template)));
-    return dao.search(pinned, ENTITY_NAMES, "revenue", null, sort, 0, 10, List.of());
+    return dao.search(pinned, ENTITY_NAMES, query, null, sort, 0, 10, List.of());
   }
 
   /**
-   * The first page of a search through the template executor with {@code template} pinned, on an
-   * OpenSearch build that reranks Document rows, with explain on.
+   * The first page of a search for {@code query} through the template executor with {@code
+   * template} pinned, on an OpenSearch build that reranks Document rows, with explain on.
    */
-  private SearchResult searchRung(SearchTemplateProperties template, List<SortCriterion> sort)
+  private SearchResult searchRung(
+      SearchTemplateProperties template, String query, List<SortCriterion> sort)
       throws IOException {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();
@@ -837,7 +865,7 @@ public class ESSearchDAOHybridTest {
         TestOperationContexts.withFixedSearchClient(harness.opContext, client)
             .withSearchTemplateRuntime(documentRerankCoordinator(harness))
             .withSearchFlags(flags -> flags.setFulltext(true).setIncludeExplain(true));
-    return search(templated, searching, RERANK_URN, sort);
+    return search(templated, searching, RERANK_URN, query, sort);
   }
 
   private static SearchTemplateProperties fulltext(String knn) {

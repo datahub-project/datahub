@@ -833,10 +833,11 @@ public class ESSearchDAO {
         final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
         final MergedSearchTemplate template =
             coordinator.loader().load(opContext, resolved.getTemplateRerank());
-        // With no sort in the request, the rung's own sort orders the window, so there is no
-        // relevance order to rerank
+        // When the served request applied the rung's own sort, that sort orders the window, so
+        // there is no relevance order to rerank. A sort section that renders empty leaves score
+        // order.
         reason =
-            template.getSort() != null && (sortCriteria == null || sortCriteria.isEmpty())
+            resolved.isTemplateSortApplied()
                 ? SearchTemplateKeywordRerank.NOT_APPLICABLE
                 : SearchTemplateKeywordRerank.keptReason(
                     template,

@@ -164,6 +164,7 @@ final class TemplateSearchExecutor {
       @Nonnull T page,
       boolean shardFailed,
       @Nullable RenderedSearchTemplate renderedTemplate,
+      boolean templateSort,
       @Nullable SearchResponse response) {}
 
   record PreparedRequestComponents(
@@ -244,6 +245,7 @@ final class TemplateSearchExecutor {
     ResolvedSearchTemplate current = bound.getSearchContext().getResolvedSearchTemplate();
     if (current != null) {
       current.setHighlightFields(served.highlights());
+      current.setTemplateSortApplied(served.templateSort());
     }
     // Every sort records the served rung, so a keywordRerank search can report that its rerank does
     // not apply. Whether it applies is decided where the page is ranked.
@@ -331,7 +333,8 @@ final class TemplateSearchExecutor {
               List.of(),
               ranked.shardFailed(),
               null,
-              null);
+              null,
+              false);
         }
         if (!SearchTemplateComponents.empty(spec)
             && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
@@ -383,7 +386,8 @@ final class TemplateSearchExecutor {
                 prepared.filter(),
                 fetchFrom,
                 fetchSize,
-                prepared.prepared().template());
+                prepared.prepared().template(),
+                prepared.prepared().templateSort());
         int mergeWindow = fetchSize == null ? 0 : fetchSize;
         SearchTemplateCandidates.SupplementaryMerge merge =
             TemplateResultSupplements.get()
@@ -420,7 +424,8 @@ final class TemplateSearchExecutor {
               : execution.renderedTemplate().highlights(),
           execution.shardFailed(),
           rendered,
-          candidates);
+          candidates,
+          execution.templateSort());
     } catch (RuntimeException e) {
       return SearchTemplateWalk.AttemptResult.failed(e);
     }
@@ -534,7 +539,8 @@ final class TemplateSearchExecutor {
         components.filter(),
         from,
         size,
-        components.prepared().template());
+        components.prepared().template(),
+        components.prepared().templateSort());
   }
 
   @Nonnull
@@ -630,7 +636,8 @@ final class TemplateSearchExecutor {
         transformedFilters,
         keepAlive,
         size,
-        prepared.template());
+        prepared.template(),
+        prepared.templateSort());
   }
 
   @Nonnull
@@ -683,7 +690,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       int from,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     SearchResponse searchResponse = null;
     try {
       searchResponse =
@@ -708,7 +716,7 @@ final class TemplateSearchExecutor {
                       from,
                       ConfigUtils.applyLimit(dao.searchServiceConfig, size),
                       template));
-      return new SearchExecution<>(page, shardFailed, template, searchResponse);
+      return new SearchExecution<>(page, shardFailed, template, templateSort, searchResponse);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -723,7 +731,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       @Nullable String keepAlive,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     try {
       SearchResponse searchResponse =
           dao.searchClient(opContext, searchRequest)
@@ -751,6 +760,7 @@ final class TemplateSearchExecutor {
           page,
           searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(),
           template,
+          templateSort,
           null);
     } catch (Exception e) {
       log.error("Search query failed: {}", searchRequest, e);

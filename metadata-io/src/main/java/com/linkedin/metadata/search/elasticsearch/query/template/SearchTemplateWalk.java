@@ -57,6 +57,9 @@ public final class SearchTemplateWalk {
     @Nullable final String renderedQuery;
     @Nullable final SearchTemplateCandidates candidates;
 
+    /** The template's own sort ordered this rung's request. */
+    final boolean templateSort;
+
     private AttemptResult(
         @Nullable T page,
         long total,
@@ -66,7 +69,8 @@ public final class SearchTemplateWalk {
         @Nullable RuntimeException error,
         boolean skipped,
         @Nullable String renderedQuery,
-        @Nullable SearchTemplateCandidates candidates) {
+        @Nullable SearchTemplateCandidates candidates,
+        boolean templateSort) {
       this.page = page;
       this.total = total;
       this.entities = entities;
@@ -76,6 +80,7 @@ public final class SearchTemplateWalk {
       this.skipped = skipped;
       this.renderedQuery = renderedQuery;
       this.candidates = candidates;
+      this.templateSort = templateSort;
     }
 
     @Nonnull
@@ -86,19 +91,31 @@ public final class SearchTemplateWalk {
         @Nonnull List<String> highlights,
         boolean shardFailed,
         @Nullable String renderedQuery,
-        @Nullable SearchTemplateCandidates candidates) {
+        @Nullable SearchTemplateCandidates candidates,
+        boolean templateSort) {
       return new AttemptResult<>(
-          page, total, entities, highlights, shardFailed, null, false, renderedQuery, candidates);
+          page,
+          total,
+          entities,
+          highlights,
+          shardFailed,
+          null,
+          false,
+          renderedQuery,
+          candidates,
+          templateSort);
     }
 
     @Nonnull
     public static <T> AttemptResult<T> failed(@Nonnull RuntimeException error) {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, error, false, null, null);
+      return new AttemptResult<>(
+          null, 0, List.of(), List.of(), false, error, false, null, null, false);
     }
 
     @Nonnull
     static <T> AttemptResult<T> skipped() {
-      return new AttemptResult<>(null, 0, List.of(), List.of(), false, null, true, null, null);
+      return new AttemptResult<>(
+          null, 0, List.of(), List.of(), false, null, true, null, null, false);
     }
 
     @Nullable
@@ -143,11 +160,17 @@ public final class SearchTemplateWalk {
     @Nonnull private final T page;
     @Nullable private final String urn;
     @Nonnull private final List<String> highlights;
+    private final boolean templateSort;
 
-    private Served(@Nonnull T page, @Nullable String urn, @Nonnull List<String> highlights) {
+    private Served(
+        @Nonnull T page,
+        @Nullable String urn,
+        @Nonnull List<String> highlights,
+        boolean templateSort) {
       this.page = page;
       this.urn = urn;
       this.highlights = highlights;
+      this.templateSort = templateSort;
     }
 
     @Nonnull
@@ -164,6 +187,11 @@ public final class SearchTemplateWalk {
     @Nonnull
     public List<String> highlights() {
       return highlights;
+    }
+
+    /** The template's own sort ordered the served rung's request. */
+    public boolean templateSort() {
+      return templateSort;
     }
   }
 
@@ -491,7 +519,7 @@ public final class SearchTemplateWalk {
     }
     SearchTemplateMetrics.served(opContext, urn);
     SearchTemplateMetrics.ladderDepth(opContext, depth);
-    return new Served<>(processed.page, urn, processed.highlights);
+    return new Served<>(processed.page, urn, processed.highlights, processed.templateSort);
   }
 
   @Nullable
