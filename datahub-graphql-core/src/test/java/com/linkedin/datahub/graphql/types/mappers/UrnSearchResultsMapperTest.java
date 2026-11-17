@@ -133,6 +133,24 @@ public class UrnSearchResultsMapperTest {
   }
 
   @Test
+  public void testAppliedKeywordRerankMapsWithoutItsOptionalFields() throws Exception {
+    // An applied rerank has no reason, and a window that was never scored has no row counts.
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setKeywordRerank(
+            new com.linkedin.metadata.search.KeywordRerankExplanation().setOutcome("applied"));
+
+    KeywordRerankExplanation mapped = UrnSearchResultsMapper.map(null, backend).getKeywordRerank();
+
+    assertEquals(mapped.getOutcome(), "applied");
+    assertNull(mapped.getReason());
+    assertNull(mapped.getEligibleRows());
+    assertNull(mapped.getIneligibleRows());
+    assertEquals(mapped.getDeprecations(), List.of());
+  }
+
+  @Test
   public void testHitReferencingUnknownEntityTypeIsDropped() throws Exception {
     // After a rollback, a schema field can belong to an entity type only the newer version
     // registered. The schema field itself is a known type, but its parent can't be represented, so
