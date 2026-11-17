@@ -571,6 +571,26 @@ public class ESSearchDAOHybridTest {
     assertEquals(plan.blendFloor(), 0.6d);
   }
 
+  @Test
+  public void testRungWithItsOwnSortReranksOnlyASearchSortedByScore() throws IOException {
+    SearchTemplateProperties sorted = fulltext(null);
+    sorted.setApiVersion(2);
+    sorted.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    sorted.setSort("[ { \"name\": \"asc\" } ]");
+
+    // With no sort in the request, the engine orders the window by the rung's sort
+    SearchResult unsorted = searchRung(sorted, null);
+    assertEquals(rowIds(unsorted), range(0, 10));
+    assertEquals(
+        unsorted.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    // A request sorted by score replaces the rung's sort, so its window is reranked
+    List<SortCriterion> byScore =
+        List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
+    assertEquals(rowIds(searchRung(sorted, byScore)), range(99, 89));
+    rerankPlans(1);
+  }
+
   private static final String RERANK_URN = "urn:li:searchTemplate:keywordRerank";
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final String KEEP_PLACES = "{ \"others\": \"keepKeywordPlaces\" }";

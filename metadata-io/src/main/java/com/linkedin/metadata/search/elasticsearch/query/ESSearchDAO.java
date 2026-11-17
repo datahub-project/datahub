@@ -833,13 +833,17 @@ public class ESSearchDAO {
         final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
         final MergedSearchTemplate template =
             coordinator.loader().load(opContext, resolved.getTemplateRerank());
+        // With no sort in the request, the rung's own sort orders the window, so there is no
+        // relevance order to rerank
         reason =
-            SearchTemplateKeywordRerank.keptReason(
-                template,
-                coordinator.gates(),
-                entityNames,
-                resolved.getSearchSystem(),
-                hybridSearchResultReranker.modelEmbeddingKey());
+            template.getSort() != null && (sortCriteria == null || sortCriteria.isEmpty())
+                ? SearchTemplateKeywordRerank.NOT_APPLICABLE
+                : SearchTemplateKeywordRerank.keptReason(
+                    template,
+                    coordinator.gates(),
+                    entityNames,
+                    resolved.getSearchSystem(),
+                    hybridSearchResultReranker.modelEmbeddingKey());
         if (reason == null) {
           plan =
               SearchTemplateKeywordRerank.plan(
