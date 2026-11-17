@@ -98,6 +98,7 @@ export const SearchSelectBar = ({
                         setAreAllEntitiesSelected?.(false);
                     }}
                     id="search-select-bar"
+                    dataTestId="search-select-all-checkbox"
                     isDisabled={limit !== undefined && limit > 0}
                 />
                 <SelectionText type="span" weight="bold" color="textSecondary">

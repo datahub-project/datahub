@@ -33,9 +33,10 @@ type Props = {
     name: string;
     actions: Array<Action>;
     disabled?: boolean;
+    dataTestId?: string;
 };
 
-export default function ActionDropdown({ name, actions, disabled }: Props) {
+export default function ActionDropdown({ name, actions, disabled, dataTestId }: Props) {
     const { t } = useTranslation('entity.shared.components');
 
     const items: ItemType[] = useMemo(
@@ -52,7 +53,7 @@ export default function ActionDropdown({ name, actions, disabled }: Props) {
     return (
         <Tooltip title={disabled ? t('searchActions.notSupported') : ''}>
             <Menu items={items} disabled={disabled} trigger={['click']}>
-                <DropdownWrapper disabled={!!disabled}>
+                <DropdownWrapper disabled={!!disabled} data-testid={dataTestId}>
                     {name}
                     <DownArrow />
                 </DropdownWrapper>
