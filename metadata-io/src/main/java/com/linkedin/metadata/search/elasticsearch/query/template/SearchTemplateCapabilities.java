@@ -266,14 +266,18 @@ public final class SearchTemplateCapabilities {
     if (citesEmbeddingPlaceholders(template)) {
       return "nativeQuery";
     }
-    // This release resolves no embedding profile, so any selection fails closed.
-    if (template.getProfiles() != null) {
-      return "profiles";
-    }
-    if (template.getRetrieval() != null
-        && template.getRetrieval().hasProfileScore()
-        && StringUtils.isNotBlank(template.getRetrieval().getProfileScore())) {
-      return "profileScore";
+    // This release resolves no embedding profile. A keywordRerank rung only uses the selection
+    // inside the rerank, which this release skips while keeping keyword order, so it still binds.
+    // Any other shape that selects profiles fails closed.
+    if (!keywordRerank(template)) {
+      if (template.getProfiles() != null) {
+        return "profiles";
+      }
+      if (template.getRetrieval() != null
+          && template.getRetrieval().hasProfileScore()
+          && StringUtils.isNotBlank(template.getRetrieval().getProfileScore())) {
+        return "profileScore";
+      }
     }
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     if (retrieval == null) {
@@ -347,10 +351,16 @@ public final class SearchTemplateCapabilities {
     return body != null && EMBEDDING_PLACEHOLDER.matcher(body).find();
   }
 
+  // Every body section is scanned: a citation outside the native query sections never renders,
+  // so it must fail closed rather than serve an empty value.
   private static boolean citesEmbeddingPlaceholders(@Nonnull MergedSearchTemplate template) {
     if (citesEmbeddingPlaceholders(template.getQuery())
         || citesEmbeddingPlaceholders(template.getClauses())
-        || citesEmbeddingPlaceholders(template.getRescore())) {
+        || citesEmbeddingPlaceholders(template.getFunctionScore())
+        || citesEmbeddingPlaceholders(template.getRescore())
+        || citesEmbeddingPlaceholders(template.getKnn())
+        || citesEmbeddingPlaceholders(template.getAggregations())
+        || citesEmbeddingPlaceholders(template.getSort())) {
       return true;
     }
     for (String fragment : template.getQueryFragments().values()) {

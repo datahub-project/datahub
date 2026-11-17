@@ -179,7 +179,7 @@ Requirements:
 
 ### Deprecations
 
-- [#21359](https://github.com/datahub-project/datahub/pull/21359) **(Search)** The `minScore` search flag is deprecated. On the cosine engines that hybrid read allows it compares the engine score, (1 + cosine) / 2, from 0 to 1. On semantic search a hit below it is dropped, and on document rerank a row below it keeps its keyword position. Search templates replace it with `retrieval.minSimilarity`, a raw cosine, on the vector leg and with `knn.blendFloor` on rerank. **Action:** none; the flag keeps working.
+- [#21359](https://github.com/datahub-project/datahub/pull/21359) **(Search)** The `minScore` search flag is deprecated. On the cosine engines that hybrid read allows it compares the engine score, (1 + cosine) / 2, from 0 to 1. On semantic search a hit below it is dropped, and on document rerank a row below it keeps its keyword position. Search templates add `retrieval.minSimilarity`, a raw cosine, on the vector leg and `knn.blendFloor` on rerank. Until the flag is removed, both the flag and the template floor apply. **Action:** none; the flag keeps working.
 
 - [#20825](https://github.com/datahub-project/datahub/pull/20825) **(Ingestion / Airflow plugin)** Passing a `MetadataChangeEvent` to `DatahubEmitterOperator` or to a DataHub hook's `emit()` is deprecated, and so is the operator's `mces=` argument, renamed to `mcps=`. Both still work and emit a `DeprecationWarning`; see the Breaking Changes entry for how an MCE is now sent. **Action:** pass `MetadataChangeProposalWrapper` objects to the operator as `mcps=`, as the `lineage_emission_dag.py` example does.
 

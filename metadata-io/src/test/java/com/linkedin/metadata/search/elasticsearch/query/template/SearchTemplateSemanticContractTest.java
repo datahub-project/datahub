@@ -196,10 +196,21 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
     assertEquals(rejectionOf("scoped", scoped), "scope");
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
-    assertEquals(
-        rejectionOf(
-            "rerankScore", rung(r -> r.setCombine("keywordRerank").setProfileScore("best"))),
-        "profileScore");
+    // This release skips the rerank and keeps keyword order, so the selection does not block bind.
+    SearchTemplateProperties rerankProfiles =
+        rung(r -> r.setCombine("keywordRerank").setProfileScore("weightedSum"));
+    rerankProfiles.setProfiles(
+        new SearchTemplateProfiles().setReplace(new StringArray(List.of("a", "b"))));
+    assertNull(rejectionOf("rerankProfiles", rerankProfiles));
+    // A citation outside the native query sections never renders, so it fails closed too.
+    SearchTemplateProperties sortPlaceholder = body("Native", "{ \"match_all\": {} }", null);
+    sortPlaceholder.setApiVersion(2);
+    sortPlaceholder.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]");
+    assertEquals(rejectionOf("sortPlaceholder", sortPlaceholder), "nativeQuery");
+    SearchTemplateProperties sortPlaceholderV1 = body("Native", "{ \"match_all\": {} }", null);
+    sortPlaceholderV1.setSort("[ { \"{{embeddingField}}\": \"desc\" } ]");
+    assertThrows(
+        SearchTemplateException.class, () -> rejectionOf("sortPlaceholderV1", sortPlaceholderV1));
     SearchTemplateProperties nativeSibling =
         body(
             "Native",
