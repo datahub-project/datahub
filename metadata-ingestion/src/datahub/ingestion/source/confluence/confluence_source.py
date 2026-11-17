@@ -617,7 +617,8 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
                 # skip the pages in between.
                 start += len(pages)
             else:
-                if self._space_has_more_pages(space_key, start + len(pages)):
+                # start already points past the last batch.
+                if self._space_has_more_pages(space_key, start):
                     # A failure rather than a warning: stale removal would
                     # otherwise soft-delete the pages beyond the cap.
                     self.report.failure(

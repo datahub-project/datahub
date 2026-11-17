@@ -221,6 +221,18 @@ def test_space_listing_honours_max_pages_per_space() -> None:
     assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
 
 
+def test_space_one_page_past_max_pages_per_space_is_reported_as_cut_short() -> None:
+    source = make_source(make_config(max_pages_per_space=2))
+    client = as_mock(source.confluence_client)
+    pages_by_start = {0: [make_page("1"), make_page("2")], 2: [make_page("3")]}
+    client.get_all_pages_from_space.side_effect = lambda space, start, limit, **_: (
+        pages_by_start.get(start, [])[:limit]
+    )
+
+    assert len(list(source._get_pages_in_space("TEAM"))) == 2
+    assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+
+
 def test_space_with_exactly_max_pages_per_space_is_not_reported_as_cut_short() -> None:
     source = make_source(make_config(max_pages_per_space=2))
     as_mock(source.confluence_client).get_all_pages_from_space.side_effect = [
