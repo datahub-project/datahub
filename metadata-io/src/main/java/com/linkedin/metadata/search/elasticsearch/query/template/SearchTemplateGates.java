@@ -287,7 +287,7 @@ public final class SearchTemplateGates {
    */
   @Nullable
   static SearchTemplateProfiles selection(@Nonnull MergedSearchTemplate template) {
-    if (template.getProfiles() != null) {
+    if (template.getProfiles() != null || template.isProfilesSet()) {
       return template.getProfiles();
     }
     String named = legacyProfileId(template);

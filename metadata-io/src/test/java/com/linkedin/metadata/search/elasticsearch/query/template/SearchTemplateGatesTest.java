@@ -382,6 +382,16 @@ public class SearchTemplateGatesTest {
   }
 
   @Test
+  public void testAProfilesResetSupersedesTheDeprecatedNames() {
+    MergedSearchTemplate reset =
+        merged(retrieval("keywordRerank"))
+            .knn("{ \"model\": \"dataset_l2\" }")
+            .profilesSet(true)
+            .build();
+    assertNull(SearchTemplateGates.selection(reset));
+  }
+
+  @Test
   public void testAdvertisedNamesAreKnownCapabilities() {
     assertThrows(
         IllegalArgumentException.class,

@@ -287,6 +287,8 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     reset.setProfiles(new SearchTemplateProfiles().setUseDefault(true));
     store("urn:li:searchTemplate:reset", reset);
     assertNull(loader.load(opContext, "urn:li:searchTemplate:reset").getProfiles());
+    // The reset still counts as a selection, so deprecated knn names cannot override it.
+    assertTrue(loader.load(opContext, "urn:li:searchTemplate:reset").isProfilesSet());
 
     for (SearchTemplateProfiles bad :
         List.of(
