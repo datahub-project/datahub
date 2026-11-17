@@ -295,6 +295,19 @@ describe('read-only editor', () => {
         expect(html.toLowerCase()).not.toContain('<script');
     });
 
+    it('applies read-only content styles to the inner content node', () => {
+        renderEditor({ content: 'A sentence long enough to wrap in a narrow column.' });
+
+        expect(document.querySelector('.datahub-editor-content')).not.toBeNull();
+        const css = Array.from(document.querySelectorAll('style'))
+            .map((node) => node.textContent ?? '')
+            .join('\n');
+        // A bare ":where" is concatenated onto the root class and matches nothing.
+        expect(css).toContain(' :where(.datahub-editor-content)');
+        expect(css).not.toMatch(/[^\s]:where\(\.datahub-editor-content\)/);
+        expect(css).toMatch(/white-space:\s*normal/);
+    });
+
     it('shows the placeholder without calling the editor when content is empty', () => {
         renderEditor({ content: '', placeholder: 'Add documentation' });
         expect(screen.getByText('Add documentation')).toBeInTheDocument();
