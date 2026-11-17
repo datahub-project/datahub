@@ -30,9 +30,10 @@ inputs:
     default: caches/build-cache-1
   node:
     description: >-
-      Install Node. On by default because Gradle uses the Node on PATH in CI
+      Install Node. Off by default; set true on jobs that run Node-based Gradle
+      tasks (frontend, docs, Playwright). In CI Gradle uses the Node on PATH
       (useSystemNode, root build.gradle) instead of downloading its own.
-    default: "true"
+    default: "false"
   node-version:
     description: >-
       setup-node node-version. Must share the major version of nodeVersion in
