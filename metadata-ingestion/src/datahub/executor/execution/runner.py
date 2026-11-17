@@ -162,13 +162,13 @@ def _no_datahub_constraints_path(
     With NO_ACRYL_DATAHUB there is no pass-1 install to pin acryl-datahub's tree,
     so pass 2 resolves the whole tree from scratch and a freshly started executor
     picks up whatever upstream published since the release was tested (pyarrow
-    26.0.0 broke datahub-usage-reporting on every instance that way). System
+    26.0.0 broke a system source on every instance that way). System
     source packages pin acryl-datahub to the executor's own release, so the lock
     shipped with the executor's acryl-datahub is the right one to apply.
 
     Packages the recipe names directly are dropped from the lock: they are
     installed from a local path or deliberately overridden, and the lock's PyPI
-    pin for them (e.g. ``acryl-datahub-cloud==<released>``) would conflict.
+    pin for them would conflict.
     """
     source = _executor_constraints_path()
     if source is None:

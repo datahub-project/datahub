@@ -1103,13 +1103,10 @@ class TestNoDatahubConstraints:
 
     There is no pass 1 to pin acryl-datahub's tree for these, so the single
     pass-2 install used to resolve everything from scratch on every fresh
-    executor pod (pyarrow 26.0.0 broke datahub-usage-reporting that way).
+    executor pod (pyarrow 26.0.0 broke a system source that way).
     """
 
-    _CLOUD_REQ = (
-        "acryl-datahub-cloud[datahub-usage-reporting]"
-        "@/metadata-ingestion-modules/acryl-cloud"
-    )
+    _SYSTEM_SOURCE_REQ = "my-system-source[my-plugin]@/opt/my-system-source"
 
     @pytest.fixture
     def temp_dir(self):
@@ -1120,7 +1117,7 @@ class TestNoDatahubConstraints:
     def executor_constraints(self, temp_dir):
         f = temp_dir / "executor-constraints.txt"
         f.write_text(
-            "acryl-datahub-cloud==0.3.14.1 ; python_full_version >= '3.11'\n"
+            "my-system-source==1.2.3 ; python_full_version >= '3.11'\n"
             "    # via acryl-datahub\n"
             "pyarrow==18.0.0 ; python_full_version >= '3.11'\n"
             "setuptools==84.0.0\n"
@@ -1130,7 +1127,7 @@ class TestNoDatahubConstraints:
     def test_explicit_requirement_names(self):
         names = _explicit_requirement_names(
             [
-                self._CLOUD_REQ,
+                self._SYSTEM_SOURCE_REQ,
                 "Setup_Tools<82.0.0",
                 "pandas==2.1.0 ; python_version >= '3.11'",
                 "-e ./local-pkg",
@@ -1138,7 +1135,7 @@ class TestNoDatahubConstraints:
                 "# comment",
             ]
         )
-        assert names == {"acryl-datahub-cloud", "setup-tools", "pandas"}
+        assert names == {"my-system-source", "setup-tools", "pandas"}
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_no_datahub_pass2_is_constrained(
@@ -1146,8 +1143,8 @@ class TestNoDatahubConstraints:
     ):
         config = VenvConfig(
             version=VENV_NO_DATAHUB,
-            main_plugin="datahub-usage-reporting",
-            extra_pip_requirements=[self._CLOUD_REQ],
+            main_plugin="my-plugin",
+            extra_pip_requirements=[self._SYSTEM_SOURCE_REQ],
         )
         runner = SubprocessRunner()
         mock = AsyncMock(side_effect=_mock_venv_execute)
@@ -1168,9 +1165,9 @@ class TestNoDatahubConstraints:
         written = Path(cmd[cmd.index("--constraint") + 1]).read_text()
         assert "pyarrow==18.0.0" in written
         assert "setuptools==84.0.0" in written
-        # The recipe installs acryl-datahub-cloud from a local path; the lock's
+        # The recipe installs my-system-source from a local path; the lock's
         # PyPI pin for it must not be applied or the two would conflict.
-        assert "acryl-datahub-cloud" not in written
+        assert "my-system-source" not in written
 
     @patch("datahub.executor.execution.runner._find_uv", return_value="uv")
     async def test_no_datahub_without_executor_lock_is_unconstrained(
@@ -1178,8 +1175,8 @@ class TestNoDatahubConstraints:
     ):
         config = VenvConfig(
             version=VENV_NO_DATAHUB,
-            main_plugin="datahub-usage-reporting",
-            extra_pip_requirements=[self._CLOUD_REQ],
+            main_plugin="my-plugin",
+            extra_pip_requirements=[self._SYSTEM_SOURCE_REQ],
         )
         runner = SubprocessRunner()
         mock = AsyncMock(side_effect=_mock_venv_execute)
@@ -1210,8 +1207,8 @@ class TestNoDatahubConstraints:
 
         config = VenvConfig(
             version=VENV_NO_DATAHUB,
-            main_plugin="datahub-usage-reporting",
-            extra_pip_requirements=[self._CLOUD_REQ],
+            main_plugin="my-plugin",
+            extra_pip_requirements=[self._SYSTEM_SOURCE_REQ],
         )
         runner = SubprocessRunner()
         mock = AsyncMock(side_effect=_execute)

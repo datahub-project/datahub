@@ -12,8 +12,8 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-      # 'bundled' runs the CLI pre-built into the executor image (datahub-actions or
-      # datahub-executor), so this system source always matches the deployed release
+      # 'bundled' runs the CLI pre-built into the executor image, so this system
+      # source always matches the deployed release
       # and never resolves packages at run time. It deliberately does not fall back to
       # the server's defaultCliVersion, which on-prem deployments often leave stale.
       version: '{{&ingestion.version}}{{^ingestion.version}}bundled{{/ingestion.version}}'
