@@ -67,7 +67,7 @@ def test_resolve_parent_dir_source_id_uses_repo_root() -> None:
     assert parent == repo_root
 
 
-def testmatches_filters_respects_path_prefix_boundary() -> None:
+def test_matches_filters_respects_path_prefix_boundary() -> None:
     assert matches_filters("docs/readme.md", "docs", {".md"})
     assert not matches_filters("documentation/readme.md", "docs", {".md"})
 
