@@ -49,7 +49,7 @@ quickstart_version_map:
     docker_tag: quickstart
     mysql_tag: "8.2"
 
-  # Release branch compose. The v1.9.0 image tag is not published yet.
+  # Release branch compose. The v1.9.0 image is published. The v1.9.0 tag and releases/v1.9.0 are the same commit.
   v1.9.0:
     composefile_git_ref: releases/v1.9.0
     docker_tag: v1.9.0

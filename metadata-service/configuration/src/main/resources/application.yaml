@@ -1054,8 +1054,9 @@ elasticsearch:
       cleanup: ${ELASTICSEARCH_ENTITY_INDEX_V3_CLEANUP:false}
       keywordReadEnabled: ${ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED:true}
       # An install that already reads V3, with V2 off, sets this so startup records the cutover
-      # instead of serving the stale V2 indices. It applies only when every V3 index has at least
-      # as many documents as its V2 index. A V3 index that is behind stays on V2.
+      # instead of serving the stale V2 indices. It applies when every paired V3 index exists, is
+      # not marked incomplete, and at least one holds a document of its entity type. A V3 count
+      # below the V2 count still qualifies.
       cutoverAcknowledged: ${ELASTICSEARCH_ENTITY_INDEX_V3_CUTOVER_ACKNOWLEDGED:false}
       # Full-text keyword search reranks document rows with kNN scores from the V3 document index,
       # keeping every other row where keyword search put it. Needs semantic search reading V3.
