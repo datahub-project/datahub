@@ -549,3 +549,18 @@ def test_unexpected_cloud_response_is_reported_as_such(
         assert [w.title for w in client.report.warnings] == [
             "Unexpected Cube Metadata API response"
         ]
+
+
+def test_token_mint_error_is_not_reported_as_unexpected_response(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(**_CONTROL_PLANE)
+    requests_mock.get(_META, json={"cubes": []})
+    requests_mock.post(_MINT, text="<html>maintenance</html>")
+    entities = requests_mock.post(_ENTITIES_ALL, json={"data": []})
+
+    assert client.get_entities() == []
+    assert entities.call_count == 0
+    assert [w.title for w in client.report.warnings] == [
+        "Cube Metadata API unavailable"
+    ]

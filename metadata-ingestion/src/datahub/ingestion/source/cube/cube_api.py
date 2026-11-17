@@ -246,12 +246,12 @@ class CubeAPIClient:
         )
 
     def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
+        # Minting runs inside _request, so mint (and cache) the token first:
+        # otherwise a Control Plane error would be read as a problem with the
+        # /v1/entities/all response (a refused scope, or an unexpected body).
+        self._metadata_api_token()
         if not self.config.include_private:
             return self._get_cloud_entities(include_private=False)
-        # Minting runs inside _request, so mint (and cache) the token before
-        # the try: otherwise a Control Plane 403 would look like a refused
-        # meta-private scope.
-        self._metadata_api_token()
         try:
             return self._get_cloud_entities(include_private=True)
         except _PrivateEntitiesRefusedError as e:
@@ -446,13 +446,25 @@ class CubeAPIClient:
         self, skipped: _SkippedCloudEntity, *, in_meta: bool
     ) -> None:
         self.report.metadata_api_entities_skipped += 1
-        if self.config.include_private or not in_meta:
-            # Only the Metadata API returns this entity (private, or absent
-            # from /v1/meta), so a failure stops stale removal deleting it.
+        if not in_meta:
+            # Only the Metadata API returns this entity, so a failure stops
+            # stale removal deleting it.
             self.report.failure(
                 title="Skipped invalid Metadata API entity",
                 message="The connector could not parse this entity, so it and "
                 "its lineage are missing from this run; stale removal is skipped.",
+                context=skipped.context,
+                exc=skipped.error,
+            )
+            return
+        if self.config.include_private:
+            # /v1/meta still supplies the entity, but its private members only
+            # come from the Metadata API.
+            self.report.failure(
+                title="Skipped invalid Metadata API entity",
+                message="The connector could not parse this entity, so its "
+                "Metadata API lineage and private members are missing from this "
+                "run; stale removal is skipped.",
                 context=skipped.context,
                 exc=skipped.error,
             )
