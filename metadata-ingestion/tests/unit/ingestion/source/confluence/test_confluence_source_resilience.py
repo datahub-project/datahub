@@ -68,7 +68,8 @@ def test_space_discovery_follows_next_links() -> None:
     assert not source.report.warnings
 
 
-def test_space_discovery_stops_at_max_spaces_and_warns() -> None:
+def test_space_discovery_stopped_at_max_spaces_is_a_failure() -> None:
+    # A failure, so stale removal does not soft-delete the spaces left out.
     source = make_source(make_config(max_spaces=2))
     as_mock(source.confluence_client).get_all_spaces.return_value = {
         "results": [{"key": "A"}, {"key": "B"}],
@@ -76,7 +77,7 @@ def test_space_discovery_stops_at_max_spaces_and_warns() -> None:
     }
 
     assert source.crawler.space_keys() == ["A", "B"]
-    assert "max_spaces=2" in log_contexts(source.report.warnings)
+    assert "max_spaces=2" in log_contexts(source.report.failures)
 
 
 def test_space_discovery_failure_midway_keeps_spaces_already_listed() -> None:
@@ -165,6 +166,42 @@ def test_recursive_crawl_keeps_parent_when_child_listing_fails() -> None:
     assert "1" in log_contexts(source.report.failures)
 
 
+def test_recursive_crawl_reports_a_deep_failure_once_against_its_own_page() -> None:
+    source = make_source(make_config(recursive=True))
+    client = as_mock(source.confluence_client)
+    client.get_page_by_id.return_value = make_page("1")
+    client.get_page_child_by_type.side_effect = lambda page_id, **_: (
+        [make_page("2", ancestors=[{"id": "1"}])]
+        if page_id == "1"
+        else _raise(Exception("children 500"))
+    )
+
+    pages = list(crawl_tree(source, "1"))
+
+    assert [p.id for p in pages] == ["1", "2"]
+    assert log_contexts(source.report.failures) == {"2"}
+
+
+def test_recursive_crawl_deep_failure_raises_when_not_continuing() -> None:
+    source = make_source(
+        make_config(recursive=True, advanced={"continue_on_failure": False})
+    )
+    client = as_mock(source.confluence_client)
+    client.get_page_by_id.return_value = make_page("1")
+    client.get_page_child_by_type.side_effect = lambda page_id, **_: (
+        [make_page("2", ancestors=[{"id": "1"}])]
+        if page_id == "1"
+        else _raise(Exception("403 on child"))
+    )
+
+    with pytest.raises(Exception, match="403 on child"):
+        list(crawl_tree(source, "1"))
+
+
+def _raise(e: Exception) -> Any:
+    raise e
+
+
 def test_recursive_crawl_page_fetch_error_is_reported_when_continuing() -> None:
     source = make_source()
     as_mock(source.confluence_client).get_page_by_id.side_effect = Exception("403")
@@ -217,8 +254,21 @@ def test_space_listing_honours_max_pages_per_space() -> None:
     pages = list(source.crawler._pages_in_space("TEAM"))
 
     assert len(pages) == 2
-    assert client.get_all_pages_from_space.call_args.kwargs["limit"] == 2
-    assert client.get_all_pages_from_space.call_count == 1
+    assert client.get_all_pages_from_space.call_args_list[0].kwargs["limit"] == 2
+    # Pages were left out, so this is a failure and stale removal is skipped.
+    assert "TEAM: max_pages_per_space=2" in log_contexts(source.report.failures)
+
+
+def test_space_with_exactly_max_pages_per_space_is_not_reported_as_cut_short() -> None:
+    source = make_source(make_config(max_pages_per_space=2))
+    as_mock(source.confluence_client).get_all_pages_from_space.side_effect = [
+        [make_page("1"), make_page("2")],
+        [],
+    ]
+
+    assert len(list(source.crawler._pages_in_space("TEAM"))) == 2
+    assert not source.report.failures
+    assert not source.report.warnings
 
 
 def test_space_listing_accepts_a_bare_list_response() -> None:
@@ -330,7 +380,7 @@ def test_page_allow_seed_error_aborts_run_when_not_continuing() -> None:
 # --------------------------------------------------------------------------- #
 
 
-def test_page_without_id_is_skipped_with_a_warning() -> None:
+def test_unreadable_page_is_a_failure_so_stale_removal_is_skipped() -> None:
     source = make_source()
     page = make_page("1")
     del page["id"]
@@ -339,7 +389,7 @@ def test_page_without_id_is_skipped_with_a_warning() -> None:
     infos = document_infos(source.get_workunits_internal())
 
     assert len(infos) == 1
-    assert any("Skipped malformed page" in str(w) for w in source.report.warnings)
+    assert any("Skipped malformed page" in str(f) for f in source.report.failures)
 
 
 def test_denied_page_is_skipped_and_counted() -> None:
@@ -618,6 +668,24 @@ def test_connection_validates_configured_pages() -> None:
     assert access.capable is False
     assert "page 222" in (access.failure_reason or "")
     assert "page 111" not in (access.failure_reason or "")
+
+
+def test_connection_probes_do_not_fetch_page_bodies() -> None:
+    # Large bodies can time out, which would report a viewable page as inaccessible.
+    client = MagicMock()
+    client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
+    client.get_space.return_value = {"key": "TEAM"}
+    client.get_page_by_id.return_value = {"id": "111"}
+    client.get_all_pages_from_space.return_value = {"results": [{"id": "1"}]}
+
+    run_test_connection(client, spaces={"allow": ["TEAM"]}, pages={"allow": ["111"]})
+
+    expands = [c.kwargs["expand"] for c in client.get_page_by_id.call_args_list]
+    expands += [
+        c.kwargs["expand"] for c in client.get_all_pages_from_space.call_args_list
+    ]
+    assert expands
+    assert not any("body" in expand for expand in expands)
 
 
 def test_connection_space_page_count_failure_is_not_fatal() -> None:

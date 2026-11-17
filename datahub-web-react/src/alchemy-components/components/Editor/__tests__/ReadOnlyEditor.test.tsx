@@ -125,7 +125,7 @@ describe('read-only editor', () => {
         expect(doc.querySelector('table')?.hasAttribute('background')).toBe(false);
         expect(doc.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
 
-        const rendered = render(<div>{readOnlyHtmlToReact(markup)}</div>);
+        const rendered = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
         expect(rendered.container.querySelector('table')?.hasAttribute('background')).toBe(false);
         expect(rendered.container.querySelector('svg')?.innerHTML ?? '').not.toContain('evil.example');
     });
@@ -154,6 +154,31 @@ describe('read-only editor', () => {
         expect(screen.getByTestId('mention-Bob')).toHaveTextContent('urn:li:corpuser:bob');
         expect(screen.getByTestId('mention-Alice').closest('p')).toHaveTextContent(/^Owned by/);
         expect(document.querySelector('span.mentions')).toBeNull();
+    });
+
+    it('passes the distinct mention urns, in document order, to mentionsProvider', () => {
+        const mentionsProvider = vi.fn(({ children }: { urns: string[]; children: React.ReactNode }) => (
+            <div data-testid="mentions-provider">{children}</div>
+        ));
+        renderEditor({
+            content: '[@Bob](urn:li:corpuser:bob), [@Alice](urn:li:corpuser:alice) and [@Bob](urn:li:corpuser:bob).',
+            mentionView: ({ name }) => <span data-testid={`mention-${name}`}>{name}</span>,
+            mentionsProvider,
+        });
+
+        expect(mentionsProvider).toHaveBeenCalledTimes(1);
+        expect(mentionsProvider.mock.calls[0][0].urns).toEqual(['urn:li:corpuser:bob', 'urn:li:corpuser:alice']);
+        expect(screen.getByTestId('mentions-provider')).toContainElement(screen.getByTestId('mention-Alice'));
+    });
+
+    it('does not render mentionsProvider for content without mentions', () => {
+        const mentionsProvider = vi.fn(({ children }: { urns: string[]; children: React.ReactNode }) => (
+            <>{children}</>
+        ));
+        renderEditor({ content: 'No mentions here.', mentionView: () => null, mentionsProvider });
+
+        expect(screen.getByText('No mentions here.')).toBeInTheDocument();
+        expect(mentionsProvider).not.toHaveBeenCalled();
     });
 
     it('keeps a font size and drops the rest of the style', () => {
@@ -283,5 +308,39 @@ describe('read-only editor', () => {
             </ThemeProvider>,
         );
         expect(await screen.findByTestId('editor-impl')).toBeInTheDocument();
+    });
+});
+
+describe('read-only task lists', () => {
+    it('keeps a completed task checked and every task read-only', () => {
+        render(<>{readOnlyHtmlToReact(toReadOnlyHtml('- [x] Ship it\n- [ ] Test it')).nodes}</>);
+
+        const [done, open] = screen.getAllByRole('checkbox') as HTMLInputElement[];
+        expect(done.checked).toBe(true);
+        expect(open.checked).toBe(false);
+        expect(done.disabled).toBe(true);
+    });
+
+    it('keeps an expanded details section open', () => {
+        const markup = '<details open=""><summary>More</summary><p>Body</p></details>';
+        const { container } = render(<div>{readOnlyHtmlToReact(markup).nodes}</div>);
+
+        expect(container.querySelector('details')?.open).toBe(true);
+    });
+
+    it('updates a checkbox when the content changes without remounting', () => {
+        const { rerender } = render(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [x] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(true);
+
+        rerender(
+            <ThemeProvider theme={themeV2}>
+                <Editor content="- [ ] Ship it" readOnly />
+            </ThemeProvider>,
+        );
+        expect((screen.getByRole('checkbox') as HTMLInputElement).checked).toBe(false);
     });
 });

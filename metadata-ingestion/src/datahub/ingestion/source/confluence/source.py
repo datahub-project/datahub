@@ -92,6 +92,13 @@ class ConfluenceSource(StatefulIngestionSourceBase, TestableSource):
             if config.link_mentions_to_datahub_users and ctx.graph
             else None
         )
+        if config.link_mentions_to_datahub_users and not ctx.graph:
+            self.report.info(
+                title="Mentions are not linked to DataHub users",
+                message="link_mentions_to_datahub_users needs a DataHub "
+                "connection (the datahub-rest sink or datahub_api), and this run "
+                "has none, so mentions are ingested as plain names.",
+            )
         self.user_resolver = ConfluenceUserResolver(
             self.client, self.report, datahub_users
         )

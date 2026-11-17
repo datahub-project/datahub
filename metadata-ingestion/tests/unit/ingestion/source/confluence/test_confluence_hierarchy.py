@@ -71,3 +71,25 @@ def test_folders_are_rebuilt_from_page_ancestry() -> None:
     assert folders["f2"].parent_id == "f1"
     assert [a.id for a in folders["f2"].ancestor_prefix] == ["f1"]
     assert folders["f2"].space.key == "TEAM"
+
+
+def test_folder_discovery_tolerates_odd_ancestry() -> None:
+    # Discovery runs unguarded, so malformed ancestry must parse into something
+    # it can walk rather than raise and lose every folder.
+    page = ConfluencePage.model_validate(
+        {
+            "id": "10",
+            "ancestors": [
+                "not-a-dict",
+                {"title": "No id", "type": "folder"},
+                {"id": "f1", "type": "folder"},
+                {"id": "f1", "title": "Repeated", "type": "folder"},
+            ],
+        }
+    )
+
+    folders = collect_folder_nodes([page])
+
+    assert list(folders) == ["f1"]
+    assert folders["f1"].title == "Folder f1"
+    assert folders["f1"].space.key is None

@@ -1391,6 +1391,7 @@ def test_mentions_link_to_existing_datahub_users() -> None:
     serve_space(client, [make_page("100", body=body)])
     graph = MagicMock()
     graph.exists.side_effect = lambda urn: urn == "urn:li:corpuser:alex@example.com"
+    graph.get_aspect.return_value = None
     source = make_source(
         client=client, ctx=PipelineContext(run_id="test-run", graph=graph)
     )

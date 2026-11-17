@@ -45,8 +45,10 @@ def instance_id_for(config: ConfluenceSourceConfig) -> str:
 
 
 def content_hash(page: ConfluencePage) -> str:
-    """Hash of the raw body and the extraction version. The chunking step uses
-    it to decide whether a page needs re-embedding."""
+    """Hash of the raw body and the extraction version. The inline chunking
+    step re-embeds a page when this changes, so bumping EXTRACTION_ALGO_VERSION
+    re-embeds every page. The separate datahub-documents source hashes the
+    extracted text instead, so it only re-embeds pages whose text changed."""
     payload = json.dumps(
         {"body": page.storage, "algo_version": EXTRACTION_ALGO_VERSION},
         sort_keys=True,
@@ -76,10 +78,13 @@ class ConfluenceDocumentBuilder:
         return f"{self.config.url}/pages/viewpage.action?pageId={page.id}"
 
     def folder_url(self, folder: FolderNode) -> str:
-        # Folders only exist on Cloud, where config.url ends in /wiki.
+        # Folders only exist on Cloud, whose pages live under /wiki. The config
+        # validator only adds /wiki for *.atlassian.net, so a site on a custom
+        # domain may be configured without it.
+        wiki = self.config.url.removesuffix("/wiki") + "/wiki"
         if folder.space.key:
-            return f"{self.config.url}/spaces/{folder.space.key}/folder/{folder.id}"
-        return f"{self.config.url}/folder/{folder.id}"
+            return f"{wiki}/spaces/{folder.space.key}/folder/{folder.id}"
+        return f"{wiki}/folder/{folder.id}"
 
     def page_document(
         self, page: ConfluencePage, text: str, ingested_ids: Set[str]

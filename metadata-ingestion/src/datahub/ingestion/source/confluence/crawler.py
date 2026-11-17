@@ -79,10 +79,13 @@ class ConfluenceCrawler:
             # below the requested limit.
             start += batch.fetched
 
-        self.report.warning(
+        # A failure rather than a warning: stale removal would otherwise
+        # soft-delete every page in the spaces beyond the cap.
+        self.report.failure(
             title="Space discovery stopped at max_spaces",
-            message="Spaces beyond max_spaces were not ingested. Raise max_spaces "
-            "or list the spaces to ingest in spaces.allow.",
+            message="Spaces beyond max_spaces were not ingested, so stale "
+            "removal is skipped for this run. Raise max_spaces or list the "
+            "spaces to ingest in spaces.allow.",
             context=f"max_spaces={self.config.max_spaces}",
         )
         return spaces
@@ -115,11 +118,18 @@ class ConfluenceCrawler:
                 # limit, and advancing by the limit would skip pages in between.
                 start += batch.fetched
             else:
-                self.report.warning(
-                    title="Space stopped at max_pages_per_space",
-                    message="Pages beyond max_pages_per_space were not ingested.",
-                    context=f"{space_key}: max_pages_per_space={cap}",
-                )
+                # The 4.x client returns a bare list with no next link, so a
+                # space with exactly `cap` pages looks the same as a larger one.
+                if self.client.has_more_space_pages(space_key, start + batch.fetched):
+                    # A failure rather than a warning: stale removal would
+                    # otherwise soft-delete the pages beyond the cap.
+                    self.report.failure(
+                        title="Space stopped at max_pages_per_space",
+                        message="Pages beyond max_pages_per_space were not "
+                        "ingested, so stale removal is skipped for this run. "
+                        "Raise max_pages_per_space to ingest the whole space.",
+                        context=f"{space_key}: max_pages_per_space={cap}",
+                    )
         except Exception as e:
             self.report.report_space_failed(space_key, e)
             self._raise_unless_continuing(e)

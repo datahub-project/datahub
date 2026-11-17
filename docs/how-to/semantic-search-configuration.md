@@ -113,6 +113,8 @@ ELASTICSEARCH_SEMANTIC_VECTOR_DIMENSION=1024
 
 Authentication uses the AWS SDK default credential chain (EC2/ECS instance credentials, `AWS_PROFILE`, or `AWS_ACCESS_KEY_ID` + `AWS_SECRET_ACCESS_KEY`).
 
+The Bedrock region is `BEDROCK_EMBEDDING_AWS_REGION` when set, then `BEDROCK_AWS_REGION`, then `AWS_REGION`, then `us-west-2`. Set `BEDROCK_EMBEDDING_AWS_REGION` only when embeddings must run in a different region from the chat model and the rest of the deployment.
+
 #### Cohere
 
 ```bash

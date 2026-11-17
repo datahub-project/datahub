@@ -12,6 +12,7 @@ from datahub.ingestion.source.confluence.client import (
 from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
+from datahub.ingestion.source.confluence.constants import PAGE_PROBE_EXPAND
 from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
@@ -96,7 +97,7 @@ def _check_configured_items(
 
     for page_id in page_ids:
         try:
-            if client.get_page(page_id):
+            if client.get_page(page_id, expand=PAGE_PROBE_EXPAND):
                 accessible_pages += 1
         except Exception as e:
             inaccessible.append(f"page {page_id}: {e.__class__.__name__}")
@@ -167,7 +168,12 @@ def _sample_page_count(client: ConfluenceClient, space_key: str) -> int:
     # A page count is a hint for the user, so a failure here is not reported.
     try:
         return len(
-            client.list_space_pages(space_key, start=0, limit=_PAGES_PER_SAMPLE).pages
+            client.list_space_pages(
+                space_key,
+                start=0,
+                limit=_PAGES_PER_SAMPLE,
+                expand=PAGE_PROBE_EXPAND,
+            ).pages
         )
     except Exception:
         return 0
