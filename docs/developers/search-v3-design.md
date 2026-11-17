@@ -197,7 +197,7 @@ Each fragment is rewritten for structured-property definition URNs, then rendere
 | `entityTypeBoosts`        | Entity-type weights                              |
 | `queryFragments`          | Query holes                                      |
 
-After parent merge, a ranking preset other than `none`, a window sizer other than `fixed`, a semantic shape whose capability this build does not advertise, a bridge, and a merge join fail the search. See [Embedding profiles and gates](#embedding-profiles-and-gates). `knn` runs when the request includes the Document entity. The service does not drop that section and return keyword order. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
+After parent merge, a ranking preset other than `none`, a window sizer other than `fixed`, a semantic shape whose capability this build does not advertise, a bridge, and a merge join fail the search. See [Embedding profiles and gates](#embedding-profiles-and-gates). A `knn` with only `field` and no `combine` runs through document rerank when the request includes the Document entity; without it the search fails rather than drop that section. A `knn` with both `model` and `field` and no `combine` is read as keywordRerank, which keeps keyword order when it cannot rerank. On scroll, `next` is unread, so a `next` this release cannot run does not fail the scroll. On a search, it does. Scroll still skips the sections that a cursor cannot continue. See [Search and scroll](#search-and-scroll) and [Document rerank](#document-rerank).
 
 ### Field weights
 
