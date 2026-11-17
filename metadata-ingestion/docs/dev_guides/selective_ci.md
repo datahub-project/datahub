@@ -17,6 +17,10 @@ The `scripts/selective_ci_checks.py` script analyzes the list of changed files i
 
 4. **Script-only, doc-only, or unit-test-only changes** skip integration tests entirely.
 
+## Python versions and performance tests
+
+Pull requests run every job on Python 3.11 only and skip `testPerformance`. Pushes to `master` and `releases/**`, published releases and manual runs keep the full matrix: `testQuick` on 3.11, 3.12 and 3.13, integration tests on 3.11 and 3.13, and `testPerformance` on 3.11. A problem that only shows on a newer Python is therefore caught after merge. To get the full matrix before merging, for example for a dependency bump or a change to version-specific code, add the `run-all-ingestion-tests` label to the PR.
+
 ## Connector discovery
 
 Connectors are discovered automatically through two complementary mechanisms:
@@ -123,7 +127,7 @@ This catches non-obvious dependencies like `dbt` importing `sql/sql_types.py` �
 - **Non-connector files** (api/, emitter/, setup.py, metadata-models/) always trigger the full suite.
 - **Shared test infrastructure** (files directly in `tests/integration/`, e.g. `conftest.py`) triggers the full suite.
 - **Documentation files** (`.md`) inside connector source directories are ignored — they don't affect runtime behavior. All other file types trigger tests.
-- The `run-all-ingestion-tests` label on a PR forces the full suite regardless of changes.
+- The `run-all-ingestion-tests` label on a PR forces the full suite regardless of changes, on every Python version.
 - If the detection script crashes, the gate job fails the PR — it never silently passes.
 - **Safety net**: if changed source directories produce no test matrix entries (e.g. a source dir with no test path and no entry-point coverage), the full suite runs with a warning — changed code is never silently untested.
 

@@ -69,15 +69,28 @@ jobs:
         env:
           RUN_ALL: ${{ steps.ci.outputs.run_all_integration }}
           TEST_MATRIX: ${{ steps.ci.outputs.test_matrix }}
+          EVENT_NAME: ${{ github.event_name }}
+          FORCE_ALL: ${{ steps.label-check.outputs.force_all }}
+          PR_PYTHON: "3.11"
         run: |
-          # Python versions per job kind. testQuick runs on every supported version;
-          # integration batches and selective connector jobs run on FULL_PYTHONS.
-          # testPerformance stays on 3.11 only.
-          QUICK_PYTHONS='["3.11","3.12","3.13"]'
-          FULL_PYTHONS='["3.11","3.13"]'
+          # Pull requests run on PR_PYTHON only and skip testPerformance; pushes to
+          # master and releases, releases, manual runs and PRs labelled
+          # run-all-ingestion-tests keep the full matrix. A break that only shows on
+          # 3.12/3.13 is therefore caught after merge rather than before.
+          if [ "$EVENT_NAME" = "pull_request" ] && [ "$FORCE_ALL" != "true" ]; then
+            QUICK_PYTHONS=$(jq -n -c --arg v "$PR_PYTHON" '[$v]')
+            FULL_PYTHONS="$QUICK_PYTHONS"
+            PERF='[]'
+          else
+            # testQuick runs on every supported version; integration batches and
+            # selective connector jobs run on FULL_PYTHONS; perf on 3.11 only.
+            QUICK_PYTHONS='["3.11","3.12","3.13"]'
+            FULL_PYTHONS='["3.11","3.13"]'
+            PERF='[{"python-version":"3.11","command":"testPerformance"}]'
+          fi
 
-          BASE=$(jq -n -c --argjson v "$QUICK_PYTHONS" \
-            '[$v[] | {"python-version": ., "command": "testQuick"}] + [{"python-version":"3.11","command":"testPerformance"}]')
+          BASE=$(jq -n -c --argjson v "$QUICK_PYTHONS" --argjson perf "$PERF" \
+            '[$v[] | {"python-version": ., "command": "testQuick"}] + $perf')
 
           if [ "$RUN_ALL" = "true" ]; then
             # Full static batch list, crossed with FULL_PYTHONS
