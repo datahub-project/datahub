@@ -4,14 +4,12 @@ import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import styled from 'styled-components/macro';
 import YAML from 'yamljs';
 
-import { useCapabilitySummary } from '@app/ingestV2/shared/hooks/useCapabilitySummary';
-import TestConnectionButton from '@app/ingestV2/source/builder/RecipeForm/TestConnection/TestConnectionButton';
 import { RecipeField, setFieldValueOnRecipe } from '@app/ingestV2/source/builder/RecipeForm/common';
 import { RECIPE_FIELDS } from '@app/ingestV2/source/builder/RecipeForm/constants';
 import { SourceConfig } from '@app/ingestV2/source/builder/types';
 import { MAX_FORM_WIDTH } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/constants';
 import { FormHeader } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/FormHeader';
-import TestConnectionModal from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionModal';
+import { TestConnectionSection } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/components/TestConnection/TestConnectionSection';
 import { FormField } from '@app/ingestV2/source/multiStepBuilder/steps/step2ConnectionDetails/sections/recipeSection/recipeForm/fields/FormField';
 import {
     resolveDynamicOptions,
@@ -35,11 +33,6 @@ const FieldsContainer = styled(GapContainer)`
     max-width: ${MAX_FORM_WIDTH};
 `;
 const SectionsContainer = styled(GapContainer)``;
-
-const TestConnectionWrapper = styled.div`
-    display: flex;
-    justify-content: flex-start;
-`;
 
 function getInitialValues(displayRecipe: string, allFields: RecipeField[]) {
     try {
@@ -111,8 +104,6 @@ function RecipeForm({
         form.setFieldsValue(values);
     }, [allFields, displayRecipe, form]);
 
-    const { getConnectorsWithTestConnection: getConnectorsWithTestConnectionFromHook } = useCapabilitySummary();
-
     const updateRecipe = useCallback(
         (changedValues: any, allValues: any) => {
             let updatedValues = YAML.parse(displayRecipe);
@@ -178,20 +169,13 @@ function RecipeForm({
                     ))}
                 </FieldsContainer>
 
-                {getConnectorsWithTestConnectionFromHook().has(type as string) && (
-                    <TestConnectionWrapper>
-                        <TestConnectionButton
-                            recipe={displayRecipe}
-                            sourceConfigs={sourceConfigs}
-                            version={version}
-                            selectedSource={selectedSource}
-                            size="xs"
-                            textWeight="semiBold"
-                            renderModal={(props) => <TestConnectionModal {...props} />}
-                            hideIcon
-                        />
-                    </TestConnectionWrapper>
-                )}
+                <TestConnectionSection
+                    type={type}
+                    recipe={displayRecipe}
+                    sourceConfigs={sourceConfigs}
+                    version={version}
+                    selectedSource={selectedSource}
+                />
 
                 <FiltersSection fields={filterFields} updateRecipe={updateRecipe} recipe={displayRecipe} />
 

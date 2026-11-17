@@ -1,0 +1,21 @@
+/// Calculated table derived from Policies and Claims.
+table 'Claims By State'
+	lineageTag: 00000001-1111-4222-8333-000000000001
+
+	column State
+		dataType: string
+		lineageTag: 0000000e-1111-4222-8333-00000000000e
+		summarizeBy: none
+		isNameInferred
+		sourceColumn: [State]
+
+	column ClaimCount
+		dataType: int64
+		lineageTag: 00000014-1111-4222-8333-000000000014
+		summarizeBy: sum
+		isNameInferred
+		sourceColumn: [ClaimCount]
+
+	partition 'Claims By State' = calculated
+		mode: import
+		source = SELECTCOLUMNS(ADDCOLUMNS(SUMMARIZE('Policies', 'Policies'[State]), "@Count", CALCULATE(COUNTROWS('Claims'))), "State", 'Policies'[State], "ClaimCount", [@Count])

@@ -5,7 +5,9 @@ from unittest.mock import Mock
 import pytest
 
 from datahub_agent_context.context import DataHubContext
+from datahub_agent_context.mcp_tools.base import _disable_newer_gms_fields
 from datahub_agent_context.mcp_tools.incidents import (
+    LIST_INCIDENTS_QUERY,
     _build_incident_summary,
     list_incidents,
     raise_incident,
@@ -68,6 +70,16 @@ def mock_client():
     mock._graph = Mock()
     mock.graph.execute_graphql = Mock()
     return mock
+
+
+def test_older_gms_query_keeps_only_legacy_types() -> None:
+    query = _disable_newer_gms_fields(LIST_INCIDENTS_QUERY)
+    active_types = [
+        line.split()[2]
+        for line in query.splitlines()
+        if line.lstrip().startswith("... on ")
+    ]
+    assert active_types == ["Dataset", "DataJob", "DataFlow", "Dashboard", "Chart"]
 
 
 # --- Unit tests for helper functions ---

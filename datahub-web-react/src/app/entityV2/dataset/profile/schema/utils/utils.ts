@@ -1,4 +1,3 @@
-import { SorterResult } from 'antd/lib/table/interface';
 import * as diff from 'diff';
 
 import { KEY_SCHEMA_PREFIX, UNION_TOKEN } from '@app/entityV2/dataset/profile/schema/utils/constants';
@@ -145,45 +144,3 @@ export function getRawSchema(schema: PlatformSchema | undefined | null, showKeyS
 
 // we need to calculate excluding collapsed fields because Antd table expects
 // an indexToScroll to only counting based on visible fields
-export function findIndexOfFieldPathExcludingCollapsedFields(
-    fieldPath: string,
-    expandedRows: Set<string>,
-    rows: Array<ExtendedSchemaFields>,
-    sorter: SorterResult<any> | undefined,
-    compareFn: ((a: any, b: any) => number) | undefined,
-) {
-    let index = 0; // This will keep track of the index across recursive calls
-
-    function search(shadowedRows) {
-        let sortedRows = shadowedRows;
-        if (sorter?.order === 'ascend') {
-            sortedRows = shadowedRows.toSorted(compareFn);
-        } else if (sorter?.order === 'descend') {
-            sortedRows = shadowedRows.toSorted(compareFn).toReversed();
-        }
-
-        // eslint-disable-next-line no-restricted-syntax
-        for (const row of sortedRows) {
-            // eslint-disable-next) {
-            // Check if the current row's ID matches the ID we're looking for
-            if (row.fieldPath === fieldPath) {
-                return index;
-            }
-            index++; // Increment index for the current row
-
-            // Check if current row is expanded and has children
-            if (expandedRows.has(row.fieldPath) && row.children && row.children.length) {
-                const foundIndex = search(row.children); // Recursively search children
-                if (foundIndex !== -1) {
-                    // If found in children, return the found index
-                    return foundIndex;
-                }
-            }
-        }
-        // Return -1 if the ID was not found in this branch
-        return -1;
-    }
-
-    // Start the recursive search
-    return search(rows);
-}

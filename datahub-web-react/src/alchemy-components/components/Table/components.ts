@@ -8,28 +8,34 @@ import { AlignmentOptions } from '@src/alchemy-components/theme/config';
 
 const getOpaqueTint = (tint: string, base: string) => `linear-gradient(${tint}, ${tint}), ${base}`;
 
-export const TableContainer = styled.div<{ isScrollable?: boolean; maxHeight?: string; isBorderless?: boolean }>(
-    ({ isScrollable, maxHeight, isBorderless, theme }) => ({
-        borderRadius: isBorderless ? radius.none : radius.lg,
-        border: isBorderless ? borders.none : `1px solid ${theme.colors.border}`,
-        overflow: isScrollable ? 'auto' : 'hidden',
-        width: '100%',
-        maxHeight: maxHeight || '100%',
+export const TableContainer = styled.div<{
+    isScrollable?: boolean;
+    maxHeight?: string;
+    isBorderless?: boolean;
+    isVirtualized?: boolean;
+}>(({ isScrollable, maxHeight, isBorderless, isVirtualized, theme }) => ({
+    borderRadius: isBorderless ? radius.none : radius.lg,
+    border: isBorderless ? borders.none : `1px solid ${theme.colors.border}`,
+    overflow: isScrollable ? 'auto' : 'hidden',
+    width: '100%',
+    maxHeight: maxHeight || '100%',
+    // A virtualized body swaps rows for spacers as it scrolls. Scroll anchoring would answer each swap by
+    // nudging scrollTop, which moves the window again: rows at the edge mount and unmount in a loop.
+    overflowAnchor: isVirtualized ? 'none' : undefined,
 
-        '&::-webkit-scrollbar': {
-            height: '8px', // For horizontal scrollbar - visible
-            width: '0px', // For vertical scrollbar - invisible
-        },
+    '&::-webkit-scrollbar': {
+        height: '8px', // For horizontal scrollbar - visible
+        width: '0px', // For vertical scrollbar - invisible
+    },
 
-        '& .selected-row': {
-            background: `${theme.colors.bgHover} !important`,
-        },
+    '& .selected-row': {
+        background: `${theme.colors.bgHover} !important`,
+    },
 
-        '& .selected-row > td[data-fixed]': {
-            background: `${getOpaqueTint(theme.colors.bgHover, theme.colors.bg)} !important`,
-        },
-    }),
-);
+    '& .selected-row > td[data-fixed]': {
+        background: `${getOpaqueTint(theme.colors.bgHover, theme.colors.bg)} !important`,
+    },
+}));
 
 export const BaseTable = styled.table({
     borderCollapse: 'collapse',
@@ -82,12 +88,11 @@ export const HeaderContainer = styled.div<{ alignment?: AlignmentOptions }>(({ a
 }));
 
 export const TableRow = styled.tr<{
-    canExpand?: boolean;
     isRowClickable?: boolean;
     isFocused?: boolean;
     canHover?: boolean;
-}>(({ canExpand, isRowClickable, isFocused, canHover, theme }) => ({
-    background: canExpand ? theme.colors.bgHover : 'transparent',
+}>(({ isRowClickable, isFocused, canHover, theme }) => ({
+    background: 'transparent',
     ...(isFocused
         ? {
               background: theme.colors.bgSelectedSubtle,
@@ -118,14 +123,11 @@ export const TableCell = styled.td<{
     /** Virtualized rows have a fixed height, so cells drop their vertical padding and center content. */
     isFixedHeight?: boolean;
     size?: 'sm' | 'md';
-    // Legacy `expandable` parent rows.
-    isGroupHeader?: boolean;
-    isExpanded?: boolean;
-}>(({ width, alignment, fixedLeft, gutter, isPrimary, isFixedHeight, size, isGroupHeader, theme }) => {
+}>(({ width, alignment, fixedLeft, gutter, isPrimary, isFixedHeight, size, theme }) => {
     const verticalPadding = isFixedHeight ? '0' : (size === 'sm' && spacing.xsm) || spacing.md;
     const leftPadding = size === 'sm' ? spacing.xsm : spacing.md;
     return {
-        padding: isGroupHeader ? spacing.xsm : `${verticalPadding} ${spacing.xsm} ${verticalPadding} ${leftPadding}`,
+        padding: `${verticalPadding} ${spacing.xsm} ${verticalPadding} ${leftPadding}`,
         paddingLeft: gutter,
         borderBottom: `1px solid ${theme.colors.border}`,
         color: theme.colors.textSecondary,
@@ -275,6 +277,18 @@ export const TreeExpanderSlot = styled.span({
     width: '24px',
     height: '16px',
 });
+
+// Holds a virtualized cell at the row height: a taller cell would grow its row past `rowHeight`, and the
+// spacers that stand in for off-screen rows would no longer match the rows they replace. It fills the row
+// (less the cell's 1px bottom border) and centers its content, so content that draws a little outside
+// itself, like a badge's count, stays inside the clip.
+export const FixedHeightCellContent = styled.div<{ rowHeight: number }>(({ rowHeight }) => ({
+    height: rowHeight - 1,
+    display: 'flex',
+    flexDirection: 'column',
+    justifyContent: 'center',
+    overflow: 'hidden',
+}));
 
 export const SpacerCell = styled.td({
     padding: 0,
