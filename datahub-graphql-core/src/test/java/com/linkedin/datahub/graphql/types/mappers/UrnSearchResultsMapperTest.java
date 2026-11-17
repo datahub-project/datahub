@@ -14,7 +14,9 @@ import static org.testng.Assert.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.DoubleMap;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.KeywordRerankExplanation;
 import com.linkedin.datahub.graphql.generated.ScrollResults;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.metadata.aspect.AspectRetriever;
@@ -102,6 +104,32 @@ public class UrnSearchResultsMapperTest {
 
     assertEquals(mapped.getSearchResults().size(), 2);
     assertEquals(mapped.getTotal(), 2);
+  }
+
+  @Test
+  public void testKeywordRerankExplanationIsMapped() throws Exception {
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setKeywordRerank(
+            new com.linkedin.metadata.search.KeywordRerankExplanation()
+                .setOutcome("keptKeywordOrder")
+                .setReason("timeout")
+                .setEligibleRows(40)
+                .setIneligibleRows(60)
+                .setDeprecations(new StringArray("SearchFlags.minScore")));
+
+    KeywordRerankExplanation mapped = UrnSearchResultsMapper.map(null, backend).getKeywordRerank();
+
+    assertEquals(mapped.getOutcome(), "keptKeywordOrder");
+    assertEquals(mapped.getReason(), "timeout");
+    assertEquals(mapped.getEligibleRows().intValue(), 40);
+    assertEquals(mapped.getIneligibleRows().intValue(), 60);
+    assertEquals(mapped.getDeprecations(), List.of("SearchFlags.minScore"));
+    // Without an explanation the field stays unset.
+    assertNull(
+        UrnSearchResultsMapper.map(null, backendResult(new SearchEntityArray()))
+            .getKeywordRerank());
   }
 
   @Test
