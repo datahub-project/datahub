@@ -12,7 +12,8 @@ import javax.annotation.Nonnull;
  * primary store, so concurrent changes to different policies cannot overwrite each other.
  *
  * <p>Entries live as long as the authorizer's recent-change window, so a member that joins within
- * that window still reads the change from the key set.
+ * that window still reads the change from the key set. The TTL is at least 1 second: Hazelcast
+ * treats 0 as "never expire", while a window of 0 means the authorizer keeps no recent changes.
  *
  * <p>The map has no near cache. Members never read values: they get entry events and the key set,
  * which a near cache does not serve, so it would only use memory.
@@ -25,7 +26,7 @@ public final class PolicyChangeMap {
 
   @Nonnull
   public static MapConfig mapConfig(int ttlSeconds) {
-    return new MapConfig().setName(NAME).setTimeToLiveSeconds(ttlSeconds);
+    return new MapConfig().setName(NAME).setTimeToLiveSeconds(Math.max(1, ttlSeconds));
   }
 
   @Nonnull

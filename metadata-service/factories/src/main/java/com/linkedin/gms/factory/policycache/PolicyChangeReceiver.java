@@ -44,10 +44,32 @@ public class PolicyChangeReceiver implements AutoCloseable {
   /**
    * Adds the entry listener first and only then reads the key set, so a change signalled while this
    * member starts is either in the key set or delivered as an event; none falls in between.
+   *
+   * <p>Never throws, so an unhealthy cluster cannot stop GMS from starting. If the listener cannot
+   * be added, this member reads other members' changes on its refresh timer. If only the key-set
+   * read fails, the listener stays and a full load replaces the read.
    */
   public void start() {
-    listenerId = changes.addEntryListener(new Listener(), false);
-    received(changes.keySet());
+    try {
+      listenerId = changes.addEntryListener(new Listener(), false);
+    } catch (RuntimeException e) {
+      increment("policyChange.receiver_start_failed", 1);
+      log.warn(
+          "Could not listen for policy changes from other GMS members; they are read on the"
+              + " refresh timer.",
+          e);
+      return;
+    }
+    final Set<String> keys;
+    try {
+      keys = changes.keySet();
+    } catch (RuntimeException e) {
+      increment("policyChange.receiver_start_failed", 1);
+      log.warn("Could not read recent policy changes at startup; requesting a full load.", e);
+      authorizer.requestLoad();
+      return;
+    }
+    received(keys);
   }
 
   @Override
