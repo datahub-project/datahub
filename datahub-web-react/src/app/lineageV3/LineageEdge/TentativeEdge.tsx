@@ -5,6 +5,8 @@ import styled from 'styled-components';
 export const TENTATIVE_EDGE_NAME = 'tentative';
 
 const StyledPath = styled.path`
+    /* React Flow's stylesheet sets a light-only default stroke here. */
+    stroke: ${({ theme }) => theme.colors.icon};
     stroke-dasharray: 3, 2;
     // animation: dash-move 300ms linear infinite;
     @keyframes dash-move {

@@ -59,7 +59,8 @@ public class GraphCacheReader {
       @Nonnull Collection<String> roots,
       int limit,
       int maxDepth,
-      @Nonnull ReadMode mode) {
+      @Nonnull ReadMode mode,
+      boolean requireFullPath) {
     if (definition == null
         || !definition.isEnabled()
         || !EntityGraphSources.supports(definition, source)
@@ -68,6 +69,9 @@ public class GraphCacheReader {
       return GraphReadResult.miss(ReadMissReason.INVALID_REQUEST);
     }
     GraphScopeReadStrategy strategy = strategyFor(definition);
+    if (requireFullPath) {
+      return strategy.expandFullPath(definition, source, direction, roots, limit, maxDepth);
+    }
 
     if (mode == ReadMode.EPHEMERAL) {
       return strategy.expandEphemeral(definition, source, direction, roots, limit, maxDepth);

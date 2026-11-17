@@ -23,6 +23,7 @@ import org.springframework.context.annotation.PropertySource;
       "com.linkedin.metadata.boot.kafka",
       "com.linkedin.metadata.boot.pgqueue",
       "com.linkedin.gms.factory.auth",
+      "com.linkedin.gms.factory.aws",
       "com.linkedin.gms.factory.common",
       "com.linkedin.gms.factory.config",
       "com.linkedin.gms.factory.entity",

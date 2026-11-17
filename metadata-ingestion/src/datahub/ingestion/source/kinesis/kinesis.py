@@ -51,7 +51,7 @@ class KinesisRegionKey(ContainerKey):
 
 @platform_name("Amazon Kinesis Data Streams", id=PLATFORM_NAME)
 @config_class(KinesisSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.DESCRIPTIONS, "Enabled by default")
 @capability(SourceCapability.CONTAINERS, "Region containers")
 @capability(SourceCapability.LINEAGE_COARSE, "Firehose -> destination lineage")
@@ -203,7 +203,7 @@ class KinesisSource(StatefulIngestionSourceBase, TestableSource):
         yield from gen_containers(
             container_key=region_key,
             name=region,
-            sub_types=[GenericContainerSubTypes.KINESIS_REGION.value],
+            sub_types=[GenericContainerSubTypes.AWS_REGION.value],
             description=f"AWS region {region}",
             external_url=f"https://console.aws.amazon.com/kinesis/home?region={region}",
         )

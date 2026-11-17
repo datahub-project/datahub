@@ -4,7 +4,9 @@ import com.datahub.authorization.AuthorizerChain;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.graph.LineageDirection;
 import com.linkedin.metadata.models.registry.LineageRegistry;
+import com.linkedin.metadata.utils.arch.OperationContextExempt;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.openapi.controller.ScrollUtils;
 import io.datahubproject.openapi.models.GenericScrollResult;
 import io.datahubproject.openapi.v3.models.LineageRelationship;
@@ -31,10 +33,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/openapi/v3/lineage")
 @Slf4j
 @Tag(name = "Generic Lineage", description = "APIs for accessing lineage relationships.")
+@OperationContextExempt(
+    reason =
+        "Delegates to ScrollUtils.doScrollLineage which builds its own session-scoped"
+            + " OperationContext internally.")
 public class LineageController {
 
   @Autowired private GraphService graphService;
   @Autowired private AuthorizerChain authorizationChain;
+  @Autowired private RestrictedService restrictedService;
 
   @Qualifier("systemOperationContext")
   @Autowired
@@ -80,6 +87,7 @@ public class LineageController {
     return ScrollUtils.doScrollLineage(
         systemOperationContext,
         authorizationChain,
+        restrictedService,
         graphService,
         request,
         "scrollLineage",

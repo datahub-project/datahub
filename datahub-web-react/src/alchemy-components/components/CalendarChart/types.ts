@@ -23,9 +23,9 @@ export type CalendarData<ValueType> = {
     value: ValueType;
 };
 
-export type LabelProps = Omit<SVGAttributes<SVGTextElement>, 'x, y'>;
+type LabelProps = Omit<SVGAttributes<SVGTextElement>, 'x, y'>;
 
-export type Accessor<ValueType, ResponseType> = (value: ValueType) => ResponseType;
+type Accessor<ValueType, ResponseType> = (value: ValueType) => ResponseType;
 
 export type ColorAccessor<ValueType> = {
     valueAccessor: Accessor<ValueType, number>;

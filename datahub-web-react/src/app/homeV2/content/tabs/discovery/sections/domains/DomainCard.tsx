@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';
 
@@ -39,6 +39,7 @@ const Text = styled.div`
 
 const Name = styled.div`
     font-size: 16px;
+    font-weight: 500;
     color: ${(props) => props.theme.colors.text};
     overflow: hidden;
     text-overflow: ellipsis;
@@ -78,7 +79,7 @@ export const DomainCard = ({ domain, assetCount }: Props) => {
                 to={entityRegistry.getEntityUrl(domain.type, domain.urn)}
                 $isShowNavBarRedesign={isShowNavBarRedesign}
             >
-                <DomainColoredIcon domain={domain} size={46} />
+                <DomainColoredIcon domain={domain} size={28} fontSize={14} />
                 <Text>
                     <Name>{name}</Name>
                     <Counts>

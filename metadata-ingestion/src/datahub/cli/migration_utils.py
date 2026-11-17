@@ -325,7 +325,8 @@ def merge_additive_aspects(
 ) -> int:
     """Merge additive aspects from source into existing target via Patch API.
 
-    Returns the number of patch MCPs emitted.
+    Returns the number of MCPs emitted (JSON patches, plus a lineage UPSERT
+    when the target has no ``upstreamLineage`` aspect yet).
 
     **Known limitation (multi-downstream FGL):** the Patch API keys
     fine-grained lineage entries on ``(transformOp, downstream, query)`` and
@@ -338,6 +339,7 @@ def merge_additive_aspects(
     multi-downstream FGL entries.
     """
     patch_builder = DatasetPatchBuilder(dst_urn)
+    lineage_upserts = 0
 
     if "ownership" in src_aspects:
         aspect = src_aspects["ownership"]
@@ -360,16 +362,35 @@ def merge_additive_aspects(
     if "upstreamLineage" in src_aspects:
         aspect = src_aspects["upstreamLineage"]
         assert isinstance(aspect, UpstreamLineageClass)
-        for upstream in aspect.upstreams or []:
-            patch_builder.add_upstream_lineage(upstream)
-        for fine_grained in aspect.fineGrainedLineages or []:
-            patch_builder.add_fine_grained_lineage(fine_grained)
+        has_lineage = bool(aspect.upstreams) or bool(aspect.fineGrainedLineages)
+        # DatasetPatchBuilder lineage PATCH is a GMS no-op when the target has
+        # no upstreamLineage: it is a plain JSON Patch (no GenericJsonPatch /
+        # arrayPrimaryKeys), and GMS never writes. Ownership, globalTags, and
+        # glossaryTerms PATCH through GenericJsonPatch + aspect templates, which
+        # create the aspect from a default. UPSERT is lineage-only. Empty source
+        # lineage is a no-op; PATCH is only for unioning into existing lineage.
+        if has_lineage:
+            existing_lineage = graph.get_aspect(dst_urn, UpstreamLineageClass)
+            if existing_lineage is None:
+                if not dry_run:
+                    graph.emit_mcp(
+                        MetadataChangeProposalWrapper(
+                            entityUrn=dst_urn,
+                            aspect=aspect,
+                        )
+                    )
+                lineage_upserts = 1
+            else:
+                for upstream in aspect.upstreams or []:
+                    patch_builder.add_upstream_lineage(upstream)
+                for fine_grained in aspect.fineGrainedLineages or []:
+                    patch_builder.add_fine_grained_lineage(fine_grained)
 
     mcps = patch_builder.build()
     for mcp in mcps:
         if not dry_run:
             graph.emit(mcp)
-    return len(mcps)
+    return len(mcps) + lineage_upserts
 
 
 def should_overwrite_scalar(

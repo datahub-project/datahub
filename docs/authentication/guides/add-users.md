@@ -17,7 +17,7 @@ be reserved for special circumstances where access must be closely monitored and
 
 ### Generating an Invite Link
 
-If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md), you can invite new users to DataHub by sharing an invite link.
+If you have the `Manage User Credentials` [Platform Privilege](../../authorization/access-policies-guide.md), you can invite new users to DataHub by sharing an invite link. Choosing a role for that link also requires the `Manage Policies` privilege. Without it, the link invites a user with no role.
 
 To do so, navigate to the **Users & Groups** section inside of Settings page. Here you can generate a shareable invite link by clicking the `Invite Users` button. If you
 do not have the correct privileges to invite users, this button will be disabled.
@@ -78,9 +78,9 @@ To complete the integration, you'll need the following:
 
 These values can be obtained from your Identity Provider by following Step 1 on the [OpenID Connect Authentication](sso/configure-oidc-react.md)) Guide.
 
-### Self-Hosted DataHub
+### DataHub Core
 
-For information about configuring Self-Hosted DataHub to use OpenID Connect (OIDC) to
+For information about configuring DataHub Core to use OpenID Connect (OIDC) to
 perform authentication, check out [OIDC Authentication](sso/configure-oidc-react.md).
 
 > **A note about user URNs**: User URNs are unique identifiers for users on DataHub. The username received from an Identity Provider

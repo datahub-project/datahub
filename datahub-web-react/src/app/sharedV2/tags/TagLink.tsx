@@ -2,8 +2,8 @@ import React, { useState } from 'react';
 import styled from 'styled-components';
 
 import { HoverEntityTooltip } from '@app/recommendations/renderer/component/HoverEntityTooltip';
-import { TagProfileDrawer } from '@app/shared/tags/TagProfileDrawer';
 import TagPill from '@app/sharedV2/tags/TagPill';
+import { TagProfileDrawer } from '@app/sharedV2/tags/TagProfileDrawer';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType, Tag } from '@types';

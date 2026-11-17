@@ -54,6 +54,7 @@
     "properties.save.error": "Não foi possível salvar a propriedade estruturada. Algo deu errado.",
     "properties.search.placeholder": "Pesquisar...",
     "properties.searchInProperties.placeholder": "Pesquisar nas propriedades...",
+    "properties.showCountMoreValues": "mostrar mais {{count}} de {{total, number}} valores",
     "properties.structuredProperty.title": "Propriedade Estruturada",
     "properties.updated.success": "Propriedade estruturada atualizada com sucesso!"
 }

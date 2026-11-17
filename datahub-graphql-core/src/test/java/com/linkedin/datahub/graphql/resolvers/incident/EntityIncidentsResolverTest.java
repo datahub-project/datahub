@@ -15,9 +15,14 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.CorpUser;
 import com.linkedin.datahub.graphql.generated.Dataset;
+import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.IncidentPriority;
+import com.linkedin.datahub.graphql.generated.MLFeature;
+import com.linkedin.datahub.graphql.generated.MLFeatureTable;
+import com.linkedin.datahub.graphql.generated.MLModel;
+import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
 import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -51,11 +56,54 @@ import org.testng.annotations.Test;
 public class EntityIncidentsResolverTest {
   @Test
   public void testGetSuccess() throws Exception {
+    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
+    Dataset parentEntity = new Dataset();
+    parentEntity.setUrn(datasetUrn.toString());
+    assertIncidentsResolvedForSource(datasetUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessMlModelEntity() throws Exception {
+    Urn mlModelUrn =
+        Urn.createFromString("urn:li:mlModel:(urn:li:dataPlatform:mlflow,test-model,PROD)");
+    MLModel parentEntity = new MLModel();
+    parentEntity.setUrn(mlModelUrn.toString());
+    assertIncidentsResolvedForSource(mlModelUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessMlFeatureEntity() throws Exception {
+    Urn mlFeatureUrn = Urn.createFromString("urn:li:mlFeature:(test-namespace,test-feature)");
+    MLFeature parentEntity = new MLFeature();
+    parentEntity.setUrn(mlFeatureUrn.toString());
+    assertIncidentsResolvedForSource(mlFeatureUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessMlFeatureTableEntity() throws Exception {
+    Urn mlFeatureTableUrn =
+        Urn.createFromString(
+            "urn:li:mlFeatureTable:(urn:li:dataPlatform:feast,test_feature_table)");
+    MLFeatureTable parentEntity = new MLFeatureTable();
+    parentEntity.setUrn(mlFeatureTableUrn.toString());
+    assertIncidentsResolvedForSource(mlFeatureTableUrn, parentEntity);
+  }
+
+  @Test
+  public void testGetSuccessSchemaFieldEntity() throws Exception {
+    Urn schemaFieldUrn =
+        Urn.createFromString(
+            "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:hive,test,PROD),test-field)");
+    SchemaFieldEntity parentEntity = new SchemaFieldEntity();
+    parentEntity.setUrn(schemaFieldUrn.toString());
+    assertIncidentsResolvedForSource(schemaFieldUrn, parentEntity);
+  }
+
+  private void assertIncidentsResolvedForSource(Urn entityUrn, Entity source) throws Exception {
     EntityClient mockClient = Mockito.mock(EntityClient.class);
 
     Urn assertionUrn = Urn.createFromString("urn:li:assertion:test");
     Urn userUrn = Urn.createFromString("urn:li:corpuser:test");
-    Urn datasetUrn = Urn.createFromString("urn:li:dataset:(test,test,test)");
     Urn incidentUrn = Urn.createFromString("urn:li:incident:test-guid");
 
     Map<String, com.linkedin.entity.EnvelopedAspect> incidentAspects = new HashMap<>();
@@ -71,7 +119,7 @@ public class EntityIncidentsResolverTest {
             .setDescription("Description")
             .setPriority(5)
             .setTitle("Title")
-            .setEntities(new UrnArray(ImmutableList.of(datasetUrn)))
+            .setEntities(new UrnArray(ImmutableList.of(entityUrn)))
             .setSource(
                 new IncidentSource()
                     .setType(IncidentSourceType.ASSERTION_FAILURE)
@@ -89,7 +137,7 @@ public class EntityIncidentsResolverTest {
 
     final Map<String, List<String>> criterionMap = new HashMap<>();
     criterionMap.put(
-        INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, ImmutableList.of(datasetUrn.toString()));
+        INCIDENT_ENTITIES_SEARCH_INDEX_FIELD_NAME, ImmutableList.of(entityUrn.toString()));
     Filter expectedFilter = QueryUtils.newListsFilter(criterionMap);
 
     SortCriterion expectedSort = new SortCriterion();
@@ -139,9 +187,7 @@ public class EntityIncidentsResolverTest {
     Mockito.when(mockEnv.getArgumentOrDefault(Mockito.eq("count"), Mockito.eq(20))).thenReturn(10);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
 
-    Dataset parentEntity = new Dataset();
-    parentEntity.setUrn(datasetUrn.toString());
-    Mockito.when(mockEnv.getSource()).thenReturn(parentEntity);
+    Mockito.when(mockEnv.getSource()).thenReturn(source);
 
     EntityIncidentsResult result = resolver.get(mockEnv).get();
 

@@ -104,6 +104,7 @@ The DataHub OpenLineage integration can be configured using environment variable
 | `DATAHUB_OPENLINEAGE_CAPTURE_COLUMN_LEVEL_LINEAGE`     | `datahub.openlineage.capture-column-level-lineage`     | Boolean | `true`  | Whether to capture column-level lineage information                                                               |
 | `DATAHUB_OPENLINEAGE_USE_PATCH`                        | `datahub.openlineage.use-patch`                        | Boolean | `false` | Whether to use patch operations for lineage/incremental lineage                                                   |
 | `DATAHUB_OPENLINEAGE_FILE_PARTITION_REGEXP_PATTERN`    | `datahub.openlineage.file-partition-regexp-pattern`    | String  | `null`  | Regular expression pattern for file partition detection                                                           |
+| `DATAHUB_OPENLINEAGE_DOMAINS`                          | `datahub.openlineage.domains`                          | List    | `empty` | Comma-separated domain URNs (`urn:li:domain:<id>`) attached to the DataFlow and DataJob                           |
 
 > **Valid `env` values**: `PROD`, `DEV`, `TEST`, `QA`, `UAT`, `EI`, `PRE`, `STG`, `NON_PROD`, `CORP`, `RVW`, `PRD`, `TST`, `SIT`, `SBX`, `SANDBOX`, `CERT`
 >
@@ -113,6 +114,20 @@ The DataHub OpenLineage integration can be configured using environment variable
 > - **For advanced scenarios**, use `platform-instance` to override the DataFlow cluster or `common-dataset-env` to override the Dataset environment independently
 >
 > **Note**: The `env` property naming matches DataHub SDK conventions where `env` is the user-facing parameter that internally maps to the URN `cluster` field.
+
+##### Assigning Domains
+
+OpenLineage has no domain facet, so a domain cannot be carried on the event itself. Set it on the
+endpoint instead — every DataFlow and DataJob created from events on this endpoint gets these domains:
+
+```bash
+DATAHUB_OPENLINEAGE_DOMAINS=urn:li:domain:finance,urn:li:domain:reporting
+```
+
+Values must be full domain URNs. A domain name such as `finance` cannot be resolved here and is
+skipped with a warning. The remaining valid domains are written as the entity's complete domain
+list, replacing any existing assignment — including one made in the UI. If no configured value
+parses at all, nothing is emitted, so a bad value cannot silently clear domains.
 
 ##### Usage Examples
 

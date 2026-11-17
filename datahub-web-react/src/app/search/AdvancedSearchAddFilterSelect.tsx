@@ -1,4 +1,4 @@
-import { PlusOutlined } from '@ant-design/icons';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { Select } from 'antd';
 import * as React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -8,7 +8,7 @@ import { DEGREE_FILTER_NAME, ORDERED_FIELDS, getFieldToLabel } from '@app/search
 
 import { FacetFilterInput } from '@types';
 
-const StyledPlus = styled(PlusOutlined)`
+const StyledPlus = styled(Plus)`
     margin-right: 6px;
 `;
 

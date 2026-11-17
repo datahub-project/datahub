@@ -187,7 +187,7 @@ ER Model Relationships can be queried using the standard DataHub REST API:
 <summary>Fetch an ER Model Relationship</summary>
 
 ```bash
-curl 'http://localhost:8080/entities/urn%3Ali%3AerModelRelationship%3Aemployee_to_company'
+curl 'http://localhost:8080/entitiesV2/urn%3Ali%3AerModelRelationship%3Aemployee_to_company'
 ```
 
 The response includes all aspects of the relationship:

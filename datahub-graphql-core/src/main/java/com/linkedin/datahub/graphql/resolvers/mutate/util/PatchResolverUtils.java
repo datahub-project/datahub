@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.generated.StringMapEntryInput;
 import com.linkedin.datahub.graphql.generated.SystemMetadataInput;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
 import com.linkedin.mxe.GenericAspect;
@@ -222,16 +223,46 @@ public class PatchResolverUtils {
    * @throws AuthorizationException if any entity is not authorized
    */
   public static void checkBatchAuthorization(
-      @Nonnull List<PatchEntityInput> inputs, @Nonnull QueryContext context) {
+      @Nonnull List<PatchEntityInput> inputs,
+      @Nonnull QueryContext context,
+      @Nonnull EntityService<?> entityService) {
 
     for (int i = 0; i < inputs.size(); i++) {
       PatchEntityInput input = inputs.get(i);
-      if (!AuthorizationUtils.isAuthorizedForPatch(input, context)) {
+      if (!AuthorizationUtils.isAuthorizedForPatch(
+          input, context, entityExists(input, context, entityService))) {
         throw new AuthorizationException(
             context.getAuthentication().getActor().toUrnStr()
                 + " is unauthorized to update entity "
                 + input.getUrn());
       }
+    }
+  }
+
+  /**
+   * Soft-deleted entities still exist, so a patch of one stays an update. An unparseable URN is
+   * treated as missing; {@link AuthorizationUtils#isAuthorizedForPatch} rejects it on its own. A
+   * failed lookup is not a missing URN: callers must not authorize it as a create.
+   */
+  public static boolean entityExists(
+      @Nonnull PatchEntityInput input,
+      @Nonnull QueryContext context,
+      @Nonnull EntityService<?> entityService) {
+    if (input.getUrn() == null) {
+      return false;
+    }
+    final Urn urn;
+    try {
+      urn = UrnUtils.getUrn(input.getUrn());
+    } catch (Exception e) {
+      log.warn("Failed to parse patch URN {}", input.getUrn(), e);
+      return false;
+    }
+    try {
+      return entityService.exists(context.getOperationContext(), urn, true);
+    } catch (Exception e) {
+      throw new IllegalStateException(
+          "Failed to check existence for patch URN " + input.getUrn() + "; refusing to patch.", e);
     }
   }
 

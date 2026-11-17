@@ -36,7 +36,7 @@ const FeatureAvailability = ({
             selfHostedPartial && styles.platformPartial
           )}
         >
-          Self-Hosted DataHub{" "}
+          DataHub Core (OSS){" "}
           {renderSelfHostedIcon(saasOnly, selfHostedPartial)}
         </span>
       </div>

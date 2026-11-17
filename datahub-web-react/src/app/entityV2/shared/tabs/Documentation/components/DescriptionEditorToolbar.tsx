@@ -20,7 +20,13 @@ export const DescriptionEditorToolbar = ({ disableSave, onSave, onCancel }: Desc
     const { t: tc } = useTranslation('common.actions');
     return (
         <StyledTabToolbar>
-            <Button variant="text" color="gray" data-testid="description-editor-cancel-button" onClick={onCancel}>
+            <Button
+                variant="text"
+                type="button"
+                color="gray"
+                data-testid="description-editor-cancel-button"
+                onClick={onCancel}
+            >
                 {tc('cancel')}
             </Button>
             <Button data-testid="description-editor-save-button" onClick={onSave} disabled={disableSave}>

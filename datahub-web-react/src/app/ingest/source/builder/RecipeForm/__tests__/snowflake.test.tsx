@@ -61,6 +61,27 @@ describe('Snowflake (legacy ingest) authentication type helpers', () => {
 
             expect(result).toBe('KEY_PAIR_AUTHENTICATOR');
         });
+
+        it('returns the explicit authentication_type when set', () => {
+            const recipe = { source: { config: { authentication_type: 'DEFAULT_AUTHENTICATOR' } } };
+            const result = SNOWFLAKE_AUTHENTICATION_TYPE.getValueFromRecipeOverride?.(recipe);
+
+            expect(result).toBe('DEFAULT_AUTHENTICATOR');
+        });
+
+        it('honors explicit KEY_PAIR_AUTHENTICATOR even when a stale password is present', () => {
+            const recipe = {
+                source: {
+                    config: {
+                        authentication_type: 'KEY_PAIR_AUTHENTICATOR',
+                        password: 'test_password',
+                    },
+                },
+            };
+            const result = SNOWFLAKE_AUTHENTICATION_TYPE.getValueFromRecipeOverride?.(recipe);
+
+            expect(result).toBe('KEY_PAIR_AUTHENTICATOR');
+        });
     });
 });
 

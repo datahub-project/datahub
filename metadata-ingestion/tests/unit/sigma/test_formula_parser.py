@@ -1,6 +1,16 @@
 """Tests for the Sigma formula bracket-reference extractor."""
 
-from datahub.ingestion.source.sigma.formula_parser import extract_bracket_refs
+import dataclasses
+import re
+from typing import Callable, List, Optional, Tuple
+
+import pytest
+from hypothesis import HealthCheck, given, settings, strategies as st
+
+from datahub.ingestion.source.sigma.formula_parser import (
+    BracketRef,
+    extract_bracket_refs,
+)
 
 
 def test_none_formula_returns_empty() -> None:
@@ -362,3 +372,448 @@ def test_balanced_quote_inside_bracket_body_preserves_later_refs() -> None:
     assert len(result) == 2
     assert result[0].source == 'col"name'
     assert result[1].source == "ok"
+
+
+# ---------------------------------------------------------------------------
+# segments: every unescaped-"/" part, in order.
+#
+# Resolvers need this because a reference can carry more than two parts. Sigma
+# documents the three-part form as [Element/Relationship/Column], where the
+# middle segment is a RELATIONSHIP name, not an element -- see the class
+# docstring for why position alone must never be trusted.
+# ---------------------------------------------------------------------------
+
+
+def test_join_chain_segments() -> None:
+    (ref,) = extract_bracket_refs("[E1/E2/col]")
+    assert ref.segments == ("E1", "E2", "col")
+    # Legacy split must not move.
+    assert ref.source == "E1"
+    assert ref.column == "E2/col"
+
+
+def test_nested_join_chain_segments() -> None:
+    (ref,) = extract_bracket_refs("[E1/E2/E3/col]")
+    assert ref.segments == ("E1", "E2", "E3", "col")
+
+
+def test_single_slash_segments() -> None:
+    (ref,) = extract_bracket_refs("[Element/col]")
+    assert ref.segments == ("Element", "col")
+
+
+def test_bare_ref_has_one_segment() -> None:
+    (ref,) = extract_bracket_refs("[col]")
+    assert ref.segments == ("col",)
+
+
+def test_parameter_ref_has_one_segment() -> None:
+    (ref,) = extract_bracket_refs("[P_x]")
+    assert ref.is_parameter is True
+    assert ref.segments == ("P_x",)
+
+
+def test_escaped_slash_stays_inside_one_segment() -> None:
+    (ref,) = extract_bracket_refs(r"[A\/B/col]")
+    assert ref.segments == ("A/B", "col")
+
+
+def test_escaped_backslash_before_a_separator_still_separates() -> None:
+    r"""`\\` is a literal backslash, so the following `/` is a real separator."""
+    (ref,) = extract_bracket_refs(r"[A\\/B/C]")
+    assert ref.segments == ("A\\", "B", "C")
+
+
+def test_an_escaped_slash_beside_a_real_one_separates_once() -> None:
+    r"""`\/` is a literal that ends up inside segment 0; the next `/` separates."""
+    (ref,) = extract_bracket_refs(r"[a\//b]")
+    assert ref.segments == ("a/", "b")
+
+
+def test_a_parameter_prefix_with_a_column_is_not_a_parameter() -> None:
+    """is_parameter requires no column part, whatever the segment count."""
+    (ref,) = extract_bracket_refs("[P_x/y/z]")
+    assert ref.is_parameter is False
+    assert ref.segments == ("P_x", "y", "z")
+
+
+def test_escaped_brackets_stay_inside_one_segment() -> None:
+    (ref,) = extract_bracket_refs(r"[\[Tag\] Element A/Element B/col_a]")
+    assert ref.segments == ("[Tag] Element A", "Element B", "col_a")
+
+
+def test_segments_are_whitespace_stripped() -> None:
+    (ref,) = extract_bracket_refs("[ E1 / E2 / col ]")
+    assert ref.segments == ("E1", "E2", "col")
+
+
+def test_segment_buffers_reset_between_refs() -> None:
+    """A missing per-bracket reset is the classic bug here."""
+    first, second = extract_bracket_refs("[a/b/c] + [d]")
+    assert first.segments == ("a", "b", "c")
+    assert second.segments == ("d",)
+
+
+def test_a_trailing_separator_leaves_the_last_segment_empty() -> None:
+    """Documented contract: the skip rule tests source/column, not segments.
+
+    `[E1/E2/]` has column "E2/", which is non-empty, so the ref is emitted and
+    its last segment is "". Resolvers must check for empty segments.
+    """
+    (ref,) = extract_bracket_refs("[E1/E2/]")
+    assert ref.column == "E2/"
+    assert ref.segments == ("E1", "E2", "")
+
+
+def test_consecutive_separators_leave_a_middle_segment_empty() -> None:
+    (ref,) = extract_bracket_refs("[a//b]")
+    assert ref.segments == ("a", "", "b")
+    # Whitespace-only is empty after stripping, and behaves identically.
+    (spaced,) = extract_bracket_refs("[a/ /b]")
+    assert spaced.segments == ("a", "", "b")
+
+
+def test_an_empty_column_is_still_skipped() -> None:
+    """The single-slash empty-column row of the decision matrix is unchanged."""
+    assert extract_bracket_refs("[E1/]") == []
+
+
+def test_hand_built_ref_does_not_split_column() -> None:
+    """Back-compat default must not re-split a column containing "/"."""
+    ref = BracketRef(raw="[a/b/c]", source="a", column="b/c", is_parameter=False)
+    assert ref.segments == ("a", "b/c")
+    assert BracketRef(
+        raw="[a]", source="a", column=None, is_parameter=False
+    ).segments == ("a",)
+
+
+def test_a_list_of_segments_is_coerced_to_a_tuple() -> None:
+    """An untyped caller passing a list would otherwise make hash() raise."""
+    ref = BracketRef(
+        raw="[a/b]",
+        source="a",
+        column="b",
+        is_parameter=False,
+        segments=["a", "b"],  # type: ignore[arg-type]
+    )
+    assert ref.segments == ("a", "b")
+    assert hash(ref) == hash(ref)
+
+
+def test_segments_contradicting_source_or_column_are_rejected() -> None:
+    """A self-inconsistent ref resolves differently per field read; reject it."""
+    with pytest.raises(ValueError):
+        BracketRef(
+            raw="[a/b]",
+            source="a",
+            column="b",
+            is_parameter=False,
+            segments=("q", "r", "s"),
+        )
+
+
+def test_a_column_with_only_one_segment_is_rejected() -> None:
+    with pytest.raises(ValueError):
+        BracketRef(
+            raw="[a/b]", source="a", column="b", is_parameter=False, segments=("a",)
+        )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda ref: dataclasses.replace(ref, source="Z"),
+        lambda ref: dataclasses.replace(ref, column="other"),
+    ],
+    ids=["source", "column"],
+)
+def test_replace_cannot_leave_segments_stale(
+    mutate: Callable[[BracketRef], BracketRef],
+) -> None:
+    """Parse OUTSIDE the raises block: if parsing itself raised ValueError the
+    assertion would pass without exercising replace() at all."""
+    (parsed,) = extract_bracket_refs("[E1/E2/col]")
+    with pytest.raises(ValueError):
+        mutate(parsed)
+
+
+@pytest.mark.parametrize(
+    "body",
+    [
+        "a]b",  # closes the bracket early; the tail is silently dropped
+        "a]b]c",
+        "a]b[c",  # two refs
+        "",  # skip-rule bodies: the 4-arg form would construct these happily
+        " ",
+        "a/",
+        "/a",
+    ],
+)
+def test_from_body_rejects_anything_but_one_whole_reference(body: str) -> None:
+    """Counting refs is not enough: "a]b" parses as one valid ref, `[a]`.
+
+    Comparing `raw` against the whole input is what catches the truncation --
+    otherwise the constructor advertised as the safe path is the only one that
+    fails quietly.
+    """
+    with pytest.raises(ValueError):
+        BracketRef.from_body(body)
+
+
+def test_from_body_accepts_escaped_bodies_whole() -> None:
+    """The `raw` comparison must not reject legitimately escaped input."""
+    # An escaped slash is a literal, so the body is ONE segment.
+    assert BracketRef.from_body(r"a\/b").segments == ("a/b",)
+    # An escaped backslash leaves the next slash as a real separator.
+    assert BracketRef.from_body(r"a\\/b").segments == ("a\\", "b")
+    assert BracketRef.from_body(r"\[Tag\] X/rel/col").segments == (
+        "[Tag] X",
+        "rel",
+        "col",
+    )
+
+
+def test_from_body_segments_the_text_instead_of_guessing() -> None:
+    """The 4-arg form cannot know where the separators were; from_body can."""
+    assert BracketRef.from_body("a/b/c").segments == ("a", "b", "c")
+    assert BracketRef(
+        raw="[a/b/c]", source="a", column="b/c", is_parameter=False
+    ).segments == ("a", "b/c")
+
+
+def test_two_empty_segments_are_emitted_and_documented() -> None:
+    """`[a//]` has a non-empty column ("/") so the skip rule does not fire."""
+    (ref,) = extract_bracket_refs("[a//]")
+    assert ref.column == "/"
+    assert ref.segments == ("a", "", "")
+
+
+@pytest.mark.parametrize(
+    "formula",
+    [
+        "[a]",
+        "[a/b]",
+        "[a/b/c]",
+        "[E1/E2/E3/col]",
+        r"[A\/B/col]",
+        r"[A\\/B/C]",
+        "[ E1 / E2 / col ]",
+        "[E1/E2/]",
+        "[a//b]",
+        "[P_x]",
+        '[col"name] + [ok]',
+        "[a[b]c]",
+        "[a/b] + [c/d/e] + [f]",
+    ],
+)
+def test_known_shapes_keep_source_and_column_derivable_from_segments(
+    formula: str,
+) -> None:
+    """Regression corpus: the shapes that have actually broken before."""
+    for ref in extract_bracket_refs(formula):
+        assert ref.segments[0] == ref.source
+        assert (len(ref.segments) == 1) == (ref.column is None)
+
+
+# The characters that decide bracket parsing, plus a parameter prefix and
+# several kinds of whitespace, so parameter refs and non-space separators are
+# actually generated.
+_FORMULA_CHARS = st.sampled_from(list("[]/\\\"' \t\n\u00a0abAB_P"))
+
+# Free-form text alone almost never produces a bracket with two separators AND
+# whitespace around them, which is where the source/column split is subtlest --
+# a mutation that stripped each segment before rejoining survived 500 purely
+# random examples. So generate bracket-SHAPED strings too, and draw from both.
+_PADDING = st.sampled_from(["", " ", "  ", "\t"])
+_SEGMENT_BODY = st.sampled_from(["a", "b", "A B", "P_x", "", "a\\/b", "a\\\\", 'q"r'])
+
+
+@st.composite
+def _bracket_shaped(draw: st.DrawFn) -> str:
+    segments = draw(st.lists(_SEGMENT_BODY, min_size=1, max_size=4))
+    body = "/".join(f"{draw(_PADDING)}{seg}{draw(_PADDING)}" for seg in segments)
+    return f"{draw(_PADDING)}[{body}]{draw(_PADDING)}"
+
+
+_FORMULAS = st.one_of(
+    st.text(alphabet=_FORMULA_CHARS, max_size=24),
+    _bracket_shaped(),
+    st.lists(_bracket_shaped(), min_size=2, max_size=3).map(" + ".join),
+)
+
+
+@settings(
+    max_examples=1500,
+    deadline=None,  # these assert on output, never on speed
+    suppress_health_check=[HealthCheck.too_slow],
+)
+@given(_FORMULAS)
+def test_legacy_fields_are_unchanged_against_the_frozen_oracle(formula: str) -> None:
+    """The actual "no behaviour change" guarantee, enforced in CI.
+
+    Compares against an independent copy of the pre-PR scanner rather than
+    against invariants derived from the new one, so a bug present in both
+    cannot pass.
+    """
+    got = [
+        (ref.raw, ref.source, ref.column, ref.is_parameter)
+        for ref in extract_bracket_refs(formula)
+    ]
+    assert got == _legacy_extract(formula)
+
+
+def _collapse(text: str) -> str:
+    """Strip whitespace around every "/" -- written here, not imported.
+
+    Deliberately independent of the parser's own ``_normalize_separators``:
+    asserting with the implementation's helper would let a bug in that helper
+    pass both sides of the comparison.
+    """
+    return "/".join(part.strip() for part in text.split("/"))
+
+
+@settings(
+    max_examples=1500,
+    deadline=None,  # these assert on output, never on speed
+    suppress_health_check=[HealthCheck.too_slow],
+)
+@given(_FORMULAS)
+def test_every_parsed_ref_satisfies_its_own_invariants(formula: str) -> None:
+    """The scanner never builds a ref that would trip its own check."""
+    for ref in extract_bracket_refs(formula):
+        assert ref.segments[0] == ref.source
+        assert (len(ref.segments) == 1) == (ref.column is None)
+        if ref.column is not None:
+            # Independent of the implementation's own normaliser: where the
+            # formula has no whitespace around a separator, the rejoin must be
+            # EXACT. Asserting the normalised form here would just restate the
+            # comparison __post_init__ already ran, using the same helper, so
+            # a bug in that helper would pass both.
+            joined = "/".join(ref.segments[1:])
+            if not re.search(r"\s/|/\s", ref.raw):
+                # No whitespace bordering a separator: the rejoin is EXACT.
+                assert ref.column == joined
+            else:
+                # Whitespace case -- the one the scanner is subtlest about, and
+                # 97% of generated refs. Normalise with a local two-liner
+                # rather than the module's helper, so a bug in that helper
+                # cannot make this pass.
+                assert _collapse(ref.column) == _collapse(joined)
+        # Reconstructing from the legacy pair must not raise either.
+        BracketRef(
+            raw=ref.raw,
+            source=ref.source,
+            column=ref.column,
+            is_parameter=ref.is_parameter,
+        )
+
+
+def test_two_separately_parsed_refs_are_equal_and_hash_alike() -> None:
+    """Frozen dataclass: a list field would make __hash__ raise TypeError."""
+    (a,) = extract_bracket_refs("[a/b/c]")
+    (b,) = extract_bracket_refs("[a/b/c]")
+    assert a == b
+    assert hash(a) == hash(b)
+    assert len({a, b}) == 1
+
+
+# --- frozen oracle -------------------------------------------------------
+# The pre-PR first-slash scanner, copied from the parent commit. It differs
+# from the parent in three ways and no others: it emits plain tuples instead
+# of BracketRef, its state constants are renamed with an _ORACLE_ prefix to
+# avoid clashing with this module, and the `else:` branch that called
+# log.debug for a malformed ref is dropped (there is no logger here, and the
+# branch only logged). Nothing else differs BEHAVIOURALLY.
+#
+# That equivalence rests on READING the two side by side, not on any test
+# here: the property test below compares this oracle against the NEW scanner,
+# which is a different claim. Stated plainly so a reader diffing against the
+# parent knows which differences to expect and which part is unverified.
+#
+# It exists so "source/column/raw/is_parameter are unchanged" is enforced in
+# CI against an independent implementation rather than asserted from a local
+# fuzz run. Do NOT refactor it to share code with the parser -- a bug in both
+# would then pass. It is a snapshot pinning the semantics the resolver
+# follow-ups are built against, and can be deleted once those have landed and
+# had a release.
+_ORACLE_NORMAL, _ORACLE_IN_BRACKET, _ORACLE_IN_DOUBLE_STR, _ORACLE_IN_SINGLE_STR = (
+    range(4)
+)
+
+
+def _legacy_extract(
+    formula: Optional[str],
+) -> List[Tuple[str, str, Optional[str], bool]]:
+
+    if not formula:
+        return []
+    out: List[Tuple[str, str, Optional[str], bool]] = []
+    state = _ORACLE_NORMAL
+    bracket_start_idx = 0
+    source_buf: List[str] = []
+    column_buf: List[str] = []
+    seen_slash = False
+    i = 0
+    n = len(formula)
+    while i < n:
+        ch = formula[i]
+        if state == _ORACLE_NORMAL:
+            if ch == "[":
+                state = _ORACLE_IN_BRACKET
+                bracket_start_idx = i
+                source_buf = []
+                column_buf = []
+                seen_slash = False
+            elif ch == '"':
+                state = _ORACLE_IN_DOUBLE_STR
+            elif ch == "'":
+                state = _ORACLE_IN_SINGLE_STR
+            # else: noop — NORMAL state, non-special char
+        elif state == _ORACLE_IN_BRACKET:
+            buf = column_buf if seen_slash else source_buf
+            if ch == "]":
+                # finish_bracket: emit_or_skip per decision matrix
+                source = "".join(source_buf).strip()
+                column = "".join(column_buf).strip() if seen_slash else None
+                if source and (column is None or column):
+                    out.append(
+                        (
+                            formula[bracket_start_idx : i + 1],
+                            source,
+                            column,
+                            source.startswith("P_") and column is None,
+                        )
+                    )
+                state = _ORACLE_NORMAL
+            elif ch == "\\":
+                # escape_peek: consume next char literally into active buffer
+                if i + 1 < n:
+                    buf.append(formula[i + 1])
+                    i += 2
+                    continue
+                # lone backslash at EOF → unterminated bracket; loop ends naturally
+            elif ch == "/" and not seen_slash:
+                # first unescaped slash: switch accumulation to column_buf
+                seen_slash = True
+            else:
+                # covers '[', '"', "'", subsequent '/', and all other chars
+                buf.append(ch)
+        elif state == _ORACLE_IN_DOUBLE_STR:
+            if ch == '"':
+                state = _ORACLE_NORMAL
+            elif ch == "\\":
+                # escape_peek inside string: drop both chars
+                i += 2
+                continue
+            # else: noop — inside string literal
+        elif state == _ORACLE_IN_SINGLE_STR:
+            if ch == "'":
+                state = _ORACLE_NORMAL
+            elif ch == "\\":
+                # escape_peek inside string: drop both chars
+                i += 2
+                continue
+            # else: noop — inside string literal
+        i += 1
+    # EOF: any open IN_BRACKET or IN_*_STR state is silently discarded
+    return out

@@ -284,4 +284,28 @@ describe('filterSchemaRows', () => {
         expect(filteredRows).toMatchObject([{ fieldPath: 'shipment' }]);
         expect(expandedRowsFromFilter).toMatchObject(new Set());
     });
+
+    it('should not match soft-deleted tags or terms', () => {
+        const rowsWithRemovedLabels = [
+            { fieldPath: 'customer', globalTags: { tags: [{ tag: { ...sampleTag, status: { removed: true } } }] } },
+            { fieldPath: 'testing', globalTags: { tags: [{ tag: sampleTag }] } },
+            {
+                fieldPath: 'shipment',
+                glossaryTerms: { terms: [{ term: { ...glossaryTerm1, status: { removed: true } } }] },
+            },
+        ] as SchemaField[];
+        const filterTypes = [SchemaFilterType.Tags, SchemaFilterType.Terms];
+        const filter = (filterText: string) =>
+            filterSchemaRows(
+                rowsWithRemovedLabels,
+                { editableSchemaFieldInfo: [] },
+                filterText,
+                filterTypes,
+                null,
+                testEntityRegistry,
+            ).filteredRows;
+
+        expect(filter(sampleTag.properties.name)).toMatchObject([{ fieldPath: 'testing' }]);
+        expect(filter(glossaryTerm1.properties?.name as string)).toEqual([]);
+    });
 });

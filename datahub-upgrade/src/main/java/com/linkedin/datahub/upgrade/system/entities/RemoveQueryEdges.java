@@ -13,6 +13,7 @@ import com.linkedin.datahub.upgrade.impl.DefaultUpgradeStepResult;
 import com.linkedin.datahub.upgrade.system.NonBlockingSystemUpgrade;
 import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
@@ -84,7 +85,7 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
           opContext
               .getSearchContext()
               .getIndexConvention()
-              .getIndexName(ElasticSearchGraphService.INDEX_NAME);
+              .getIndexName(opContext, SearchComponent.GRAPH, ElasticSearchGraphService.INDEX_NAME);
 
       return (context) -> {
         BoolQueryBuilder deleteQuery = QueryBuilders.boolQuery();
@@ -92,7 +93,8 @@ public class RemoveQueryEdges implements NonBlockingSystemUpgrade {
         deleteQuery.filter(QueryBuilders.termQuery("source.entityType", QUERY_ENTITY_NAME));
 
         try {
-          esWriteDAO.deleteByQuerySync(opContext, indexName, deleteQuery, deleteConfig);
+          esWriteDAO.deleteByQuerySync(
+              opContext, SearchComponent.GRAPH, indexName, deleteQuery, deleteConfig);
           BootstrapStep.setUpgradeResult(context.opContext(), UPGRADE_ID_URN, entityService);
           return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
         } catch (Exception e) {

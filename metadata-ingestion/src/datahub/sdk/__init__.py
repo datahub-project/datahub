@@ -1,5 +1,9 @@
 import types
 
+# Imported as a module, not `from typing import ...`, so the _vars sweep below
+# (which collects every non-underscore, non-module name) leaves it alone.
+import typing
+
 import datahub.metadata.schema_classes as models
 from datahub.errors import SdkUsageError
 from datahub.ingestion.graph.config import DatahubClientConfig
@@ -10,6 +14,8 @@ from datahub.metadata.urns import (
     CorpGroupUrn,
     CorpUserUrn,
     DashboardUrn,
+    DataFlowUrn,
+    DataJobUrn,
     DataPlatformInstanceUrn,
     DataPlatformUrn,
     DatasetUrn,
@@ -18,6 +24,8 @@ from datahub.metadata.urns import (
     GlossaryNodeUrn,
     GlossaryTermUrn,
     MetricUrn,
+    MlModelGroupUrn,
+    MlModelUrn,
     SchemaFieldUrn,
     SemanticModelUrn,
     TagUrn,
@@ -63,17 +71,23 @@ for _name, _value in list(locals().items()):
         del locals()[_name]
 
 
-def __getattr__(name):
-    import warnings
+# Hidden from type checkers on purpose. mypy honors a module-level __getattr__ in .py
+# files, so leaving it visible makes every unknown name resolve to Any -- which is how
+# `from datahub.sdk import DataFlowUrn` shipped broken. With it hidden, mypy checks
+# against the static imports above, which are exactly what _vars holds at runtime.
+if not typing.TYPE_CHECKING:
 
-    from datahub.errors import ExperimentalWarning
+    def __getattr__(name: str) -> typing.Any:
+        import warnings
 
-    warnings.warn(
-        "The new datahub SDK (e.g. datahub.sdk.*) is experimental. "
-        "Our typical backwards-compatibility and stability guarantees do not apply to this code. "
-        "When it's promoted to stable, the import path will change "
-        "from `from datahub.sdk import ...` to `from datahub import ...`.",
-        ExperimentalWarning,
-        stacklevel=2,
-    )
-    return _vars[name]
+        from datahub.errors import ExperimentalWarning
+
+        warnings.warn(
+            "The new datahub SDK (e.g. datahub.sdk.*) is experimental. "
+            "Our typical backwards-compatibility and stability guarantees do not apply to this code. "
+            "When it's promoted to stable, the import path will change "
+            "from `from datahub.sdk import ...` to `from datahub import ...`.",
+            ExperimentalWarning,
+            stacklevel=2,
+        )
+        return _vars[name]

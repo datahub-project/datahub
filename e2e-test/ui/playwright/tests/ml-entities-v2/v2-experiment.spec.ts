@@ -52,7 +52,9 @@ test.describe('Experiment Container and Training Runs', () => {
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment title and description');
       await mlEntitiesPage.expectContainerTitleVisible(EXPERIMENT_STRINGS.CONTAINER_TITLE);
-      await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.CONTAINER_DESCRIPTION);
+      await mlEntitiesPage.expectDescriptionVisible(EXPERIMENT_STRINGS.CONTAINER_DESCRIPTION);
+      logger.step('Open Contents tab to see training runs');
+      await mlEntitiesPage.clickTab('Contents');
       logger.step('Verify training run link is visible');
       await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.TRAINING_RUN_NAME);
     });
@@ -62,7 +64,8 @@ test.describe('Experiment Container and Training Runs', () => {
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment title visible before navigation');
       await mlEntitiesPage.expectContainerTitleVisible(EXPERIMENT_STRINGS.CONTAINER_TITLE);
-      logger.step('Click training run link to navigate away');
+      logger.step('Open Contents tab and click training run link');
+      await mlEntitiesPage.clickTab('Contents');
       await mlEntitiesPage.clickTrainingRunLink(EXPERIMENT_STRINGS.TRAINING_RUN_NAME);
       logger.step('Verify training run page loaded');
       await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.RUN_ID);
@@ -87,8 +90,9 @@ test.describe('Experiment Container and Training Runs', () => {
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
       logger.step('Verify experiment metadata');
       await mlEntitiesPage.expectContainerTitleVisible(EXPERIMENT_STRINGS.CONTAINER_TITLE);
-      await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.CONTAINER_DESCRIPTION);
-      logger.step('Click training run link');
+      await mlEntitiesPage.expectDescriptionVisible(EXPERIMENT_STRINGS.CONTAINER_DESCRIPTION);
+      logger.step('Open Contents tab and click training run link');
+      await mlEntitiesPage.clickTab('Contents');
       await mlEntitiesPage.clickTrainingRunLink(EXPERIMENT_STRINGS.TRAINING_RUN_NAME);
       logger.step('Verify training run details');
       await mlEntitiesPage.expectTextVisible(EXPERIMENT_STRINGS.RUN_STATUS);
@@ -102,7 +106,8 @@ test.describe('Experiment Container and Training Runs', () => {
     test('can view and verify training run metrics', async ({ logger }) => {
       logger.step('Navigate to training run');
       await mlEntitiesPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
-      logger.step('Click training run link');
+      logger.step('Open Contents tab and click training run link');
+      await mlEntitiesPage.clickTab('Contents');
       await mlEntitiesPage.clickTrainingRunLink(EXPERIMENT_STRINGS.TRAINING_RUN_NAME);
       logger.step('Wait for metrics table to load');
       await mlEntitiesPage.waitForMetricsTable();

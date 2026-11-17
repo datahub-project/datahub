@@ -4,7 +4,8 @@ import time
 from datetime import datetime
 from typing import Any, Dict, Generic, Iterable, List, Optional, Tuple, TypeVar
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import bindparam, create_engine, text
+from sqlalchemy.sql.elements import TextClause
 
 from datahub.configuration.env_vars import get_report_failure_sample_size
 from datahub.emitter.aspect import ASPECT_MAP
@@ -125,7 +126,7 @@ class DataHubDatabaseReader:
         """
         Main query that gets data for specified date range with appropriate filters.
         """
-        structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%%'"
+        structured_prop_filter = f" AND urn {'' if set_structured_properties_filter else 'NOT'} like 'urn:li:structuredProperty:%'"
 
         return f"""
         SELECT *
@@ -149,9 +150,9 @@ class DataHubDatabaseReader:
             ) as sd ON sd.urn = mav.urn
             WHERE 1 = 1
                 {"" if self.config.include_all_versions else "AND mav.version = 0"}
-                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN %(exclude_aspects)s"}
-                AND mav.createdon >= %(since_createdon)s
-                AND mav.createdon < %(end_createdon)s
+                {"" if not self.config.exclude_aspects else "AND mav.aspect NOT IN :exclude_aspects"}
+                AND mav.createdon >= :since_createdon
+                AND mav.createdon < :end_createdon
             ORDER BY
                 createdon,
                 urn,
@@ -166,17 +167,28 @@ class DataHubDatabaseReader:
             urn,
             aspect,
             version
-        LIMIT %(limit)s
-        OFFSET %(offset)s
+        LIMIT :limit
+        OFFSET :offset
         """
+
+    def _as_statement(self, query: str) -> TextClause:
+        """Wrap a query string as a SQLAlchemy 2.0 text() statement.
+
+        The `NOT IN :exclude_aspects` clause needs an expanding bind param so a
+        tuple/list expands to a parameter list at execution time.
+        """
+        stmt = text(query)
+        if ":exclude_aspects" in query:
+            stmt = stmt.bindparams(bindparam("exclude_aspects", expanding=True))
+        return stmt
 
     def execute_with_params(
         self, query: str, params: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Execute query with proper parameter binding that works with your database"""
         with self.engine.connect() as conn:
-            result = conn.execute(query, params or {})
-            return [dict(row) for row in result.fetchall()]
+            result = conn.execute(self._as_statement(query), params or {})
+            return [dict(row._mapping) for row in result.fetchall()]
 
     def execute_server_cursor(
         self, query: str, params: Dict[str, Any]
@@ -208,11 +220,10 @@ class DataHubDatabaseReader:
                         yield_per=self.config.database_query_batch_size,
                     )
 
-                    # Execute query - using native parameterization without text()
-                    # to maintain compatibility with your original code
-                    result = conn.execute(query, params)
+                    # Named bind params via text(); exclude_aspects expands for IN.
+                    result = conn.execute(self._as_statement(query), params)
                     for row in result:
-                        yield dict(row)
+                        yield dict(row._mapping)
 
                 return  # Success, exit the retry loop
             else:

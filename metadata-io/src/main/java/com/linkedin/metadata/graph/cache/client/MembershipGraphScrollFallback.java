@@ -3,6 +3,7 @@ package com.linkedin.metadata.graph.cache.client;
 import static com.linkedin.metadata.Constants.CORP_GROUP_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.CORP_USER_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATAHUB_ROLE_ENTITY_NAME;
+import static com.linkedin.metadata.search.utils.QueryUtils.EMPTY_FILTER;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -12,13 +13,14 @@ import com.linkedin.metadata.aspect.models.graph.RelatedEntitiesScrollResult;
 import com.linkedin.metadata.graph.cache.MembershipNeighborResult;
 import com.linkedin.metadata.graph.cache.ReadMissReason;
 import com.linkedin.metadata.graph.cache.TraversalDirection;
+import com.linkedin.metadata.graph.cache.snapshot.EntityGraphEndpoints;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
-import com.linkedin.metadata.query.filter.RelationshipFilter;
+import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
@@ -74,11 +76,11 @@ public final class MembershipGraphScrollFallback {
         result =
             graphRetriever.scrollRelatedEntities(
                 scrollConfig.sourceEntityTypes(),
-                direction == TraversalDirection.FORWARD ? anchorFilter : null,
+                direction == TraversalDirection.FORWARD ? anchorFilter : EMPTY_FILTER,
                 scrollConfig.destinationEntityTypes(),
-                direction == TraversalDirection.REVERSE ? anchorFilter : null,
+                direction == TraversalDirection.REVERSE ? anchorFilter : EMPTY_FILTER,
                 relationshipTypes,
-                new RelationshipFilter().setDirection(RelationshipDirection.OUTGOING),
+                QueryUtils.newRelationshipFilter(EMPTY_FILTER, RelationshipDirection.OUTGOING),
                 Edge.EDGE_SORT_CRITERION,
                 result == null ? null : result.getScrollId(),
                 GraphRetriever.DEFAULT_EDGE_FETCH_LIMIT,
@@ -90,8 +92,12 @@ public final class MembershipGraphScrollFallback {
                 direction == TraversalDirection.FORWARD
                     ? related.getDestinationUrn()
                     : related.getSourceUrn();
+            String canonical = EntityGraphEndpoints.parse(neighborUrn);
+            if (canonical == null) {
+              continue;
+            }
             neighbors.add(
-                new MembershipNeighborResult.Neighbor(neighborUrn, related.getRelationshipType()));
+                new MembershipNeighborResult.Neighbor(canonical, related.getRelationshipType()));
           }
         }
       }
@@ -148,7 +154,10 @@ public final class MembershipGraphScrollFallback {
         listRelated(opContext, spec, seedUrn, direction, relationshipTypes, 0, Integer.MAX_VALUE);
     LinkedHashSet<Urn> urns = new LinkedHashSet<>();
     for (MembershipNeighborResult.Neighbor neighbor : result.neighborsOrEmpty()) {
-      urns.add(UrnUtils.getUrn(neighbor.neighborUrn()));
+      Urn urn = EntityGraphEndpoints.toUrn(neighbor.neighborUrn());
+      if (urn != null) {
+        urns.add(urn);
+      }
     }
     return urns;
   }
@@ -159,15 +168,24 @@ public final class MembershipGraphScrollFallback {
       @Nonnull MembershipReadSpec spec) {
     String entityType = UrnUtils.getUrn(seedUrn).getEntityType();
     return switch (entityType) {
-      case CORP_USER_ENTITY_NAME -> new ScrollConfig(
-          spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
-      case CORP_GROUP_ENTITY_NAME -> direction == TraversalDirection.FORWARD
-          ? new ScrollConfig(spec.getScrollGroupEntityTypes(), spec.getScrollRoleEntityTypes())
-          : new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
-      case DATAHUB_ROLE_ENTITY_NAME -> new ScrollConfig(
-          spec.getScrollUserEntityTypes(), spec.getScrollRoleEntityTypes());
+      case CORP_USER_ENTITY_NAME ->
+          new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
+      case CORP_GROUP_ENTITY_NAME ->
+          direction == TraversalDirection.FORWARD
+              ? new ScrollConfig(spec.getScrollGroupEntityTypes(), spec.getScrollRoleEntityTypes())
+              : new ScrollConfig(spec.getScrollUserEntityTypes(), spec.getScrollGroupEntityTypes());
+      case DATAHUB_ROLE_ENTITY_NAME ->
+          // Matches entity-graph-cache.yaml: both corpuser and corpGroup grant IsMemberOfRole.
+          new ScrollConfig(roleMemberSourceTypes(spec), spec.getScrollRoleEntityTypes());
       default -> null;
     };
+  }
+
+  @Nonnull
+  private static Set<String> roleMemberSourceTypes(@Nonnull MembershipReadSpec spec) {
+    LinkedHashSet<String> sources = new LinkedHashSet<>(spec.getScrollUserEntityTypes());
+    sources.addAll(spec.getScrollGroupEntityTypes());
+    return Set.copyOf(sources);
   }
 
   private record ScrollConfig(

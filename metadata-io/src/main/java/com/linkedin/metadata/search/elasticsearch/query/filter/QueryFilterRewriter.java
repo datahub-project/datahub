@@ -28,8 +28,12 @@ public interface QueryFilterRewriter {
 
   default boolean isQueryTimeEnabled(
       @Nonnull QueryFilterRewriterSearchType rewriteSearchType, @Nullable SearchFlags searchFlags) {
-    return getRewriterSearchTypes().contains(rewriteSearchType) && searchFlags == null
-        || searchFlags.isRewriteQuery() == null
-        || Boolean.TRUE.equals(searchFlags.isRewriteQuery());
+    // The parentheses are load-bearing: `&&` binds tighter than `||`, so without them the
+    // search-type check is discarded whenever rewriteQuery is unset or true, and a null
+    // SearchFlags dereferences.
+    return getRewriterSearchTypes().contains(rewriteSearchType)
+        && (searchFlags == null
+            || searchFlags.isRewriteQuery() == null
+            || Boolean.TRUE.equals(searchFlags.isRewriteQuery()));
   }
 }

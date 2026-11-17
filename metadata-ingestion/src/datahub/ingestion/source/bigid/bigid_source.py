@@ -118,7 +118,7 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 
 @platform_name("BigID")
 @config_class(BigIDSourceConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(
     SourceCapability.GLOSSARY_TERMS,
     "BigID classification findings as GlossaryTerms on SchemaFields",

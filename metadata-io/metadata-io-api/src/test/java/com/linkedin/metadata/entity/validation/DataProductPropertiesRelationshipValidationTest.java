@@ -53,7 +53,13 @@ public class DataProductPropertiesRelationshipValidationTest {
       {"mlModel", UrnUtils.getUrn("urn:li:mlModel:(urn:li:dataPlatform:sagemaker,example,PROD)")},
       {"notebook", UrnUtils.getUrn("urn:li:notebook:(hex,abc123)")},
       // The case that fails today — added to the whitelist in this change.
-      {"document", UrnUtils.getUrn("urn:li:document:2fa9f2fb-b911-4300-ad2b-1859fc178f01")}
+      {"document", UrnUtils.getUrn("urn:li:document:2fa9f2fb-b911-4300-ad2b-1859fc178f01")},
+      {"service", UrnUtils.getUrn("urn:li:service:example-service")},
+      {"api", UrnUtils.getUrn("urn:li:api:example-api")},
+      {"application", UrnUtils.getUrn("urn:li:application:example-app")},
+      {"repository", UrnUtils.getUrn("urn:li:repository:github.example/example-repo")},
+      {"aiAgent", UrnUtils.getUrn("urn:li:aiAgent:example-agent")},
+      {"agentSkill", UrnUtils.getUrn("urn:li:agentSkill:example-skill")}
     };
   }
 
@@ -112,5 +118,25 @@ public class DataProductPropertiesRelationshipValidationTest {
     properties.setName("Test Data Product");
     properties.setAssets(assets);
     return properties;
+  }
+
+  @Test
+  public void testEveryDataProductContainsDestinationRegistersDataProductsAspect() {
+    // DataProductAssetsSideEffect skips (with only a warning) any member whose entity type lacks
+    // the
+    // dataProducts aspect, so the whitelist and the aspect registrations must stay in step.
+    java.util.List<String> destinations =
+        entityRegistry.getEntitySpec("dataProduct").getRelationshipFieldSpecs().stream()
+            .filter(spec -> "DataProductContains".equals(spec.getRelationshipName()))
+            .flatMap(spec -> spec.getValidDestinationTypes().stream())
+            .distinct()
+            .toList();
+    assertTrue(!destinations.isEmpty(), "DataProductContains has no destination types");
+    for (String type : destinations) {
+      EntitySpec spec = entityRegistry.getEntitySpec(type);
+      assertTrue(
+          spec.hasAspect("dataProducts"),
+          type + " is a DataProductContains destination but does not register dataProducts");
+    }
   }
 }

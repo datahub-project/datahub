@@ -1,13 +1,14 @@
-import AssignmentOutlinedIcon from '@mui/icons-material/AssignmentOutlined';
-import ErrorOutlineOutlinedIcon from '@mui/icons-material/ErrorOutlineOutlined';
-import ReportProblemOutlinedIcon from '@mui/icons-material/ReportProblemOutlined';
+import { SealCheck } from '@phosphor-icons/react/dist/csr/SealCheck';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { WarningCircle } from '@phosphor-icons/react/dist/csr/WarningCircle';
 import { Typography } from 'antd';
 import i18next from 'i18next';
 import React from 'react';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useEmbeddedProfileLinkProps } from '@app/shared/useEmbeddedProfileLinkProps';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
+import { useEmbeddedProfileLinkProps } from '@app/sharedV2/useEmbeddedProfileLinkProps';
 
 import { Health, HealthStatus, HealthStatusType } from '@types';
 
@@ -81,24 +82,24 @@ export default function HealthPopover({ health, baseUrl }: Props) {
 function healthIcon({ type }: Health) {
     switch (type) {
         case HealthStatusType.Incidents:
-            return <ReportProblemOutlinedIcon fontSize="inherit" />;
+            return <Warning size="1em" />;
         case HealthStatusType.Assertions:
-            return <ErrorOutlineOutlinedIcon fontSize="inherit" />;
+            return <WarningCircle size="1em" />;
         case HealthStatusType.Tests:
-            return <AssignmentOutlinedIcon fontSize="inherit" />;
+            return <SealCheck size="1em" />;
         default:
             return null;
     }
 }
 
-function healthUrlSuffix({ type }: Health) {
+export function healthUrlSuffix({ type }: Pick<Health, 'type'>) {
     switch (type) {
         case HealthStatusType.Incidents:
-            return '/Incidents';
+            return `/${EntityTabPath.INCIDENTS}`;
         case HealthStatusType.Assertions:
-            return '/Quality/List';
+            return `/${EntityTabPath.QUALITY}/List`;
         case HealthStatusType.Tests:
-            return '/Governance';
+            return `/${EntityTabPath.GOVERNANCE}/Tests`;
         default:
             return null;
     }
@@ -113,7 +114,7 @@ function healthMessage({ message, status, type }: Health) {
             case HealthStatusType.Incidents:
                 return i18next.t('entity.preview:health.noActiveIncidents');
             case HealthStatusType.Tests:
-                return i18next.t('entity.preview:health.testsPassing');
+                return i18next.t('entity.preview:health.noFailingGovernanceTests');
             default:
                 return null;
         }

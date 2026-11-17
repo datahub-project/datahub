@@ -34,6 +34,15 @@ class TestBundledRegistry:
         manifest = _load_bundled_registry()
         assert "showcase-ecommerce" in manifest.packs
 
+    def test_search_quality_pack_points_at_the_in_repo_index(self) -> None:
+        pack = _load_bundled_registry().packs["search-quality"]
+        assert pack.url.endswith(
+            "metadata-io/src/test/resources/datapacks/search-quality/index.json"
+        )
+        assert pack.reference_timestamp == 1700000000000
+        assert "search" in pack.tags
+        assert "testing" in pack.tags
+
     def test_all_packs_have_reference_timestamps(self) -> None:
         manifest = _load_bundled_registry()
         for name, pack in manifest.packs.items():

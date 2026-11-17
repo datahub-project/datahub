@@ -1,0 +1,21 @@
+{
+    "cloudLabel": "DataHub Cloud",
+    "docPropagation.assetLevelDescription": "Lineageの関係に基づいて、新しいドキュメントを上流から下流のAssetへ伝播します。",
+    "docPropagation.assetLevelTitle": "Assetレベルの伝播",
+    "docPropagation.backfillButton": "初期化",
+    "docPropagation.backfillTitle": "既存のドキュメントを上流から下流のColumn/Assetへ一括反映",
+    "docPropagation.columnLevelDescription": "ColumnレベルのLineageの関係に基づいて、新しいドキュメントを上流から下流のColumnへ伝播します。",
+    "docPropagation.columnLevelTitle": "Columnレベルの伝播",
+    "docPropagation.comingSoon": "近日公開!",
+    "docPropagation.description": "ドキュメントを上流から下流のColumnやAssetへ自動的に伝播します。",
+    "docPropagation.rollbackButton": "ロールバック",
+    "docPropagation.rollbackTitle": "伝播の変更をロールバック",
+    "docPropagation.title": "ドキュメントの伝播",
+    "docPropagation.updateError": "ドキュメント伝播の設定の更新に失敗しました",
+    "docPropagation.updateSuccess": "ドキュメント伝播の設定を更新しました",
+    "learnMore": "詳細を見る",
+    "newLabel": "新機能!",
+    "onlyOnCloud": "DataHub Cloudでのみ利用可能",
+    "pageSubTitle": "特定の機能を確認・設定します",
+    "pageTitle": "機能"
+}

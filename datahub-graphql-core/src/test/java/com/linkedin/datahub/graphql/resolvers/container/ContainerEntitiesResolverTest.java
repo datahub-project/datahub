@@ -28,16 +28,19 @@ import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import graphql.execution.MergedField;
+import graphql.language.Field;
+import graphql.language.FragmentDefinition;
+import graphql.language.FragmentSpread;
+import graphql.language.Selection;
+import graphql.language.SelectionSet;
 import graphql.schema.DataFetchingEnvironment;
-import graphql.schema.DataFetchingFieldSelectionSet;
-import graphql.schema.SelectedField;
 import io.datahubproject.metadata.context.OperationContext;
-import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
+import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
-import java.util.stream.Collectors;
 import org.dataloader.DataLoader;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
@@ -94,6 +97,9 @@ public class ContainerEntitiesResolverTest {
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(TEST_INPUT);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+    Mockito.when(mockEnv.getMergedField())
+        .thenReturn(mergedEntitiesField("total", "searchResults"));
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(Collections.emptyMap());
 
     Container parentContainer = new Container();
     parentContainer.setUrn(containerUrn);
@@ -169,6 +175,29 @@ public class ContainerEntitiesResolverTest {
     ContainerEntitiesResolver resolver = new ContainerEntitiesResolver(mockClient);
 
     assertEquals((int) resolver.get(mockEnv).get().getTotal(), 7);
+    verifySearchCount(mockClient, 0);
+  }
+
+  @Test
+  public void testFragmentSpreadSelectingOnlyTotalIsBatched() throws Exception {
+    // The production query reaches this field through a fragment, so the walk must resolve spreads
+    // rather than treat them as an unrecognized selection.
+    EntityClient mockClient = mock(EntityClient.class);
+    DataFetchingEnvironment mockEnv =
+        mockEnvWithSelections(
+            mockCountLoader(11L),
+            Collections.singletonList(new FragmentSpread("counts")),
+            Collections.singletonMap(
+                "counts",
+                FragmentDefinition.newFragmentDefinition()
+                    .name("counts")
+                    .selectionSet(
+                        SelectionSet.newSelectionSet()
+                            .selection(Field.newField("total").build())
+                            .build())
+                    .build()));
+
+    assertEquals((int) new ContainerEntitiesResolver(mockClient).get(mockEnv).get().getTotal(), 11);
     verifySearchCount(mockClient, 0);
   }
 
@@ -281,28 +310,57 @@ public class ContainerEntitiesResolverTest {
     Mockito.when(mockContext.getAuthentication()).thenReturn(mock(Authentication.class));
     Mockito.when(mockContext.getOperationContext()).thenReturn(mock(OperationContext.class));
 
-    final List<SelectedField> fields =
-        Arrays.stream(selectedFields)
-            .map(
-                name -> {
-                  final SelectedField field = mock(SelectedField.class);
-                  Mockito.when(field.getName()).thenReturn(name);
-                  return field;
-                })
-            .collect(Collectors.toList());
-    DataFetchingFieldSelectionSet selectionSet = mock(DataFetchingFieldSelectionSet.class);
-    Mockito.when(selectionSet.getImmediateFields()).thenReturn(fields);
-
     DataFetchingEnvironment mockEnv = mock(DataFetchingEnvironment.class);
     Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
     Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
-    Mockito.when(mockEnv.getSelectionSet()).thenReturn(selectionSet);
+    Mockito.when(mockEnv.getMergedField()).thenReturn(mergedEntitiesField(selectedFields));
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(Collections.emptyMap());
     Mockito.when(mockEnv.<String, Long>getDataLoader(ContainerEntityCountsBatchLoader.LOADER_NAME))
         .thenReturn(loader);
 
     Container parentContainer = new Container();
     parentContainer.setUrn(CONTAINER_URN);
     Mockito.when(mockEnv.getSource()).thenReturn(parentContainer);
+    return mockEnv;
+  }
+
+  /**
+   * Builds a real query AST for {@code entities { <selectedFields> }} so the resolver reads the
+   * selection the same way it does at runtime, exercising the actual code path rather than a mocked
+   * selection set.
+   */
+  private static MergedField mergedEntitiesField(final String... selectedFields) {
+    final SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
+    for (String name : selectedFields) {
+      selectionSet.selection(Field.newField(name).build());
+    }
+    return MergedField.newMergedField(
+            Field.newField("entities").selectionSet(selectionSet.build()).build())
+        .build();
+  }
+
+  /** Variant of {@link #mockEnv} taking arbitrary AST selections rather than plain field names. */
+  private static DataFetchingEnvironment mockEnvWithSelections(
+      final DataLoader<String, Long> loader,
+      final List<? extends Selection<?>> selections,
+      final Map<String, FragmentDefinition> fragments) {
+    final SelectionSet.Builder selectionSet = SelectionSet.newSelectionSet();
+    selections.forEach(selectionSet::selection);
+    final MergedField mergedField =
+        MergedField.newMergedField(
+                Field.newField("entities").selectionSet(selectionSet.build()).build())
+            .build();
+    return mockEnvWithMergedField(loader, mergedField, fragments);
+  }
+
+  private static DataFetchingEnvironment mockEnvWithMergedField(
+      final DataLoader<String, Long> loader,
+      final MergedField mergedField,
+      final Map<String, FragmentDefinition> fragments) {
+    final DataFetchingEnvironment mockEnv =
+        mockEnv(new ContainerEntitiesInput(null, null, null, null), loader);
+    Mockito.when(mockEnv.getMergedField()).thenReturn(mergedField);
+    Mockito.when(mockEnv.getFragmentsByName()).thenReturn(fragments);
     return mockEnv;
   }
 

@@ -20,6 +20,7 @@
     "descriptionUpdated": "Beskrivelse oppdatert",
     "expandTerm": "Utvid {{label}}",
     "managedTagTooltip": "Denne taggen administreres i en annen plattform",
+    "managedTermTooltip": "Dette begrepet administreres i en annen plattform",
     "modal.addTagsTitle": "Legg til tags",
     "modal.addTermsTitle": "Legg til begreper",
     "modal.addTitle": "Legg til {{entity}}",

@@ -1,4 +1,4 @@
-import { CheckSquareOutlined } from '@ant-design/icons';
+import { CheckSquare } from '@phosphor-icons/react/dist/csr/CheckSquare';
 import { Table, Typography } from 'antd';
 import { AlignType } from 'rc-table/lib/interface';
 import React, { useState } from 'react';
@@ -6,9 +6,9 @@ import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { useRefetch } from '@app/entity/shared/EntityContext';
 import SchemaDescriptionField from '@app/entityV2/dataset/profile/schema/components/SchemaDescriptionField';
 import MlFeatureDataTypeIcon from '@app/entityV2/mlFeatureTable/profile/features/MlFeatureDataTypeIcon';
+import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import TagTermGroup from '@app/sharedV2/tags/TagTermGroup';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
@@ -140,7 +140,7 @@ export default function TableOfMlFeatures({ features }: Props) {
         dataIndex: 'primaryKey',
         key: 'primaryKey',
         render: (_: any, record: MlFeature | MlPrimaryKey) =>
-            record.__typename === 'MLPrimaryKey' ? <CheckSquareOutlined /> : null,
+            record.__typename === 'MLPrimaryKey' ? <CheckSquare /> : null,
         width: 50,
     };
 

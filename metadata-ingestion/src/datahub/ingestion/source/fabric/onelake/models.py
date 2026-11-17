@@ -1,7 +1,6 @@
 """Data models for Microsoft Fabric OneLake entities.
 
 References:
-- Workspace API: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces
 - Items API: https://learn.microsoft.com/en-us/rest/api/fabric/items
 - Tables API: https://learn.microsoft.com/en-us/rest/api/fabric/tables
 """
@@ -10,19 +9,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from typing import List, Literal, Optional
 
-
-@dataclass
-class FabricWorkspace:
-    """Microsoft Fabric workspace metadata.
-
-    Reference: https://learn.microsoft.com/en-us/rest/api/fabric/workspaces/list
-    """
-
-    id: str
-    name: str
-    description: Optional[str] = None
-    type: Optional[str] = None  # Workspace type
-    capacity_id: Optional[str] = None
+# The Fabric item types OneLake ingests.
+FabricItemType = Literal["Lakehouse", "Warehouse"]
 
 
 @dataclass
@@ -34,7 +22,7 @@ class FabricItem:
 
     id: str
     name: str
-    type: Literal["Lakehouse", "Warehouse"]  # Item type
+    type: FabricItemType
     workspace_id: str
     description: Optional[str] = None
     # TODO: Add support for shortcuts when available in API

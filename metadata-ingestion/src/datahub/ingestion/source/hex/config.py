@@ -1,16 +1,18 @@
-from typing import Dict, Optional
+from typing import Annotated, Dict, Optional
 
 from pydantic import Field, SecretStr, field_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel
+from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
 )
 from datahub.configuration.validate_field_removal import pydantic_removed_field
+from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
 from datahub.ingestion.source.hex.constants import (
     HEX_API_BASE_URL_DEFAULT,
     HEX_API_PAGE_SIZE_DEFAULT,
+    HEX_CATEGORY_KIND,
 )
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -120,11 +122,15 @@ class HexSourceConfig(
         default=True,
         description="Emit Hex Category as tags",
     )
-    project_title_pattern: AllowDenyPattern = Field(
+    project_title_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.HEX_PROJECT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for project titles to filter in ingestion.",
     )
-    component_title_pattern: AllowDenyPattern = Field(
+    component_title_pattern: Annotated[
+        AllowDenyPattern, Filters(BIAssetSubTypes.HEX_COMPONENT)
+    ] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for component titles to filter in ingestion.",
     )
@@ -170,7 +176,7 @@ class HexSourceConfig(
         "are hidden from global search and linked to the Dashboard/Chart for AI agent "
         "retrieval.",
     )
-    category_pattern: AllowDenyPattern = Field(
+    category_pattern: Annotated[AllowDenyPattern, Filters(HEX_CATEGORY_KIND)] = Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex pattern for categories to filter in ingestion. This will exclude any project or component that has any category denied or not explicitly allowed.",
     )
@@ -183,6 +189,12 @@ class HexSourceConfig(
         "WARNING: with stateful ingestion enabled, projects beyond this limit are soft-deleted "
         "on the next run.",
     )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        from datahub.ingestion.source.hex.hex_probe import HexMetadataProbe
+
+        return HexMetadataProbe
 
     @field_validator("base_url")
     @classmethod

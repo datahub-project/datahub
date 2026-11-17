@@ -5,7 +5,7 @@ source:
   config:
     username: sa
     password: test!Password
-    host_port: localhost:21433
+    host_port: localhost:${MSSQL_PORT}
     database_pattern:
       deny:
         - NewData
@@ -14,6 +14,13 @@ source:
       deny:
         - DemoData.Foo.NewProc
     convert_urns_to_lowercase: true
+
+    options:
+      connect_args:
+        # pytds enables TLS only when cafile is set. This CA signed the
+        # server cert (CN/SAN localhost). forceencryption rejects plaintext.
+        cafile: "${MSSQL_CAFILE}"
+        validate_host: true
 
 sink:
   type: file

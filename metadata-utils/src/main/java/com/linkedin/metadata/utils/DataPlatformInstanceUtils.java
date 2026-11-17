@@ -59,9 +59,7 @@ public class DataPlatformInstanceUtils {
       case "mlModelGroup":
         return ((MLModelGroupKey) keyAspect).getPlatform();
       default:
-        log.debug(
-            String.format(
-                "Failed to generate default platform for unknown entity type %s", entityType));
+        log.debug("Failed to generate default platform for unknown entity type {}", entityType);
         return null;
     }
   }
@@ -104,6 +102,15 @@ public class DataPlatformInstanceUtils {
                       EntityKeyUtils.convertUrnToEntityKeyInternal(
                           urn, MLModelGroupKey.dataSchema()))
                   .getPlatform());
+        case "schemaField":
+          // A schema field carries no platform of its own; it takes the one from the entity it is a
+          // field of, which is nested inside its urn
+          return SchemaFieldUtils.parseSchemaFieldUrn(urn)
+              .map(parsed -> getDataPlatform(parsed.getFirst()))
+              .orElseThrow(
+                  () ->
+                      new IllegalArgumentException(
+                          String.format("Unable to read a parent from schema field urn: %s", urn)));
         default:
           log.error(
               String.format(

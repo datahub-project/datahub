@@ -1,5 +1,6 @@
 package com.linkedin.metadata.config.ratelimit;
 
+import com.fasterxml.jackson.annotation.JsonMerge;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.util.ArrayList;
 import java.util.HashMap;
@@ -15,6 +16,9 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class RateLimitProperties {
+
+  public static final String DEFAULT_CONFIG_FILE_PATH = "rate-limit-config.yaml";
+
   /**
    * Master kill switch for ALL GMS rate limiting. When false, every limiter (capacity, endpoint,
    * and the scoped chain) is bypassed regardless of its individual flag, and no distributed store
@@ -23,6 +27,18 @@ public class RateLimitProperties {
    * {@code RATE_LIMITS_ENABLED}.
    */
   @Builder.Default private boolean enabled = true;
+
+  /**
+   * Policy file path. Unset / default loads bundled {@link #DEFAULT_CONFIG_FILE_PATH} from the
+   * classpath. {@code RATE_LIMITS_CONFIG_FILE} replaces that document (not merged with it).
+   */
+  @Builder.Default private ConfigFile configFile = new ConfigFile();
+
+  /**
+   * Optional JSON overlay merged after the chosen policy file. Bound from {@code
+   * RATE_LIMITS_CONFIG_JSON} via application.yaml.
+   */
+  private String configJson;
 
   @Builder.Default private boolean failOpen = true;
   @Builder.Default private int minRetryAfterSeconds = 60;
@@ -44,15 +60,15 @@ public class RateLimitProperties {
   @Builder.Default private String tenantId = "";
 
   /** The ordered per-tenant + global bucket chain (the primary rate-limit model). */
-  @Builder.Default private ScopedLimits scoped = new ScopedLimits();
+  @JsonMerge @Builder.Default private ScopedLimits scoped = new ScopedLimits();
 
   @Builder.Default
   private String excludedPaths =
       "/health,/health/live,/actuator/prometheus,/openapi/v1/rate-limits/**";
 
-  @Builder.Default private Capacity capacity = new Capacity();
-  @Builder.Default private Endpoint endpoint = new Endpoint();
-  @Builder.Default private Metrics metrics = new Metrics();
+  @JsonMerge @Builder.Default private Capacity capacity = new Capacity();
+  @JsonMerge @Builder.Default private Endpoint endpoint = new Endpoint();
+  @JsonMerge @Builder.Default private Metrics metrics = new Metrics();
 
   /** Shared rule shape for {@link Capacity#rules} and {@link Endpoint#rules}. */
   @Data
@@ -94,11 +110,13 @@ public class RateLimitProperties {
     /** When false, no adaptive in-flight (Gradient2) limits are enforced. */
     @Builder.Default private boolean enabled = false;
 
+    @JsonMerge
     @JsonProperty("default")
     @Builder.Default
     private CapacityLimitConfig defaultCapacity = new CapacityLimitConfig();
 
-    @Builder.Default private RateLimitGraphQLConfig graphql = new RateLimitGraphQLConfig();
+    @JsonMerge @Builder.Default
+    private RateLimitGraphQLConfig graphql = new RateLimitGraphQLConfig();
 
     @Builder.Default private List<Rule> rules = new ArrayList<>();
   }
@@ -173,16 +191,16 @@ public class RateLimitProperties {
     // missing value is caught loudly rather than silently defaulted.
 
     /** Per-actor (tenant-scoped) — `{tenantId}:actor:{urn}`. Limits configured in yaml. */
-    private BucketLimits actor = new BucketLimits();
+    @JsonMerge private BucketLimits actor = new BucketLimits();
 
     /** Browser class (tenant-scoped) — `{tenantId}:browser`. Limits configured in yaml. */
-    private BucketLimits browser = new BucketLimits();
+    @JsonMerge private BucketLimits browser = new BucketLimits();
 
     /** SDK class (tenant-scoped) — `{tenantId}:sdk`. Limits configured in yaml. */
-    private BucketLimits sdk = new BucketLimits();
+    @JsonMerge private BucketLimits sdk = new BucketLimits();
 
     /** Fleet-wide ceiling (cross-tenant, shared map) — `global`. Limits configured in yaml. */
-    private BucketLimits global = new BucketLimits();
+    @JsonMerge private BucketLimits global = new BucketLimits();
 
     /**
      * Heavy-resolver buckets, tenant-scoped — `{tenantId}:op:{resolver}`. Keyed by top-level
@@ -190,7 +208,15 @@ public class RateLimitProperties {
      * here. Add entries reactively (e.g. when a dashboard shows a tenant hammering a resolver).
      * Empty by default — no resolver is specially limited.
      */
-    private Map<String, BucketLimits> heavyResolvers = new HashMap<>();
+    @JsonMerge private Map<String, BucketLimits> heavyResolvers = new HashMap<>();
+  }
+
+  @Data
+  @Builder
+  @NoArgsConstructor
+  @AllArgsConstructor
+  public static class ConfigFile {
+    @Builder.Default private String path = DEFAULT_CONFIG_FILE_PATH;
   }
 
   /** Token-bucket sizing shared by every scoped bucket. */

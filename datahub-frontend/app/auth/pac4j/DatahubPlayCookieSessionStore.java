@@ -69,11 +69,7 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
   public Optional get(final WebContext context, final String key) {
     final Map values = getSessionValues(context);
     final Object value = values.get(key);
-    if (value instanceof Exception) {
-      LOGGER.debug("Get value: {} for key: {}", value.toString(), key);
-    } else {
-      LOGGER.debug("Get value: {} for key: {}", value, key);
-    }
+    LOGGER.debug("Get value: {} for key: {}", value, key);
     return Optional.ofNullable(value);
   }
 
@@ -96,7 +92,9 @@ public class DatahubPlayCookieSessionStore implements SessionStore {
   @Override
   public void set(final WebContext context, final String key, final Object value) {
     if (value instanceof Exception) {
-      LOGGER.debug("set key: {} with value: {}", key, value.toString());
+      if (LOGGER.isDebugEnabled()) {
+        LOGGER.debug("set key: {} with value: {}", key, value.toString());
+      }
     } else {
       LOGGER.debug("set key: {}, with value: {}", key, value);
     }

@@ -12,6 +12,7 @@ import com.datahub.authorization.AuthorizationRequest;
 import com.datahub.authorization.AuthorizationResult;
 import com.datahub.authorization.EntitySpec;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
@@ -41,7 +42,7 @@ public class IngestionAuthUtilsTest {
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
-    assertTrue(IngestionAuthUtils.canManageIngestion(mockContext));
+    assertTrue(AuthorizationUtils.canManageIngestion(mockContext));
   }
 
   @Test
@@ -63,7 +64,7 @@ public class IngestionAuthUtilsTest {
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
-    assertFalse(IngestionAuthUtils.canManageIngestion(mockContext));
+    assertFalse(AuthorizationUtils.canManageIngestion(mockContext));
   }
 
   @Test
@@ -84,7 +85,7 @@ public class IngestionAuthUtilsTest {
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:authorized");
 
-    assertTrue(IngestionAuthUtils.canManageSecrets(mockContext));
+    assertTrue(AuthorizationUtils.canManageSecrets(mockContext));
   }
 
   @Test
@@ -112,6 +113,6 @@ public class IngestionAuthUtilsTest {
 
     Mockito.when(mockContext.getActorUrn()).thenReturn("urn:li:corpuser:unauthorized");
 
-    assertFalse(IngestionAuthUtils.canManageSecrets(mockContext));
+    assertFalse(AuthorizationUtils.canManageSecrets(mockContext));
   }
 }

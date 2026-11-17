@@ -5,7 +5,8 @@ namespace com.linkedin.notebook
  * Note: This is IN BETA version
  */
 @Aspect = {
-  "name": "notebookContent"
+  "name": "notebookContent",
+  "schemaVersion": 2
 }
 record NotebookContent {
   /**

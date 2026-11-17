@@ -18,8 +18,11 @@
     "allowedValues.addTooltip": "Einen neuen Wert zur Liste der erlaubten Werte hinzufügen",
     "allowedValues.anyValueAllowed": "Jeder Wert vom Typ <type>{{valueType}}</type> ist erlaubt",
     "allowedValues.descriptionPlaceholder": "Beschreibung eingeben",
+    "allowedValues.descriptionTooltip": "Beschreibung hinzufügen",
+    "allowedValues.dragTooltip": "Zum Neuordnen ziehen",
     "allowedValues.editExistingTooltip": "Das Bearbeiten vorhandener erlaubter Werte ist nicht zulässig",
     "allowedValues.fieldTooltip": "Lege die Menge gültiger Werte für diese Eigenschaft fest. Wenn keine angegeben werden, ist jeder Wert erlaubt",
+    "allowedValues.hideDescriptionTooltip": "Beschreibung ausblenden",
     "allowedValues.removeTooltip": "Aus der Liste der erlaubten Werte entfernen",
     "allowedValues.title": "Erlaubte Werte",
     "allowedValues.updateButton": "Erlaubte Werte aktualisieren",
@@ -33,6 +36,7 @@
     "appliesTo.title": "Gilt für",
     "appliesTo.titleCapitalized": "Gilt für",
     "appliesTo.tooltip": "Wähle die Entitätstypen aus, denen diese Eigenschaft hinzugefügt werden kann",
+    "badgeReplaceError": "Strukturierte Eigenschaft gespeichert, aber das Asset-Badge konnte nicht aktualisiert werden.",
     "create.nameError": "Bitte gib den Namen ein",
     "create.namePlaceholder": "Namen eingeben",
     "create.propertyType": "Eigenschaftstyp",
@@ -64,6 +68,7 @@
     "page.subtitle": "Benutzerdefinierte Eigenschaften für deine Daten-Assets erstellen und verwalten",
     "page.title": "Strukturierte Eigenschaften",
     "permissionTooltip": "Du benötigst die Berechtigung, strukturierte Eigenschaften zu verwalten. Wende dich an deinen DataHub-Administrator.",
+    "table.allowedPlatformsColumn": "Plattformen",
     "table.confirmDeleteText": "Möchtest du wirklich löschen? Beim Löschen wird diese strukturierte Eigenschaft von allen Assets entfernt, auf denen sie derzeit vorhanden ist.",
     "table.confirmDeleteTitle": "Löschen bestätigen",
     "table.copyUrn": "URN kopieren",
@@ -75,6 +80,7 @@
     "table.entityTypesColumn": "Entitätstypen",
     "table.noPropertiesYet": "Noch keine Eigenschaften!",
     "table.noSearchResults": "Keine Suchergebnisse!",
+    "table.typeColumn": "Typ",
     "updateError": "Strukturierte Eigenschaft konnte nicht aktualisiert werden.",
     "updateSuccess": "Strukturierte Eigenschaft aktualisiert!",
     "valueType.dateDescription": "Ein bestimmtes Datum",
@@ -94,5 +100,6 @@
     "valueType.textDescription": "Ein Zeichenkettenwert",
     "valueType.textLabel": "Text",
     "valueType.textListDescription": "Eine Liste von Zeichenkettenwerten",
-    "valueType.textListLabel": "Text – Liste"
+    "valueType.textListLabel": "Text – Liste",
+    "viewTitle": "Strukturierte Eigenschaft anzeigen"
 }

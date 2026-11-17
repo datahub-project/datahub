@@ -2,12 +2,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { formatNumber } from '@app/shared/formatNumber';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 
 const Container = styled.div`
     color: ${(props) => props.theme.colors.textTertiary};
     font-size: 12px;
-    white-space: nowrap;
 `;
 
 interface Props {

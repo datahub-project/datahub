@@ -12,6 +12,7 @@
  *   6-9. Add/remove group ownership (Business Owner, Data Steward, None, Technical Owner)
  */
 
+import type { Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { DatasetPage } from '../../pages/dataset.page';
 import { GroupsPage } from '../../pages/groups.page';
@@ -25,6 +26,18 @@ const groupName = `Test group ${testId}`;
 
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:hive,SampleCypressHiveDataset,PROD)';
 const DATASET_NAME = 'SampleCypressHiveDataset';
+
+/**
+ * Owned assets on a user or group profile come from search, which lags the ownership write.
+ * Wait for the profile to open, then reload until the dataset is listed.
+ */
+async function expectOwnedAssetAfterIndexing(page: Page, profileUrl: RegExp): Promise<void> {
+  await page.waitForURL(profileUrl);
+  await expect(async () => {
+    await page.reload();
+    await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 10000 });
+  }).toPass({ timeout: 60000 });
+}
 
 test.describe.skip('add, remove ownership for dataset', () => {
   test.describe.configure({ mode: 'serial' });
@@ -84,9 +97,8 @@ test.describe.skip('add, remove ownership for dataset', () => {
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.addOwner(username, ownerType);
       // Verify in owned assets
-      await page.waitForTimeout(3000);
       await page.getByText(username).click();
-      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+      await expectOwnedAssetAfterIndexing(page, /\/user\//);
       await datasetPage.navigateToDataset(DATASET_URN);
       await datasetPage.removeOwner(username, userHref);
     });
@@ -100,9 +112,8 @@ test.describe.skip('add, remove ownership for dataset', () => {
       await datasetPage.navigateToDataset(DATASET_URN);
       await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
       await datasetPage.addOwner(groupName, ownerType);
-      await page.waitForTimeout(3000);
       await page.getByText(groupName).click();
-      await expect(page.getByText(DATASET_NAME)).toBeVisible({ timeout: 30000 });
+      await expectOwnedAssetAfterIndexing(page, /\/group\//);
       await datasetPage.navigateToDataset(DATASET_URN);
       await datasetPage.removeOwner(groupName, groupHref);
     });

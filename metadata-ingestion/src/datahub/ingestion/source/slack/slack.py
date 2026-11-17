@@ -243,7 +243,7 @@ DATA_PLATFORM_SLACK_URN: str = builder.make_data_platform_urn(PLATFORM_NAME)
 
 @platform_name("Slack")
 @config_class(SlackSourceConfig)
-@support_status(SupportStatus.CERTIFIED)
+@support_status(SupportStatus.GA)
 class SlackSource(StatefulIngestionSourceBase):
     def __init__(self, ctx: PipelineContext, config: SlackSourceConfig):
         super().__init__(config, ctx)

@@ -2,16 +2,16 @@ import { Button, Typography } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByType,
     getTotalEntitiesIngested,
 } from '@app/ingest/source/utils';
 import { UnionType } from '@app/search/utils/constants';
-import { Message } from '@app/shared/Message';
-import { formatNumber } from '@app/shared/formatNumber';
+import { Message } from '@app/sharedV2/Message';
+import { formatNumber } from '@app/sharedV2/formatNumber';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { ExecutionRequestResult, Maybe } from '@src/types.generated';
 
@@ -83,7 +83,8 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             input: {
                 query: '*',
                 start: 0,
-                count: 1,
+                // Facets + total only — result body is unused.
+                count: 0,
                 filters: [
                     {
                         field: 'runId',
@@ -154,7 +155,7 @@ export default function IngestedAssets({ id, executionResult }: Props) {
             {showAssetSearch && (
                 <EmbeddedListSearchModal
                     title="View Ingested Assets"
-                    searchBarStyle={{ width: 600, marginRight: 40 }}
+                    searchBarStyle={{ width: 525, marginRight: 40 }}
                     fixedFilters={{
                         unionType: UnionType.AND,
                         filters: [{ field: 'runId', values: [id] }],

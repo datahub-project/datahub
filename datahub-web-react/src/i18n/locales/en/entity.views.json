@@ -64,6 +64,7 @@
     "prop.platformInstanceDesc": "The specific platform instance where the asset lives.",
     "prop.softDeleted": "Soft Deleted",
     "prop.softDeletedDesc": "Whether the asset has been soft deleted.",
+    "prop.structuredPropertyGroup": "Structured Property",
     "prop.subType": "Sub Type",
     "prop.subTypeDesc": "The sub type of the asset (e.g. Table, View, Topic).",
     "publicTab": "Public Views",
@@ -109,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Search views...",
     "viewSelect.searchPlaceholderLegacy": "Search",
     "viewSelect.selectYourView": "Select Your View",
+    "viewSelect.buttonLabel": "Views",
+    "viewSelect.clearView": "Clear view",
     "viewType.privateDescription": "<bold>Private</bold> - only visible to you.",
     "viewType.publicDescription": "<bold>Public</bold> - visible to everyone."
 }

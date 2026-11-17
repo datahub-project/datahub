@@ -1,6 +1,7 @@
 """Constants for the Cube (cube.dev) semantic layer connector."""
 
-from typing import Dict
+import re
+from typing import Dict, Pattern
 
 from datahub.metadata.schema_classes import (
     BooleanTypeClass,
@@ -118,3 +119,12 @@ DATA_SOURCE_TYPE_TO_PLATFORM: Dict[str, str] = {
 TAG_MEASURE = "Measure"
 TAG_DIMENSION = "Dimension"
 TAG_TEMPORAL = "Temporal"
+
+# Cube join SQL: `{CUBE}.customer_id = {customers}.id` or the reverse order.
+_CUBE_IDENT = r"[A-Za-z_][A-Za-z0-9_]*"
+CUBE_JOIN_CUBE_PLACEHOLDER = "CUBE"
+CUBE_JOIN_EQ_RE: Pattern[str] = re.compile(
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})\s*=\s*"
+    rf"\{{({_CUBE_IDENT})\}}\.({_CUBE_IDENT})",
+    re.IGNORECASE,
+)

@@ -4,6 +4,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.metadata.entity.retention.RetentionKey;
+import com.linkedin.metadata.entity.retention.SimpleRetentionKey;
 import org.testng.annotations.Test;
 
 public class RetentionKeyTest {
@@ -14,8 +16,8 @@ public class RetentionKeyTest {
 
   @Test
   public void testEqualsAndHashCodeForSameUrnAndAspect() {
-    RetentionKey a = new RetentionKey(URN, ASPECT);
-    RetentionKey b = new RetentionKey(URN, ASPECT);
+    RetentionKey a = new SimpleRetentionKey(URN, ASPECT);
+    RetentionKey b = new SimpleRetentionKey(URN, ASPECT);
 
     assertEquals(a, b);
     assertEquals(a.hashCode(), b.hashCode());
@@ -23,24 +25,24 @@ public class RetentionKeyTest {
 
   @Test
   public void testNotEqualWhenUrnDiffers() {
-    RetentionKey a = new RetentionKey(URN, ASPECT);
+    RetentionKey a = new SimpleRetentionKey(URN, ASPECT);
     RetentionKey b =
-        new RetentionKey("urn:li:dataset:(urn:li:dataPlatform:mysql,other,PROD)", ASPECT);
+        new SimpleRetentionKey("urn:li:dataset:(urn:li:dataPlatform:mysql,other,PROD)", ASPECT);
 
     assertNotEquals(a, b);
   }
 
   @Test
   public void testNotEqualWhenAspectDiffers() {
-    RetentionKey a = new RetentionKey(URN, ASPECT);
-    RetentionKey b = new RetentionKey(URN, "ownership");
+    RetentionKey a = new SimpleRetentionKey(URN, ASPECT);
+    RetentionKey b = new SimpleRetentionKey(URN, "ownership");
 
     assertNotEquals(a, b);
   }
 
   @Test
   public void testNotEqualToNullOrOtherType() {
-    RetentionKey a = new RetentionKey(URN, ASPECT);
+    RetentionKey a = new SimpleRetentionKey(URN, ASPECT);
 
     assertNotEquals(a, null);
     assertNotEquals(a, "not a RetentionKey");
@@ -48,7 +50,7 @@ public class RetentionKeyTest {
 
   @Test
   public void testConstructorRejectsNulls() {
-    assertThrows(NullPointerException.class, () -> new RetentionKey(null, ASPECT));
-    assertThrows(NullPointerException.class, () -> new RetentionKey(URN, null));
+    assertThrows(NullPointerException.class, () -> new SimpleRetentionKey(null, ASPECT));
+    assertThrows(NullPointerException.class, () -> new SimpleRetentionKey(URN, null));
   }
 }

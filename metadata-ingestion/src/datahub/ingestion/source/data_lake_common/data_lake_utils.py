@@ -79,11 +79,20 @@ def add_partition_columns_to_schema(
 class ContainerWUCreator:
     processed_containers: List[str]
 
-    def __init__(self, platform, platform_instance, env):
+    def __init__(
+        self,
+        platform: str,
+        platform_instance: Optional[str],
+        env: str,
+        *,
+        bucket_parent_key: Optional[ContainerKey] = None,
+    ) -> None:
         self.processed_containers = []
         self.platform = platform
         self.instance = platform_instance
         self.env = env
+        # Parent of every bucket container, e.g. the AWS account that owns them.
+        self.bucket_parent_key = bucket_parent_key
 
     def create_emit_containers(
         self,
@@ -191,7 +200,7 @@ class ContainerWUCreator:
                     container_key=bucket_key,
                     name=bucket_name,
                     sub_types=[self.get_sub_types()],
-                    parent_container_key=None,
+                    parent_container_key=self.bucket_parent_key,
                 )
             )
             return wus, bucket_key, self.get_base_full_path(path)

@@ -16,25 +16,26 @@ def neo4j_runner(docker_compose_runner):
     with docker_compose_runner(
         _resources_dir / "docker-compose.yml", "neo4j"
     ) as docker_services:
-        wait_for_port(docker_services, "neo4j", 7687)
+        wait_for_port(docker_services, "test-neo4j", 7687)
+        bolt_port = docker_services.port_for("neo4j", 7687)
 
         # Wait for test data to be loaded by checking if we can query some test nodes
         docker_services.wait_until_responsive(
             timeout=120,
             pause=2,
-            check=lambda: check_neo4j_setup_completed(),
+            check=lambda: check_neo4j_setup_completed(bolt_port),
         )
 
-        yield docker_services
+        yield bolt_port
 
 
-def check_neo4j_setup_completed() -> bool:
+def check_neo4j_setup_completed(bolt_port: int) -> bool:
     """Check if test data has been loaded into Neo4j"""
     try:
         from neo4j import GraphDatabase
 
         driver = GraphDatabase.driver(
-            "neo4j://localhost:7687", auth=("neo4j", "testpassword")
+            f"bolt://localhost:{bolt_port}", auth=("neo4j", "testpassword")
         )
         with driver.session() as session:
             # Check if test data is loaded
@@ -62,7 +63,7 @@ def test_neo4j_ingest(neo4j_runner, pytestconfig, tmp_path):
             "source": {
                 "type": "neo4j",
                 "config": {
-                    "uri": "neo4j://localhost:7687",
+                    "uri": f"bolt://localhost:{neo4j_runner}",
                     "username": "neo4j",
                     "password": "testpassword",
                     "env": "TEST",

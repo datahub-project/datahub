@@ -1,0 +1,43 @@
+{
+  "backendUrl": "http://localhost:9002",
+  "builds": {
+    "A": {
+      "label": "merge-base",
+      "dist": "builds/base/dist",
+      "port": 8181,
+      "commit": "<merge-base-sha>"
+    },
+    "B": {
+      "label": "pr-branch",
+      "dist": "builds/pr/dist",
+      "port": 8182,
+      "commit": "<pr-head-sha>"
+    }
+  },
+  "routes": [
+    { "name": "home", "path": "/" },
+    { "name": "search", "path": "/search?query=customer&page=1" },
+    {
+      "name": "dataset",
+      "path": "/dataset/urn:li:dataset:(urn:li:dataPlatform:hive,SampleHiveDataset,PROD)/"
+    }
+  ],
+  "runsPerBuild": 5,
+  "warmupRunsPerBuild": 2,
+  "formFactor": "desktop",
+  "viewport": { "width": 1350, "height": 940 },
+  "throttling": {
+    "method": "simulate",
+    "cpuSlowdownMultiplier": 4,
+    "rttMs": 40,
+    "throughputKbps": 10240,
+    "requestLatencyMs": 150,
+    "downloadThroughputKbps": 10240,
+    "uploadThroughputKbps": 10240
+  },
+  "auth": {
+    "username": "datahub",
+    "password": "datahub",
+    "storageStatePath": "../../ui/playwright/.auth/datahub.json"
+  }
+}

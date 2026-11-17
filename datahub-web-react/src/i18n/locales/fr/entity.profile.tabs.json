@@ -54,6 +54,7 @@
     "properties.save.error": "Impossible d'enregistrer la propriété structurée. Une erreur s'est produite.",
     "properties.search.placeholder": "Rechercher...",
     "properties.searchInProperties.placeholder": "Rechercher dans les propriétés...",
+    "properties.showCountMoreValues": "afficher {{count}} de plus sur {{total, number}} valeurs",
     "properties.structuredProperty.title": "Propriété structurée",
     "properties.updated.success": "Propriété structurée mise à jour avec succès!"
 }

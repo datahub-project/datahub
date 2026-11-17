@@ -1,11 +1,6 @@
-import logging
-
 from datahub.emitter.mce_builder import make_data_product_urn, make_dataset_urn
 from datahub.emitter.rest_emitter import DatahubRestEmitter
 from datahub.specific.dataproduct import DataProductPatchBuilder
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 rest_emitter = DatahubRestEmitter(gms_server="http://localhost:8080")
 
@@ -31,4 +26,4 @@ for mcp in (
     .build()
 ):
     rest_emitter.emit(mcp)
-    log.info(f"Added assets to Data Product {data_product_urn}")
+    print(f"Added assets to Data Product {data_product_urn}")

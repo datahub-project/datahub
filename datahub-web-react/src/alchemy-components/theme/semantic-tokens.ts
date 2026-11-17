@@ -11,11 +11,11 @@ export const semanticTokens = {
         'subtle-bg': colors.gray[100],
         'subtle-text': colors.gray[600],
         'placeholder-color': colors.gray[500],
-        primary: colors.violet[500],
         secondary: colors.blue[500],
         error: colors.red[500],
         success: colors.green[500],
         warning: colors.yellow[500],
         info: colors.blue[500],
+        tertiary: colors.gray[1800],
     },
 };

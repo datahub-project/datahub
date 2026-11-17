@@ -27,7 +27,7 @@ def generate_python_udf_code(
     udf_template = f"""CREATE OR REPLACE FUNCTION {function_name}({param_signature})
 RETURNS {return_type}
 LANGUAGE PYTHON
-RUNTIME_VERSION = '3.10'
+RUNTIME_VERSION = '3.11'
 ARTIFACT_REPOSITORY = snowflake.snowpark.pypi_shared_repository
 PACKAGES = ('datahub-agent-context==1.4.0.5')
 SECRETS = ('datahub_url_secret' = datahub_url, 'datahub_token_secret' = datahub_token)

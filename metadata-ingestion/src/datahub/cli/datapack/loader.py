@@ -1,5 +1,6 @@
 """Download, cache, verify, and load data packs into DataHub."""
 
+import base64
 import contextlib
 import hashlib
 import json
@@ -12,7 +13,7 @@ import tempfile
 import time
 from dataclasses import dataclass
 from datetime import datetime, timezone
-from typing import Iterator, List, Optional
+from typing import BinaryIO, Iterator, List, Optional
 from urllib.parse import urlparse
 
 import click
@@ -21,10 +22,16 @@ from requests.adapters import HTTPAdapter
 from typing_extensions import NotRequired, TypedDict
 from urllib3.util.retry import Retry
 
-from datahub.cli.config_utils import DATAHUB_ROOT_FOLDER, load_client_config
+from datahub.cli.config_utils import (
+    DATAHUB_ROOT_FOLDER,
+    MissingConfigError,
+    load_client_config,
+)
 from datahub.cli.datapack.models import DataPackInfo, LoadRecord, TrustTier
 from datahub.cli.datapack.time_shift import time_shift_file
-from datahub.ingestion.auth.registry import AuthConfig
+from datahub.configuration.env_vars import get_skip_config
+from datahub.ingestion.auth.env import build_auth_config_from_env
+from datahub.ingestion.auth.registry import AuthConfig, build_token_provider
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.graph.entity_aspect_specs import EntityAspectSpecs
 
@@ -32,6 +39,9 @@ logger = logging.getLogger(__name__)
 
 CACHE_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-cache")
 LOADS_DIR = os.path.join(DATAHUB_ROOT_FOLDER, "datapack-loads")
+
+# Used when demo-data / ingest-sample-data has no env and no ~/.datahubenv.
+QUICKSTART_DEFAULT_GMS_SERVER = "http://localhost:8080"
 
 EMIT_MODE_ENV = "DATAHUB_EMIT_MODE"
 
@@ -91,8 +101,21 @@ class IndexFileEntry:
     wait_for_completion: bool = False
 
 
+@dataclass
+class ResolvedIndex:
+    """The data files resolved from a pack file."""
+
+    entries: List[IndexFileEntry]
+    # URLs of listed data files that could not be fetched and were skipped.
+    failed_urls: List[str]
+
+
 def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
-    """Fetch a URL (http or file://) and write to dest path."""
+    """Fetch a URL (http or file://) and write to dest path.
+
+    Writes to a temporary file and moves it into place only when the fetch
+    completes, so a failed fetch leaves any existing file at dest unchanged.
+    """
     dest.parent.mkdir(parents=True, exist_ok=True)
     parsed = urlparse(url)
 
@@ -100,24 +123,38 @@ def _fetch_url_to_path(url: str, dest: pathlib.Path) -> None:
         local_path = pathlib.Path(parsed.path)
         if not local_path.exists():
             raise click.ClickException(f"Local file not found: {local_path}")
-        shutil.copy2(local_path, dest)
-    else:
-        with _build_fetch_session() as session:
-            response = session.get(url, stream=True, timeout=120)
-            response.raise_for_status()
 
-            content_length = response.headers.get("content-length")
-            total = int(content_length) if content_length else None
+    fd, tmp_name = tempfile.mkstemp(dir=dest.parent, prefix=f".{dest.name}.")
+    tmp_path = pathlib.Path(tmp_name)
+    try:
+        with os.fdopen(fd, "wb") as f:
+            if parsed.scheme == "file":
+                with open(local_path, "rb") as src:
+                    shutil.copyfileobj(src, f)
+            else:
+                _stream_url_to_file(url, f)
+        os.replace(tmp_path, dest)
+    except BaseException:
+        tmp_path.unlink(missing_ok=True)
+        raise
 
-            with open(dest, "wb") as f:
-                if total:
-                    with click.progressbar(length=total, label="Downloading") as bar:
-                        for chunk in response.iter_content(chunk_size=8192):
-                            f.write(chunk)
-                            bar.update(len(chunk))
-                else:
-                    for chunk in response.iter_content(chunk_size=8192):
-                        f.write(chunk)
+
+def _stream_url_to_file(url: str, f: BinaryIO) -> None:
+    with _build_fetch_session() as session:
+        response = session.get(url, stream=True, timeout=120)
+        response.raise_for_status()
+
+        content_length = response.headers.get("content-length")
+        total = int(content_length) if content_length else None
+
+        if total:
+            with click.progressbar(length=total, label="Downloading") as bar:
+                for chunk in response.iter_content(chunk_size=8192):
+                    f.write(chunk)
+                    bar.update(len(chunk))
+        else:
+            for chunk in response.iter_content(chunk_size=8192):
+                f.write(chunk)
 
 
 def _cached_index_version(pack: DataPackInfo) -> Optional[str]:
@@ -193,10 +230,10 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             if not fetch_ok:
                 # Network error — use cache as fallback
                 click.echo("Using cached pack (could not reach remote).")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             elif remote_version and cached_version and remote_version == cached_version:
                 click.echo(f"Using cached pack (version {cached_version}).")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             elif remote_version and cached_version:
                 click.echo(
                     f"Pack updated ({cached_version} -> {remote_version}), "
@@ -212,12 +249,12 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             actual = _sha256_file(cache_path)
             if actual == pack.sha256:
                 click.echo(f"Using cached pack: {cache_path}")
-                return _resolve_index_file(cache_path, pack, no_cache=False)
+                return _resolve_index_file(cache_path, pack, no_cache=False).entries
             else:
                 click.echo("Cached file checksum mismatch, re-downloading...")
         else:
             click.echo(f"Using cached pack: {cache_path}")
-            return _resolve_index_file(cache_path, pack, no_cache=False)
+            return _resolve_index_file(cache_path, pack, no_cache=False).entries
 
     # Download the pack URL
     click.echo(f"Downloading data pack '{pack.name}' from {pack.url}")
@@ -239,9 +276,18 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
             )
         click.echo("SHA256 verified.")
 
-    entries = _resolve_index_file(cache_path, pack, no_cache)
+    # The pack file was just re-downloaded, so its data files may have changed
+    # under the same names. Refetch them rather than reusing cached copies.
+    resolved = _resolve_index_file(cache_path, pack, no_cache=True)
 
-    # Save index version if present
+    # Record the new version only when every data file was refetched. Otherwise
+    # the next load would treat the pack as current and skip the missing files.
+    if resolved.failed_urls:
+        click.echo(
+            f"Warning: {len(resolved.failed_urls)} data file(s) could not be "
+            "fetched. The next load will try them again."
+        )
+        return resolved.entries
     try:
         with open(cache_path) as f:
             content = json.load(f)
@@ -250,42 +296,44 @@ def download_pack(pack: DataPackInfo, no_cache: bool = False) -> List[IndexFileE
     except (json.JSONDecodeError, OSError):
         pass
 
-    return entries
+    return resolved.entries
 
 
 def _resolve_index_file(
     cache_path: pathlib.Path,
     pack: DataPackInfo,
     no_cache: bool,
-) -> List[IndexFileEntry]:
+) -> ResolvedIndex:
     """If the downloaded file is an index, fetch listed files and return entries.
 
     Index files are JSON objects with a "files" key. Each entry can be a
     string (filename) or an object with "path" and optional "wait_for_completion".
     Data files (JSON arrays) return a single entry.
 
-    Returns a list of IndexFileEntry objects, one per file to load.
+    Returns one IndexFileEntry per file to load, plus the URLs of listed
+    files that could not be fetched.
     """
     try:
         with open(cache_path) as f:
             content = json.load(f)
     except (json.JSONDecodeError, OSError):
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     if isinstance(content, list):
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     if not isinstance(content, dict) or "files" not in content:
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     file_list = content["files"]
     if not file_list:
-        return [IndexFileEntry(path=cache_path)]
+        return ResolvedIndex(entries=[IndexFileEntry(path=cache_path)], failed_urls=[])
 
     base_url = pack.url.rsplit("/", 1)[0]
     click.echo(f"Index file detected with {len(file_list)} data files.")
 
     entries: List[IndexFileEntry] = []
+    failed_urls: List[str] = []
     for item in file_list:
         # Support both string and object entries
         if isinstance(item, str):
@@ -310,8 +358,19 @@ def _resolve_index_file(
         try:
             _fetch_url_to_path(file_url, cached)
             entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
-        except Exception:
-            logger.warning("Failed to fetch %s, skipping", file_url, exc_info=True)
+        except Exception as e:
+            logger.debug("Failed to fetch %s", file_url, exc_info=True)
+            failed_urls.append(file_url)
+            # A failed fetch leaves any cached copy intact, so loading it is
+            # better than silently dropping the file from the load.
+            if cached.exists():
+                click.echo(
+                    f"Warning: could not fetch {filename} ({e}). "
+                    "Loading the previously cached copy."
+                )
+                entries.append(IndexFileEntry(path=cached, wait_for_completion=wait))
+            else:
+                click.echo(f"Warning: could not fetch {filename} ({e}). Skipping it.")
 
     click.echo(f"Resolved {len(entries)} data files from index.")
     if not entries:
@@ -319,7 +378,7 @@ def _resolve_index_file(
             f"Failed to download any data files for pack '{pack.name}'. "
             "Check the URLs and your network connection."
         )
-    return entries
+    return ResolvedIndex(entries=entries, failed_urls=failed_urls)
 
 
 def check_trust(
@@ -368,7 +427,7 @@ def check_version_compatibility(
         return
 
     try:
-        client_config = load_client_config()
+        client_config = _resolve_datapack_client_config()
         from datahub.ingestion.graph.client import DataHubGraph
 
         graph = DataHubGraph(client_config)
@@ -732,12 +791,170 @@ def _run_pipeline_for_file(
         pipeline.raise_from_status()
 
 
+def _can_fallback_to_quickstart_gms() -> bool:
+    """True only when nothing is configured — not OAuth or DATAHUB_SKIP_CONFIG."""
+    if get_skip_config():
+        return False
+    if build_auth_config_from_env() is not None:
+        return False
+    return True
+
+
+def _resolve_datapack_client_config(
+    client_config: Optional[DatahubClientConfig] = None,
+    *,
+    server: Optional[str] = None,
+    token: Optional[str] = None,
+) -> DatahubClientConfig:
+    if client_config is not None:
+        return client_config
+    if server:
+        return DatahubClientConfig(server=server, token=token)
+
+    try:
+        resolved = load_client_config()
+    except MissingConfigError:
+        if not _can_fallback_to_quickstart_gms():
+            raise
+        logger.warning(
+            "No DataHub client config found; ingesting to %s. "
+            "Set DATAHUB_GMS_URL or run `datahub init` to target another instance.",
+            QUICKSTART_DEFAULT_GMS_SERVER,
+        )
+        resolved = DatahubClientConfig(server=QUICKSTART_DEFAULT_GMS_SERVER)
+
+    if token:
+        return resolved.model_copy(update={"token": token, "auth": None})
+    return resolved
+
+
+_CERTIFICATION_ASPECT = "certification"
+_ACTOR_ID_PATTERN = re.compile(r"^[A-Za-z0-9_.@+-]+$")
+
+
+def actor_urn_from_token(token: Optional[str]) -> Optional[str]:
+    """Corpuser URN of the writer a bearer token authenticates as.
+
+    DataHub access tokens carry ``actorId``. OAuth tokens do not; GMS maps those
+    to a service account from the issuer and the ``sub`` claim, which is the
+    default user id claim. The payload is read without verifying the signature.
+    The server still authenticates the token; this only supplies the writer the
+    certification validator must match.
+    """
+    claims = _token_claims(token)
+    if claims is None:
+        return None
+    actor_id = claims.get("actorId")
+    if actor_id is not None:
+        if isinstance(actor_id, str) and _ACTOR_ID_PATTERN.fullmatch(actor_id):
+            return f"urn:li:corpuser:{actor_id}"
+        return None
+    return _oauth_service_actor(claims)
+
+
+def actor_urn_from_client(client_config: DatahubClientConfig) -> Optional[str]:
+    """Writer URN for the credentials the datapack sink will actually send.
+
+    Env OAuth (``DATAHUB_AUTH_TYPE``) leaves ``token`` empty and stores the
+    provider on ``auth``. The sink authenticates with that provider, so the
+    certification stamps have to name the same actor.
+    """
+    token = client_config.token
+    if not token and client_config.auth is not None:
+        token = build_token_provider(client_config.auth).get_token().token
+    return actor_urn_from_token(token)
+
+
+def _token_claims(token: Optional[str]) -> Optional[dict]:
+    if not token or token.count(".") != 2:
+        return None
+    payload = token.split(".", 2)[1]
+    padding = "=" * (-len(payload) % 4)
+    try:
+        claims = json.loads(base64.urlsafe_b64decode(payload + padding))
+    except (json.JSONDecodeError, ValueError, UnicodeDecodeError):
+        return None
+    if not isinstance(claims, dict):
+        return None
+    return claims
+
+
+def _oauth_service_actor(claims: dict) -> Optional[str]:
+    """Match ``ServiceAccountService.buildServiceUserUrn`` for the default claim.
+
+    The issuer is sanitized. The subject is copied unchanged: GMS does not
+    restrict it, and service-account tokens use characters such as ``:`` and
+    ``|``. Filtering those here skips certification stamping for a writer the
+    server will accept.
+    """
+    issuer = claims.get("iss")
+    subject = claims.get("sub")
+    if not isinstance(issuer, str) or not isinstance(subject, str):
+        return None
+    if not issuer or not subject:
+        return None
+    sanitized = re.sub(r"https?://", "", issuer)
+    sanitized = re.sub(r"[^a-zA-Z0-9]", "_", sanitized)
+    return f"urn:li:corpuser:__oauth_{sanitized}_{subject}"
+
+
+def _set_audit_actor(stamp: object, actor_urn: str) -> bool:
+    if not isinstance(stamp, dict) or "actor" not in stamp:
+        return False
+    if stamp.get("actor") == actor_urn:
+        return False
+    stamp["actor"] = actor_urn
+    return True
+
+
+def attribute_certifications(path: pathlib.Path, actor_urn: str) -> pathlib.Path:
+    """Copy a pack file so certification stamps name the authenticated writer.
+
+    The certification validator rejects a grant attributed to anyone else. A shared pack
+    cannot name every possible writer, so the loader fills the stamps at ingest time.
+    Other aspects are left unchanged. The original path is returned when nothing changes.
+    """
+    with open(path) as pack_file:
+        data = json.load(pack_file)
+    if not isinstance(data, list):
+        return path
+
+    changed = False
+    for item in data:
+        if (
+            not isinstance(item, dict)
+            or item.get("aspectName") != _CERTIFICATION_ASPECT
+        ):
+            continue
+        aspect = item.get("aspect")
+        if not isinstance(aspect, dict):
+            continue
+        body = aspect.get("json")
+        if not isinstance(body, dict):
+            continue
+        changed = _set_audit_actor(body.get("lastModified"), actor_urn) or changed
+        current = body.get("current")
+        if isinstance(current, dict):
+            changed = _set_audit_actor(current.get("certified"), actor_urn) or changed
+
+    if not changed:
+        return path
+
+    with tempfile.NamedTemporaryFile(
+        mode="w", suffix=".json", delete=False, prefix="datapack-certification-"
+    ) as tmp:
+        json.dump(data, tmp)
+        return pathlib.Path(tmp.name)
+
+
 def ingest_datapack_file_entries(
     pack: DataPackInfo,
     file_entries: List[IndexFileEntry],
     run_id: str,
     *,
     client_config: Optional[DatahubClientConfig] = None,
+    server: Optional[str] = None,
+    token: Optional[str] = None,
     no_time_shift: bool = False,
     as_of: Optional[datetime] = None,
     log_progress: bool = True,
@@ -747,8 +964,9 @@ def ingest_datapack_file_entries(
     Uses OpenAPI async_batch for all files. Index entries with wait_for_completion
     use async_wait (trace blocking) before the next file starts.
     """
-    if client_config is None:
-        client_config = load_client_config()
+    client_config = _resolve_datapack_client_config(
+        client_config, server=server, token=token
+    )
 
     sink_config = _build_datapack_sink_config(client_config)
 
@@ -772,6 +990,10 @@ def ingest_datapack_file_entries(
                 reference_timestamp=pack.reference_timestamp,
                 target_timestamp=target_ts,
             )
+
+        writer = actor_urn_from_client(client_config)
+        if writer is not None:
+            effective_path = attribute_certifications(effective_path, writer)
 
         _run_pipeline_for_file(
             effective_path,
@@ -804,7 +1026,7 @@ def load_pack_into_datahub(
     Returns:
         The run_id used for this load.
     """
-    client_config = load_client_config()
+    client_config = _resolve_datapack_client_config()
     run_id = _generate_run_id(pack.name)
 
     if dry_run:
@@ -812,6 +1034,7 @@ def load_pack_into_datahub(
             click.echo(f"\n--- File {i + 1}/{len(file_entries)}: {entry.path.name} ---")
             click.echo(f"Dry run - would load {entry.path}")
         click.echo(f"\nDry run complete for {len(file_entries)} files.")
+        click.echo(f"Would ingest to {client_config.server}.")
         return run_id
 
     ingest_datapack_file_entries(

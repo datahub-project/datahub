@@ -130,11 +130,13 @@ public class DestinationIndexOptimizer {
       optimalFlushThreshold = calculateOptimalFlushThreshold(minNodeHeapGb);
       if (optimalFlushThreshold != null && !optimalFlushThreshold.equals(originalFlushThreshold)) {
         shouldOptimizeFlush = true;
-        log.debug(
-            "Will optimize flush_threshold from {} to {} (min node heap: {}GB)",
-            originalFlushThreshold,
-            optimalFlushThreshold,
-            String.format("%.1f", minNodeHeapGb));
+        if (log.isDebugEnabled()) {
+          log.debug(
+              "Will optimize flush_threshold from {} to {} (min node heap: {}GB)",
+              originalFlushThreshold,
+              optimalFlushThreshold,
+              String.format("%.1f", minNodeHeapGb));
+        }
       }
     } catch (Exception e) {
       log.warn(
@@ -337,10 +339,12 @@ public class DestinationIndexOptimizer {
    */
   private String calculateOptimalFlushThreshold(double minNodeHeapGb) {
     if (minNodeHeapGb < MIN_HEAP_FOR_FLUSH_OPT_GB) {
-      log.debug(
-          "Minimum node heap ({}GB) below threshold ({}GB), skipping flush_threshold optimization",
-          String.format("%.1f", minNodeHeapGb),
-          String.format("%.1f", MIN_HEAP_FOR_FLUSH_OPT_GB));
+      if (log.isDebugEnabled()) {
+        log.debug(
+            "Minimum node heap ({}GB) below threshold ({}GB), skipping flush_threshold optimization",
+            String.format("%.1f", minNodeHeapGb),
+            String.format("%.1f", MIN_HEAP_FOR_FLUSH_OPT_GB));
+      }
       return null; // Don't optimize if cluster is too small
     } else if (minNodeHeapGb < 16.0) {
       return "768mb"; // 8-16GB per node

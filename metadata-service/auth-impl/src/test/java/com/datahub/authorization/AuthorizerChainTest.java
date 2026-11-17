@@ -3,8 +3,10 @@ package com.datahub.authorization;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.spy;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
@@ -13,6 +15,8 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import ch.qos.logback.classic.Level;
+import ch.qos.logback.classic.Logger;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.linkedin.common.urn.UrnUtils;
@@ -25,6 +29,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
+import org.slf4j.LoggerFactory;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -41,6 +46,34 @@ public class AuthorizerChainTest {
   public void setUp() {
     defaultAuthorizer = mock(DataHubAuthorizer.class);
     opContext = TestOperationContexts.systemContextNoValidate();
+  }
+
+  @Test
+  public void authorizeDoesNotStringifyRequestWhenDebugDisabled() {
+    Logger logger = (Logger) LoggerFactory.getLogger(AuthorizerChain.class);
+    Level previous = logger.getLevel();
+    logger.setLevel(Level.INFO);
+    try {
+      AuthorizationRequest request = spy(REQUEST);
+      doAnswer(
+              invocation -> {
+                throw new AssertionError(
+                    "AuthorizationRequest.toString must not run when debug logging is off");
+              })
+          .when(request)
+          .toString();
+
+      Authorizer delegate = mock(Authorizer.class);
+      when(delegate.authorize(any()))
+          .thenReturn(new AuthorizationResult(request, AuthorizationResult.Type.ALLOW, null));
+      AuthorizerChain chain = new AuthorizerChain(List.of(delegate), defaultAuthorizer);
+
+      assertEquals(chain.authorize(request).getType(), AuthorizationResult.Type.ALLOW);
+      assertEquals(
+          chain.authorize(request, null, opContext).getType(), AuthorizationResult.Type.ALLOW);
+    } finally {
+      logger.setLevel(previous);
+    }
   }
 
   @Test

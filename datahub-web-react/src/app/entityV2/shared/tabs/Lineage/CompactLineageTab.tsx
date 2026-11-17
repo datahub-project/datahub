@@ -1,13 +1,14 @@
-import { ArrowDownOutlined, ArrowUpOutlined } from '@ant-design/icons';
 import { Icon, Tooltip } from '@components';
+import { ArrowDown } from '@phosphor-icons/react/dist/csr/ArrowDown';
+import { ArrowUp } from '@phosphor-icons/react/dist/csr/ArrowUp';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Button, Divider } from 'antd';
 import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
-import { useIsSeparateSiblingsMode } from '@app/entity/shared/siblingUtils';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
+import { useIsSeparateSiblingsMode } from '@app/entityV2/shared/siblingUtils';
 import { ImpactAnalysis } from '@app/entityV2/shared/tabs/Lineage/ImpactAnalysis';
 import { LineageTabContext } from '@app/entityV2/shared/tabs/Lineage/LineageTabContext';
 import { UnionType } from '@app/search/utils/constants';
@@ -81,14 +82,14 @@ const AdvancedFiltersButton = styled(Button)<{ $isSelected: boolean }>`
     }
 `;
 
-const StyledArrowDownOutlined = styled(ArrowDownOutlined)`
+const StyledArrowDownOutlined = styled(ArrowDown)`
     && {
         margin-right: 4px;
         font-size: 10px;
     }
 `;
 
-const StyledArrowUpOutlined = styled(ArrowUpOutlined)`
+const StyledArrowUpOutlined = styled(ArrowUp)`
     && {
         margin-right: 4px;
         font-size: 10px;

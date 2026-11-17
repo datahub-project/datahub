@@ -11,6 +11,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
@@ -178,6 +181,40 @@ public class ValidationUtils {
         MetricUtils.name(ValidationUtils.class, "validateListResult"));
   }
 
+  public static AutoCompleteResult validateAutoCompleteResult(
+      @Nonnull OperationContext opContext,
+      final AutoCompleteResult autoCompleteResult,
+      @Nonnull final EntityService<?> entityService) {
+    return opContext.withSpan(
+        "validateAutoCompleteResult",
+        () -> {
+          if (autoCompleteResult == null) {
+            return null;
+          }
+          Objects.requireNonNull(entityService, "entityService must not be null");
+
+          AutoCompleteResult validatedAutoCompleteResult =
+              new AutoCompleteResult()
+                  .setQuery(autoCompleteResult.getQuery())
+                  .setSuggestions(autoCompleteResult.getSuggestions());
+
+          AutoCompleteEntityArray validatedEntities =
+              validateSearchUrns(
+                      opContext,
+                      autoCompleteResult.getEntities(),
+                      AutoCompleteEntity::getUrn,
+                      entityService,
+                      true,
+                      true)
+                  .collect(Collectors.toCollection(AutoCompleteEntityArray::new));
+          validatedAutoCompleteResult.setEntities(validatedEntities);
+
+          return validatedAutoCompleteResult;
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(ValidationUtils.class, "validateAutoCompleteResult"));
+  }
+
   public static LineageSearchResult validateLineageSearchResult(
       @Nonnull OperationContext opContext,
       final LineageSearchResult lineageSearchResult,
@@ -304,6 +341,22 @@ public class ValidationUtils {
               opContext,
               array.stream().map(urnFunction).collect(Collectors.toList()),
               includeSoftDeleted);
+      // exists() is keyed to this page's URNs, so an empty set means every hit for this search
+      // request was filtered (100% of the returned page). numEntities / total stays as the index
+      // count, so callers can still see count=N with an empty entities list. Warn only in that
+      // all-filtered case — not for partial page mismatches.
+      if (!array.isEmpty() && existingUrns.isEmpty()) {
+        log.warn(
+            "Search/index response had {} hit(s) but 0 existed in the primary store after entity"
+                + " existence check (100% of this search request's results were filtered;"
+                + " DB/ES mismatch). Sample urns: {}",
+            array.size(),
+            array.stream()
+                .limit(5)
+                .map(urnFunction)
+                .map(Urn::toString)
+                .collect(Collectors.toList()));
+      }
       return array.stream().filter(item -> existingUrns.contains(urnFunction.apply(item)));
     } else {
       Set<Urn> validatedUrns =

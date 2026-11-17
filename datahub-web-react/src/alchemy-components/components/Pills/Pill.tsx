@@ -1,7 +1,7 @@
-import { Button, Icon } from '@components';
 import React from 'react';
 
-import { PillContainer, PillText } from '@components/components/Pills/components';
+import { Icon } from '@components/components/Icon';
+import { PillContainer, PillIconButton, PillIconSlot, PillText } from '@components/components/Pills/components';
 import { PillProps, PillPropsDefaults } from '@components/components/Pills/types';
 import { ColorOptions, ColorValues, PillVariantOptions, PillVariantValues, SizeValues } from '@components/theme/config';
 
@@ -24,10 +24,28 @@ export const SUPPORTED_CONFIGURATIONS: Record<PillVariantOptions, ColorOptions[]
         ColorValues.yellow,
         ColorValues.gray,
     ],
+    [PillVariantValues.squareFilled]: [
+        ColorValues.primary,
+        ColorValues.violet,
+        ColorValues.blue,
+        ColorValues.green,
+        ColorValues.red,
+        ColorValues.yellow,
+        ColorValues.gray,
+    ],
+    [PillVariantValues.squareOutline]: [
+        ColorValues.primary,
+        ColorValues.violet,
+        ColorValues.blue,
+        ColorValues.green,
+        ColorValues.red,
+        ColorValues.yellow,
+        ColorValues.gray,
+    ],
     [PillVariantValues.version]: [ColorValues.white, ColorValues.gray],
 };
 
-export const pillDefaults: PillPropsDefaults = {
+const pillDefaults: PillPropsDefaults = {
     size: SizeValues.md,
     variant: PillVariantValues.filled,
     color: ColorValues.gray,
@@ -51,6 +69,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             onPillClick,
             customStyle,
             customIconRenderer,
+            customRightIconRenderer,
             showLabel,
             className,
             dataTestId,
@@ -63,6 +82,7 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             onBlur,
             onPointerEnter,
             onPointerLeave,
+            ...rest
         },
         ref,
     ) => {
@@ -70,16 +90,101 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
             console.debug(`Unsupported configuration for Pill: variant=${variant}, color=${color}`);
         }
 
+        // Only a pill with its own click action is exposed as a focusable button. Pills that are
+        // `clickable` solely so an inner PillIconButton can receive clicks must stay non-focusable,
+        // otherwise they become an extra tab stop that does nothing and wraps the real button.
+        const isPillInteractive = clickable && Boolean(onPillClick);
+
+        const handleKeyDown = (event: React.KeyboardEvent<HTMLDivElement>) => {
+            // Keydown bubbling from a nested icon button must keep the button's native Enter/Space
+            // activation instead of being re-routed to the pill's onClick.
+            if (!isPillInteractive || event.target !== event.currentTarget) {
+                return;
+            }
+            if (event.key !== 'Enter' && event.key !== ' ') {
+                return;
+            }
+            event.preventDefault();
+            event.currentTarget.click();
+        };
+
+        const renderIcon = (
+            icon: NonNullable<PillProps['leftIcon']>,
+            onClick?: (e: React.MouseEvent<HTMLElement>) => void,
+            ariaLabel?: string,
+            testId?: string,
+            key?: string,
+        ) => {
+            const iconNode = <Icon icon={icon} size={size} color="inherit" />;
+
+            if (onClick) {
+                return (
+                    <PillIconButton
+                        key={key}
+                        type="button"
+                        $size={size}
+                        onClick={onClick}
+                        aria-label={ariaLabel}
+                        data-testid={testId}
+                        style={{ pointerEvents: 'auto' }}
+                    >
+                        {iconNode}
+                    </PillIconButton>
+                );
+            }
+
+            return (
+                <PillIconSlot key={key} $size={size} style={{ pointerEvents: 'auto' }}>
+                    {iconNode}
+                </PillIconSlot>
+            );
+        };
+
+        const hasLeftIcon = Boolean(customIconRenderer || leftIcon);
+        const hasRightIcon = Boolean((rightIcons && rightIcons.length > 0) || rightIcon || customRightIconRenderer);
+
+        const renderTrailingIcons = () => {
+            if (rightIcons && rightIcons.length > 0) {
+                return rightIcons.map((r) =>
+                    renderIcon(
+                        r.icon,
+                        r.onClick,
+                        r.ariaLabel,
+                        r.testId,
+                        r.testId ?? r.ariaLabel ?? r.icon.displayName ?? r.icon.name,
+                    ),
+                );
+            }
+            return rightIcon ? renderIcon(rightIcon, onClickRightIcon) : null;
+        };
+
+        const renderRightContent = () => {
+            const trailing = renderTrailingIcons();
+            if (!customRightIconRenderer) return trailing;
+            return (
+                <>
+                    {customRightIconRenderer()}
+                    {trailing}
+                </>
+            );
+        };
+
         return (
             <PillContainer
+                {...pickDomAttributes(rest)}
                 ref={ref}
                 variant={variant}
                 color={color}
                 size={size}
                 clickable={clickable}
+                $hasLeftIcon={hasLeftIcon}
+                $hasRightIcon={hasRightIcon}
                 id={id}
                 data-testid={dataTestId ?? 'pill-container'}
                 onClick={onPillClick}
+                onKeyDown={handleKeyDown}
+                role={isPillInteractive ? 'button' : undefined}
+                tabIndex={isPillInteractive ? 0 : undefined}
                 onMouseEnter={onMouseEnter}
                 onMouseLeave={onMouseLeave}
                 onFocus={onFocus}
@@ -92,31 +197,16 @@ export const Pill = React.forwardRef<HTMLDivElement, PillProps>(
                 title={showLabel ? label : undefined}
                 className={className}
             >
-                {customIconRenderer
-                    ? customIconRenderer()
-                    : leftIcon && <Icon icon={leftIcon} size={size} onClick={onClickLeftIcon} />}
+                {customIconRenderer ? customIconRenderer() : leftIcon && renderIcon(leftIcon, onClickLeftIcon)}
                 <PillText style={customStyle}>{label}</PillText>
-                {rightIcons && rightIcons.length > 0
-                    ? rightIcons.map((r, idx) => (
-                          <Button
-                              // eslint-disable-next-line react/no-array-index-key
-                              key={idx}
-                              style={{ padding: 0 }}
-                              variant="text"
-                              color={color}
-                              onClick={r.onClick}
-                              aria-label={r.ariaLabel}
-                              data-testid={r.testId}
-                          >
-                              <Icon icon={r.icon} size={size} />
-                          </Button>
-                      ))
-                    : rightIcon && (
-                          <Button style={{ padding: 0 }} variant="text" color={color} onClick={onClickRightIcon}>
-                              <Icon icon={rightIcon} size={size} />
-                          </Button>
-                      )}
+                {renderRightContent()}
             </PillContainer>
         );
     },
 );
+
+function pickDomAttributes(props: object): Record<string, unknown> {
+    return Object.fromEntries(
+        Object.entries(props).filter(([key]) => key.startsWith('data-') || key.startsWith('aria-')),
+    );
+}

@@ -1,4 +1,3 @@
-import logging
 from typing import Union
 
 from datahub.configuration.kafka import KafkaProducerConnectionConfig
@@ -6,9 +5,6 @@ from datahub.emitter.kafka_emitter import DatahubKafkaEmitter, KafkaEmitterConfi
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.rest_emitter import DataHubRestEmitter
 from datahub.specific.dataset import DatasetPatchBuilder
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 # Get an emitter, either REST or Kafka, this example shows you both
@@ -44,7 +40,4 @@ with get_emitter() as emitter:
     ):
         emitter.emit(patch_mcp)
 
-
-log.info(
-    f"Replaced custom properties on dataset {dataset_urn} as {property_map_to_set}"
-)
+print(f"Replaced custom properties on dataset {dataset_urn} as {property_map_to_set}")

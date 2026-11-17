@@ -2,16 +2,16 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import OptionalPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
-import RequiredPromptsRemaining from '@app/entity/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
+import OptionalPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/OptionalPromptsRemaining';
+import RequiredPromptsRemaining from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/RequiredPromptsRemaining';
 import {
     CTAWrapper,
     Content,
     FlexWrapper,
     StyledArrow,
+    StyledBookIcon,
     StyledButtonWrapper,
     StyledImgIcon,
-    StyledReadOutlined,
     Title,
     TitleWrapper,
 } from '@app/entityV2/shared/containers/profile/sidebar/FormInfo/components';
@@ -63,7 +63,7 @@ export default function IncompleteView({
                                     {showVerificationStyles ? (
                                         <StyledImgIcon src={ShieldExclamation} />
                                     ) : (
-                                        <StyledReadOutlined color={themeConfig.colors.iconWarning} addLineHeight />
+                                        <StyledBookIcon color={themeConfig.colors.iconWarning} $addLineHeight />
                                     )}
                                 </>
                             )}
@@ -72,7 +72,7 @@ export default function IncompleteView({
                                 ? t('sidebar.formInfo.awaitingVerificationTitle')
                                 : t('sidebar.formInfo.awaitingDocumentationTitle')}
                         </Title>
-                        {isUserAssigned && <StyledArrow isOpen={isOpen} />}
+                        {isUserAssigned && <StyledArrow $isOpen={isOpen} />}
                     </TitleWrapper>
                     {isUserAssigned && isOpen && (
                         <>

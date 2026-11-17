@@ -2,9 +2,13 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import static com.linkedin.metadata.search.utils.ESUtils.TYPE;
 
+import com.datahub.context.OperationFingerprint;
 import com.google.common.collect.ImmutableList;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.annotation.SearchableAnnotation;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import java.io.BufferedReader;
@@ -12,14 +16,17 @@ import java.io.IOException;
 import java.io.InputStreamReader;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
-import org.apache.commons.io.FilenameUtils;
+import javax.annotation.Nullable;
+import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.io.Resource;
 import org.springframework.core.io.support.PathMatchingResourcePatternResolver;
 
 /** Builder for generating settings for elasticsearch indices */
+@Slf4j
 public class V2LegacySettingsBuilder implements SettingsBuilder {
 
   // ElasticSearch Property Map Keys
@@ -64,6 +71,16 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
   public static final String UNIT_SEPARATOR_PATTERN_ANALYZER = "unit_separator_pattern";
   public static final String TEXT_ANALYZER = "word_delimited";
   public static final String TEXT_SEARCH_ANALYZER = "query_word_delimited";
+  // Rich text analyzers for document bodies. The standard tokenizer splits on whitespace and caps
+  // tokens at 255 chars, so no term can hit Lucene's 32,766-byte limit (word_delimited can't: its
+  // tokenizer never splits whitespace). A word_delimiter_graph then splits identifiers (snake_case,
+  // dotted, camelCase, letter/digit) keeping the whole token, plus snowball stemming. Defined only
+  // on indices with a RICH_TEXT field (see shouldDefineRichTextAnalyzers), so only those reindex.
+  // The query builder never names these analyzers on a cross-index clause (it relies on the field's
+  // mapping search_analyzer), so indices without the field never need them defined.
+  public static final String RICH_TEXT_ANALYZER = "rich_text_delimited";
+  public static final String RICH_TEXT_SEARCH_ANALYZER = "query_rich_text_delimited";
+  public static final String RICH_TEXT_DELIMITER = "rich_text_delimiter";
   public static final String KEYWORD_ANALYZER = "keyword";
   public static final String URN_ANALYZER = "urn_component";
   public static final String URN_SEARCH_ANALYZER = "query_urn_component";
@@ -112,6 +129,7 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
 
   // Tokenizers
   public static final String KEYWORD_TOKENIZER = "keyword";
+  public static final String STANDARD_TOKENIZER = "standard";
   public static final String MAIN_TOKENIZER = "main_tokenizer";
   public static final String PATH_HIERARCHY_TOKENIZER = "path_hierarchy";
   public static final String SLASH_TOKENIZER = "slash_tokenizer";
@@ -164,53 +182,238 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
   public static final List<String> WORD_GRAM_TOKEN_FILTERS =
       ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES);
 
+  public static final List<String> WORD_GRAM_TOKEN_FILTERS_V2_5 =
+      ImmutableList.of(ASCII_FOLDING, LOWERCASE, TRIM, REMOVE_QUOTES, STEM_OVERRIDE, SNOWBALL);
+
+  private static final String PRIMARY_SEARCH_GROUP = "primary";
+
   final String mainTokenizer;
   @Nonnull private final IndexConvention indexConvention;
+  private final boolean enableSearchV2_5;
+  @Nullable private final EntityRegistry entityRegistry;
 
   public V2LegacySettingsBuilder(
-      @Nonnull IndexConfiguration indexConfiguration, @Nonnull IndexConvention indexConvention) {
+      @Nonnull IndexConfiguration indexConfiguration,
+      @Nonnull IndexConvention indexConvention,
+      boolean enableSearchV2_5) {
+    this(indexConfiguration, indexConvention, enableSearchV2_5, null);
+  }
+
+  public V2LegacySettingsBuilder(
+      @Nonnull IndexConfiguration indexConfiguration,
+      @Nonnull IndexConvention indexConvention,
+      boolean enableSearchV2_5,
+      @Nullable EntityRegistry entityRegistry) {
     this.mainTokenizer = indexConfiguration.getMainTokenizer();
     this.indexConvention = indexConvention;
+    this.enableSearchV2_5 = enableSearchV2_5;
+    this.entityRegistry = entityRegistry;
   }
 
   @Override
   public Map<String, Object> getSettings(
       @Nonnull IndexConfiguration indexConfiguration, @Nonnull String indexName) {
     try {
-      // For v2, only apply settings to indices that match the v2 entity naming pattern
-      if (!indexConvention.isV2EntityIndex(indexName)) {
+      // For v2, only apply settings to indices that match the v2 entity naming pattern. Uses the
+      // prefix-INDEPENDENT type check: the index name is already fully resolved (it may carry a
+      // per-operation prefix), and this bootstrap path only needs its type — a prefix-scoped check
+      // with EMPTY would reject an index whose prefix came from an in-flight operation.
+      if (!indexConvention.isV2EntityIndexType(indexName)) {
         // Return empty settings if this is not a v2 entity index
         return ImmutableMap.of();
       }
-      return buildSettings(indexConfiguration);
+
+      boolean useV2_5 = enableSearchV2_5;
+      if (useV2_5 && entityRegistry != null) {
+        useV2_5 = isPrimarySearchGroup(indexName);
+      }
+
+      return buildSettings(indexConfiguration, useV2_5, shouldDefineRichTextAnalyzers(indexName));
     } catch (IOException e) {
       throw new RuntimeException(e);
     }
   }
 
-  private Map<String, Object> buildSettings(@Nonnull IndexConfiguration indexConfiguration)
+  /**
+   * Whether to define the rich_text analyzers on this index. Only a RICH_TEXT field's mapping
+   * references them (as its index/search analyzer), and only the {@code document} entity has such a
+   * field, so only that index needs the definitions — and only that index reindexes. The query
+   * builder never names these analyzers on a cross-index clause (it relies on each field's mapping
+   * search_analyzer), so indices without the field don't need them defined. We still default to
+   * defining them when we can't check the entity (registry unavailable, e.g. some test fixtures),
+   * since the mapping would otherwise reference an undefined analyzer and index creation fails.
+   */
+  private boolean shouldDefineRichTextAnalyzers(@Nonnull String indexName) {
+    if (entityRegistry == null) {
+      return true;
+    }
+    // Index settings/mappings are built at index-creation time — no request context;
+    // resolves the deploy-wide prefix.
+    Optional<String> entityName =
+        indexConvention.getEntityName(OperationFingerprint.EMPTY, indexName);
+    if (entityName.isEmpty()) {
+      return true;
+    }
+    try {
+      EntitySpec spec = entityRegistry.getEntitySpec(entityName.get());
+      return spec == null
+          || spec.getSearchableFieldSpecs().stream()
+              .anyMatch(
+                  fieldSpec ->
+                      fieldSpec.getSearchableAnnotation().getFieldType()
+                          == SearchableAnnotation.FieldType.RICH_TEXT);
+    } catch (IllegalArgumentException e) {
+      return true;
+    }
+  }
+
+  /**
+   * Checks whether the entity for the given index belongs to the "primary" search group. Only
+   * primary entities are searched by users through the search bar and benefit from V2.5 analyzer
+   * upgrades (stemmer overrides, synonyms). Non-primary entities (query, timeseries, schemaField)
+   * skip V2.5 to avoid unnecessary reindexing.
+   */
+  private boolean isPrimarySearchGroup(@Nonnull String indexName) {
+    // Index settings/mappings are built at index-creation time — no request context;
+    // resolves the deploy-wide prefix.
+    Optional<String> entityName =
+        indexConvention.getEntityName(OperationFingerprint.EMPTY, indexName);
+    if (entityName.isPresent()) {
+      try {
+        EntitySpec spec = entityRegistry.getEntitySpec(entityName.get());
+        if (spec != null) {
+          return PRIMARY_SEARCH_GROUP.equals(spec.getSearchGroup());
+        }
+      } catch (IllegalArgumentException e) {
+        log.warn("No EntitySpec found for entity '{}', defaulting to primary", entityName.get());
+      }
+    }
+    // Default to primary if we can't determine the entity
+    return true;
+  }
+
+  private Map<String, Object> buildSettings(
+      @Nonnull IndexConfiguration indexConfiguration, boolean useV2_5, boolean hasRichText)
       throws IOException {
     ImmutableMap.Builder<String, Object> settings = ImmutableMap.builder();
     settings.put(MAX_NGRAM_DIFF, 17);
     settings.put(
         ANALYSIS,
         ImmutableMap.<String, Object>builder()
-            .put(FILTER, buildFilters(indexConfiguration))
+            .put(FILTER, buildFilters(indexConfiguration, useV2_5, hasRichText))
             .put(TOKENIZER, buildTokenizers())
             .put(NORMALIZER, buildNormalizers())
-            .put(ANALYZER, buildAnalyzers(mainTokenizer))
+            .put(ANALYZER, buildAnalyzers(mainTokenizer, useV2_5, hasRichText))
             .build());
     return settings.build();
   }
 
-  private Map<String, Object> buildFilters(@Nonnull IndexConfiguration indexConfiguration)
+  /** The analysis section alone, for V3 indices that reuse the V2 analyzers. */
+  @SuppressWarnings("unchecked")
+  public Map<String, Object> buildAnalysisSettings(
+      @Nonnull IndexConfiguration indexConfiguration, boolean useV2_5) throws IOException {
+    // hasRichText=true: the v3 consolidated index can hold a RICH_TEXT field (e.g. document), and
+    // its query-time analyzer resolves to rich_text_delimited, so the definitions must be present.
+    return buildSettings(indexConfiguration, useV2_5, true).entrySet().stream()
+        .filter(entry -> ANALYSIS.equals(entry.getKey()))
+        .findFirst()
+        .map(entry -> (Map<String, Object>) entry.getValue())
+        .orElseGet(Map::of);
+  }
+
+  private Map<String, Object> buildFilters(
+      @Nonnull IndexConfiguration indexConfiguration, boolean useV2_5, boolean hasRichText)
+      throws IOException {
+    Map<String, Object> base =
+        useV2_5 ? buildFiltersV2_5(indexConfiguration) : buildFiltersV2(indexConfiguration);
+    if (!hasRichText) {
+      return base;
+    }
+    // word_delimiter for the rich_text analyzers. preserve_original keeps the whole token;
+    // split_on_numerics matches the query builder's splitAlphanumericTokens, so "arityus2017" is
+    // found by "arityus", "2017", or the whole token.
+    return ImmutableMap.<String, Object>builder()
+        .putAll(base)
+        .put(
+            RICH_TEXT_DELIMITER,
+            ImmutableMap.<String, Object>builder()
+                .put(TYPE, WORD_DELIMITER_GRAPH)
+                .put(SPLIT_ON_NUMERICS, true)
+                .put(SPLIT_ON_CASE_CHANGE, true)
+                .put(PRESERVE_ORIGINAL, true)
+                .build())
+        .build();
+  }
+
+  /** V2 filters: base stem overrides and base synonyms with strict parsing. */
+  private Map<String, Object> buildFiltersV2(@Nonnull IndexConfiguration indexConfiguration)
       throws IOException {
     PathMatchingResourcePatternResolver resourceResolver =
         new PathMatchingResourcePatternResolver();
-
     ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
 
-    // Filter to split string into words
+    addCommonFilters(filters, indexConfiguration);
+
+    Resource stemOverride =
+        resourceResolver.getResource("classpath:elasticsearch/stem_override.txt");
+    filters.put(STEM_OVERRIDE, buildStemOverrideFilter(stemOverride));
+
+    addCommonPostStemFilters(filters);
+
+    List<String> synonymRules =
+        readSynonymFile(
+            resourceResolver.getResource("classpath:elasticsearch/synonyms/default.txt"));
+    filters.put(
+        DEFAULT_SYN_GRAPH,
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, "synonym_graph")
+            .put(LENIENT, "false")
+            .put(SYNONYMS, synonymRules)
+            .build());
+
+    addWordGramFilters(filters);
+
+    return filters.build();
+  }
+
+  /**
+   * V2.5 filters: extended stem overrides (with British spelling normalization) and expanded
+   * synonyms with lenient parsing for multi-word and hyphenated terms.
+   */
+  private Map<String, Object> buildFiltersV2_5(@Nonnull IndexConfiguration indexConfiguration)
+      throws IOException {
+    PathMatchingResourcePatternResolver resourceResolver =
+        new PathMatchingResourcePatternResolver();
+    ImmutableMap.Builder<String, Object> filters = ImmutableMap.builder();
+
+    addCommonFilters(filters, indexConfiguration);
+
+    Resource stemOverride =
+        resourceResolver.getResource("classpath:elasticsearch/stem_override_v2_5.txt");
+    filters.put(STEM_OVERRIDE, buildStemOverrideFilter(stemOverride));
+
+    addCommonPostStemFilters(filters);
+
+    List<String> synonymRules =
+        readSynonymFile(
+            resourceResolver.getResource("classpath:elasticsearch/synonyms/default_v2_5.txt"));
+    filters.put(
+        DEFAULT_SYN_GRAPH,
+        ImmutableMap.<String, Object>builder()
+            .put(TYPE, "synonym_graph")
+            .put(LENIENT, "true")
+            .put(SYNONYMS, synonymRules)
+            .build());
+
+    addWordGramFilters(filters);
+
+    return filters.build();
+  }
+
+  /** Filters shared by V2 and V2.5: word delimiters, stop words, min length. */
+  private static void addCommonFilters(
+      ImmutableMap.Builder<String, Object> filters,
+      @Nonnull IndexConfiguration indexConfiguration) {
     filters.put(
         AUTOCOMPLETE_CUSTOM_DELIMITER,
         ImmutableMap.<String, Object>builder()
@@ -246,26 +449,13 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
             .put(TYPE, "length")
             .put("min", indexConfiguration.getMinSearchFilterLength())
             .build());
+  }
 
-    Resource stemOverride =
-        resourceResolver.getResource("classpath:elasticsearch/stem_override.txt");
-    try (BufferedReader reader =
-        new BufferedReader(new InputStreamReader(stemOverride.getInputStream()))) {
-      filters.put(
-          STEM_OVERRIDE,
-          ImmutableMap.<String, Object>builder()
-              .put(TYPE, "stemmer_override")
-              .put(
-                  "rules",
-                  reader
-                      .lines()
-                      .map(String::trim)
-                      .map(String::toLowerCase)
-                      .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                      .collect(Collectors.toList()))
-              .build());
-    }
-
+  /**
+   * Filters shared by V2 and V2.5 that come after stem overrides: pattern capture, quotes,
+   * multiplexers.
+   */
+  private static void addCommonPostStemFilters(ImmutableMap.Builder<String, Object> filters) {
     filters.put(
         ALPHANUM_SPACE_ONLY,
         ImmutableMap.<String, Object>builder()
@@ -296,43 +486,52 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
             .put(TYPE, "multiplexer")
             .put(FILTERS, ImmutableList.of(MULTIFILTER_GRAPH_1, MULTIFILTER_GRAPH_2))
             .build());
+  }
 
-    Resource[] synonyms = resourceResolver.getResources("classpath:elasticsearch/synonyms/*.txt");
-    for (Resource syn : synonyms) {
-      try (BufferedReader reader =
-          new BufferedReader(new InputStreamReader(syn.getInputStream()))) {
-        filters.put(
-            String.format("%s_syn_graph", FilenameUtils.getBaseName(syn.getFilename())),
-            ImmutableMap.<String, Object>builder()
-                .put(TYPE, "synonym_graph")
-                .put(LENIENT, "false")
-                .put(
-                    SYNONYMS,
-                    reader
-                        .lines()
-                        .map(String::trim)
-                        .map(String::toLowerCase)
-                        .filter(line -> !line.isEmpty() && !line.startsWith("#"))
-                        .collect(Collectors.toList()))
-                .build());
-      }
-
-      for (Map.Entry<String, Integer> entry :
-          Map.of(WORD_GRAM_2_FILTER, 2, WORD_GRAM_3_FILTER, 3, WORD_GRAM_4_FILTER, 4).entrySet()) {
-        String filterName = entry.getKey();
-        Integer gramSize = entry.getValue();
-        filters.put(
-            filterName,
-            ImmutableMap.<String, Object>builder()
-                .put(TYPE, SHINGLE)
-                .put("min_shingle_size", gramSize)
-                .put("max_shingle_size", gramSize)
-                .put("output_unigrams", false)
-                .build());
-      }
+  private static Map<String, Object> buildStemOverrideFilter(@Nonnull Resource stemOverride)
+      throws IOException {
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(stemOverride.getInputStream()))) {
+      return ImmutableMap.<String, Object>builder()
+          .put(TYPE, "stemmer_override")
+          .put(
+              "rules",
+              reader
+                  .lines()
+                  .map(String::trim)
+                  .map(String::toLowerCase)
+                  .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+                  .collect(Collectors.toList()))
+          .build();
     }
+  }
 
-    return filters.build();
+  private static List<String> readSynonymFile(@Nonnull Resource synonymFile) throws IOException {
+    try (BufferedReader reader =
+        new BufferedReader(new InputStreamReader(synonymFile.getInputStream()))) {
+      return reader
+          .lines()
+          .map(String::trim)
+          .map(String::toLowerCase)
+          .filter(line -> !line.isEmpty() && !line.startsWith("#"))
+          .collect(Collectors.toList());
+    }
+  }
+
+  private static void addWordGramFilters(ImmutableMap.Builder<String, Object> filters) {
+    for (Map.Entry<String, Integer> entry :
+        Map.of(WORD_GRAM_2_FILTER, 2, WORD_GRAM_3_FILTER, 3, WORD_GRAM_4_FILTER, 4).entrySet()) {
+      String filterName = entry.getKey();
+      Integer gramSize = entry.getValue();
+      filters.put(
+          filterName,
+          ImmutableMap.<String, Object>builder()
+              .put(TYPE, SHINGLE)
+              .put("min_shingle_size", gramSize)
+              .put("max_shingle_size", gramSize)
+              .put("output_unigrams", false)
+              .build());
+    }
   }
 
   private static Map<String, Object> buildTokenizers() {
@@ -387,7 +586,8 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
   }
 
   // Analyzers turn fields into multiple tokens
-  private static Map<String, Object> buildAnalyzers(String mainTokenizer) {
+  private static Map<String, Object> buildAnalyzers(
+      String mainTokenizer, boolean useV2_5, boolean hasRichText) {
     ImmutableMap.Builder<String, Object> analyzers = ImmutableMap.builder();
 
     // Analyzer for splitting by slashes (used to get depth of browsePath)
@@ -480,7 +680,7 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
               .put(
                   FILTER,
                   ImmutableList.<Object>builder()
-                      .addAll(WORD_GRAM_TOKEN_FILTERS)
+                      .addAll(useV2_5 ? WORD_GRAM_TOKEN_FILTERS_V2_5 : WORD_GRAM_TOKEN_FILTERS)
                       .add(filterName)
                       .build())
               .build());
@@ -503,6 +703,29 @@ public class V2LegacySettingsBuilder implements SettingsBuilder {
             .put(TOKENIZER, MAIN_TOKENIZER)
             .put(FILTER, PARTIAL_AUTOCOMPLETE_TOKEN_FILTERS)
             .build());
+
+    if (hasRichText) {
+      // Index: standard tokenizer -> split identifiers -> flatten graph -> lowercase -> stem.
+      // The delimiter runs before lowercase so it can still see camelCase boundaries.
+      analyzers.put(
+          RICH_TEXT_ANALYZER,
+          ImmutableMap.<String, Object>builder()
+              .put(TOKENIZER, STANDARD_TOKENIZER)
+              .put(
+                  FILTER,
+                  ImmutableList.of(
+                      RICH_TEXT_DELIMITER, FLATTEN_GRAPH, LOWERCASE, ASCII_FOLDING, SNOWBALL))
+              .build());
+      // Search: same chain minus flatten_graph (the query parser consumes the token graph
+      // directly).
+      analyzers.put(
+          RICH_TEXT_SEARCH_ANALYZER,
+          ImmutableMap.<String, Object>builder()
+              .put(TOKENIZER, STANDARD_TOKENIZER)
+              .put(
+                  FILTER, ImmutableList.of(RICH_TEXT_DELIMITER, LOWERCASE, ASCII_FOLDING, SNOWBALL))
+              .build());
+    }
 
     return analyzers.build();
   }

@@ -16,6 +16,9 @@ HTTP_METHOD_GET = "GET"
 HTTP_METHOD_POST = "POST"
 HTTP_PROTOCOL_HTTP = "http://"
 HTTP_PROTOCOL_HTTPS = "https://"
+# 401/403: classified as auth in _make_request. Source hard-stops the run on
+# 401; a per-resource 403 fails that connection/workspace and continues.
+HTTP_AUTH_STATUS_CODES = frozenset({401, 403})
 
 DEFAULT_TOKEN_EXPIRY_SECONDS = 3600
 # Refresh 10 minutes before expiry to avoid races between the "still valid"

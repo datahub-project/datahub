@@ -1,4 +1,4 @@
-import { ClockCircleOutlined } from '@ant-design/icons';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -6,7 +6,7 @@ import styled from 'styled-components';
 import { isExternalAssertion } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/isExternalAssertion';
 import { AssertionScheduleSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/AssertionScheduleSummarySection';
 import { ProviderSummarySection } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/summary/schedule/ProviderSummarySection';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
+import { getLocaleTimezone } from '@app/sharedV2/time/timeUtils';
 
 import { Assertion } from '@types';
 
@@ -18,7 +18,7 @@ const Sections = styled.div`
     margin: 20px 4px;
 `;
 
-const StyledClockCircleOutlined = styled(ClockCircleOutlined)`
+const StyledClockCircleOutlined = styled(Clock)`
     margin-right: 8px;
     font-size: 14px;
 `;

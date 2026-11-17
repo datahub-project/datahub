@@ -20,7 +20,6 @@ Alternatively, you can use the gradle tasks defined in `docker/build.gradle`:
 # Run from the project root
 ./gradlew quickstart          # Uses the 'quickstart' profile
 ./gradlew quickstartDebug     # Uses the 'debug' profile
-./gradlew quickstartCypress   # Uses the 'debug' profile with custom project name 'dh-cypress'
 ```
 
 Use Control-c (`^c`) to terminate the running system. This will automatically stop all running containers.
@@ -31,7 +30,6 @@ To remove the containers and volumes, you can use the gradle nuke tasks:
 # Remove containers and volumes for specific projects
 ./gradlew quickstartNuke          # For default project (datahub)
 ./gradlew quickstartDebugNuke     # For debug project (datahub)
-./gradlew quickstartCypressNuke   # For cypress project (dh-cypress)
 ```
 
 Alternatively, you can use docker compose directly:
@@ -50,6 +48,11 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
+**Search engine names:** Unversioned profiles (`quickstart`, `debug`) always use the **current
+default** OpenSearch (today **2.x**). Versioned Gradle keys pin an engine across a future default
+change: `./gradlew quickstartOS2` / `quickstartOS2Debug` stay on 2.x; `quickstartOS3` /
+`quickstartOS3Debug` stay on 3.x. Do not treat `quickstart` as an alias of `quickstartOS3`.
+
 Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
 ### `quickstart`
@@ -64,6 +67,31 @@ This configuration is identical to `quickstart` how it runs standalone consumers
 
 Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka for messaging (`DATAHUB_MESSAGING_TRANSPORT=pgqueue`). OpenSearch is still used for search/graph/timeseries.
 
+### `quickstart-opensearch2`
+
+Same application set as image-based `quickstart` (MySQL, Kafka, frontend, GMS, actions) with
+**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`).
+Unversioned `quickstart` uses this engine today; use `./gradlew quickstartOS2` when you must stay
+on 2.x after the default flips to 3.x.
+
+```bash
+./gradlew quickstartOS2
+```
+
+### `quickstart-opensearch3`
+
+Same application set as `quickstart` (MySQL, Kafka, frontend, GMS, actions), but the search
+backend is **OpenSearch 3.7** (`opensearchproject/opensearch:3.7.0`; override with
+`DATAHUB_OS3_SEARCH_IMAGE` / `DATAHUB_OS3_SEARCH_TAG`). GMS pins
+`ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables schema-field document-id hashing
+because 3.x enforces the 512-byte `_id` limit. Uses a separate volume from OpenSearch 2.x
+(`os3data`). This is the image-based profile for CI (`./gradlew quickstartOS3`). For local
+bind-mount development, use `debug-opensearch3` / `./gradlew quickstartOS3Debug`.
+
+```bash
+./gradlew quickstartOS3
+```
+
 ### `quickstart-cassandra`
 
 Uses Cassandra as the primary data store along with Neo4j as the graph database.
@@ -75,15 +103,17 @@ of docker.
 
 ### Quickstart Profiles Table
 
-| Profile Name         | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
-| -------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
-| quickstart           | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-frontend  | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
-| quickstart-backend   | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
-| quickstart-postgres  |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
-| quickstart-cassandra |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
-| quickstart-consumers | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
-| quickstart-storage   | X     |          |           |       |          |     |         |              |     |     | X     | X          |
+| Profile Name           | MySQL | Postgres | Cassandra | Neo4j | Frontend | GMS | Actions | SystemUpdate | MAE | MCE | Kafka | OpenSearch |
+| ---------------------- | ----- | -------- | --------- | ----- | -------- | --- | ------- | ------------ | --- | --- | ----- | ---------- |
+| quickstart             | X     |          |           |       | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-frontend    | X     |          |           |       | X        |     |         | X            |     |     | X     | X          |
+| quickstart-backend     | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |
+| quickstart-postgres    |       | X        |           |       | X        | X   | X       | X            |     |     |       | X          |
+| quickstart-opensearch2 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |
+| quickstart-opensearch3 | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |
+| quickstart-cassandra   |       |          | X         | X     | X        | X   | X       | X            |     |     | X     | X          |
+| quickstart-consumers   | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |
+| quickstart-storage     | X     |          |           |       |          |     |         |              |     |     | X     | X          |
 
 ## Development Profiles
 
@@ -100,6 +130,14 @@ created by running the gradle command.
 ./gradlew dockerTagDebug
 ```
 
+Debug GMS, system-update, MAE, and actions bind-mount `~/.aws` read-only, with `~/.aws/sso/cache` writable so SSO tokens can refresh. For a named or SSO profile, export `AWS_PROFILE` in the host environment (or `scripts/dev/datahub-dev.sh env set AWS_PROFILE=...`) before start; Compose also sets `AWS_SDK_LOAD_CONFIG=1`. Unset `AWS_PROFILE` keeps the SDK default-profile / env-credential chain. `s3://` object storage also needs `AWS_REGION` or `AWS_ENDPOINT_URL` set in the container, because the S3 client is built only when one of them, or an object-storage role, is set.
+
+On a Linux host running Docker Engine, the containers run as a system user, not as your user ID. The `0600` files that `aws sso login` and `gcloud auth application-default login` write are not readable by that user, so calls can fail with no credentials even though the profile works on the host.
+
+Debug GMS, system-update, and the MAE and MCE consumers also get the host GCP session. `~/.config/gcloud` is mounted read-only, and an external service-account key in `GOOGLE_APPLICATION_CREDENTIALS` is mounted at its host path. All four build the embedding provider when they start, and with `EMBEDDING_PROVIDER_TYPE=vertex_ai` that resolves Application Default Credentials immediately, so a service without the session fails at startup (system-update failing keeps GMS from starting). GMS uses the AWS or GCP session when it embeds queries with Bedrock or Vertex; MAE also uses it for object storage (`DATAHUB_OBJECT_STORAGE_URI` on `s3://` or `gs://`). The containers have no `gcloud` CLI, so set the project explicitly (`GOOGLE_CLOUD_PROJECT`, and `VERTEX_AI_PROJECT_ID` for the Vertex provider). All four call Bedrock in `BEDROCK_EMBEDDING_AWS_REGION` when set, then `BEDROCK_AWS_REGION`, then `AWS_REGION`, otherwise `us-west-2`.
+
+`scripts/dev/datahub-dev.sh` passes these settings to Compose, because Compose reads mount sources and pass-through values from the shell, not from env files. A value exported in the shell wins over one saved with `env set`, and an empty saved value is ignored. A per-service env file (`DATAHUB_LOCAL_GMS_ENV` and so on) cannot set these names, because a name Compose passes through hides the same name in every env file. On a host with no `~/.aws` or `~/.config/gcloud`, `datahub-dev` mounts an empty placeholder from `~/.datahub/dev/` instead, so the stack still starts. These steps run only through `datahub-dev`: when you run Gradle or `docker compose` directly, Docker creates any missing directory as root. Set `DATAHUB_DEV_AWS_DIR` / `DATAHUB_DEV_GCLOUD_DIR` yourself to avoid that.
+
 For a complete list of profiles see the table at the end of this section.
 
 ### `quickstart-backend`
@@ -110,17 +148,29 @@ Run everything except for the `frontend` component. Useful for running just a lo
 
 Runs everything except for the GMS. Useful for running just a local (non-docker) GMS instance.
 
-### `quickstartCypress`
+### `debug-opensearch2`
 
-Runs the same configuration as `debug` but uses a custom project name (`dh-cypress`) instead of the default `datahub` project name. This is useful for Cypress testing scenarios where you need to isolate the docker compose project from other running instances.
-
-To load test data for Cypress testing, you can use the `:smoke-test:cypressData` gradle task:
+Same application set as `debug`, with OpenSearch **2.x** pinned. Use
+`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x after unversioned `debug` moves to
+3.x.
 
 ```bash
-./gradlew :smoke-test:cypressData
+./gradlew quickstartOS2Debug
 ```
 
-This will populate the running DataHub instance with sample data suitable for Cypress testing scenarios.
+### `debug-opensearch3`
+
+Same application set as `debug`, but the search backend is **OpenSearch 3.7**
+(`opensearchproject/opensearch:3.7.0`; override with `DATAHUB_OS3_SEARCH_IMAGE` /
+`DATAHUB_OS3_SEARCH_TAG`). GMS pins `ELASTICSEARCH_SHIM_ENGINE_TYPE=OPENSEARCH_3` and enables
+schema-field document-id hashing because 3.x enforces the 512-byte `_id` limit. Uses a separate
+volume from OpenSearch 2.x (`os3data`). Prefer this for local development; CI should use
+`quickstart-opensearch3` / `./gradlew quickstartOS3` so system-update runs from the image JAR
+instead of a host bind-mount.
+
+```bash
+./gradlew quickstartOS3Debug
+```
 
 ### Development Profiles Table
 
@@ -135,9 +185,36 @@ This will populate the running DataHub instance with sample data suitable for Cy
 | debug-consumers          | X     |          |           |       | X        | X   | X       | X            | X   | X   | X     | X          |               |                  |
 | debug-neo4j              | X     |          |           | X     | X        | X   | X       | X            |     |     | X     | X          |               |                  |
 | debug-elasticsearch      | X     |          |           |       | X        | X   | X       | X            |     |     | X     |            | X             |                  |
+| debug-opensearch2        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 2.x        |               |                  |
+| debug-opensearch3        | X     |          |           |       | X        | X   | X       | X            |     |     | X     | 3.x        |               |                  |
 | debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
+
+### Search V3 on a second OpenSearch cluster
+
+`docker-compose.search-split-override.yml` adds a second OpenSearch container, `search-secondary` (host port
+`${DATAHUB_MAPPED_ELASTIC_SECONDARY_PORT:-9201}`), and points GMS, system update and the MAE consumer at it for
+Search V3 (`ELASTICSEARCH_CLUSTERS_SECONDARY_URI`, `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3=secondary`). V2
+entity indices stay on `search`. No base file includes it; layer it explicitly:
+
+```shell
+# Debug stack with the second cluster (same modules as quickstartDebug)
+./gradlew quickstartDebugSearchSplit
+# Raw compose, any profile
+cd docker/profiles
+docker compose -f docker-compose.yml -f docker-compose.search-split-override.yml --profile debug up -d
+```
+
+The override supplies the cluster and the routing only. Enable V3 with the usual variables
+(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true` to build and dual-write the V3 indices, later
+`ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED=true` to serve keyword reads from them). Run it while no other
+debug stack is up, or pass the same `-p <project>`, so the two do not compete for ports and networks.
+
+The automated equivalent is `./gradlew :datahub-upgrade:searchV3MigrationTest`: OpenSearch testcontainers run the
+cutover end to end (Phase 1, live dual-writes, resumable fill, catch-up, read flip, a later mapping change and a
+stale-id rebuild) with V3 on a separate cluster and on the same cluster, plus a V3-only fresh install. It is opt-in
+and not part of CI.
 
 ### Version Mixing
 

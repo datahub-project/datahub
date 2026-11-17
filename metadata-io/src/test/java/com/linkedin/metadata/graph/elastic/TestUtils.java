@@ -29,16 +29,27 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
+import org.testng.Assert;
 
 /**
  * Utility class for testing graph query functionality. Contains methods moved from ESGraphQueryDAO
  * for testing purposes.
  */
 public class TestUtils {
+
+  /**
+   * Asserts a lineage query explicitly matches nothing. A clause-less bool would instead behave as
+   * match_all and scan the whole graph index, so the distinction matters.
+   */
+  public static void assertMatchesNothing(QueryBuilder query) {
+    Assert.assertTrue(
+        query instanceof MatchNoneQueryBuilder, "expected a match-none query but got: " + query);
+  }
 
   /**
    * Builds a lineage query for a specific entity type. This method is used for testing the query

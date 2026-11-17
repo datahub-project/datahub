@@ -13,6 +13,7 @@ public final class MembershipBindings {
 
   @Nonnull
   public static MembershipReadSpec membershipSpec(@Nonnull OperationContext opContext) {
+    EntityGraphCache cache = opContext.getEntityGraphCache();
     return resolve(opContext)
         .orElseGet(
             () ->
@@ -20,7 +21,8 @@ public final class MembershipBindings {
                     EntityGraphBinding.builder()
                         .graphId(KnownEntityGraph.MEMBERSHIP.getConfigKey())
                         .source(KnownEntityGraph.MEMBERSHIP.getExpectedBuildSource())
-                        .build()));
+                        .build(),
+                    relatedTypeFilterFetchCap(cache, KnownEntityGraph.MEMBERSHIP.getConfigKey())));
   }
 
   @Nonnull
@@ -30,6 +32,17 @@ public final class MembershipBindings {
     return cache
         .bindingForKnownGraph(KnownEntityGraph.MEMBERSHIP)
         .flatMap(
-            binding -> MembershipReadSpecs.forKnownGraph(KnownEntityGraph.MEMBERSHIP, binding));
+            binding ->
+                MembershipReadSpecs.forKnownGraph(
+                    KnownEntityGraph.MEMBERSHIP,
+                    binding,
+                    relatedTypeFilterFetchCap(cache, binding.getGraphId())));
+  }
+
+  private static int relatedTypeFilterFetchCap(
+      @Nonnull EntityGraphCache cache, @Nonnull String graphId) {
+    return cache
+        .maxEdgesForGraph(graphId)
+        .orElse(MembershipReadSpec.DEFAULT_RELATED_TYPE_FILTER_FETCH_CAP);
   }
 }

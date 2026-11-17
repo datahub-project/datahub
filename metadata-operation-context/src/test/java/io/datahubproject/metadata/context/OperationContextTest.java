@@ -430,6 +430,18 @@ public class OperationContextTest {
     assertEquals(opContext.getPrimaryStorageContext(), storageContext);
   }
 
+  @Test
+  public void testEntityRegistryContextHashCodeIsStableAndConsistentWithEquals() {
+    EntityRegistry entityRegistry = TestOperationContexts.defaultEntityRegistry();
+    EntityRegistryContext context = EntityRegistryContext.builder().build(entityRegistry);
+
+    assertEquals(context.hashCode(), context.hashCode());
+
+    EntityRegistryContext otherContext = EntityRegistryContext.builder().build(entityRegistry);
+    assertEquals(context, otherContext);
+    assertEquals(context.hashCode(), otherContext.hashCode());
+  }
+
   private OperationContext buildTraceMock() {
     return buildTraceMock(null);
   }

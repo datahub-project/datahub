@@ -57,7 +57,8 @@ public class PgQueueMcePollerSourcesConfiguration {
                 List.of(topic),
                 metadataChangeProposalPollMaxBatch(),
                 "pgqueue-" + groupId,
-                sleep.emptyPoll(),
+                sleep.emptyPollMin(),
+                mcpEmptyPollSleep(),
                 sleep.missingTopic(),
                 sleep.errorRecovery(),
                 (logicalTopic, batch, ctx) -> {
@@ -91,7 +92,8 @@ public class PgQueueMcePollerSourcesConfiguration {
                 List.of(topic),
                 batchMetadataChangeProposalPollMaxBatch(),
                 "pgqueue-batch-mcp-" + groupId,
-                sleep.emptyPoll(),
+                sleep.emptyPollMin(),
+                mcpEmptyPollSleep(),
                 sleep.missingTopic(),
                 sleep.errorRecovery(),
                 (logicalTopic, rawBatch, ctx) -> {
@@ -146,6 +148,16 @@ public class PgQueueMcePollerSourcesConfiguration {
             .map(MceConsumerConfiguration.PgQueuePoll::getBatchMetadataChangeProposalMaxBatch)
             .orElse(null),
         "mceConsumer.pgQueue.batchMetadataChangeProposalMaxBatch");
+  }
+
+  private long mcpEmptyPollSleep() {
+    return PgQueueConsumerPollSettings.requireEmptyPollSleep(
+        Optional.ofNullable(configurationProvider.getMceConsumer())
+            .map(MceConsumerConfiguration::getPgQueue)
+            .map(
+                MceConsumerConfiguration.PgQueuePoll::getMetadataChangeProposalEmptyPollSleepMillis)
+            .orElse(null),
+        "mceConsumer.pgQueue.metadataChangeProposalEmptyPollSleepMillis");
   }
 
   private PgQueueConsumerPollSettings.SleepMillis pollSleep() {

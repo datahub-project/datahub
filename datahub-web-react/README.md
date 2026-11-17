@@ -62,7 +62,7 @@ In order to start a server and run frontend unit tests using react-testing-frame
 
 `yarn test :e2e`
 
-There are also more automated tests using Cypress in the `smoke-test` folder of the repository root.
+There are also more automated end-to-end tests using Playwright in the `e2e-test` folder of the repository root.
 
 #### Troubleshooting
 

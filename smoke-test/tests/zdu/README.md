@@ -25,10 +25,10 @@ source smoke-test/venv/bin/activate
 
 There are **two** equivalent entry points — both construct the same `ZDUTestRunner` and run the same pipeline. They differ only in how results are surfaced:
 
-| Entry point                            | When to use                                                                               | Result format                                                                            |
-| -------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
-| `python -m tests.zdu` (recommended)    | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
-| `pytest tests/zdu/test_zdu_upgrade.py` | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
+| Entry point                                   | When to use                                                                               | Result format                                                                            |
+| --------------------------------------------- | ----------------------------------------------------------------------------------------- | ---------------------------------------------------------------------------------------- |
+| `python -m tests.zdu.framework` (recommended) | CLI / CI / scripted runs                                                                  | Printed report + JSON at `smoke-test/build/zdu-test-report.json` + non-zero exit on FAIL |
+| `pytest tests/zdu/test_zdu_upgrade.py`        | When you want per-phase + per-scenario pytest output (xfail/skip native, IDE integration) | pytest UI; same JSON report                                                              |
 
 Running both in the same invocation is not supported — they each build their own `ZDUTestRunner`. Pick one.
 
@@ -39,7 +39,7 @@ cd "$(git rev-parse --show-toplevel)"  # cd to the datahub repo root
 DATAHUB_GMS_URL=http://localhost:8080 \
 DATAHUB_GMS_TOKEN=<token> \
 DATAHUB_LOCAL_COMMON_ENV=zdu-test.env \
-smoke-test/venv/bin/python -m tests.zdu
+smoke-test/venv/bin/python -m tests.zdu.framework
 ```
 
 **Pytest entry (per-test reporting):**
@@ -83,7 +83,7 @@ DATAHUB_VERSION=v1.5.0 scripts/dev/datahub-dev.sh start
 ZDU_OLD_IMAGE_TAG=v1.5.0 \
 ZDU_NEW_IMAGE_TAG=v1.6.0 \
 DATAHUB_GMS_TOKEN="$(grep '  token:' ~/.datahubenv | awk '{print $2}')" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 Behaviour:
@@ -129,15 +129,15 @@ If neither env var is set, both default to `debug` — matching the existing sin
 ```bash
 # Default — Phase 0 builds, Phase 0.5 redeploys onto OLD
 DATAHUB_GMS_TOKEN="$(grep '  token:' ~/.datahubenv | awk '{print $2}')" \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Build OLD from a specific release tag
 ZDU_OLD_REF=v1.5.0 \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 
 # Iterating on Python-only changes — skip both phases, reuse existing stack
 ZDU_SKIP_BUILD_IMAGES=1 ZDU_SKIP_PREPARE_OLD_STACK=1 \
-smoke-test/venv/bin/python -m tests.zdu --suite a
+smoke-test/venv/bin/python -m tests.zdu.framework --suite a
 ```
 
 ### Phase 5: Inject Traffic Pre
@@ -246,26 +246,29 @@ Behaviour:
 
 All environment variables are read by `ZDUTestConfig.from_env()` at startup.
 
-| Variable                     | Default                       | Description                                                                                                                                                                                                                                                                                                       |
-| ---------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `DATAHUB_GMS_URL`            | `http://localhost:8080`       | GMS base URL                                                                                                                                                                                                                                                                                                      |
-| `DATAHUB_GMS_TOKEN`          | _(none)_                      | Bearer token for authenticated instances                                                                                                                                                                                                                                                                          |
-| `ZDU_SWEEP_TIMEOUT`          | `600`                         | Seconds to wait for the sweep to complete before timing out                                                                                                                                                                                                                                                       |
-| `ZDU_SKIP_PHASES`            | _(none)_                      | Comma-separated phase names to skip (see [Phases](#phases))                                                                                                                                                                                                                                                       |
-| `ZDU_READER_WORKERS`         | `3`                           | Number of concurrent reader threads during sweep                                                                                                                                                                                                                                                                  |
-| `ZDU_WRITER_WORKERS`         | `2`                           | Number of concurrent writer threads during sweep                                                                                                                                                                                                                                                                  |
-| `ZDU_PRE_WRITE_DELAY_MS`     | `500`                         | Milliseconds injected into the upgrade container as `SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS` — see [How Concurrent I/O Works](#how-concurrent-io-works-during-sweep)                                                                                                                                    |
-| `ZDU_PROJECT_DIR`            | `docker/profiles/`            | Docker Compose project directory (absolute path)                                                                                                                                                                                                                                                                  |
-| `ZDU_GMS_SERVICE`            | `datahub-gms-debug`           | Compose service name for GMS (used for log tailing and secret extraction)                                                                                                                                                                                                                                         |
-| `ZDU_UPGRADE_SERVICE`        | `system-update-debug`         | Compose service name for the upgrade job                                                                                                                                                                                                                                                                          |
-| `ZDU_REBUILD_CWD`            | _(repo root)_                 | Working directory for `scripts/dev/datahub-dev.sh rebuild --wait`                                                                                                                                                                                                                                                 |
-| `ZDU_SKIP_BOOTJAR`           | _(unset)_                     | Set to `1` to skip the automatic `./gradlew :datahub-upgrade:bootJar` that runs on `ZDUTestRunner` construction. Useful in CI where the JAR is pre-built or when iterating on Python-only changes.                                                                                                                |
-| `ZDU_SKIP_BUILD_IMAGES`      | _(unset)_                     | Set to `1` to skip Phase 0 (`BuildImagesPhase`). Default-on; opt out when iterating on Python-only changes and the existing image tags are sufficient.                                                                                                                                                            |
-| `ZDU_BUILD_IMAGES`           | _(unset)_                     | Backward-compat: was the Plan-13 opt-in. Now a no-op (Phase 0 is default-on). Accepted for compatibility.                                                                                                                                                                                                         |
-| `ZDU_OLD_REF`                | `master`                      | Git ref to check out into the OLD worktree for Phase 0 (`BuildImagesPhase`). Override with a release tag like `v1.5.0` to build OLD from a specific release.                                                                                                                                                      |
-| `ZDU_BUILD_IMAGES_ROOT`      | `smoke-test/build/zdu-images` | Root directory for the persistent OLD/NEW worktrees. Phase 0 creates `{root}/old/` and `{root}/new/` and re-uses them across runs (synced via `git fetch + reset --hard`).                                                                                                                                        |
-| `ZDU_SKIP_PREPARE_OLD_STACK` | _(unset)_                     | Set to `1` to skip Phase 0.5 (`PrepareOldStackPhase`). Default-on; opt out when the running stack is already known to be on the OLD image tag.                                                                                                                                                                    |
-| `DATAHUB_LOCAL_COMMON_ENV`   | `empty.env`                   | Compose env-file override loaded into every DataHub service. Set to `zdu-test.env` (tracked at `docker/profiles/zdu-test.env`) to bypass master HEAD's `PrivilegeConstraintsValidator` and default REST authorizer — required when running ZDU against current master, otherwise seed/inject phases get HTTP 403. |
+| Variable                     | Default                       | Description                                                                                                                                                                                                                                                                                                                              |
+| ---------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `DATAHUB_GMS_URL`            | `http://localhost:8080`       | GMS base URL                                                                                                                                                                                                                                                                                                                             |
+| `DATAHUB_GMS_TOKEN`          | _(none)_                      | Bearer token for authenticated instances                                                                                                                                                                                                                                                                                                 |
+| `ZDU_SWEEP_TIMEOUT`          | `600`                         | Seconds to wait for the sweep to complete before timing out                                                                                                                                                                                                                                                                              |
+| `ZDU_SKIP_PHASES`            | _(none)_                      | Comma-separated phase names to skip (see [Phases](#phases))                                                                                                                                                                                                                                                                              |
+| `ZDU_READER_WORKERS`         | `3`                           | Number of concurrent reader threads during sweep                                                                                                                                                                                                                                                                                         |
+| `ZDU_WRITER_WORKERS`         | `2`                           | Number of concurrent writer threads during sweep                                                                                                                                                                                                                                                                                         |
+| `ZDU_PRE_WRITE_DELAY_MS`     | `500`                         | Milliseconds injected into the upgrade container as `SYSTEM_UPDATE_MIGRATE_ASPECTS_PRE_WRITE_DELAY_MS` — see [How Concurrent I/O Works](#how-concurrent-io-works-during-sweep)                                                                                                                                                           |
+| `ZDU_PROJECT_DIR`            | `docker/profiles/`            | Docker Compose project directory (absolute path)                                                                                                                                                                                                                                                                                         |
+| `ZDU_COMPOSE_PROFILES`       | `debug`                       | Compose profile(s) to run, comma-separated. `debug` runs MAE/MCE embedded in GMS; `debug-consumers` splits them into their own containers (the production shape, and the only one where rollback dual-write runs outside GMS). A single recognised profile also derives the four service names below — see `constants.PROFILE_SERVICES`. |
+| `ZDU_GMS_SERVICE`            | _(from profile)_              | Compose service name for GMS (used for log tailing and secret extraction). Overrides the profile-derived name.                                                                                                                                                                                                                           |
+| `ZDU_UPGRADE_SERVICE`        | _(from profile)_              | Compose service name for the upgrade job                                                                                                                                                                                                                                                                                                 |
+| `ZDU_MAE_SERVICE`            | _(from profile)_              | Compose service name for the standalone MAE consumer. Empty on profiles that embed it in GMS.                                                                                                                                                                                                                                            |
+| `ZDU_MCE_SERVICE`            | _(from profile)_              | Compose service name for the standalone MCE consumer. Empty on profiles that embed it in GMS.                                                                                                                                                                                                                                            |
+| `ZDU_REBUILD_CWD`            | _(repo root)_                 | Working directory for `scripts/dev/datahub-dev.sh rebuild --wait`                                                                                                                                                                                                                                                                        |
+| `ZDU_SKIP_BOOTJAR`           | _(unset)_                     | Set to `1` to skip the automatic `./gradlew :datahub-upgrade:bootJar` that runs on `ZDUTestRunner` construction. Useful in CI where the JAR is pre-built or when iterating on Python-only changes.                                                                                                                                       |
+| `ZDU_SKIP_BUILD_IMAGES`      | _(unset)_                     | Set to `1` to skip Phase 0 (`BuildImagesPhase`). Default-on; opt out when iterating on Python-only changes and the existing image tags are sufficient.                                                                                                                                                                                   |
+| `ZDU_BUILD_IMAGES`           | _(unset)_                     | Backward-compat: was the Plan-13 opt-in. Now a no-op (Phase 0 is default-on). Accepted for compatibility.                                                                                                                                                                                                                                |
+| `ZDU_OLD_REF`                | `master`                      | Git ref to check out into the OLD worktree for Phase 0 (`BuildImagesPhase`). Override with a release tag like `v1.5.0` to build OLD from a specific release.                                                                                                                                                                             |
+| `ZDU_BUILD_IMAGES_ROOT`      | `smoke-test/build/zdu-images` | Root directory for the persistent OLD/NEW worktrees. Phase 0 creates `{root}/old/` and `{root}/new/` and re-uses them across runs (synced via `git fetch + reset --hard`).                                                                                                                                                               |
+| `ZDU_SKIP_PREPARE_OLD_STACK` | _(unset)_                     | Set to `1` to skip Phase 0.5 (`PrepareOldStackPhase`). Default-on; opt out when the running stack is already known to be on the OLD image tag.                                                                                                                                                                                           |
+| `DATAHUB_LOCAL_COMMON_ENV`   | `empty.env`                   | Compose env-file override loaded into every DataHub service. Set to `zdu-test.env` (tracked at `docker/profiles/zdu-test.env`) to bypass master HEAD's `PrivilegeConstraintsValidator` and default REST authorizer — required when running ZDU against current master, otherwise seed/inject phases get HTTP 403.                        |
 
 ### CLI Arguments (`__main__.py`)
 
@@ -303,7 +306,7 @@ ZDU_SKIP_PHASES=upgrade_nonblocking \
 smoke-test/venv/bin/python -m pytest smoke-test/tests/zdu/test_zdu_upgrade.py -v
 
 # CLI equivalent
-python -m tests.zdu --skip upgrade_nonblocking
+python -m tests.zdu.framework --skip upgrade_nonblocking
 ```
 
 Available phase names: `build_images`, `prepare_old_stack`, `discovery`, `seed`, `snapshot_t0`, `upgrade_blocking`, `inject_traffic_pre`, `rolling_restart`, `inject_traffic_dual`, `upgrade_nonblocking`, `runtime_migration`, `validation`
@@ -316,7 +319,7 @@ Filter by TC number using `ZDU_SKIP_TC` or `--only-tc`:
 
 ```bash
 # Run only TC-001 through TC-006 (single-hop and multi-hop basic cases)
-python -m tests.zdu --only-tc 1 2 3 4 5 6
+python -m tests.zdu.framework --only-tc 1 2 3 4 5 6
 
 # Via pytest (parametrized, use -k to filter by TC ID)
 smoke-test/venv/bin/python -m pytest \

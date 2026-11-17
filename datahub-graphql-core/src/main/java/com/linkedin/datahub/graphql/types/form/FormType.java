@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.form;
 
 import static com.linkedin.metadata.Constants.FORM_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.FORM_INFO_ASPECT_NAME;
+import static com.linkedin.metadata.Constants.FORM_KEY_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.OWNERSHIP_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
@@ -11,6 +12,7 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.Form;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import graphql.execution.DataFetcherResult;
@@ -51,12 +53,15 @@ public class FormType implements com.linkedin.datahub.graphql.types.EntityType<F
     final List<Urn> formUrns = urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
     try {
+      // Determine optimal aspects to fetch based on GraphQL field selections
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(context, name(), ASPECTS_TO_FETCH, FORM_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> entities =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               FORM_ENTITY_NAME,
               new HashSet<>(formUrns),
-              ASPECTS_TO_FETCH);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (Urn urn : formUrns) {

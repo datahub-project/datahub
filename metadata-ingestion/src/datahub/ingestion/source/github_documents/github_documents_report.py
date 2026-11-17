@@ -13,5 +13,13 @@ class GitHubDocumentsSourceReport(StaleEntityRemovalSourceReport):
     folders_processed: int = 0
     files_skipped: int = 0
     files_skipped_unchanged: int = 0
+    documents_resurrected: int = 0
+    identity_fast_path_errors: int = 0
+    okf_files_processed: int = 0
+    okf_parse_errors: int = 0
+    okf_unresolved_values: int = 0
+    okf_invalid_values: int = 0
+    okf_unversioned_index_files: int = 0
     tree_truncated: bool = False
     files_truncated_by_limit: bool = False
+    hidden_lifecycle_search_unsupported: bool = False

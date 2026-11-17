@@ -1,12 +1,12 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
-import { Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
+import { Application, Domain, EntityPath, EntityType, GlobalTags, GlossaryTerms, Owner } from '@types';
 
 interface Props {
     urn: string;
@@ -15,6 +15,7 @@ interface Props {
     description?: string | null;
     owners?: Array<Owner> | null;
     domain?: Domain | null;
+    parentApplications?: Application[] | null;
     globalTags?: GlobalTags | null;
     glossaryTerms?: GlossaryTerms | null;
     entityCount?: number;
@@ -34,6 +35,7 @@ export const Preview = ({
     owners,
     globalTags,
     domain,
+    parentApplications,
     glossaryTerms,
     entityCount,
     externalUrl,
@@ -54,11 +56,10 @@ export const Preview = ({
             description={description || ''}
             entityType={EntityType.Application}
             typeIcon={entityRegistry.getIcon(EntityType.Application, 14, IconStyleType.ACCENT)}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}
-            parentEntities={domain ? [domain] : []}
+            parentEntities={parentApplications || []}
             glossaryTerms={glossaryTerms || undefined}
             entityCount={entityCount}
             externalUrl={externalUrl}

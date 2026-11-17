@@ -55,7 +55,7 @@ from tests.test_helpers.click_helpers import run_datahub_cmd
         ),
         (reporting_provider_registry, ["datahub", "file"]),
         (ingestion_checkpoint_provider_registry, ["datahub"]),
-        (lite_registry, ["duckdb"]),
+        (lite_registry, ["sqlite", "duckdb"]),
         (fs_registry, ["file", "http", "s3"]),
     ],
 )

@@ -12,7 +12,7 @@ from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.ge_profiling_config import GEProfilingConfig
+from datahub.ingestion.source.profiling.config import ProfilingConfig
 from datahub.ingestion.source.redshift.config import RedshiftConfig
 from datahub.ingestion.source.redshift.profile import RedshiftProfiler
 from datahub.ingestion.source.redshift.redshift_schema import RedshiftTable
@@ -34,7 +34,7 @@ def make_profiler(
         database="test_db",
         include_tables=include_tables,
         platform_instance=platform_instance,
-        profiling=GEProfilingConfig(enabled=profiling_enabled),
+        profiling=ProfilingConfig(enabled=profiling_enabled),
     )
     report = RedshiftReport()
     return RedshiftProfiler(config=config, report=report, state_handler=None)

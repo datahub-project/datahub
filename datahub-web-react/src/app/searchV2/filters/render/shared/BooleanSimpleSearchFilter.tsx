@@ -1,5 +1,6 @@
-import { DownOutlined, UpOutlined } from '@ant-design/icons';
-import { Checkbox } from 'antd';
+import { Checkbox } from '@components';
+import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
+import { CaretUp } from '@phosphor-icons/react/dist/csr/CaretUp';
 import * as React from 'react';
 import { useEffect, useState } from 'react';
 import styled from 'styled-components';
@@ -19,16 +20,19 @@ const Title = styled.div`
     cursor: pointer;
 `;
 
-const StyledUpOutlined = styled(UpOutlined)`
+const StyledUpOutlined = styled(CaretUp)`
     font-size: 10px;
 `;
 
-const StyledDownOutlined = styled(DownOutlined)`
+const StyledDownOutlined = styled(CaretDown)`
     font-size: 10px;
 `;
 
-const StyledCheckbox = styled(Checkbox)`
-    margin-right: 8px;
+const OptionRow = styled.div`
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    cursor: pointer;
 `;
 
 type Props = {
@@ -67,9 +71,12 @@ export const BooleanSimpleSearchFilter = ({
                 )}
             </Title>
             {areFiltersVisible && (
-                <StyledCheckbox checked={isSelected} onChange={onSelect}>
+                // The whole row selects, as antd's Checkbox label did. The box stops its own click from
+                // reaching the row, so it doesn't toggle twice.
+                <OptionRow onClick={onSelect}>
+                    <Checkbox isChecked={isSelected} onCheckboxChange={onSelect} aria-label={option} size="xs" />
                     <SearchFilterLabel field={title} value={option} count={count} />
-                </StyledCheckbox>
+                </OptionRow>
             )}
         </SearchFilterWrapper>
     );

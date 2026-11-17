@@ -1,0 +1,355 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "pet_orders",
+        "description": "Logical model of pet shop orders, implemented in every store database"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_01.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_01.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_01.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_02.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_02.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_02.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_03.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_03.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_03.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_04.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_04.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_04.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_05.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_05.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_05.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_06.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_06.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_06.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_07.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_07.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_07.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_08.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_08.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_08.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_09.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_09.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_09.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_10.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_10.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_10.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_11.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_store_11.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_11.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,petshop_warehouse.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "petshop_warehouse.pet_orders"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,petshop_warehouse.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "logicalParent",
+    "aspect": {
+      "json": {
+        "parent": {
+          "destinationUrn": "urn:li:dataset:(urn:li:dataPlatform:logical,petshop.pet_orders,PROD)"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "corpuser",
+    "entityUrn": "urn:li:corpuser:petshop-owner",
+    "changeType": "UPSERT",
+    "aspectName": "corpUserInfo",
+    "aspect": {
+      "json": {
+        "active": true,
+        "displayName": "Petshop Owner",
+        "fullName": "Petshop Owner"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:postgres,petshop_store_01.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:petshop-owner",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,petshop_warehouse.pet_orders,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+      "json": {
+        "owners": [
+          {
+            "owner": "urn:li:corpuser:petshop-owner",
+            "type": "TECHNICAL_OWNER"
+          }
+        ],
+        "lastModified": {
+          "time": 0,
+          "actor": "urn:li:corpuser:datahub"
+        }
+      }
+    }
+  }
+]

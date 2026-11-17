@@ -67,10 +67,12 @@ public class EntityAspectDaoFactory {
       final ScopedTransactionFactory scopedTransactionFactory) {
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
-    log.debug(
-        "Creating EntityAspectDao with {} SystemAspectValidators: {}",
-        validators.size(),
-        validators.stream().map(v -> v.getClass().getSimpleName()).toList());
+    if (log.isDebugEnabled()) {
+      log.debug(
+          "Creating EntityAspectDao with {} SystemAspectValidators: {}",
+          validators.size(),
+          validators.stream().map(v -> v.getClass().getSimpleName()).toList());
+    }
     EbeanAspectDao ebeanAspectDao =
         new EbeanAspectDao(
             primaryStorageResolver,
@@ -81,7 +83,8 @@ public class EntityAspectDaoFactory {
                 ? configurationProvider.getDatahub().getValidation().getAspectSize()
                 : null,
             aspectTableResolver,
-            scopedTransactionFactory);
+            scopedTransactionFactory,
+            configurationProvider.getEbean().isOptimisticLockingEnabled());
     if (configurationProvider.getDatahub().isReadOnly()) {
       ebeanAspectDao.setWritable(false);
     }
@@ -95,6 +98,11 @@ public class EntityAspectDaoFactory {
   protected AspectDao createCassandraInstance(
       PrimaryStorageResolver primaryStorageResolver,
       final ConfigurationProvider configurationProvider) {
+    if (configurationProvider.getEbean().isOptimisticLockingEnabled()) {
+      log.warn(
+          "OPTIMISTIC_LOCKING_ENABLED is true, but entityService.impl=cassandra does not implement "
+              + "optimistic locking; the flag is ignored.");
+    }
     List<SystemAspectValidator> validators =
         Objects.requireNonNullElse(systemAspectValidators, List.of());
     CassandraAspectDao cassandraAspectDao =

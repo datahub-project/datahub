@@ -18,20 +18,27 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.DataMap;
 import com.linkedin.data.DataMapBuilder;
 import com.linkedin.dataset.DatasetProperties;
 import com.linkedin.dataset.EditableDatasetProperties;
 import com.linkedin.entity.Aspect;
+import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.identity.CorpUserInfo;
 import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.TestEntityUtil;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.GraphRetriever;
+import com.linkedin.metadata.client.EntityClientAspectRetriever;
 import com.linkedin.metadata.entity.SearchRetriever;
+import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.SearchableFieldSpec;
 import com.linkedin.metadata.models.SearchableRefFieldSpec;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.query.request.TestSearchFieldConfig;
+import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.AuditStampUtils;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.structured.PrimitivePropertyValue;
@@ -75,7 +82,7 @@ public class SearchDocumentTransformerTest {
   @Test
   public void testTransform() throws IOException {
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
     Optional<String> result =
@@ -158,7 +165,7 @@ public class SearchDocumentTransformerTest {
   @Test
   public void testTransformForDelete() throws IOException {
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
     Optional<String> result =
@@ -182,7 +189,7 @@ public class SearchDocumentTransformerTest {
   @Test
   public void testTransformMaxFieldValue() throws IOException {
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 5);
+        new SearchDocumentTransformer(1000, 1000, 5, false, ESUtils.KEYWORD_MAXLENGTH);
     TestEntitySnapshot snapshot = TestEntityUtil.getSnapshot();
     EntitySpec testEntitySpec = TestEntitySpecBuilder.getSpec();
     Optional<String> result =
@@ -196,7 +203,8 @@ public class SearchDocumentTransformerTest {
     assertEquals(
         parsedJson.get("esObjectField"), JsonNodeFactory.instance.arrayNode().add("123").add(""));
 
-    searchDocumentTransformer = new SearchDocumentTransformer(1000, 1000, 20);
+    searchDocumentTransformer =
+        new SearchDocumentTransformer(1000, 1000, 20, false, ESUtils.KEYWORD_MAXLENGTH);
     snapshot = TestEntityUtil.getSnapshot();
     testEntitySpec = TestEntitySpecBuilder.getSpec();
     result = searchDocumentTransformer.transformSnapshot(snapshot, testEntitySpec, false);
@@ -234,7 +242,7 @@ public class SearchDocumentTransformerTest {
   public void testSetSearchableRefValue() throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -286,9 +294,230 @@ public class SearchDocumentTransformerTest {
   }
 
   @Test
+  public void testV3LeavesBusinessAttributeRefAsUrn() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    SearchDocumentTransformer.beginV3Projection();
+    try {
+      transformer.setSearchableRefValue(
+          businessAttributeOperationContext(aspectRetriever),
+          businessAttributeRefSpec(),
+          List.of(attributeUrn),
+          searchDocument,
+          false,
+          AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertEquals(searchDocument.get("businessAttributeRef").asText(), attributeUrn.toString());
+    verify(aspectRetriever, never()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV3ExpandsBusinessAttributeRefWhenEnabled() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    transformer.setV3BusinessAttributeExpansionEnabled(true);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    SearchDocumentTransformer.beginV3Projection();
+    try {
+      transformer.setSearchableRefValue(
+          businessAttributeOperationContext(aspectRetriever),
+          businessAttributeRefSpec(),
+          List.of(attributeUrn),
+          searchDocument,
+          false,
+          AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertEquals(
+        searchDocument.get("businessAttributeRef").get("urn").asText(), attributeUrn.toString());
+    verify(aspectRetriever, atLeastOnce()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV2StillExpandsBusinessAttributeRef() throws Exception {
+    AspectRetriever aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    when(aspectRetriever.getLatestAspectObject(any(), any(), anyString()))
+        .thenReturn(new Aspect(new DataMap()));
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode searchDocument = JsonNodeFactory.instance.objectNode();
+    Urn attributeUrn = UrnUtils.getUrn("urn:li:businessAttribute:revenue");
+
+    transformer.setSearchableRefValue(
+        businessAttributeOperationContext(aspectRetriever),
+        businessAttributeRefSpec(),
+        List.of(attributeUrn),
+        searchDocument,
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
+
+    assertEquals(
+        searchDocument.get("businessAttributeRef").get("urn").asText(), attributeUrn.toString());
+    verify(aspectRetriever, atLeastOnce()).getLatestAspectObject(any(), any(), anyString());
+  }
+
+  @Test
+  public void testV3ProjectionReadsStructuredPropertiesThroughEntityClientCache() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    Urn propertyUrn = UrnUtils.getUrn("urn:li:structuredProperty:test_property");
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+
+    StructuredProperties structuredProperties = new StructuredProperties();
+    StructuredPropertyValueAssignmentArray valueAssignments =
+        new StructuredPropertyValueAssignmentArray();
+    StructuredPropertyValueAssignment valueAssignment = new StructuredPropertyValueAssignment();
+    PrimitivePropertyValueArray primitivePropertyValues = new PrimitivePropertyValueArray();
+    PrimitivePropertyValue value = new PrimitivePropertyValue();
+    value.setString("testing123");
+    primitivePropertyValues.add(value);
+    valueAssignment.setPropertyUrn(propertyUrn);
+    valueAssignment.setValues(primitivePropertyValues);
+    valueAssignments.add(valueAssignment);
+    structuredProperties.setProperties(valueAssignments);
+
+    DataMapBuilder propertyDefinitionBuilder = new DataMapBuilder();
+    propertyDefinitionBuilder.addKVPair("qualifiedName", "test_property");
+    propertyDefinitionBuilder.addKVPair("valueType", "urn:li:dataType:datahub.string");
+    Map<Urn, Map<String, Aspect>> definitions =
+        Map.of(
+            propertyUrn,
+            Map.of(
+                STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+                new Aspect(propertyDefinitionBuilder.convertToDataMap())));
+
+    AspectRetriever primary = mock(AspectRetriever.class);
+    when(primary.getEntityRegistry()).thenReturn(ENTITY_REGISTRY);
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
+    when(entityClient.getLatestAspects(any(), any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              Set<Urn> urns = invocation.getArgument(1);
+              if (urns.contains(propertyUrn)) {
+                return definitions;
+              }
+              return urns.stream()
+                  .filter(urn -> urn.toString().startsWith("urn:li:corpuser:"))
+                  .collect(
+                      java.util.stream.Collectors.toMap(
+                          urn -> urn,
+                          urn ->
+                              Map.of(
+                                  CORP_USER_KEY_ASPECT_NAME,
+                                  new Aspect(
+                                      new CorpUserInfo()
+                                          .setActive(true)
+                                          .setEmail(urn.getId())
+                                          .setDisplayName(urn.getId())
+                                          .data()))));
+            });
+    EntityClientAspectRetriever caching =
+        EntityClientAspectRetriever.builder().entityClient(entityClient).build();
+
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(primary)
+                .cachingAspectRetriever(caching)
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+    caching.setSystemOperationContext(opContext);
+
+    SearchDocumentTransformer.beginV3Projection();
+    final Optional<ObjectNode> transformed;
+    try {
+      transformed =
+          transformer.transformAspect(
+              opContext,
+              UrnUtils.getUrn(entityUrn),
+              structuredProperties,
+              ENTITY_REGISTRY
+                  .getEntitySpec(DATASET_ENTITY_NAME)
+                  .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+              false,
+              AuditStampUtils.createDefaultAuditStamp());
+    } finally {
+      SearchDocumentTransformer.endV3Projection();
+    }
+
+    assertTrue(transformed.isPresent());
+    assertEquals(
+        transformed.get().get("structuredProperties.test_property").get(0).asText(), "testing123");
+    verify(primary, never()).getLatestAspectObjects(any(), any(), any());
+    verify(entityClient, atLeastOnce())
+        .getLatestAspects(
+            any(),
+            eq(Set.of(propertyUrn)),
+            eq(Set.of(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME)),
+            any());
+  }
+
+  @Test
+  public void testStructuredPropertiesDeleteWithNullAspectReturnsDocument() throws Exception {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Optional<ObjectNode> transformed =
+        transformer.transformAspect(
+            opContext,
+            UrnUtils.getUrn(entityUrn),
+            null,
+            ENTITY_REGISTRY
+                .getEntitySpec(DATASET_ENTITY_NAME)
+                .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+            true,
+            AuditStampUtils.createDefaultAuditStamp());
+
+    assertTrue(transformed.isPresent());
+    assertEquals(transformed.get().get("urn").asText(), entityUrn);
+  }
+
+  private static SearchableRefFieldSpec businessAttributeRefSpec() {
+    return ENTITY_REGISTRY
+        .getEntitySpec("schemaField")
+        .getAspectSpec("businessAttributes")
+        .getSearchableRefFieldSpecs()
+        .get(0);
+  }
+
+  private static OperationContext businessAttributeOperationContext(
+      AspectRetriever aspectRetriever) {
+    return TestOperationContexts.systemContextNoSearchAuthorization(
+        RetrieverContext.builder()
+            .aspectRetriever(aspectRetriever)
+            .cachingAspectRetriever(
+                TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+            .graphRetriever(mock(GraphRetriever.class))
+            .searchRetriever(mock(SearchRetriever.class))
+            .build());
+  }
+
+  @Test
   public void testSetSearchableRefValue_WithNonURNField() throws URISyntaxException {
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(TEST_ENTITY_REGISTRY);
@@ -312,7 +541,7 @@ public class SearchDocumentTransformerTest {
       throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -352,7 +581,7 @@ public class SearchDocumentTransformerTest {
       throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
     DataMapBuilder dataMapBuilder = new DataMapBuilder();
@@ -401,7 +630,7 @@ public class SearchDocumentTransformerTest {
       throws URISyntaxException, RemoteInvocationException {
     AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
     SearchDocumentTransformer searchDocumentTransformer =
-        new SearchDocumentTransformer(1000, 1000, 1000);
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     List<Object> urnList = List.of(Urn.createFromString("urn:li:refEntity:1"));
 
@@ -438,7 +667,8 @@ public class SearchDocumentTransformerTest {
   @Test
   public void testEmptyDescription() throws RemoteInvocationException, URISyntaxException {
     String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
-    SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer test =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(
@@ -491,7 +721,8 @@ public class SearchDocumentTransformerTest {
       throws RemoteInvocationException, URISyntaxException {
     String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
     String structuredPropertyUrn = "urn:li:structuredProperty:test_property";
-    SearchDocumentTransformer test = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer test =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     StructuredProperties structuredProperties = new StructuredProperties();
     StructuredPropertyValueAssignmentArray valueAssignments =
@@ -554,6 +785,100 @@ public class SearchDocumentTransformerTest {
     assertTrue(transformed.get().has("structuredProperties.test_property"));
     assertEquals(
         transformed.get().get("structuredProperties.test_property").get(0).asText(), "testing123");
+  }
+
+  @Test
+  public void testStructuredPropertiesOmitsOversizedWhenDropFromIndexEnabled()
+      throws RemoteInvocationException, URISyntaxException {
+    Optional<ObjectNode> transformed =
+        transformStructuredPropertyValues(
+            true, 16, List.of("a".repeat(17), "short", "b".repeat(20)));
+
+    assertTrue(transformed.isPresent());
+    JsonNode field = transformed.get().get("structuredProperties.test_property");
+    assertTrue(field.isArray());
+    assertEquals(field.size(), 1);
+    assertEquals(field.get(0).asText(), "short");
+  }
+
+  @Test
+  public void testStructuredPropertiesNullsFieldWhenAllValuesOversized()
+      throws RemoteInvocationException, URISyntaxException {
+    Optional<ObjectNode> transformed =
+        transformStructuredPropertyValues(true, 16, List.of("a".repeat(17)));
+
+    assertTrue(transformed.isPresent());
+    JsonNode field = transformed.get().get("structuredProperties.test_property");
+    assertTrue(field.isNull());
+  }
+
+  @Test
+  public void testStructuredPropertiesEmitsOversizedWhenDropFromIndexDisabled()
+      throws RemoteInvocationException, URISyntaxException {
+    String oversized = "a".repeat(17);
+    Optional<ObjectNode> transformed =
+        transformStructuredPropertyValues(false, 16, List.of(oversized));
+
+    assertTrue(transformed.isPresent());
+    JsonNode field = transformed.get().get("structuredProperties.test_property");
+    assertTrue(field.isArray());
+    assertEquals(field.get(0).asText(), oversized);
+  }
+
+  private Optional<ObjectNode> transformStructuredPropertyValues(
+      boolean dropOversizedFromIndex, int keywordMaxLength, List<String> values)
+      throws RemoteInvocationException, URISyntaxException {
+    String entityUrn = "urn:li:dataset:(urn:li:dataPlatform:hive,fct_users_created,PROD)";
+    String structuredPropertyUrn = "urn:li:structuredProperty:test_property";
+    SearchDocumentTransformer test =
+        new SearchDocumentTransformer(1000, 1000, 1000, dropOversizedFromIndex, keywordMaxLength);
+
+    StructuredProperties structuredProperties = new StructuredProperties();
+    PrimitivePropertyValueArray primitivePropertyValues = new PrimitivePropertyValueArray();
+    for (String value : values) {
+      PrimitivePropertyValue propertyValue = new PrimitivePropertyValue();
+      propertyValue.setString(value);
+      primitivePropertyValues.add(propertyValue);
+    }
+    StructuredPropertyValueAssignment valueAssignment = new StructuredPropertyValueAssignment();
+    valueAssignment.setPropertyUrn(UrnUtils.getUrn(structuredPropertyUrn));
+    valueAssignment.setValues(primitivePropertyValues);
+    structuredProperties.setProperties(new StructuredPropertyValueAssignmentArray(valueAssignment));
+
+    AspectRetriever aspectRetriever = Mockito.mock(AspectRetriever.class);
+    Map<Urn, Map<String, Aspect>> mockDefinitions = new HashMap<>();
+    Map<String, Aspect> aspectMap = new HashMap<>();
+    DataMapBuilder propertyDefinitionBuilder = new DataMapBuilder();
+    propertyDefinitionBuilder.addKVPair("qualifiedName", "test_property");
+    propertyDefinitionBuilder.addKVPair("valueType", "urn:li:dataType:datahub.string");
+    aspectMap.put(
+        STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME,
+        new Aspect(propertyDefinitionBuilder.convertToDataMap()));
+    mockDefinitions.put(UrnUtils.getUrn(structuredPropertyUrn), aspectMap);
+    Mockito.when(
+            aspectRetriever.getLatestAspectObjects(
+                any(OperationFingerprint.class), any(Set.class), any(Set.class)))
+        .thenReturn(mockDefinitions);
+
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            RetrieverContext.builder()
+                .aspectRetriever(aspectRetriever)
+                .cachingAspectRetriever(
+                    TestOperationContexts.emptyActiveUsersAspectRetriever(() -> ENTITY_REGISTRY))
+                .graphRetriever(mock(GraphRetriever.class))
+                .searchRetriever(mock(SearchRetriever.class))
+                .build());
+
+    return test.transformAspect(
+        opContext,
+        UrnUtils.getUrn(entityUrn),
+        structuredProperties,
+        ENTITY_REGISTRY
+            .getEntitySpec(DATASET_ENTITY_NAME)
+            .getAspectSpec(STRUCTURED_PROPERTIES_ASPECT_NAME),
+        false,
+        AuditStampUtils.createDefaultAuditStamp());
   }
 
   @Test
@@ -1046,7 +1371,8 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testSanitizeRichTextWithAnnotation() throws Exception {
-    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     // Create a dataset with description containing base64 image
     // Note: Description must be > 1000 chars for sanitization to trigger
@@ -1100,7 +1426,8 @@ public class SearchDocumentTransformerTest {
 
   @Test
   public void testNoSanitizationWithoutAnnotation() throws Exception {
-    SearchDocumentTransformer transformer = new SearchDocumentTransformer(1000, 1000, 1000);
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
 
     // Create editable properties with name field containing base64 image
     // name field is TEXT_PARTIAL but does NOT have sanitizeRichText annotation
@@ -1134,5 +1461,82 @@ public class SearchDocumentTransformerTest {
         indexedName.contains("data:image"),
         "Base64 image should NOT be sanitized for fields without sanitizeRichText annotation");
     assertTrue(indexedName.contains("Dataset Name"), "Original text should be preserved");
+  }
+
+  @Test
+  public void testSetSemanticContentSearchValue_EmptyEmbeddingsProjectsExplicitNull() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent()
+            .setEmbeddings(new com.linkedin.common.EmbeddingModelDataMap())
+            .setSkipReason("EMPTY_TEXT")
+            .setSkippedAt(123L);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+    // Under doc_as_upsert an empty object is a merge no-op: a skip marker's empty
+    // embeddings map must project as explicit null so it clears a previous model entry
+    // even when the diff-mode removal pass is unavailable (e.g. FORCE_INDEXING).
+    assertTrue(doc.get("embeddings").isNull(), "Empty embeddings map must project as null");
+    assertEquals(doc.get("skipReason").asText(), "EMPTY_TEXT");
+    assertEquals(doc.get("skippedAt").asLong(), 123L);
+  }
+
+  @Test
+  public void testSetSemanticContentSearchValue_EmbedClearsSkipMarkerFields() {
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    com.linkedin.common.EmbeddingModelDataMap embeddings =
+        new com.linkedin.common.EmbeddingModelDataMap();
+    embeddings.put(
+        "cohere_embed_v3",
+        new com.linkedin.common.EmbeddingModelData()
+            .setModelVersion("bedrock/cohere.embed-english-v3")
+            .setGeneratedAt(456L)
+            .setTotalChunks(0)
+            .setChunks(new com.linkedin.common.EmbeddingChunkArray()));
+    com.linkedin.common.SemanticContent aspect =
+        new com.linkedin.common.SemanticContent().setEmbeddings(embeddings);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+
+    transformer.setSemanticContentSearchValue(aspect, doc, false);
+
+    assertTrue(doc.get("embeddings").isObject(), "Real embeddings must pass through");
+    assertTrue(doc.get("embeddings").has("cohere_embed_v3"));
+    // Marker fields are ALWAYS set (explicit null on embed) so a re-embed clears a
+    // previous skip marker under doc_as_upsert merging.
+    assertTrue(doc.get("skipReason").isNull(), "Embed must clear skipReason");
+    assertTrue(doc.get("skippedAt").isNull(), "Embed must clear skippedAt");
+  }
+
+  @Test
+  public void testEmptySiblingDoesNotClearSharedHasValues() {
+    AspectSpec relatedTerms =
+        ENTITY_REGISTRY
+            .getEntitySpec(GLOSSARY_TERM_ENTITY_NAME)
+            .getAspectSpec(GLOSSARY_RELATED_TERM_ASPECT_NAME);
+    SearchableFieldSpec isRelated = searchableField(relatedTerms, "isRelatedTerms");
+    SearchableFieldSpec hasRelated = searchableField(relatedTerms, "hasRelatedTerms");
+    SearchDocumentTransformer transformer =
+        new SearchDocumentTransformer(1000, 1000, 1000, false, ESUtils.KEYWORD_MAXLENGTH);
+    ObjectNode doc = JsonNodeFactory.instance.objectNode();
+    AuditStamp stamp = AuditStampUtils.createDefaultAuditStamp();
+
+    transformer.setSearchableValue(
+        isRelated, List.of("urn:li:glossaryTerm:color"), doc, false, stamp);
+    transformer.setSearchableValue(hasRelated, List.of(), doc, false, stamp);
+
+    assertEquals(doc.get("isRelatedTerms").get(0).asText(), "urn:li:glossaryTerm:color");
+    assertTrue(doc.get("hasRelatedTerms").isEmpty());
+    assertTrue(doc.get("hasGlossaryTerms").asBoolean());
+  }
+
+  private static SearchableFieldSpec searchableField(AspectSpec aspect, String fieldName) {
+    return aspect.getSearchableFieldSpecs().stream()
+        .filter(spec -> fieldName.equals(spec.getSearchableAnnotation().getFieldName()))
+        .findFirst()
+        .orElseThrow();
   }
 }

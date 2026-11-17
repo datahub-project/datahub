@@ -42,13 +42,14 @@ public class DeleteStructuredPropertyResolver implements DataFetcher<Completable
               throw new AuthorizationException(
                   "Unable to delete structured property. Please contact your admin.");
             }
-            _entityClient.deleteEntity(context.getOperationContext(), propertyUrn);
+            final var references =
+                _entityClient.deleteEntityThenReferences(
+                    context.getOperationContext(), propertyUrn);
             // Asynchronously Delete all references to the entity (to return quickly)
             GraphQLConcurrencyUtils.supplyAsync(
                 () -> {
                   try {
-                    _entityClient.deleteEntityReferences(
-                        context.getOperationContext(), propertyUrn);
+                    references.run();
                   } catch (Exception e) {
                     log.error(
                         String.format(

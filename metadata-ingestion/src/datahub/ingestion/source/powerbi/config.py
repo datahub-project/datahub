@@ -1,7 +1,16 @@
 import logging
 from dataclasses import dataclass, field as dataclass_field
 from enum import Enum
-from typing import Dict, List, Literal, Optional, Union
+from typing import (
+    Annotated,
+    Dict,
+    List,
+    Literal,
+    Optional,
+    Sequence,
+    Set,
+    Union,
+)
 
 import pydantic
 from pydantic import field_validator, model_validator
@@ -11,15 +20,25 @@ from datahub.configuration.common import (
     AllowDenyPattern,
     ConfigEnum,
     ConfigModel,
+    Enables,
+    Filters,
     HiddenFromDocs,
     TransparentSecretStr,
 )
 from datahub.configuration.source_common import DatasetSourceConfigMixin, PlatformDetail
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
+from datahub.ingestion.agent.verdicts import Verdict, VerdictContext, ancestors_in
 from datahub.ingestion.api.incremental_lineage_helper import (
     IncrementalLineageConfigMixin,
 )
-from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
+from datahub.ingestion.source.common.subtypes import (
+    BIAssetSubTypes,
+    BIContainerSubTypes,
+)
+from datahub.ingestion.source.powerbi.powerbi_selection import (
+    ACTIVE_WORKSPACE_STATE,
+    probe_workspace_verdict,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -137,8 +156,10 @@ class Constant:
     ORIGINAL_REPORT_OBJECT_ID = "originalReportObjectId"
     APP_SUB_TYPE = "App"
     STATE = "state"
-    ACTIVE = "Active"
+    ACTIVE = ACTIVE_WORKSPACE_STATE
     SQL_PARSING_FAILURE = "SQL Parsing Failure"
+    EXTERNAL_QUERY_NOT_MAPPED = "BigQuery EXTERNAL_QUERY connection not mapped"
+    M_QUERY_NAVIGATION_UNRESOLVED = "M-Query navigation not resolved to a table"
     M_QUERY_NULL = '"null"'
     REPORT_WEB_URL = "reportWebUrl"
     USERS = "users"
@@ -157,6 +178,24 @@ class Constant:
 
     # Storage mode values
     DIRECT_LAKE = "DirectLake"
+    ADD_ROWS_API_ENABLED = "addRowsAPIEnabled"
+
+    # workspace_apis mode: regular-API endpoints and refresh-history keys
+    DATASET_REFRESHES = "DATASET_REFRESHES"
+    WORKSPACE_USERS = "WORKSPACE_USERS"
+    REQUEST_ID = "requestId"
+    REFRESH_TYPE = "refreshType"
+    START_TIME = "startTime"
+    END_TIME = "endTime"
+    REFRESH_STATUS_COMPLETED = "Completed"
+    CUSTOM_OPERATION_REFRESH = "REFRESH"
+    VISUAL_COUNT = "visualCount"
+    VISUAL_TYPES = "visualTypes"
+    TOP = "$top"
+    # Scan-API column types reproduced for TMDL-sourced columns
+    COLUMN_TYPE_DATA = "Data"
+    COLUMN_TYPE_CALCULATED = "Calculated"
+    NULL_DATA_TYPE = "Null"
 
 
 @dataclass
@@ -227,6 +266,13 @@ class SupportedDataPlatform(Enum):
         datahub_data_platform_name="odbc",
     )
 
+    # Starburst's Power BI connectors target Trino-protocol clusters, ingested
+    # under the "trino" platform (there is no separate "starburst" platform).
+    STARBURST_TRINO = DataPlatformPair(
+        powerbi_data_platform_name="Starburst",
+        datahub_data_platform_name="trino",
+    )
+
     # Fabric OneLake for DirectLake lineage (Lakehouse/Warehouse tables)
     FABRIC_ONELAKE = DataPlatformPair(
         powerbi_data_platform_name="FabricOneLake",
@@ -265,6 +311,40 @@ class PowerBiDashboardSourceReport(StaleEntityRemovalSourceReport):
     m_query_resolver_errors: int = 0
     m_query_resolver_no_lineage: int = 0
     m_query_resolver_successes: int = 0
+    # Per EXTERNAL_QUERY connection (not per upstream table URN).
+    m_query_external_query_connections_resolved: int = 0
+    m_query_external_query_connections_unmapped: int = 0
+    m_query_external_query_failures: int = 0
+
+    # workspace_apis mode (Fabric item definitions)
+    fabric_definitions_fetched: int = 0
+    fabric_definitions_failed: int = 0
+    # Semantic models only: the all-failed check must not count reports.
+    semantic_model_definitions_fetched: int = 0
+    semantic_model_definitions_failed: int = 0
+    semantic_model_definitions_unsupported: int = 0
+    fabric_report_definitions_denied: int = 0
+    dataset_parameters_failed: int = 0
+    fabric_lro_timeouts: int = 0
+    tmdl_tables_parsed: int = 0
+    tmdl_parts_failed: int = 0
+    tmdl_parts_incomplete: int = 0
+    report_definitions_parsed: int = 0
+    report_definitions_failed: int = 0
+    report_definition_parts_failed: int = 0
+    report_pages_unmatched: int = 0
+    report_field_references_resolved: int = 0
+    report_field_references_unresolved: int = 0
+    relationships_parsed: int = 0
+    relationships_skipped: int = 0
+    relationships_unresolved: int = 0
+    measure_references_unresolved: int = 0
+    directlake_lineage_unresolved: int = 0
+    directlake_lineage_withheld: int = 0
+    model_internal_lineage_withheld: int = 0
+    semantic_models_not_processed: int = 0
+    refresh_history_fetched: int = 0
+    refresh_history_unparseable: int = 0
 
     def report_dashboards_scanned(self, count: int = 1) -> None:
         self.dashboards_scanned += count
@@ -302,6 +382,15 @@ class DataBricksPlatformDetail(PlatformDetail):
     )
 
 
+def _strip_and_reject_blank(value: Optional[str]) -> Optional[str]:
+    if value is None:
+        return None
+    stripped = value.strip()
+    if not stripped:
+        raise ValueError("must not be empty or whitespace")
+    return stripped
+
+
 class OraclePlatformDetail(PlatformDetail):
     default_schema: Optional[str] = pydantic.Field(
         default=None,
@@ -326,13 +415,8 @@ class OraclePlatformDetail(PlatformDetail):
 
     @field_validator("default_schema", "default_database")
     @classmethod
-    def _strip_and_reject_blank(cls, value: Optional[str]) -> Optional[str]:
-        if value is None:
-            return None
-        stripped = value.strip()
-        if not stripped:
-            raise ValueError("must not be empty or whitespace")
-        return stripped
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
 
     # Requires at least one knob. This is also relied on to disambiguate
     # OraclePlatformDetail from a plain PlatformDetail in the
@@ -416,6 +500,54 @@ class AthenaPlatformOverride(ConfigModel):
     )
 
 
+class BigQueryExternalQueryPlatformDetail(PlatformDetail):
+    """Maps a BigQuery ``EXTERNAL_QUERY`` connection to the external source it federates to.
+
+    BigQuery federation (``EXTERNAL_QUERY(connection, sql)``) runs the inner SQL on an
+    external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL). The
+    connection id (``project.region.connection``) does not reveal the external platform,
+    so this mapping supplies it, letting PowerBI lineage point at the real upstream table
+    on that platform instead of failing to resolve a URN. ``platform`` must be a
+    recognized DataHub platform (see ``SupportedDataPlatform``).
+    """
+
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="Target DataHub platform of the external source the EXTERNAL_QUERY "
+        "federates to (e.g. 'postgres', 'mysql', 'snowflake').",
+    )
+    default_database: Optional[str] = pydantic.Field(
+        default=None,
+        description="Database prepended to unqualified or 2-part table names in the "
+        "federated (inner) SQL. The EXTERNAL_QUERY connection id does not carry the "
+        "external database name, so set this when your external source's ingestion emits "
+        "3-part database.schema.table URNs so the lineage URNs match.",
+    )
+    default_schema: Optional[str] = pydantic.Field(
+        default=None,
+        description="Schema applied to unqualified table references in the federated "
+        "(inner) SQL.",
+    )
+
+    @field_validator("platform")
+    @classmethod
+    def _validate_known_platform(cls, value: str) -> str:
+        known_platforms = {
+            item.value.datahub_data_platform_name for item in SupportedDataPlatform
+        }
+        if value not in known_platforms:
+            raise ValueError(
+                f"platform '{value}' is not a recognized DataHub platform. "
+                f"Known platforms: {sorted(known_platforms)}."
+            )
+        return value
+
+    @field_validator("default_schema", "default_database")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
+
 # Workspace ``type`` values returned by the PowerBI admin API for personal
 # workspaces. These are not addressable by id in the PowerBI UI - they are
 # reachable only via the ``/groups/me`` alias and only by their owner, so
@@ -454,6 +586,19 @@ class PowerBiAppUrlPattern(ConfigEnum):
     REDIRECT_BASED = "REDIRECT_BASED"
 
 
+# Workspace role names returned by GET /groups/{id}/users (groupUserAccessRight).
+WORKSPACE_ROLES = ("Admin", "Member", "Contributor", "Viewer")
+
+
+class PowerBiMetadataApiMode(ConfigEnum):
+    # Admin Scanner API (POST /admin/workspaces/getInfo): needs tenant-admin
+    # API access; the only source of endorsements, apps and per-item users.
+    ADMIN_SCAN = "ADMIN_SCAN"
+    # Workspace-scoped Power BI + Fabric APIs (semantic-model TMDL and report
+    # definitions): needs the Contributor role on each workspace instead.
+    WORKSPACE_APIS = "WORKSPACE_APIS"
+
+
 class PowerBiDashboardSourceConfig(
     StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
 ):
@@ -483,7 +628,9 @@ class PowerBiDashboardSourceConfig(
         " Note: This field works in conjunction with 'workspace_type_filter' and both must be considered when filtering workspaces.",
     )
     # PowerBi workspace name
-    workspace_name_pattern: AllowDenyPattern = pydantic.Field(
+    workspace_name_pattern: Annotated[
+        AllowDenyPattern, Filters(BIContainerSubTypes.POWERBI_WORKSPACE)
+    ] = pydantic.Field(
         default=AllowDenyPattern.allow_all(),
         description="Regex patterns to filter PowerBI workspaces in ingestion by name."
         " By default all names are allowed unless they are filtered by ID using 'workspace_id_pattern'."
@@ -546,6 +693,26 @@ class PowerBiDashboardSourceConfig(
         "(database.table), not 3-part names (catalog.database.table). "
         "Overrides with a DSN specified take precedence over those without.",
     )
+    bigquery_external_query_connection_to_platform: Dict[
+        str, BigQueryExternalQueryPlatformDetail
+    ] = pydantic.Field(
+        default={},
+        description="Mapping from a BigQuery ``EXTERNAL_QUERY`` connection id "
+        "(``project.region.connection``, the first argument of EXTERNAL_QUERY) to the "
+        "external source it federates to. BigQuery federation runs the inner SQL on an "
+        "external engine such as Cloud SQL or AlloyDB (which expose MySQL/PostgreSQL); "
+        "configure this so PowerBI lineage resolves to the real upstream table on that "
+        "platform instead of failing. The value sets the target `platform` (required, "
+        "must be one of `athena`, `bigquery`, `databricks`, `fabric-onelake`, "
+        "`hive`, `mssql`, `mysql`, `odbc`, `oracle`, `postgres`, `redshift` or "
+        "`snowflake`, and its "
+        "PowerBI name must remain in `dataset_type_mapping` if you narrow that mapping) "
+        "plus optional `platform_instance`, `env`, `default_database`, and "
+        "`default_schema`. Requires `extract_lineage`, `native_query_parsing`, and "
+        "`enable_advance_lineage_sql_construct`. If the outer native query cannot be "
+        "parsed, lineage is skipped for the whole table (native upstreams included), "
+        "not just the federated part.",
+    )
     # deprecated warning
     _dataset_type_mapping = pydantic_field_deprecated(
         "dataset_type_mapping",
@@ -559,7 +726,9 @@ class PowerBiDashboardSourceConfig(
     )
     # timeout for meta-data scanning
     scan_timeout: int = pydantic.Field(
-        default=60, description="timeout for PowerBI metadata scanning"
+        default=60,
+        description="Seconds to wait for a PowerBI admin scan to complete, and, with "
+        "`metadata_api_mode: workspace_apis`, for each Fabric getDefinition operation.",
     )
     scan_batch_size: int = pydantic.Field(
         default=1,
@@ -575,13 +744,17 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting ownership information of Dashboard
     extract_ownership: bool = pydantic.Field(
         default=False,
-        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled. "
+        description="Whether ownership should be ingested. Admin API access is required if this setting is enabled, "
+        "except with `metadata_api_mode: workspace_apis`, where owners are derived from workspace role assignments. "
         "Note that enabling this may overwrite owners that you've added inside DataHub's web application.",
     )
-    # Enable/Disable extracting report information
-    extract_reports: bool = pydantic.Field(
-        default=True, description="Whether reports should be ingested"
-    )
+    # Enable/Disable extracting report information. When off,
+    # PowerBiAPI.fill_regular_metadata_detail skips the report listing outright.
+    extract_reports: Annotated[
+        bool,
+        Enables(BIAssetSubTypes.REPORT),
+        Enables(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
+    ] = pydantic.Field(default=True, description="Whether reports should be ingested")
     # Configure ingestion of ownership
     ownership: OwnershipMapping = pydantic.Field(
         default=OwnershipMapping(),
@@ -591,9 +764,13 @@ class PowerBiDashboardSourceConfig(
         default=None,
         description="Get only recently modified workspaces based on modified_since datetime '2023-02-10T00:00:00.0000000Z', excludeInActiveWorkspaces limit to last 30 days",
     )
-    extract_dashboards: bool = pydantic.Field(
-        default=True,
-        description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+    # When off, PowerBiAPI.fill_regular_metadata_detail skips the dashboard
+    # listing outright.
+    extract_dashboards: Annotated[bool, Enables(BIAssetSubTypes.DASHBOARD)] = (
+        pydantic.Field(
+            default=True,
+            description="Whether to ingest PBI Dashboard and Tiles as Datahub Dashboard and Chart",
+        )
     )
     # Enable/Disable extracting dataset schema
     extract_dataset_schema: bool = pydantic.Field(
@@ -604,7 +781,9 @@ class PowerBiDashboardSourceConfig(
     # Enable/Disable extracting lineage information of PowerBI Dataset
     extract_lineage: bool = pydantic.Field(
         default=True,
-        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled",
+        description="Whether lineage should be ingested between X and Y. Admin API access is required if this setting is enabled, "
+        "except with `metadata_api_mode: workspace_apis`, where lineage is read from the semantic-model definitions "
+        "(TMDL partitions).",
     )
     # Enable/Disable extracting endorsements to tags. Please notice this may overwrite
     # any existing tags defined to those entities
@@ -708,7 +887,7 @@ class PowerBiDashboardSourceConfig(
     include_workspace_name_in_dataset_urn: bool = pydantic.Field(
         default=False,
         description="It is recommended to set this to true, as it helps prevent the overwriting of datasets."
-        "Read section #11560 at https://docs.datahub.com/docs/how/updating-datahub/ before enabling this option."
+        "Read section #11560 at https://docs.datahub.com/docs/how/breaking-changes/ before enabling this option."
         "To maintain backward compatibility, this is set to False.",
     )
 
@@ -735,6 +914,158 @@ class PowerBiDashboardSourceConfig(
         description="timeout in seconds for Metadata Rest Api.",
     )
 
+    metadata_api_mode: PowerBiMetadataApiMode = pydantic.Field(
+        default=PowerBiMetadataApiMode.ADMIN_SCAN,
+        description="Which API family supplies semantic-model metadata (tables, columns, "
+        "measures, M expressions, lineage). `admin_scan` (default) uses the Admin Scanner "
+        "API and requires tenant-level admin API access. `workspace_apis` instead reads "
+        "semantic-model (TMDL) and report definitions through the Fabric item APIs and "
+        "needs only the Contributor role on each ingested workspace plus the tenant "
+        "setting 'Service principals can use Fabric APIs'. In `workspace_apis` mode "
+        "endorsements, apps, `modified_since` and per-report owners are unavailable "
+        "(ownership comes from workspace roles), and the `environment` must be COMMERCIAL.",
+    )
+    extract_model_relationships: bool = pydantic.Field(
+        default=False,
+        description="Emit semantic-model relationships as foreign-key constraints on the "
+        "`from` table's schema. Requires `metadata_api_mode: workspace_apis` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_report_field_usage: bool = pydantic.Field(
+        default=False,
+        description="Read each report's definition to record which model columns and "
+        "measures its visuals use, emitted as `inputFields` on the page charts together "
+        "with visual counts and types. Adds one Fabric getDefinition call per report. "
+        "Requires `metadata_api_mode: workspace_apis`, `extract_reports` and "
+        "`extract_dataset_schema`.",
+    )
+    extract_refresh_history: bool = pydantic.Field(
+        default=False,
+        description="Fetch each dataset's most recent refresh and emit it as an Operation "
+        "aspect on the dataset's tables. Adds one API call per dataset; works in both "
+        "metadata API modes and needs only the Viewer role, but uses the workspace "
+        "API, so it cannot be combined with `admin_apis_only`.",
+    )
+
+    @classmethod
+    def probe_provider_class(cls) -> type:
+        # Late import: powerbi_probe imports this module, so a top-level import
+        # would be circular.
+        from datahub.ingestion.source.powerbi.powerbi_probe import (
+            PowerBiMetadataProbe,
+        )
+
+        return PowerBiMetadataProbe
+
+    @classmethod
+    def probe_unfiltered_kinds(cls) -> Set[str]:
+        """Reports and dashboards are ingested whole for every workspace the
+        recipe keeps; no pattern applies below a workspace (powerbi.py filters
+        only in get_allowed_workspaces)."""
+        return {
+            str(BIAssetSubTypes.REPORT),
+            str(BIAssetSubTypes.POWERBI_PAGINATED_REPORT),
+            str(BIAssetSubTypes.DASHBOARD),
+        }
+
+    def probe_ancestor_kinds(self, kind: str) -> Optional[Sequence[str]]:
+        """Reports and dashboards are fetched only for allowed workspaces
+        (get_workunits_internal iterates get_allowed_workspaces). A parent
+        judged this way is judged by name only, since --parent carries no id
+        or type; the override below warns about the other two halves."""
+        return ancestors_in(
+            (str(BIContainerSubTypes.POWERBI_WORKSPACE),),
+            kind,
+            self.probe_unfiltered_kinds(),
+        )
+
+    def probe_verdict_override(self, ctx: VerdictContext) -> Optional[Verdict]:
+        return probe_workspace_verdict(
+            self,
+            ctx,
+            workspace_kind=str(BIContainerSubTypes.POWERBI_WORKSPACE),
+            child_kinds=self.probe_unfiltered_kinds(),
+        )
+
+    @model_validator(mode="after")
+    def validate_workspace_apis_mode(self) -> "PowerBiDashboardSourceConfig":
+        if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+            return self
+        if self.admin_apis_only:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis cannot be combined with "
+                "admin_apis_only: true; the two modes use disjoint API families."
+            )
+        admin_only_features = [
+            name
+            for name, enabled in (
+                ("modified_since", self.modified_since is not None),
+                ("extract_app", self.extract_app),
+                ("extract_endorsements_to_tags", self.extract_endorsements_to_tags),
+                (
+                    "filter_dataset_endorsements",
+                    self.filter_dataset_endorsements != AllowDenyPattern.allow_all(),
+                ),
+            )
+            if enabled
+        ]
+        if admin_only_features:
+            raise ValueError(
+                f"{admin_only_features} require the Admin Scanner API and are not "
+                "available with metadata_api_mode: workspace_apis."
+            )
+        if self.environment == PowerBiEnvironment.GOVERNMENT:
+            raise ValueError(
+                "metadata_api_mode: workspace_apis is only supported for the "
+                "COMMERCIAL environment; the Fabric API has no verified GCC endpoint."
+            )
+        owner_criteria = self.ownership.owner_criteria
+        if (
+            self.extract_ownership
+            and owner_criteria
+            and not set(owner_criteria) & set(WORKSPACE_ROLES)
+        ):
+            # Owners come from workspace roles in this mode, so criteria that
+            # name only item-level access rights would silently match nobody.
+            raise ValueError(
+                f"With metadata_api_mode: workspace_apis, ownership.owner_criteria "
+                f"is matched against workspace roles and must include at least one "
+                f"of {list(WORKSPACE_ROLES)}; got {owner_criteria}."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_refresh_history_needs_workspace_api(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # /groups/{id}/datasets/{id}/refreshes has no admin-API variant.
+        if self.extract_refresh_history and self.admin_apis_only:
+            raise ValueError(
+                "extract_refresh_history requires the workspace API and cannot be "
+                "combined with admin_apis_only: true."
+            )
+        return self
+
+    @model_validator(mode="after")
+    def validate_definition_enrichment_flags(self) -> "PowerBiDashboardSourceConfig":
+        # Both flags are derived from TMDL / report definitions, which only the
+        # workspace_apis mode fetches, and attach to schema fields.
+        for flag, extra_requirements in (
+            ("extract_model_relationships", ("extract_dataset_schema",)),
+            (
+                "extract_report_field_usage",
+                ("extract_dataset_schema", "extract_reports"),
+            ),
+        ):
+            if not getattr(self, flag):
+                continue
+            if self.metadata_api_mode != PowerBiMetadataApiMode.WORKSPACE_APIS:
+                raise ValueError(f"{flag} requires metadata_api_mode: workspace_apis.")
+            missing = [name for name in extra_requirements if not getattr(self, name)]
+            if missing:
+                raise ValueError(f"{flag} requires these flags enabled: {missing}")
+        return self
+
     @model_validator(mode="after")
     def validate_extract_column_level_lineage(self) -> "PowerBiDashboardSourceConfig":
         flags = [
@@ -758,6 +1089,31 @@ class PowerBiDashboardSourceConfig(
         if not is_flag_enabled:
             raise ValueError(f"Enable all these flags in recipe: {flags} ")
 
+        return self
+
+    @model_validator(mode="after")
+    def validate_external_query_requires_advanced_sql(
+        self,
+    ) -> "PowerBiDashboardSourceConfig":
+        # Federation resolution only runs while extracting lineage inside
+        # parse_custom_sql, which requires all of these flags. Fail fast so a configured
+        # mapping cannot silently no-op.
+        if not self.bigquery_external_query_connection_to_platform:
+            return self
+        missing = [
+            flag
+            for flag in (
+                "extract_lineage",
+                "native_query_parsing",
+                "enable_advance_lineage_sql_construct",
+            )
+            if not getattr(self, flag)
+        ]
+        if missing:
+            raise ValueError(
+                "bigquery_external_query_connection_to_platform requires these "
+                f"flags enabled: {missing}"
+            )
         return self
 
     @field_validator("server_to_platform_instance", mode="after")

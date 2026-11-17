@@ -1,5 +1,5 @@
 import { SimpleSelect } from '@components';
-import React, { useCallback, useState } from 'react';
+import React, { useCallback } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import {
@@ -17,17 +17,15 @@ import {
 export const RESULT_STATUS_ALL_VALUE = 'All Statuses';
 
 interface Props {
-    defaultValues?: string[];
+    values?: string[];
     onUpdate?: (selectedValues: string[]) => void;
 }
 
-export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
+export default function ResultStatusFilter({ values, onUpdate }: Props) {
     const { t } = useTranslation('ingestion');
-    const [values, setValues] = useState<string[]>(defaultValues || [RESULT_STATUS_ALL_VALUE]);
 
     const onUpdateHandler = useCallback(
         (selectedValues: string[]) => {
-            setValues(selectedValues);
             onUpdate?.(selectedValues);
         },
         [onUpdate],
@@ -47,7 +45,7 @@ export default function ResultStatusFilter({ defaultValues, onUpdate }: Props) {
                 { label: t('status.rollbackFailed'), value: EXECUTION_REQUEST_STATUS_ROLLBACK_FAILED },
                 { label: t('status.duplicate'), value: EXECUTION_REQUEST_STATUS_DUPLICATE },
             ]}
-            values={values}
+            values={values || [RESULT_STATUS_ALL_VALUE]}
             onUpdate={onUpdateHandler}
             showClear={false}
             width="fit-content"

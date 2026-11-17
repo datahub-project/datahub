@@ -12,7 +12,7 @@ import { useQuickFiltersContext } from '@providers/QuickFiltersContext';
 import { QuickFilter as QuickFilterType } from '@types';
 
 const QuickFilterWrapper = styled(Button)<{ selected: boolean }>`
-    border: 1px solid ${(props) => props.theme.colors.bgSurface};
+    border: 1px solid ${(props) => props.theme.colors.border};
     border-radius: 16px;
     box-shadow: none;
     font-weight: 400;

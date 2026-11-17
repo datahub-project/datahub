@@ -69,6 +69,7 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
     ReflectionTestUtils.setField(localEbeanConfigFactory, "useIamAuth", false);
     ReflectionTestUtils.setField(localEbeanConfigFactory, "postgresUseIamAuth", false);
     ReflectionTestUtils.setField(localEbeanConfigFactory, "cloudProvider", "auto");
+    ReflectionTestUtils.setField(localEbeanConfigFactory, "postgresMetadataSchema", "public");
   }
 
   @Test
@@ -124,6 +125,32 @@ public class LocalEbeanConfigFactoryNoCloudTest extends AbstractTestNGSpringCont
     assertEquals(result.getMaxAgeMinutes(), Integer.valueOf(120));
     assertEquals(result.getLeakTimeMinutes(), Integer.valueOf(15));
     assertEquals(result.getWaitTimeoutMillis(), Integer.valueOf(1000));
+  }
+
+  @Test
+  public void testBuildDataSourceConfigAppliesPostgresMetadataSchema() {
+    ReflectionTestUtils.setField(localEbeanConfigFactory, "postgresMetadataSchema", "dhub");
+
+    DataSourceConfig result =
+        localEbeanConfigFactory.buildDataSourceConfig(
+            "jdbc:postgresql://localhost:5432/datahub?sslmode=disable", mockMetricUtils);
+
+    assertEquals(
+        result.getUrl(),
+        "jdbc:postgresql://localhost:5432/datahub?sslmode=disable&currentSchema=dhub");
+  }
+
+  @Test
+  public void testBuildDataSourceConfigRejectsConflictingCurrentSchema() {
+    ReflectionTestUtils.setField(localEbeanConfigFactory, "postgresMetadataSchema", "dhub");
+
+    try {
+      localEbeanConfigFactory.buildDataSourceConfig(
+          "jdbc:postgresql://localhost:5432/datahub?currentSchema=other", mockMetricUtils);
+      throw new AssertionError("expected conflicting currentSchema to fail");
+    } catch (IllegalStateException expected) {
+      assertTrue(expected.getMessage().contains("currentSchema"));
+    }
   }
 
   @Test

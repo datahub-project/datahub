@@ -3,14 +3,11 @@ package com.linkedin.metadata.service;
 import static com.linkedin.metadata.search.transformer.SearchDocumentTransformer.withSystemCreated;
 import static com.linkedin.metadata.service.UpdateIndicesService.UPDATE_CHANGE_TYPES;
 
-import com.fasterxml.jackson.core.JsonProcessingException;
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.cache.Cache;
 import com.google.common.cache.CacheBuilder;
 import com.linkedin.common.AuditStamp;
-import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.events.metadata.ChangeType;
@@ -22,16 +19,16 @@ import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticDocumentProvenance;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
-import com.linkedin.metadata.timeseries.transformer.TimeseriesAspectTransformer;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
-import java.io.IOException;
 import java.io.UnsupportedEncodingException;
 import java.net.URLEncoder;
 import java.util.Collection;
@@ -39,7 +36,6 @@ import java.util.LinkedHashMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
-import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
@@ -87,6 +83,12 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   @Nullable private final TimeseriesWriteThrottleCache timeseriesThrottleCache;
 
   /**
+   * Mapped structured-property fields to null on a restate that has no previous aspect. Null keeps
+   * today's write, which leaves fields the aspect no longer sets.
+   */
+  @Nullable private final StructuredPropertyMappingCache structuredPropertyMappingCache;
+
+  /**
    * Creates an UpdateIndicesV2Strategy with optional semantic search support.
    *
    * @param v2Config V2 index configuration
@@ -117,6 +119,32 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       boolean coalesceBatchUpdates,
       @Nonnull V2MappingsBuilder mappingsBuilder,
       @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache) {
+    this(
+        v2Config,
+        elasticSearchService,
+        searchDocumentTransformer,
+        timeseriesAspectService,
+        idHashAlgo,
+        semanticSearchConfig,
+        indexConvention,
+        coalesceBatchUpdates,
+        mappingsBuilder,
+        timeseriesThrottleCache,
+        null);
+  }
+
+  public UpdateIndicesV2Strategy(
+      @Nonnull EntityIndexVersionConfiguration v2Config,
+      @Nonnull ElasticSearchService elasticSearchService,
+      @Nonnull SearchDocumentTransformer searchDocumentTransformer,
+      @Nonnull TimeseriesAspectService timeseriesAspectService,
+      @Nonnull String idHashAlgo,
+      @Nullable SemanticSearchConfiguration semanticSearchConfig,
+      @Nonnull IndexConvention indexConvention,
+      boolean coalesceBatchUpdates,
+      @Nonnull V2MappingsBuilder mappingsBuilder,
+      @Nullable TimeseriesWriteThrottleCache timeseriesThrottleCache,
+      @Nullable StructuredPropertyMappingCache structuredPropertyMappingCache) {
     this.v2Config = v2Config;
     this.elasticSearchService = elasticSearchService;
     this.searchDocumentTransformer = searchDocumentTransformer;
@@ -127,6 +155,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     this.coalesceBatchUpdates = coalesceBatchUpdates;
     this.mappingsBuilder = mappingsBuilder;
     this.timeseriesThrottleCache = timeseriesThrottleCache;
+    this.structuredPropertyMappingCache = structuredPropertyMappingCache;
     this.semanticIndexExistsCache =
         CacheBuilder.newBuilder()
             .expireAfterWrite(SEMANTIC_INDEX_CACHE_TTL_MINUTES, TimeUnit.MINUTES)
@@ -457,35 +486,85 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       }
     }
 
-    String finalDocument =
+    ObjectNode searchDocumentNode = searchDocument.get();
+    // A SQL restate carries no previous aspect, so handleRemoveFields cannot see fields the aspect
+    // dropped. Null the mapped ones before that diff; the same document is what V2.5 searches and
+    // what the semantic index receives.
+    nullRemovedStructuredProperties(
+        opContext, event, aspectSpec, previousAspect, searchDocumentNode);
+    ObjectNode finalDocumentNode =
         SearchDocumentTransformer.handleRemoveFields(
-                searchDocument.get(), previousSearchDocument.orElse(null))
-            .toString();
+            searchDocumentNode, previousSearchDocument.orElse(null));
+    // Serialized before any semantic-only augmentation below, so the base V2 index never sees
+    // semantic-only fields such as resolvedTextSha256.
+    String finalDocument = finalDocumentNode.toString();
 
     // Write to V2 index
     elasticSearchService.upsertDocument(opContext, entityName, finalDocument, docId);
 
-    // #region agent debug log - dual-write decision point
-    log.debug(
-        "[DEBUG-DUALWRITE] About to check shouldWriteToSemanticIndex for entity='{}', docId='{}'",
-        entityName,
-        docId);
-    boolean shouldWrite = shouldWriteToSemanticIndex(opContext, entityName);
-    log.debug(
-        "[DEBUG-DUALWRITE] shouldWriteToSemanticIndex returned: {} for entity='{}'",
-        shouldWrite,
-        entityName);
-    // #endregion
-
     // Dual-write to semantic index if enabled for this entity
-    if (shouldWrite) {
-      writeToSemanticIndex(opContext, entityName, finalDocument, docId);
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), finalDocumentNode, docId);
     }
 
     // Append runId to search document so rollback/list runs can find touched URNs (MAE path)
     if (systemMetadata != null && systemMetadata.hasRunId()) {
       elasticSearchService.appendRunId(opContext, urn, systemMetadata.getRunId());
     }
+  }
+
+  /**
+   * Nulls mapped structured-property fields the restated aspect does not set. A restate that has a
+   * previous aspect is left to {@code handleRemoveFields}. When the semantic index is written, the
+   * null set is the union of the two mappings so a field present on only one of them is cleared in
+   * the document both receive. A mapping read that fails leaves the document unchanged.
+   */
+  private void nullRemovedStructuredProperties(
+      @Nonnull OperationContext opContext,
+      @Nonnull MCLItem event,
+      @Nonnull AspectSpec aspectSpec,
+      @Nullable RecordTemplate previousAspect,
+      @Nonnull ObjectNode document) {
+    if (structuredPropertyMappingCache == null
+        || !structuredPropertyMappingCache.isEnabled()
+        || indexConvention == null
+        || previousAspect != null
+        || event.getChangeType() != ChangeType.RESTATE
+        || !Constants.STRUCTURED_PROPERTIES_ASPECT_NAME.equals(aspectSpec.getName())) {
+      return;
+    }
+    String entityName = event.getEntitySpec().getName();
+    Set<String> fields = new LinkedHashSet<>();
+    if (!addCatalogFields(
+        opContext, indexConvention.getEntityIndexName(opContext, entityName), fields)) {
+      return;
+    }
+    if (shouldWriteToSemanticIndex(opContext, entityName)
+        && !addCatalogFields(
+            opContext, indexConvention.getEntityIndexNameSemantic(opContext, entityName), fields)) {
+      return;
+    }
+    for (String field : fields) {
+      if (field.startsWith(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME + ".")
+          && !document.hasNonNull(field)) {
+        document.putNull(field);
+      }
+    }
+  }
+
+  /** Adds one index's mapped fields. False when that mapping could not be read. */
+  private boolean addCatalogFields(
+      @Nonnull OperationContext opContext, @Nullable String indexName, @Nonnull Set<String> into) {
+    if (indexName == null || indexName.isEmpty()) {
+      return true;
+    }
+    Optional<Set<String>> fields = structuredPropertyMappingCache.fields(opContext, indexName);
+    if (fields.isEmpty()) {
+      return false;
+    }
+    into.addAll(fields.get());
+    return true;
   }
 
   void deleteSearchData(
@@ -518,12 +597,11 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    Optional<String> searchDocument;
+    Optional<ObjectNode> searchDocument;
     try {
       searchDocument =
-          searchDocumentTransformer
-              .transformAspect(opContext, urn, aspect, aspectSpec, true, auditStamp)
-              .map(Objects::toString);
+          searchDocumentTransformer.transformAspect(
+              opContext, urn, aspect, aspectSpec, true, auditStamp);
     } catch (Exception e) {
       log.error(
           "Error in getting documents from aspect: {} for aspect {}", e, aspectSpec.getName());
@@ -534,46 +612,25 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       return;
     }
 
-    elasticSearchService.upsertDocument(opContext, entityName, searchDocument.get(), docId);
+    // Serialized before any semantic-only augmentation below, mirroring the upsert path, so the
+    // base V2 index never sees semantic-only fields such as resolvedTextSha256.
+    elasticSearchService.upsertDocument(
+        opContext, entityName, searchDocument.get().toString(), docId);
+
+    // Mirror the upsert path's semantic dual-write for non-key aspect deletes. Without this,
+    // deleting the semanticText override leaves the old override text and resolvedTextSha256 in
+    // the semantic index, and deleting semanticContent leaves vectors and skip fields behind.
+    // writeToSemanticIndex re-stamps resolvedTextSha256 from the surviving aspects (a deleted
+    // override falls back to the document body), and the delete-shaped document nulls the
+    // removed aspect's fields via doc_as_upsert.
+    if (shouldWriteToSemanticIndex(opContext, entityName)) {
+      writeToSemanticIndex(
+          opContext, urn, entityName, aspectSpec.getName(), searchDocument.get(), docId);
+    }
   }
 
   void updateTimeseriesFieldsForEvent(@Nonnull OperationContext opContext, @Nonnull MCLItem event) {
-    // V2 timeseries update logic - uses the existing TimeseriesAspectTransformer
-    log.debug(
-        "Updating V2 timeseries fields for entity: {} aspect: {}",
-        event.getUrn(),
-        event.getAspectName());
-
-    Urn urn = event.getUrn();
-    String entityType = event.getEntitySpec().getName();
-    String aspectName = event.getAspectName();
-    Object aspect = event.getRecordTemplate();
-    AspectSpec aspectSpec = event.getAspectSpec();
-    SystemMetadata systemMetadata = event.getSystemMetadata();
-
-    // Check if aspect is timeseries before processing
-    if (!aspectSpec.isTimeseries()) {
-      log.debug("Aspect {} is not timeseries, skipping V2 timeseries update", aspectName);
-      return;
-    }
-
-    Map<String, JsonNode> documents;
-    try {
-      documents =
-          TimeseriesAspectTransformer.transform(
-              urn, (RecordTemplate) aspect, aspectSpec, systemMetadata, idHashAlgo);
-    } catch (JsonProcessingException e) {
-      log.error("Failed to generate V2 timeseries document from aspect: {}", e.toString());
-      return;
-    }
-
-    documents
-        .entrySet()
-        .forEach(
-            document -> {
-              timeseriesAspectService.upsertDocument(
-                  opContext, entityType, aspectName, document.getKey(), document.getValue());
-            });
+    TimeseriesIndexWriter.upsert(opContext, timeseriesAspectService, idHashAlgo, event);
   }
 
   void updateIndexMappings(OperationContext opContext, MCLItem event) {
@@ -602,33 +659,37 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
       if (Constants.STRUCTURED_PROPERTY_ENTITY_NAME.equals(entitySpec.getName())
           && Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME.equals(aspectSpec.getName())) {
 
-        UrnArray oldEntityTypes =
-            Optional.ofNullable(oldValue)
-                .map(
-                    recordTemplate ->
-                        new StructuredPropertyDefinition(((RecordTemplate) recordTemplate).data())
-                            .getEntityTypes())
-                .orElse(new UrnArray());
-
         StructuredPropertyDefinition newDefinition =
             new StructuredPropertyDefinition(((RecordTemplate) newValue).data().copy());
-        newDefinition.getEntityTypes().removeAll(oldEntityTypes);
 
-        if (newDefinition.getEntityTypes().size() > 0) {
+        // Apply the mapping for the full set of currently-declared entity types on every
+        // definition upsert, not just types newly added since oldValue. applyMappings is an
+        // idempotent put_mapping, so re-saving a property re-applies (and thereby repairs) any
+        // mapping a previous attempt failed to write, without waiting for the next
+        // system-update to add it. Entity types removed from the definition are handled by the
+        // dedicated removal path, not here.
+        if (!newDefinition.getEntityTypes().isEmpty()) {
           elasticSearchService
               .buildReindexConfigsWithNewStructProp(opContext, urn, newDefinition)
               .forEach(
                   reindexState -> {
+                    // Isolate failures per index: the property may declare multiple entity
+                    // types, and one failing index must not prevent the mapping update from
+                    // reaching the remaining declared entity types' indexes.
                     try {
                       log.info(
-                          "Applying new V2 structured property {} to index {}",
+                          "Applying V2 structured property {} to index {}",
                           newDefinition,
                           reindexState.name());
                       elasticSearchService
-                          .getIndexBuilder()
+                          .getIndexBuilder(reindexState.name())
                           .applyMappings(opContext, reindexState, false);
-                    } catch (IOException e) {
-                      throw new RuntimeException(e);
+                    } catch (Exception e) {
+                      log.error(
+                          "Failed to apply V2 structured property {} mapping to index {}",
+                          urn,
+                          reindexState.name(),
+                          e);
                     }
                   });
         }
@@ -700,7 +761,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
     }
 
     // Condition 3: Semantic index must exist
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     Boolean indexExists = semanticIndexExistsCache.getIfPresent(semanticIndexName);
     if (indexExists == null) {
       // Check if the index exists and cache the result
@@ -753,10 +814,14 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   private void writeToSemanticIndex(
       @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
       @Nonnull String entityName,
-      @Nonnull String document,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode documentNode,
       @Nonnull String docId) {
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    withResolvedTextSha256(opContext, urn, entityName, aspectName, documentNode);
+    String document = documentNode.toString();
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: UPSERT to '{}' for entity '{}', docId='{}', docSize={}",
         semanticIndexName,
@@ -767,6 +832,41 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
   }
 
   /**
+   * Stamps {@code resolvedTextSha256} -- the SHA-256 hex digest (UTF-8 bytes) of the entity's
+   * resolved embed text, with the {@code semanticText} override winning over the document body --
+   * onto the semantic-index document. The embedding pipeline records the same digest of the text it
+   * embedded ({@code embeddings.<model>.sourceTextSha256}), so consumers such as coverage reporting
+   * can detect genuinely stale embeddings by comparing the two hashes instead of relying on
+   * modification timestamps that move on non-content writes.
+   *
+   * <p>The resolved embed text spans two aspects ({@code semanticText} override and {@code
+   * documentInfo} body) that project on separate MCLs, so the side not carried by the current
+   * document is fetched via the aspect retriever rather than derived from the partial document --
+   * deriving per-aspect would permanently mis-stamp documents whose override is written once and
+   * never re-projected. {@code semanticContent} projections also stamp (fetching both sides), so
+   * re-embedding refreshes pre-existing index documents. Other aspects (neither field present) are
+   * left untouched: {@code doc_as_upsert} merging preserves the existing stamp. On a retrieval
+   * failure the field is set to an explicit null, overwriting any previous stamp -- a stale stamp
+   * could misreport a changed document as current, while null reads as unknown.
+   */
+  @VisibleForTesting
+  void withResolvedTextSha256(
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn urn,
+      @Nonnull String entityName,
+      @Nonnull String aspectName,
+      @Nonnull ObjectNode document) {
+    SemanticDocumentProvenance.stampResolvedTextSha256(
+        opContext, urn, entityName, aspectName, document);
+  }
+
+  @Nonnull
+  @VisibleForTesting
+  static String sha256Hex(@Nonnull String text) {
+    return SemanticDocumentProvenance.sha256Hex(text);
+  }
+
+  /**
    * Deletes a document from the semantic index for the given entity.
    *
    * @param entityName Entity name
@@ -774,7 +874,7 @@ public class UpdateIndicesV2Strategy implements UpdateIndicesStrategy {
    */
   private void deleteFromSemanticIndex(
       @Nonnull OperationContext opContext, @Nonnull String entityName, @Nonnull String docId) {
-    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+    String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
     log.info(
         "Semantic dual-write: DELETE from '{}' for entity '{}', docId='{}'",
         semanticIndexName,

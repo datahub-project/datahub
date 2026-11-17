@@ -135,7 +135,7 @@
         "json": {
             "path": [
                 {
-                    "id": "calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
                 }
             ]
@@ -279,7 +279,7 @@
         "json": {
             "path": [
                 {
-                    "id": "calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
                 }
             ]
@@ -423,7 +423,7 @@
         "json": {
             "path": [
                 {
-                    "id": "calendar_elected",
+                    "id": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,calendar_elected,PROD)"
                 }
             ]
@@ -826,7 +826,7 @@
         "json": {
             "path": [
                 {
-                    "id": "my_confluent_cloud_connector_id",
+                    "id": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)"
                 }
             ]
@@ -947,7 +947,7 @@
         "json": {
             "path": [
                 {
-                    "id": "my_confluent_cloud_connector_id",
+                    "id": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)",
                     "urn": "urn:li:dataFlow:(fivetran,my_confluent_cloud_connector_id,PROD)"
                 }
             ]

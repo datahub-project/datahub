@@ -11,14 +11,8 @@ apply from: '../gradle/versioning/versioning.gradle'
 
 node {
 
-  // If true, it will download node using above parameters.
-  // If false, it will try to use globally installed node.
-
-  if (project.hasProperty('useSystemNode')) {
-    download = ! project.getProperty('useSystemNode').toBoolean()
-  } else {
-    download = true
-  }
+  // Download Node unless the root build says to use the one on PATH (the default in CI).
+  download = !rootProject.ext.useSystemNode
 
   // Version of node to use.
   version = rootProject.ext.nodeVersion
@@ -121,12 +115,26 @@ task generateLazyIconStubs(type: NodeTask, dependsOn: yarnInstall) {
 
 task yarnServe(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', 'http://localhost:9001')
-  args = ['run', 'start']
+  if (project.hasProperty('frontendMode')) {
+    environment.put('PREVIEW_MODE', project.property('frontendMode'))
+  }
+  if (project.hasProperty('frontendStackFile')) {
+    environment.put('GMS_LITE_STACK_FILE', project.property('frontendStackFile'))
+  }
+  args = ['run', 'start-only'] + (project.hasProperty('frontendPort')
+    ? ['--port', project.property('frontendPort').toString(), '--strictPort'] : [])
 }
 
 task yarnPreview(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
   environment.put('REACT_APP_PROXY_TARGET', project.findProperty('proxy') ?: 'http://localhost:9001')
-  args = ['run', 'preview']
+  if (project.hasProperty('frontendMode')) {
+    environment.put('PREVIEW_MODE', project.property('frontendMode'))
+  }
+  if (project.hasProperty('frontendStackFile')) {
+    environment.put('GMS_LITE_STACK_FILE', project.property('frontendStackFile'))
+  }
+  args = ['run', 'preview'] + (project.hasProperty('frontendPort')
+    ? ['--port', project.property('frontendPort').toString(), '--strictPort'] : [])
 }
 
 task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
@@ -142,6 +150,8 @@ task yarnTest(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   def test_sentinel = "${buildDir}/.yarn-test-sentinel"
   outputs.file(test_sentinel)
   inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx']))
+  inputs.files(project.fileTree(dir: 'vite-plugins'))
+  inputs.files(project.fileTree(dir: 'devtools'))
   doLast {
     // touch a file with name yarn-lint.txt in the build directory
     def file = file(test_sentinel)
@@ -160,17 +170,19 @@ task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLaz
   if (targetFile.isEmpty()) {
     // Run on all files
     inputs.files(project.fileTree(dir: 'src', include: ['**/*.ts', '**/*.tsx', 'yarn.lock']))
+    inputs.files(project.fileTree(dir: 'vite-plugins'))
+    inputs.files(project.fileTree(dir: 'devtools'))
     args = ['run', 'lint']
   } else {
     // Run on specific file - run lint, format-check, and type-check
     doFirst {
       // Run lint-file first
-      exec {
+      execOps.exec {
         workingDir projectDir
         commandLine 'yarn', 'run', 'lint-file', targetFile
       }
       // Then run format-check-file
-      exec {
+      execOps.exec {
         workingDir projectDir
         commandLine 'yarn', 'run', 'format-check-file', targetFile
       }
@@ -200,6 +212,36 @@ task yarnI18nParityCheck(type: YarnTask, dependsOn: [yarnInstall]) {
   outputs.cacheIf { true }
 }
 
+// Fails when any locale JSON file (`en` included) stores a key as a nested object instead of a
+// flat dotted key.
+task yarnI18nFlatKeysCheck(type: YarnTask, dependsOn: [yarnInstall]) {
+  args = ['run', 'check-i18n-flat-keys']
+  inputs.files(project.fileTree(dir: 'src/i18n/locales', include: ['**/*.json']))
+  inputs.file('scripts/check-i18n-flat-keys.mjs')
+  def flat_keys_sentinel = "${buildDir}/.yarn-i18n-flat-keys-sentinel"
+  outputs.file(flat_keys_sentinel)
+  doLast {
+    def file = file(flat_keys_sentinel)
+    if (!file.exists()) {
+      file.createNewFile()
+    } else {
+      file.setLastModified(System.currentTimeMillis())
+    }
+  }
+  outputs.cacheIf { true }
+}
+
+task yarnDevtoolsTest(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['vitest', 'run', '--config', 'devtools/vitest.config.ts']
+  inputs.files(project.fileTree(dir: 'devtools'))
+}
+
+task yarnDevtoolsTypeCheck(type: YarnTask, dependsOn: yarnInstall) {
+  args = ['tsc', '--project', 'devtools/tsconfig.json']
+}
+
+yarnTest.dependsOn yarnDevtoolsTest
+yarnLint.dependsOn yarnDevtoolsTypeCheck
 test.dependsOn([yarnInstall, yarnTest])
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLazyIconStubs]) {
@@ -225,12 +267,12 @@ task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generate
     // Run on specific file - need to run both lint-fix and format
     doFirst {
       // Run lint-fix-file first
-      exec {
+      execOps.exec {
         workingDir projectDir
         commandLine 'yarn', 'run', 'lint-fix-file', targetFile
       }
       // Then run format-file
-      exec {
+      execOps.exec {
         workingDir projectDir
         commandLine 'yarn', 'run', 'format-file', targetFile
       }
@@ -243,7 +285,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
   // Pass DataHub version via environment variable to vite build
   environment.put('DATAHUB_APP_VERSION', project.version)
 
-  args = ['run', project.hasProperty('sourcemap') ? 'buildWithSourceMap' :'build']
+  args = ['run', project.hasProperty('sourcemap') ? 'buildViteWithSourceMap' : 'buildVite']
 
   outputs.cacheIf { true }
   // The -Psourcemap flag switches yarnBuild between build-only and buildWithSourceMap-only, which
@@ -260,6 +302,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate, generateLa
     file('.env'),
     file('vite.config.ts'),
     file('tsconfig.json'),
+    project.fileTree(dir: "vite-plugins"),
   )
   outputs.dir('dist')
 }
@@ -312,10 +355,16 @@ externalPrettierConfigs.each { config ->
   }
 
   tasks.register("${config.name}PrettierWriteChanged", YarnTask) {
-    // Get the list of changed Markdown files using Git
+    dependsOn(tasks.named('yarnInstall'))
+    // At pre-push everything is committed, so diffing against HEAD finds nothing.
+    // pre-commit exports the pushed range; diff that instead when present.
+    // Three-dot (as pre-commit itself does) so files changed only on the remote side are skipped.
+    def fromRef = System.getenv('PRE_COMMIT_FROM_REF')
+    def toRef = System.getenv('PRE_COMMIT_TO_REF')
+    def diffRange = (fromRef && toRef) ? ["${fromRef}...${toRef}".toString()] : ['HEAD']
     def changedFiles = new ByteArrayOutputStream()
-    exec {
-      commandLine 'git', 'diff', '--name-only', '--diff-filter=ACMRT', 'HEAD'
+    execOps.exec {
+      commandLine(['git', 'diff', '--name-only', '--diff-filter=ACMRT'] + diffRange)
       standardOutput = changedFiles
     }
     def allChangedFiles = changedFiles.toString().trim().split('\n').findAll { it != '' }
@@ -363,6 +412,13 @@ distZip {
   from 'dist'
 }
 
+// Gradle 9 validates implicit task dependencies: distTar (auto-created by the distribution
+// plugin, built by assemble) packages src/ that yarnGenerate writes into. Mirror distZip's
+// edge so it runs after yarnGenerate (via yarnBuild).
+distTar {
+  dependsOn yarnBuild
+}
+
 jar {
   dependsOn yarnBuild
   into('public') {
@@ -380,3 +436,10 @@ tasks.register('lintFix') {
 }
 
 build.dependsOn jar
+
+// Gradle 9 requires explicit task dependencies: compileJava/processResources package src/ that
+// yarnGenerate writes into, so they must run after it.
+compileJava.dependsOn yarnGenerate
+processResources.dependsOn yarnGenerate
+compileTestJava.dependsOn yarnGenerate
+processTestResources.dependsOn yarnGenerate

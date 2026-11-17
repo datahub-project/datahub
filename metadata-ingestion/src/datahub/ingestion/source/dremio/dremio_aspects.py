@@ -1,7 +1,7 @@
 import logging
 import time
 from datetime import datetime
-from typing import Dict, Iterable, List, Optional, Tuple, Type, Union
+from typing import Dict, Iterable, List, Optional, Type, Union
 
 from datahub._codegen.aspect import _Aspect
 from datahub.emitter.mce_builder import (
@@ -23,6 +23,7 @@ from datahub.ingestion.source.dremio.dremio_entities import (
 )
 from datahub.ingestion.source.dremio.dremio_models import (
     DremioEntityContainerType,
+    DremioFieldType,
     DremioOwnerType,
 )
 from datahub.metadata.schema_classes import (
@@ -97,14 +98,7 @@ class SchemaFieldTypeMapper:
     @classmethod
     def get_field_type(
         cls, data_type: str, data_size: Optional[int] = None
-    ) -> Tuple["SchemaFieldDataTypeClass", str]:
-        """
-        Maps a Dremio data type and size to a DataHub SchemaFieldDataTypeClass and native data type string.
-
-        :param data_type: The data type string from Dremio.
-        :param data_size: The size of the data type, if applicable.
-        :return: A tuple containing a SchemaFieldDataTypeClass instance and the native data type string.
-        """
+    ) -> DremioFieldType:
         if not data_type:
             logger.warning("Empty data_type provided, defaulting to NullTypeClass.")
             type_class = NullTypeClass
@@ -127,7 +121,9 @@ class SchemaFieldTypeMapper:
             )
             schema_field_type = SchemaFieldDataTypeClass(type=NullTypeClass())
 
-        return schema_field_type, native_data_type
+        return DremioFieldType(
+            schema_field_type=schema_field_type, native_data_type=native_data_type
+        )
 
 
 class DremioAspects:
@@ -394,8 +390,13 @@ class DremioAspects:
     def _create_container_class(
         self, entity: Union[DremioContainer, DremioDataset]
     ) -> Optional[ContainerClass]:
-        if entity.path:
-            return ContainerClass(container=self.get_container_urn(path=entity.path))
+        path = entity.path
+        if isinstance(entity, DremioDataset):
+            path = (
+                entity.path if entity.container_path is None else entity.container_path
+            )
+        if path:
+            return ContainerClass(container=self.get_container_urn(path=path))
         return None
 
     def _create_data_platform_instance(self) -> DataPlatformInstanceClass:
@@ -498,14 +499,14 @@ class DremioAspects:
         )
 
     def _create_schema_field(self, column: DremioDatasetColumn) -> SchemaFieldClass:
-        type_class, native_data_type = SchemaFieldTypeMapper.get_field_type(
+        field_type = SchemaFieldTypeMapper.get_field_type(
             column.data_type,
             column.column_size,
         )
         return SchemaFieldClass(
             fieldPath=column.name,
-            type=type_class,
-            nativeDataType=native_data_type,
+            type=field_type.schema_field_type,
+            nativeDataType=field_type.native_data_type,
             nullable=column.is_nullable == "YES",
         )
 

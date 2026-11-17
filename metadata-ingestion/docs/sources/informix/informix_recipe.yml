@@ -1,0 +1,14 @@
+source:
+  type: informix
+  config:
+    host_port: "localhost:9088"
+    server: "informix"
+    database: "mydb"
+    username: "informix"
+    password: "${INFORMIX_PASSWORD}"
+    accept_ibm_jdbc_license: true
+
+sink:
+  type: datahub-rest
+  config:
+    server: "http://localhost:8080"

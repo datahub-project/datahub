@@ -2,9 +2,8 @@ import { Text } from '@components';
 import React from 'react';
 import styled from 'styled-components';
 
-import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
-
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import AvatarPillWithLinkAndHover from '@app/sharedV2/avatar/AvatarPillWithLinkAndHover';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { CorpGroup, CorpUser } from '@types';
 
@@ -31,7 +30,7 @@ interface Props {
  * `content` prop of a `<Popover>`.
  */
 export function ResourcePillMeta({ content, actor }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return (
         <PopoverRoot>

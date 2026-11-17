@@ -1,11 +1,16 @@
 package auth;
 
 import com.linkedin.common.urn.CorpuserUrn;
+import com.nimbusds.jwt.JWTClaimsSet;
+import com.nimbusds.jwt.JWTParser;
 import java.time.Duration;
 import java.time.temporal.ChronoUnit;
 import java.util.HashMap;
 import java.util.Map;
+import java.util.Optional;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import play.mvc.Http;
 
@@ -84,6 +89,17 @@ public class AuthUtils {
   public static final String ACCESS_DENIED_MESSAGE = "accessDeniedMessage";
   public static final String ACCESS_DENIED_REDIRECT_URL = "accessDeniedRedirectUrl";
 
+  /** Scheme prefix of a bearer-token Authorization header value; matched case-insensitively. */
+  private static final String BEARER_PREFIX = "Bearer ";
+
+  /**
+   * A token id is echoed back to the caller as a response header, and the token it was read from is
+   * never verified here, so the value is untrusted input. Restrict it to characters that cannot
+   * split a header or a log line, and bound its length. GMS issues UUIDs and external OAuth
+   * providers issue alphanumeric / base64url ids, so real tokens pass this filter.
+   */
+  private static final Pattern SAFE_TOKEN_ID = Pattern.compile("[A-Za-z0-9._~:+/=-]{1,256}");
+
   /**
    * Determines whether the inbound request should be forward to downstream Metadata Service. Today,
    * this simply checks for the presence of an "Authorization" header or the presence of a valid
@@ -118,6 +134,37 @@ public class AuthUtils {
   /** Returns true if a request includes the Authorization header, false otherwise */
   public static boolean hasAuthHeader(final Http.Request req) {
     return req.getHeaders().contains(Http.HeaderNames.AUTHORIZATION);
+  }
+
+  /**
+   * Extracts the JWT ID ("jti") claim from a bearer-token Authorization header value. GMS stamps a
+   * random UUID as the jti of every token it issues, so the jti identifies a token in access logs
+   * without exposing the token itself and without being usable to authenticate.
+   *
+   * <p>The signature is deliberately not verified: the token either came out of the frontend's own
+   * signed session cookie or will be verified by GMS when the request is proxied. This is a
+   * best-effort read for observability and must never fail the request it is attached to.
+   *
+   * @return the jti, or empty when the value is absent, is not a bearer token, is not a parseable
+   *     JWT, carries no jti, or carries a jti that is not safe to place in a header
+   */
+  public static Optional<String> extractTokenId(@Nullable final String authorizationHeaderValue) {
+    if (authorizationHeaderValue == null
+        || !authorizationHeaderValue.regionMatches(
+            true, 0, BEARER_PREFIX, 0, BEARER_PREFIX.length())) {
+      return Optional.empty();
+    }
+    final String token = authorizationHeaderValue.substring(BEARER_PREFIX.length()).trim();
+    try {
+      final JWTClaimsSet claims = JWTParser.parse(token).getJWTClaimsSet();
+      return Optional.ofNullable(claims == null ? null : claims.getJWTID())
+          .filter(id -> SAFE_TOKEN_ID.matcher(id).matches());
+    } catch (Exception e) {
+      // Opaque or malformed bearer tokens are legitimate input here; GMS decides whether to accept
+      // them. Catch broadly so that reading a claim for logging can never break proxying.
+      log.debug("Bearer token is not a parseable JWT; no token id extracted", e);
+      return Optional.empty();
+    }
   }
 
   /**

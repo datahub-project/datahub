@@ -9,6 +9,7 @@ import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.datahub.gms.servlet.Config;
 import com.datahub.gms.servlet.ConfigSearchExport;
+import com.datahub.graphql.GraphQLResponseBodyConverter;
 import com.fasterxml.jackson.annotation.JsonAutoDetect;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.PropertyAccessor;
@@ -20,6 +21,7 @@ import com.fasterxml.jackson.datatype.jdk8.Jdk8Module;
 import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
 import io.datahubproject.iceberg.catalog.rest.common.IcebergJsonConverter;
@@ -31,6 +33,7 @@ import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
 import org.apache.iceberg.rest.RESTSerializers;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.web.servlet.FilterRegistrationBean;
 import org.springframework.boot.web.servlet.ServletRegistrationBean;
@@ -67,6 +70,13 @@ public class ServletConfig implements WebMvcConfigurer {
   private long asyncTimeoutMilliseconds;
 
   @Autowired private GMSConfiguration gmsConfiguration;
+
+  @Autowired(required = false)
+  private MetricUtils metricUtils;
+
+  @Autowired
+  @Qualifier("graphQLResponseObjectMapper")
+  private ObjectMapper graphQLResponseObjectMapper;
 
   @Bean
   public FilterRegistrationBean<AuthenticationExtractionFilter> authExtractionFilter(
@@ -178,6 +188,9 @@ public class ServletConfig implements WebMvcConfigurer {
 
   @Override
   public void configureMessageConverters(List<HttpMessageConverter<?>> messageConverters) {
+    // First so it wins for GraphQLResponseBody payloads; see GraphQLResponseBodyConverter.
+    messageConverters.add(
+        new GraphQLResponseBodyConverter(graphQLResponseObjectMapper, metricUtils));
     messageConverters.add(new StringHttpMessageConverter());
     messageConverters.add(new ByteArrayHttpMessageConverter());
     messageConverters.add(new FormHttpMessageConverter());

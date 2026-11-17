@@ -82,4 +82,35 @@ public class EntityGraphCacheNoOpTest {
   public void invalidateOnSyncBatchIsNoOp() {
     NO_OP.invalidateOnSyncBatch(SyncGraphInvalidationBatch.empty());
   }
+
+  @Test
+  public void publishFullWalkIsDisabled() {
+    assertEquals(
+        NO_OP.publishFullWalk(
+            FullWalkWriteBack.builder()
+                .graphId("glossary")
+                .source(GraphSnapshotSource.GRAPH)
+                .direction(TraversalDirection.REVERSE)
+                .seeds(Set.of("urn:li:glossaryNode:seed"))
+                .edges(List.of())
+                .build()),
+        FullWalkPublishResult.REJECTED_DISABLED);
+  }
+
+  @Test
+  public void fullPathExpandIsDisabled() {
+    GraphReadResult result =
+        NO_OP.expand(
+            "glossary",
+            GraphSnapshotSource.GRAPH,
+            TraversalDirection.REVERSE,
+            List.of("urn:li:glossaryNode:seed"),
+            100,
+            EntityGraphCache.USE_DEFINITION_MAX_DEPTH,
+            ReadMode.CACHED,
+            true);
+
+    assertTrue(result.isMiss());
+    assertEquals(((GraphReadResult.Miss) result).reason(), ReadMissReason.DISABLED);
+  }
 }

@@ -1,5 +1,5 @@
 # metadata-ingestion/examples/library/notebook_create.py
-import logging
+import os
 import time
 from typing import Dict, Optional
 
@@ -10,9 +10,6 @@ from datahub.metadata.schema_classes import (
     ChangeAuditStampsClass,
     NotebookInfoClass,
 )
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 
 def create_notebook_metadata(
@@ -60,35 +57,17 @@ def create_notebook_metadata(
     )
 
 
-def main(emitter: Optional[DatahubRestEmitter] = None) -> None:
+def main() -> None:
     """
     Main function to create a notebook example.
-
-    Args:
-        emitter: Optional emitter to use (for testing). If not provided, creates a new one.
 
     Environment Variables:
         DATAHUB_GMS_URL: DataHub GMS server URL (default: http://localhost:8080)
         DATAHUB_GMS_TOKEN: DataHub access token (if authentication is required)
     """
-    if emitter is None:
-        import os
-
-        gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
-        token = os.getenv("DATAHUB_GMS_TOKEN")
-
-        # If no token in env, try to get from datahub config
-        if not token:
-            try:
-                from datahub.ingestion.graph.client import get_default_graph
-
-                graph = get_default_graph()
-                token = graph.config.token
-            except Exception:
-                # Fall back to no token
-                pass
-
-        emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
+    gms_server = os.getenv("DATAHUB_GMS_URL", "http://localhost:8080")
+    token = os.getenv("DATAHUB_GMS_TOKEN")
+    emitter = DatahubRestEmitter(gms_server=gms_server, token=token)
 
     notebook_urn = "urn:li:notebook:(querybook,customer_analysis_2024)"
 
@@ -105,7 +84,7 @@ def main(emitter: Optional[DatahubRestEmitter] = None) -> None:
     )
 
     emitter.emit(event)
-    log.info(f"Created notebook {notebook_urn}")
+    print(f"Created notebook {notebook_urn}")
 
 
 if __name__ == "__main__":

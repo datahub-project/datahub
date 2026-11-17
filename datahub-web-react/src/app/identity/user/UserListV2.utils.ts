@@ -24,33 +24,6 @@ export const getUserStatusText = (userStatus: CorpUserStatus | undefined | null,
     return i18next.t('entity.identity:users.statusInactive');
 };
 
-type StatusFilterOption = {
-    label: string;
-    value: string;
-    disabled?: boolean;
-};
-
-export const STATUS_FILTER_OPTIONS: StatusFilterOption[] = [
-    {
-        get label() {
-            return i18next.t('entity.identity:users.statusFilter.placeholder');
-        },
-        value: 'all',
-    },
-    {
-        get label() {
-            return i18next.t('entity.identity:users.statusFilter.active');
-        },
-        value: 'active',
-    },
-    {
-        get label() {
-            return i18next.t('entity.identity:users.statusFilter.suspended');
-        },
-        value: 'suspended',
-    },
-];
-
 /**
  * Builds GraphQL filter objects for user status filtering (server-side)
  * Note: Service accounts are automatically excluded by the backend searchUsers resolver
@@ -92,4 +65,11 @@ export function extractUserRole(
 
 // Role assignment constants
 export const NO_ROLE_URN = '';
-export const getNoRoleText = (): string => i18next.t('entity.identity:users.noRole');
+
+/**
+ * Only native users (with stored DataHub credentials) can have their password reset.
+ * SSO users and the root user defined in user.props are not native.
+ */
+export function canResetUserPassword(user: Pick<CorpUser, 'isNativeUser'>, canManageUserCredentials: boolean): boolean {
+    return canManageUserCredentials && !!user.isNativeUser;
+}

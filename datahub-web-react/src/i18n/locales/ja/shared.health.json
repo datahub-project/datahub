@@ -1,0 +1,15 @@
+{
+    "failAssertions": "失敗したAssertionを確認 →",
+    "failChecks": "失敗したチェックを確認 →",
+    "failIncidents": "対応中のIncidentを確認 →",
+    "passAssertions": "すべてのAssertionに問題はありません",
+    "passChecks": "すべてのチェックに問題はありません",
+    "passIncidents": "対応中のIncidentはありません",
+    "summaryHealthy": "このAssetに問題はありません",
+    "summaryUnhealthy": "このAssetに問題がある可能性があります",
+    "typeAssertions": "Assertion",
+    "typeIncidents": "Incident",
+    "typeTests": "テスト",
+    "warnAssertions": "一部のAssertionに問題があります。",
+    "warnChecks": "一部のチェックに問題があります。"
+}

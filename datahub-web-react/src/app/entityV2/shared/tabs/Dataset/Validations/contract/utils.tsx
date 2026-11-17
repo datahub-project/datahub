@@ -1,10 +1,8 @@
-import {
-    CheckOutlined,
-    ClockCircleOutlined,
-    CloseOutlined,
-    ExclamationCircleFilled,
-    StopOutlined,
-} from '@ant-design/icons';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
+import { Clock } from '@phosphor-icons/react/dist/csr/Clock';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
+import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -20,21 +18,21 @@ export const getContractSummaryIcon = (
     colors: ColorTheme,
 ) => {
     if (state === DataContractState.Pending) {
-        return <ClockCircleOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
+        return <Clock style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.total === 0) {
-        return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
+        return <Prohibit style={{ color: colors.iconDisabled, fontSize: 28 }} />;
     }
     if (summary.passing === summary.total) {
-        return <CheckOutlined style={{ color: colors.iconSuccess, fontSize: 28 }} />;
+        return <Check style={{ color: colors.iconSuccess, fontSize: 28 }} />;
     }
     if (summary.failing > 0) {
-        return <CloseOutlined style={{ color: colors.iconError, fontSize: 28 }} />;
+        return <X style={{ color: colors.iconError, fontSize: 28 }} />;
     }
     if (summary.erroring > 0) {
-        return <ExclamationCircleFilled style={{ color: colors.iconWarning, fontSize: 28 }} />;
+        return <Warning weight="fill" style={{ color: colors.iconWarning, fontSize: 28 }} />;
     }
-    return <StopOutlined style={{ color: colors.iconDisabled, fontSize: 28 }} />;
+    return <Prohibit style={{ color: colors.iconDisabled, fontSize: 28 }} />;
 };
 
 export const getContractSummaryTitle = (state: DataContractState, summary: AssertionStatusSummary) => {

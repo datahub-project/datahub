@@ -12,11 +12,13 @@
 import { test, expect } from '../../fixtures/login-test';
 import { WelcomeModalPage } from '../../pages/welcome-modal.page';
 import { users } from '../../data/users';
+import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 
 test.describe('Welcome to DataHub Modal', () => {
   let welcomeModalPage: WelcomeModalPage;
 
-  test.beforeEach(async ({ page, loginPage, logger, logDir }) => {
+  test.beforeEach(async ({ page, loginPage, logger, logDir, apiMock }) => {
+    await apiMock.setFeatureFlags(GLOBAL_FEATURE_FLAGS);
     welcomeModalPage = new WelcomeModalPage(page, logger, logDir);
     const { username, password } = users.admin;
     await loginPage.navigateToLogin();
@@ -193,9 +195,7 @@ test.describe('Welcome to DataHub Modal', () => {
       });
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
-      await page.waitForTimeout(1000);
-      const viewEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent');
-      expect(viewEvent).toBeDefined();
+      await expect.poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalViewEvent')).toBeDefined();
     });
 
     test('should track interact event on slide change', async ({ page }) => {
@@ -208,9 +208,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.clickCarouselDot(1);
-      await page.waitForTimeout(1000);
-      const interactEvents = trackRequests.filter((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent');
-      expect(interactEvents.length).toBeGreaterThan(0);
+      await expect
+        .poll(() => trackRequests.filter((r) => r['type'] === 'WelcomeToDataHubModalInteractEvent').length)
+        .toBeGreaterThan(0);
     });
 
     test('should track exit event with correct exit method', async ({ page }) => {
@@ -223,10 +223,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaButton();
-      await page.waitForTimeout(1000);
-      const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
-      expect(exitEvent).toBeDefined();
-      expect(exitEvent?.['exitMethod']).toBe('close_button');
+      await expect
+        .poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent')?.['exitMethod'])
+        .toBe('close_button');
     });
 
     test('should track exit event with escape_key method when Esc is pressed', async ({ page }) => {
@@ -239,10 +238,9 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.navigateToHome();
       await welcomeModalPage.expectModalVisible();
       await welcomeModalPage.closeViaEscape();
-      await page.waitForTimeout(1000);
-      const exitEvent = trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent');
-      expect(exitEvent).toBeDefined();
-      expect(exitEvent?.['exitMethod']).toBe('escape_key');
+      await expect
+        .poll(() => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalExitEvent')?.['exitMethod'])
+        .toBe('escape_key');
     });
 
     test('should track documentation link click event', async ({ page }) => {
@@ -257,12 +255,11 @@ test.describe('Welcome to DataHub Modal', () => {
       await welcomeModalPage.clickLastCarouselDot();
       await welcomeModalPage.expectFinalSlideVisible();
       await welcomeModalPage.docsLink.click();
-      await page.waitForTimeout(1000);
-      const linkClickEvent = trackRequests.find(
-        (r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent',
-      );
-      expect(linkClickEvent).toBeDefined();
-      expect(linkClickEvent?.['url']).toBe('https://docs.datahub.com/docs/category/features');
+      await expect
+        .poll(
+          () => trackRequests.find((r) => r['type'] === 'WelcomeToDataHubModalClickViewDocumentationEvent')?.['url'],
+        )
+        .toBe('https://docs.datahub.com/docs/category/features');
     });
   });
 

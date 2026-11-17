@@ -33,14 +33,12 @@ jobs:
     steps:
       - name: Check out repo with full history and tags
         uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
-        with:
-          fetch-depth: 0
-          fetch-tags: true
 
       - name: Set up Python
-        uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        uses: ./.github/actions/setup-toolchain
         with:
-          python-version: "3.11"
+          java: false
+          gradle: false
 
       - name: Generate PDL aspect change report
         env:

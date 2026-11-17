@@ -35,7 +35,7 @@
 ```
 
 ```
-datahub properties create -f structured_properties.yaml
+datahub properties upsert -f structured_properties.yaml
 ```
 
 ```
@@ -45,7 +45,7 @@ datahub properties create --name io.acryl.privacy.retentionTime --type STRING --
 ### dataset command
 
 ```
-datahub dataset create -f dataset.yaml
+datahub dataset upsert -f dataset.yaml
 ```
 
 See example in `dataproduct`.

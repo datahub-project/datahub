@@ -1,18 +1,24 @@
 package com.linkedin.datahub.upgrade.config;
 
 import com.linkedin.datahub.upgrade.conditions.SystemUpdateCondition;
+import com.linkedin.datahub.upgrade.loadindices.AspectIndexLoader;
 import com.linkedin.datahub.upgrade.system.BlockingSystemUpgrade;
 import com.linkedin.datahub.upgrade.system.elasticsearch.BuildIndices;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.entity.AspectDao;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.GraphService;
 import com.linkedin.metadata.search.EntitySearchService;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
+import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.version.GitVersion;
 import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nullable;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Conditional;
@@ -36,7 +42,12 @@ public class BuildIndicesConfig {
       @Qualifier("systemOperationContext") final OperationContext opContext,
       final EntityService<?> entityService,
       final GitVersion gitVersion,
-      @Qualifier("revision") final String revision) {
+      @Qualifier("revision") final String revision,
+      final UpdateIndicesService updateIndicesService,
+      @Qualifier("v3DocumentIdScheme") final V3DocumentIdScheme v3DocumentIdScheme,
+      @Autowired(required = false) @Nullable @Qualifier("aspectIndexLoader")
+          final AspectIndexLoader aspectIndexLoader,
+      @Autowired(required = false) @Nullable SearchClusterRegistry searchClusterRegistry) {
 
     return new BuildIndices(
         systemMetadataService,
@@ -49,6 +60,10 @@ public class BuildIndicesConfig {
         opContext,
         entityService,
         gitVersion,
-        revision);
+        revision,
+        updateIndicesService,
+        v3DocumentIdScheme,
+        aspectIndexLoader != null,
+        searchClusterRegistry);
   }
 }

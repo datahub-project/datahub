@@ -1,10 +1,21 @@
 package com.linkedin.metadata.search.embedding;
 
+import java.time.Duration;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /** Provides query embeddings for semantic search. Implementations may call an external service. */
-public interface EmbeddingProvider {
+public interface EmbeddingProvider extends AutoCloseable {
+
+  /**
+   * Prepares provider-specific input before hashing, persistence, and embedding. Providers with
+   * input limits should apply deterministic transformations here.
+   */
+  @Nonnull
+  default String prepareInput(
+      @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
+    return text;
+  }
 
   /**
    * Returns an embedding vector for the given text using the specified model. The dimensionality of
@@ -36,4 +47,24 @@ public interface EmbeddingProvider {
       @Nonnull String text, @Nullable String model, @Nonnull EmbeddingTaskType taskType) {
     return embed(text, model);
   }
+
+  /**
+   * Returns an embedding vector like {@link #embed(String, String, EmbeddingTaskType)}, giving up
+   * once {@code timeout} has passed. Providers that call a remote service override this with one
+   * attempt bounded by the timeout, since a retry would outlive the caller. The default ignores the
+   * timeout.
+   *
+   * @param timeout positive time the caller waits for the vector
+   */
+  @Nonnull
+  default float[] embed(
+      @Nonnull String text,
+      @Nullable String model,
+      @Nonnull EmbeddingTaskType taskType,
+      @Nonnull Duration timeout) {
+    return embed(text, model, taskType);
+  }
+
+  @Override
+  default void close() {}
 }

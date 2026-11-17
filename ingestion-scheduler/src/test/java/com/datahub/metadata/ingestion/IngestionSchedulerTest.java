@@ -119,9 +119,10 @@ public class IngestionSchedulerTest {
 
     Mockito.when(ingestionConfiguration.getBatchRefreshCount()).thenReturn(30);
 
+    final OperationContext systemOpContext = Mockito.mock(OperationContext.class);
     ingestionScheduler =
         new IngestionScheduler(
-            Mockito.mock(OperationContext.class),
+            systemOpContext,
             mockClient,
             ingestionConfiguration,
             new IngestionCliVersionMatrixService(
@@ -130,8 +131,16 @@ public class IngestionSchedulerTest {
                 null),
             1,
             1200);
-    ingestionScheduler.init();
-    Thread.sleep(2000); // Sleep so the runnable can execute. (not ideal)
+
+    // Run the initial batch refresh on the test thread, the same way init() wires it, instead of
+    // scheduling it on the executor and waiting on the clock.
+    new IngestionScheduler.BatchRefreshSchedulesRunnable(
+            systemOpContext,
+            mockClient,
+            ingestionScheduler::scheduleNextIngestionSourceExecution,
+            ingestionScheduler::unscheduleAll,
+            ingestionConfiguration.getBatchRefreshCount())
+        .run();
   }
 
   @Test

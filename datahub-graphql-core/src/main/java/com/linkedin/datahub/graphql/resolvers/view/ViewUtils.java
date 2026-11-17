@@ -100,6 +100,10 @@ public class ViewUtils {
     final DataHubViewDefinition result = new DataHubViewDefinition();
     if (input.getFilter() != null) {
       result.setFilter(mapFilter(input.getFilter(), aspectRetriever), SetMode.IGNORE_NULL);
+      // Preserve the json representation of the logical predicate
+      if (input.getFilter().getJson() != null) {
+        result.setJson(input.getFilter().getJson(), SetMode.IGNORE_NULL);
+      }
     }
     result.setEntityTypes(
         new StringArray(
@@ -119,16 +123,43 @@ public class ViewUtils {
    * <p>The risk we run is that people ingest Views through the Rest.li ingestion APIs (back door),
    * which cannot be rendered in full by the UI. We account for this on the read path by logging a
    * warning and returning an empty View in such cases.
+   *
+   * <p>Supports both old format (operator + filters) and new format (orFilters). If orFilters is
+   * provided, it takes precedence over the legacy operator+filters.
    */
   private static Filter mapFilter(
       @Nonnull DataHubViewFilterInput input, @Nullable AspectRetriever aspectRetriever) {
-    if (LogicalOperator.AND.equals(input.getOperator())) {
-      // AND
-      return buildAndFilter(input.getFilters(), aspectRetriever);
-    } else {
-      // OR
-      return buildOrFilter(input.getFilters(), aspectRetriever);
+    // Prefer new orFilters format if provided
+    if (input.getOrFilters() != null && !input.getOrFilters().isEmpty()) {
+      return new Filter()
+          .setOr(ResolverUtils.buildConjunctiveCriterionArrayWithOr(input.getOrFilters()));
     }
+
+    // Fall back to legacy operator+filters format
+    if (input.getOperator() != null
+        && input.getFilters() != null
+        && !input.getFilters().isEmpty()) {
+      if (LogicalOperator.AND.equals(input.getOperator())) {
+        return buildAndFilter(input.getFilters(), aspectRetriever);
+      } else if (LogicalOperator.OR.equals(input.getOperator())) {
+        return buildOrFilter(input.getFilters(), aspectRetriever);
+      } else {
+        throw new IllegalArgumentException(
+            String.format("Unsupported logical operator: %s", input.getOperator()));
+      }
+    }
+
+    // Validate: if operator or filters are provided, both must be present and non-empty
+    boolean hasOperator = input.getOperator() != null;
+    boolean hasFilters = input.getFilters() != null && !input.getFilters().isEmpty();
+
+    if ((hasOperator || hasFilters) && !(hasOperator && hasFilters)) {
+      throw new IllegalArgumentException(
+          "Invalid filter input: operator and filters must both be provided together and filters cannot be empty");
+    }
+
+    // Both formats missing or empty - return an empty filter
+    return new Filter().setOr(new ConjunctiveCriterionArray(ImmutableList.of()));
   }
 
   private static Filter buildAndFilter(

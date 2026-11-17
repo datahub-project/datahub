@@ -2,7 +2,7 @@ import { DefaultOptionType } from 'antd/lib/select';
 import { AlignType } from 'rc-trigger/lib/interface';
 import React from 'react';
 
-export type ValueType = string;
+type ValueType = string;
 
 export type OptionType = DefaultOptionType;
 

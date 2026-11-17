@@ -1,0 +1,4 @@
+# Spring configuration classes in this module that no real-context test loads yet.
+# This list may only shrink. See gradle/wiring/README.md.
+com.linkedin.metadata.kafka.boot.MCPBootstrapManagerFactory
+com.linkedin.metadata.kafka.config.PgQueueMcePollerSourcesConfiguration

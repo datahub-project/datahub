@@ -13,12 +13,9 @@ import { Robot } from '@phosphor-icons/react/dist/csr/Robot';
 import { X } from '@phosphor-icons/react/dist/csr/X';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
-import { ThemeProvider } from 'styled-components';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { EmptyState } from '@components/components/EmptyState/EmptyState';
-
-import themes from '@conf/theme/themes';
 
 const meta = {
     title: 'Components / EmptyState',
@@ -30,13 +27,6 @@ const meta = {
             subtitle: 'A component for displaying empty data states with icon, message, and optional actions',
         },
     },
-    decorators: [
-        (Story) => (
-            <ThemeProvider theme={themes.themeV2}>
-                <Story />
-            </ThemeProvider>
-        ),
-    ],
     argTypes: {
         title: {
             description: 'Primary heading text',

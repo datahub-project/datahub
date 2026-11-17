@@ -1,95 +1,13 @@
 ### Overview
 
-The connector emits assets on **two platforms**, depending on whether an asset is
-managed (lives in Datasphere) or federated (lives in an external system that
-Datasphere accesses via a Remote Table).
+The `sap-datasphere` module ingests metadata from SAP Datasphere into DataHub.
+It is intended for production ingestion workflows and module-specific
+capabilities are documented below.
 
-#### Managed assets → `sap-datasphere` platform
-
-Views, Analytical Models, and Local Tables — the objects you create _inside_
-Datasphere — emit on the `sap-datasphere` platform. Their URN shape:
-
-```text
-urn:li:dataset:(urn:li:dataPlatform:sap-datasphere, <space>.<asset>, ENV)
-```
-
-(prefixed with `<platform_instance>.` if you set the connector's top-level
-`platform_instance`).
-
-Datasphere-specific subtypes (`Local Table`, `View`, `Analytic Model`),
-CDS-annotation tags, and Space hierarchy are all emitted on top of these URNs.
-
-#### Federated Remote Tables → storage platform
-
-A Datasphere Remote Table that federates from e.g. Snowflake emits on the
-_Snowflake_ platform — its URN matches what DataHub's native Snowflake
-connector emits for the same physical table. Lineage joins automatically:
-a downstream Datasphere View's `UpstreamLineage` points at the same
-`snowflake:` URN that the Snowflake connector ingests, with no Siblings
-configuration needed.
-
-Federated routing is driven by `connection_to_platform_map` (per connection
-name) and `platform_type_defaults` (per typeId fallback). See the recipe for
-examples.
-
-Two per-connection knobs matter for URN stitching with the native connector:
-
-- **`convert_urns_to_lowercase`** (per connection; defaults to `true`) — set it
-  to `false` when the sibling native connector preserves source case, so the
-  URNs match. Needed for BigQuery (`project.dataset.MyTable`) and for a HANA
-  connector left at its uppercase default. This is independent of the
-  connector's top-level `convert_urns_to_lowercase`, which governs managed
-  `sap-datasphere` assets.
-- **`database`** (per connection) — a leading name segment prepended ahead of
-  the schema/dataset the flow reports. Chiefly the **BigQuery GCP project**,
-  which the Datasphere API never exposes: with `database: my-gcp-project`, a
-  replication-flow target in dataset `staging` becomes
-  `my-gcp-project.staging.<table>`. Set it on the per-connection entry (keyed by
-  connection name), not on `platform_type_defaults`, since different connections
-  of the same type can point at different projects.
-
-typeId matching in `platform_type_defaults` is **case-insensitive** (`BIGQUERY`,
-`BigQuery`, and `bigquery` all match the same entry).
-
-#### Built-in typeId routing
-
-The following SAP Datasphere connection typeIds ship with built-in platform
-defaults (verified against a live tenant). You can override any of them in
-your recipe under `platform_type_defaults`.
-
-| Datasphere typeId    | DataHub platform | Common usage                                                          |
-| -------------------- | ---------------- | --------------------------------------------------------------------- |
-| `HANA`               | `hana`           | HANA on-prem / external HANA Cloud federated as a Remote Table source |
-| `MSSQL`              | `mssql`          | SQL Server federation                                                 |
-| `S3`                 | `s3`             | S3 buckets federated as remote tables                                 |
-| `GCS`                | `gcs`            | Google Cloud Storage federation                                       |
-| `ABAP`               | `abap`           | SAP ABAP system extraction                                            |
-| `SAPS4HANACLOUD`     | `s4hana`         | SAP S/4HANA Cloud federation                                          |
-| `SAPBWMODELTRANSFER` | `bw`             | SAP BW analytical model transfer (matches the SAC connector's `bw`)   |
-| `BIGQUERY`           | `bigquery`       | Google BigQuery replication-flow target / federated remote tables     |
-
-Other typeIds (Snowflake, Kafka, Salesforce, ...) default to
-`enabled: false` with a warning — opt in by adding them to
-`platform_type_defaults` in your recipe. The connector reports each
-unmapped-typeId asset once via `report.assets_skipped_unknown_typeid`.
-
-#### Local Tables (base tables)
-
-By default the connector emits only Datasphere assets exposed for OData
-consumption (views and analytical models). Base tables — which lineage edges
-typically point at — are not in that surface. Set `include_local_tables: true`
-to ALSO discover them via the supported
-`/dwaas-core/api/v1/spaces/X/localtables` endpoint (the same endpoint the
-official `datasphere` CLI uses; SAP-blessed, no policy caveat).
-
-Local Tables emit on the `sap-datasphere` platform (same as Views and
-Analytical Models) so phantom-lineage edges from consuming views resolve to
-real entities. Their column schema is read from the per-table CSN
-(`/dwaas-core/api/v1/spaces/X/localtables/Y`) when available, enabling
-column-level lineage edges between a View and its base table; if the CSN is
-unavailable the table is still emitted as a schema-less stub. Each Local Table
-has subtype `Local Table` and parents directly to its Space container — the
-connector uses a 2-tier Space → object model, with no separate folder layer.
+Managed Views, Analytic Models, and Local Tables emit on the `sap-datasphere`
+platform. Federated Remote Tables emit on their storage platform (for example
+Snowflake) so lineage joins the native warehouse connector without Siblings
+configuration — see **Capabilities → Platform routing**.
 
 ### Prerequisites
 

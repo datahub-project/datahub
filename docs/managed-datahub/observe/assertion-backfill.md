@@ -12,7 +12,7 @@ import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
 ## Introduction
 
-When you enable [Anomaly Detection](./anomaly-detection.md) on a new assertion, the underlying ML model needs historical data to learn what "normal" looks like before it can make accurate predictions. Without historical context, the model has nothing to train on, meaning it takes days or weeks of real-time evaluations before it can reliably detect anomalies.
+When you enable [Anomaly Detection](./anomaly-detection.md) on a new assertion, the underlying ML model needs historical data to learn what "normal" looks like before it can make accurate predictions. Without historical context, the model has nothing to train on: the assertion must collect 14 days of history through real-time evaluations before it starts alerting.
 
 **Backfill Assertion History** solves this by running the assertion against historical data at the time of creation. Instead of waiting for the model to accumulate enough data points through scheduled evaluations, the system queries your warehouse for past data and populates the assertion's metrics history in one go. This means you get accurate anomaly detection thresholds from day one, with full awareness of daily, weekly, or monthly seasonality in your data.
 

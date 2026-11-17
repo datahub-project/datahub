@@ -17,6 +17,7 @@ from datahub.metadata.schema_classes import (
     BinaryJsonSchemaClass,
     DatasetProfileClass,
     EspressoSchemaClass,
+    GenericAspectClass,
     KafkaSchemaClass,
     KeyValueSchemaClass,
     MySqlDDLClass,
@@ -113,6 +114,8 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
                 self.ensure_query_properties_size(urn, query_properties)
             if view_properties := wu.get_aspect_of_type(ViewPropertiesClass):
                 self.ensure_view_properties_size(urn, view_properties)
+            if lineage_patch := wu.get_json_patch_aspect(UpstreamLineageClass):
+                self.ensure_upstream_lineage_patch_size(urn, lineage_patch)
             yield wu
 
     def ensure_dataset_profile_size(
@@ -467,6 +470,72 @@ class EnsureAspectSizeProcessor(WorkunitProcessor[EnsureAspectSizeProcessorRepor
         upstream_lineage.fineGrainedLineages = (
             accepted_fine_grained_lineages if accepted_fine_grained_lineages else None
         )
+
+    def ensure_upstream_lineage_patch_size(
+        self, entity_urn: str, patch_aspect: GenericAspectClass
+    ) -> None:
+        # The patch is sent as an escaped JSON string inside the MCP; measure it that way.
+        if len(json.dumps(patch_aspect.value.decode())) < self.schema_size_constraint:
+            return
+        operations = json.loads(patch_aspect.value)
+        # Skip removes, whole-list replaces and wrapped patches: dropping an operation
+        # would keep lineage the source deleted.
+        if not isinstance(operations, list) or any(
+            not isinstance(operation, dict)
+            or operation.get("op") != "add"
+            or operation.get("path") in ("/upstreams", "/fineGrainedLineages")
+            for operation in operations
+        ):
+            return
+
+        # Adds to different fields are independent, so reordering them is safe.
+        def is_upstream(operation: Dict[str, object]) -> bool:
+            return str(operation.get("path", "")).startswith("/upstreams/")
+
+        # Patch ops drop upstreamType; approximate it from the upstream URN (last path
+        # segment) so the kept subset matches the upsert trimmer.
+        def is_dataset_upstream(operation: Dict[str, object]) -> bool:
+            upstream_urn = str(operation.get("path", "")).rsplit("/", 1)[-1]
+            return upstream_urn.startswith("urn:li:dataset:")
+
+        ordered = sorted(
+            operations,
+            key=lambda op: (
+                not is_upstream(op),
+                not is_dataset_upstream(op),
+                str(op.get("path", "")),
+            ),
+        )
+        accepted = []
+        total_size = 0
+        for operation in ordered:
+            size = len(json.dumps(json.dumps(operation)))
+            if total_size + size >= self.schema_size_constraint:
+                break
+            accepted.append(operation)
+            total_size += size
+
+        dropped = ordered[len(accepted) :]
+        if not dropped:
+            return
+        dropped_fg = [op for op in dropped if not is_upstream(op)]
+        num_dropped_dataset_fg = sum(map(is_dataset_upstream, dropped_fg))
+        self._maybe_warn_upstream_lineage(
+            entity_urn, len(dropped) - len(dropped_fg), "upstream datasets"
+        )
+        self._maybe_warn_upstream_lineage(
+            entity_urn,
+            num_dropped_dataset_fg,
+            "dataset-level fine-grained lineages",
+        )
+        self._maybe_warn_upstream_lineage(
+            entity_urn,
+            len(dropped_fg) - num_dropped_dataset_fg,
+            "field-set-level fine-grained lineages",
+        )
+        self._record_truncation(UpstreamLineageClass.ASPECT_NAME)
+
+        patch_aspect.value = json.dumps(accepted).encode()
 
     def _query_properties_serialized_size(
         self, query_properties: QueryPropertiesClass

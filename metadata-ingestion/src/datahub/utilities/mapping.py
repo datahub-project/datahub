@@ -115,11 +115,20 @@ class Constants:
     ADD_OWNER_OPERATION = "add_owner"
     ADD_DOMAIN_OPERATION = "add_domain"
     ADD_STRUCTURED_PROPERTY_OPERATION = "add_structured_property"
+    # Operations whose rule is applied to each item of a list-valued property.
+    # The rest (domain, doc link, structured property) keep whole-list semantics.
+    PER_LIST_ITEM_OPERATIONS = (
+        ADD_TAG_OPERATION,
+        ADD_TERM_OPERATION,
+        ADD_TERMS_OPERATION,
+        ADD_OWNER_OPERATION,
+    )
 
     OPERATION = "operation"
     OPERATION_CONFIG = "config"
     TAG = "tag"
     TERM = "term"
+    DOMAIN = "domain"
     DOC_LINK = "link"
     DOC_DESCRIPTION = "description"
     OWNER_TYPE = "owner_type"
@@ -294,43 +303,36 @@ class OperationProcessor:
                     except KeyError:
                         pass
 
-                maybe_match = self.get_match(
-                    self.operation_defs[operation_key][Constants.MATCH],
-                    raw_props_value,
-                )
-                if maybe_match is not None:
+                # get_match joins all matching items of a list into a single match,
+                # which would turn `tags: [a, b]` into one tag "a,b". For multi-valued
+                # operations, evaluate each item as its own single-item list instead:
+                # this keeps get_match's list semantics (the whole matching item is
+                # used) while producing one tag/term/owner per item.
+                if (
+                    isinstance(raw_props_value, list)
+                    and operation_type in Constants.PER_LIST_ITEM_OPERATIONS
+                ):
+                    candidate_values: List[Any] = [[item] for item in raw_props_value]
+                else:
+                    candidate_values = [raw_props_value]
+
+                for candidate_value in candidate_values:
+                    maybe_match = self.get_match(
+                        self.operation_defs[operation_key][Constants.MATCH],
+                        candidate_value,
+                    )
+                    if maybe_match is None:
+                        continue
                     operation = self.get_operation_value(
                         operation_key,
                         operation_type,
                         operation_config,
                         maybe_match,
-                        raw_props_value=raw_props_value,
+                        raw_props_value=candidate_value,
                     )
-
-                    if operation_type == Constants.ADD_TERMS_OPERATION:
-                        # add_terms operation is a special case where the operation value is a list of terms.
-                        # We want to aggregate these values with the add_term operation.
-                        operation_type = Constants.ADD_TERM_OPERATION
-
-                    if operation:
-                        if (
-                            isinstance(operation, list)
-                            and operation_type == Constants.ADD_OWNER_OPERATION
-                        ):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                            )
-
-                        elif isinstance(operation, (str, list)):
-                            operations_map.setdefault(operation_type, []).extend(
-                                operation
-                                if isinstance(operation, list)
-                                else [operation]
-                            )
-                        else:
-                            operations_map.setdefault(operation_type, []).append(
-                                operation
-                            )
+                    self._add_operation_to_map(
+                        operations_map, operation_type, operation
+                    )
         except Exception as e:
             logger.error(f"Error while processing operation defs over raw_props: {e}")
 
@@ -340,6 +342,24 @@ class OperationProcessor:
         except Exception as e:
             logger.error(f"Error while converting operations map to aspects: {e}")
         return aspect_map
+
+    @staticmethod
+    def _add_operation_to_map(
+        operations_map: Dict[str, list],
+        operation_type: str,
+        operation: Optional[
+            Union[str, Dict, List[str], List[Dict], List[_StructuredPropertyEntry]]
+        ],
+    ) -> None:
+        if not operation:
+            return
+        if operation_type == Constants.ADD_TERMS_OPERATION:
+            # add_terms yields a list of term urns; aggregate them with add_term.
+            operation_type = Constants.ADD_TERM_OPERATION
+        if isinstance(operation, list):
+            operations_map.setdefault(operation_type, []).extend(operation)
+        else:
+            operations_map.setdefault(operation_type, []).append(operation)
 
     def _add_datahub_structured_properties_to_map(
         self,
@@ -558,6 +578,12 @@ class OperationProcessor:
             term = operation_config[Constants.TERM]
             term = _insert_match_value(term, _get_best_match(match, "term"))
             return mce_builder.make_term_urn(term)
+        elif operation_type == Constants.ADD_DOMAIN_OPERATION and operation_config.get(
+            Constants.DOMAIN
+        ):
+            domain = operation_config[Constants.DOMAIN]
+            domain = _insert_match_value(domain, _get_best_match(match, "domain"))
+            return mce_builder.make_domain_urn(domain)
         elif (
             operation_type == Constants.ADD_DOC_LINK_OPERATION
             and operation_config[Constants.DOC_LINK]

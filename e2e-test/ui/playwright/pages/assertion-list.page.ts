@@ -21,6 +21,7 @@ export class AssertionListPage extends BasePage {
 
   async search(value: string): Promise<void> {
     await this.searchInput.fill(value);
+    // eslint-disable-next-line playwright/no-wait-for-timeout
     await this.page.waitForTimeout(600);
   }
 

@@ -1,19 +1,18 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import RowCountGraph from '@app/entityV2/shared/graphs/RowCountGraph';
 import { useStatsSectionsContext } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/StatsSectionsContext';
 import MoreInfoModalContent from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/MoreInfoModalContent';
 import TimeRangeSelect from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/components/TimeRangeSelect';
-import {
-    GRAPH_LOOKBACK_WINDOWS,
-    getGraphLookbackWindowsOptions,
-} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
+import { getGraphLookbackWindowsOptions } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/constants';
 import useGetTimeRangeOptionsByLookbackWindow from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useGetTimeRangeOptionsByLookbackWindow';
+import useProfileGraphLookback, {
+    profileChartEmptyMessage,
+} from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/hooks/useProfileGraphLookback';
+import { useGetStatsData } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/useGetStatsData';
 import { SectionKeys } from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/utils';
-import { LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
 import useRowCountData from '@app/entityV2/shared/useRowCountData';
-import { TimeRange } from '@src/types.generated';
 
 export default function StatsTabRowCountGraph(): JSX.Element {
     const { t } = useTranslation('entity.profile.stats');
@@ -30,8 +29,9 @@ export default function StatsTabRowCountGraph(): JSX.Element {
         graphLookbackWindowsOptions,
         oldestDatasetProfileTime,
     );
-    const [lookbackWindow, setLookbackWindow] = useState<LookbackWindow>(GRAPH_LOOKBACK_WINDOWS.MONTH);
-    const [rangeType, setRangeType] = useState<string | null>(TimeRange.Month);
+    const { latestRowCountProfileTime } = useGetStatsData();
+    const { lookbackWindow, rangeType, selectRangeType, profileTimeMillis, outsideMaxLookback } =
+        useProfileGraphLookback(latestRowCountProfileTime, statsEntityUrn);
 
     const { data, loading: dataLoading } = useRowCountData(
         statsEntityUrn ?? undefined,
@@ -50,21 +50,18 @@ export default function StatsTabRowCountGraph(): JSX.Element {
         }
     }, [data, loading, sections.rows, setSectionState, canViewDatasetProfile]);
 
-    useEffect(() => {
-        if (rangeType) setLookbackWindow(GRAPH_LOOKBACK_WINDOWS[rangeType]);
-    }, [rangeType, setLookbackWindow]);
-
     return (
         <RowCountGraph
             data={data}
             loading={loading}
             canViewDatasetProfile={canViewDatasetProfile}
+            emptyMessage={profileChartEmptyMessage(t, profileTimeMillis, outsideMaxLookback)}
             renderControls={() => (
                 <>
                     <TimeRangeSelect
                         options={timeRangeOptions}
                         values={rangeType ? [rangeType] : []}
-                        onUpdate={setRangeType}
+                        onUpdate={selectRangeType}
                         loading={loading}
                         chartName={DEFAULT_GRAPH_NAME}
                     />

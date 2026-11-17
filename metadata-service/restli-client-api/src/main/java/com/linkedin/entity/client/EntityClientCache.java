@@ -31,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 @Builder
 public class EntityClientCache {
+  /** Replica misses must not stick for the hit TTL (structuredPropertyKey is cached for a day). */
+  static final int NEGATIVE_CACHE_TTL_SECONDS = 5;
+
   @NonNull private EntityClientCacheConfig config;
   @NonNull private final ClientCache<Key, EnvelopedAspect, EntityClientCacheConfig> cache;
   @NonNull private final Function<CollectionKey, Map<Urn, EntityResponse>> loadFunction;
@@ -208,6 +211,7 @@ public class EntityClientCache {
               .config(this.config)
               .loadFunction(loader)
               .ttlSecondsFunction(ttlSeconds)
+              .ttlAdjustment(EntityClientCache::effectiveTtlSeconds)
               .build(metricUtils, metricClazz);
 
       return new EntityClientCache(this.config, this.cache, fetchFunction);
@@ -303,6 +307,14 @@ public class EntityClientCache {
     private final String contextId;
     private final Set<Urn> urns;
     private final Set<String> aspectNames;
+  }
+
+  static int effectiveTtlSeconds(EnvelopedAspect value, Integer configuredTtlSeconds) {
+    int configured = configuredTtlSeconds == null ? 0 : configuredTtlSeconds;
+    if (value instanceof NullEnvelopedAspect && configured > 0) {
+      return Math.min(configured, NEGATIVE_CACHE_TTL_SECONDS);
+    }
+    return configured;
   }
 
   /** Represents a cached null aspect */

@@ -548,7 +548,7 @@ class TimescaleDBConfig(PostgresConfig):
 
 @platform_name("TimescaleDB", id="timescaledb")
 @config_class(TimescaleDBConfig)
-@support_status(SupportStatus.INCUBATING)
+@support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.DOMAINS, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.DATA_PROFILING, "Optionally enabled via configuration")
@@ -556,6 +556,10 @@ class TimescaleDBConfig(PostgresConfig):
 @capability(
     SourceCapability.LINEAGE_FINE,
     "Enabled for continuous aggregates via column-level lineage",
+)
+@capability(
+    SourceCapability.PROBE,
+    "Check what a recipe would ingest before running it, with `datahub recipe probe`",
 )
 class TimescaleDBSource(PostgresSource):
     config: TimescaleDBConfig
@@ -748,7 +752,10 @@ class TimescaleDBSource(PostgresSource):
         try:
             with inspector.engine.connect() as conn:
                 result = conn.execute(text(query), params)
-                return list(result)
+                # .mappings() yields dict-like rows so downstream string-key
+                # access (safe_get_from_row, row["job_id"], from_db_row) works
+                # on SQLAlchemy 2.0, where Row dropped __getitem__-by-name.
+                return list(result.mappings())
         except DatabaseError as e:
             error_msg = str(e).lower()
 

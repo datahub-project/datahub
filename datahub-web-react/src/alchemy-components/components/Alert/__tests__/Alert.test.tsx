@@ -97,6 +97,16 @@ describe('Alert', () => {
         },
     );
 
+    it('should still render a ReactNode action for legacy call sites', () => {
+        renderAlert({
+            title: 'Error',
+            variant: 'error',
+            action: <button type="button">Custom retry</button>,
+        });
+
+        expect(screen.getByRole('button', { name: 'Custom retry' })).toBeInTheDocument();
+    });
+
     it('should render a technical errorMessage when provided', () => {
         renderAlert({
             variant: 'error',

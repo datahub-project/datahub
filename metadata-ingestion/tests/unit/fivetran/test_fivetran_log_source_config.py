@@ -88,8 +88,14 @@ class TestLogSourceField:
 
 def test_log_database_mode_constructs_FivetranLogDbReader():
     cfg_dict = _base_config()
-    with patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    # Patch `event.listens_for` too: SA 2.0 registers a connect-listener on
+    # the Snowflake engine, which rejects the MagicMock that the patched
+    # `create_engine` returns.
+    with (
+        patch("datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"),
+        patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for"
+        ),
     ):
         src = FivetranSource.create(cfg_dict, ctx=PipelineContext(run_id="x"))
     assert isinstance(src.log_reader, FivetranLogDbReader)
@@ -103,8 +109,11 @@ def test_rest_api_mode_constructs_FivetranLogRestReader():
         log_source="rest_api",
         api_config={"api_key": "k", "api_secret": "s"},
     )
-    with patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    with (
+        patch("datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"),
+        patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for"
+        ),
     ):
         src = FivetranSource.create(cfg_dict, ctx=PipelineContext(run_id="x"))
     assert isinstance(src.log_reader, FivetranLogRestReader)
@@ -129,8 +138,11 @@ def test_rest_api_mode_hybrid_wires_db_log_reader():
         log_source="rest_api",
         api_config={"api_key": "k", "api_secret": "s"},
     )
-    with patch(
-        "datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"
+    with (
+        patch("datahub.ingestion.source.fivetran.fivetran_log_db_reader.create_engine"),
+        patch(
+            "datahub.ingestion.source.fivetran.fivetran_log_db_reader.event.listens_for"
+        ),
     ):
         src = FivetranSource.create(cfg_dict, ctx=PipelineContext(run_id="x"))
     assert isinstance(src.log_reader, FivetranLogRestReader)

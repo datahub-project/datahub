@@ -8,7 +8,6 @@ import com.linkedin.datahub.upgrade.UpgradeStep;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
@@ -19,8 +18,6 @@ import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
 public class CopyDocumentsToSemanticIndicesTest {
-
-  @Mock private SearchClientShim<?> searchClient;
 
   @Mock private EntityService<?> entityService;
 
@@ -43,12 +40,7 @@ public class CopyDocumentsToSemanticIndicesTest {
 
     CopyDocumentsToSemanticIndices upgrade =
         new CopyDocumentsToSemanticIndices(
-            opContext,
-            searchClient,
-            entityService,
-            semanticSearchConfiguration,
-            indexConvention,
-            true);
+            opContext, entityService, semanticSearchConfiguration, indexConvention, true);
 
     List<UpgradeStep> steps = upgrade.steps();
 

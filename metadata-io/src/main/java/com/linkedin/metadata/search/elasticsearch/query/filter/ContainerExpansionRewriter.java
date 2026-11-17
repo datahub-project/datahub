@@ -42,6 +42,12 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
 
   @Nonnull
   @Override
+  protected Set<String> rewriterFieldNames(@Nonnull OperationContext opContext) {
+    return withSearchV3FilterField(opContext, "container", getRewriterFieldNames());
+  }
+
+  @Nonnull
+  @Override
   protected Optional<EntityGraphBinding> resolveEntityGraphBinding(
       @Nonnull OperationContext opContext) {
     Optional<HierarchyReadSpec> spec =
@@ -99,22 +105,6 @@ public class ContainerExpansionRewriter extends BaseQueryFilterRewriter {
           return expandUrnsByGraph(
               opContext,
               descendantQuery,
-              Set.of("IsPartOf"),
-              RelationshipDirection.OUTGOING,
-              config.getPageSize(),
-              config.getLimit());
-        default:
-          T defaultDescendantQuery =
-              expandUrnsByGraph(
-                  opContext,
-                  filterQuery,
-                  Set.of("IsPartOf"),
-                  RelationshipDirection.INCOMING,
-                  config.getPageSize(),
-                  config.getLimit());
-          return expandUrnsByGraph(
-              opContext,
-              defaultDescendantQuery,
               Set.of("IsPartOf"),
               RelationshipDirection.OUTGOING,
               config.getPageSize(),

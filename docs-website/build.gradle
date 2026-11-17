@@ -12,13 +12,8 @@ ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -
 
 node {
 
-  // If true, it will download node using above parameters.
-  // If false, it will try to use globally installed node.
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
-  } else {
-    download = true
-  }
+  // Download Node unless the root build says to use the one on PATH (the default in CI).
+  download = !rootProject.ext.useSystemNode
 
   // Version of node to use.
   version = rootProject.ext.nodeVersion
@@ -59,6 +54,18 @@ task installPythonDeps(type: Exec, dependsOn: environmentSetup) {
     venv_activate_command +
     "uv pip install -r requirements.txt && " +
     "touch ${sentinel_file}"
+}
+
+task testPythonScripts(type: Exec, dependsOn: installPythonDeps) {
+  inputs.files(project.fileTree(dir: 'sphinx', include: '*.py'))
+  inputs.files(project.fileTree(dir: 'sphinx/tests', include: '*.py'))
+  outputs.dir('sphinx/test-results')
+  commandLine 'bash', '-c',
+    venv_activate_command +
+    "pytest -vv sphinx/tests --junit-xml=sphinx/test-results/junit.sphinx.xml" +
+    // Both this suite and the metadata-ingestion script suite are published to the
+    // same job summary, so name it for the summary to stay attributable.
+    " -o junit_suite_name=docs-website-sphinx-pytest"
 }
 
 /*
@@ -121,13 +128,21 @@ task fastReload(type: YarnTask) {
   args = ['run', 'generate-rsync']
 }
 
-task yarnLint(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
-  inputs.files(projectMdFiles)
+def yarnLintInputs = [
+  file('generateDocsDir.ts'),
+  file('sidebars.js'),
+  file('src/pages/index.js'),
+  file('package.json'),
+  file('yarn.lock'),
+]
+
+task yarnLint(type: YarnTask, dependsOn: [yarnInstall]) {
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-check']
 }
 
 task yarnLintFix(type: YarnTask, dependsOn: [yarnInstall]) {
-  inputs.files(projectMdFiles)
+  inputs.files(yarnLintInputs)
   args = ['run', 'lint-fix']
 }
 
@@ -136,7 +151,7 @@ task serve(type: YarnTask, dependsOn: [yarnInstall] ) {
 }
 
 
-task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
+task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   inputs.files(projectMdFiles)
   inputs.file("package.json").withPathSensitivity(PathSensitivity.RELATIVE)
   inputs.dir("src").withPathSensitivity(PathSensitivity.RELATIVE)
@@ -148,7 +163,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnLint, yarnGenerate]) {
   // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
   // and https://github.com/facebook/docusaurus/issues/8329.
   // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+  if (rootProject.ext.useSystemNode) {
     environment = ['NODE_OPTIONS': '--max-old-space-size=10240']
   } else {
     environment = ['NODE_OPTIONS': '--max-old-space-size=10240 --openssl-legacy-provider']

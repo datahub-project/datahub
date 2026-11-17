@@ -15,7 +15,7 @@ public class StructuredPropertyUtils {
     if (valueInput.getStringValue() != null) {
       return PrimitivePropertyValue.create(valueInput.getStringValue());
     } else if (valueInput.getNumberValue() != null) {
-      return PrimitivePropertyValue.create(valueInput.getNumberValue().doubleValue());
+      return PrimitivePropertyValue.create(valueInput.getNumberValue());
     }
     return null;
   }

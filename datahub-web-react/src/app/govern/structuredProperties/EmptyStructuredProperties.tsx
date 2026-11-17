@@ -1,9 +1,10 @@
-import { Text } from '@components';
+import { EmptyState } from '@components';
+import { ListBullets } from '@phosphor-icons/react/dist/csr/ListBullets';
+import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { EmptyContainer } from '@app/govern/structuredProperties/styledComponents';
-import EmptyFormsImage from '@src/images/empty-forms.svg?react';
 
 interface Props {
     isEmptySearch?: boolean;
@@ -15,16 +16,9 @@ const EmptyStructuredProperties = ({ isEmptySearch }: Props) => {
     return (
         <EmptyContainer>
             {isEmptySearch ? (
-                <Text size="lg" color="gray" weight="bold">
-                    {t('table.noSearchResults')}
-                </Text>
+                <EmptyState icon={MagnifyingGlass} title={t('table.noSearchResults')} />
             ) : (
-                <>
-                    <EmptyFormsImage />
-                    <Text size="md" color="gray" weight="bold">
-                        {t('table.noPropertiesYet')}
-                    </Text>
-                </>
+                <EmptyState icon={ListBullets} title={t('table.noPropertiesYet')} />
             )}
         </EmptyContainer>
     );

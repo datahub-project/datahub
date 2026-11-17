@@ -3,37 +3,33 @@ package com.linkedin.gms.factory.kafka.trace;
 import static com.linkedin.gms.factory.kafka.common.AdminClientFactory.buildKafkaAdminClient;
 import static com.linkedin.mxe.ConsumerGroups.MCP_CONSUMER_GROUP_ID_VALUE;
 
+import com.linkedin.gms.factory.aws.AwsClientFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import com.linkedin.metadata.trace.MCLTraceReader;
 import com.linkedin.metadata.trace.MCPFailedTraceReader;
 import com.linkedin.metadata.trace.MCPTraceReader;
+import com.linkedin.metadata.trace.TraceConsumerPool;
 import com.linkedin.mxe.Topics;
-import jakarta.annotation.Nonnull;
-import java.util.Properties;
 import java.util.concurrent.ExecutorService;
-import org.apache.avro.generic.GenericRecord;
 import org.apache.kafka.clients.admin.AdminClient;
-import org.apache.kafka.clients.consumer.Consumer;
-import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.kafka.autoconfigure.KafkaProperties;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.kafka.core.DefaultKafkaConsumerFactory;
+import org.springframework.context.annotation.DependsOn;
+import org.springframework.context.annotation.Import;
 
 // All beans here read Kafka admin/consumer state for message tracing. They cannot be created when
 // the messaging transport is not Kafka (e.g. pgqueue), since AdminClient construction requires a
 // valid bootstrap.servers and the topics don't exist on non-Kafka transports.
 @Configuration
 @KafkaMessagingEnabled
+// The trace admin client applies MSK IAM, which needs the shared AWS credentials installed first.
+@Import(AwsClientFactory.class)
+@DependsOn("defaultAwsCredentialsProvider")
 public class KafkaTraceReaderFactory {
-  private static final Properties TRACE_CONSUMER_PROPERTIES = new Properties();
-
-  static {
-    TRACE_CONSUMER_PROPERTIES.put(ConsumerConfig.ENABLE_AUTO_COMMIT_CONFIG, "false");
-  }
 
   @Value("${trace.pollMaxAttempts:5}")
   private int pollMaxAttempts;
@@ -66,6 +62,9 @@ public class KafkaTraceReaderFactory {
   @Value("${trace.timeout-seconds:30}")
   private long traceTimeoutSeconds;
 
+  @Value("${trace.futures.cancel-on-timeout:true}")
+  private boolean cancelFuturesOnTimeout;
+
   @Bean("traceAdminClient")
   public AdminClient traceAdminClient(
       @Qualifier("configurationProvider") ConfigurationProvider provider,
@@ -76,18 +75,17 @@ public class KafkaTraceReaderFactory {
   @Bean("mcpTraceReader")
   public MCPTraceReader mcpTraceReader(
       @Qualifier("traceAdminClient") AdminClient adminClient,
-      @Qualifier("kafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("mcpTraceConsumerPool") TraceConsumerPool mcpTraceConsumerPool,
       @Qualifier("traceExecutorService") ExecutorService traceExecutorService) {
     return MCPTraceReader.builder()
         .adminClient(adminClient)
         .topicName(mcpTopicName)
         .consumerGroupId(mceConsumerGroupId)
-        .consumerSupplier(
-            () -> createConsumerWithUniqueId(kafkaConsumerFactory, "trace-reader-mcp"))
+        .consumerPool(mcpTraceConsumerPool)
         .pollDurationMs(pollDurationMs)
         .pollMaxAttempts(pollMaxAttempts)
         .timeoutSeconds(traceTimeoutSeconds)
+        .cancelFuturesOnTimeout(cancelFuturesOnTimeout)
         .executorService(traceExecutorService)
         .build();
   }
@@ -95,17 +93,16 @@ public class KafkaTraceReaderFactory {
   @Bean("mcpFailedTraceReader")
   public MCPFailedTraceReader mcpFailedTraceReader(
       @Qualifier("traceAdminClient") AdminClient adminClient,
-      @Qualifier("kafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("mcpFailedTraceConsumerPool") TraceConsumerPool mcpFailedTraceConsumerPool,
       @Qualifier("traceExecutorService") ExecutorService traceExecutorService) {
     return MCPFailedTraceReader.builder()
         .adminClient(adminClient)
         .topicName(mcpFailedTopicName)
-        .consumerSupplier(
-            () -> createConsumerWithUniqueId(kafkaConsumerFactory, "trace-reader-mcp-failed"))
+        .consumerPool(mcpFailedTraceConsumerPool)
         .pollDurationMs(pollDurationMs)
         .pollMaxAttempts(pollMaxAttempts)
         .timeoutSeconds(traceTimeoutSeconds)
+        .cancelFuturesOnTimeout(cancelFuturesOnTimeout)
         .executorService(traceExecutorService)
         .build();
   }
@@ -113,18 +110,17 @@ public class KafkaTraceReaderFactory {
   @Bean("mclVersionedTraceReader")
   public MCLTraceReader mclVersionedTraceReader(
       @Qualifier("traceAdminClient") AdminClient adminClient,
-      @Qualifier("kafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("mclVersionedTraceConsumerPool") TraceConsumerPool mclVersionedTraceConsumerPool,
       @Qualifier("traceExecutorService") ExecutorService traceExecutorService) {
     return MCLTraceReader.builder()
         .adminClient(adminClient)
         .topicName(mclVersionedTopicName)
         .consumerGroupId(maeConsumerGroupId)
-        .consumerSupplier(
-            () -> createConsumerWithUniqueId(kafkaConsumerFactory, "trace-reader-mcl-versioned"))
+        .consumerPool(mclVersionedTraceConsumerPool)
         .pollDurationMs(pollDurationMs)
         .pollMaxAttempts(pollMaxAttempts)
         .timeoutSeconds(traceTimeoutSeconds)
+        .cancelFuturesOnTimeout(cancelFuturesOnTimeout)
         .executorService(traceExecutorService)
         .build();
   }
@@ -132,36 +128,18 @@ public class KafkaTraceReaderFactory {
   @Bean("mclTimeseriesTraceReader")
   public MCLTraceReader mclTimeseriesTraceReader(
       @Qualifier("traceAdminClient") AdminClient adminClient,
-      @Qualifier("kafkaConsumerFactory")
-          DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
+      @Qualifier("mclTimeseriesTraceConsumerPool") TraceConsumerPool mclTimeseriesTraceConsumerPool,
       @Qualifier("traceExecutorService") ExecutorService traceExecutorService) {
     return MCLTraceReader.builder()
         .adminClient(adminClient)
         .topicName(mclTimeseriesTopicName)
         .consumerGroupId(maeConsumerGroupId)
-        .consumerSupplier(
-            () -> createConsumerWithUniqueId(kafkaConsumerFactory, "trace-reader-mcl-timeseries"))
+        .consumerPool(mclTimeseriesTraceConsumerPool)
         .pollDurationMs(pollDurationMs)
         .pollMaxAttempts(pollMaxAttempts)
         .timeoutSeconds(traceTimeoutSeconds)
+        .cancelFuturesOnTimeout(cancelFuturesOnTimeout)
         .executorService(traceExecutorService)
         .build();
-  }
-
-  private Consumer<String, GenericRecord> createConsumerWithUniqueId(
-      DefaultKafkaConsumerFactory<String, GenericRecord> kafkaConsumerFactory,
-      @Nonnull String baseClientId) {
-    Properties consumerProps = new Properties();
-    consumerProps.putAll(TRACE_CONSUMER_PROPERTIES);
-    // Add a unique suffix to the client.id
-    consumerProps.put(
-        ConsumerConfig.CLIENT_ID_CONFIG,
-        baseClientId + "-" + Thread.currentThread().getId() + "-" + System.nanoTime());
-
-    return kafkaConsumerFactory.createConsumer(
-        baseClientId, // groupId prefix
-        null, // groupId suffix (using default)
-        null, // assignor
-        consumerProps);
   }
 }

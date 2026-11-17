@@ -1,11 +1,19 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useMemo } from 'react';
 
 import { useGetEntitiesQuery } from '@graphql/entity.generated';
 import { Entity } from '@types';
 
+export interface GetEntitiesOptions {
+    /** Skip the per-entity upstream/downstream lineage counts; they dominate server time for large batches. */
+    skipLineage?: boolean;
+    /** Skip the per-entity siblings search. */
+    skipSiblingsSearch?: boolean;
+}
+
 export function useGetEntities(
     urns: string[],
     checkForExistence?: boolean,
+    options?: GetEntitiesOptions,
 ): {
     entities: Entity[];
     loading: boolean;
@@ -16,20 +24,29 @@ export function useGetEntities(
     );
 
     const { data, loading } = useGetEntitiesQuery({
-        variables: { urns: verifiedUrns, checkForExistence },
+        variables: {
+            urns: verifiedUrns,
+            checkForExistence,
+            ...(options?.skipLineage !== undefined && { skipLineage: options.skipLineage }),
+            ...(options?.skipSiblingsSearch !== undefined && { skipSiblingsSearch: options.skipSiblingsSearch }),
+        },
         skip: !verifiedUrns.length,
         fetchPolicy: 'cache-first',
     });
 
-    const [entities, setEntities] = useState<Entity[]>([]);
-
-    useEffect(() => {
-        if (data?.entities && data.entities.length > 0) {
-            setEntities(data.entities as Entity[]);
-        } else if (!loading && (!data?.entities || data.entities.length === 0)) {
-            setEntities([]);
-        }
-    }, [data, loading]);
+    // Derived directly from `data` (not useState+useEffect) so `entities` updates in the same
+    // render as `loading` flips to false — an effect-based copy lags one render behind, which
+    // is enough for callers to briefly render their "not yet loaded" fallback (e.g. a raw urn).
+    const entities = useMemo(() => {
+        if (!data || !Array.isArray(data?.entities)) return [];
+        // `entities(urns)` returns a null element for any URN with no backing entity
+        // (its GraphQL type is `[Entity]`, i.e. nullable members). This happens for
+        // hallucinated or since-deleted URNs — e.g. a `urn:li:document:...` an LLM
+        // invents in a chat answer. Drop nulls so callers that treat the result as a
+        // non-null `Entity[]` (e.g. rendering source-reference chips) don't dereference
+        // null and crash the page.
+        return (data.entities as (Entity | null)[]).filter((entity): entity is Entity => entity != null);
+    }, [data]);
 
     return { entities, loading };
 }

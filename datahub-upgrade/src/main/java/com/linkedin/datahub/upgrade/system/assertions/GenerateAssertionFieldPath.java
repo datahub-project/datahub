@@ -33,6 +33,9 @@ public class GenerateAssertionFieldPath implements NonBlockingSystemUpgrade {
               new GenerateAssertionFieldPathStep(
                   opContext, entityService, aspectDao, batchSize, batchDelayMs, limit));
     } else {
+      log.info(
+          "{} is disabled (systemUpdate.assertionFieldPath.enabled=false); no steps registered.",
+          id());
       _steps = ImmutableList.of();
     }
   }

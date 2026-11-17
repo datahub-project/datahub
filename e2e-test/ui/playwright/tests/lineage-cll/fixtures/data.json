@@ -1,0 +1,1550 @@
+[
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_source",
+        "description": "Upstream source table for column-level lineage highlighting tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.source,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.source",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "bigint",
+            "recursive": false
+          },
+          {
+            "fieldPath": "amount",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_staging",
+        "description": "Middle table for column-level lineage highlighting tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.staging",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "bigint",
+            "recursive": false
+          },
+          {
+            "fieldPath": "amount",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.source,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.source,PROD),amount)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD),amount)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.final,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_final",
+        "description": "Downstream table fed through a query for column-level lineage highlighting tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.final,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.final",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "bigint",
+            "recursive": false
+          },
+          {
+            "fieldPath": "total",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.final,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD)",
+            "type": "TRANSFORMED",
+            "query": "urn:li:query:playwright-cll-query"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD),amount)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.final,PROD),total)"
+            ],
+            "confidenceScore": 1.0,
+            "query": "urn:li:query:playwright-cll-query"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_raw",
+        "description": "Upstream table feeding a dbt model, for through-dbt CLL tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.raw,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.raw",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": false,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "bigint",
+            "recursive": false
+          },
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_model",
+        "description": "dbt model in the middle of the through-dbt CLL chain"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.model",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.raw,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.raw,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_mart",
+        "description": "Downstream table fed by a dbt model, for through-dbt CLL tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.mart",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mart,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.model,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mart,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.input,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_input",
+        "description": "Input table of an airflow task, for through-datajob CLL tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.input,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.input",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "val",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.output,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_output",
+        "description": "Output table of an airflow task, for through-datajob CLL tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.output,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.output",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "val",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataFlow",
+    "entityUrn": "urn:li:dataFlow:(airflow,playwright_cll_flow,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "dataFlowInfo",
+    "aspect": {
+      "json": {
+        "name": "playwright_cll_flow",
+        "description": "Airflow DAG for through-datajob CLL tests"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_cll_flow,PROD),transform_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInfo",
+    "aspect": {
+      "json": {
+        "name": "transform_task",
+        "description": "Airflow task in the middle of the through-datajob CLL chain",
+        "type": {
+          "string": "SQL"
+        },
+        "flowUrn": "urn:li:dataFlow:(airflow,playwright_cll_flow,PROD)"
+      }
+    }
+  },
+  {
+    "entityType": "dataJob",
+    "entityUrn": "urn:li:dataJob:(urn:li:dataFlow:(airflow,playwright_cll_flow,PROD),transform_task)",
+    "changeType": "UPSERT",
+    "aspectName": "dataJobInputOutput",
+    "aspect": {
+      "json": {
+        "inputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.input,PROD)"
+        ],
+        "outputDatasets": [
+          "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.output,PROD)"
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.input,PROD),val)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.output,PROD),val)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "query",
+    "entityUrn": "urn:li:query:playwright-cll-query",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+      "json": {
+        "name": "playwright_cll_query",
+        "source": "SYSTEM",
+        "statement": {
+          "language": "SQL",
+          "value": "INSERT INTO playwright_cll.final SELECT id, SUM(amount) AS total FROM playwright_cll.staging GROUP BY id"
+        },
+        "created": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        },
+        "lastModified": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        }
+      }
+    }
+  },
+  {
+    "entityType": "query",
+    "entityUrn": "urn:li:query:playwright-cll-query",
+    "changeType": "UPSERT",
+    "aspectName": "querySubjects",
+    "aspect": {
+      "json": {
+        "subjects": [
+          {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.staging,PROD)"
+          },
+          {
+            "entity": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.final,PROD)"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan",
+        "description": "Table whose column fans out to 5 dead-end dbt model columns"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          },
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_leaf1",
+        "description": "Dead-end dbt model for transformational-leaf CLL scenario"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.leaf1",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf1,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_leaf2",
+        "description": "Dead-end dbt model for transformational-leaf CLL scenario"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.leaf2",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf2,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_leaf3",
+        "description": "Dead-end dbt model for transformational-leaf CLL scenario"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.leaf3",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf3,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_leaf4",
+        "description": "Dead-end dbt model for transformational-leaf CLL scenario"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.leaf4",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf4,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_leaf5",
+        "description": "Dead-end dbt model for transformational-leaf CLL scenario"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.leaf5",
+        "platform": "urn:li:dataPlatform:dbt",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf5,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:dbt,playwright_cll.leaf5,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_src,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_mismatch_src",
+        "description": "Upstream table whose fine-grained edge carries a query missing from the table edge"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_src,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.mismatch_src",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "score",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_mismatch_dst",
+        "description": "Downstream table whose fine-grained edge carries a query missing from the table edge"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.mismatch_dst",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "score",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_dst,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_src,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_src,PROD),score)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.mismatch_dst,PROD),score)"
+            ],
+            "confidenceScore": 1.0,
+            "query": "urn:li:query:playwright-cll-phantom"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "query",
+    "entityUrn": "urn:li:query:playwright-cll-phantom",
+    "changeType": "UPSERT",
+    "aspectName": "queryProperties",
+    "aspect": {
+      "json": {
+        "name": "playwright_cll_phantom_query",
+        "source": "SYSTEM",
+        "statement": {
+          "language": "SQL",
+          "value": "INSERT INTO playwright_cll.mismatch_dst SELECT score FROM playwright_cll.mismatch_src"
+        },
+        "created": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        },
+        "lastModified": {
+          "actor": "urn:li:corpuser:datahub",
+          "time": 0
+        }
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan_out1",
+        "description": "Filler downstream so the fan real column sink starts paginated out"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan_out1",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out1,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan_out2",
+        "description": "Filler downstream so the fan real column sink starts paginated out"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan_out2",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out2,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan_out3",
+        "description": "Filler downstream so the fan real column sink starts paginated out"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan_out3",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out3,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan_out4",
+        "description": "Filler downstream so the fan real column sink starts paginated out"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan_out4",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "id",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_out4,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_sink,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "name": "cll_fan_sink",
+        "description": "The one real column downstream of cll_fan.metric; starts hidden behind pagination"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_sink,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "schemaMetadata",
+    "aspect": {
+      "json": {
+        "schemaName": "playwright_cll.fan_sink",
+        "platform": "urn:li:dataPlatform:snowflake",
+        "version": 0,
+        "hash": "",
+        "platformSchema": {
+          "com.linkedin.schema.OtherSchema": {
+            "rawSchema": ""
+          }
+        },
+        "fields": [
+          {
+            "fieldPath": "metric",
+            "nullable": true,
+            "type": {
+              "type": {
+                "com.linkedin.schema.NumberType": {}
+              }
+            },
+            "nativeDataType": "decimal",
+            "recursive": false
+          }
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_sink,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "upstreamLineage",
+    "aspect": {
+      "json": {
+        "upstreams": [
+          {
+            "auditStamp": {
+              "time": 0,
+              "actor": "urn:li:corpuser:datahub"
+            },
+            "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD)",
+            "type": "TRANSFORMED"
+          }
+        ],
+        "fineGrainedLineages": [
+          {
+            "upstreamType": "FIELD_SET",
+            "downstreamType": "FIELD",
+            "upstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan,PROD),metric)"
+            ],
+            "downstreams": [
+              "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,playwright_cll.fan_sink,PROD),metric)"
+            ],
+            "confidenceScore": 1.0
+          }
+        ]
+      }
+    }
+  }
+]

@@ -1,10 +1,16 @@
 import { useContext, useMemo, useRef } from 'react';
 
-import { FineGrainedLineage, LineageDisplayContext, createColumnRef } from '@app/lineageV3/common';
+import {
+    FineGrainedLineage,
+    LineageDisplayContext,
+    ShownRelatedColumns,
+    ShownRelatedCounts,
+    createColumnRef,
+} from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
 import { ColumnAsset, FetchedEntityV2, LineageAssetType } from '@app/lineageV3/types';
 
-import { SchemaFieldDataType } from '@types';
+import { LineageDirection, SchemaFieldDataType } from '@types';
 
 type FieldPath = string;
 
@@ -16,6 +22,8 @@ export interface LineageDisplayColumn {
     type?: SchemaFieldDataType;
     nativeDataType?: string | null;
     lineageAsset: ColumnAsset;
+    /** Undefined unless the column is part of the current column lineage traversal. */
+    shownRelated?: ShownRelatedCounts;
 }
 
 interface Arguments {
@@ -44,6 +52,29 @@ interface NormalizedReturn {
     numColumnsTotal: number;
 }
 
+/**
+ * Whether a column has any lineage: counts fetched for it, or column lineage already on the graph.
+ * `lineageAsset` is written to in place as counts resolve, so compute this where it is read rather
+ * than passing the result around, which goes stale.
+ */
+export function columnHasLineage(lineageAsset: ColumnAsset, connectedToHomeNode: boolean): boolean {
+    return !!lineageAsset.numUpstream || !!lineageAsset.numDownstream || connectedToHomeNode;
+}
+
+/** Identifies a column by everything about it that is rendered, so that changed counts re-render. */
+function describe(column: LineageDisplayColumn): string {
+    const { shownRelated, lineageAsset } = column;
+    return [
+        column.fieldPath,
+        shownRelated?.[LineageDirection.Upstream],
+        shownRelated?.[LineageDirection.Downstream],
+        // Written onto the asset in place as counts resolve, so they are not visible as a change
+        // to any of the values this memo is computed from
+        lineageAsset.numUpstream,
+        lineageAsset.numDownstream,
+    ].join('␟');
+}
+
 export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
     // Prevent unnecessary NodeContents rerenders
     const oldVals = useRef<DisplayedColumns>({
@@ -63,9 +94,9 @@ export default function useDisplayedColumns(args: Arguments): DisplayedColumns {
 
 function normalize(val: DisplayedColumns): NormalizedReturn {
     return {
-        plainColumns: val.paginatedColumns.filter((col) => !col.highlighted).map((col) => col.fieldPath),
-        highlightedColumns: val.paginatedColumns.filter((col) => col.highlighted).map((col) => col.fieldPath),
-        extraHighlightedColumns: val.extraHighlightedColumns.map((col) => col.fieldPath),
+        plainColumns: val.paginatedColumns.filter((col) => !col.highlighted).map(describe),
+        highlightedColumns: val.paginatedColumns.filter((col) => col.highlighted).map(describe),
+        extraHighlightedColumns: val.extraHighlightedColumns.map(describe),
         numFilteredColumns: val.numFilteredColumns,
         numColumnsWithLineage: val.numColumnsWithLineage,
         numColumnsTotal: val.numColumnsTotal,
@@ -80,7 +111,7 @@ function useComputeValues({
     filterText,
     onlyWithLineage,
 }: Arguments): DisplayedColumns {
-    const { highlightedColumns, fineGrainedLineage } = useContext(LineageDisplayContext);
+    const { highlightedColumns, shownRelatedColumns, fineGrainedLineage } = useContext(LineageDisplayContext);
 
     return useMemo(() => {
         if (!entity) {
@@ -94,7 +125,7 @@ function useComputeValues({
         }
 
         const columnHighlights = highlightedColumns.get(urn) || new Set<string>();
-        const columns = getDisplayColumns(urn, entity, columnHighlights, fineGrainedLineage);
+        const columns = getDisplayColumns(urn, entity, columnHighlights, shownRelatedColumns, fineGrainedLineage);
 
         const columnsWithLineage = columns.filter((field) => field.hasLineage);
         const filteredColumns = filterColumnsByText(onlyWithLineage ? columnsWithLineage : columns, filterText);
@@ -114,13 +145,24 @@ function useComputeValues({
             numColumnsTotal: columns.length,
             numColumnsWithLineage: columnsWithLineage.length,
         };
-    }, [urn, entity, showColumns, pageIndex, filterText, highlightedColumns, onlyWithLineage, fineGrainedLineage]);
+    }, [
+        urn,
+        entity,
+        showColumns,
+        pageIndex,
+        filterText,
+        highlightedColumns,
+        shownRelatedColumns,
+        onlyWithLineage,
+        fineGrainedLineage,
+    ]);
 }
 
 function getDisplayColumns(
     urn: string,
     entity: FetchedEntityV2,
     columnHighlights: Set<string>,
+    shownRelatedColumns: ShownRelatedColumns,
     fineGrainedLineage: FineGrainedLineage,
 ): LineageDisplayColumn[] {
     if (!entity.lineageAssets) return [];
@@ -137,9 +179,10 @@ function getDisplayColumns(
                 type: columnAsset.dataType,
                 nativeDataType: columnAsset.nativeDataType,
                 highlighted: columnHighlights.has(columnAsset.name),
-                hasLineage: !!columnAsset.numUpstream || !!columnAsset.numDownstream || connectedToHomeNode,
+                hasLineage: columnHasLineage(columnAsset, connectedToHomeNode),
                 connectedToHomeNode,
                 lineageAsset: columnAsset,
+                shownRelated: shownRelatedColumns.get(columnRef),
             };
         });
 }

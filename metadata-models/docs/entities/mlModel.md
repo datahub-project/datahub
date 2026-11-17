@@ -297,10 +297,10 @@ The example shows both basic patterns for getting started and advanced patterns 
 
 ### Querying ML Model Information
 
-The standard REST APIs can be used to retrieve ML Model entities and their aspects:
+The Python SDK can be used to retrieve ML Model entities and their aspects:
 
 <details>
-<summary>Python: Query an ML Model via REST API</summary>
+<summary>Python SDK: Query an ML Model</summary>
 
 ```python
 {{ inline /metadata-ingestion/examples/library/mlmodel_query_rest_api.py show_path_as_comment }}
@@ -330,6 +330,10 @@ The GraphQL API provides rich querying capabilities for ML Models through resolv
 - Fetching model details with all aspects
 - Navigating relationships to features, groups, and deployments
 - Searching and filtering models by tags, terms, platform, etc.
+
+### Incidents
+
+ML Models participate in the shared incidents subsystem. Incidents can be raised on a model via the `raiseIncident` GraphQL mutation (or the Python SDK), listed back through the `incidents` field on the `MLModel` GraphQL type, and the model carries a rolled-up `incidentsSummary` aspect that is maintained automatically as incidents are raised and resolved. Since an incident can reference multiple entities, a single incident can link an upstream dataset and the affected model under one lifecycle.
 
 ### Ingestion Sources
 

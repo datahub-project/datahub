@@ -1,0 +1,4 @@
+org.springframework.test.context.ContextCustomizerFactory=\
+io.datahubproject.test.wiring.WiringCoverageContextCustomizerFactory
+org.springframework.context.ApplicationContextInitializer=\
+io.datahubproject.test.wiring.WiringCoverageInitializer

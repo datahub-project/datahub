@@ -52,6 +52,14 @@ export const StyledSearchBar = styled(Input)<{ $width?: string; $height?: string
         }
     }
 
+    .ant-input-suffix {
+        display: inline-flex !important;
+        align-items: center !important;
+        align-self: center;
+        margin-left: 4px;
+        line-height: 0;
+    }
+
     &:hover,
     &:focus,
     &:focus-within {

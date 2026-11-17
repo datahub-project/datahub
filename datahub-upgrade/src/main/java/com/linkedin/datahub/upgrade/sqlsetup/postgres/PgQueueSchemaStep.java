@@ -223,7 +223,7 @@ public class PgQueueSchemaStep implements UpgradeStep {
     String jobName =
         PgCronMaintenance.buildScopedCronJobName(
             PgCronMaintenance.PGQUEUE_CRON_ROLE, jobTargetDatabase, applicationSchema, tablePrefix);
-    String schedule = toPgCronSchedule(intervalSeconds);
+    String schedule = PostgresSqlSetupProperties.toPgCronSchedule(intervalSeconds);
     if (!PgCronMaintenance.isExtensionInstalled(cronConnection, "pg_cron")) {
       log.warn(
           "pg_cron is not installed; skipping in-database schedule for job {}. "
@@ -244,17 +244,6 @@ public class PgQueueSchemaStep implements UpgradeStep {
 
   /** Maps intervalSeconds to a pg_cron schedule (minute/hour granularity). */
   public static String toPgCronSchedule(int intervalSeconds) {
-    int sec = Math.max(60, intervalSeconds);
-    if (sec % 86400 == 0) {
-      int days = sec / 86400;
-      days = Math.max(1, Math.min(31, days));
-      return days == 1 ? "0 0 * * *" : ("0 0 */" + days + " * *");
-    }
-    if (sec % 3600 == 0) {
-      int hours = Math.max(1, Math.min(23, sec / 3600));
-      return "0 */" + hours + " * * *";
-    }
-    int minutes = Math.max(1, Math.min(59, sec / 60));
-    return "*/" + minutes + " * * * *";
+    return PostgresSqlSetupProperties.toPgCronSchedule(intervalSeconds);
   }
 }

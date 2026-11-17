@@ -1,4 +1,3 @@
-import logging
 import os
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -15,9 +14,6 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyParamsClass,
 )
 from datahub.metadata.urns import FormUrn
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Create a form that will be dynamically assigned to all Snowflake datasets
 # in the "Finance" domain
@@ -97,6 +93,6 @@ dynamic_assignment_event = MetadataChangeProposalWrapper(
 )
 rest_emitter.emit(dynamic_assignment_event)
 
-log.info(
+print(
     f"Created form {form_urn} with dynamic assignment to Snowflake datasets in Finance domain"
 )

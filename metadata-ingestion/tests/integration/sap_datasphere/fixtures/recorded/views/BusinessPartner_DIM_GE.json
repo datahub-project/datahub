@@ -1,0 +1,33 @@
+{
+  "definitions": {
+    "BusinessPartner_DIM_GE": {
+      "kind": "entity",
+      "@EndUserText.label": "Business Partner (synthetic mixin target for Test_Analytic_Model)",
+      "elements": {
+        "BusinessPartner": {
+          "type": "cds.String",
+          "length": 10,
+          "@EndUserText.label": "BusinessPartner"
+        },
+        "BusinessPartnerCategory": {
+          "type": "cds.String",
+          "length": 1,
+          "@EndUserText.label": "BusinessPartnerCategory"
+        },
+        "BusinessPartnerName": {
+          "type": "cds.String",
+          "length": 81,
+          "@EndUserText.label": "BusinessPartnerName"
+        },
+        "CreationDate": {
+          "type": "cds.Date",
+          "@EndUserText.label": "CreationDate"
+        },
+        "BusinessPartnerIsBlocked": {
+          "type": "cds.Boolean",
+          "@EndUserText.label": "BusinessPartnerIsBlocked"
+        }
+      }
+    }
+  }
+}

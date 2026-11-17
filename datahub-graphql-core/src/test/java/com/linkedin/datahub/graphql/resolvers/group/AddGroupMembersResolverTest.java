@@ -9,11 +9,13 @@ import com.datahub.authentication.group.GroupService;
 import com.linkedin.common.Origin;
 import com.linkedin.common.OriginType;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.AddGroupMembersInput;
 import graphql.schema.DataFetchingEnvironment;
 import java.util.ArrayList;
 import java.util.Collections;
+import java.util.List;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -80,5 +82,9 @@ public class AddGroupMembersResolverTest {
     when(_groupService.getGroupOrigin(any(), eq(_groupUrn))).thenReturn(groupOrigin);
 
     _resolver.get(_dataFetchingEnvironment).join();
+
+    verify(_groupService, times(1))
+        .addUsersToNativeGroup(any(), eq(List.of(UrnUtils.getUrn(USER_URN_STRING))), eq(_groupUrn));
+    verify(_groupService, never()).addUserToNativeGroup(any(), any(), any());
   }
 }

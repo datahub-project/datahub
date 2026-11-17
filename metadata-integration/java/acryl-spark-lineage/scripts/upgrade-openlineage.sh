@@ -32,7 +32,7 @@ echo "OpenLineage Upgrade: $OLD_VERSION → $NEW_VERSION"
 echo "========================================="
 echo ""
 echo "NOTE: This is a best-effort first pass. It copies the new upstream over the vendored"
-echo "      files and tries to re-apply the v$OLD_VERSION patches with 'patch -p0', which FAILS"
+echo "      files and tries to re-apply the v$OLD_VERSION patches to each vendored target, which FAILS"
 echo "      whenever upstream changed a patched file. For those, finish with the 3-way merge"
 echo "      documented in CLAUDE.md ('Upgrade Process'). Always run the test suite afterward"
 echo "      (test, checkShadowJar, sparkRealSmokeTest, sparkSmoke4Test)."
@@ -42,17 +42,8 @@ echo ""
 # Format: "upstream_path|relative_file_path"
 FILES=(
   "integration/spark/shared/src/main/java/io/openlineage|spark/api/Vendors.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/api/VendorsContext.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/api/VendorsImpl.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PathUtils.java"
   "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/PlanUtils.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/util/RemovePathPatternUtils.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/SparkOpenLineageExtensionVisitorWrapper.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/SaveIntoDataSourceCommandVisitor.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/StreamingDataSourceV2RelationVisitor.java"
-  "integration/spark/shared/src/main/java/io/openlineage|spark/agent/lifecycle/plan/WriteToDataSourceV2Visitor.java"
-  "integration/spark/spark3/src/main/java/io/openlineage|spark3/agent/lifecycle/plan/MergeIntoCommandEdgeInputDatasetBuilder.java"
-  "integration/spark/spark3/src/main/java/io/openlineage|spark3/agent/lifecycle/plan/MergeIntoCommandInputDatasetBuilder.java"
 )
 
 GITHUB_BASE="https://raw.githubusercontent.com/OpenLineage/OpenLineage"
@@ -181,8 +172,8 @@ else
     if [ -f "$PATCH_FILE" ] && [ -f "$DATAHUB_FILE" ]; then
       echo "Applying patch: $(basename "$PATCH_FILE")"
 
-      if patch -p0 --dry-run < "$PATCH_FILE" > /dev/null 2>&1; then
-        patch -p0 < "$PATCH_FILE"
+      if patch --dry-run "$DATAHUB_FILE" < "$PATCH_FILE" > /dev/null 2>&1; then
+        patch "$DATAHUB_FILE" < "$PATCH_FILE"
         echo "  ✓ Applied successfully"
       else
         echo "  ✗ Patch conflict detected - manual merge required"

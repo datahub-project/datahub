@@ -13,9 +13,11 @@ import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
+import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesInput;
 import com.linkedin.datahub.graphql.generated.BatchGetStepStatesResult;
+import com.linkedin.datahub.graphql.generated.StepStateResult;
 import com.linkedin.datahub.graphql.resolvers.test.TestUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
@@ -61,17 +63,18 @@ public class BatchGetStepStatesResolverTest {
     input.setIds(ImmutableList.of(FIRST_STEP_STATE_ID, SECOND_STEP_STATE_ID));
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
 
-    when(_entityClient.exists(any(), eq(FIRST_STEP_STATE_URN))).thenReturn(true);
-    when(_entityClient.exists(any(), eq(SECOND_STEP_STATE_URN))).thenReturn(false);
-
     final DataHubStepStateProperties firstStepStateProperties =
         new DataHubStepStateProperties().setLastModified(AUDIT_STAMP);
 
-    final Set<Urn> urns = ImmutableSet.of(FIRST_STEP_STATE_URN);
+    // Both ids are fetched in one batch; the incomplete step comes back without the properties
+    // aspect and is filtered out of the results.
+    final Set<Urn> urns = ImmutableSet.of(FIRST_STEP_STATE_URN, SECOND_STEP_STATE_URN);
     final Map<String, RecordTemplate> firstAspectMap =
         ImmutableMap.of(DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME, firstStepStateProperties);
     final Map<Urn, EntityResponse> entityResponseMap =
-        ImmutableMap.of(FIRST_STEP_STATE_URN, TestUtils.buildEntityResponse(firstAspectMap));
+        ImmutableMap.of(
+            FIRST_STEP_STATE_URN, TestUtils.buildEntityResponse(firstAspectMap),
+            SECOND_STEP_STATE_URN, TestUtils.buildEntityResponse(ImmutableMap.of()));
 
     when(_entityClient.batchGetV2(any(), eq(DATAHUB_STEP_STATE_ENTITY_NAME), eq(urns), eq(ASPECTS)))
         .thenReturn(entityResponseMap);
@@ -80,6 +83,8 @@ public class BatchGetStepStatesResolverTest {
         _resolver.get(_dataFetchingEnvironment).join();
     assertNotNull(actualBatchResult);
     assertEquals(1, actualBatchResult.getResults().size());
+    assertEquals(FIRST_STEP_STATE_ID, actualBatchResult.getResults().get(0).getId());
+    verify(_entityClient, never()).exists(any(), any());
   }
 
   @Test
@@ -91,9 +96,6 @@ public class BatchGetStepStatesResolverTest {
     final BatchGetStepStatesInput input = new BatchGetStepStatesInput();
     input.setIds(ImmutableList.of(FIRST_STEP_STATE_ID, SECOND_STEP_STATE_ID));
     when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
-
-    when(_entityClient.exists(any(), eq(FIRST_STEP_STATE_URN))).thenReturn(true);
-    when(_entityClient.exists(any(), eq(SECOND_STEP_STATE_URN))).thenReturn(true);
 
     final DataHubStepStateProperties firstStepStateProperties =
         new DataHubStepStateProperties().setLastModified(AUDIT_STAMP);
@@ -117,5 +119,42 @@ public class BatchGetStepStatesResolverTest {
         _resolver.get(_dataFetchingEnvironment).join();
     assertNotNull(actualBatchResult);
     assertEquals(2, actualBatchResult.getResults().size());
+  }
+
+  @Test
+  public void testBatchGetStepStatesMapsPropertiesToResult() throws Exception {
+    final QueryContext mockContext = getMockAllowContext();
+    when(_dataFetchingEnvironment.getContext()).thenReturn(mockContext);
+    when(mockContext.getAuthentication()).thenReturn(_authentication);
+
+    final BatchGetStepStatesInput input = new BatchGetStepStatesInput();
+    input.setIds(ImmutableList.of(FIRST_STEP_STATE_ID));
+    when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
+
+    final DataHubStepStateProperties firstStepStateProperties =
+        new DataHubStepStateProperties()
+            .setProperties(new StringMap(ImmutableMap.of("completed", "true")))
+            .setLastModified(AUDIT_STAMP);
+    final Map<String, RecordTemplate> firstAspectMap =
+        ImmutableMap.of(DATAHUB_STEP_STATE_PROPERTIES_ASPECT_NAME, firstStepStateProperties);
+
+    when(_entityClient.batchGetV2(
+            any(),
+            eq(DATAHUB_STEP_STATE_ENTITY_NAME),
+            eq(ImmutableSet.of(FIRST_STEP_STATE_URN)),
+            eq(ASPECTS)))
+        .thenReturn(
+            ImmutableMap.of(FIRST_STEP_STATE_URN, TestUtils.buildEntityResponse(firstAspectMap)));
+
+    final BatchGetStepStatesResult actualBatchResult =
+        _resolver.get(_dataFetchingEnvironment).join();
+    assertNotNull(actualBatchResult);
+    assertEquals(1, actualBatchResult.getResults().size());
+
+    final StepStateResult stepStateResult = actualBatchResult.getResults().get(0);
+    assertEquals(FIRST_STEP_STATE_ID, stepStateResult.getId());
+    assertEquals(1, stepStateResult.getProperties().size());
+    assertEquals("completed", stepStateResult.getProperties().get(0).getKey());
+    assertEquals("true", stepStateResult.getProperties().get(0).getValue());
   }
 }

@@ -1,6 +1,7 @@
-import { ExpandOutlined } from '@ant-design/icons';
-import { Button } from 'antd';
+import { Button } from '@components';
+import { ArrowsOutSimple } from '@phosphor-icons/react/dist/csr/ArrowsOutSimple';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import CopyQuery from '@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery';
@@ -29,13 +30,21 @@ type Props = {
 };
 
 export default function QueryCardHeader({ query, focused, onClickExpand }: Props) {
+    const { t: tc } = useTranslation('common.actions');
+
     return (
         <Header>
             <Actions opacity={(!focused && 0.3) || 1.0}>
                 <CopyQuery query={query} />
-                <ExpandButton onClick={onClickExpand}>
-                    <ExpandOutlined />
-                </ExpandButton>
+                <ExpandButton
+                    variant="outline"
+                    color="gray"
+                    size="sm"
+                    isCircle
+                    icon={{ icon: ArrowsOutSimple }}
+                    onClick={onClickExpand}
+                    aria-label={tc('expand')}
+                />
             </Actions>
         </Header>
     );

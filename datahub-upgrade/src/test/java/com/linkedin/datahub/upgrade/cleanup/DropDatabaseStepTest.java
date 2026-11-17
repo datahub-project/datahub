@@ -50,6 +50,7 @@ public class DropDatabaseStepTest {
     return new SqlSetupArgs(
         true,
         true,
+        true, // createSchema
         createUser,
         false,
         dbType,

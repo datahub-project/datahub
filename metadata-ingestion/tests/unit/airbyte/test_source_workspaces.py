@@ -4,6 +4,7 @@ import pytest
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.airbyte.client import AirbyteAuthenticationError
 from datahub.ingestion.source.airbyte.config import (
     AirbyteDeploymentType,
     AirbyteSourceConfig,
@@ -122,7 +123,9 @@ def test_get_pipelines(mock_create_client, mock_ctx, mock_client):
 
     mock_client.list_workspaces.assert_called_once()
     mock_client.list_connections.assert_called_once_with(
-        "workspace-1", pattern=AllowDenyPattern.allow_all()
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=False,
     )
     mock_client.get_connection.assert_called_once_with("connection-1")
     mock_client.get_source.assert_called_once_with("source-1")
@@ -189,6 +192,73 @@ def test_get_pipelines_with_filters(mock_create_client, mock_ctx, mock_client):
     source = AirbyteSource(config, mock_ctx)
     pipelines = list(source._get_pipelines())
     assert len(pipelines) == 0
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_get_pipelines_include_inactive_connections(
+    mock_create_client, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+        include_inactive_connections=True,
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    workspace = AirbyteWorkspacePartial(
+        workspace_id="workspace-1",
+        name="Test Workspace",
+    )
+    connection = AirbyteConnectionPartial(
+        connection_id="inactive-connection-1",
+        name="Disabled Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="inactive",
+    )
+    source_model = AirbyteSourcePartial(
+        source_id="source-1",
+        name="Test Source",
+        source_type="postgres",
+        source_definition_id="source-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="destination-1",
+        name="Test Destination",
+        destination_type="postgres",
+        destination_definition_id="dest-def-1",
+        workspace_id="workspace-1",
+        configuration={"host": "localhost", "port": 5432},
+    )
+
+    mock_client.list_workspaces.return_value = [workspace]
+    mock_client.list_connections.return_value = [connection]
+    mock_client.get_connection.return_value = connection
+    mock_client.get_source.return_value = source_model
+    mock_client.get_destination.return_value = destination
+
+    pipelines = list(source._get_pipelines())
+
+    assert len(pipelines) == 1
+    assert isinstance(pipelines[0], AirbytePipelineInfo)
+    assert pipelines[0].workspace.workspace_id == "workspace-1"
+    assert pipelines[0].connection.connection_id == "inactive-connection-1"
+    assert pipelines[0].connection.status == "inactive"
+    assert pipelines[0].source.source_id == "source-1"
+    assert pipelines[0].destination.destination_id == "destination-1"
+
+    mock_client.list_connections.assert_called_once_with(
+        "workspace-1",
+        pattern=AllowDenyPattern.allow_all(),
+        include_inactive=True,
+    )
+    mock_client.get_connection.assert_called_once_with("inactive-connection-1")
+    mock_client.get_source.assert_called_once_with("source-1")
+    mock_client.get_destination.assert_called_once_with("destination-1")
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
@@ -274,7 +344,7 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
     source = AirbyteSource(config, mock_ctx)
 
     mock_client.list_workspaces.return_value = [
-        {"workspaceId": "workspace-1", "name": "Test Workspace"}
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
     ]
     mock_client.list_connections.side_effect = Exception("Connection error")
 
@@ -282,24 +352,242 @@ def test_error_handling_in_get_pipelines(mock_create_client, mock_ctx, mock_clie
 
     assert len(pipelines) == 0
     assert len(source.report.failures) == 1
+    assert not source.report.warnings
 
     source = AirbyteSource(config, mock_ctx)
+    failing_connection = AirbyteConnectionPartial(
+        connection_id="connection-1",
+        name="Failing Connection",
+        source_id="source-1",
+        destination_id="destination-1",
+        status="active",
+    )
+    ok_connection = AirbyteConnectionPartial(
+        connection_id="connection-2",
+        name="Ok Connection",
+        source_id="source-2",
+        destination_id="destination-1",
+        status="active",
+    )
+    ok_source = AirbyteSourcePartial(
+        source_id="source-2",
+        name="Ok Source",
+        source_type="postgres",
+        workspace_id="workspace-1",
+    )
+    destination = AirbyteDestinationPartial(
+        destination_id="destination-1",
+        name="Test Destination",
+        destination_type="postgres",
+        workspace_id="workspace-1",
+    )
     mock_client.list_connections.side_effect = None
-    mock_client.list_connections.return_value = [
-        {
-            "connectionId": "connection-1",
-            "name": "Test Connection",
-            "sourceId": "source-1",
-            "destinationId": "destination-1",
-            "status": "active",
-        }
-    ]
-    mock_client.get_source.side_effect = Exception("Source error")
+    mock_client.list_connections.return_value = [failing_connection, ok_connection]
+    mock_client.get_connection.side_effect = lambda cid: (
+        failing_connection if cid == "connection-1" else ok_connection
+    )
+
+    def get_source(source_id):
+        if source_id == "source-1":
+            raise Exception("Source error")
+        return ok_source
+
+    mock_client.get_source.side_effect = get_source
+    mock_client.get_destination.return_value = destination
 
     pipelines = list(source._get_pipelines())
 
-    assert len(pipelines) == 0
+    assert len(pipelines) == 1
+    assert pipelines[0].connection.connection_id == "connection-2"
     assert len(source.report.failures) == 1
+    assert not source.report.warnings
+
+
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_authentication_error_stops_get_pipelines(
+    mock_create_client, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        )
+    ]
+    mock_client.get_connection.side_effect = AirbyteAuthenticationError(
+        "Airbyte API request failed: 401", status_code=401
+    )
+
+    with pytest.raises(AirbyteAuthenticationError):
+        list(source._get_pipelines())
+
+    assert not source.report.failures
+    assert not source.report.warnings
+
+
+@patch(
+    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
+)
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_authentication_error_stops_get_workunits_internal(
+    mock_create_client, mock_create_lineage, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-1",
+            name="Test Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        )
+    ]
+    mock_client.get_connection.side_effect = AirbyteAuthenticationError(
+        "Airbyte API request failed: 401", status_code=401
+    )
+
+    with pytest.raises(AirbyteAuthenticationError):
+        list(source.get_workunits_internal())
+
+    mock_create_lineage.assert_not_called()
+    assert not source.report.failures
+
+
+@patch(
+    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
+)
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_per_connection_403_fails_connection_not_whole_run(
+    mock_create_client, mock_create_lineage, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    mock_client.list_workspaces.return_value = [
+        AirbyteWorkspacePartial(workspace_id="workspace-1", name="Test Workspace")
+    ]
+    mock_client.list_connections.return_value = [
+        AirbyteConnectionPartial(
+            connection_id="connection-forbidden",
+            name="Forbidden Connection",
+            source_id="source-1",
+            destination_id="destination-1",
+            status="active",
+        ),
+        AirbyteConnectionPartial(
+            connection_id="connection-ok",
+            name="Ok Connection",
+            source_id="source-2",
+            destination_id="destination-2",
+            status="active",
+        ),
+    ]
+
+    def get_connection(connection_id):
+        if connection_id == "connection-forbidden":
+            raise AirbyteAuthenticationError(
+                "Airbyte API request failed: 403", status_code=403
+            )
+        return AirbyteConnectionPartial(
+            connection_id=connection_id,
+            name="Ok Connection",
+            source_id="source-2",
+            destination_id="destination-2",
+            status="active",
+        )
+
+    mock_client.get_connection.side_effect = get_connection
+    mock_client.get_source.return_value = AirbyteSourcePartial(
+        source_id="source-2", name="Source 2", source_type="postgres"
+    )
+    mock_client.get_destination.return_value = AirbyteDestinationPartial(
+        destination_id="destination-2", name="Dest 2", destination_type="snowflake"
+    )
+    mock_create_lineage.return_value = iter([])
+
+    list(source.get_workunits_internal())
+
+    assert any(
+        "connection-forbidden" in failure.context[0]
+        for failure in source.report.failures
+    )
+    mock_create_lineage.assert_called_once()
+
+
+@patch(
+    "datahub.ingestion.source.airbyte.source.AirbyteSource._create_lineage_workunits"
+)
+@patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")
+def test_pipeline_processing_error_is_failure(
+    mock_create_client, mock_create_lineage, mock_ctx, mock_client
+):
+    mock_create_client.return_value = mock_client
+    config = AirbyteSourceConfig(
+        deployment_type=AirbyteDeploymentType.OPEN_SOURCE,
+        host_port="http://localhost:8000",
+        platform_instance="test-instance",
+    )
+    source = AirbyteSource(config, mock_ctx)
+
+    def pipeline(connection_id):
+        return AirbytePipelineInfo(
+            workspace=AirbyteWorkspacePartial(
+                workspace_id="workspace-1", name="Test Workspace"
+            ),
+            connection=AirbyteConnectionPartial(
+                connection_id=connection_id,
+                name="Test Connection",
+                source_id="source-1",
+                destination_id="destination-1",
+            ),
+            source=AirbyteSourcePartial(
+                source_id="source-1",
+                name="Test Source",
+                workspace_id="workspace-1",
+            ),
+            destination=AirbyteDestinationPartial(
+                destination_id="destination-1",
+                name="Test Destination",
+                workspace_id="workspace-1",
+            ),
+        )
+
+    mock_create_lineage.side_effect = [Exception("lineage boom"), ["lineage_workunit"]]
+    pipelines = [pipeline("connection-1"), pipeline("connection-2")]
+    with patch.object(source, "_get_pipelines", return_value=pipelines):
+        workunits = list(source.get_workunits_internal())
+
+    assert workunits == ["lineage_workunit"]
+    assert len(source.report.failures) == 1
+    assert not source.report.warnings
 
 
 @patch("datahub.ingestion.source.airbyte.source.create_airbyte_client")

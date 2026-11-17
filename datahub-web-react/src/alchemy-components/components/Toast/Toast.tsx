@@ -150,6 +150,7 @@ const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
                 type="button"
                 onClick={() => removeToast(entry.id)}
                 aria-label={tc('dismiss')}
+                data-testid="toast-notification-close-icon"
             >
                 <X size={14} weight="bold" />
             </ToastCloseButton>
@@ -159,7 +160,7 @@ const ToastItem = React.memo(({ entry }: { entry: ToastEntry }) => {
 
 /**
  * Mount once inside the app's ThemeProvider tree.
- * Renders toast notifications into a portal at the top-right of the viewport.
+ * Renders toast notifications into viewport-level placement containers.
  */
 export function ToastRenderer() {
     const [, setTick] = useState(0);
@@ -172,13 +173,35 @@ export function ToastRenderer() {
     const currentToasts = toasts;
     if (currentToasts.length === 0) return null;
 
+    const topRightToasts = currentToasts.filter(
+        (entry) => entry.options?.placement !== 'bottomRight' && entry.options?.placement !== 'bottomCenter',
+    );
+    const bottomRightToasts = currentToasts.filter((entry) => entry.options?.placement === 'bottomRight');
+    const bottomCenterToasts = currentToasts.filter((entry) => entry.options?.placement === 'bottomCenter');
+
     return ReactDOM.createPortal(
         <ThemeProvider theme={theme}>
-            <ToastContainer data-testid="toast-notification-container">
-                {currentToasts.map((entry) => (
-                    <ToastItem key={entry.id} entry={entry} />
-                ))}
-            </ToastContainer>
+            {topRightToasts.length > 0 && (
+                <ToastContainer data-testid="toast-notification-container">
+                    {topRightToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
+            {bottomRightToasts.length > 0 && (
+                <ToastContainer $placement="bottomRight" data-testid="toast-notification-container-bottom-right">
+                    {bottomRightToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
+            {bottomCenterToasts.length > 0 && (
+                <ToastContainer $placement="bottomCenter" data-testid="toast-notification-container-bottom-center">
+                    {bottomCenterToasts.map((entry) => (
+                        <ToastItem key={entry.id} entry={entry} />
+                    ))}
+                </ToastContainer>
+            )}
         </ThemeProvider>,
         document.body,
     );

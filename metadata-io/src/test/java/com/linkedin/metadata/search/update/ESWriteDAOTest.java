@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.update;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_OS_SEARCH_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
@@ -12,14 +13,28 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
+import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
+import static org.testng.Assert.expectThrows;
 import static org.testng.Assert.fail;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
+import co.elastic.clients.elasticsearch._types.ErrorResponse;
 import com.datahub.context.OperationFingerprint;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.BulkDeleteConfiguration;
 import com.linkedin.metadata.config.search.BulkProcessorConfiguration;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.search.elasticsearch.SearchWriteAccess;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentWrite.Kind;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
+import com.linkedin.metadata.service.RetryableIndexingException;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import io.datahubproject.metadata.context.OperationContext;
@@ -33,12 +48,18 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutionException;
+import org.apache.http.NoHttpResponseException;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.MockitoAnnotations;
+import org.opensearch.OpenSearchStatusException;
+import org.opensearch.action.DocWriteRequest;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
 import org.opensearch.action.admin.indices.delete.DeleteIndexRequest;
 import org.opensearch.action.delete.DeleteRequest;
+import org.opensearch.action.get.GetRequest;
+import org.opensearch.action.get.GetResponse;
+import org.opensearch.action.index.IndexRequest;
 import org.opensearch.action.support.master.AcknowledgedResponse;
 import org.opensearch.action.update.UpdateRequest;
 import org.opensearch.client.GetAliasesResponse;
@@ -49,7 +70,9 @@ import org.opensearch.client.indices.GetIndexRequest;
 import org.opensearch.client.tasks.GetTaskRequest;
 import org.opensearch.client.tasks.GetTaskResponse;
 import org.opensearch.client.tasks.TaskId;
+import org.opensearch.common.lucene.uid.Versions;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.reindex.DeleteByQueryRequest;
@@ -62,7 +85,7 @@ import org.testng.annotations.Test;
 
 public class ESWriteDAOTest {
 
-  private static final String TEST_DELETE_INDEX = "test_index";
+  private static final String TEST_DELETE_INDEX = "test_index_v2";
   private static final String TEST_NODE_ID = "node1";
   private static final long TEST_TASK_ID = 12345L;
   private static final String TEST_TASK_STRING = TEST_NODE_ID + ":" + TEST_TASK_ID;
@@ -72,24 +95,122 @@ public class ESWriteDAOTest {
   private static final String TEST_INDEX = "datasetindex_v2";
   private static final int NUM_RETRIES = 3;
   private static final String TEST_PATTERN = "*index_v2";
+  private static final String V3_INDEX = "test_groupindex_v3";
+  private static final Urn V3_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
 
   @Mock private SearchClientShim<?> mockSearchClient;
   @Mock private ESBulkProcessor mockBulkProcessor;
-  private final OperationContext opContext = TestOperationContexts.systemContextNoValidate();
+  private OperationContext opContext;
 
   private ESWriteDAO esWriteDAO;
 
   @BeforeMethod
-  public void setup() {
+  public void setup() throws IOException {
     MockitoAnnotations.openMocks(this);
+    opContext =
+        TestOperationContexts.withFixedSearchClient(
+            TestOperationContexts.systemContextNoValidate(), mockSearchClient);
+
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
 
     esWriteDAO =
         new ESWriteDAO(
-            TEST_OS_SEARCH_CONFIG.toBuilder()
-                .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
+            searchConfig(true),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+  }
+
+  private static ElasticSearchConfiguration searchConfig(boolean v3Enabled) {
+    EntityIndexConfiguration entityIndex = TEST_OS_SEARCH_CONFIG.getEntityIndex();
+    return TEST_OS_SEARCH_CONFIG.toBuilder()
+        .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
+        .entityIndex(
+            entityIndex.toBuilder()
+                .v3(entityIndex.getV3().toBuilder().enabled(v3Enabled).build())
+                .build())
+        .build();
+  }
+
+  @Test
+  public void testSearchGroupWritesSkippedWhenV3Disabled() {
+    ESWriteDAO v3DisabledDAO =
+        new ESWriteDAO(
+            searchConfig(false),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    v3DisabledDAO.upsertDocumentBySearchGroup(
+        opContext, "test_group", "{\"field\":\"value\"}", TEST_DOC_ID);
+    v3DisabledDAO.deleteDocumentBySearchGroup(opContext, "test_group", TEST_DOC_ID);
+    v3DisabledDAO.applyScriptUpdateBySearchGroup(
+        opContext, "test_group", TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of());
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
+  public void testUpsertDocumentSkippedWhenV2Disabled() {
+    ElasticSearchConfiguration enabledConfig = searchConfig(true);
+    EntityIndexConfiguration entityIndex = enabledConfig.getEntityIndex();
+    ESWriteDAO v2DisabledDAO =
+        new ESWriteDAO(
+            enabledConfig.toBuilder()
+                .entityIndex(
+                    entityIndex.toBuilder()
+                        .v2(entityIndex.getV2().toBuilder().enabled(false).build())
+                        .build())
                 .build(),
             mockSearchClient,
-            mockBulkProcessor);
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    v2DisabledDAO.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"value\"}", TEST_DOC_ID);
+    v2DisabledDAO.deleteDocument(opContext, TEST_ENTITY, TEST_DOC_ID);
+    v2DisabledDAO.applyScriptUpdate(
+        opContext, TEST_ENTITY, TEST_DOC_ID, "ctx._source.x=1", Map.of(), Map.of("urn", "urn"));
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+
+    clearInvocations(mockBulkProcessor);
+    v2DisabledDAO.deleteDocumentBySearchGroup(opContext, "test_group", TEST_DOC_ID);
+
+    ArgumentCaptor<DeleteRequest> searchGroupDelete = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), searchGroupDelete.capture());
+    assertEquals(searchGroupDelete.getValue().index(), testGroupIndex());
+    assertEquals(searchGroupDelete.getValue().id(), TEST_DOC_ID);
+
+    clearInvocations(mockBulkProcessor);
+    v2DisabledDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(), TEST_DOC_ID, V3_URN, "{\"urn\":\"" + V3_URN + "\"}", Kind.DELETE));
+
+    ArgumentCaptor<DeleteRequest> v3Delete = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), v3Delete.capture());
+    assertEquals(v3Delete.getValue().index(), testGroupIndex());
+    assertEquals(v3Delete.getValue().id(), TEST_DOC_ID);
+  }
+
+  @Test
+  public void testEntityWritesSkippedWhenV2BlockIsMissingAndV3IsOn() {
+    ElasticSearchConfiguration enabledConfig = searchConfig(true);
+    ESWriteDAO noV2BlockDAO =
+        new ESWriteDAO(
+            enabledConfig.toBuilder()
+                .entityIndex(enabledConfig.getEntityIndex().toBuilder().v2(null).build())
+                .build(),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+
+    noV2BlockDAO.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"value\"}", TEST_DOC_ID);
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
   }
 
   @Test
@@ -112,6 +233,171 @@ public class ESWriteDAOTest {
     // Verify the document content
     Map<String, Object> sourceMap = capturedRequest.doc().sourceAsMap();
     assertEquals(sourceMap.get("field"), "value");
+  }
+
+  @Test
+  public void testV3IndexExistenceTransientTransportFailureEscalatesAsRetryable()
+      throws IOException {
+    // A missing index returns false, so an IOException from the existence check is a transport
+    // failure. Transient ones (here NoHttpResponseException) must escalate as retryable so the MAE
+    // transports redeliver the write instead of committing and losing it.
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new NoHttpResponseException("es-host failed to respond"));
+
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+    RetryableIndexingException thrown =
+        expectThrows(
+            RetryableIndexingException.class,
+            () ->
+                esWriteDAO.writeV3SearchDocument(
+                    opContext,
+                    new V3SearchDocumentWrite(
+                        "coreindex_v3",
+                        TEST_DOC_ID,
+                        urn,
+                        "{\"urn\":\"" + urn + "\"}",
+                        V3SearchDocumentWrite.Kind.REPLACE)));
+    assertTrue(thrown.getMessage().contains("transient transport failure"));
+    // The write must not reach the bulk processor when existence cannot be verified.
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
+  public void testV3IndexExistenceNonTransientFailureStaysNonRetryable() throws IOException {
+    // A non-transient IOException (e.g. a config/parse failure a retry cannot recover) stays a hard
+    // IllegalStateException so it is not redelivered forever.
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new IOException("malformed request"));
+
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+    IllegalStateException thrown =
+        expectThrows(
+            IllegalStateException.class,
+            () ->
+                esWriteDAO.writeV3SearchDocument(
+                    opContext,
+                    new V3SearchDocumentWrite(
+                        "coreindex_v3",
+                        TEST_DOC_ID,
+                        urn,
+                        "{\"urn\":\"" + urn + "\"}",
+                        V3SearchDocumentWrite.Kind.REPLACE)));
+    assertTrue(thrown.getMessage().contains("Could not verify V3 index"));
+  }
+
+  // AI-862: the ES8 client throws an unchecked status-bearing ElasticsearchException (not a checked
+  // IOException) for a transient existence-check failure. It must still route through the
+  // classifier
+  // and escalate as retryable rather than escape unwrapped and let the consumer commit past the
+  // missing write.
+  @Test
+  public void testV3IndexExistenceUncheckedEs8TransientEscalatesAsRetryable() throws IOException {
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(es8HttpFailure(503));
+
+    RetryableIndexingException thrown =
+        expectThrows(RetryableIndexingException.class, this::writeSampleV3Document);
+    assertTrue(thrown.getMessage().contains("transient transport failure"));
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  // AI-862: same gap on the OpenSearch shim — an unchecked OpenSearchStatusException (429/5xx) must
+  // escalate as retryable.
+  @Test
+  public void testV3IndexExistenceUncheckedOpenSearchTransientEscalatesAsRetryable()
+      throws IOException {
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new OpenSearchStatusException("rejected", RestStatus.TOO_MANY_REQUESTS));
+
+    RetryableIndexingException thrown =
+        expectThrows(RetryableIndexingException.class, this::writeSampleV3Document);
+    assertTrue(thrown.getMessage().contains("transient transport failure"));
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  // AI-862: a permanent 4xx from the unchecked path stays a hard IllegalStateException (poison), so
+  // it is committed at-most-once rather than redelivered forever.
+  @Test
+  public void testV3IndexExistenceUncheckedPermanentFailureStaysNonRetryable() throws IOException {
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(new OpenSearchStatusException("bad request", RestStatus.BAD_REQUEST));
+
+    IllegalStateException thrown =
+        expectThrows(IllegalStateException.class, this::writeSampleV3Document);
+    assertTrue(thrown.getMessage().contains("Could not verify V3 index"));
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  // AI-862: the existence-check shim may itself throw an already-classified
+  // RetryableIndexingException wrapping a transient cause whose type the generic classifier would
+  // not recognize as retryable (here a bare IOException). The catch must rethrow that instance
+  // unchanged rather than re-wrap it — feeding it back through isRetryableTransportFailure would
+  // misclassify the opaque cause as permanent and drop the write instead of redelivering it.
+  @Test
+  public void testV3IndexExistenceAlreadyRetryableIsRethrownUnwrapped() throws IOException {
+    RetryableIndexingException alreadyClassified =
+        new RetryableIndexingException(
+            "shim already classified this as retryable", new IOException("boom"));
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenThrow(alreadyClassified);
+
+    RetryableIndexingException thrown =
+        expectThrows(RetryableIndexingException.class, this::writeSampleV3Document);
+    assertSame(
+        thrown, alreadyClassified, "an already-retryable failure must be rethrown, not wrapped");
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  private String testGroupIndex() {
+    return opContext
+        .getSearchContext()
+        .getIndexConvention()
+        .getEntityIndexNameV3(opContext, "test_group");
+  }
+
+  private void writeSampleV3Document() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            "coreindex_v3",
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.REPLACE));
+  }
+
+  private static ElasticsearchException es8HttpFailure(int status) {
+    return new ElasticsearchException(
+        "test",
+        ErrorResponse.of(
+            response ->
+                response
+                    .status(status)
+                    .error(error -> error.type("test_error").reason("test failure"))));
+  }
+
+  @Test
+  public void testUpsertDocumentAndSearchGroupHitDifferentBulkProcessors() {
+    ESBulkProcessor v2Bulk = mock(ESBulkProcessor.class);
+    ESBulkProcessor v3Bulk = mock(ESBulkProcessor.class);
+    SearchWriteAccess writeAccess =
+        component -> component == SearchComponent.SEARCH_V3 ? v3Bulk : v2Bulk;
+    ESWriteDAO dao = new ESWriteDAO(searchConfig(true), mockSearchClient, v2Bulk, writeAccess);
+
+    dao.upsertDocument(opContext, TEST_ENTITY, "{\"field\":\"v2\"}", TEST_DOC_ID);
+    verify(v2Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
+    verify(v3Bulk, never())
+        .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
+
+    dao.upsertDocumentBySearchGroup(opContext, "dataset", "{\"field\":\"v3\"}", TEST_DOC_ID);
+    verify(v3Bulk).add(any(OperationContext.class), eq(TEST_DOC_ID), any(UpdateRequest.class));
   }
 
   @Test
@@ -191,8 +477,150 @@ public class ESWriteDAOTest {
   }
 
   @Test
+  public void testApplyScriptUpdateWithoutUpsertNeverCreatesTheDocument() {
+    esWriteDAO.applyScriptUpdateBySearchGroup(
+        opContext,
+        "dataset",
+        TEST_DOC_ID,
+        "ctx._source.runId.add(params.runId)",
+        Map.of("runId", "run-1"),
+        null);
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor)
+        .add(any(OperationContext.class), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertFalse(requestCaptor.getValue().scriptedUpsert());
+    assertNull(requestCaptor.getValue().upsertRequest());
+  }
+
+  @Test
+  public void testGetV3DocumentSourceBySearchGroupReturnsEmptyWhenIndexMissing()
+      throws IOException {
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(false);
+
+    Optional<Map<String, Object>> result =
+        esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, "primary", TEST_DOC_ID);
+
+    assertTrue(result.isEmpty());
+    verify(mockSearchClient, never())
+        .getDocument(
+            any(OperationFingerprint.class), any(GetRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testGetV3DocumentSourceBySearchGroupReturnsEmptyWhenDocumentMissing()
+      throws IOException {
+    GetResponse response = mock(GetResponse.class);
+    when(response.isExists()).thenReturn(false);
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(true);
+    when(mockSearchClient.getDocument(
+            any(OperationFingerprint.class), any(GetRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(response);
+
+    Optional<Map<String, Object>> result =
+        esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, "primary", TEST_DOC_ID);
+
+    assertTrue(result.isEmpty());
+  }
+
+  @Test
+  public void testGetV3DocumentSourceBySearchGroupChecksIndexExistenceOnce() throws IOException {
+    GetResponse response = mock(GetResponse.class);
+    when(response.isExists()).thenReturn(false);
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(true);
+    when(mockSearchClient.getDocument(
+            any(OperationFingerprint.class), any(GetRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(response);
+
+    esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, "primary", TEST_DOC_ID);
+    esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, "primary", "another-doc");
+
+    // One existence check per index per process; every later read goes straight to the GET.
+    verify(mockSearchClient, times(1))
+        .indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT));
+    verify(mockSearchClient, times(2))
+        .getDocument(
+            any(OperationFingerprint.class), any(GetRequest.class), eq(RequestOptions.DEFAULT));
+  }
+
+  @Test
+  public void testGetV3DocumentSourceBySearchGroupReturnsSource() throws IOException {
+    Map<String, Object> source =
+        Map.of("urn", "urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    GetResponse response = mock(GetResponse.class);
+    when(response.isExists()).thenReturn(true);
+    when(response.getSourceAsMap()).thenReturn(source);
+    when(mockSearchClient.indexExists(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(true);
+    when(mockSearchClient.getDocument(
+            any(OperationFingerprint.class), any(GetRequest.class), eq(RequestOptions.DEFAULT)))
+        .thenReturn(response);
+
+    Optional<Map<String, Object>> result =
+        esWriteDAO.getV3DocumentSourceBySearchGroup(opContext, "primary", TEST_DOC_ID);
+
+    assertTrue(result.isPresent());
+    assertEquals(result.get(), source);
+    ArgumentCaptor<GetRequest> requestCaptor = ArgumentCaptor.forClass(GetRequest.class);
+    verify(mockSearchClient)
+        .getDocument(
+            any(OperationFingerprint.class), requestCaptor.capture(), eq(RequestOptions.DEFAULT));
+    assertEquals(requestCaptor.getValue().index(), "primaryindex_v3");
+    assertEquals(requestCaptor.getValue().id(), TEST_DOC_ID);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentTombstoneReplacesTheDocument() {
+    esWriteDAO.writeV3SearchDocument(
+        opContext, v3Write("{\"urn\":\"" + V3_URN + "\",\"removed\":true}", Kind.TOMBSTONE));
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().opType(), DocWriteRequest.OpType.INDEX);
+    assertEquals(requestCaptor.getValue().sourceAsMap().get("removed"), true);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentSkippedWhenV3DisabledOrReadOnly() {
+    ESWriteDAO v3DisabledDAO =
+        new ESWriteDAO(
+            searchConfig(false),
+            mockSearchClient,
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
+    v3DisabledDAO.writeV3SearchDocument(opContext, v3Write("{}", Kind.MERGE));
+
+    esWriteDAO.setWritable(false);
+    esWriteDAO.writeV3SearchDocument(opContext, v3Write("{}", Kind.MERGE));
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  private static V3SearchDocumentWrite v3Write(String source, Kind kind) {
+    return new V3SearchDocumentWrite(V3_INDEX, TEST_DOC_ID, V3_URN, source, kind);
+  }
+
+  @Test
   public void testClear() throws IOException {
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -240,8 +668,8 @@ public class ESWriteDAOTest {
 
     // Verify indices were deleted
     assertEquals(deletedIndices.size(), 2);
-    assertTrue(deletedIndices.contains("index1"));
-    assertTrue(deletedIndices.contains("index2"));
+    assertTrue(deletedIndices.contains("datasetindex_v2"));
+    assertTrue(deletedIndices.contains("chartindex_v2"));
 
     // Verify deleteIndex was called for each index
     ArgumentCaptor<DeleteIndexRequest> deleteRequestCaptor =
@@ -989,6 +1417,7 @@ public class ESWriteDAOTest {
     // Note: We can't directly verify conflicts setting as it's not exposed via getter
     // but we know it's set to "proceed" in the implementation
     assertNotNull(capturedRequest);
+    assertTrue(capturedRequest.isRefresh());
   }
 
   @DataProvider(name = "writabilityConfig")
@@ -1024,11 +1453,10 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
     String document = "{\"data\":\"" + description + "\"}";
     String docId = "doc_" + description;
 
-    esWriteDAO.upsertDocumentByIndexName(opContext, indexName, document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, TEST_INDEX, document, docId);
 
     if (canWrite) {
       verify(mockBulkProcessor, times(1))
@@ -1062,10 +1490,9 @@ public class ESWriteDAOTest {
     // Set writability
     esWriteDAO.setWritable(canWrite);
 
-    String indexName = "test_index_" + description;
     String docId = "doc_" + description;
 
-    esWriteDAO.deleteDocumentByIndexName(opContext, indexName, docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, TEST_INDEX, docId);
 
     if (canWrite) {
       verify(mockBulkProcessor, times(1))
@@ -1093,6 +1520,308 @@ public class ESWriteDAOTest {
       verify(mockBulkProcessor, never())
           .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
     }
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentReplaceIsAnUnversionedIndexRequest() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    V3SearchDocumentWrite write =
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\",\"_entityType\":\"dataset\"}",
+            V3SearchDocumentWrite.Kind.REPLACE);
+
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+
+    IndexRequest capturedRequest = requestCaptor.getValue();
+    assertEquals(
+        capturedRequest.index(),
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, "test_group"));
+    assertEquals(capturedRequest.id(), TEST_DOC_ID);
+    assertEquals(capturedRequest.opType(), DocWriteRequest.OpType.INDEX);
+    assertEquals(capturedRequest.version(), Versions.MATCH_ANY);
+    assertEquals(capturedRequest.sourceAsMap().get("_entityType"), "dataset");
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentCreateNeverOverwritesADocument() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.CREATE));
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().opType(), DocWriteRequest.OpType.CREATE);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentDeleteRemovesTheDocument() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\",\"_v3Tombstone\":true}",
+            V3SearchDocumentWrite.Kind.DELETE));
+
+    ArgumentCaptor<DeleteRequest> requestCaptor = ArgumentCaptor.forClass(DeleteRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().index(), testGroupIndex());
+    assertEquals(requestCaptor.getValue().id(), TEST_DOC_ID);
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentMergeExistingNeverCreatesADocument() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"description\":\"updated\"}",
+            V3SearchDocumentWrite.Kind.MERGE_EXISTING));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertFalse(requestCaptor.getValue().docAsUpsert());
+    assertNull(requestCaptor.getValue().upsertRequest());
+    assertFalse(requestCaptor.getValue().detectNoop());
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentMergeUpsertsThePartialDocument() {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    esWriteDAO.writeV3SearchDocument(
+        opContext,
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"description\":\"updated\"}",
+            V3SearchDocumentWrite.Kind.MERGE));
+
+    ArgumentCaptor<UpdateRequest> requestCaptor = ArgumentCaptor.forClass(UpdateRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+
+    UpdateRequest request = requestCaptor.getValue();
+    assertTrue(request.docAsUpsert());
+    assertFalse(request.detectNoop());
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentUsesSearchV3ClientWhenClustersSplit() throws IOException {
+    SearchClientShim<?> primaryClient = mock(SearchClientShim.class);
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    ESBulkProcessor primaryBulk = mock(ESBulkProcessor.class);
+    ESBulkProcessor v3Bulk = mock(ESBulkProcessor.class);
+    when(v3Client.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(),
+            component -> component == SearchComponent.SEARCH_V3 ? v3Client : primaryClient);
+    ESWriteDAO dao =
+        new ESWriteDAO(
+            searchConfig(true),
+            primaryClient,
+            primaryBulk,
+            component -> component == SearchComponent.SEARCH_V3 ? v3Bulk : primaryBulk);
+
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+    dao.writeV3SearchDocument(
+        splitContext,
+        new V3SearchDocumentWrite(
+            "coreindex_v3",
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.REPLACE));
+
+    verify(v3Client)
+        .indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(primaryClient, never())
+        .indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(v3Bulk).add(eq(splitContext), eq(TEST_DOC_ID), any(IndexRequest.class));
+    verify(primaryBulk, never()).add(any(), any(), any());
+  }
+
+  @Test
+  public void testGetV3DocumentSourceUsesSearchV3ClientWhenClustersSplit() throws IOException {
+    SearchClientShim<?> primaryClient = mock(SearchClientShim.class);
+    SearchClientShim<?> v3Client = mock(SearchClientShim.class);
+    ESBulkProcessor primaryBulk = mock(ESBulkProcessor.class);
+    when(v3Client.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(true);
+    GetResponse response = mock(GetResponse.class);
+    when(response.isExists()).thenReturn(true);
+    when(response.getSourceAsMap()).thenReturn(Map.of("urn", "urn:li:dataset:x"));
+    when(v3Client.getDocument(
+            any(OperationContext.class), any(GetRequest.class), any(RequestOptions.class)))
+        .thenReturn(response);
+
+    OperationContext splitContext =
+        TestOperationContexts.withSearchClusterAccess(
+            TestOperationContexts.systemContextNoValidate(),
+            component -> component == SearchComponent.SEARCH_V3 ? v3Client : primaryClient);
+    ESWriteDAO dao =
+        new ESWriteDAO(
+            searchConfig(true), primaryClient, primaryBulk, SearchWriteAccess.fixed(primaryBulk));
+
+    Optional<Map<String, Object>> source =
+        dao.getV3DocumentSourceBySearchGroup(splitContext, "primary", TEST_DOC_ID);
+
+    assertEquals(source.orElseThrow().get("urn"), "urn:li:dataset:x");
+    verify(v3Client)
+        .indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(v3Client)
+        .getDocument(any(OperationContext.class), any(GetRequest.class), any(RequestOptions.class));
+    verify(primaryClient, never())
+        .indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class));
+    verify(primaryClient, never())
+        .getDocument(any(OperationContext.class), any(GetRequest.class), any(RequestOptions.class));
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentRefusesToAutoCreateMissingIndex() throws IOException {
+    // A bulk write against a missing direct-named V3 index would auto-create it with dynamic
+    // mappings (text-typed urn/_entityType), breaking keyword reads. The write must fail loudly
+    // instead of creating the index.
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    V3SearchDocumentWrite write =
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.REPLACE);
+
+    expectThrows(
+        IllegalStateException.class, () -> esWriteDAO.writeV3SearchDocument(opContext, write));
+    expectThrows(
+        IllegalStateException.class,
+        () -> esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", "{}", TEST_DOC_ID));
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
+  public void testClearEvictsVerifiedV3IndexCache() throws IOException {
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    V3SearchDocumentWrite write =
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.REPLACE);
+
+    // Two writes: existence verified once, then served from the cache.
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+    verify(mockSearchClient, times(1))
+        .indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class));
+
+    // clear() deletes the verified index out from under the cache.
+    String v3Index =
+        opContext
+            .getSearchContext()
+            .getIndexConvention()
+            .getEntityIndexNameV3(opContext, "test_group");
+    GetIndexResponse mockResponse = mock(GetIndexResponse.class);
+    when(mockResponse.getIndices()).thenReturn(new String[] {v3Index});
+    when(mockSearchClient.getIndex(
+            any(OperationFingerprint.class),
+            any(GetIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockResponse);
+    GetAliasesResponse mockAliasesResponse = mock(GetAliasesResponse.class);
+    when(mockAliasesResponse.getAliases()).thenReturn(java.util.Collections.emptyMap());
+    when(mockSearchClient.getIndexAliases(
+            any(OperationFingerprint.class),
+            any(GetAliasesRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockAliasesResponse);
+    AcknowledgedResponse mockDeleteResponse = mock(AcknowledgedResponse.class);
+    when(mockDeleteResponse.isAcknowledged()).thenReturn(true);
+    when(mockSearchClient.deleteIndex(
+            any(OperationFingerprint.class),
+            any(DeleteIndexRequest.class),
+            eq(RequestOptions.DEFAULT)))
+        .thenReturn(mockDeleteResponse);
+    esWriteDAO.clear(opContext);
+
+    // The next write must re-verify existence instead of trusting the stale cache and
+    // auto-creating the deleted index with dynamic mappings.
+    when(mockSearchClient.indexExists(
+            any(OperationContext.class), any(GetIndexRequest.class), any(RequestOptions.class)))
+        .thenReturn(false);
+    expectThrows(
+        IllegalStateException.class, () -> esWriteDAO.writeV3SearchDocument(opContext, write));
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentBlockedWhenNotWritable() {
+    esWriteDAO.setWritable(false);
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    V3SearchDocumentWrite write =
+        new V3SearchDocumentWrite(
+            testGroupIndex(),
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\"}",
+            V3SearchDocumentWrite.Kind.TOMBSTONE);
+
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+
+    verify(mockBulkProcessor, never()).add(any(OperationContext.class), any(String.class), any());
+  }
+
+  @Test
+  public void testWriteV3SearchDocumentTargetsTheIndexNamedOnTheWrite() {
+    // A physical backing index, not the group alias: the rollback dual-write and rebuild fill
+    // paths name their target directly and the writer must not re-resolve it.
+    String physicalIndex = "test_groupindex_v3_0_13_1_0_1704067200000";
+    Urn urn = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:test,my_db.my_table,PROD)");
+    V3SearchDocumentWrite write =
+        new V3SearchDocumentWrite(
+            physicalIndex,
+            TEST_DOC_ID,
+            urn,
+            "{\"urn\":\"" + urn + "\",\"_entityType\":\"dataset\"}",
+            V3SearchDocumentWrite.Kind.REPLACE);
+
+    esWriteDAO.writeV3SearchDocument(opContext, write);
+
+    ArgumentCaptor<IndexRequest> requestCaptor = ArgumentCaptor.forClass(IndexRequest.class);
+    verify(mockBulkProcessor).add(eq(opContext), eq(TEST_DOC_ID), requestCaptor.capture());
+    assertEquals(requestCaptor.getValue().index(), physicalIndex);
   }
 
   @Test(dataProvider = "writabilityConfig")
@@ -1139,7 +1868,7 @@ public class ESWriteDAOTest {
   public void testClearWithWritability(boolean canWrite, String description) throws IOException {
     esWriteDAO.setWritable(canWrite);
 
-    String[] indices = new String[] {"index1", "index2"};
+    String[] indices = new String[] {"datasetindex_v2", "chartindex_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -1178,8 +1907,8 @@ public class ESWriteDAOTest {
     if (canWrite) {
       // Verify indices were deleted
       assertEquals(deletedIndices.size(), 2);
-      assertTrue(deletedIndices.contains("index1"));
-      assertTrue(deletedIndices.contains("index2"));
+      assertTrue(deletedIndices.contains("datasetindex_v2"));
+      assertTrue(deletedIndices.contains("chartindex_v2"));
       // Verify deleteIndex was called for each index
       verify(mockSearchClient, times(2))
           .deleteIndex(
@@ -1307,7 +2036,7 @@ public class ESWriteDAOTest {
         .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
     // 2. upsertDocumentByIndexName
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, "doc2");
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "doc2");
     verify(mockBulkProcessor, never())
         .add(any(OperationContext.class), any(String.class), any(UpdateRequest.class));
 
@@ -1317,7 +2046,7 @@ public class ESWriteDAOTest {
         .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
     // 4. deleteDocumentByIndexName
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", "doc4");
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", "doc4");
     verify(mockBulkProcessor, never())
         .add(any(OperationContext.class), any(String.class), any(DeleteRequest.class));
 
@@ -1378,15 +2107,16 @@ public class ESWriteDAOTest {
 
     // All write operations should be blocked
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "migrationDoc1");
-    esWriteDAO.upsertDocumentByIndexName(opContext, "migration_index", document, "migrationDoc2");
+    esWriteDAO.upsertDocumentByIndexName(
+        opContext, "migration_index_v2", document, "migrationDoc2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "migrationDoc3");
-    esWriteDAO.deleteDocumentByIndexName(opContext, "migration_index", "migrationDoc4");
+    esWriteDAO.deleteDocumentByIndexName(opContext, "migration_index_v2", "migrationDoc4");
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "migration_group", document, "migrationDoc5");
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "migration_group", "migrationDoc6");
     esWriteDAO.applyScriptUpdate(
         opContext, TEST_ENTITY, "migrationDoc7", "script", new HashMap<>(), new HashMap<>());
 
-    String[] indices = new String[] {"migration_index"};
+    String[] indices = new String[] {"migration_index_v2"};
     GetIndexResponse mockResponse = mock(GetIndexResponse.class);
     when(mockResponse.getIndices()).thenReturn(indices);
     when(mockSearchClient.getIndex(
@@ -1398,13 +2128,13 @@ public class ESWriteDAOTest {
 
     CompletableFuture<String> asyncResult =
         esWriteDAO.deleteByQueryAsync(
-            opContext, "migration_index", QueryBuilders.matchAllQuery(), null);
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     String asyncTaskId = asyncResult.get();
     assertEquals(asyncTaskId, "");
 
     ESWriteDAO.DeleteByQueryResult syncResult =
         esWriteDAO.deleteByQuerySync(
-            opContext, "migration_index", QueryBuilders.matchAllQuery(), null);
+            opContext, "migration_index_v2", QueryBuilders.matchAllQuery(), null);
     assertNotNull(syncResult);
     assertFalse(syncResult.isSuccess());
 
@@ -1429,7 +2159,7 @@ public class ESWriteDAOTest {
     String document = "{\"seq\":\"test\"}";
 
     esWriteDAO.upsertDocument(opContext, TEST_ENTITY, document, "seq1");
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, "seq2");
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, "seq2");
     esWriteDAO.deleteDocument(opContext, TEST_ENTITY, "seq3");
 
     verify(mockBulkProcessor, times(2))
@@ -1514,7 +2244,8 @@ public class ESWriteDAOTest {
                 .bulkProcessor(BulkProcessorConfiguration.builder().numRetries(NUM_RETRIES).build())
                 .build(),
             mockSearchClient,
-            mockBulkProcessor);
+            mockBulkProcessor,
+            SearchWriteAccess.fixed(mockBulkProcessor));
 
     esWriteDAO.setWritable(false);
 
@@ -1542,7 +2273,7 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
     verify(mockBulkProcessor, never())
@@ -1550,7 +2281,7 @@ public class ESWriteDAOTest {
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index", document, docId);
+    esWriteDAO.upsertDocumentByIndexName(opContext, "test_index_v2", document, docId);
     esWriteDAO.upsertDocumentBySearchGroup(opContext, "test_group", document, docId);
 
     verify(mockBulkProcessor, times(2))
@@ -1564,7 +2295,7 @@ public class ESWriteDAOTest {
     String docId = "testDoc";
 
     // Both methods should behave the same way when not writable
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
     verify(mockBulkProcessor, never())
@@ -1572,7 +2303,7 @@ public class ESWriteDAOTest {
 
     esWriteDAO.setWritable(true);
 
-    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index", docId);
+    esWriteDAO.deleteDocumentByIndexName(opContext, "test_index_v2", docId);
     esWriteDAO.deleteDocumentBySearchGroup(opContext, "test_group", docId);
 
     verify(mockBulkProcessor, times(2))
@@ -1617,5 +2348,14 @@ public class ESWriteDAOTest {
 
     // Should not even try to get indices when not writable
     verify(mockSearchClient, never()).getIndex(any(), any(), any());
+  }
+
+  @Test
+  public void testUnrecognizedIndexNameIsAnError() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            esWriteDAO.upsertDocumentByIndexName(
+                opContext, "graph_service_v1", "{\"field\":\"value\"}", TEST_DOC_ID));
   }
 }

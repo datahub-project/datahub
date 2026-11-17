@@ -21,8 +21,8 @@ interface ContextDocumentsPermissions {
  * use `useDocumentPermissions` instead.
  *
  * Permission Rules:
- * - Create: Requires MANAGE_DOCUMENTS platform privilege
- * - Manage (delete/move): Requires MANAGE_DOCUMENTS platform privilege
+ * - Create: Requires CREATE_ENTITY or EDIT_ENTITY for Documents, or MANAGE_DOCUMENTS
+ * - Manage (delete/move/import): Requires MANAGE_DOCUMENTS platform privilege
  *
  * @returns ContextDocumentsPermissions object with permission flags
  */
@@ -39,9 +39,10 @@ export function useContextDocumentsPermissions(): ContextDocumentsPermissions {
         }
 
         const hasManageDocuments = platformPrivileges?.manageDocuments || false;
+        const canCreateDocuments = platformPrivileges?.createDocuments || false;
 
         return {
-            canCreate: hasManageDocuments,
+            canCreate: canCreateDocuments,
             canManage: hasManageDocuments,
         };
     }, [platformPrivileges, loaded]);

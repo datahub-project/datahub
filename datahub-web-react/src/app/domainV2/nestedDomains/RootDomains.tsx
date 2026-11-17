@@ -1,4 +1,4 @@
-import { ReadOutlined } from '@ant-design/icons';
+import { BookOpen } from '@phosphor-icons/react/dist/csr/BookOpen';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -6,8 +6,8 @@ import styled from 'styled-components';
 import EmptyDomainDescription from '@app/domainV2/EmptyDomainDescription';
 import EmptyDomainsSection from '@app/domainV2/EmptyDomainsSection';
 import useScrollDomains from '@app/domainV2/useScrollDomains';
-import Loading from '@app/shared/Loading';
-import { Message } from '@app/shared/Message';
+import Loading from '@app/sharedV2/Loading';
+import { Message } from '@app/sharedV2/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { EntityType } from '@types';
@@ -47,7 +47,7 @@ export default function RootDomains({ setIsCreatingDomain }: Props) {
             {error && <Message type="error" content={t('list.loadError')} />}
             {hasInitialized && domains.length === 0 && (
                 <EmptyDomainsSection
-                    icon={<ReadOutlined />}
+                    icon={<BookOpen />}
                     title={t('empty.organizeTitle')}
                     description={<EmptyDomainDescription />}
                     setIsCreatingDomain={setIsCreatingDomain}

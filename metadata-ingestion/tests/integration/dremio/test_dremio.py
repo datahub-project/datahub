@@ -29,9 +29,12 @@ AWS_ROOT_PATH = "/warehouse"
 
 
 def is_minio_up(container_name: str) -> bool:
-    """A cheap way to figure out if postgres is responsive on a container"""
+    """True once MinIO or Silo has logged that the API is online."""
 
-    cmd = f"docker logs {container_name} 2>&1 | grep '1 Online'"
+    cmd = (
+        f"docker logs {container_name} 2>&1 | "
+        "grep -E '1 Online|Silo Object Storage Server'"
+    )
     ret = subprocess.run(
         cmd,
         shell=True,

@@ -1,3 +1,4 @@
+import importlib.util
 from unittest.mock import Mock
 
 import pytest
@@ -19,6 +20,10 @@ def client(mock_graph: Mock) -> DataHubClient:
     return DataHubClient(graph=mock_graph)
 
 
+@pytest.mark.skipif(
+    importlib.util.find_spec("acryl_datahub_cloud") is not None,
+    reason="acryl-datahub-cloud is installed, so the not-installed fallback cannot be reached",
+)
 def test_use_assertions_client_fails_if_not_installed(
     client: DataHubClient, mock_graph: Mock
 ) -> None:

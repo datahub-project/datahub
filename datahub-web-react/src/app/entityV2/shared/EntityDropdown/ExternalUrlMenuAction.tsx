@@ -1,7 +1,7 @@
 import React from 'react';
 
 import ViewInPlatform from '@app/entityV2/shared/externalUrl/ViewInPlatform';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 
 interface Props {
     shouldFillAllAvailableSpace?: boolean;

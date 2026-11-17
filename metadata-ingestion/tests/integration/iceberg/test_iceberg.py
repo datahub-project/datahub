@@ -7,7 +7,7 @@ import time_machine
 
 from datahub.testing import mce_helpers
 from tests.test_helpers.click_helpers import run_datahub_cmd
-from tests.test_helpers.docker_helpers import cleanup_image, wait_for_port
+from tests.test_helpers.docker_helpers import wait_for_port
 from tests.test_helpers.state_helpers import (
     get_current_checkpoint_from_pipeline,
     run_and_get_pipeline,
@@ -27,14 +27,6 @@ PATHS_IN_GOLDEN_FILE_TO_IGNORE = [
     r"root\[\d+\].+\['customProperties'\]\['snapshot-id'\]",
     r"root\[\d+\].+\['customProperties'\]\['manifest-list'\]",
 ]
-
-
-@pytest.fixture(autouse=True, scope="module")
-def remove_docker_image():
-    yield
-
-    # The tabulario/spark-iceberg image is pretty large, so we remove it after the test.
-    cleanup_image("tabulario/spark-iceberg")
 
 
 def spark_submit(file_path: str, args: str = "") -> None:

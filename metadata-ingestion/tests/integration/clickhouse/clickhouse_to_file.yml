@@ -5,7 +5,7 @@ source:
   config:
     username: clickhouseuser
     password: clickhousepass
-    host_port: localhost:28123
+    host_port: "localhost:${CLICKHOUSE_PORT}"
     platform_instance: clickhousetestserver
     database_pattern:
       allow:

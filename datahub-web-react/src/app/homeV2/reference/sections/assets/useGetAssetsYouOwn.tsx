@@ -1,8 +1,8 @@
 import { useCallback, useMemo } from 'react';
 
 import { useModuleContext } from '@app/homeV3/module/context/ModuleContext';
-import { ASSET_ENTITY_TYPES, OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { OWNERS_FILTER_NAME } from '@app/searchV2/utils/constants';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import useGetUserGroupUrns from '@src/app/entityV2/user/useGetUserGroupUrns';
 
 import { useGetSearchResultsForMultipleCardsQuery } from '@graphql/search.generated';
@@ -21,7 +21,7 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
                 query: '*',
                 start,
                 count,
-                types: ASSET_ENTITY_TYPES,
+                types: [], // Get all default searchable entity types from backend
                 filters: [
                     {
                         field: OWNERS_FILTER_NAME,
@@ -46,7 +46,7 @@ export const useGetAssetsYouOwn = (user?: CorpUser | null, initialCount = MAX_AS
         onCompleted: () => onReloadingFinished(),
     });
 
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const originEntities = useMemo(
         () => data?.searchAcrossEntities?.searchResults?.map((result) => result.entity) || [],
         [data?.searchAcrossEntities?.searchResults],

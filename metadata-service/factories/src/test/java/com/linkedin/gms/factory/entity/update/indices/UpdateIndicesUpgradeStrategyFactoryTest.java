@@ -16,9 +16,10 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.metadata.boot.BootstrapStep;
-import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.entity.upgrade.EntityClientUpgradeResultStore;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.upgrade.DataHubUpgradeResult;
@@ -32,16 +33,17 @@ import org.mockito.ArgumentCaptor;
 import org.testng.annotations.Test;
 
 /**
- * Tests the persist behavior of the dual-write start time callback created by the factory. Verifies
- * that the callback actually writes the updated map back to the entity service.
+ * Tests the persist behavior of the dual-write start time callback created by the factory. The
+ * factory reaches storage through {@link SystemEntityClient}, not {@code EntityService}, so that
+ * dual-write also works in the standalone MAE consumer, which has no datasource.
  */
 public class UpdateIndicesUpgradeStrategyFactoryTest {
 
   private static final String UPGRADE_VERSION = "0.14.0-0";
 
   @Test
-  public void testPersistDualWriteStartTimeCallsIngestProposal() throws Exception {
-    EntityService<?> entityService = mock(EntityService.class);
+  public void testPersistDualWriteStartTimeCallsEntityClientIngestProposal() throws Exception {
+    SystemEntityClient entityClient = mock(SystemEntityClient.class);
     OperationContext opContext = TestOperationContexts.systemContextNoValidate();
     Urn upgradeIdUrn = BootstrapStep.getUpgradeUrn("BuildIndicesIncremental_" + UPGRADE_VERSION);
 
@@ -55,34 +57,30 @@ public class UpdateIndicesUpgradeStrategyFactoryTest {
     existingResult.setState(DataHubUpgradeState.SUCCEEDED);
     existingResult.setResult(new StringMap(existingState));
 
-    EntityResponse entityResponse = new EntityResponse();
-    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
     EnvelopedAspect envelopedAspect = new EnvelopedAspect();
     envelopedAspect.setValue(new Aspect(existingResult.data()));
+    envelopedAspect.setSystemMetadata(new SystemMetadata().setVersion("1"));
+
+    EnvelopedAspectMap aspects = new EnvelopedAspectMap();
     aspects.put("dataHubUpgradeResult", envelopedAspect);
+    EntityResponse entityResponse = new EntityResponse();
     entityResponse.setAspects(aspects);
 
-    when(entityService.getEntityV2(eq(opContext), any(), eq(upgradeIdUrn), any(Set.class)))
-        .thenReturn(entityResponse);
-
-    EnvelopedAspect forConditional = new EnvelopedAspect();
-    forConditional.setValue(new Aspect(existingResult.data()));
-    forConditional.setSystemMetadata(new SystemMetadata().setVersion("1"));
-    when(entityService.getLatestEnvelopedAspect(
-            eq(opContext), any(), eq(upgradeIdUrn), eq("dataHubUpgradeResult")))
-        .thenReturn(forConditional);
+    when(entityClient.batchGetV2NoCache(
+            eq(opContext), any(), eq(Set.of(upgradeIdUrn)), any(Set.class)))
+        .thenReturn(Map.of(upgradeIdUrn, entityResponse));
 
     DataHubUpgradeResultConditionalPersist.mergeAndPersist(
         opContext,
-        entityService,
+        new EntityClientUpgradeResultStore(entityClient),
         upgradeIdUrn,
         DataHubUpgradeResultConditionalPersist.putResultEntry(
-            "datasetindex_v2.dualWriteStartTime", "1500", null));
+            "datasetindex_v2.dualWriteStartTime", "1500", null),
+        DataHubUpgradeResultConditionalPersist.CLIENT_MAX_ATTEMPTS);
 
-    // Verify ingestProposal was called
     ArgumentCaptor<MetadataChangeProposal> mcpCaptor =
         ArgumentCaptor.forClass(MetadataChangeProposal.class);
-    verify(entityService).ingestProposal(eq(opContext), mcpCaptor.capture(), any(), anyBoolean());
+    verify(entityClient).ingestProposal(eq(opContext), mcpCaptor.capture(), anyBoolean());
 
     MetadataChangeProposal capturedMcp = mcpCaptor.getValue();
     assertTrue(capturedMcp.getEntityUrn().toString().contains("BuildIndicesIncremental"));

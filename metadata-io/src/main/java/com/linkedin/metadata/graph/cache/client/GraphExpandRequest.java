@@ -33,4 +33,7 @@ public class GraphExpandRequest {
   int limit;
 
   @Builder.Default int maxDepth = EntityGraphCache.USE_DEFINITION_MAX_DEPTH;
+
+  /** When true, hit only a trusted full-walk write-back and do not rebuild on miss. */
+  @Builder.Default boolean requireFullPath = false;
 }

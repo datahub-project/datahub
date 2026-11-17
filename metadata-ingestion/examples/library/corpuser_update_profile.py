@@ -1,11 +1,7 @@
 # metadata-ingestion/examples/library/corpuser_update_profile.py
-import logging
 
 from datahub.api.entities.corpuser.corpuser import CorpUser, CorpUserGenerationConfig
 from datahub.ingestion.graph.client import DataHubGraph, DataHubGraphConfig
-
-log = logging.getLogger(__name__)
-logging.basicConfig(level=logging.INFO)
 
 # Update a user's editable profile information
 user = CorpUser(
@@ -27,4 +23,4 @@ for event in user.generate_mcp(
 ):
     datahub_graph.emit(event)
 
-log.info(f"Updated profile for user {user.urn}")
+print(f"Updated profile for user {user.urn}")

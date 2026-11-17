@@ -10,10 +10,13 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLErrorCode;
+import com.linkedin.datahub.graphql.exception.DataHubGraphQLException;
 import com.linkedin.datahub.graphql.generated.CreateDocumentInput;
 import com.linkedin.datahub.graphql.generated.OwnerInput;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.service.DocumentService;
+import com.linkedin.metadata.service.SearchIndexMode;
 import com.linkedin.metadata.service.ServiceAuthorizationException;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -121,11 +124,15 @@ public class CreateDocumentResolver implements DataFetcher<CompletableFuture<Str
                     relatedDocumentUrns,
                     settings,
                     owners,
-                    actorUrn);
+                    actorUrn,
+                    SearchIndexMode.SYNC);
 
             return documentUrn.toString();
           } catch (ServiceAuthorizationException e) {
             throw new AuthorizationException(e.getMessage(), e);
+          } catch (IllegalArgumentException e) {
+            throw new DataHubGraphQLException(
+                e.getMessage(), DataHubGraphQLErrorCode.BAD_REQUEST, e);
           } catch (Exception e) {
             log.error(
                 "Failed to create Document with id: {}, subType: {}: {}",

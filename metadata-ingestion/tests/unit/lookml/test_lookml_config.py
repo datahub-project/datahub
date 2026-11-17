@@ -277,6 +277,73 @@ def test_project_dependencies_mixed_local_path_and_git_info(
     )
 
 
+def test_remote_dependency_domain_pattern_defaults_to_allow_all(
+    minimal_lookml_config: dict,
+) -> None:
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    # Default is allow_all(): everything not in the hard denylist is permitted.
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("anything.example.com")
+
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com$", ".*\\.github\\.com$"],
+        "deny": ["^evil\\.example$"],
+    }
+    config = LookMLSourceConfig.model_validate(minimal_lookml_config)
+    assert config.remote_dependency_domain_pattern.allowed("github.com")
+    assert config.remote_dependency_domain_pattern.allowed("gist.github.com")
+    assert not config.remote_dependency_domain_pattern.allowed("evil.example")
+    assert not config.remote_dependency_domain_pattern.allowed("gitlab.com")
+
+
+def test_unanchored_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # An unanchored allow entry (no trailing "$") prefix-matches sub-hosts like
+    # github.com.evil.example, defeating the allowlist, so it is rejected.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["github.com"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_alternation_allow_pattern_rejected(minimal_lookml_config: dict) -> None:
+    # "|" hides an unanchored branch behind a trailing "$": the entry below ends
+    # in "$" (passing the anchor check) but its first branch matches
+    # github.com.evil.example. Alternation is rejected outright.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com\\.evil|^github\\.com$"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_malformed_regex_allow_pattern_rejected_at_load(
+    minimal_lookml_config: dict,
+) -> None:
+    # A pattern can clear the anchor and alternation checks yet still be an
+    # invalid regex (here an unterminated character class). AllowDenyPattern
+    # compiles lazily, so without a load-time check this crashes mid-ingestion
+    # inside check_remote_dependency_url, where there is no handler.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com[$"]
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
+def test_malformed_regex_deny_pattern_rejected_at_load(
+    minimal_lookml_config: dict,
+) -> None:
+    # deny is compiled too: AllowDenyPattern.denied() runs first, so a malformed
+    # deny is the more likely crash. It must fail at load, not mid-ingestion.
+    minimal_lookml_config["remote_dependency_domain_pattern"] = {
+        "allow": ["^github\\.com$"],
+        "deny": ["^evil\\.com[$"],
+    }
+    with pytest.raises(ValidationError):
+        LookMLSourceConfig.model_validate(minimal_lookml_config)
+
+
 # ---- LookMLSource.get_workunits_internal: git clone failure ----
 
 

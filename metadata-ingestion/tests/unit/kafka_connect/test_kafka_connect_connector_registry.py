@@ -1,11 +1,17 @@
 """Tests for connector_registry module."""
 
+from typing import Dict
 from unittest.mock import Mock
+
+import pytest
+from pydantic import ValidationError
 
 from datahub.ingestion.source.kafka_connect.common import (
     MYSQL_SINK_CLOUD,
     POSTGRES_CDC_SOURCE_CLOUD,
     POSTGRES_SINK_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
+    S3_SOURCE_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -34,7 +40,9 @@ from datahub.ingestion.source.kafka_connect.sink_connectors import (
 from datahub.ingestion.source.kafka_connect.source_connectors import (
     JDBC_SOURCE_CONNECTOR_CLASS,
     MONGO_SOURCE_CONNECTOR_CLASS,
+    S3_SOURCE_CONNECTOR_CLASS,
     ConfluentJDBCSourceConnector,
+    ConfluentS3SourceConnector,
     DebeziumSourceConnector,
     MongoSourceConnector,
     SnowflakeSourceConnector,
@@ -115,6 +123,148 @@ class TestConnectorRegistrySourceConnectors:
         assert connector is not None
         assert isinstance(connector, DebeziumSourceConnector)
         assert connector.get_platform() == "postgres"
+
+    @pytest.mark.parametrize(
+        "connector_class,extra_config,expected_type,expected_platform",
+        [
+            # Managed JDBC source: topics are {topic.prefix}{table}, not Debezium's
+            # {server}.{schema}.{table}.
+            (
+                POSTGRES_SOURCE_CLOUD,
+                {
+                    "connection.host": "db.example",
+                    "connection.port": "5432",
+                    "db.name": "shop",
+                },
+                ConfluentJDBCSourceConnector,
+                "postgres",
+            ),
+            (S3_SOURCE_CLOUD, {}, ConfluentS3SourceConnector, "s3"),
+            (S3_SOURCE_CONNECTOR_CLASS, {}, ConfluentS3SourceConnector, "s3"),
+        ],
+    )
+    def test_new_source_connector_routing(
+        self,
+        connector_class: str,
+        extra_config: Dict[str, str],
+        expected_type: type,
+        expected_platform: str,
+    ) -> None:
+        manifest = create_manifest(SOURCE, connector_class)
+        manifest.config.update(extra_config)
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, create_mock_config(), create_mock_report()
+        )
+
+        assert isinstance(connector, expected_type)
+        assert connector is not None and connector.get_platform() == expected_platform
+
+    def test_generic_source_mapping_overrides_a_built_in_source(self) -> None:
+        manifest = create_manifest(
+            SOURCE, JDBC_SOURCE_CONNECTOR_CLASS, name="my-jdbc-source"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-jdbc-source",
+            source_platform="postgres",
+            source_dataset="shop.public.orders",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, create_mock_report()
+        )
+
+        assert isinstance(connector, _GenericConnector)
+        assert connector.generic_config == generic_config
+
+    def test_sink_direction_generic_entry_does_not_replace_the_s3_source(
+        self,
+    ) -> None:
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="kafka",
+                source_dataset="orders",
+                target_platform="s3",
+                target_dataset="my-bucket/orders",
+            )
+        ]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        # Lineage stays S3 -> topic instead of being inverted by the sink-shaped entry.
+        assert isinstance(connector, ConfluentS3SourceConnector)
+        report.warning.assert_called_once()  # type: ignore[attr-defined]
+
+    def test_generic_source_overrides_s3_class(self) -> None:
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        generic_config = GenericConnectorConfig(
+            connector_name="my-s3-source",
+            source_platform="s3",
+            source_dataset="my-bucket/custom-prefix",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, _GenericConnector)
+        assert connector.generic_config == generic_config
+
+    def test_generic_s3_source_on_cloud_uses_topics_named_in_config(self) -> None:
+        # Confluent Cloud reports no topics per connector; topic.regex.list names them.
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        manifest.config["topic.regex.list"] = "orders:.*,payments:.*"
+        config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="s3",
+                source_dataset="my-bucket/custom-prefix",
+            )
+        ]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+        assert connector is not None
+
+        assert [lineage.target_dataset for lineage in connector.extract_lineages()] == [
+            "orders",
+            "payments",
+        ]
+
+    def test_generic_source_with_no_known_topics_reports_it(self) -> None:
+        manifest = create_manifest(SOURCE, S3_SOURCE_CLOUD, name="my-s3-source")
+        config = create_mock_config()
+        config.generic_connectors = [
+            GenericConnectorConfig(
+                connector_name="my-s3-source",
+                source_platform="s3",
+                source_dataset="my-bucket/custom-prefix",
+            )
+        ]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+        assert connector is not None
+
+        assert connector.extract_lineages() == []
+        report.warning.assert_called_once()  # type: ignore[attr-defined]
 
     def test_debezium_connector_with_prefix(self) -> None:
         """Test routing for Debezium connector with standard prefix."""
@@ -407,6 +557,118 @@ class TestConnectorRegistryGenericConnectors:
 
         assert connector is None
 
+    def test_generic_sink_overrides_jdbc_class(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, _GenericConnector)
+        assert connector.generic_config == generic_config
+
+    def test_source_only_generic_does_not_override_jdbc_sink(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="oracle",
+            source_dataset="mps.my_table",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is not None
+        assert isinstance(connector, JdbcSinkConnector)
+
+    def test_target_fields_must_be_together(self) -> None:
+        with pytest.raises(ValidationError, match="target_dataset and target_platform"):
+            GenericConnectorConfig(
+                connector_name="my-oracle-sink",
+                source_platform="kafka",
+                source_dataset="my-topic",
+                target_dataset="mps.my_table",
+            )
+
+    def test_empty_target_dataset_is_rejected(self) -> None:
+        with pytest.raises(ValidationError, match="target_dataset and target_platform"):
+            GenericConnectorConfig(
+                connector_name="my-oracle-sink",
+                source_platform="kafka",
+                source_dataset="my-topic",
+                target_dataset="",
+                target_platform="oracle",
+            )
+
+    def test_sink_generic_does_not_override_source_connector(self) -> None:
+        manifest = create_manifest(
+            SOURCE, "com.custom.CustomSource", name="my-custom-source"
+        )
+        generic_config = GenericConnectorConfig(
+            connector_name="my-custom-source",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = Mock(spec=KafkaConnectSourceReport)
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert connector is None
+        report.warning.assert_called_once()
+
+    def test_generic_sink_emits_topic_to_target_dataset(self) -> None:
+        manifest = create_manifest(
+            SINK, CONFLUENT_JDBC_SINK_CONNECTOR_CLASS, name="my-oracle-sink"
+        )
+        manifest.topic_names = ["orders"]
+        generic_config = GenericConnectorConfig(
+            connector_name="my-oracle-sink",
+            source_platform="kafka",
+            source_dataset="orders",
+            target_dataset="mps.orders",
+            target_platform="oracle",
+        )
+        config = create_mock_config()
+        config.generic_connectors = [generic_config]
+        report = create_mock_report()
+
+        connector = ConnectorRegistry.get_connector_for_manifest(
+            manifest, config, report
+        )
+
+        assert isinstance(connector, _GenericConnector)
+        lineages = connector.extract_lineages()
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "orders"
+        assert lineages[0].target_dataset == "mps.orders"
+        assert lineages[0].target_platform == "oracle"
+
 
 class TestConnectorRegistryUnknownTypes:
     """Test handling of unknown connector types."""
@@ -620,6 +882,52 @@ class TestGenericConnector:
         assert lineages[0].target_dataset == "topic-a"
         assert lineages[0].target_platform == "kafka"
         assert lineages[1].target_dataset == "topic-b"
+
+    def test_extract_lineages_sink_direction(self) -> None:
+        manifest = create_manifest(SINK, "io.confluent.connect.jdbc.JdbcSinkConnector")
+        manifest.topic_names = ["my-topic"]
+        config = create_mock_config()
+        report = create_mock_report()
+
+        generic_config = GenericConnectorConfig(
+            connector_name="test-connector",
+            source_platform="kafka",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+
+        connector = _GenericConnector(manifest, config, report, generic_config)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "my-topic"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].target_platform == "oracle"
+
+    def test_extract_lineages_sink_direction_uses_kafka_source_platform(self) -> None:
+        manifest = create_manifest(SINK, "io.confluent.connect.jdbc.JdbcSinkConnector")
+        manifest.topic_names = ["my-topic"]
+        config = create_mock_config()
+        report = create_mock_report()
+
+        generic_config = GenericConnectorConfig(
+            connector_name="test-connector",
+            source_platform="oracle",
+            source_dataset="my-topic",
+            target_dataset="mps.my_table",
+            target_platform="oracle",
+        )
+
+        connector = _GenericConnector(manifest, config, report, generic_config)
+        lineages = connector.extract_lineages()
+
+        assert len(lineages) == 1
+        assert lineages[0].source_platform == "kafka"
+        assert lineages[0].source_dataset == "my-topic"
+        assert lineages[0].target_dataset == "mps.my_table"
+        assert lineages[0].target_platform == "oracle"
 
     def test_extract_lineages_no_topics(self) -> None:
         """Test generic connector returns empty lineages when no topics available."""

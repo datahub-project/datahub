@@ -169,11 +169,11 @@ public class OwnershipTypeService extends BaseService {
             AspectUtils.buildMetadataChangeProposal(
                 urn, Constants.STATUS_ASPECT_NAME, statusAspect),
             false);
+      } else if (deleteReferences) {
+        final var references = this.entityClient.deleteEntityThenReferences(opContext, urn);
+        references.run();
       } else {
         this.entityClient.deleteEntity(opContext, urn);
-        if (deleteReferences) {
-          this.entityClient.deleteEntityReferences(opContext, urn);
-        }
       }
     } catch (Exception e) {
       throw new RuntimeException(

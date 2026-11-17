@@ -1,5 +1,8 @@
+import copy
 import json
 import os
+from datetime import datetime, timedelta, timezone
+from typing import Any
 from unittest.mock import MagicMock, patch
 
 import boto3
@@ -13,6 +16,7 @@ from botocore.exceptions import (
 from moto import mock_aws
 
 from datahub.ingestion.source.aws.aws_common import (
+    DEFAULT_MAX_POOL_CONNECTIONS,
     AwsConnectionConfig,
     AwsEnvironment,
     aws_error_code,
@@ -526,6 +530,186 @@ class TestAwsCommon:
             # assume_role should only be called once
             assert mock_assume_role.call_count == 1
 
+    def test_get_s3_client_cached_per_verify_ssl(self):
+        """
+        get_s3_client() memoizes the built client: repeated calls on the same
+        instance return the same object, and each verify_ssl value gets its
+        own client.
+        """
+        config = AwsConnectionConfig(
+            aws_access_key_id="test-key",
+            aws_secret_access_key="test-secret",
+            aws_region="us-east-1",
+        )
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            client2 = config.get_s3_client()
+            assert client1 is client2
+            # Only one session/client construction for the repeated call
+            assert mock_get_session.call_count == 1
+
+            client3 = config.get_s3_client(verify_ssl=False)
+            assert client3 is not client1
+            assert mock_get_session.call_count == 2
+            assert config.get_s3_client(verify_ssl=False) is client3
+
+    def test_get_s3_client_rebuilt_when_role_credentials_need_refresh(self):
+        """
+        Once a role has actually been assumed, the cached client holds static
+        credentials, so it must be rebuilt when those credentials need a refresh.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        # Model the post-assume state: get_session populates _cached_credentials
+        # only when it actually assumes a role, and that is the precondition for
+        # invalidating the cached client.
+        config._cached_credentials = {
+            "AccessKeyId": "ASSUMED_KEY",
+            "SecretAccessKey": "ASSUMED_SECRET",
+            "SessionToken": "ASSUMED_TOKEN",
+        }
+
+        with (
+            patch.object(AwsConnectionConfig, "get_session") as mock_get_session,
+            patch.object(
+                AwsConnectionConfig, "_should_refresh_credentials"
+            ) as mock_should_refresh,
+        ):
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+            mock_get_session.return_value.get_credentials.return_value.access_key = (
+                "ASSUMED_KEY"
+            )
+
+            mock_should_refresh.return_value = False
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
+            mock_should_refresh.return_value = True
+            client2 = config.get_s3_client()
+            assert client2 is not client1
+            assert mock_get_session.call_count == 2
+
+    def test_get_s3_client_rebuilt_after_another_getter_refreshed_credentials(self):
+        """
+        get_session re-assumes the role for any client getter, so a refresh can
+        happen outside get_s3_client. The swapped credentials carry a fresh
+        expiry, so the expiry check alone would keep serving the client built
+        with the old keys.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        config._cached_credentials = {"AccessKeyId": "OLD_KEY"}
+        config._credentials_expiration = datetime.now(timezone.utc) + timedelta(hours=1)
+
+        def session_for_current_credentials() -> MagicMock:
+            assert config._cached_credentials is not None
+            session = MagicMock()
+            session.client.side_effect = lambda *args, **kwargs: MagicMock()
+            session.get_credentials.return_value.access_key = (
+                config._cached_credentials["AccessKeyId"]
+            )
+            return session
+
+        with patch.object(
+            AwsConnectionConfig,
+            "get_session",
+            side_effect=session_for_current_credentials,
+        ):
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+
+            # What get_session does when e.g. get_glue_client triggers a refresh.
+            config._cached_credentials = {"AccessKeyId": "NEW_KEY"}
+
+            client2 = config.get_s3_client()
+            assert client2 is not client1
+            assert config.get_s3_client() is client2
+
+    @mock_aws
+    def test_get_s3_client_uses_new_role_keys_after_glue_refresh(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """The same path with real sessions and STS: a refresh triggered by
+        get_glue_client must not leave get_s3_client signing with the old keys."""
+        monkeypatch.setenv("AWS_ACCESS_KEY_ID", "testing")
+        monkeypatch.setenv("AWS_SECRET_ACCESS_KEY", "testing")
+        # Not on EC2, so ambient-identity detection doesn't call the metadata service.
+        monkeypatch.setattr(
+            "datahub.ingestion.source.aws.aws_common.get_instance_metadata_token",
+            lambda: None,
+        )
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+
+        client1: Any = config.get_s3_client()
+        old_key = client1._request_signer._credentials.access_key
+
+        config._credentials_expiration = datetime.now(timezone.utc) - timedelta(
+            minutes=1
+        )
+        config.get_glue_client()
+        # The Glue call did the refresh, so the S3 client below is rebuilt because
+        # its key no longer matches, not because of its own expiry check.
+        assert config._cached_credentials is not None
+        assert config._cached_credentials["AccessKeyId"] != old_key
+        assert not config._should_refresh_credentials()
+
+        client2: Any = config.get_s3_client()
+        assert client2 is not client1
+        assert client2._request_signer._credentials.access_key != old_key
+        assert config.get_s3_client() is client2
+
+    def test_get_s3_client_cached_when_role_matches_ambient_identity(self):
+        """
+        When a role is configured but never actually assumed (the ambient identity
+        already is that role), get_session records no expiration and leaves
+        _cached_credentials as None. The client must still be cached: invalidation
+        keys off assumed static credentials, not merely on aws_role being set —
+        otherwise _should_refresh_credentials() (always True while expiration is
+        None) would rebuild the client on every call.
+        """
+        config = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_role="arn:aws:iam::123456789012:role/test-role",
+        )
+        assert config._cached_credentials is None
+
+        with patch.object(AwsConnectionConfig, "get_session") as mock_get_session:
+            mock_get_session.return_value.client.side_effect = lambda *args, **kwargs: (
+                MagicMock()
+            )
+
+            client1 = config.get_s3_client()
+            assert config.get_s3_client() is client1
+            assert mock_get_session.call_count == 1
+
+    def test_config_is_deepcopyable(self):
+        """
+        dbt's config validators run copy.deepcopy over the recipe values, so an
+        AwsConnectionConfig passed as an already-built object must survive it. A
+        threading.Lock kept as instance state is not deep-copyable, which is why the
+        client-construction lock lives on the class rather than on the instance.
+        """
+        config = AwsConnectionConfig(aws_region="us-east-1")
+        # Mirrors DBTCoreConfig(aws_connection=AwsConnectionConfig(...)), whose
+        # validator does values = deepcopy(values).
+        copied = copy.deepcopy({"aws_connection": config})["aws_connection"]
+        assert copied.aws_region == "us-east-1"
+
     @mock_aws
     def test_role_assumption_without_caching_before_fix(self):
         """
@@ -687,3 +871,17 @@ class TestAwsErrorCode:
             aws_error_code(ConnectTimeoutError(endpoint_url="https://x"))
             == "ConnectTimeoutError"
         )
+
+
+class TestAwsClientConfig:
+    def test_aws_config_max_pool_connections_default_and_override(self):
+        default_config = AwsConnectionConfig(aws_region="us-east-1")._aws_config()
+        assert (
+            default_config.max_pool_connections == DEFAULT_MAX_POOL_CONNECTIONS  # type: ignore[attr-defined]
+        )
+
+        overridden = AwsConnectionConfig(
+            aws_region="us-east-1",
+            aws_advanced_config={"max_pool_connections": 3},
+        )._aws_config()
+        assert overridden.max_pool_connections == 3  # type: ignore[attr-defined]

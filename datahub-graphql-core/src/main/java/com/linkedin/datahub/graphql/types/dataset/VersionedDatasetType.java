@@ -11,6 +11,7 @@ import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.VersionedDataset;
 import com.linkedin.datahub.graphql.types.dataset.mappers.VersionedDatasetMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -27,7 +28,7 @@ import javax.annotation.Nonnull;
 public class VersionedDatasetType
     implements com.linkedin.datahub.graphql.types.EntityType<VersionedDataset, VersionedUrn> {
 
-  private static final Set<String> ASPECTS_TO_RESOLVE =
+  static final Set<String> ASPECTS_TO_RESOLVE =
       ImmutableSet.of(
           DATASET_KEY_ASPECT_NAME,
           DATASET_PROPERTIES_ASPECT_NAME,
@@ -77,12 +78,15 @@ public class VersionedDatasetType
   public List<DataFetcherResult<VersionedDataset>> batchLoad(
       @Nonnull final List<VersionedUrn> versionedUrns, @Nonnull final QueryContext context) {
     try {
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_RESOLVE, Constants.DATASET_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> datasetMap =
           _entityClient.batchGetVersionedV2(
               context.getOperationContext(),
               Constants.DATASET_ENTITY_NAME,
               new HashSet<>(versionedUrns),
-              ASPECTS_TO_RESOLVE);
+              aspectsToResolve);
 
       final List<EntityResponse> gmsResults = new ArrayList<>();
       for (VersionedUrn versionedUrn : versionedUrns) {

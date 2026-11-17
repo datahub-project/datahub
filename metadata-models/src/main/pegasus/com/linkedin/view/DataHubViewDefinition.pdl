@@ -15,4 +15,11 @@ record DataHubViewDefinition {
    * The filter criteria, which represents the view itself
    */
   filter: Filter
+
+  /**
+   * The stringified json representing the logical predicate built in the UI.
+   * This predicate is converted into orFilters to send through graphql since graphql doesn't support
+   * arbitrary nesting. This string is used to restore the UI for this logical predicate.
+   */
+  json: optional string
 }

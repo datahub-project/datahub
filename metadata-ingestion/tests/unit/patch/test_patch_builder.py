@@ -30,6 +30,7 @@ from datahub.metadata.schema_classes import (
 from datahub.specific.chart import ChartPatchBuilder
 from datahub.specific.dashboard import DashboardPatchBuilder
 from datahub.specific.datajob import DataJobPatchBuilder
+from datahub.specific.dataproduct import DataProductPatchBuilder
 from datahub.specific.dataset import DatasetPatchBuilder
 from datahub.testing import mce_helpers
 
@@ -197,6 +198,26 @@ def test_complex_dataset_patch(
     )
 
 
+def test_dataproduct_set_parent_data_product():
+    parent_urn = "urn:li:dataProduct:vendor_equities"
+    patcher = DataProductPatchBuilder(
+        "urn:li:dataProduct:portfolio_analytics"
+    ).set_parent_data_product(parent_urn)
+
+    mcps = patcher.build()
+    assert len(mcps) == 1
+    assert mcps[0].entityUrn == "urn:li:dataProduct:portfolio_analytics"
+    assert mcps[0].aspectName == "dataProductProperties"
+    payload = json.loads(mcps[0].aspect.value)  # type: ignore[union-attr]
+    assert payload == [
+        {
+            "op": "add",
+            "path": "/parentDataProduct",
+            "value": parent_urn,
+        }
+    ]
+
+
 def test_basic_chart_patch_builder():
     patcher = ChartPatchBuilder(
         make_chart_urn(platform="hive", name="fct_users_created")
@@ -232,6 +253,21 @@ def test_basic_dashboard_patch_builder():
                 contentType="application/json-patch+json",
             ),
         ),
+    ]
+
+
+def test_dashboard_patch_builder_removes_a_dashboard():
+    sheet = make_dashboard_urn(platform="qlik-sense", name="sheet/1")
+    [mcp] = (
+        DashboardPatchBuilder(make_dashboard_urn(platform="qlik-sense", name="app"))
+        .remove_dashboard(sheet)
+        .build()
+    )
+
+    assert mcp.aspectName == "dashboardInfo"
+    assert mcp.aspect is not None
+    assert json.loads(mcp.aspect.value) == [
+        {"op": "remove", "path": f"/dashboards/{sheet.replace('/', '~1')}", "value": {}}
     ]
 
 

@@ -16,6 +16,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.timeseries.elastic.TimeseriesUtils;
 import com.linkedin.metadata.timeseries.elastic.UsageServiceUtil;
+import com.linkedin.metadata.utils.elasticsearch.canonicalization.QueryTimeCanonicalizer.CanonicalNow;
 import com.linkedin.timeseries.AggregationSpec;
 import com.linkedin.timeseries.GenericTable;
 import com.linkedin.timeseries.GroupingBucket;
@@ -139,10 +140,13 @@ public class DatasetStatsSummaryBatchLoader {
 
     if (!misses.isEmpty()) {
       final OperationContext opContext = context.getOperationContext();
-      final long now = System.currentTimeMillis();
       // Same window the per-URN resolver requests (UsageTimeRange.MONTH), sans per-URN criterion.
-      final long startMillis = TimeseriesUtils.convertRangeToStartTime(UsageTimeRange.MONTH, now);
-      final Filter sharedFilter = timeWindowFilter(startMillis, now);
+      // Both ends come from one canonical reference so this batch path produces the same query as
+      // the per-URN resolver for requests landing in the same bucket.
+      final CanonicalNow canonicalNow = opContext.canonicalNow();
+      final long startMillis =
+          TimeseriesUtils.convertRangeToStartTime(UsageTimeRange.MONTH, canonicalNow);
+      final Filter sharedFilter = timeWindowFilter(startMillis, canonicalNow.upperBound());
 
       // A: per-day LATEST totalSqlQueries → summed per dataset = queryCountLast30Days.
       final CompletableFuture<Map<Urn, GenericTable>> queryCountFuture =

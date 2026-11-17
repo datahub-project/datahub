@@ -1,0 +1,9 @@
+# Spring configuration classes in this module that no real-context test loads yet.
+# This list may only shrink. See gradle/wiring/README.md.
+com.linkedin.gms.GMSApplication
+com.linkedin.gms.ServletConfig
+com.linkedin.gms.servlet.AuthServletConfig
+com.linkedin.gms.servlet.GraphQLServletConfig
+com.linkedin.gms.servlet.IcebergCatalogServletConfig
+com.linkedin.gms.servlet.OpenAPIServletConfig
+com.linkedin.gms.servlet.RestliServletConfig

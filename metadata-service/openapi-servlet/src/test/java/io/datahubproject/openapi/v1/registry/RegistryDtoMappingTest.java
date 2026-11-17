@@ -27,7 +27,7 @@ public class RegistryDtoMappingTest {
 
   @Test
   public void testAspectAnnotationDtoMapsSchemaVersion() {
-    AspectAnnotation annotation = new AspectAnnotation("domains", false, false, null, 2L);
+    AspectAnnotation annotation = new AspectAnnotation("domains", false, false, null, 2L, false);
 
     AspectAnnotationDto dto = AspectAnnotationDto.fromAspectAnnotation(annotation);
 
@@ -37,7 +37,7 @@ public class RegistryDtoMappingTest {
 
   @Test
   public void testAspectAnnotationDtoMapsDefaultSchemaVersion() {
-    AspectAnnotation annotation = new AspectAnnotation("status", false, false, null, 1L);
+    AspectAnnotation annotation = new AspectAnnotation("status", false, false, null, 1L, false);
 
     AspectAnnotationDto dto = AspectAnnotationDto.fromAspectAnnotation(annotation);
 
@@ -57,12 +57,12 @@ public class RegistryDtoMappingTest {
   }
 
   @Test
-  public void testEntityAnnotationDtoMapsDefaultSearchGroup() {
+  public void testEntityAnnotationDtoMapsUnsetSearchGroup() {
     EntityAnnotation annotation = new EntityAnnotation("chart", "chartKey");
 
     EntityAnnotationDto dto = EntityAnnotationDto.fromEntityAnnotation(annotation);
 
-    assertEquals(dto.getSearchGroup(), "default");
+    assertEquals(dto.getSearchGroup(), null);
   }
 
   @Test
@@ -88,13 +88,13 @@ public class RegistryDtoMappingTest {
   }
 
   @Test
-  public void testEntitySpecDtoFromRealRegistryIncludesSearchGroup() {
+  public void testEntitySpecDtoFromRealRegistryHasUnsetSearchGroup() {
     EntitySpec dataset = TestOperationContexts.defaultEntityRegistry().getEntitySpec("dataset");
     assertNotNull(dataset);
 
     EntitySpecDto dto = EntitySpecDto.fromEntitySpec(dataset);
 
     assertNotNull(dto.getEntityAnnotation());
-    assertEquals(dto.getEntityAnnotation().getSearchGroup(), "primary");
+    assertEquals(dto.getEntityAnnotation().getSearchGroup(), null);
   }
 }

@@ -70,6 +70,11 @@ query getChart($urn: String!, $skipSiblingsSearch: Boolean = false) {
         }
         status {
             removed
+            lifecycleStage {
+                urn
+                name
+                description
+            }
         }
         dataPlatformInstance {
             ...dataPlatformInstanceFields

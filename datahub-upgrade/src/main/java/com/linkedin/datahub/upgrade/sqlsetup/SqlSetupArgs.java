@@ -17,6 +17,10 @@ import lombok.Value;
 public class SqlSetupArgs {
   boolean createTables;
   boolean createDatabase; // PostgreSQL only
+
+  /** PostgreSQL only: when false, skip {@code CREATE SCHEMA} (schema is pre-provisioned). */
+  boolean createSchema;
+
   boolean createUser;
   boolean iamAuthEnabled;
   DatabaseType dbType; // mysql or postgres

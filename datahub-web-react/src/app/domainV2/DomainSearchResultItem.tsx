@@ -1,14 +1,14 @@
 // Create a new component called SearchResultItem.js
 import React from 'react';
-import Highlight from 'react-highlighter';
 import { Link } from 'react-router-dom';
 import styled from 'styled-components/macro';
 
 import { getParentDomains } from '@app/domainV2/utils';
-import { IconStyleType } from '@app/entity/Entity';
-import EntityRegistry from '@app/entity/EntityRegistry';
+import { IconStyleType } from '@app/entityV2/Entity';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 import { DomainColoredIcon } from '@app/entityV2/shared/links/DomainColoredIcon';
 import ParentEntities from '@app/search/filters/ParentEntities';
+import Highlight from '@app/sharedV2/text/Highlight';
 
 import { Domain, Entity, EntityType } from '@types';
 
@@ -26,6 +26,7 @@ const SearchResult = styled(Link)`
     gap: 8px;
     height: 100%;
     padding: 6px 8px;
+    overflow: hidden;
     width: 100%;
     &:hover {
         background-color: ${(props) => props.theme.colors.bgSurface};

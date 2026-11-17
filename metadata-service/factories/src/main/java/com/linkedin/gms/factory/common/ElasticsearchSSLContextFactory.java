@@ -1,5 +1,8 @@
 package com.linkedin.gms.factory.common;
 
+import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SslContextSettings;
 import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
@@ -11,66 +14,68 @@ import java.security.SecureRandom;
 import java.security.UnrecoverableKeyException;
 import java.security.cert.CertificateException;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import javax.net.ssl.SSLContext;
 import org.apache.http.ssl.SSLContextBuilder;
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
+/**
+ * Builds SSL contexts for search cluster connections.
+ *
+ * <p>TLS material is per cluster, since a second cluster may sit behind a different certificate
+ * authority than the primary. The {@code elasticSearchSSLContext} bean remains the primary
+ * cluster's context so existing injection points are unaffected.
+ */
 @Configuration
 public class ElasticsearchSSLContextFactory {
 
-  @Value("${elasticsearch.sslContext.protocol}")
-  private String sslProtocol;
-
-  @Value("${elasticsearch.sslContext.secureRandomImplementation}")
-  private String sslSecureRandomImplementation;
-
-  @Value("${elasticsearch.sslContext.trustStoreFile}")
-  private String sslTrustStoreFile;
-
-  @Value("${elasticsearch.sslContext.trustStoreType}")
-  private String sslTrustStoreType;
-
-  @Value("${elasticsearch.sslContext.trustStorePassword}")
-  private String sslTrustStorePassword;
-
-  @Value("${elasticsearch.sslContext.keyStoreFile}")
-  private String sslKeyStoreFile;
-
-  @Value("${elasticsearch.sslContext.keyStoreType}")
-  private String sslKeyStoreType;
-
-  @Value("${elasticsearch.sslContext.keyStorePassword}")
-  private String sslKeyStorePassword;
-
-  @Value("${elasticsearch.sslContext.keyPassword}")
-  private String sslKeyPassword;
-
   @Bean(name = "elasticSearchSSLContext")
-  public SSLContext createInstance() {
+  public SSLContext createInstance(final ConfigurationProvider configurationProvider) {
+    ElasticSearchConfiguration esConfig = configurationProvider.getElasticSearch();
+    return buildSSLContext(esConfig.getPrimaryCluster().getSslContext());
+  }
+
+  /**
+   * Builds an {@link SSLContext} from one cluster's settings. A null or empty block yields the JVM
+   * default trust material, which is what an unconfigured cluster should use.
+   */
+  @Nonnull
+  public static SSLContext buildSSLContext(@Nullable SslContextSettings settings) {
     final SSLContextBuilder sslContextBuilder = new SSLContextBuilder();
-    if (sslProtocol != null) {
-      sslContextBuilder.useProtocol(sslProtocol);
-    }
+    if (settings != null) {
+      if (settings.getProtocol() != null) {
+        sslContextBuilder.useProtocol(settings.getProtocol());
+      }
 
-    if (sslTrustStoreFile != null && sslTrustStoreType != null && sslTrustStorePassword != null) {
-      loadTrustStore(
-          sslContextBuilder, sslTrustStoreFile, sslTrustStoreType, sslTrustStorePassword);
-    }
+      if (settings.getTrustStoreFile() != null
+          && settings.getTrustStoreType() != null
+          && settings.getTrustStorePassword() != null) {
+        loadTrustStore(
+            sslContextBuilder,
+            settings.getTrustStoreFile(),
+            settings.getTrustStoreType(),
+            settings.getTrustStorePassword());
+      }
 
-    if (sslKeyStoreFile != null
-        && sslKeyStoreType != null
-        && sslKeyStorePassword != null
-        && sslKeyPassword != null) {
-      loadKeyStore(
-          sslContextBuilder, sslKeyStoreFile, sslKeyStoreType, sslKeyStorePassword, sslKeyPassword);
+      if (settings.getKeyStoreFile() != null
+          && settings.getKeyStoreType() != null
+          && settings.getKeyStorePassword() != null
+          && settings.getKeyPassword() != null) {
+        loadKeyStore(
+            sslContextBuilder,
+            settings.getKeyStoreFile(),
+            settings.getKeyStoreType(),
+            settings.getKeyStorePassword(),
+            settings.getKeyPassword());
+      }
     }
 
     final SSLContext sslContext;
     try {
-      if (sslSecureRandomImplementation != null) {
-        sslContextBuilder.setSecureRandom(SecureRandom.getInstance(sslSecureRandomImplementation));
+      if (settings != null && settings.getSecureRandomImplementation() != null) {
+        sslContextBuilder.setSecureRandom(
+            SecureRandom.getInstance(settings.getSecureRandomImplementation()));
       }
       sslContext = sslContextBuilder.build();
     } catch (NoSuchAlgorithmException | KeyManagementException e) {
@@ -79,7 +84,7 @@ public class ElasticsearchSSLContextFactory {
     return sslContext;
   }
 
-  private void loadKeyStore(
+  private static void loadKeyStore(
       @Nonnull SSLContextBuilder sslContextBuilder,
       @Nonnull String path,
       @Nonnull String type,
@@ -98,7 +103,7 @@ public class ElasticsearchSSLContextFactory {
     }
   }
 
-  private void loadTrustStore(
+  private static void loadTrustStore(
       @Nonnull SSLContextBuilder sslContextBuilder,
       @Nonnull String path,
       @Nonnull String type,

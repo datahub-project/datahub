@@ -1,6 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
-import { waitFor } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { toast } from '@components';
+import { act, waitFor } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -11,6 +11,7 @@ import {
     useServiceAccountRoleAssignment,
     useServiceAccountViewOptions,
 } from '@app/identity/serviceAccount/ServiceAccountList.hooks';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { ListServiceAccountsDocument } from '@graphql/auth.generated';
 import { BatchAssignRoleDocument } from '@graphql/mutations.generated';
@@ -20,6 +21,22 @@ import { DataHubRole, DataHubViewType, EntityType } from '@types';
 
 // Mock the generated mutation that requires codegen
 const mockUpdateDefaultViewMutation = vi.fn();
+// Mock alchemy toast
+vi.mock('@components', async (importOriginal) => {
+    const actual = await importOriginal<typeof import('@components')>();
+    return {
+        ...actual,
+        toast: {
+            success: vi.fn(),
+            error: vi.fn(),
+            warning: vi.fn(),
+            info: vi.fn(),
+            loading: vi.fn(),
+            destroy: vi.fn(),
+        },
+    };
+});
+
 vi.mock('@graphql/auth.generated', async () => {
     const actual = await vi.importActual('@graphql/auth.generated');
     return {
@@ -40,22 +57,11 @@ vi.mock('@app/context/useUserContext', () => ({
 }));
 
 // Mock scrollToTop
-vi.mock('@app/shared/searchUtils', () => ({
+vi.mock('@app/sharedV2/searchUtils', () => ({
     scrollToTop: vi.fn(),
 }));
 
 // Mock message
-vi.mock('antd', async () => {
-    const actual = await vi.importActual('antd');
-    return {
-        ...actual,
-        message: {
-            success: vi.fn(),
-            error: vi.fn(),
-        },
-    };
-});
-
 const mockServiceAccounts = [
     {
         __typename: 'ServiceAccount',
@@ -159,7 +165,7 @@ describe('useServiceAccountListState', () => {
     });
 
     it('should debounce query and reset page to 1 when query changes', async () => {
-        const { result, waitForNextUpdate } = renderHook(() => useServiceAccountListState());
+        const { result } = renderHook(() => useServiceAccountListState());
 
         // Set page to 2 first
         act(() => {
@@ -173,10 +179,13 @@ describe('useServiceAccountListState', () => {
         });
 
         // Wait for debounce (300ms) and page reset
-        await waitForNextUpdate({ timeout: 500 });
-
-        expect(result.current.debouncedQuery).toBe('test');
-        expect(result.current.page).toBe(1);
+        await waitFor(
+            () => {
+                expect(result.current.debouncedQuery).toBe('test');
+                expect(result.current.page).toBe(1);
+            },
+            { timeout: 500 },
+        );
     });
 });
 
@@ -470,7 +479,6 @@ describe('useServiceAccountDefaultView', () => {
     });
 
     it('should call mutation and show success message when setting a view', async () => {
-        const { message } = await import('antd');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -487,12 +495,11 @@ describe('useServiceAccountDefaultView', () => {
                 },
             },
         });
-        expect(message.success).toHaveBeenCalledWith('Default view updated');
+        expect(toast.success).toHaveBeenCalledWith('Default view updated');
         expect(mockRefetch).toHaveBeenCalled();
     });
 
     it('should call mutation and show success message when clearing a view', async () => {
-        const { message } = await import('antd');
         mockUpdateDefaultViewMutation.mockResolvedValue({ data: { updateServiceAccountDefaultView: true } });
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -509,12 +516,11 @@ describe('useServiceAccountDefaultView', () => {
                 },
             },
         });
-        expect(message.success).toHaveBeenCalledWith('Default view removed');
+        expect(toast.success).toHaveBeenCalledWith('Default view removed');
         expect(mockRefetch).toHaveBeenCalled();
     });
 
     it('should show error message when mutation fails', async () => {
-        const { message } = await import('antd');
         mockUpdateDefaultViewMutation.mockRejectedValue(new Error('Unauthorized'));
 
         const { result } = renderHook(() => useServiceAccountDefaultView(mockRefetch));
@@ -523,7 +529,7 @@ describe('useServiceAccountDefaultView', () => {
             await result.current.handleDefaultViewChange('urn:li:corpuser:service_test', 'urn:li:dataHubView:global-1');
         });
 
-        expect(message.error).toHaveBeenCalledWith(expect.stringContaining('Failed to update default view'));
+        expect(toast.error).toHaveBeenCalledWith(expect.stringContaining('Failed to update default view'));
         expect(mockRefetch).not.toHaveBeenCalled();
     });
 });

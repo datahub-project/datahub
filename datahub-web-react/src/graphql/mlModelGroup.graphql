@@ -9,6 +9,7 @@ query getMLModelGroup($urn: String!, $skipSiblingsSearch: Boolean = false) {
                 time
                 actor
             }
+            createdAt
             lastModified {
                 time
                 actor

@@ -431,3 +431,51 @@ def test_file_cleanup():
     assert filename.exists()
     cache.close()
     assert not filename.exists()
+
+
+def test_closed_property():
+    cache = FileBackedDict[int]()
+    assert not cache.closed
+
+    cache.close()
+    assert cache.closed
+
+    # close() guards on the connection, so a second call is a no-op rather than
+    # an error. Callers that share a dict cannot know who closes it first.
+    cache.close()
+    assert cache.closed
+
+
+def test_closed_when_shared_connection_closed_externally():
+    """For a shared dict, closing the ConnectionWrapper also closes the handle.
+
+    The dict reaches `_conn = None` via ConnectionWrapper.close() walking its
+    dependent objects, not via its own close(). This is the borrowed-dict path
+    `closed` exists for, and it is distinct from the owned path above.
+    """
+    with ConnectionWrapper() as conn:
+        cache = FileBackedDict[int](shared_connection=conn)
+        assert not cache.closed
+    assert cache.closed
+
+
+def test_file_backed_dict_with_extra_columns_reopens_on_existing_file(
+    tmp_path: pathlib.Path,
+) -> None:
+    filename = tmp_path / "cache.db"
+
+    def open_dict(conn: ConnectionWrapper) -> FileBackedDict[int]:
+        return FileBackedDict[int](
+            shared_connection=conn, extra_columns={"is_even": lambda v: v % 2 == 0}
+        )
+
+    with ConnectionWrapper(filename=filename) as conn:
+        cache = open_dict(conn)
+        cache["a"] = 2
+        cache.create_indexes()
+
+    # Re-opening the persisted file must not fail on the already-created index.
+    with ConnectionWrapper(filename=filename) as conn:
+        cache = open_dict(conn)
+        cache.create_indexes()
+        assert cache["a"] == 2

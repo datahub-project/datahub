@@ -1,5 +1,5 @@
 import EntityRegistry from '@src/app/entityV2/EntityRegistry';
-import { capitalizeFirstLetterOnly } from '@src/app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@src/app/sharedV2/textUtil';
 import { Entity } from '@src/types.generated';
 
 export function getEntityDisplayType(entity: Entity, registry: EntityRegistry) {

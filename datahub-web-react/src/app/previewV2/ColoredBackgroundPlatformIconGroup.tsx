@@ -1,5 +1,5 @@
 import { Tooltip } from '@components';
-import OutputIcon from '@mui/icons-material/Output';
+import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -91,7 +91,7 @@ export default function ColoredBackgroundPlatformIconGroup(props: Props) {
                         {isOutputPort && (
                             <Tooltip title={t('outputPortTooltip')} placement="topLeft">
                                 <Icon size={backgroundSize} background={theme.colors.bgSurface} borderRadius={10}>
-                                    <OutputIcon style={{ fontSize: imgSize }} htmlColor={theme.colors.textSecondary} />
+                                    <ArrowSquareOut size={imgSize} color={theme.colors.textSecondary} />
                                 </Icon>
                             </Tooltip>
                         )}

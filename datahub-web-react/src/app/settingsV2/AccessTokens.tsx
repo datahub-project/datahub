@@ -14,9 +14,9 @@ import analytics, { EventType } from '@app/analytics';
 import { useUserContext } from '@app/context/useUserContext';
 import CreateTokenModal from '@app/settingsV2/CreateTokenModal';
 import SelectServiceAccountModal from '@app/settingsV2/SelectServiceAccountModal';
-import { scrollToTop } from '@app/shared/searchUtils';
-import { getLocaleTimezone } from '@app/shared/time/timeUtils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
+import { getLocaleTimezone } from '@app/sharedV2/time/timeUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import {
@@ -153,6 +153,7 @@ export const AccessTokens = () => {
 
     const canManageToken = authenticatedUser?.platformPrivileges?.manageTokens;
     const canManageServiceAccounts = authenticatedUser?.platformPrivileges?.manageServiceAccounts;
+    const canManageIngestion = authenticatedUser?.platformPrivileges?.manageIngestion;
 
     // Access Tokens list paging.
     const [page, setPage] = useState(1);
@@ -433,13 +434,17 @@ export const AccessTokens = () => {
                             icon: Key,
                             onClick: () => setCreateTokenFor('personal'),
                         },
-                        {
-                            type: 'item',
-                            key: 'remote-executor',
-                            title: t('remoteExecutor'),
-                            icon: CloudArrowUp,
-                            onClick: () => setCreateTokenFor('remote-executor'),
-                        },
+                        ...(canManageIngestion
+                            ? ([
+                                  {
+                                      type: 'item',
+                                      key: 'remote-executor',
+                                      title: t('remoteExecutor'),
+                                      icon: CloudArrowUp,
+                                      onClick: () => setCreateTokenFor('remote-executor'),
+                                  },
+                              ] as ItemType[])
+                            : []),
                         ...(canManageServiceAccounts
                             ? ([
                                   {

@@ -1,7 +1,6 @@
 package io.datahubproject.metadata.jobs.common.health.kafka;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
-import com.linkedin.metadata.boot.kafka.DataHubUpgradeKafkaListener;
 import com.linkedin.metadata.config.messaging.KafkaMessagingEnabled;
 import java.util.Collection;
 import java.util.Map;
@@ -36,9 +35,6 @@ public class KafkaHealthIndicator extends AbstractHealthIndicator {
     Status kafkaStatus = Status.UP;
     boolean isContainerDown =
         listenerRegistry.getAllListenerContainers().stream()
-            .filter(
-                container ->
-                    !DataHubUpgradeKafkaListener.CONSUMER_GROUP.equals(container.getGroupId()))
             .anyMatch(container -> !container.isRunning());
     Map<String, ConsumerDetails> details =
         listenerRegistry.getAllListenerContainers().stream()

@@ -2,7 +2,7 @@
 
 import copy
 import logging
-from typing import Optional, cast
+from typing import Optional, Set, cast
 
 from datahub.ingestion.api.ingestion_job_checkpointing_provider_base import JobId
 from datahub.ingestion.source.datahub_documents.document_chunking_state import (
@@ -151,6 +151,16 @@ class DocumentChunkingStateHandler(
                 "content_hash": content_hash,
                 "last_processed": last_processed,
             }
+
+    def prune_document_state(self, live_urns: Set[str]) -> int:
+        """Drop state for documents not in ``live_urns``; returns how many were dropped."""
+        current_state = self.get_current_state()
+        if not current_state:
+            return 0
+        stale = current_state.document_state.keys() - live_urns
+        for document_urn in stale:
+            del current_state.document_state[document_urn]
+        return len(stale)
 
     def get_event_offset(self, topic: str) -> Optional[str]:
         """Get the stored offset for an event topic."""

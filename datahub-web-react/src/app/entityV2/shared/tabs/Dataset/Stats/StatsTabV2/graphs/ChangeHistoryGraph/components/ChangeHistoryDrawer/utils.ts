@@ -1,4 +1,4 @@
-import { uniq } from 'lodash';
+import uniq from 'lodash/uniq';
 
 import { Operation } from '@src/types.generated';
 import dayjs from '@utils/dayjs';

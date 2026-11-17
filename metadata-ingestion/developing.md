@@ -197,8 +197,9 @@ We use ruff, and mypy to ensure consistent code style and quality.
 
 ```shell
 # Assumes: ../gradlew :metadata-ingestion:installDev and venv is activated
-ruff check src/ tests/
-mypy src/ tests/
+# Checks everything ruff and mypy are configured to see, examples/ included.
+ruff check .
+mypy .
 ```
 
 or you can run from root of the repository

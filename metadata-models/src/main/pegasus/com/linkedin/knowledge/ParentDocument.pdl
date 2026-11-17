@@ -16,7 +16,12 @@ record ParentDocument {
     @Searchable = {
         "fieldName": "parentDocument",
         "fieldType": "URN",
-        "queryByDefault": false
+        "queryByDefault": false,
+        "v3": {
+          "searchLabel": "parent",
+          "queryByDefault": false,
+          "hasValuesFieldName": "hasParent"
+        }
     }
     document: Urn
 }

@@ -1,0 +1,13 @@
+"""
+An entity that can have AI context
+"""
+interface HasAiContext {
+  """
+  AI context of the entity
+  """
+  aiContext: AiContext
+}
+
+extend type Metric implements HasAiContext
+extend type SchemaFieldEntity implements HasAiContext
+extend type SemanticModel implements HasAiContext

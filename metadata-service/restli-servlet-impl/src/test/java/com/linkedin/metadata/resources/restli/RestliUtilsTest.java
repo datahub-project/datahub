@@ -15,6 +15,7 @@ import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.util.exception.DatabaseTransactionConflictException;
 import com.datahub.util.exception.RetryLimitReached;
 import com.linkedin.metadata.dao.throttle.DatabaseTransactionConflictRestLiServiceException;
+import com.linkedin.metadata.graph.LineageTimeoutException;
 import com.linkedin.metadata.throttle.ThrottleResponseHeaders;
 import com.linkedin.restli.common.HttpStatus;
 import com.linkedin.restli.server.RestLiServiceException;
@@ -183,6 +184,45 @@ public class RestliUtilsTest {
 
     assertEquals(thrown.getStatus(), HttpStatus.S_503_SERVICE_UNAVAILABLE);
     assertTrue(thrown instanceof DatabaseTransactionConflictRestLiServiceException);
+  }
+
+  @Test
+  public void testToTask_LineageTimeout_Returns504() {
+    LineageTimeoutException timeout =
+        new LineageTimeoutException("Slice 0 timed out (hop deadline passed)");
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw timeout;
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_504_GATEWAY_TIMEOUT);
+    assertEquals(thrown.getMessage(), timeout.getMessage());
+    assertEquals(thrown.getCause(), timeout);
+  }
+
+  @Test
+  public void testToTask_WrappedLineageTimeout_Returns504() {
+    LineageTimeoutException timeout =
+        new LineageTimeoutException("Lineage operation timed out after 50 seconds");
+    RuntimeException wrapper =
+        new RuntimeException("Failed to execute PIT search for slice 2", timeout);
+
+    RestLiServiceException thrown =
+        expectThrows(
+            RestLiServiceException.class,
+            () ->
+                RestliUtils.toTask(
+                    () -> {
+                      throw wrapper;
+                    }));
+
+    assertEquals(thrown.getStatus(), HttpStatus.S_504_GATEWAY_TIMEOUT);
+    assertEquals(thrown.getMessage(), timeout.getMessage());
   }
 
   @Test

@@ -1,4 +1,6 @@
-import { get, omit, set } from 'lodash';
+import get from 'lodash/get';
+import omit from 'lodash/omit';
+import set from 'lodash/set';
 
 import { FieldType, RecipeField } from '@app/ingestV2/source/builder/RecipeForm/common';
 
@@ -61,7 +63,7 @@ const parentDocumentUrnFieldPath = 'source.config.parent_document_urn';
 
 export const GITHUB_DOCUMENTS_CREATE_REPO_ROOT_DOCUMENT: RecipeField = {
     name: 'create_repo_root_document',
-    label: 'Create parent document with repository name',
+    label: 'Repository folder document',
     tooltip:
         'When enabled, a folder document named after the repository is created and imported files are nested beneath it.',
     type: FieldType.BOOLEAN,

@@ -481,6 +481,10 @@ public class PartialGraphScopeReadStrategyTest {
             List.of(component));
 
     assertTrue(result.isHit());
+    assertTrue(result.isScopeTruncated());
     assertEquals(result.verticesOrEmpty(), Set.of(ROOT, d1, d2));
+    GraphReadResult rejected = result.missIfScopeTruncated();
+    assertTrue(rejected.isMiss());
+    assertEquals(((GraphReadResult.Miss) rejected).reason(), ReadMissReason.TRUNCATED);
   }
 }

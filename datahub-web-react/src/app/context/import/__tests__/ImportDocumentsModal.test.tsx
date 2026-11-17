@@ -22,7 +22,7 @@ vi.mock('@app/context/useUserContext', () => ({
 vi.mock('@app/useAppConfig', () => ({
     useAppConfig: () => ({
         config: {
-            featureFlags: { showIngestionPageRedesign: true },
+            featureFlags: {},
             visualConfig: { theme: { themeId: null } },
         },
         loaded: true,

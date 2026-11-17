@@ -385,7 +385,7 @@ public class ConditionalWriteValidatorTest {
                               .version(3)
                               .recordTemplate(new Status().setRemoved(false))
                               .build())));
-          // fall through
+        // fall through
         case RESTATE:
         case CREATE_ENTITY:
         case CREATE:

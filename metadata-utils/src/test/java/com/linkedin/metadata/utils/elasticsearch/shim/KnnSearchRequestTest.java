@@ -6,6 +6,7 @@ import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import java.time.Duration;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
@@ -141,5 +142,21 @@ public class KnnSearchRequestTest {
     assertNull(req.filter().get().get("optional_field"), "null filter value should be preserved");
     // The returned filter map must be unmodifiable.
     assertThrows(UnsupportedOperationException.class, () -> req.filter().get().put("x", "y"));
+  }
+
+  @Test
+  public void testTimeoutIsOptionalAndMustBePositive() {
+    KnnSearchRequest.Builder builder =
+        KnnSearchRequest.builder()
+            .indexName("idx")
+            .vectorField("vec")
+            .queryVector(new float[] {0.1f})
+            .k(10);
+
+    assertFalse(builder.build().timeout().isPresent());
+    assertEquals(
+        builder.timeout(Duration.ofMillis(1_500)).build().timeout().get(),
+        Duration.ofMillis(1_500));
+    assertThrows(IllegalStateException.class, () -> builder.timeout(Duration.ZERO).build());
   }
 }

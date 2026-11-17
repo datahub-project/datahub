@@ -283,7 +283,7 @@
                     "urn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
                 },
                 {
-                    "id": "cll-test-factory.ColumnLineagePipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)"
                 }
             ]
@@ -414,7 +414,7 @@
                     "urn": "urn:li:container:c6866c8f1648f90c68f3143f043cf2c2"
                 },
                 {
-                    "id": "cll-test-factory.ColumnLineagePipeline",
+                    "id": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)",
                     "urn": "urn:li:dataFlow:(azure-data-factory,cll-test-factory.ColumnLineagePipeline,DEV)"
                 }
             ]

@@ -14,9 +14,9 @@ import {
     extractChartValuesFromFieldProfiles,
     extractChartValuesFromTableProfiles,
 } from '@app/entityV2/shared/utils';
-import { Message } from '@app/shared/Message';
-import { formatBytes } from '@app/shared/formatNumber';
-import { getFixedLookbackWindow } from '@app/shared/time/timeUtils';
+import { Message } from '@app/sharedV2/Message';
+import { formatBytes } from '@app/sharedV2/formatNumber';
+import { getFixedLookbackWindow } from '@app/sharedV2/time/timeUtils';
 
 import { useGetDataProfilesLazyQuery } from '@graphql/dataset.generated';
 

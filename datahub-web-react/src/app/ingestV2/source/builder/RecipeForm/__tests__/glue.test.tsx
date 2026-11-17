@@ -90,45 +90,52 @@ describe('getGlueAwsAuthMethodFromRecipe', () => {
 });
 
 describe('setGlueAwsAuthMethodOnRecipe', () => {
-    it('should remove access key fields when auth type is access_keys', () => {
+    it('writes the new auth method into the recipe and strips IAM role creds when switching to access_keys', () => {
         const recipe = {
             source: {
                 config: {
-                    aws_auth_method: awsAuthAccessKeys,
+                    aws_role: 'arn:aws:iam::123456789012:role/StaleRole',
                     aws_access_key_id: 'test-key-id',
                     aws_secret_access_key: 'test-secret',
                     aws_session_token: 'test-token',
                 },
             },
         };
-        const result = setGlueAwsAuthMethodOnRecipe(recipe);
+        const result = setGlueAwsAuthMethodOnRecipe(recipe, awsAuthAccessKeys);
 
-        expect(result.source.config.aws_auth_method).toBe(awsAuthAccessKeys);
+        expect(result.source.config.aws_auth_method).toBeUndefined();
+        // Access key creds should be preserved — this is the auth method we're using.
+        expect(result.source.config.aws_access_key_id).toBe('test-key-id');
+        expect(result.source.config.aws_secret_access_key).toBe('test-secret');
+        expect(result.source.config.aws_session_token).toBe('test-token');
+        // IAM role from a previous selection must be dropped.
+        expect(result.source.config.aws_role).toBeUndefined();
+    });
+
+    it('writes the new auth method and strips access keys when switching to iam_role', () => {
+        const recipe = {
+            source: {
+                config: {
+                    aws_access_key_id: 'stale-key-id',
+                    aws_secret_access_key: 'stale-secret',
+                    aws_session_token: 'stale-token',
+                    aws_role: 'arn:aws:iam::123456789012:role/TestRole',
+                },
+            },
+        };
+        const result = setGlueAwsAuthMethodOnRecipe(recipe, awsAuthIamRole);
+
+        expect(result.source.config.aws_auth_method).toBeUndefined();
+        expect(result.source.config.aws_role).toBe('arn:aws:iam::123456789012:role/TestRole');
         expect(result.source.config.aws_access_key_id).toBeUndefined();
         expect(result.source.config.aws_secret_access_key).toBeUndefined();
         expect(result.source.config.aws_session_token).toBeUndefined();
     });
 
-    it('should remove role field when auth type is iam_role', () => {
+    it('strips all credentials when switching to default_credentials', () => {
         const recipe = {
             source: {
                 config: {
-                    aws_auth_method: awsAuthIamRole,
-                    aws_role: 'arn:aws:iam::123456789012:role/TestRole',
-                },
-            },
-        };
-        const result = setGlueAwsAuthMethodOnRecipe(recipe);
-
-        expect(result.source.config.aws_auth_method).toBe(awsAuthIamRole);
-        expect(result.source.config.aws_role).toBeUndefined();
-    });
-
-    it('should remove all credential fields when auth type is default_credentials', () => {
-        const recipe = {
-            source: {
-                config: {
-                    aws_auth_method: awsAuthDefaultCredentials,
                     aws_access_key_id: 'test-key-id',
                     aws_secret_access_key: 'test-secret',
                     aws_session_token: 'test-token',
@@ -136,13 +143,41 @@ describe('setGlueAwsAuthMethodOnRecipe', () => {
                 },
             },
         };
-        const result = setGlueAwsAuthMethodOnRecipe(recipe);
+        const result = setGlueAwsAuthMethodOnRecipe(recipe, awsAuthDefaultCredentials);
 
-        expect(result.source.config.aws_auth_method).toBe(awsAuthDefaultCredentials);
+        expect(result.source.config.aws_auth_method).toBeUndefined();
         expect(result.source.config.aws_access_key_id).toBeUndefined();
         expect(result.source.config.aws_secret_access_key).toBeUndefined();
         expect(result.source.config.aws_session_token).toBeUndefined();
         expect(result.source.config.aws_role).toBeUndefined();
+    });
+
+    it('strips a stale aws_auth_method from the recipe even though it is a UI-only field', () => {
+        // Regression: aws_auth_method is not a real GlueSourceConfig field, and
+        // ConfigModel uses extra="forbid" — leaving it in the recipe would cause the
+        // connector to fail validation at ingestion time.
+        const recipe = {
+            source: { config: { aws_auth_method: awsAuthAccessKeys, aws_region: 'us-east-1' } },
+        };
+        const result = setGlueAwsAuthMethodOnRecipe(recipe, awsAuthIamRole);
+        expect(result.source.config.aws_auth_method).toBeUndefined();
+        expect(result.source.config.aws_region).toBe('us-east-1');
+    });
+
+    it('preserves unrelated config fields when toggling auth method', () => {
+        const recipe = {
+            source: {
+                config: {
+                    aws_region: 'us-east-1',
+                    catalog_id: '123456789012',
+                    aws_role: 'arn:aws:iam::123:role/Stale',
+                },
+            },
+        };
+        const result = setGlueAwsAuthMethodOnRecipe(recipe, awsAuthAccessKeys);
+
+        expect(result.source.config.aws_region).toBe('us-east-1');
+        expect(result.source.config.catalog_id).toBe('123456789012');
     });
 });
 

@@ -1,10 +1,16 @@
 package com.linkedin.gms.factory.telemetry;
 
+import static com.linkedin.gms.factory.telemetry.TelemetryUtils.DATAHUB_ENGAGE_ENDPOINT;
+import static com.linkedin.gms.factory.telemetry.TelemetryUtils.DATAHUB_EVENTS_ENDPOINT;
+
+import com.datahub.telemetry.MixpanelEventSender;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.entity.EntityService;
-import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.version.GitVersion;
+import com.mixpanel.mixpanelapi.MixpanelAPI;
 import io.datahubproject.metadata.context.OperationContext;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
@@ -21,11 +27,19 @@ public class ScheduledAnalyticsFactory {
   @ConditionalOnProperty("telemetry.enabledServer")
   public DailyReport dailyReport(
       @Qualifier("systemOperationContext") OperationContext systemOperationContext,
-      @Qualifier("searchClientShim") SearchClientShim<?> elasticClient,
       ConfigurationProvider configurationProvider,
       EntityService<?> entityService,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nullable MetricUtils metricUtils) {
+    // The daily report always goes to DataHub's own collector with DataHub's token, on a client
+    // of its own rather than the one TrackingService uses. DailyReport.close() stops the sender
+    // when the bean is destroyed.
+    MixpanelEventSender sender =
+        new MixpanelEventSender(
+            "daily-report",
+            new MixpanelAPI(DATAHUB_EVENTS_ENDPOINT, DATAHUB_ENGAGE_ENDPOINT),
+            metricUtils);
     return new DailyReport(
-        systemOperationContext, elasticClient, configurationProvider, entityService, gitVersion);
+        systemOperationContext, configurationProvider, entityService, gitVersion, sender);
   }
 }

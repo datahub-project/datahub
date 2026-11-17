@@ -14,7 +14,7 @@ RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     libxtst6 \
     xauth \
     xvfb \
-    openjdk-21-jdk && \
+    openjdk-25-jdk && \
     rm -rf /var/lib/apt/lists/* /var/cache/apk/*
 
 USER datahub

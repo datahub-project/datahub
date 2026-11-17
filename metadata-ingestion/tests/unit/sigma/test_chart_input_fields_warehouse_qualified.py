@@ -416,7 +416,7 @@ class TestBuildElementInputFieldsWarehouseCounters:
             element_warehouse_table_index=element_warehouse_table_index,
             elementId_to_chart_urn={},
             wb_only_warehouse_keys=wb_only_warehouse_keys,
-        )
+        ).fields
 
     def test_warehouse_qualified_via_workbook_index(self):
         """Workbook-only key bumps both _qualified and _qualified_via_workbook_index."""

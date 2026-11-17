@@ -1,4 +1,4 @@
-import { CloseOutlined } from '@ant-design/icons';
+import { X } from '@phosphor-icons/react/dist/csr/X';
 import { Divider } from 'antd';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
@@ -6,6 +6,7 @@ import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
 import translateFieldPath from '@app/entityV2/dataset/profile/schema/utils/translateFieldPath';
+import { EntityTabPath } from '@app/entityV2/shared/constants';
 import NullableLabel, {
     PartitioningKeyLabel,
     PrimaryKeyLabel,
@@ -96,9 +97,10 @@ const StyleLink = styled(Link)`
 interface Props {
     expandedField: SchemaField;
     setExpandedDrawerFieldPath: (fieldPath: string | null) => void;
+    isPrimaryKey: boolean;
 }
 
-export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath }: Props) {
+export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath, isPrimaryKey }: Props) {
     const { t: tc } = useTranslation('common.labels');
     const { config } = useAppConfig();
     const displayName = translateFieldPath(expandedField.fieldPath || '');
@@ -117,7 +119,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                                 `${entityRegistry.getEntityUrl(
                                     expandedField.schemaFieldEntity?.type,
                                     (expandedField.schemaFieldEntity?.urn as string) || '',
-                                )}/Lineage`
+                                )}/${EntityTabPath.LINEAGE}`
                             }
                         >
                             {displayName.split(FIELD_PATH_SEPARATOR).pop()}
@@ -127,7 +129,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     )}
                     <StyledDivider type="vertical" />
                     <StyledTypeLabel type={expandedField.type} nativeDataType={expandedField.nativeDataType} />
-                    {expandedField.isPartOfKey && <PrimaryKeyLabel />}
+                    {isPrimaryKey && <PrimaryKeyLabel />}
                     {expandedField.isPartitioningKey && <PartitioningKeyLabel />}
                     {expandedField.nullable && <NullableLabel />}
                     <FieldPath displayName={displayName} setExpandedDrawerFieldPath={setExpandedDrawerFieldPath} />
@@ -139,7 +141,7 @@ export default function FieldHeader({ expandedField, setExpandedDrawerFieldPath 
                     <MenuColumn field={expandedField} />
                 </MenuWrapper>
                 <CloseIcon onClick={() => setExpandedDrawerFieldPath(null)}>
-                    <CloseOutlined />
+                    <X />
                 </CloseIcon>
             </RightGroup>
         </FieldHeaderWrapper>

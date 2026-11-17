@@ -1,4 +1,6 @@
-import { AppConfig, FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
+import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
+
+import { FacetFilter, FacetFilterInput, FacetMetadata } from '@types';
 
 /**
  * The scenario in which filter rendering is required.
@@ -16,6 +18,8 @@ export enum FilterScenarioType {
      * The V2 search + browse experience, inside the "More" dropdown.
      */
     SEARCH_V2_SECONDARY,
+
+    SEARCH_V2_DROPDOWN_ONLY,
 }
 
 /**
@@ -25,6 +29,6 @@ export interface FilterRenderProps {
     scenario: FilterScenarioType;
     filter: FacetMetadata;
     activeFilters: FacetFilterInput[];
-    config?: AppConfig;
+    config?: AppConfigWithoutPolicyPrivileges;
     onChangeFilters: (newFilters: FacetFilter[]) => void;
 }

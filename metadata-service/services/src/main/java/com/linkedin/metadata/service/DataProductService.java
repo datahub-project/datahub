@@ -25,6 +25,8 @@ import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import com.linkedin.r2.RemoteInvocationException;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -326,14 +328,15 @@ public class DataProductService {
    */
   public void deleteDataProduct(@Nonnull OperationContext opContext, @Nonnull Urn dataProductUrn) {
     try {
-      _entityClient.deleteEntity(
-          opContext, Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"));
+      final var references =
+          _entityClient.deleteEntityThenReferences(
+              opContext, Objects.requireNonNull(dataProductUrn, "dataProductUrn must not be null"));
 
       // Asynchronously Delete all references to the entity (to return quickly)
       CompletableFuture.runAsync(
           () -> {
             try {
-              _entityClient.deleteEntityReferences(opContext, dataProductUrn);
+              references.run();
             } catch (Exception e) {
               log.error(
                   String.format(
@@ -585,6 +588,19 @@ public class DataProductService {
     } catch (Exception e) {
       throw new RuntimeException(
           String.format("Failed to determine if entity with urn %s exists", entityUrn), e);
+    }
+  }
+
+  public Set<Urn> filterExistingUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> entityUrns) {
+    if (entityUrns.isEmpty()) {
+      return Collections.emptySet();
+    }
+    try {
+      return _entityClient.filterExistingUrns(opContext, entityUrns);
+    } catch (Exception e) {
+      throw new RuntimeException(
+          String.format("Failed to determine which entities exist among %s", entityUrns), e);
     }
   }
 }

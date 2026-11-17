@@ -5,6 +5,7 @@ import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.isNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.spy;
+import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
@@ -30,6 +31,7 @@ import com.linkedin.metadata.graph.cache.config.EntityGraphModel.ResolvedGraphEd
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshotBuilder.BuildResult;
 import com.linkedin.metadata.graph.cache.store.EntityGraphCacheKeys;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
@@ -40,6 +42,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.OptionalInt;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -137,6 +140,49 @@ public class EntityGraphSnapshotBuilderGraphTest {
   }
 
   @Test
+  public void fullGraphBuildSkipsUnparsableEndpoints() {
+    when(graphRetriever.scrollRelatedEntities(
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            any(),
+            nullable(String.class),
+            anyInt(),
+            isNull(),
+            isNull()))
+        .thenReturn(
+            new RelatedEntitiesScrollResult(
+                2,
+                2,
+                null,
+                List.of(
+                    new RelatedEntities(
+                        "IsPartOf",
+                        "urn:li:foo:child",
+                        "urn:li:foo:parent",
+                        RelationshipDirection.OUTGOING,
+                        null),
+                    new RelatedEntities(
+                        "IsPartOf",
+                        "urn:li:foo:other",
+                        "null",
+                        RelationshipDirection.OUTGOING,
+                        null))));
+
+    BuildResult result =
+        builder.build(opContext, fullGraphDefinition, GraphSnapshotSource.GRAPH, null);
+
+    assertEquals(result.getStatus(), CacheStatus.ACTIVE);
+    assertNotNull(result.getSnapshot());
+    assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:foo:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:foo:parent");
+  }
+
+  @Test
   public void fullGraphBuildSucceedsFromGraphScroll() {
     when(graphRetriever.scrollRelatedEntities(
             any(),
@@ -169,6 +215,8 @@ public class EntityGraphSnapshotBuilderGraphTest {
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());
     assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:domain:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:domain:root");
     assertEquals(
         result.getSnapshot().getCacheKey(),
         EntityGraphCacheKeys.fullCacheKey(GRAPH_ID, GraphSnapshotSource.GRAPH));
@@ -310,8 +358,12 @@ public class EntityGraphSnapshotBuilderGraphTest {
         new SearchEntity()
             .setEntity(UrnUtils.getUrn("urn:li:domain:child"))
             .setExtraFields(new StringMap(Map.of("parentDomain", "urn:li:domain:root")));
+    SearchEntity selfParent =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:domain:self-parent"))
+            .setExtraFields(new StringMap(Map.of("parentDomain", "urn:li:domain:self-parent")));
     when(searchRetriever.scroll(any(), any(), nullable(String.class), anyInt(), any(), any()))
-        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray(entity)));
+        .thenReturn(new ScrollResult().setEntities(new SearchEntityArray(entity, selfParent)));
 
     EntityRegistry entityRegistry = new TestEntityRegistry();
     CachingAspectRetriever aspectRetriever = Mockito.mock(CachingAspectRetriever.class);
@@ -337,9 +389,16 @@ public class EntityGraphSnapshotBuilderGraphTest {
     BuildResult result =
         builder.build(searchContext, searchableDefinition, GraphSnapshotSource.SEARCH, null);
 
+    ArgumentCaptor<SearchFlags> flagsCaptor = ArgumentCaptor.forClass(SearchFlags.class);
+    verify(searchRetriever)
+        .scroll(any(), any(), nullable(String.class), anyInt(), any(), flagsCaptor.capture());
+    assertEquals(flagsCaptor.getValue().getFetchExtraFields(), List.of("parentDomain"));
+
     assertEquals(result.getStatus(), CacheStatus.ACTIVE);
     assertNotNull(result.getSnapshot());
     assertEquals(result.getSnapshot().getEdges().size(), 1);
+    assertEquals(result.getSnapshot().getEdges().get(0).getSourceUrn(), "urn:li:domain:child");
+    assertEquals(result.getSnapshot().getEdges().get(0).getDestinationUrn(), "urn:li:domain:root");
     assertEquals(
         result.getSnapshot().getCacheKey(),
         EntityGraphCacheKeys.fullCacheKey(GRAPH_ID, GraphSnapshotSource.SEARCH));

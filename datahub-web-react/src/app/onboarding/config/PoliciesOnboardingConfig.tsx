@@ -2,7 +2,7 @@ import { Text } from '@components';
 import React from 'react';
 import { Trans } from 'react-i18next';
 
-import { OnboardingStep } from '@app/onboarding/OnboardingStep';
+import { OnboardingStep } from '@app/onboarding/types';
 
 export const POLICIES_INTRO_ID = 'policies-intro';
 export const POLICIES_CREATE_POLICY_ID = 'policies-create-policy';

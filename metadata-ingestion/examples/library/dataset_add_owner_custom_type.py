@@ -1,5 +1,3 @@
-# Inlined from /metadata-ingestion/examples/library/dataset_add_owner_custom_type.py
-
 from datahub.emitter.mce_builder import (
     make_dataset_urn,
     make_ownership_type_urn,

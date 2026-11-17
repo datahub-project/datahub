@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.testng.Assert.*;
 
+import com.linkedin.api.ApiProperties;
 import com.linkedin.common.Documentation;
 import com.linkedin.common.DocumentationAssociation;
 import com.linkedin.common.DocumentationAssociationArray;
@@ -409,5 +410,33 @@ public class UpdateDescriptionResolverTest {
                 }),
             any(),
             eq(false));
+  }
+
+  @Test
+  public void testUpdateApiDescription() throws Exception {
+    // APIs have no editable-properties aspect: the description is written onto apiProperties.
+    Urn urn = Urn.createFromString("urn:li:api:test-api");
+    Mockito.when(mockEntityService.exists(any(), eq(urn), eq(true))).thenReturn(true);
+
+    QueryContext mockContext = getMockAllowContext(TEST_ACTOR_URN);
+    DataFetchingEnvironment mockEnv = Mockito.mock(DataFetchingEnvironment.class);
+
+    DescriptionUpdateInput input = new DescriptionUpdateInput();
+    input.setResourceUrn(urn.toString());
+    input.setDescription(TEST_DESCRIPTION);
+    Mockito.when(mockEnv.getArgument(Mockito.eq("input"))).thenReturn(input);
+    Mockito.when(mockEnv.getContext()).thenReturn(mockContext);
+
+    assertTrue(resolver.get(mockEnv).get());
+
+    // No existing aspect: the fallback seeds the required name from the urn id.
+    ApiProperties expected = new ApiProperties();
+    expected.setName("test-api");
+    expected.setDescription(TEST_DESCRIPTION);
+    verifySingleIngestProposal(
+        mockEntityService,
+        1,
+        MutationUtils.buildMetadataChangeProposalWithUrn(
+            urn, API_PROPERTIES_ASPECT_NAME, expected));
   }
 }

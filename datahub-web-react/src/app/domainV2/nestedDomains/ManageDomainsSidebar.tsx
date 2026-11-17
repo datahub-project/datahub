@@ -1,6 +1,6 @@
 import { Avatar, Tooltip } from '@components';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
-import React, { useCallback, useMemo, useState } from 'react';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
@@ -15,9 +15,14 @@ import {
     DomainSidebarFiltersProvider,
     useDomainSidebarFilters,
 } from '@app/domainV2/nestedDomains/domainSidebarFilters/DomainSidebarFiltersContext';
+import {
+    DOMAIN_SIDEBAR_SORT,
+    DomainSidebarSortValue,
+} from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarSort';
 import HierarchicalBrowseSidebar from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar';
 import { SidebarCreateButton } from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/HierarchicalBrowseSidebar.components';
 import SidebarHomeNavLink from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarHomeNavLink';
+import SidebarSortSelect from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarSortSelect';
 import { PageRoutes } from '@conf/Global';
 
 import { EntityType } from '@types';
@@ -30,12 +35,28 @@ const OwnerOptionRow = styled.span`
 
 function ManageDomainsSidebarInner() {
     const { t } = useTranslation('governance.domain');
+    const { t: tm } = useTranslation('misc');
     const location = useLocation();
     const [isClosed, setIsClosed] = useState(false);
     const [isCreatingDomain, setIsCreatingDomain] = useState(false);
-    const { selectedOwnerUrns, setSelectedOwnerUrns, availableOwners } = useDomainSidebarFilters();
+    const { selectedOwnerUrns, setSelectedOwnerUrns, availableOwners, sortSelection, setSortSelection } =
+        useDomainSidebarFilters();
+    const isFirstSortEffectRef = useRef(true);
 
     const isHomeSelected = matchPath(location.pathname, { path: PageRoutes.DOMAINS, exact: true }) !== null;
+
+    // Sort reloads the scroll stream from page 1 — pin the browse list at the top
+    // so results don't land off-screen after the user had scrolled down (Documents).
+    useEffect(() => {
+        if (isFirstSortEffectRef.current) {
+            isFirstSortEffectRef.current = false;
+            return;
+        }
+        const treeScroll = document.querySelector('[data-testid="hierarchical-browse-tree-scroll"]');
+        if (treeScroll instanceof HTMLElement) {
+            treeScroll.scrollTop = 0;
+        }
+    }, [sortSelection]);
 
     const unhideSidebar = useCallback(() => {
         setIsClosed(false);
@@ -51,6 +72,15 @@ function ManageDomainsSidebarInner() {
         [availableOwners],
     );
 
+    const sortOptions = useMemo(
+        () => [
+            { value: DOMAIN_SIDEBAR_SORT.NAME_ASC, label: tm('sidebarSort.nameAtoZ') },
+            { value: DOMAIN_SIDEBAR_SORT.NAME_DESC, label: tm('sidebarSort.nameZtoA') },
+            { value: DOMAIN_SIDEBAR_SORT.CREATED_DESC, label: tm('sidebarSort.created') },
+        ],
+        [tm],
+    );
+
     const headerActions = (
         <Tooltip showArrow={false} title={t('sidebar.createTooltip')} placement="right">
             <SidebarCreateButton
@@ -64,7 +94,9 @@ function ManageDomainsSidebarInner() {
         </Tooltip>
     );
 
-    const ownerFilter = (
+    // Domains only support Owners (no tags/terms on the Domain entity). One
+    // filter → no "+ Filter" menu.
+    const filters = (
         <SimpleSelect
             size="sm"
             width="fit-content"
@@ -108,7 +140,15 @@ function ManageDomainsSidebarInner() {
                 headerActions={headerActions}
                 id="browse-v2"
                 search={<DomainSearch />}
-                filters={ownerFilter}
+                sort={
+                    <SidebarSortSelect
+                        options={sortOptions}
+                        value={sortSelection}
+                        onChange={(next) => setSortSelection(next as DomainSidebarSortValue)}
+                        dataTestId="domain-sidebar-sort"
+                    />
+                }
+                filters={filters}
                 homeNav={
                     <SidebarHomeNavLink
                         to={PageRoutes.DOMAINS}
@@ -122,10 +162,10 @@ function ManageDomainsSidebarInner() {
                     isCollapsed ? (
                         <>
                             <DomainSearch isCollapsed unhideSidebar={unhideSidebar} />
-                            <DomainNavigator isCollapsed variant="sidebar" includeHome />
+                            <DomainNavigator key={sortSelection} isCollapsed variant="sidebar" includeHome />
                         </>
                     ) : (
-                        <DomainNavigator variant="sidebar" includeHome={false} />
+                        <DomainNavigator key={sortSelection} variant="sidebar" includeHome={false} />
                     )
                 }
             </HierarchicalBrowseSidebar>

@@ -60,6 +60,10 @@ The Remote Executor exposes metrics on port `9087/tcp` in Prometheus/OpenMetrics
    - Disk: `datahub_executor_disk_*`
    - Network: `datahub_executor_net_*`
 
+:::note
+From DataHub 2.4.0, the executor reads its memory and CPU limits from its own container's cgroup, and on ECS also from the task's limits. Before, it read them from the root of the cgroup filesystem, which on some platforms (for example older Docker versions, ECS on EC2 and ECS on Fargate) shows no limit, so the whole machine's size was reported. After upgrading, `datahub_executor_memory_limit_processgroup` and `datahub_executor_cpu_limit_processgroup` can report lower, more accurate values on those platforms. Review any alerts that compare usage against these limits.
+:::
+
 ### Prometheus Configuration
 
 Example ServiceMonitor resource to allow scraping Remote Executor metrics in Prometheus:

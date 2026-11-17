@@ -10974,7 +10974,67 @@
   },
   "saved_queries": {},
   "selectors": {},
-  "semantic_models": {},
+  "semantic_models": {
+    "semantic_model.sample_dbt.billing_metrics": {
+      "name": "billing_metrics",
+      "resource_type": "semantic_model",
+      "package_name": "sample_dbt",
+      "description": "Billing metrics for monthly customer payments",
+      "node_relation": {
+        "database": "pagila",
+        "schema": "public",
+        "alias": "monthly_billing_with_cust"
+      },
+      "depends_on": {
+        "macros": [],
+        "nodes": [
+          "model.sample_dbt.monthly_billing_with_cust"
+        ]
+      },
+      "entities": [
+        {
+          "name": "customer_id",
+          "type": "primary",
+          "description": "The unique customer identifier",
+          "expr": "customer_id"
+        }
+      ],
+      "dimensions": [
+        {
+          "name": "billing_month",
+          "type": "time",
+          "description": "The month of billing",
+          "expr": "billing_month",
+          "type_params": {
+            "time_granularity": "month"
+          }
+        }
+      ],
+      "measures": [
+        {
+          "name": "total_amount",
+          "agg": "sum",
+          "description": "Total billed amount",
+          "expr": "amount"
+        },
+        {
+          "name": "payment_count",
+          "agg": "count",
+          "description": "Number of payments",
+          "expr": "payment_id"
+        }
+      ],
+      "unique_id": "semantic_model.sample_dbt.billing_metrics",
+      "original_file_path": "models/semantic_models/billing_metrics.yml",
+      "config": {
+        "enabled": true,
+        "group": null,
+        "meta": {
+          "team": "analytics"
+        }
+      }
+    }
+  },
   "sources": {
     "source.sample_dbt.pagila.actor": {
       "columns": {

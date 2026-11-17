@@ -2,16 +2,13 @@ package com.linkedin.metadata.search.elasticsearch.index.entity.v2;
 
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
-import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
-import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8SemanticIndexMapper;
-import com.linkedin.metadata.search.elasticsearch.client.shim.builder.opensearch2.OpenSearch2SemanticIndexMapper;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
+import com.linkedin.metadata.search.elasticsearch.index.entity.SemanticEmbeddingMappings;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
-import com.linkedin.metadata.utils.elasticsearch.shim.SemanticIndexSpec;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
@@ -63,113 +60,8 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
     this(v2MappingsBuilder, semanticConfig, indexConvention, null);
   }
 
-  /**
-   * Translates a space-type string between OpenSearch and Elasticsearch 8 vocabulary.
-   *
-   * <p>OpenSearch uses {@code cosinesimil} / {@code l2} / {@code innerproduct}; ES 8 uses {@code
-   * cosine} / {@code l2_norm} / {@code dot_product}. Because application.yaml ships model configs
-   * for both engines, the configured value may be in either vocabulary — this method normalises it
-   * for the target engine in both directions.
-   */
-  private static String translateSpaceType(
-      @Nonnull String spaceType, @Nonnull SearchClientShim.SearchEngineType engine) {
-    if (engine == SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
-      return switch (spaceType) {
-        case "cosinesimil" -> "cosine";
-        case "l2" -> "l2_norm";
-        case "innerproduct", "dotproduct" -> "dot_product";
-        default -> spaceType;
-      };
-    }
-    // OpenSearch 2 path — reverse-translate ES 8 vocabulary if present
-    return switch (spaceType) {
-      case "cosine" -> "cosinesimil";
-      case "l2_norm" -> "l2";
-      case "dot_product" -> "innerproduct";
-      default -> spaceType;
-    };
-  }
-
-  /**
-   * Builds the embedding field configuration dynamically from SemanticSearchConfiguration.
-   *
-   * <p>Supports multiple embedding models with different configurations. Dispatches to the
-   * engine-specific mapper so that ES 8 deployments use {@code dense_vector} while OpenSearch
-   * deployments continue to use {@code knn_vector}.
-   *
-   * <p>Structure returned:
-   *
-   * <pre>{@code
-   * {
-   *   "properties": {
-   *     "<model_key>": {  // e.g., "cohere_embed_v3"
-   *       "properties": {
-   *         "chunks": {
-   *           "type": "nested",
-   *           "properties": {
-   *             "vector": { "type": "dense_vector"|"knn_vector", "dimension": 1024, ... },
-   *             "text": { "type": "text", "index": false },
-   *             "position": { "type": "integer" },
-   *             "characterOffset": { "type": "integer" },
-   *             "characterLength": { "type": "integer" },
-   *             "tokenCount": { "type": "integer" }
-   *           }
-   *         },
-   *         "totalChunks": { "type": "integer" },
-   *         "modelVersion": { "type": "keyword" },
-   *         "generatedAt": { "type": "date" }
-   *       }
-   *     }
-   *   }
-   * }
-   * }</pre>
-   *
-   * @return Map representing the mapping for the embeddings field
-   */
-  @SuppressWarnings("unchecked")
   private Map<String, Object> buildEmbeddingFieldConfig() {
-    SearchClientShim.SearchEngineType engineType =
-        searchClientShim != null
-            ? searchClientShim.getEngineType()
-            : SearchClientShim.SearchEngineType.OPENSEARCH_2;
-
-    Map<String, Object> modelProperties = new HashMap<>();
-
-    for (Map.Entry<String, ModelEmbeddingConfig> entry : semanticConfig.getModels().entrySet()) {
-      String modelKey = entry.getKey();
-      ModelEmbeddingConfig modelConfig = entry.getValue();
-
-      String translatedSimilarity = translateSpaceType(modelConfig.getSpaceType(), engineType);
-
-      SemanticIndexSpec spec =
-          SemanticIndexSpec.builder()
-              .indexName("semantic") // not used at this layer
-              .modelKey(modelKey)
-              .vectorDimension(modelConfig.getVectorDimension())
-              .similarity(translatedSimilarity)
-              .hnswM(modelConfig.getM())
-              .hnswEfConstruction(modelConfig.getEfConstruction())
-              .knnEngine(modelConfig.getKnnEngine())
-              .build();
-
-      Map<String, Object> fullMapping;
-      if (engineType == SearchClientShim.SearchEngineType.ELASTICSEARCH_8) {
-        fullMapping = Es8SemanticIndexMapper.build(spec);
-      } else {
-        fullMapping = OpenSearch2SemanticIndexMapper.build(spec);
-      }
-
-      // Both mappers produce: {properties: {urn: ..., embeddings: {properties: {<modelKey>: ...}}}}
-      // Extract just the modelKey subtree from embeddings.properties
-      Map<String, Object> topProps = (Map<String, Object>) fullMapping.get("properties");
-      Map<String, Object> embeddingsField = (Map<String, Object>) topProps.get("embeddings");
-      Map<String, Object> embeddingsProps = (Map<String, Object>) embeddingsField.get("properties");
-      Map<String, Object> modelEntry = (Map<String, Object>) embeddingsProps.get(modelKey);
-
-      modelProperties.put(modelKey, modelEntry);
-    }
-
-    return ImmutableMap.of("properties", modelProperties);
+    return SemanticEmbeddingMappings.buildEmbeddingFieldConfig(semanticConfig, searchClientShim);
   }
 
   /**
@@ -179,14 +71,15 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
    * @param baseIndexMappings Base V2 index mappings to transform
    * @return Semantic search index mappings with embeddings field added
    */
-  private Collection<IndexMapping> addSemanticMappings(Collection<IndexMapping> baseIndexMappings) {
+  private Collection<IndexMapping> addSemanticMappings(
+      @Nonnull OperationContext opContext, Collection<IndexMapping> baseIndexMappings) {
     Set<String> enabledEntities = semanticConfig.getEnabledEntities();
     Map<String, Object> embeddingFieldConfig = buildEmbeddingFieldConfig();
     ArrayList<IndexMapping> semanticIndexMappings = new ArrayList<>();
 
     for (IndexMapping baseIndexMapping : baseIndexMappings) {
       String indexName = baseIndexMapping.getIndexName();
-      String entityName = indexConvention.getEntityName(indexName).orElse(null);
+      String entityName = indexConvention.getEntityName(opContext, indexName).orElse(null);
 
       // Only create semantic search index for enabled entities
       if (!enabledEntities.contains(entityName)) {
@@ -209,6 +102,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       ImmutableMap.Builder<String, Object> newPropertiesMap = new ImmutableMap.Builder<>();
       newPropertiesMap.putAll(basePropertiesMap);
       newPropertiesMap.put("embeddings", embeddingFieldConfig);
+      newPropertiesMap.putAll(SemanticEmbeddingMappings.provenanceRootMappings());
 
       // Construct new top-level map with new properties map
       ImmutableMap.Builder<String, Object> newMappings = new ImmutableMap.Builder<>();
@@ -218,7 +112,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       // Construct new IndexMapping object for semantic search
       Map<String, Object> finalMappings = newMappings.buildKeepingLast();
 
-      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(entityName);
+      String semanticIndexName = indexConvention.getEntityIndexNameSemantic(opContext, entityName);
       IndexMapping semanticIndexMapping =
           IndexMapping.builder().indexName(semanticIndexName).mappings(finalMappings).build();
 
@@ -239,7 +133,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappings(opContext, structuredProperties);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override
@@ -249,7 +143,7 @@ public class V2SemanticSearchMappingsBuilder implements MappingsBuilder {
       @Nonnull StructuredPropertyDefinition property) {
     Collection<IndexMapping> baseIndexMappings =
         v2MappingsBuilder.getIndexMappingsWithNewStructuredProperty(opContext, urn, property);
-    return addSemanticMappings(baseIndexMappings);
+    return addSemanticMappings(opContext, baseIndexMappings);
   }
 
   @Override

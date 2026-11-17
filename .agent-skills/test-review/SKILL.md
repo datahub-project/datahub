@@ -1,6 +1,11 @@
 # DataHub Test Review
 
-You are an expert DataHub test reviewer. Your role is to evaluate smoke tests and integration tests against established testing standards, identify issues, and provide actionable feedback.
+You are an expert DataHub test reviewer. Your role is to evaluate pytest smoke
+tests against established testing standards, identify issues, and provide
+actionable feedback.
+
+Authoring how-to: `smoke-test/AGENTS.md`. Review rubric:
+`standards/smoke.md`.
 
 ---
 
@@ -28,7 +33,7 @@ This skill is designed to work across multiple coding agents (Claude Code, Curso
 
 **Full review?** -> Load standards, gather test files, then launch `test-quality-analyzer` agent (or perform checks directly)
 
-**PR review?** -> Detect changed test files, classify them, then analyze only changed files
+**PR review?** -> Detect changed test files, then analyze only those files
 
 ---
 
@@ -37,16 +42,17 @@ This skill is designed to work across multiple coding agents (Claude Code, Curso
 ### In Scope
 
 - `smoke-test/` -- Python pytest smoke tests (API-level tests against a running DataHub instance)
-- `smoke-test/tests/cypress/` -- Cypress integration tests (UI/browser-based tests) and their Python launcher (`integration_test.py`)
 - `smoke-test/tests/` -- shared test utilities, fixtures, and helpers
 
 ### Out of Scope
 
+- `smoke-test/tests/cypress/` -- Cypress UI tests
+- `e2e-test/ui/playwright/` -- Playwright UI tests
 - `metadata-ingestion/tests/integration/` -- ingestion connector tests (covered by `datahub-connector-pr-review`)
 - `metadata-ingestion/tests/unit/` -- unit tests
-- `metadata-ingestion/src/datahub/testing/` -- ingestion testing utilities (covered by connector review)
+- `metadata-ingestion/src/datahub/testing/` -- ingestion testing utilities
 
-The `detect-test-changes.sh` script automatically classifies files as smoke test or Cypress integration test.
+The `detect-test-changes.sh` script lists in-scope Python smoke-test files.
 
 ---
 
@@ -63,7 +69,8 @@ The `detect-test-changes.sh` script automatically classifies files as smoke test
 
 **On activation, IMMEDIATELY load testing standards** from the `standards/` directory.
 
-Read `.agent-skills/test-review/standards/smoke-and-integration.md` -- this contains all testing rules with source file citations.
+Read `.agent-skills/test-review/standards/smoke.md` -- this contains all testing rules.
+Also skim `smoke-test/AGENTS.md` if isolation or fixture guidance is in dispute.
 
 After loading, briefly confirm: "Loaded test review standards. Ready to review."
 
@@ -75,11 +82,10 @@ After loading, briefly confirm: "Loaded test review standards. Ready to review."
 
 ```
 1. Load testing standards
-2. Detect and classify test files
-3. Filter out connector-specific tests
-4. Analyze smoke tests (if any)
-5. Analyze integration tests (if any)
-6. Generate review report
+2. Detect in-scope smoke test files
+3. Filter out connector-specific and Cypress tests
+4. Analyze smoke tests
+5. Generate review report
 ```
 
 If TaskCreate is not available, proceed through the steps sequentially.
@@ -90,21 +96,15 @@ If TaskCreate is not available, proceed through the steps sequentially.
 
 ### Step 1: Gather Test Files
 
-For smoke tests:
-
-```bash
-find smoke-test -name "*.py" -path "*/tests/*" -o -name "test_*.py" | head -50
-```
-
-For integration tests (filter connector-specific):
-
 ```bash
 .agent-skills/test-review/scripts/detect-test-changes.sh local
 ```
 
+Or list Python tests under `smoke-test/` excluding `tests/cypress/`.
+
 ### Step 2: Load Standards into Context
 
-Read `.agent-skills/test-review/standards/smoke-and-integration.md` completely. This provides the rules for analysis.
+Read `.agent-skills/test-review/standards/smoke.md` completely.
 
 ### Step 3: Launch Test Quality Analyzer
 
@@ -113,14 +113,14 @@ Read `.agent-skills/test-review/standards/smoke-and-integration.md` completely. 
 ```
 Agent tool:
   subagent_type: "test-quality-analyzer"
-  prompt: """Analyze the following test files for quality and standards compliance.
+  prompt: """Analyze the following smoke test files for quality and standards compliance.
 
 <test-standards>
-[Content from .agent-skills/test-review/standards/smoke-and-integration.md]
+[Content from .agent-skills/test-review/standards/smoke.md]
 </test-standards>
 
 <files-to-analyze>
-[List of test file paths, classified as smoke/integration]
+[List of smoke-test Python file paths]
 </files-to-analyze>
 
 For each file, check all applicable rules from the standards document.
@@ -133,10 +133,8 @@ Report findings with severity (BLOCKER/WARNING/SUGGESTION) and file:line referen
 If you cannot dispatch sub-agents, perform the analysis yourself:
 
 1. Read each test file completely
-2. For smoke tests, check against Section 1 of the standards (data lifecycle, fixtures, auth, retry, GraphQL, REST, markers, env vars, isolation)
-3. For integration tests, check against Section 2 (Docker lifecycle, golden files, MCE/MCP helpers, markers, pipeline pattern)
-4. Scan for all anti-patterns in Section 3 (empty tests, bare sleep, hardcoded URLs, inline auth, global state, missing cleanup, commented code, broad assertions)
-5. Verify quality gates in Section 4
+2. Check against the smoke-test standards (isolation, fixtures, auth, retry, GraphQL/REST, markers, env vars, cleanup, placement, logging)
+3. Scan for anti-patterns listed at the end of the standards file
 
 ### Step 4: Generate Report
 
@@ -152,7 +150,7 @@ Use the `.agent-skills/test-review/templates/test-review-report.md` template. Fi
 
 - **APPROVED**: No blockers, no more than 3 warnings
 - **NEEDS CHANGES**: Has warnings or fixable blockers
-- **BLOCKED**: Has fundamental anti-pattern blockers (empty tests, missing cleanup, hardcoded credentials)
+- **BLOCKED**: Has fundamental anti-pattern blockers (empty tests, missing cleanup, hardcoded credentials, shared hardcoded URNs)
 
 ---
 
@@ -176,7 +174,7 @@ Use the `.agent-skills/test-review/templates/test-review-report.md` template. Fi
 
 ```bash
 gh pr diff ${PR_NUMBER} --name-only | grep -E '^smoke-test/' | \
-  grep -E '\.(py|js|json)$'
+  grep -E '\.py$' | grep -v '/tests/cypress/'
 ```
 
 ### Step 2: Classify Files
@@ -184,7 +182,6 @@ gh pr diff ${PR_NUMBER} --name-only | grep -E '^smoke-test/' | \
 Parse the output of `detect-test-changes.sh`:
 
 - Lines starting with `smoke:` are smoke test files
-- Lines starting with `integration:` are integration test files
 
 If no in-scope test changes detected (exit code 1), report: "No in-scope test changes found in this PR."
 
@@ -195,8 +192,8 @@ Apply the same analysis as Mode 1, Step 3, but only to changed files.
 For incremental reviews, also check:
 
 - Do new tests follow the same patterns as existing tests in their module?
-- Are golden files updated when test output changes?
 - Do modifications preserve existing test behavior?
+- Are unique-name helpers used instead of new shared hardcoded URNs?
 
 ### Step 4: Generate Report
 
@@ -223,31 +220,20 @@ The skill produces deterministic output:
 
 ## Standards Reference
 
-All standards are documented in `standards/smoke-and-integration.md` with source file citations:
+All standards are documented in `standards/smoke.md`. Authoring
+guide: `smoke-test/AGENTS.md`.
 
-### Smoke Test Standards
-
-1. **Fixture Conventions** -- session/module/function scope hierarchy
-2. **Data Lifecycle** -- pre-delete -> ingest -> wait -> yield -> cleanup -> wait
-3. **Authentication** -- `auth_session` fixture, never inline
-4. **Retry Patterns** -- Trace API, `wait_for_writes_to_sync()` (with consumer group targeting), `@with_test_retry()`, assertion-scoped waits, service status polling, no bare `time.sleep()`
-5. **GraphQL Testing** -- `execute_graphql()` with thorough assertions
-6. **REST Testing** -- `restli_default_headers`, `ingest_file_via_rest()`
-7. **Marker Conventions** -- `read_only`, `no_cypress_suite1`, `dependency()`
-8. **Environment Variables** -- `env_vars.py` registry, no hardcoded URLs
-9. **Idempotent Setup** -- pre-delete or UUID-based unique names, safely re-runnable
-10. **Guaranteed Cleanup** -- fixture `yield` teardown or `try/finally` for mid-test entities
-11. **Test Isolation** -- no global mutable state, unique identifiers, cache clearing
-12. **Multi-Environment Config** -- URLs via env vars, `USE_STATIC_SLEEP` fallback, no hardcoded infra
-13. **Concurrent Testing** -- `run_concurrent_tests()` worker pool
-
-### Integration Test Standards (Cypress)
-
-1. **Cypress Launcher** -- Python `integration_test.py` data lifecycle, batching, subprocess management
-2. **Spec Structure** -- `describe`/`it` blocks, unique random IDs, `cy.login()` per test
-3. **Test Data Management** -- JSON fixtures ingested by launcher, `TimestampUpdater`
-4. **Batching and CI** -- `bin_pack_tasks` with `test_weights.json`, `FILTERED_TESTS` retry
-5. **Assertions and Selectors** -- `data-testid` attributes, `cy.waitTextVisible`, `cy.intercept`
+1. **Isolation and unique names** -- `unique_suffix()` / unique ingest, no shared hardcoded URNs
+2. **Fixtures and data lifecycle** -- unique-dataset ingest by default; `_ingest_cleanup_data_impl` only when keys are already unique
+3. **Authentication** -- `auth_session` fixture, `make_step_actor_user()`, never inline
+4. **Retry patterns** -- Trace API, `wait_for_writes_to_sync()`, `@with_test_retry()`, no bare `time.sleep()`
+5. **GraphQL / REST** -- `execute_graphql()`, `restli_default_headers`, `ingest_file_via_rest()`
+6. **Markers** -- required `domain(...)`; `p0` only for regressions that must run on every PR; `read_only` only when the test never mutates; `global_policy_mutator` only when mutating shared platform policy
+7. **Environment variables** -- `env_vars.py` registry, no hardcoded URLs
+8. **Guaranteed cleanup** -- fixture `yield` or `try/finally`
+9. **Multi-environment config** -- URLs via env vars, `USE_STATIC_SLEEP` fallback
+10. **Concurrent testing** -- thread-safe `run_concurrent_tests()`
+11. **Placement, logging, quality** -- `tests/<feature>/`, `logger.info()`, no customer identifiers
 
 ### Anti-Patterns (Automatic Blockers)
 
@@ -255,10 +241,9 @@ All standards are documented in `standards/smoke-and-integration.md` with source
 - Missing cleanup
 - Hardcoded URLs/ports
 - Inline authentication
-- Bare `time.sleep()` for consistency (use Trace API, targeted `wait_for_writes_to_sync()`, `@with_test_retry()`, or service-specific polling)
-- Global mutable state
-- Overly broad assertions
-- Commented-out test code
+- Bare `time.sleep()` for consistency
+- Shared hardcoded URNs / global mutable state
+- Mutating shared platform policy without `global_policy_mutator`
 
 ---
 
@@ -281,21 +266,22 @@ All standards are documented in `standards/smoke-and-integration.md` with source
 
 ## Scripts
 
-- `scripts/detect-test-changes.sh` -- Detect and classify changed test files
+- `scripts/detect-test-changes.sh` -- Detect in-scope changed smoke-test files
 
 ---
 
 ## References
 
-- `references/smoke-test-patterns.md` -- Smoke test code examples
-- `references/integration-test-patterns.md` -- Integration test code examples
+- `smoke-test/AGENTS.md` -- Canonical authoring guide
+- `references/smoke-test-patterns.md` -- Additional code examples
 
 ---
 
 ## Remember
 
-1. **Every rule must cite a source file.** Do not invent rules -- every standard comes from the DataHub codebase.
-2. **Connector tests are out of scope.** Use `detect-test-changes.sh` to filter them.
-3. **Be conservative with BLOCKERs.** Only flag when a standard is clearly violated.
-4. **Acknowledge good patterns.** Note when tests follow standards well.
-5. **CI output must be deterministic.** Same input -> same verdict.
+1. **Do not invent rules.** Standards come from `smoke-test/AGENTS.md` and the cited helpers.
+2. **Cypress, Playwright, and connector tests are out of scope.**
+3. **Be conservative with BLOCKERs.** Only flag when a standard is clearly violated. Older files that still use `_ingest_cleanup_data_impl` with unique keys are acceptable.
+4. **Do not BLOCK unique-dataset fixtures for missing pre-delete.**
+5. **Acknowledge good patterns.** Note when tests follow standards well.
+6. **CI output must be deterministic.** Same input -> same verdict.

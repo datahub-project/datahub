@@ -2,7 +2,7 @@ extend type Dataset {
   """
   Returns a set of capabilities regarding our timerseries indices
   """
-  timeseriesCapabilities: TimeseriesCapabilitiesResult
+  timeseriesCapabilities: TimeseriesCapabilitiesResult @noAspects
 }
 
 """

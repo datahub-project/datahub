@@ -1,5 +1,6 @@
 from unittest.mock import MagicMock
 
+from datahub.ingestion.agent.probe_methods import _provider_class
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.mysql import MySQLConfig, MySQLSource
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
@@ -54,3 +55,9 @@ def test_get_procedures_for_schema_maps_rows_to_base_procedure() -> None:
     mle = procedures[1]
     assert mle.name == "score_rows"
     assert mle.language == "JAVASCRIPT"  # explicit language preserved
+
+
+def test_probe_support_loads_with_core_dependencies():
+    # Needs only core dependencies, so the registry-wide probe contract tests
+    # are guaranteed at least this provider in any environment.
+    assert _provider_class("mysql") is not None

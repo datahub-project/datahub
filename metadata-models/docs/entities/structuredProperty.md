@@ -273,6 +273,8 @@ These resolvers are located in `/datahub-graphql-core/src/main/java/com/linkedin
 
 Configured in `application.yaml` under `structuredProperties.dropMissingPropertyValuesWithWarning` / env `STRUCTURED_PROPERTIES_DROP_MISSING_PROPERTY_VALUES_WITH_WARNING`.
 
+When `structuredProperties.dropOversizedKeywordValuesFromIndex` is `true` (default `false`), string-backed values over `keywordMaxLength` are stored on the entity but omitted from search documents (`SearchDocumentTransformer`). Writes are not rejected. GraphQL/OpenAPI reads still return the stored value.
+
 #### Hard delete side effects
 
 On hard delete of a `structuredProperty` entity, `EntityServiceImpl` captures the `propertyDefinition` aspect before `deleteUrn` and emits a companion `propertyDefinition` DELETE metadata change log so `PropertyDefinitionDeleteSideEffect` can remove assignments from other entities even when only the key aspect DELETE is visible after storage removal.

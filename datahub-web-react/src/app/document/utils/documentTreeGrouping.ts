@@ -1,7 +1,7 @@
 import { DocumentTreeNode } from '@app/document/DocumentTreeContext';
 import { DATAHUB_PLATFORM_URN } from '@app/document/utils/documentTreeFilters';
 
-import { DataPlatform } from '@types';
+import { DataPlatform, FacetMetadata } from '@types';
 
 /**
  * Resolves a user-facing label for a source platform.
@@ -35,6 +35,76 @@ export interface DocumentSourceGroup {
     /** Resolved, human-readable section label (see {@link formatPlatformLabel}). */
     label: string;
     nodes: DocumentTreeNode[];
+}
+
+/** Raised facet cap so every source section can render without waiting on root pagination. */
+export const SOURCE_SECTION_FACET_MAX = 100;
+
+/**
+ * One root per missing platform is enough to render its header. A full page
+ * plus a child-count query per row ran on every Source load, sort, and View change.
+ */
+export const SOURCE_SECTION_HEADER_COUNT = 1;
+
+export type DocumentSourceSection =
+    | { kind: 'native' }
+    | { kind: 'platform'; platformUrn: string; platform: DataPlatform; label: string };
+
+/**
+ * Which sidebar section a root belongs in.
+ * Platform wins over NATIVE/EXTERNAL — a GitHub doc imported as native still
+ * sits under GitHub, matching {@link partitionRootNodesByLayer}.
+ */
+export function resolveDocumentSourceSection(node: Pick<DocumentTreeNode, 'platform'>): DocumentSourceSection {
+    const { platform } = node;
+    const platformUrn = platform?.urn;
+    if (!platform || !platformUrn || platformUrn === DATAHUB_PLATFORM_URN) {
+        return { kind: 'native' };
+    }
+
+    const label = formatPlatformLabel(platform);
+    if (!label) {
+        return { kind: 'native' };
+    }
+
+    return { kind: 'platform', platformUrn, platform, label };
+}
+
+/**
+ * Platform URNs whose section is absent from the roots loaded so far.
+ * The DataHub section is present when any root resolves as native, because
+ * null, DataHub, and unlabeled platforms share that header.
+ */
+export function sourcePlatformsMissingFromRoots(
+    platformUrns: string[],
+    roots: Array<Pick<DocumentTreeNode, 'platform'>>,
+): string[] {
+    const hasNative = roots.some((root) => resolveDocumentSourceSection(root).kind === 'native');
+    const presentPlatformUrns = new Set(
+        roots.flatMap((root) => {
+            const section = resolveDocumentSourceSection(root);
+            return section.kind === 'platform' ? [section.platformUrn] : [];
+        }),
+    );
+
+    const missing: string[] = [];
+    const seen = new Set<string>();
+    platformUrns.forEach((platformUrn) => {
+        if (!platformUrn || seen.has(platformUrn)) return;
+        seen.add(platformUrn);
+        const represented = platformUrn === DATAHUB_PLATFORM_URN ? hasNative : presentPlatformUrns.has(platformUrn);
+        if (!represented) missing.push(platformUrn);
+    });
+    return missing;
+}
+
+/** Positive facet bucket values (count > 0), in aggregation order. */
+export function positiveFacetAggregationValues(
+    aggregations: FacetMetadata['aggregations'] | null | undefined,
+): string[] {
+    return (aggregations ?? []).flatMap((aggregation) =>
+        aggregation && aggregation.count > 0 && aggregation.value ? [aggregation.value] : [],
+    );
 }
 
 export interface PartitionedRootNodes {
@@ -78,28 +148,21 @@ export function partitionRootNodesByLayer(rootNodes: DocumentTreeNode[]): Partit
     const groupsByUrn = new Map<string, DocumentSourceGroup>();
 
     rootNodes.forEach((node) => {
-        const { platform } = node;
-        const platformUrn = platform?.urn;
-
-        // No platform, or the DataHub platform itself → curated DataHub layer.
-        if (!platform || !platformUrn || platformUrn === DATAHUB_PLATFORM_URN) {
+        const section = resolveDocumentSourceSection(node);
+        if (section.kind === 'native') {
             native.push(node);
             return;
         }
 
-        // A source section needs a resolvable, human-readable platform name;
-        // without one we can't label the bucket, so fall back to DataHub.
-        const label = formatPlatformLabel(platform);
-        if (!label) {
-            native.push(node);
-            return;
-        }
-
-        const existing = groupsByUrn.get(platformUrn);
+        const existing = groupsByUrn.get(section.platformUrn);
         if (existing) {
             existing.nodes.push(node);
         } else {
-            groupsByUrn.set(platformUrn, { platform, label, nodes: [node] });
+            groupsByUrn.set(section.platformUrn, {
+                platform: section.platform,
+                label: section.label,
+                nodes: [node],
+            });
         }
     });
 

@@ -125,7 +125,8 @@ public class DataHubUsageEventsProcessor {
                 input.timestampMillis());
 
             Optional<DataHubUsageEventTransformer.TransformedDocument> eventDocument =
-                dataHubUsageEventTransformer.transformDataHubUsageEvent(input.payload());
+                dataHubUsageEventTransformer.transformDataHubUsageEvent(
+                    sliceContext, input.payload());
             if (eventDocument.isEmpty()) {
               log.warn("Failed to apply usage events transform to record: {}", input.payload());
               continue;

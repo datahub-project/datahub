@@ -1,0 +1,34 @@
+{
+    "backendUrl": "stub",
+    "auth": {
+        "mode": "anonymous"
+    },
+    "builds": {
+        "A": {
+            "label": "base",
+            "dist": "builds/base/dist",
+            "port": 8181,
+            "commit": null
+        },
+        "B": {
+            "label": "pr",
+            "dist": "builds/pr/dist",
+            "port": 8182,
+            "commit": null
+        }
+    },
+    "routes": [{ "name": "boot", "path": "/login" }],
+    "runsPerBuild": 3,
+    "warmupRunsPerBuild": 1,
+    "formFactor": "desktop",
+    "viewport": { "width": 1350, "height": 940 },
+    "throttling": {
+        "method": "simulate",
+        "cpuSlowdownMultiplier": 1,
+        "rttMs": 40,
+        "throughputKbps": 10240,
+        "requestLatencyMs": 150,
+        "downloadThroughputKbps": 10240,
+        "uploadThroughputKbps": 10240
+    }
+}

@@ -1,6 +1,6 @@
 import { useContext, useEffect, useState } from 'react';
 
-import { FetchStatus, LineageNodesContext } from '@app/lineageV3/common';
+import { FetchStatus, LineageEntity, LineageNodesContext, setDefault } from '@app/lineageV3/common';
 import { FetchedEntityV2 } from '@app/lineageV3/types';
 
 import { GetBulkEntityDataProductsQuery, useGetBulkEntityDataProductsQuery } from '@graphql/lineage.generated';
@@ -14,12 +14,12 @@ type DataProductResult =
 
 /**
  * Fetches the data products containing each node in the graph, in batches. Stores minimal membership
- * (`node.dataProducts`) on each node and the data products' display entities in
- * `dataProductEntities`, for the bounding boxes. Only active for the data product lineage graph,
- * where membership determines how a node is rendered; nodes are not displayed until it is known.
+ * (`node.boundingBoxes`) on each node and the data products' display entities in
+ * `boundingBoxEntities`, for the bounding boxes. Invoked via `useBulkBoundingBoxMemberships` when
+ * the root is a DataProduct; nodes are not displayed until membership is known.
  */
 export default function useBulkDataProductMemberships() {
-    const { rootUrn, rootType, nodes, dataProductEntities, nodeVersion, dataVersion, setDataVersion } =
+    const { rootUrn, rootType, nodes, boundingBoxEntities, nodeVersion, dataVersion, setDataVersion } =
         useContext(LineageNodesContext);
     const skip = rootType !== EntityType.DataProduct;
 
@@ -29,7 +29,7 @@ export default function useBulkDataProductMemberships() {
         setUrnsToFetch((oldUrnsToFetch) => {
             const newUrnsToFetch = Array.from(nodes.values())
                 // Query nodes cannot be in data products
-                .filter((node) => node.dataProducts === undefined && node.type !== EntityType.Query)
+                .filter((node) => node.boundingBoxes === undefined && node.type !== EntityType.Query)
                 .map((node) => node.urn)
                 .slice(0, BATCH_SIZE);
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -47,21 +47,22 @@ export default function useBulkDataProductMemberships() {
             let changed = false;
             data?.bulkEntityDataProducts?.entities?.forEach((result) => {
                 const node = nodes.get(result.urn);
-                if (node && node.dataProducts === undefined) {
-                    node.dataProducts = result.dataProductAssociations.map((association) => ({
+                if (node && node.boundingBoxes === undefined) {
+                    node.boundingBoxes = result.dataProductAssociations.map((association) => ({
                         urn: association.dataProduct.urn,
                         isOutputPort: association.isOutputPort,
                     }));
                     // Store each data product's display entity once, for its bounding box.
                     result.dataProductAssociations.forEach(({ dataProduct }) => {
-                        if (!dataProductEntities.has(dataProduct.urn)) {
+                        if (!boundingBoxEntities.has(dataProduct.urn)) {
                             const entity = makeDataProductEntity(dataProduct);
-                            if (entity) dataProductEntities.set(dataProduct.urn, entity);
+                            if (entity) boundingBoxEntities.set(dataProduct.urn, entity);
                         }
+                        setDefault(nodes, dataProduct.urn, makeDataProductNode(dataProduct.urn));
                     });
                     // Members of the home data product — directly or via a sibling — are shown
                     // expanded, so their lineage renders without a manual expand.
-                    if (node.dataProducts.some((dataProduct) => dataProduct.urn === rootUrn)) {
+                    if (node.boundingBoxes.some((box) => box.urn === rootUrn)) {
                         node.isExpanded = {
                             [LineageDirection.Upstream]: true,
                             [LineageDirection.Downstream]: true,
@@ -79,6 +80,29 @@ export default function useBulkDataProductMemberships() {
             }
         },
     });
+}
+
+/** Registered as a node so its bounding box's entity is fetched like any other node's; it has no
+ * lineage of its own, and `boundingBoxes` is set so membership isn't fetched for it. */
+function makeDataProductNode(urn: string): LineageEntity {
+    return {
+        id: urn,
+        urn,
+        type: EntityType.DataProduct,
+        boundingBoxes: [],
+        isExpanded: {
+            [LineageDirection.Upstream]: false,
+            [LineageDirection.Downstream]: false,
+        },
+        fetchStatus: {
+            [LineageDirection.Upstream]: FetchStatus.UNNEEDED,
+            [LineageDirection.Downstream]: FetchStatus.UNNEEDED,
+        },
+        filters: {
+            [LineageDirection.Upstream]: { facetFilters: new Map() },
+            [LineageDirection.Downstream]: { facetFilters: new Map() },
+        },
+    };
 }
 
 /** Builds a minimal FetchedEntityV2 for a data product, for rendering its bounding box. */

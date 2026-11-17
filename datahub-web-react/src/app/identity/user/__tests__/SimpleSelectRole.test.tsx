@@ -1,3 +1,5 @@
+// ABOUTME: Tests for SimpleSelectRole component.
+// ABOUTME: Verifies infinite scroll pagination triggers when sentinel becomes visible.
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -91,6 +93,14 @@ describe('SimpleSelectRole', () => {
             expect(screen.getByText('Loading more roles...')).toBeInTheDocument();
         });
 
+        // The IntersectionObserver for infinite scroll should have been set up
+        // and should be observing the sentinel element.
+        // THIS IS THE BUG: The observer is never created because:
+        // 1. useRoleSelector's effect runs on initial mount
+        // 2. At that time, observerRef.current is null (sentinel hasn't rendered)
+        // 3. The effect bails out early: "if (!observerRef.current || !hasMore) return"
+        // 4. When the dropdown opens and the sentinel renders, the effect doesn't re-run
+        //    because React refs don't trigger re-renders
         expect(observedSentinelElements.length).toBeGreaterThan(0);
 
         // Simulate the sentinel becoming visible (intersection)

@@ -1,0 +1,46 @@
+plugins {
+  id 'java' // required for versioning
+}
+
+apply from: "../../gradle/versioning/versioning.gradle"
+apply from: "../../gradle/docker/docker.gradle"
+
+// ONNX image variant of datahub-gms (R3): identical to datahub-gms but built from the onnx boot
+// archive (war-onnx.war), which bundles the ONNX/DJL native libs. Reuses the datahub-gms Dockerfile
+// via the WAR_FILE build arg; the default datahub-gms image stays slim.
+ext {
+  docker_registry = rootProject.ext.docker_registry == 'linkedin' ? 'acryldata' : docker_registry
+  docker_repo = 'datahub-gms-onnx'
+  // Reuse the datahub-gms Dockerfile + context (start.sh, prometheus config, etc.).
+  base_docker_dir = 'datahub-gms'
+}
+
+// Ensure the war project is configured first so its onnxBootJar task is registered before we
+// reference it below.
+evaluationDependsOn(':metadata-service:war')
+def onnxWar = project(':metadata-service:war').tasks.named('onnxBootJar')
+
+docker {
+  dependsOn ':metadata-service:war:onnxBootJar'
+  name "${docker_registry}/${docker_repo}:${versionTag}"
+  dockerfile file("${rootProject.projectDir}/docker/${base_docker_dir}/Dockerfile")
+  files onnxWar.flatMap { it.archiveFile }
+  files fileTree(rootProject.projectDir) {
+    include '.dockerignore'
+    include 'docker/monitoring/*'
+    include 'docker/snippets/*'
+    include "docker/${base_docker_dir}/*"
+    include 'metadata-models/src/main/resources/*'
+  }.exclude {
+    i -> (!i.file.name.endsWith(".dockerignore") && i.file.isHidden())
+  }
+
+  def dockerBuildArgs = [WAR_FILE: 'war-onnx.war']
+  if (project.hasProperty('dockerBaseImage')) {
+    dockerBuildArgs.BASE_IMAGE = project.getProperty('dockerBaseImage')
+  }
+  dockerBuildArgs.APK_REPOSITORY_URL = gradle.ext['datahub.dependencies.apkrepo.url']
+  dockerBuildArgs.GITHUB_REPO_URL = gradle.ext['datahub.dependencies.github.baseURL']
+  dockerBuildArgs.MAVEN_CENTRAL_REPO_URL = gradle.ext['datahub.dependencies.maven.central']
+  buildArgs(dockerBuildArgs)
+}

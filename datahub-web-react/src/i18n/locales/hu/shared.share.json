@@ -1,9 +1,14 @@
 {
+    "copyLink.success": "Hivatkozás másolva",
     "copyLink.tooltip": "Megosztható hivatkozás másolása erre az entitásra.",
     "copyName.label": "Név másolása",
+    "copyName.success": "Név másolva",
     "copyName.tooltip": "A(z) {{type}} teljes nevének másolása",
     "copyUrn.label": "URN másolása",
+    "copyUrn.success": "URN másolva",
     "copyUrn.tooltip": "A(z) {{type}} URN-jének másolása. Az URN egyedileg azonosít egy entitást a DataHubban.",
+    "email.body": "Nézze meg ezt a(z) {{displayType}} elemet a DataHubon: {{linkText}}. URN: {{urn}}",
     "email.label": "E-mail",
+    "email.subject": "{{displayName}} | {{displayType}}",
     "email.tooltip": "A(z) {{type}} megosztása e-mailben"
 }

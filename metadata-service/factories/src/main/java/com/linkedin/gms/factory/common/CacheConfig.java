@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.common;
 
+import com.datahub.authentication.token.TokenRevocationMap;
 import com.github.benmanes.caffeine.cache.Caffeine;
 import com.hazelcast.config.Config;
 import com.hazelcast.config.EvictionConfig;
@@ -19,7 +20,9 @@ import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.GraphDefinition;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.NearCache;
 import com.linkedin.metadata.config.entitygraph.EntityGraphCacheProperties.ScopeMode;
+import com.linkedin.metadata.config.hazelcast.HazelcastDiscoveryMode;
 import com.linkedin.metadata.config.hazelcast.HazelcastInstanceBootstrapCondition;
+import com.linkedin.metadata.config.hazelcast.HazelcastSerializationAllowListContributor;
 import com.linkedin.metadata.config.hazelcast.RateLimitEndpointEnabledCondition;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.graph.cache.snapshot.EntityGraphSnapshot;
@@ -29,6 +32,7 @@ import com.linkedin.metadata.graph.cache.store.EntityGraphOperationalStatusSeria
 import java.util.List;
 import java.util.concurrent.TimeUnit;
 import javax.annotation.Nonnull;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
@@ -41,6 +45,7 @@ import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
+@Slf4j
 public class CacheConfig {
   public static final String THROTTLE_MAP = "distributedThrottle";
 
@@ -61,6 +66,12 @@ public class CacheConfig {
 
   @Value("${searchService.cache.hazelcast.resolve-not-ready-addresses:}")
   private String kubernetesResolveNotReadyAddresses;
+
+  @Value("${searchService.cache.hazelcast.serializationAllowList.classNames:}")
+  private String serializationAllowListClassNames;
+
+  @Value("${searchService.cache.hazelcast.serializationAllowList.packagePrefixes:}")
+  private String serializationAllowListPackagePrefixes;
 
   @Value("${datahub.gms.rateLimits.endpoint.hazelcastMapName:gmsRateLimitEndpointBuckets}")
   private String rateLimitEndpointHazelcastMapName;
@@ -92,7 +103,9 @@ public class CacheConfig {
   public HazelcastInstance hazelcastInstance(
       List<MapConfig> hazelcastMapConfigs,
       List<ReplicatedMapConfig> hazelcastReplicatedMapConfigs,
-      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider) {
+      ObjectProvider<EntityGraphCacheProperties> effectiveEntityGraphCachePropertiesProvider,
+      ObjectProvider<HazelcastSerializationAllowListContributor>
+          serializationAllowListContributors) {
     Config config = new Config();
     EntityGraphCacheProperties effectiveEntityGraphCacheProperties =
         effectiveEntityGraphCachePropertiesProvider.getIfAvailable();
@@ -140,27 +153,45 @@ public class CacheConfig {
                 .setTypeClass(EntityGraphOperationalStatus.class)
                 .setImplementation(new EntityGraphOperationalStatusSerializer()));
 
+    HazelcastSerializationFilter.apply(
+        config,
+        serializationAllowListContributors.orderedStream().toList(),
+        serializationAllowListClassNames,
+        serializationAllowListPackagePrefixes);
+
     config.setClassLoader(this.getClass().getClassLoader());
     config.setProperty("hazelcast.logging.type", "slf4j");
 
     config.getNetworkConfig().getJoin().getMulticastConfig().setEnabled(false);
+    config.getNetworkConfig().getJoin().getTcpIpConfig().setEnabled(false);
 
-    var kubernetesConfig =
-        config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
+    if (HazelcastDiscoveryMode.decide(hazelcastServiceName)
+        == HazelcastDiscoveryMode.Join.SINGLE_NODE) {
+      // Skip Hazelcast's own service-dns lookup. On quickstart and CI that lookup fails for the
+      // default name and blocks startup for service-dns-timeout.
+      log.info(
+          "Hazelcast discovery name '{}' is a single node; Kubernetes join disabled",
+          hazelcastServiceName);
+      config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(false);
+      config.getNetworkConfig().getJoin().getAutoDetectionConfig().setEnabled(false);
+    } else {
+      var kubernetesConfig =
+          config.getNetworkConfig().getJoin().getKubernetesConfig().setEnabled(true);
 
-    kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
+      kubernetesConfig.setProperty("service-dns", hazelcastServiceName);
 
-    if (!kubernetesApiRetries.isEmpty()) {
-      kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
-    }
+      if (!kubernetesApiRetries.isEmpty()) {
+        kubernetesConfig.setProperty("kubernetes-api-retries", kubernetesApiRetries);
+      }
 
-    if (!kubernetesServiceDnsTimeout.isEmpty()) {
-      kubernetesConfig.setProperty("service-dns-timeout", kubernetesServiceDnsTimeout);
-    }
+      if (!kubernetesServiceDnsTimeout.isEmpty()) {
+        kubernetesConfig.setProperty("service-dns-timeout", kubernetesServiceDnsTimeout);
+      }
 
-    if (!kubernetesResolveNotReadyAddresses.isEmpty()) {
-      kubernetesConfig.setProperty(
-          "resolve-not-ready-addresses", kubernetesResolveNotReadyAddresses);
+      if (!kubernetesResolveNotReadyAddresses.isEmpty()) {
+        kubernetesConfig.setProperty(
+            "resolve-not-ready-addresses", kubernetesResolveNotReadyAddresses);
+      }
     }
 
     return Hazelcast.newHazelcastInstance(config);
@@ -187,6 +218,12 @@ public class CacheConfig {
     mapConfig.setEvictionConfig(evictionConfig);
     mapConfig.setName("default");
     return mapConfig;
+  }
+
+  @Bean
+  @Conditional(HazelcastInstanceBootstrapCondition.class)
+  public MapConfig accessTokenRevocationMapConfig() {
+    return TokenRevocationMap.mapConfig();
   }
 
   @Bean

@@ -1,4 +1,4 @@
-import { ArrowRightOutlined } from '@ant-design/icons';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
 import { Button } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
@@ -32,7 +32,7 @@ const ActionButton = styled(Button)`
     color: ${(props) => props.theme.colors.textInformation};
 `;
 
-const StyledArrowRightOutlined = styled(ArrowRightOutlined)`
+const StyledArrowRightOutlined = styled(ArrowRight)`
     font-size: 8px;
 `;
 

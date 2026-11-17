@@ -3,7 +3,7 @@ import { useHistory } from 'react-router';
 import styled from 'styled-components';
 
 import analytics, { EventType } from '@app/analytics';
-import { EntityAndType } from '@app/entity/shared/types';
+import { EntityAndType } from '@app/entityV2/shared/types';
 import { OnboardingTour } from '@app/onboarding/OnboardingTour';
 import {
     SEARCH_RESULTS_BROWSE_SIDEBAR_ID,
@@ -17,13 +17,15 @@ import SearchFiltersSection from '@app/searchV2/filters/SearchFiltersSection';
 import useFilterMode from '@app/searchV2/filters/useFilterMode';
 import useSearchFilterAnalytics from '@app/searchV2/filters/useSearchFilterAnalytics';
 import useGetSearchQueryInputs from '@app/searchV2/useGetSearchQueryInputs';
+import { useIsSearchViewReady } from '@app/searchV2/useIsSearchViewReady';
 import { useIsBrowseV2, useIsSearchV2, useSearchVersion } from '@app/searchV2/useSearchAndBrowseVersion';
 import { ENTITY_SUB_TYPE_FILTER_FIELDS, UnionType } from '@app/searchV2/utils/constants';
+import { mergeEnvIntoOriginFacets } from '@app/searchV2/utils/filterUtils';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
 import { getSearchCount } from '@app/searchV2/utils/searchUtils';
 import { DownloadSearchResults, DownloadSearchResultsInput } from '@app/searchV2/utils/types';
 import { useDownloadScrollAcrossEntitiesSearchResults } from '@app/searchV2/utils/useDownloadScrollAcrossEntitiesSearchResults';
-import { scrollToTop } from '@app/shared/searchUtils';
+import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { useAppConfig } from '@app/useAppConfig';
 import { SearchCfg } from '@src/conf';
 
@@ -48,6 +50,7 @@ export const SearchPage = () => {
     const searchVersion = useSearchVersion();
     const history = useHistory();
     const { query, unionType, filters, orFilters, viewUrn, page, sortInput } = useGetSearchQueryInputs();
+    const isViewReady = useIsSearchViewReady();
     const { filterModeRef } = useFilterMode(filters, unionType);
     const selectedSortOption = useSelectedSortOption();
 
@@ -58,10 +61,11 @@ export const SearchPage = () => {
 
     const {
         data,
-        loading,
+        loading: searchLoading,
         error,
         refetch: realRefetch,
     } = useGetSearchResultsForMultipleQuery({
+        skip: !isViewReady,
         variables: {
             input: {
                 types: [],
@@ -78,9 +82,16 @@ export const SearchPage = () => {
                     skipHighlighting: config?.searchFlagsConfig?.defaultSkipHighlighting || false,
                 },
             },
+            // Counts are loaded after the cards render. Resolving them here waits on a lineage
+            // lookup for every result before anything on the page can paint.
+            skipLineage: true,
         },
         fetchPolicy: 'cache-and-network',
     });
+
+    // A skipped query reports loading=false. Stay in the loading state until the view is
+    // resolved so the page does not paint unfiltered results.
+    const loading = searchLoading || !isViewReady;
 
     const total = data?.searchAcrossEntities?.total || 0;
 
@@ -230,7 +241,7 @@ export const SearchPage = () => {
             )}
             <SearchFiltersSection
                 loading={loading}
-                availableFilters={data?.searchAcrossEntities?.facets || []}
+                availableFilters={mergeEnvIntoOriginFacets(data?.searchAcrossEntities?.facets || [])}
                 activeFilters={filters}
                 unionType={unionType}
                 onChangeFilters={onChangeFilters}

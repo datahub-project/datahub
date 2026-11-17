@@ -2,8 +2,8 @@ import { MockedProvider, MockedResponse } from '@apollo/client/testing';
 import { render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
 import { RunsTab } from '@app/entityV2/dataJob/tabs/RunsTab';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
 import { GetExecutionRunsDocument } from '@graphql/runs.generated';

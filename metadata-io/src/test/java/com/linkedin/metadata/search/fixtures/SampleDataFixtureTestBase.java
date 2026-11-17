@@ -297,6 +297,15 @@ public abstract class SampleDataFixtureTestBase extends AbstractTestNGSpringCont
         assertEquals(fieldSortBuilder.getFieldName(), "urn");
       }
     }
+
+    SearchSourceBuilder urnBuilder = new SearchSourceBuilder();
+    SortCriterion urnCriterion = new SortCriterion().setOrder(SortOrder.ASCENDING).setField("urn");
+    ESUtils.buildSortOrder(urnBuilder, Collections.singletonList(urnCriterion), entitySpecs);
+    sorts = urnBuilder.sorts();
+    assertEquals(sorts.size(), 1);
+    FieldSortBuilder urnSort = (FieldSortBuilder) sorts.get(0);
+    assertEquals(urnSort.getFieldName(), "urn");
+    assertEquals(urnSort.unmappedType(), "keyword");
   }
 
   @Test

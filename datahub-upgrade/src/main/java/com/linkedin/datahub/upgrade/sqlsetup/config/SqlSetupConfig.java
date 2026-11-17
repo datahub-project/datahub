@@ -7,7 +7,6 @@ import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.metadata.config.postgres.DatabaseType;
 import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.config.postgres.PostgresSqlSetupProperties;
-import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.EnvironmentUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -66,10 +65,10 @@ public class SqlSetupConfig {
 
   @Bean(name = "systemOperationContext")
   @ConditionalOnMissingBean
-  public OperationContext operationContext(EntityRegistry entityRegistry) {
+  public OperationContext operationContext() {
     // Create a minimal OperationContext for SqlSetup that essentially does nothing
     // This avoids the need for complex dependencies like entity services, search, etc.
-    return TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
+    return TestOperationContexts.systemContextNoSearchAuthorization();
   }
 
   @Bean(name = "sqlSetupArgs")
@@ -81,6 +80,8 @@ public class SqlSetupConfig {
     // Configure based on SqlSetup-specific environment variables only
     boolean createTables = EnvironmentUtils.getBoolean("CREATE_TABLES", true);
     boolean createDatabase = EnvironmentUtils.getBoolean("CREATE_DB", true);
+    // When false, schema must already exist (pre-provisioned); SqlSetup only sets search_path.
+    boolean createSchema = EnvironmentUtils.getBoolean("CREATE_SCHEMA", true);
     boolean createUser = EnvironmentUtils.getBoolean("CREATE_USER", false);
     boolean cdcEnabled = EnvironmentUtils.getBoolean("CDC_MCL_PROCESSING_ENABLED", false);
     String cdcUser = EnvironmentUtils.getString("CDC_USER", "datahub_cdc");
@@ -139,6 +140,7 @@ public class SqlSetupConfig {
         new SqlSetupArgs(
             createTables,
             createDatabase,
+            createSchema,
             createUser,
             iamAuthEnabled,
             dbType,

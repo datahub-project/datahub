@@ -1,6 +1,6 @@
 id: foogroup@acryl.io
 display_name: Foo Group
-admins:
+owners:
   - datahub
 members:
   - bar@acryl.io # refer to a user either by id or by urn

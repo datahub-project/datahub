@@ -525,6 +525,8 @@ public class LinkUtilsTest {
       "http://example.com",
       "ftp://files.example.com/file.txt",
       "mailto:user@example.com",
+      // Uploaded product-asset links (absolute + percent-encoded filename)
+      "https://example.com/openapi/v1/files/product_assets/a1b2c3d4-e5f6-7890-abcd-ef1234567890__file%20name.pdf",
     };
 
     for (String url : safeUrls) {

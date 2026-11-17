@@ -1,5 +1,4 @@
 import { act, render } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { BrowserRouter } from 'react-router-dom';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -9,9 +8,10 @@ import {
     useDiscardUnsavedChangesConfirmationContext,
 } from '@app/sharedV2/confirmation/DiscardUnsavedChangesConfirmationContext';
 import CustomThemeProvider from '@src/CustomThemeProvider';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Wrapper component for the provider with Router context
-const wrapper: React.FC<React.PropsWithChildren<Record<string, never>>> = ({ children }) => (
+const wrapper = ({ children }: { children: React.ReactNode }) => (
     <CustomThemeProvider>
         <BrowserRouter>
             <DiscardUnsavedChangesConfirmationProvider>{children}</DiscardUnsavedChangesConfirmationProvider>
@@ -195,7 +195,7 @@ describe('DiscardUnsavedChangesConfirmationContext', () => {
                             enableTabClosingHandling
                             enableRedirectHandling
                             confirmationModalTitle="Custom Title"
-                            confirmationModalContent="Custom Text"
+                            confirmModalContent="Custom Text"
                         >
                             <div>Test Child</div>
                         </DiscardUnsavedChangesConfirmationProvider>

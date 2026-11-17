@@ -11,7 +11,10 @@ services:
     container_name: "testhana"
     restart: "unless-stopped"
     ports:
-      - 39041:39041
+      # Ephemeral: letting Docker pick a free host port avoids colliding
+      # with a leaked container from a prior run. test_hana.py discovers
+      # the assigned port via docker_services.port_for.
+      - "39041"
     volumes:
       - ./post_start:/hana/hooks/post_start/
       - ./setup:/hana/mounts/setup/

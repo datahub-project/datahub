@@ -15,6 +15,8 @@ Two key concepts:
 - **Extractor Project**: Project containing the service account used to run metadata extraction queries
 - **BigQuery Projects**: Projects from which DataHub collects metadata (tables, lineage, usage, profiling). By default includes the extractor project; configure `project_ids` to specify projects explicitly
 
+With `use_queries_v2: true` (the default), lineage and usage come from each ingested project's own job history. If the jobs that write your tables run in a different project, such as a separate billing or backfill project, make sure that project is ingested too: add it to `project_ids` if you set that, otherwise include it in `project_id_pattern` (and `project_labels`, if set). Grant it the same roles as your other projects, including `roles/bigquery.resourceViewer`. Otherwise those jobs are never read, and their tables show no lineage. Ingested projects are also scanned for their own datasets; use `dataset_pattern` to skip datasets you don't want catalogued.
+
 #### Create a datahub profile in GCP
 
 1. Create a custom role for DataHub following [BigQuery docs](https://cloud.google.com/iam/docs/creating-custom-roles#creating_a_custom_role)
@@ -40,7 +42,7 @@ These permissions must be granted on **every project** you want to extract metad
 :::
 | Permission | Description | Capability | Default GCP Role Which Contains This Permission |
 |----------------------------------|-----------------------------------------------------------------------------------------------------------------|-------------------------------------|---------------------------------------------------------------------------|
-| `bigquery.datasets.get` | Retrieve metadata about a dataset. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
+| `bigquery.datasets.get` | Retrieve metadata about a dataset; also used on the lineage-only path to detect BigQuery Sharing linked datasets. | Table Metadata Extraction, Lineage Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.datasets.getIamPolicy` | Read a dataset's IAM permissions. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.tables.list` | List BigQuery tables. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
 | `bigquery.tables.get` | Retrieve metadata for a table. | Table Metadata Extraction | [roles/bigquery.metadataViewer](https://cloud.google.com/bigquery/docs/access-control#bigquery.metadataViewer) |
@@ -53,6 +55,7 @@ These permissions must be granted on **every project** you want to extract metad
 | `logging.privateLogEntries.list` | Fetch log entries for lineage/usage data. Not required if `use_exported_bigquery_audit_metadata` is enabled. | Lineage Extraction/Usage Extraction | [roles/logging.privateLogViewer](https://cloud.google.com/logging/docs/access-control#logging.privateLogViewer) |
 | `bigquery.tables.getData` | Access table data to extract storage size, last updated at, partition information, data profiles etc. **Required when profiling is enabled or when `use_tables_list_query_v2` is enabled.** This permission is needed to query BigQuery's `__TABLES__` pseudo-table. | Profiling/Enhanced Table Metadata | |
 | `datacatalog.taxonomies.get` | _Optional_ Get policy tags for columns with associated policy tags. This permission is required only if `extract_policy_tags_from_catalog` is enabled. | Policy Tag Extraction | [roles/datacatalog.viewer](https://cloud.google.com/iam/docs/roles-permissions/datacatalog#datacatalog.viewer) |
+| `analyticshub.subscriptions.list` | _Optional_ List BigQuery Sharing subscriptions, to record which listing a linked dataset came from and whether the subscription is still active. Required only if `extract_subscriptions_from_analytics_hub` is enabled. | BigQuery Sharing Properties | [roles/analyticshub.subscriptionOwner](https://cloud.google.com/bigquery/docs/analytics-hub-grant-roles) |
 
 :::warning Important: bigquery.tables.getData Permission
 
@@ -64,6 +67,37 @@ The `bigquery.tables.getData` permission is **required** in the following scenar
 Without this permission, you'll encounter errors when the connector tries to access BigQuery's `__TABLES__` pseudo-table for detailed table information including partition data, row counts, and storage metrics.
 
 :::
+
+##### BigQuery Sharing (linked datasets)
+
+A linked dataset is a read-only pointer into a dataset published by another project. The dataset
+itself is labelled `Linked Dataset`, and its tables are given lineage back to the objects they were
+shared from, using the permissions listed above. Nothing extra is needed on the project that holds
+the linked dataset.
+
+Lineage points at the **publisher's** project, so the ingestion account needs to be able to resolve
+that project's name. What you grant there decides the outcome:
+
+| Granted on the publisher project                                                                                                         | Result                                                                                                |
+| ---------------------------------------------------------------------------------------------------------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| Nothing                                                                                                                                  | No lineage for datasets shared from it. The ingestion report says which project could not be resolved |
+| Any role carrying `resourcemanager.projects.get`, such as [roles/browser](https://cloud.google.com/iam/docs/understanding-roles#browser) | Lineage resolves. The publisher's own tables are not catalogued unless that project is also ingested  |
+| The permissions listed above, i.e. you ingest the publisher project too                                                                  | Lineage resolves and both ends appear in the catalogue                                                |
+
+:::note
+
+The share reports its source as a project **number**, not a project ID. When the publisher project
+is one the ingestion account can already see in BigQuery, the number is resolved from the project
+list at no extra cost; otherwise it falls back to the Resource Manager API, which is where
+`resourcemanager.projects.get` on the publisher project is needed.
+
+:::
+
+This is off by default; set `include_linked_dataset_lineage: true` to enable it. Set
+`extract_subscriptions_from_analytics_hub: true` to additionally record the listing and
+subscription state. That reads the BigQuery Sharing API and needs
+`analyticshub.subscriptions.list` plus the `analyticshub.googleapis.com` service enabled on the
+project holding the linked dataset.
 
 #### Create a service account in the Extractor Project
 

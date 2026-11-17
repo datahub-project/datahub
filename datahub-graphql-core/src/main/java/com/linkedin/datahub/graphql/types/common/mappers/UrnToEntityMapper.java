@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.generated.Api;
 import com.linkedin.datahub.graphql.generated.Application;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.BusinessAttribute;
@@ -42,6 +43,7 @@ import com.linkedin.datahub.graphql.generated.Notebook;
 import com.linkedin.datahub.graphql.generated.OwnershipTypeEntity;
 import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.generated.QueryEntity;
+import com.linkedin.datahub.graphql.generated.Repository;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.generated.Role;
 import com.linkedin.datahub.graphql.generated.SchemaFieldEntity;
@@ -259,6 +261,16 @@ public class UrnToEntityMapper implements ModelMapper<com.linkedin.common.urn.Ur
       partialEntity = new Application();
       ((Application) partialEntity).setUrn(input.toString());
       ((Application) partialEntity).setType(EntityType.APPLICATION);
+    }
+    if (input.getEntityType().equals(API_ENTITY_NAME)) {
+      partialEntity = new Api();
+      ((Api) partialEntity).setUrn(input.toString());
+      ((Api) partialEntity).setType(EntityType.API);
+    }
+    if (input.getEntityType().equals(REPOSITORY_ENTITY_NAME)) {
+      partialEntity = new Repository();
+      ((Repository) partialEntity).setUrn(input.toString());
+      ((Repository) partialEntity).setType(EntityType.REPOSITORY);
     }
     if (input.getEntityType().equals(DATAHUB_PAGE_TEMPLATE_ENTITY_NAME)) {
       partialEntity = new DataHubPageTemplate();

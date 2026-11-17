@@ -32,6 +32,11 @@ _WORKTREE_MOUNT_SOURCES: dict[str, str] = {
     "DATAHUB_UPGRADE_BIN_HOST_DIR": "datahub-upgrade/build/libs/",
     "DATAHUB_MODELS_RESOURCES_HOST_DIR": "metadata-models/src/main/resources/",
     "DATAHUB_GMS_WAR_HOST_DIR": "metadata-service/war/build/libs/",
+    # Consumer jars have the same problem GMS's war does: a standalone MAE on
+    # the OLD image with the dev tree's NEW jar over its bin/ is neither side.
+    # BuildImagesPhase builds both consumer images in both worktrees.
+    "DATAHUB_MAE_BIN_HOST_DIR": "metadata-jobs/mae-consumer-job/build/libs/",
+    "DATAHUB_MCE_BIN_HOST_DIR": "metadata-jobs/mce-consumer-job/build/libs/",
 }
 
 

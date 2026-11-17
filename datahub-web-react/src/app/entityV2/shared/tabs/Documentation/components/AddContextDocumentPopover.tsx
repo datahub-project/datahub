@@ -12,11 +12,17 @@ import {
     extractRelatedAssetUrns,
     extractRelatedDocumentUrns,
 } from '@app/document/utils/documentUtils';
+import {
+    ApplyLinkResult,
+    DocumentLinkChanges,
+    getDocumentLinkChanges,
+    getSuccessfulDocumentLinkChanges,
+} from '@app/entityV2/shared/tabs/Documentation/components/AddContextDocumentPopover.utils';
 import { DocumentPopoverBase } from '@app/homeV2/layout/sidebar/documents/shared/DocumentPopoverBase';
 import { Button } from '@src/alchemy-components';
 
 import { GetDocumentDocument, useCreateDocumentMutation } from '@graphql/document.generated';
-import { DocumentSourceType } from '@types';
+import { Document, DocumentSourceType } from '@types';
 
 const NewDocumentButton = styled(Button)`
     width: 100%;
@@ -29,45 +35,35 @@ const NewDocumentButton = styled(Button)`
     padding: 12px 8px;
 `;
 
-interface AddContextDocumentPopoverProps {
-    /** The URN of the current entity to link documents to */
+type AddContextDocumentPopoverProps = {
     entityUrn: string;
-    /** Callback when a document is created and its modal should be opened */
     onDocumentSelected: (documentUrn: string) => void;
-    /** Callback fired after a document's link state changes so the caller can refetch. */
-    onDocumentsLinked?: () => void;
-    /** Callback when popover should close */
+    onDocumentsChanged?: (changes: DocumentLinkChanges) => void;
     onClose: () => void;
-    /**
-     * URNs of documents already linked to the entity. These render pre-checked, and
-     * form the baseline that Save diffs against to decide what to link/unlink.
-     */
     linkedDocumentUrns?: string[];
-}
+};
 
 /**
  * Popover for managing which context documents are linked to an entity.
  *
  * The checkboxes are a view of the entity's Resources: already-linked docs open
  * pre-checked, and toggling a box stages an add/remove without persisting. Saving
- * diffs the staged selection against what was linked and applies every add + remove
- * in one pass, then refetches and closes. Creating a new document (root or child)
- * links it to the entity and opens it in the editor.
+ * applies the staged changes, reports successful documents/removals for local list
+ * updates, and closes. Creating a new document links it to the entity and opens it
+ * in the editor.
  */
 export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps> = ({
     entityUrn,
     onDocumentSelected,
-    onDocumentsLinked,
+    onDocumentsChanged,
     onClose,
     linkedDocumentUrns,
 }) => {
     const { t } = useTranslation('entity.profile.documentation');
     const [isCreating, setIsCreating] = useState(false);
     const [isSaving, setIsSaving] = useState(false);
-    // The set of docs linked when the popover opened — the baseline we diff against
-    // on Save. Captured once so a background refetch can't shift the baseline mid-edit.
+    const isSavingRef = useRef(false);
     const initialUrns = useRef<Set<string>>(new Set(linkedDocumentUrns ?? []));
-    // Staged selection: seeded from the baseline, toggled locally, persisted on Save.
     const [checkedUrns, setCheckedUrns] = useState<Set<string>>(() => new Set(linkedDocumentUrns ?? []));
     const apolloClient = useApolloClient();
     const [createDocumentMutation] = useCreateDocumentMutation();
@@ -82,12 +78,8 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
         });
     }, []);
 
-    // Diff the staged selection against the baseline to find what to link / unlink.
-    const { addedUrns, removedUrns } = useMemo(() => {
-        const added = [...checkedUrns].filter((urn) => !initialUrns.current.has(urn));
-        const removed = [...initialUrns.current].filter((urn) => !checkedUrns.has(urn));
-        return { addedUrns: added, removedUrns: removed };
-    }, [checkedUrns]);
+    const changes = useMemo(() => getDocumentLinkChanges(initialUrns.current, checkedUrns), [checkedUrns]);
+    const { addedUrns, removedUrns } = changes;
 
     const hasChanges = addedUrns.length > 0 || removedUrns.length > 0;
 
@@ -95,10 +87,11 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
      * Fetch a document and set its link to the current entity to `shouldBeLinked`.
      * A document can be linked to a regular entity (relatedAssets) or to another
      * document (relatedDocuments); we edit whichever list the current entity belongs
-     * to and leave the other untouched. Returns whether the write succeeded.
+     * to and leave the other untouched. Returns the write result and, on a successful
+     * add, the document so Resources can render it without waiting on search.
      */
     const applyLink = useCallback(
-        async (documentUrn: string, shouldBeLinked: boolean): Promise<boolean> => {
+        async (documentUrn: string, shouldBeLinked: boolean): Promise<ApplyLinkResult> => {
             try {
                 const { data } = await apolloClient.query({
                     query: GetDocumentDocument,
@@ -106,8 +99,8 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     fetchPolicy: 'network-only',
                 });
 
-                const document = data?.document;
-                if (!document) return false;
+                const document = (data?.document as Document | null | undefined) ?? null;
+                if (!document) return { ok: false, document: null };
 
                 const { relatedAssets, relatedDocuments } = computeRelatedEntitiesForLinkChange({
                     entityUrn,
@@ -116,41 +109,44 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     shouldBeLinked,
                 });
 
-                return await updateRelatedEntities({
+                const ok = await updateRelatedEntities({
                     urn: documentUrn,
                     relatedAssets,
                     relatedDocuments,
                 });
+                return { ok, document: ok && shouldBeLinked ? document : null };
             } catch (error) {
                 console.error('Failed to update document link', documentUrn, error);
-                return false;
+                return { ok: false, document: null };
             }
         },
         [entityUrn, apolloClient, updateRelatedEntities],
     );
 
     const handleSave = useCallback(async () => {
-        if (!hasChanges) return;
+        if (!hasChanges || isSavingRef.current) return;
+        isSavingRef.current = true;
         setIsSaving(true);
-        const results = await Promise.all([
-            ...addedUrns.map((urn) => applyLink(urn, true)),
-            ...removedUrns.map((urn) => applyLink(urn, false)),
+        const [addedResults, removedResults] = await Promise.all([
+            Promise.all(addedUrns.map((urn) => applyLink(urn, true))),
+            Promise.all(removedUrns.map((urn) => applyLink(urn, false))),
         ]);
-        const failureCount = results.filter((ok) => !ok).length;
-        const successCount = results.length - failureCount;
+        const successfulChanges = getSuccessfulDocumentLinkChanges(addedResults, removedUrns, removedResults);
+        const failureCount =
+            addedResults.filter((result) => !result.ok).length + removedResults.filter((result) => !result.ok).length;
+        const successCount = successfulChanges.addedDocuments.length + successfulChanges.removedUrns.length;
 
         if (failureCount > 0) {
             toast.error(t('failedToLinkDocument'));
         }
-        // Reset the spinner before unmounting on success so we never set state on an
-        // unmounted component (onClose tears this popover down).
+        isSavingRef.current = false;
         setIsSaving(false);
         if (successCount > 0) {
             toast.success(t('resourcesUpdated'));
-            onDocumentsLinked?.();
+            onDocumentsChanged?.(successfulChanges);
             onClose();
         }
-    }, [hasChanges, addedUrns, removedUrns, applyLink, onDocumentsLinked, onClose, t]);
+    }, [hasChanges, addedUrns, removedUrns, applyLink, onDocumentsChanged, onClose, t]);
 
     /**
      * Handle creating a new document
@@ -174,14 +170,12 @@ export const AddContextDocumentPopover: React.FC<AddContextDocumentPopoverProps>
                     throw new Error('Failed to create document');
                 }
 
-                // Open the new document in modal
+                setIsCreating(false);
                 onDocumentSelected(newDocumentUrn);
                 onClose();
             } catch (error) {
                 console.error('Failed to create document:', error);
                 toast.error(t('failedToCreateDocument'));
-                // Keep popover open on error
-            } finally {
                 setIsCreating(false);
             }
         },

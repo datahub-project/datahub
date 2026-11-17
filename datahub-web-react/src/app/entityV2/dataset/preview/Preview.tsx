@@ -1,11 +1,11 @@
 import React from 'react';
 import { useTheme } from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { DatasetStatsSummary as DatasetStatsSummaryView } from '@app/entityV2/dataset/shared/DatasetStatsSummary';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { PopularityTier } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { DatasetLastUpdatedMs, summaryHasStats } from '@app/entityV2/shared/utils';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import LogicalPlatformDefaultIcon from '@app/sharedV2/logical/LogicalPlatformDefaultIcon';
@@ -20,7 +20,6 @@ import {
     Domain,
     EntityPath,
     EntityType,
-    FabricType,
     GlobalTags,
     GlossaryTerms,
     Health,
@@ -34,7 +33,6 @@ export const Preview = ({
     urn,
     data,
     name,
-    origin,
     description,
     platformName,
     platformLogo,
@@ -69,7 +67,6 @@ export const Preview = ({
     urn: string;
     data: GenericEntityProperties | null;
     name: string;
-    origin: FabricType;
     description?: string | null;
     platformName?: string;
     platformLogo?: string | null;
@@ -123,7 +120,6 @@ export const Preview = ({
                 !platformLogo && data?.platform?.properties?.logical ? <LogicalPlatformDefaultIcon /> : undefined
             }
             platformInstanceId={platformInstanceId}
-            qualifier={origin}
             tags={globalTags || undefined}
             owners={owners}
             domain={domain}

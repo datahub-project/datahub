@@ -4,6 +4,11 @@ import pydantic
 from pydantic import field_validator
 
 
+def escaped_newlines_to_real(value: str) -> str:
+    """What pydantic_multiline_string does to a field's string value."""
+    return value.replace(r"\n", "\n")
+
+
 def pydantic_multiline_string(field: str) -> Any:
     """If the field is present and contains an escaped newline, replace it with a real newline.
 
@@ -21,7 +26,7 @@ def pydantic_multiline_string(field: str) -> Any:
         if v is not None:
             if isinstance(v, pydantic.SecretStr):
                 v = v.get_secret_value()
-            v = v.replace(r"\n", "\n")
+            v = escaped_newlines_to_real(v)
 
         return v
 

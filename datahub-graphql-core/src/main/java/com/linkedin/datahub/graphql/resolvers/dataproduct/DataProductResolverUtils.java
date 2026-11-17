@@ -6,6 +6,8 @@ import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.exception.AuthorizationException;
 import com.linkedin.metadata.service.DataProductService;
 import java.util.List;
+import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 
 /** Utility methods shared across Data Product GraphQL resolvers. */
@@ -27,11 +29,16 @@ public class DataProductResolverUtils {
       @Nonnull final List<String> resources,
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
-    for (String resource : resources) {
-      final Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!dataProductService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), resourceUrns);
+
+    for (Urn resourceUrn : resourceUrns) {
+      if (!existingUrns.contains(resourceUrn)) {
         throw new RuntimeException(
-            String.format("Failed to update data products, resource %s does not exist", resource));
+            String.format(
+                "Failed to update data products, resource %s does not exist", resourceUrn));
       }
     }
   }
@@ -66,11 +73,16 @@ public class DataProductResolverUtils {
       @Nonnull final List<String> resources,
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
-    for (String resource : resources) {
-      final Urn resourceUrn = UrnUtils.getUrn(resource);
-      if (!dataProductService.verifyEntityExists(context.getOperationContext(), resourceUrn)) {
+    final List<Urn> resourceUrns =
+        resources.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), resourceUrns);
+
+    for (Urn resourceUrn : resourceUrns) {
+      if (!existingUrns.contains(resourceUrn)) {
         throw new RuntimeException(
-            String.format("Failed to update data products, resource %s does not exist", resource));
+            String.format(
+                "Failed to update data products, resource %s does not exist", resourceUrn));
       }
       if (!DataProductAuthorizationUtils.isAuthorizedToUpdateDataProductsForEntity(
           context, resourceUrn)) {
@@ -92,8 +104,16 @@ public class DataProductResolverUtils {
       @Nonnull final List<String> dataProductUrns,
       @Nonnull final QueryContext context,
       @Nonnull final DataProductService dataProductService) {
-    for (String dataProductUrn : dataProductUrns) {
-      verifyDataProduct(dataProductUrn, context, dataProductService);
+    final List<Urn> urns =
+        dataProductUrns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
+    final Set<Urn> existingUrns =
+        dataProductService.filterExistingUrns(context.getOperationContext(), urns);
+
+    for (Urn urn : urns) {
+      if (!existingUrns.contains(urn)) {
+        throw new RuntimeException(
+            String.format("Failed to update data products, data product %s does not exist", urn));
+      }
     }
   }
 

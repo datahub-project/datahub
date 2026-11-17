@@ -48,9 +48,12 @@ export const viewBuilderProperties: Property[] = [
         get description() {
             return i18next.t('shared.query-builder:prop.platformDesc');
         },
-        valueType: ValueTypeId.URN,
+        // Source the values from the `platform` facet aggregation (platforms that actually have
+        // assets) rather than an entity search over every seeded DataPlatform. Mirrors
+        // `platformInstance` below. See platformInstance for the same pattern.
+        valueType: ValueTypeId.ENUM,
         valueOptions: {
-            entityTypes: [EntityType.DataPlatform],
+            aggregationField: 'platform',
             mode: SelectInputMode.MULTIPLE,
         },
     },
@@ -217,16 +220,6 @@ export const viewBuilderProperties: Property[] = [
         },
         get description() {
             return i18next.t('entity.views:prop.hasActiveIncidentsDesc');
-        },
-        valueType: ValueTypeId.BOOLEAN,
-    },
-    {
-        id: 'hasFailingAssertions',
-        get displayName() {
-            return i18next.t('entity.views:prop.hasFailingAssertions');
-        },
-        get description() {
-            return i18next.t('entity.views:prop.hasFailingAssertionsDesc');
         },
         valueType: ValueTypeId.BOOLEAN,
     },

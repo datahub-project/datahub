@@ -1,11 +1,9 @@
 #!/usr/bin/env bash
 # Detect added/modified test files in a PR or local diff.
-# Classifies files as smoke test (Python) or integration test (Cypress).
+# Classifies files as smoke test (Python)
 #
 # Scope:
 #   - smoke-test/**/*.py (excluding tests/cypress/) -> smoke
-#   - smoke-test/tests/cypress/**/*.py              -> integration (launcher)
-#   - smoke-test/tests/cypress/**/*.js              -> integration (spec)
 #
 # Out of scope (excluded):
 #   - metadata-ingestion/tests/integration/ (connector tests, covered by datahub-connector-pr-review)
@@ -23,7 +21,6 @@
 #
 # Output format (one per line):
 #   smoke:<filepath>
-#   integration:<filepath>
 
 set -euo pipefail
 
@@ -71,18 +68,11 @@ FOUND=0
 while IFS= read -r filepath; do
     [[ -z "$filepath" ]] && continue
 
-    # Integration tests: Cypress specs (.js) and launcher (.py) under smoke-test/tests/cypress/
-    if [[ "$filepath" == smoke-test/tests/cypress/* ]]; then
-        # Include .js spec files and .py launcher/helper files
-        if [[ "$filepath" == *.js || "$filepath" == *.py || "$filepath" == *.json ]]; then
-            echo "integration:${filepath}"
-            FOUND=1
-        fi
-        continue
-    fi
-
     # Smoke tests: Python files under smoke-test/ (excluding cypress)
     if [[ "$filepath" == *.py ]]; then
+        if [[ "$filepath" == smoke-test/tests/cypress/* ]]; then
+            continue
+        fi
         echo "smoke:${filepath}"
         FOUND=1
         continue

@@ -1,8 +1,9 @@
 import logging
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from typing import TYPE_CHECKING, Dict, Generic, Iterable, Optional, Type, TypeVar, cast
+from typing import TYPE_CHECKING, Generic, Iterable, Optional, Type, TypeVar, cast
 
+from datahub.ingestion.api.report import Report
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.utilities.type_annotations import get_class_from_annotation
 
@@ -24,15 +25,14 @@ _ReportT = TypeVar("_ReportT", bound="WorkunitProcessorReport")
 
 
 @dataclass
-class WorkunitProcessorReport:
-    """Base report class for workunit processor metrics."""
+class WorkunitProcessorReport(Report):
+    """Base report class for workunit processor metrics.
 
-    def as_obj(self) -> Dict[str, object]:
-        return {
-            key: value
-            for key, value in self.__dict__.items()
-            if not key.startswith("_")
-        }
+    Inherits Report.as_obj, which runs values through to_pure_python_obj so the
+    report stays JSON-serializable. The run summary reporter json.dumps the whole
+    source report, processor reports included, so a field value that is not a JSON
+    primitive would drop the execution-request result for the entire run.
+    """
 
 
 @dataclass

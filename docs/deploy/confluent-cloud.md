@@ -22,8 +22,6 @@ First, you'll need to create following new topics in the [Confluent Control Cent
 8. (Deprecated) **FailedMetadataChangeEvent_v4**: Failed to process #1 event
 9. **MetadataGraphEvent_v4**:
 10. **PlatformEvent_v1**
-11. **DataHubUpgradeHistory_v1**: Notifies the end of DataHub Upgrade job so dependants can act accordingly (_eg_, startup).
-    Note this topic requires special configuration: **Infinite retention**. Also, 1 partition is enough for the occasional traffic.
 
 The first five are the most important, and are explained in more depth in [MCP/MCL](../advanced/mcp-mcl.md). The final topics are
 those which are deprecated but still used under certain circumstances. It is likely that in the future they will be completely

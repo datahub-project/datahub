@@ -1,9 +1,10 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { isExecutionRequestActive } from '@app/ingestV2/executions/utils';
 import { updateListIngestionSourcesCache } from '@app/ingestV2/source/cacheUtils';
 import usePollSource from '@app/ingestV2/source/usePollSource';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetIngestionSourceLazyQuery } from '@graphql/ingestion.generated';
 
@@ -111,7 +112,10 @@ describe('usePollSource', () => {
             }),
         );
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
-        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({
+            variables: { urn: sourceUrn1 },
+            context: { skipTracingSpan: true },
+        });
     });
 
     it('should return early if ingestion source is missing in query result data', () => {
@@ -187,7 +191,10 @@ describe('usePollSource', () => {
         // Call the query again after interval
         getIngestionSourceQuery.mockClear();
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
-        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({
+            variables: { urn: sourceUrn1 },
+            context: { skipTracingSpan: true },
+        });
     });
 
     it('should remove urn from polling if not executed recently and no executions', () => {
@@ -302,7 +309,10 @@ describe('usePollSource', () => {
         // Should continue polling
         getIngestionSourceQuery.mockClear();
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
-        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({
+            variables: { urn: sourceUrn1 },
+            context: { skipTracingSpan: true },
+        });
     });
 
     it('should stop polling after maximum retries when execution requests are old', () => {
@@ -420,7 +430,10 @@ describe('usePollSource', () => {
         // Should continue polling
         getIngestionSourceQuery.mockClear();
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
-        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({
+            variables: { urn: sourceUrn1 },
+            context: { skipTracingSpan: true },
+        });
     });
 
     it('should continue polling when isExecutedNow is false and execution is active', () => {
@@ -455,6 +468,9 @@ describe('usePollSource', () => {
         // Should continue polling
         getIngestionSourceQuery.mockClear();
         vi.advanceTimersByTime(REFRESH_INTERVAL_MS);
-        expect(getIngestionSourceQuery).toHaveBeenCalledWith({ variables: { urn: sourceUrn1 } });
+        expect(getIngestionSourceQuery).toHaveBeenCalledWith({
+            variables: { urn: sourceUrn1 },
+            context: { skipTracingSpan: true },
+        });
     });
 });

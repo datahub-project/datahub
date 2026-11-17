@@ -12,6 +12,8 @@ import com.linkedin.datahub.graphql.generated.BarChart;
 import com.linkedin.datahub.graphql.generated.BarSegment;
 import com.linkedin.datahub.graphql.generated.MetadataAnalyticsInput;
 import com.linkedin.datahub.graphql.generated.NamedBar;
+import com.linkedin.datahub.graphql.resolvers.search.DefaultEntityFiltersUtil;
+import com.linkedin.datahub.graphql.resolvers.search.SearchUtils;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
@@ -49,7 +51,7 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
       final AnalyticsChartGroup group = new AnalyticsChartGroup();
       group.setGroupId("FilteredMetadataAnalytics");
       group.setTitle("");
-      group.setCharts(getCharts(input, context.getOperationContext()));
+      group.setCharts(getCharts(input, context));
       return ImmutableList.of(group);
     } catch (Exception e) {
       log.error("Failed to retrieve metadata analytics!", e);
@@ -57,8 +59,9 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     }
   }
 
-  private List<AnalyticsChart> getCharts(MetadataAnalyticsInput input, OperationContext opContext)
+  private List<AnalyticsChart> getCharts(MetadataAnalyticsInput input, QueryContext context)
       throws Exception {
+    final OperationContext opContext = context.getOperationContext();
     final List<AnalyticsChart> charts = new ArrayList<>();
 
     List<String> entities = Collections.emptyList();
@@ -75,6 +78,14 @@ public final class GetMetadataAnalyticsResolver implements DataFetcher<List<Anal
     if (!StringUtils.isEmpty(input.getDomain()) && !input.getDomain().equals("ALL")) {
       filter = QueryUtils.newFilter("domains.keyword", input.getDomain());
     }
+    // Apply the same default entity filters (e.g. excluding bridge documents) that
+    // search/scroll/aggregate/browse resolvers apply, since this resolver queries
+    // searchAcrossEntities directly rather than going through one of those resolvers.
+    final List<String> filterEntityTypes =
+        entities.isEmpty() ? SearchUtils.getSearchEntityNames(opContext) : entities;
+    filter =
+        DefaultEntityFiltersUtil.applyDefaultEntityFilters(
+            filter, filterEntityTypes, null, context);
 
     SearchResult searchResult =
         _entityClient.searchAcrossEntities(

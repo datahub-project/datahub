@@ -1,5 +1,6 @@
+import json
 from typing import Any, Dict, List, Set, Tuple, Union
-from unittest.mock import MagicMock
+from unittest.mock import MagicMock, patch
 
 import pytest
 
@@ -10,6 +11,7 @@ from datahub.ingestion.reporting.datahub_ingestion_run_summary_provider import (
     DatahubIngestionRunSummaryProviderConfig,
 )
 from datahub.ingestion.run.pipeline_config import PipelineConfig
+from datahub.masking.secret_registry import SecretRegistry
 from datahub.metadata.schema_classes import (
     DataHubIngestionSourceInfoClass,
     ExecutionRequestInputClass,
@@ -251,3 +253,37 @@ def test_non_execution_request_urn_as_run_id_does_not_crash() -> None:
         "urn:li:ingestionSource:some-source-id", report_recipe=False
     )
     assert not provider._is_running_under_executor
+
+
+def test_on_completion_masks_report_and_summary() -> None:
+    SecretRegistry.reset_instance()
+    SecretRegistry.get_instance().register_secret("DB_PASS", "hunter2secret")
+
+    provider = object.__new__(DatahubIngestionRunSummaryProvider)
+    provider.start_time_ms = 0
+    provider.execution_request_input_urn = MagicMock()
+
+    log_buffer = MagicMock()
+    log_buffer.format_lines.return_value = "connecting with hunter2secret\n"
+
+    with (
+        patch.object(provider, "_emit_aspect") as mock_emit,
+        patch(
+            "datahub.ingestion.reporting.datahub_ingestion_run_summary_provider.get_log_buffer",
+            return_value=log_buffer,
+        ),
+    ):
+        provider.on_completion(
+            status="SUCCESS",
+            report={"source": {"failures": ["pw=hunter2secret"]}},
+            ctx=MagicMock(),
+        )
+
+    aspect = mock_emit.call_args.kwargs["aspect_value"]
+    assert "hunter2secret" not in aspect.report
+    assert aspect.report.count("***REDACTED:DB_PASS***") == 2
+    assert "hunter2secret" not in aspect.structuredReport.serializedValue
+    assert json.loads(aspect.structuredReport.serializedValue) == {
+        "source": {"failures": ["pw=***REDACTED:DB_PASS***"]}
+    }
+    SecretRegistry.reset_instance()

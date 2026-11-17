@@ -7,7 +7,22 @@ from contextlib import contextmanager
 from pathlib import Path
 from typing import Any, Callable, Iterator, Optional
 
+from datahub.ingestion.recording.redaction import (
+    scrub_request_for_recording,
+    scrub_response_for_recording,
+)
+
 logger = logging.getLogger(__name__)
+
+# Request headers that VCR strips from recordings. Note that VCR's
+# filter_headers only applies to request headers; response headers are
+# scrubbed by scrub_response_for_recording.
+FILTERED_HEADERS = [
+    "Authorization",
+    "X-DataHub-Auth",
+    "Cookie",
+    "Set-Cookie",
+]
 
 
 def _normalize_json_body(body: Any) -> Any:
@@ -139,14 +154,14 @@ class HTTPRecorder:
         self._request_count = 0
         self._total_requests_recorded = 0
 
-        def _log_request(request: Any) -> Any:
-            """Log each request as it's being recorded."""
+        def _process_request(request: Any) -> Any:
+            """Log and scrub each request as it's being recorded."""
             self._request_count += 1
             logger.debug(
                 f"[VCR] Recording request #{self._request_count}: "
                 f"{request.method} {request.uri}"
             )
-            return request
+            return scrub_request_for_recording(request)
 
         self.vcr = vcr.VCR(
             # Use YAML serializer to handle binary data (Arrow, gRPC, etc.)
@@ -156,16 +171,16 @@ class HTTPRecorder:
             # Match on these attributes to identify unique requests
             match_on=["uri", "method", "body"],
             # Filter out sensitive headers from recordings
-            filter_headers=[
-                "Authorization",
-                "X-DataHub-Auth",
-                "Cookie",
-                "Set-Cookie",
-            ],
+            filter_headers=FILTERED_HEADERS,
             # Decode compressed responses for readability
             decode_compressed_response=True,
-            # Log each request as it's recorded
-            before_record_request=_log_request,
+            # Log each request and scrub secrets (query params, form/JSON
+            # bodies) before it's written to the cassette
+            before_record_request=_process_request,
+            # Scrub tokens from response bodies (e.g. OAuth access_token)
+            # and response headers (e.g. Set-Cookie, which filter_headers
+            # does not cover) before they're written to the cassette
+            before_record_response=scrub_response_for_recording,
         )
         self._cassette: Optional[Any] = None
 
@@ -542,13 +557,20 @@ class HTTPReplayerForLiveSink:
             # Use YAML serializer to match recording format (handles binary data)
             serializer="yaml",
             record_mode="none",
-            before_record_request=self._filter_live_hosts,
+            # This replayer records new episodes for non-live hosts, so it
+            # needs the same secret scrubbing as HTTPRecorder. Compressed
+            # responses must be decoded before scrubbing - a gzip body would
+            # fail the scrubber's utf-8 decode and be recorded verbatim.
+            decode_compressed_response=True,
+            filter_headers=FILTERED_HEADERS,
+            before_record_request=self._before_record_request,
+            before_record_response=scrub_response_for_recording,
         )
         self.vcr.register_matcher("custom", custom_matcher)
         self._cassette: Optional[Any] = None
 
-    def _filter_live_hosts(self, request: Any) -> Optional[Any]:
-        """Filter out requests to live hosts from being recorded."""
+    def _before_record_request(self, request: Any) -> Optional[Any]:
+        """Drop requests to live hosts and scrub secrets from the rest."""
         from urllib.parse import urlparse
 
         parsed = urlparse(request.uri)
@@ -558,7 +580,7 @@ class HTTPReplayerForLiveSink:
             if live_host in host:
                 return None  # Don't record this request
 
-        return request
+        return scrub_request_for_recording(request)
 
     @contextmanager
     def replaying(self) -> Iterator["HTTPReplayerForLiveSink"]:

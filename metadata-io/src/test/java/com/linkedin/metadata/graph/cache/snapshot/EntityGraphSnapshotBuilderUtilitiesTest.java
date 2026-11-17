@@ -53,6 +53,30 @@ public class EntityGraphSnapshotBuilderUtilitiesTest {
   }
 
   @Test
+  public void extractRelatedUrnTreatsJsonNullAndGarbageAsAbsent() {
+    SearchEntity entity =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:foo:a"))
+            .setExtraFields(
+                new StringMap(
+                    java.util.Map.of(
+                        "related", "null", "related.keyword", "\"null\"", "other", "not-a-urn")));
+
+    assertNull(EntityGraphSnapshotBuilder.extractRelatedUrn(entity, "related"));
+    assertNull(EntityGraphSnapshotBuilder.extractRelatedUrn(entity, "other"));
+  }
+
+  @Test
+  public void extractRelatedUrnReadsGenericRelatedField() {
+    SearchEntity entity =
+        new SearchEntity()
+            .setEntity(UrnUtils.getUrn("urn:li:foo:a"))
+            .setExtraFields(new StringMap(java.util.Map.of("related", "urn:li:foo:b")));
+
+    assertEquals(EntityGraphSnapshotBuilder.extractRelatedUrn(entity, "related"), "urn:li:foo:b");
+  }
+
+  @Test
   public void topologyFingerprintIsStableAndOrderIndependent() {
     List<EntityGraphSnapshot.DirectedEdge> edgesA =
         List.of(

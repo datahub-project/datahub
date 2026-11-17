@@ -14,7 +14,7 @@ import {
     BUSINESS_GLOSSARY_CREATE_TERM_ID,
     BUSINESS_GLOSSARY_INTRO_ID,
 } from '@app/onboarding/config/BusinessGlossaryOnboardingConfig';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@app/useShowNavBarRedesign';
 
@@ -35,6 +35,11 @@ const GlossaryWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
 const MainWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
     flex: 1;
     margin: ${(props) => (props.$isShowNavBarRedesign ? '0' : '0 16px 12px 12px')};
+    min-width: 0;
+    height: 100%;
+    min-height: 0;
+    display: flex;
+    flex-direction: column;
 `;
 
 const BusinessGlossaryPage = () => {

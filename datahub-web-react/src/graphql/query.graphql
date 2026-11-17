@@ -4,6 +4,9 @@ query getQuery($urn: String!, $skipSiblingsSearch: Boolean = false) {
         type
         ... on QueryEntity {
             ...query
+            privileges {
+                canViewQueries
+            }
         }
     }
 }

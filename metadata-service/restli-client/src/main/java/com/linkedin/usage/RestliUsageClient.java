@@ -5,6 +5,7 @@ import com.github.benmanes.caffeine.cache.Caffeine;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.WindowDuration;
 import com.linkedin.common.client.BaseClient;
+import com.linkedin.common.client.restli.RestliRequestContextResolver;
 import com.linkedin.entity.client.EntityClientConfig;
 import com.linkedin.metadata.config.cache.client.UsageClientCacheConfig;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -24,15 +25,33 @@ public class RestliUsageClient extends BaseClient implements UsageClient {
 
   @Nonnull private final Cache<String, OperationContext> operationContextMap;
 
+  /**
+   * Legacy no-resolver constructor — used by tests and OSS paths that don't need outbound request
+   * decoration. Defaults to a pass-through resolver inside {@link BaseClient}. Production wiring
+   * should prefer the overload that accepts a {@link RestliRequestContextResolver}.
+   */
   public RestliUsageClient(
       @Nonnull final Client restliClient,
       @Nonnull final BackoffPolicy backoffPolicy,
       int retryCount,
       UsageClientCacheConfig cacheConfig,
       MetricUtils metricUtils) {
+    this(restliClient, backoffPolicy, retryCount, cacheConfig, metricUtils, null);
+  }
+
+  public RestliUsageClient(
+      @Nonnull final Client restliClient,
+      @Nonnull final BackoffPolicy backoffPolicy,
+      int retryCount,
+      UsageClientCacheConfig cacheConfig,
+      MetricUtils metricUtils,
+      @Nullable final RestliRequestContextResolver restliRequestContextResolver) {
     super(
         restliClient,
-        EntityClientConfig.builder().backoffPolicy(backoffPolicy).retryCount(retryCount).build());
+        EntityClientConfig.builder().backoffPolicy(backoffPolicy).retryCount(retryCount).build(),
+        restliRequestContextResolver != null
+            ? restliRequestContextResolver
+            : new RestliRequestContextResolver(java.util.Collections.emptyList()));
     this.operationContextMap = Caffeine.newBuilder().maximumSize(500).build();
     this.usageClientCache =
         UsageClientCache.builder()

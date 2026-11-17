@@ -1,10 +1,8 @@
-import {
-    ApartmentOutlined,
-    CheckCircleOutlined,
-    PlusCircleOutlined,
-    PlusOutlined,
-    StopOutlined,
-} from '@ant-design/icons';
+import { Buildings } from '@phosphor-icons/react/dist/csr/Buildings';
+import { CheckCircle } from '@phosphor-icons/react/dist/csr/CheckCircle';
+import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { PlusCircle } from '@phosphor-icons/react/dist/csr/PlusCircle';
+import { Prohibit } from '@phosphor-icons/react/dist/csr/Prohibit';
 import i18next from 'i18next';
 import React from 'react';
 
@@ -50,7 +48,7 @@ export const EQUALS_OPERATOR = {
         operator: FilterOperator.Equal,
         negated: false,
     },
-    icon: <PlusOutlined />,
+    icon: <Plus />,
 };
 
 export const ALL_EQUALS_OPERATOR = {
@@ -65,7 +63,7 @@ export const ALL_EQUALS_OPERATOR = {
         operator: FrontendFilterOperator.AllEqual,
         negated: false,
     },
-    icon: <PlusCircleOutlined />,
+    icon: <PlusCircle />,
 };
 
 export const EXISTS_OPERATOR = {
@@ -77,7 +75,7 @@ export const EXISTS_OPERATOR = {
         operator: FilterOperator.Exists,
         negated: false,
     },
-    icon: <CheckCircleOutlined />,
+    icon: <CheckCircle />,
 };
 
 export const NOT_EQUALS_OPERATOR = {
@@ -92,7 +90,7 @@ export const NOT_EQUALS_OPERATOR = {
         operator: FilterOperator.Equal,
         negated: true,
     },
-    icon: <StopOutlined />,
+    icon: <Prohibit />,
 };
 
 export const NOT_EXISTS_OPERATOR = {
@@ -104,7 +102,7 @@ export const NOT_EXISTS_OPERATOR = {
         operator: FilterOperator.Exists,
         negated: true,
     },
-    icon: <StopOutlined />,
+    icon: <Prohibit />,
 };
 
 export const WITHIN_OPERATOR = {
@@ -116,7 +114,7 @@ export const WITHIN_OPERATOR = {
         operator: FilterOperator.DescendantsIncl,
         negated: false,
     },
-    icon: <ApartmentOutlined />,
+    icon: <Buildings />,
 };
 
 const CONTAINS_OPERATOR = {

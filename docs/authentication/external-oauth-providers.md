@@ -230,6 +230,7 @@ Processes that resolve their client config from environment variables — the `d
 
 | `DATAHUB_AUTH_TYPE`       | Required variables                                                                         | Optional variables                                              |
 | ------------------------- | ------------------------------------------------------------------------------------------ | --------------------------------------------------------------- |
+| `pat`                     | `DATAHUB_AUTH_TOKEN_FILE` or `DATAHUB_GMS_TOKEN` (the file wins when both are set)         | —                                                               |
 | `k8s_oidc`                | —                                                                                          | `DATAHUB_AUTH_TOKEN_FILE`, `DATAHUB_AUTH_AUDIENCE`              |
 | `azure_entra`             | `DATAHUB_AUTH_AZURE_TENANT_ID`, `DATAHUB_AUTH_AZURE_CLIENT_ID`, `DATAHUB_AUTH_AZURE_SCOPE` | `DATAHUB_AUTH_AZURE_CLIENT_SECRET` (omit for workload identity) |
 | `oidc_client_credentials` | `DATAHUB_AUTH_TOKEN_ENDPOINT`, `DATAHUB_AUTH_CLIENT_ID`, `DATAHUB_AUTH_CLIENT_SECRET`      | `DATAHUB_AUTH_SCOPE`, `DATAHUB_AUTH_AUDIENCE`                   |
@@ -241,6 +242,14 @@ export DATAHUB_AUTH_TOKEN_ENDPOINT=https://your-idp.com/oauth2/token
 export DATAHUB_AUTH_CLIENT_ID=datahub-client
 export DATAHUB_AUTH_CLIENT_SECRET=...
 datahub ingest -c recipe.yml
+```
+
+Unlike the other types, `pat` is not OAuth: it presents a static [personal access token](personal-access-tokens.md), making the token mechanism explicit. It reads the token from `DATAHUB_AUTH_TOKEN_FILE` when set (re-read on rotation — for environments that mount secrets as volumes instead of injecting them into the process environment, e.g. Kubernetes clusters whose policies prohibit `valueFrom.secretKeyRef`), otherwise from `DATAHUB_GMS_TOKEN`:
+
+```bash
+export DATAHUB_GMS_URL=https://your-datahub.com/gms
+export DATAHUB_AUTH_TYPE=pat
+export DATAHUB_AUTH_TOKEN_FILE=/etc/datahub/auth/token
 ```
 
 ### Precedence rules

@@ -1,6 +1,7 @@
 from typing import Dict
 
 import pytest
+import requests
 import requests_mock as rm
 
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
@@ -193,6 +194,60 @@ def test_get_entities_falls_back_to_core_on_metadata_api_error(
 
     entities = client.get_entities()
     assert [e.name for e in entities] == ["orders"]
+    assert len(client.report.warnings) == 1
+
+
+def test_get_reports_returns_empty_on_connection_error(
+    requests_mock: rm.Mocker,
+) -> None:
+    # Regression: only requests.HTTPError was caught here, so a connection
+    # drop or timeout -- not a subclass of HTTPError -- used to propagate and
+    # abort the whole ingestion run instead of degrading gracefully.
+    client = _client(cloud_api_key="cp-key", deployment_id="123")
+    requests_mock.get(
+        "https://demo.cubecloud.dev/api/v1/deployments/123/reports",
+        exc=requests.exceptions.ConnectionError,
+    )
+    assert client.get_reports() == []
+    assert len(client.report.warnings) == 1
+
+
+def test_get_workbooks_returns_empty_on_connection_error(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(cloud_api_key="cp-key", deployment_id="123")
+    requests_mock.get(
+        "https://demo.cubecloud.dev/api/v1/deployments/123/workbooks",
+        exc=requests.exceptions.ConnectionError,
+    )
+    assert client.get_workbooks() == []
+    assert len(client.report.warnings) == 1
+
+
+def test_get_data_sources_returns_empty_on_connection_error(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client()
+    requests_mock.get(
+        "https://demo.cubecloud.dev/cubejs-api/v1/data-sources",
+        exc=requests.exceptions.ConnectionError,
+    )
+    assert client.get_data_sources() == []
+    assert len(client.report.warnings) == 1
+
+
+def test_get_data_sources_returns_empty_on_malformed_response(
+    requests_mock: rm.Mocker,
+) -> None:
+    # Regression: model_validate() sat outside the try/except, so a
+    # schema-mismatched response raised uncaught instead of degrading.
+    client = _client()
+    requests_mock.get(
+        "https://demo.cubecloud.dev/cubejs-api/v1/data-sources",
+        # Missing the required "name" field on the data source entry.
+        json={"data": {"data_sources": [{"type": "postgres"}]}},
+    )
+    assert client.get_data_sources() == []
     assert len(client.report.warnings) == 1
 
 

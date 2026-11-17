@@ -98,6 +98,11 @@ class VertexAIModelExtractor:
         self.endpoints: Optional[Dict[str, List[Endpoint]]] = None
         self._models_cache: Optional[List[Model]] = None
 
+    def reset_regional_caches(self) -> None:
+        """Clear the cached models and endpoints, which are region-specific."""
+        self._models_cache = None
+        self.endpoints = None
+
     def _list_versions(self, model: Model) -> List[VersionInfo]:
         registry = model.versioning_registry
         request = ListModelVersionsRequest(name=registry.model_resource_name)
@@ -128,10 +133,6 @@ class VertexAIModelExtractor:
 
     def get_model_workunits(self) -> Iterable[MetadataWorkUnit]:
         logger.info("Fetching Models from Vertex AI")
-        # Reset so each region gets its own fetch; get_evaluation_workunits reuses
-        # the cache while still in the same region.
-        self._models_cache = None
-
         last_checkpoint_millis = self.state_handler.get_last_update_time(
             ResourceTypes.MODEL
         )

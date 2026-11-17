@@ -1,9 +1,10 @@
 package com.linkedin.datahub.graphql.resolvers.knowledge;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
-import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.combineFilters;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getSortCriteria;
+import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.mapInputFlags;
 import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.resolveView;
+import static com.linkedin.metadata.utils.elasticsearch.FilterUtils.combineFilters;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -19,18 +20,24 @@ import com.linkedin.datahub.graphql.types.mappers.MapperUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.HashSet;
@@ -38,7 +45,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
-import lombok.RequiredArgsConstructor;
+import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /**
@@ -49,17 +57,39 @@ import lombok.extern.slf4j.Slf4j;
  * clauses. Optional facet filters (tags, terms, creators, platforms, …) AND onto the base criteria.
  */
 @Slf4j
-@RequiredArgsConstructor
 public class SearchDocumentsResolver
     implements DataFetcher<CompletableFuture<SearchDocumentsResult>> {
 
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "*";
+  private static final String SUB_TYPES_FIELD = "typeNames";
+  private static final String CREATOR_FIELD = "creator";
+  private static final String CREATED_AT_FIELD = "createdAt";
+  private static final String LAST_MODIFIED_AT_FIELD = "lastModifiedAt";
 
   private final DocumentService _documentService;
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
+
+  public SearchDocumentsResolver(
+      @Nonnull final DocumentService documentService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService) {
+    this(documentService, entityClient, viewService, null);
+  }
+
+  public SearchDocumentsResolver(
+      @Nonnull final DocumentService documentService,
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
+    _documentService = documentService;
+    _entityClient = entityClient;
+    _viewService = viewService;
+    _entityIndexConfiguration = entityIndexConfiguration;
+  }
 
   @Override
   public CompletableFuture<SearchDocumentsResult> get(final DataFetchingEnvironment environment)
@@ -85,7 +115,8 @@ public class SearchDocumentsResolver
             userAndGroupUrns.add(currentUserUrn.toString());
             userGroupUrns.forEach(groupUrn -> userAndGroupUrns.add(groupUrn.toString()));
 
-            List<Criterion> baseUserCriteria = buildBaseUserCriteria(input);
+            List<Criterion> baseUserCriteria =
+                buildBaseUserCriteria(input, context.getOperationContext());
             final boolean canManageDocuments = AuthorizationUtils.canManageDocuments(context);
             final List<String> requestedStates = mapRequestedStates(input.getStates());
             Filter filter =
@@ -104,13 +135,35 @@ public class SearchDocumentsResolver
             }
 
             final List<SortCriterion> sortCriteria = getSortCriteria(input.getSortInput());
-            final SortCriterion sortCriterion = sortCriteria.isEmpty() ? null : sortCriteria.get(0);
+            final SortCriterion sortCriterion =
+                sortCriteria.isEmpty()
+                    ? null
+                    : mapAuditSortField(context.getOperationContext(), sortCriteria.get(0));
+
+            // Mirror AggregateAcrossEntitiesResolver: optional facets + searchFlags (maxAggValues).
+            // Flags are applied inside DocumentService so GraphQL unit tests that mock the
+            // service never need a fully active OperationContext for withSearchFlags.
+            final List<String> facets =
+                input.getFacets() != null && !input.getFacets().isEmpty()
+                    ? input.getFacets()
+                    : null;
+            final SearchFlags searchFlags =
+                input.getSearchFlags() != null
+                    ? mapInputFlags(context, input.getSearchFlags())
+                    : null;
 
             final SearchResult gmsResult;
             try {
               gmsResult =
                   _documentService.searchDocuments(
-                      context.getOperationContext(), query, filter, sortCriterion, start, count);
+                      context.getOperationContext(),
+                      query,
+                      filter,
+                      sortCriterion,
+                      start,
+                      count,
+                      facets,
+                      searchFlags);
             } catch (Exception e) {
               throw new RuntimeException("Failed to search documents", e);
             }
@@ -175,7 +228,30 @@ public class SearchDocumentsResolver
    * Builds the base user criteria from the search input (excludes state filtering). These criteria
    * are common to both published and unpublished document searches.
    */
-  private List<Criterion> buildBaseUserCriteria(SearchDocumentsInput input) {
+  /**
+   * Search V3 stores audit times under {@code _system}, so the V2 sort names are remapped while V3
+   * is the keyword read path. Other sort fields pass through unchanged.
+   */
+  private SortCriterion mapAuditSortField(
+      @Nonnull final OperationContext opContext, @Nonnull final SortCriterion sortCriterion) {
+    final String v3Field;
+    if (CREATED_AT_FIELD.equals(sortCriterion.getField())) {
+      v3Field = MappingConstants.SYSTEM_CREATED_TIME_FIELD;
+    } else if (LAST_MODIFIED_AT_FIELD.equals(sortCriterion.getField())) {
+      v3Field = MappingConstants.SYSTEM_MODIFIED_TIME_FIELD;
+    } else {
+      return sortCriterion;
+    }
+    final String indexedField =
+        EntitySearchIndexResolver.indexedField(
+            _entityIndexConfiguration, opContext, sortCriterion.getField(), v3Field, Intent.SORT);
+    return indexedField.equals(sortCriterion.getField())
+        ? sortCriterion
+        : new SortCriterion().setField(indexedField).setOrder(sortCriterion.getOrder());
+  }
+
+  private List<Criterion> buildBaseUserCriteria(
+      SearchDocumentsInput input, @Nonnull OperationContext opContext) {
     List<Criterion> criteria = new ArrayList<>();
 
     if (input.getParentDocuments() != null && !input.getParentDocuments().isEmpty()) {
@@ -190,11 +266,20 @@ public class SearchDocumentsResolver
     }
 
     if (input.getTypes() != null && !input.getTypes().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("subTypes", Condition.EQUAL, input.getTypes()));
+      // "typeNames" is the indexed ES field. "subTypes" is the aspect name and matches nothing.
+      criteria.add(
+          CriterionUtils.buildCriterion(SUB_TYPES_FIELD, Condition.EQUAL, input.getTypes()));
     }
 
     if (input.getDomains() != null && !input.getDomains().isEmpty()) {
       criteria.add(CriterionUtils.buildCriterion("domains", Condition.EQUAL, input.getDomains()));
+    }
+
+    if (input.getHasDomain() != null) {
+      criteria.add(
+          Boolean.TRUE.equals(input.getHasDomain())
+              ? CriterionUtils.buildExistsCriterion("domains")
+              : CriterionUtils.buildNotExistsCriterion("domains"));
     }
 
     if (input.getRelatedAssets() != null && !input.getRelatedAssets().isEmpty()) {
@@ -222,7 +307,16 @@ public class SearchDocumentsResolver
     }
 
     if (input.getCreators() != null && !input.getCreators().isEmpty()) {
-      criteria.add(CriterionUtils.buildCriterion("creator", Condition.EQUAL, input.getCreators()));
+      criteria.add(
+          CriterionUtils.buildCriterion(
+              EntitySearchIndexResolver.indexedField(
+                  _entityIndexConfiguration,
+                  opContext,
+                  CREATOR_FIELD,
+                  MappingConstants.SYSTEM_CREATED_ACTOR_FIELD,
+                  Intent.FILTER),
+              Condition.EQUAL,
+              input.getCreators()));
     }
 
     if (input.getPlatforms() != null && !input.getPlatforms().isEmpty()) {

@@ -12,6 +12,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -22,6 +23,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
@@ -29,7 +31,7 @@ public class CleanIndicesStep implements UpgradeStep {
   private final SearchClientShim<?> searchClient;
   private final ElasticSearchConfiguration esConfig;
   private final List<ElasticSearchIndexed> indexedServices;
-  private final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties;
+  private final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties;
   private final EntityService<?> entityService;
   private final String upgradeVersion;
   private final boolean incrementalReindexEnabled;
@@ -39,7 +41,7 @@ public class CleanIndicesStep implements UpgradeStep {
       final SearchClientShim<?> searchClient,
       final ElasticSearchConfiguration esConfig,
       final List<ElasticSearchIndexed> indexedServices,
-      final Set<Pair<Urn, StructuredPropertyDefinition>> structuredProperties,
+      final Supplier<Set<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties,
       final EntityService<?> entityService,
       final String upgradeVersion,
       final BuildIndicesConfiguration buildIndicesConfig) {
@@ -80,15 +82,37 @@ public class CleanIndicesStep implements UpgradeStep {
               protectedPhysicalIndices);
         }
 
-        IndexUtils.getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties)
-            .forEach(
-                reindexConfig ->
-                    ESIndexBuilder.cleanOrphanedIndices(
-                        searchClient,
-                        context.opContext(),
-                        esConfig,
-                        reindexConfig,
-                        protectedPhysicalIndices));
+        List<ReindexConfig> reindexConfigs;
+        try {
+          reindexConfigs =
+              IndexUtils.getAllReindexConfigs(
+                  context.opContext(),
+                  indexedServices,
+                  () -> {
+                    try {
+                      return structuredProperties.get();
+                    } catch (RuntimeException e) {
+                      throw new DefinitionsReadException(e);
+                    }
+                  });
+        } catch (DefinitionsReadException e) {
+          // Orphan cleanup only needs index names. A failed read of the structured property
+          // definitions, a filtering scan on Cassandra, skips it for this run instead of failing
+          // the non-blocking upgrades that follow. Search engine failures still fail the step.
+          log.warn(
+              "Skipping orphaned index cleanup for this run: the structured property definitions"
+                  + " could not be read",
+              e.getCause());
+          return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.SUCCEEDED);
+        }
+        reindexConfigs.forEach(
+            reindexConfig ->
+                ESIndexBuilder.cleanOrphanedIndices(
+                    IndexUtils.requireIndexBuilder(reindexConfig.name()).getSearchClient(),
+                    context.opContext(),
+                    esConfig,
+                    reindexConfig,
+                    protectedPhysicalIndices));
       } catch (Exception e) {
         log.error("CleanUpIndicesStep failed.", e);
         return new DefaultUpgradeStepResult(id(), DataHubUpgradeState.FAILED);
@@ -123,5 +147,12 @@ public class CleanIndicesStep implements UpgradeStep {
         catchUpState,
         context.opContext().getSearchContext().getIndexConvention(),
         rollbackDualWriteEnabled);
+  }
+
+  /** A failed read of the structured property definitions, which orphan cleanup can skip. */
+  private static final class DefinitionsReadException extends RuntimeException {
+    private DefinitionsReadException(RuntimeException cause) {
+      super(cause);
+    }
   }
 }

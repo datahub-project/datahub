@@ -1,7 +1,12 @@
 """Tests for exception hook masking functionality."""
 
+import io
 import sys
+from contextlib import redirect_stderr
+from unittest import mock
 
+import datahub.masking.bootstrap as masking_bootstrap
+from datahub.masking import masking_filter as masking_filter_module
 from datahub.masking.bootstrap import (
     initialize_secret_masking,
     shutdown_secret_masking,
@@ -25,7 +30,7 @@ class TestExceptionHookMasking:
         os.environ["TEST_API_KEY"] = "secret-api-key-xyz"
 
         # Initialize masking
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
         # Register test secrets
         registry = SecretRegistry.get_instance()
@@ -175,49 +180,36 @@ class TestExceptionHookMasking:
             # Should not raise - hook should handle gracefully
             sys.excepthook(*exc_info)
 
-    def test_shutdown_restores_original_hook(self):
-        """Test that shutdown properly restores the original exception hook."""
-        # Store the current hook before shutdown
-        hook_before_shutdown = sys.excepthook
+    def test_shutdown_keeps_masking_hook_installed(self):
+        """Masking is process-lifetime: shutdown must not swap the hook back."""
+        hook_before = sys.excepthook
 
-        # Shutdown
         shutdown_secret_masking()
 
-        # Hook should be different after shutdown (restored)
-        assert sys.excepthook != hook_before_shutdown
+        assert sys.excepthook is hook_before
 
     def test_exception_hook_masking_failure(self):
-        """Test that exception hook handles masking failures gracefully."""
-        import io
-        from contextlib import redirect_stderr
-        from unittest import mock
-
+        """Hook falls back to the original hook when masking raises."""
+        initialize_secret_masking()
+        assert isinstance(sys.excepthook, masking_bootstrap._MaskingExceptHook)
         captured_stderr = io.StringIO()
 
-        # Mock the masking filter to raise an exception
-        with mock.patch(
-            "datahub.masking.bootstrap.SecretMaskingFilter"
-        ) as mock_filter_class:
-            # Make mask_text raise an exception
-            mock_filter_instance = mock_filter_class.return_value
-            mock_filter_instance.mask_text.side_effect = RuntimeError("Masking failed")
-
-            # Reinitialize with the mocked filter
-            shutdown_secret_masking()
-            initialize_secret_masking(force=True)
-
+        with mock.patch.object(
+            masking_filter_module.SecretMaskingFilter,
+            "mask_text",
+            side_effect=RuntimeError("Masking failed"),
+        ) as mocked_mask_text:
             try:
-                raise ValueError("Test exception with secret: MySecretPass123!!")
+                raise ValueError("Test exception without secrets")
             except Exception:
                 exc_info = sys.exc_info()
                 with redirect_stderr(captured_stderr):
-                    # Should fall back to original exception hook
                     sys.excepthook(*exc_info)
 
-            output = captured_stderr.getvalue()
-            # Original exception should still be displayed
-            assert "ValueError" in output
-            assert "Test exception" in output
+        assert mocked_mask_text.called
+        output = captured_stderr.getvalue()
+        assert "ValueError" in output
+        assert "Test exception" in output
 
 
 class TestExceptionHookIntegration:
@@ -247,7 +239,7 @@ class TestExceptionHookIntegration:
         os.environ["TEST_PWD"] = test_pwd
 
         # Initialize masking
-        initialize_secret_masking(force=True)
+        initialize_secret_masking()
 
         # Register test secret
         registry = SecretRegistry.get_instance()

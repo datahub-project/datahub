@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.types.corpgroup;
 
 import static com.linkedin.datahub.graphql.resolvers.mutate.MutationUtils.*;
 import static com.linkedin.metadata.Constants.*;
+import static com.linkedin.metadata.Constants.CORP_GROUP_KEY_ASPECT_NAME;
 
 import com.datahub.authorization.ConjunctivePrivilegeGroup;
 import com.datahub.authorization.DisjunctivePrivilegeGroup;
@@ -26,6 +27,7 @@ import com.linkedin.datahub.graphql.types.SearchableEntityType;
 import com.linkedin.datahub.graphql.types.corpgroup.mappers.CorpGroupMapper;
 import com.linkedin.datahub.graphql.types.mappers.AutoCompleteResultsMapper;
 import com.linkedin.datahub.graphql.types.mappers.UrnSearchResultsMapper;
+import com.linkedin.datahub.graphql.util.AspectUtils;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.identity.CorpGroupEditableInfo;
@@ -40,6 +42,7 @@ import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -48,6 +51,15 @@ import javax.annotation.Nullable;
 public class CorpGroupType
     implements SearchableEntityType<CorpGroup, String>,
         MutableType<CorpGroupUpdateInput, CorpGroup> {
+  static final Set<String> ASPECTS_TO_FETCH =
+      ImmutableSet.of(
+          CORP_GROUP_KEY_ASPECT_NAME,
+          CORP_GROUP_INFO_ASPECT_NAME,
+          CORP_GROUP_EDITABLE_INFO_ASPECT_NAME,
+          OWNERSHIP_ASPECT_NAME,
+          ORIGIN_ASPECT_NAME,
+          STRUCTURED_PROPERTIES_ASPECT_NAME,
+          FORMS_ASPECT_NAME);
 
   private final EntityClient _entityClient;
 
@@ -81,12 +93,15 @@ public class CorpGroupType
       final List<Urn> corpGroupUrns =
           urns.stream().map(UrnUtils::getUrn).collect(Collectors.toList());
 
+      Set<String> aspectsToResolve =
+          AspectUtils.getOptimizedAspects(
+              context, name(), ASPECTS_TO_FETCH, CORP_GROUP_KEY_ASPECT_NAME);
       final Map<Urn, EntityResponse> corpGroupMap =
           _entityClient.batchGetV2(
               context.getOperationContext(),
               CORP_GROUP_ENTITY_NAME,
               new HashSet<>(corpGroupUrns),
-              null);
+              aspectsToResolve);
 
       final List<EntityResponse> results = new ArrayList<>(urns.size());
       for (Urn urn : corpGroupUrns) {

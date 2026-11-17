@@ -3,13 +3,17 @@ import { Cloud } from '@phosphor-icons/react/dist/csr/Cloud';
 import { Download } from '@phosphor-icons/react/dist/csr/Download';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
+import styled from 'styled-components';
 
 import { Icon } from '@components/components/Icon';
 
 import { GridList } from '@src/alchemy-components/.docs/mdx-components';
-import { colors } from '@src/alchemy-components/theme';
 
 import { Card, cardDefaults } from '.';
+
+const ChildContent = styled.div`
+    background-color: ${({ theme }) => theme.colors.bgSurface};
+`;
 
 // Auto Docs
 const meta = {
@@ -29,9 +33,6 @@ const meta = {
     argTypes: {
         title: {
             description: 'The title of the card',
-            table: {
-                defaultValue: { summary: `${cardDefaults.title}` },
-            },
             control: {
                 type: 'text',
             },
@@ -44,9 +45,7 @@ const meta = {
         },
         icon: {
             description: 'The icon on the card',
-            control: {
-                type: 'text',
-            },
+            control: false,
         },
         iconAlignment: {
             description: 'Whether the alignment of icon is horizontal or vertical',
@@ -65,9 +64,7 @@ const meta = {
         },
         button: {
             description: 'The button on the card',
-            control: {
-                type: 'text',
-            },
+            control: false,
         },
         width: {
             description: 'The width of the card',
@@ -87,6 +84,18 @@ const meta = {
                 type: 'text',
             },
         },
+        padding: {
+            description: 'The padding of the card',
+            control: {
+                type: 'text',
+            },
+        },
+        gap: {
+            description: 'The gap between title, content and footer',
+            control: {
+                type: 'text',
+            },
+        },
         onClick: {
             description: 'The on click function for the card',
         },
@@ -94,6 +103,34 @@ const meta = {
             description: 'Whether the card is in empty state with No data',
             table: {
                 defaultValue: { summary: `${cardDefaults.isEmpty}` },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        size: {
+            description: 'Compact (`sm`) or default (`md`) card sizing',
+            table: {
+                defaultValue: { summary: `${cardDefaults.size}` },
+            },
+            control: {
+                type: 'select',
+            },
+            options: ['sm', 'md'],
+        },
+        collapsible: {
+            description: 'Whether the card body can expand and collapse',
+            table: {
+                defaultValue: { summary: `${cardDefaults.collapsible}` },
+            },
+            control: {
+                type: 'boolean',
+            },
+        },
+        defaultExpanded: {
+            description: 'Initial expanded state when uncontrolled',
+            table: {
+                defaultValue: { summary: `${cardDefaults.defaultExpanded}` },
             },
             control: {
                 type: 'boolean',
@@ -107,6 +144,9 @@ const meta = {
         subTitle: 'Subtitle',
         iconAlignment: 'horizontal',
         isEmpty: false,
+        size: 'md',
+        collapsible: false,
+        defaultExpanded: true,
     },
 } satisfies Meta<typeof Card>;
 
@@ -125,13 +165,13 @@ export const sandbox: Story = {
 
 export const withChildren = () => (
     <Card title="Title" subTitle="Subtitle">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );
 
 export const withoutSubtitle = () => (
     <Card title="Title">
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );
 
@@ -153,6 +193,47 @@ export const withButton = () => (
 
 export const withPercentPill = () => <Card title="Title" subTitle="Subtitle" percent={2} />;
 
+export const small = () => (
+    <Card
+        size="sm"
+        title="Judges Reasoning"
+        pillLabel="Judge check — LLM-based"
+        subTitle="The agent's query adds an unwarranted filter that restricts the count to machine-translation events only."
+        width="480px"
+    />
+);
+
+export const sizes = () => (
+    <GridList>
+        <Card size="sm" title="Small" subTitle="Compact card with smaller title and padding" pillLabel="Label" />
+        <Card size="md" title="Medium" subTitle="Default card sizing" pillLabel="Label" />
+    </GridList>
+);
+
+export const collapsible = () => (
+    <GridList>
+        <Card
+            collapsible
+            defaultExpanded
+            title="Judges Reasoning"
+            pillLabel="Judge check — LLM-based"
+            subTitle="The agent's query adds an unwarranted filter that restricts the count to machine-translation events only."
+            width="480px"
+        />
+        <Card
+            collapsible
+            defaultExpanded={false}
+            size="sm"
+            title="Collapsed by default"
+            pillLabel="Details"
+            subTitle="Expand to read the full reasoning."
+            width="480px"
+        >
+            <ChildContent style={{ padding: '8px 16px' }}>Additional details</ChildContent>
+        </Card>
+    </GridList>
+);
+
 export const withAllTheElements = () => (
     <Card
         title="Title"
@@ -162,6 +243,6 @@ export const withAllTheElements = () => (
         button={<Icon icon={Download} color="gray" size="2xl" />}
         onClick={() => window.alert('Card clicked')}
     >
-        <div style={{ backgroundColor: colors.gray[1000], padding: '8px 32px' }}>Children of the card (Swap me)</div>
+        <ChildContent style={{ padding: '8px 32px' }}>Children of the card (Swap me)</ChildContent>
     </Card>
 );

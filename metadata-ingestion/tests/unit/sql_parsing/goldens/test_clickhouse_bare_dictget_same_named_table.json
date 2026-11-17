@@ -1,0 +1,59 @@
+{
+    "query_type": "INSERT",
+    "query_type_props": {},
+    "query_fingerprint": "2ff077f334b210843ebc02b5e70e3be41a27928ca5efb285ee1df12d798c7e59",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,My_Dict,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)"
+    ],
+    "out_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)"
+    ],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)",
+                "column": "v",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
+                    "column": "id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": false,
+                "column_logic": "dictGet('My_Dict', 'v', \"My_Dict\".\"id\") AS \"v\""
+            }
+        },
+        {
+            "downstream": {
+                "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.target,PROD)",
+                "column": "w",
+                "column_type": {
+                    "type": {
+                        "com.linkedin.pegasus2avro.schema.StringType": {}
+                    }
+                },
+                "native_column_type": "String"
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:clickhouse,db.My_Dict,PROD)",
+                    "column": "w"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"My_Dict\".\"w\" AS \"w\""
+            }
+        }
+    ],
+    "joins": [],
+    "debug_info": {
+        "confidence": 0.9,
+        "generalized_statement": "INSERT INTO target (v, w) SELECT dictGet({?: }, {?: }, id) AS v, w FROM db.My_Dict"
+    }
+}

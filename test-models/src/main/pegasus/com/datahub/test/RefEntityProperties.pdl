@@ -12,6 +12,9 @@ record RefEntityProperties {
    * Display name of the RefEntity
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true,
     "boostScore": 10.0,
@@ -23,6 +26,9 @@ record RefEntityProperties {
    * Description of the RefEntity
    */
   @Searchable = {
+    "v3": {
+      "queryByDefault": true
+    },
   "fieldName": "editedFieldDescriptions",
           "fieldType": "TEXT",
           "boostScore": 0.1

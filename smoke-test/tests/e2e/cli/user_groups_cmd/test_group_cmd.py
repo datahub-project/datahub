@@ -1,0 +1,161 @@
+import json
+import logging
+import sys
+import tempfile
+from typing import Any, Dict, Iterable, List
+
+import pytest
+import yaml
+
+from datahub.api.entities.corpgroup.corpgroup import CorpGroup
+from datahub.ingestion.graph.client import DataHubGraph
+from tests.e2e.utils import delete_urns, run_datahub_cmd, sync_elastic
+from utilities.domains import Domain
+
+logger = logging.getLogger(__name__)
+
+pytestmark = pytest.mark.domain(Domain.INGESTION)
+
+
+def datahub_upsert_group(auth_session: Any, group: CorpGroup) -> None:
+    with tempfile.NamedTemporaryFile("w+t", suffix=".yaml") as group_file:
+        yaml.dump(group.dict(), group_file)
+        group_file.flush()
+        upsert_args: List[str] = [
+            "group",
+            "upsert",
+            "-f",
+            group_file.name,
+        ]
+        group_create_result = run_datahub_cmd(
+            upsert_args,
+            env={
+                "DATAHUB_GMS_URL": auth_session.gms_url(),
+                "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+            },
+        )
+        assert group_create_result.exit_code == 0
+
+
+def gen_datahub_groups(num_groups: int) -> Iterable[CorpGroup]:
+    for i in range(0, num_groups):
+        group = CorpGroup(
+            id=f"group_{i}",
+            display_name=f"Group {i}",
+            email=f"group_{i}@datahubproject.io",
+            description=f"The Group {i}",
+            picture_link=f"https://images.google.com/group{i}.jpg",
+            slack=f"@group{i}",
+            owners=["user1"],
+            members=["user2"],
+        )
+        yield group
+
+
+def datahub_get_group(auth_session, group_urn: str):
+    get_args: List[str] = ["get", "--urn", group_urn]
+    get_result = run_datahub_cmd(
+        get_args,
+        env={
+            "DATAHUB_GMS_URL": auth_session.gms_url(),
+            "DATAHUB_GMS_TOKEN": auth_session.gms_token(),
+        },
+    )
+    assert get_result.exit_code == 0
+    try:
+        get_result_output_obj: Dict = json.loads(get_result.stdout)
+        return get_result_output_obj
+    except json.JSONDecodeError as e:
+        print("Failed to decode: " + get_result.stdout, file=sys.stderr)
+        raise e
+
+
+def get_group_ownership(graph_client: DataHubGraph, user_urn: str) -> List[str]:
+    entities = graph_client.get_related_entities(
+        entity_urn=user_urn,
+        relationship_types=["OwnedBy"],
+        direction=DataHubGraph.RelationshipDirection.INCOMING,
+    )
+    return [entity.urn for entity in entities]
+
+
+def get_group_membership(graph_client: DataHubGraph, user_urn: str) -> List[str]:
+    entities = graph_client.get_related_entities(
+        entity_urn=user_urn,
+        relationship_types=["IsMemberOfGroup"],
+        direction=DataHubGraph.RelationshipDirection.OUTGOING,
+    )
+    return [entity.urn for entity in entities]
+
+
+@pytest.mark.p0
+def test_group_upsert(auth_session: Any, graph_client: DataHubGraph) -> None:
+    num_groups: int = 10
+    for i, datahub_group in enumerate(gen_datahub_groups(num_groups)):
+        datahub_upsert_group(auth_session, datahub_group)
+        group_dict = datahub_get_group(auth_session, f"urn:li:corpGroup:group_{i}")
+        assert group_dict == {
+            "corpGroupEditableInfo": {
+                "description": f"The Group {i}",
+                "email": f"group_{i}@datahubproject.io",
+                "pictureLink": f"https://images.google.com/group{i}.jpg",
+                "slack": f"@group{i}",
+            },
+            "corpGroupInfo": {
+                "admins": ["urn:li:corpuser:user1"],
+                "description": f"The Group {i}",
+                "displayName": f"Group {i}",
+                "email": f"group_{i}@datahubproject.io",
+                "groups": [],
+                "members": ["urn:li:corpuser:user2"],
+                "slack": f"@group{i}",
+            },
+            "corpGroupKey": {"name": f"group_{i}"},
+            "ownership": {
+                "lastModified": {"actor": "urn:li:corpuser:unknown", "time": 0},
+                "ownerTypes": {
+                    "urn:li:ownershipType:__system__technical_owner": [
+                        "urn:li:corpuser:user1"
+                    ],
+                },
+                "owners": [
+                    {"owner": "urn:li:corpuser:user1", "type": "TECHNICAL_OWNER"}
+                ],
+            },
+            "status": {"removed": False},
+        }
+
+    sync_elastic()
+    groups_owned = get_group_ownership(graph_client, "urn:li:corpuser:user1")
+    groups_partof = get_group_membership(graph_client, "urn:li:corpuser:user2")
+
+    all_groups = sorted([f"urn:li:corpGroup:group_{i}" for i in range(0, num_groups)])
+
+    assert sorted(groups_owned) == all_groups
+    assert sorted(groups_partof) == all_groups
+
+
+def test_long_name_group(auth_session: Any, graph_client: DataHubGraph) -> None:
+    long_id = "a" * 250
+    group_urn = f"urn:li:corpGroup:{long_id}"
+
+    logger.info("Upserting group with 250-character name")
+    group = CorpGroup(
+        id=long_id,
+        display_name="Long Name Test Group",
+        email="long_group@datahubproject.io",
+        description="Group with a maximum-length name",
+    )
+    datahub_upsert_group(auth_session, group)
+
+    logger.info("Fetching group back by URN")
+    group_dict = datahub_get_group(auth_session, group_urn)
+
+    assert group_dict["corpGroupKey"]["name"] == long_id, (
+        f"Name was truncated: expected {len(long_id)} chars, "
+        f"got {len(group_dict['corpGroupKey']['name'])}"
+    )
+    assert group_dict["corpGroupInfo"]["displayName"] == "Long Name Test Group"
+
+    logger.info("Cleaning up long-name group")
+    delete_urns(graph_client, [group_urn])

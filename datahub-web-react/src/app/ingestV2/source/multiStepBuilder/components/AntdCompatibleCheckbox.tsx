@@ -34,7 +34,7 @@ export function AntdFormCompatibleCheckbox({ id, checked, onChange, helper, disa
                 size="sm"
             />
             {helper && (
-                <Text size="sm" color="gray" colorLevel={600}>
+                <Text size="sm" color="textSecondary">
                     {helper}
                 </Text>
             )}

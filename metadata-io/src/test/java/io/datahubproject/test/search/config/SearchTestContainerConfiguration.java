@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_ES_STRUCT_PROPS
 
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.RefreshIntervals;
 import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUtil;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
@@ -99,6 +100,7 @@ public class SearchTestContainerConfiguration {
                     .numReplicas(1)
                     .numRetries(3)
                     .refreshIntervalSeconds(1)
+                    .refreshIntervals(RefreshIntervals.allServices(1))
                     .build())
             .build();
 

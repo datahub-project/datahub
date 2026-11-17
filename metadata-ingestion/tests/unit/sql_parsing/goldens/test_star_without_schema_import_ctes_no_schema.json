@@ -1,0 +1,113 @@
+{
+    "query_type": "SELECT",
+    "query_type_props": {},
+    "query_fingerprint": "8a53e9bf9c9dd47602d581388c1c4eda6e947aa2d96e830541707d3b3acc3614",
+    "in_tables": [
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.customers,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)",
+        "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.payments,PROD)"
+    ],
+    "out_tables": [],
+    "column_lineage": [
+        {
+            "downstream": {
+                "table": null,
+                "column": "order_id",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)",
+                    "column": "order_id"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"ORDERS\".\"ORDER_ID\" AS \"ORDER_ID\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "first_name",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.customers,PROD)",
+                    "column": "first_name"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"CUSTOMERS\".\"FIRST_NAME\" AS \"FIRST_NAME\""
+            }
+        },
+        {
+            "downstream": {
+                "table": null,
+                "column": "amount",
+                "column_type": null,
+                "native_column_type": null
+            },
+            "upstreams": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.payments,PROD)",
+                    "column": "amount"
+                }
+            ],
+            "logic": {
+                "is_direct_copy": true,
+                "column_logic": "\"PAYMENTS\".\"AMOUNT\" AS \"AMOUNT\""
+            }
+        }
+    ],
+    "joins": [
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.customers,PROD)"
+            ],
+            "on_clause": "\"ORDERS\".\"CUSTOMER_ID\" = \"CUSTOMERS\".\"ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.customers,PROD)",
+                    "column": "ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)",
+                    "column": "CUSTOMER_ID"
+                }
+            ]
+        },
+        {
+            "join_type": "JOIN",
+            "left_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)"
+            ],
+            "right_tables": [
+                "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.payments,PROD)"
+            ],
+            "on_clause": "\"PAYMENTS\".\"ORDER_ID\" = \"ORDERS\".\"ORDER_ID\"",
+            "columns_involved": [
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.orders,PROD)",
+                    "column": "ORDER_ID"
+                },
+                {
+                    "table": "urn:li:dataset:(urn:li:dataPlatform:snowflake,my_db.my_schema.payments,PROD)",
+                    "column": "ORDER_ID"
+                }
+            ]
+        }
+    ],
+    "debug_info": {
+        "confidence": 0.2,
+        "generalized_statement": "WITH orders AS (SELECT * FROM my_db.my_schema.orders), customers AS (SELECT * FROM my_db.my_schema.customers), payments AS (SELECT * FROM my_db.my_schema.payments) SELECT orders.order_id, customers.first_name, payments.amount FROM orders JOIN customers ON orders.customer_id = customers.id JOIN payments ON payments.order_id = orders.order_id"
+    }
+}

@@ -38,9 +38,12 @@ public class KafkaHealthChecker {
               1);
       } else {
         log.debug(
-            String.format(
-                "Successfully emitted %s for entity %s at offset %s, partition %s, topic %s",
-                eventType, entityDesc, metadata.offset(), metadata.partition(), metadata.topic()));
+            "Successfully emitted {} for entity {} at offset {}, partition {}, topic {}",
+            eventType,
+            entityDesc,
+            metadata.offset(),
+            metadata.partition(),
+            metadata.topic());
       }
     };
   }

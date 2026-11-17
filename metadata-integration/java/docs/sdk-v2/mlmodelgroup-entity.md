@@ -576,4 +576,4 @@ client.entities().upsert(modelV2);
 - [MLModel Entity](mlmodel-entity.md) - For individual model metadata and metrics
 - [Dataset Entity](dataset-entity.md) - For training data lineage
 - [DataJob Entity](datajob-entity.md) - For training and inference job metadata
-- [SDK V2 Overview](README.md) - General SDK concepts
+- [SDK V2 Overview](getting-started.md) - General SDK concepts

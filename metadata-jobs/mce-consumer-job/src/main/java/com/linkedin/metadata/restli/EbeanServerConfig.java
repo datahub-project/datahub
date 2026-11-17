@@ -4,11 +4,13 @@ import static com.linkedin.gms.factory.common.LocalEbeanConfigFactory.getListene
 
 import com.linkedin.gms.factory.common.CrossCloudIamUtils;
 import com.linkedin.gms.factory.common.EbeanPoolDefaults;
+import com.linkedin.metadata.config.postgres.JdbcUrlParser;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.ebean.datasource.DataSourceConfig;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.context.annotation.DependsOn;
 import org.springframework.context.annotation.Primary;
 
 @Configuration
@@ -52,6 +54,10 @@ public class EbeanServerConfig {
   @Value("${ebean.cloudProvider:auto}")
   private String cloudProvider;
 
+  /** Metadata schema ({@code DATAHUB_POSTGRES_SCHEMA}). Applied to Postgres Ebean URLs. */
+  @Value("${postgres.schema:public}")
+  private String postgresMetadataSchema;
+
   // Environment variable properties for cloud detection
   @Value("${AWS_REGION:#{null}}")
   private String awsRegion;
@@ -76,6 +82,7 @@ public class EbeanServerConfig {
 
   @Bean("ebeanDataSourceConfig")
   @Primary
+  @DependsOn("defaultAwsCredentialsProvider")
   public DataSourceConfig buildDataSourceConfig(
       @Value("${ebean.url}") String dataSourceUrl, MetricUtils metricUtils) {
     DataSourceConfig dataSourceConfig = new DataSourceConfig();
@@ -99,7 +106,8 @@ public class EbeanServerConfig {
 
     dataSourceConfig.setUsername(ebeanDatasourceUsername);
     dataSourceConfig.setPassword(ebeanDatasourcePassword);
-    dataSourceConfig.setUrl(crossCloudConfig.url);
+    dataSourceConfig.setUrl(
+        JdbcUrlParser.applyPostgresMetadataSchema(crossCloudConfig.url, postgresMetadataSchema));
     dataSourceConfig.setDriver(crossCloudConfig.driver);
     dataSourceConfig.setMinConnections(ebeanMinConnections);
     dataSourceConfig.setMaxConnections(ebeanMaxConnections);

@@ -80,6 +80,8 @@ export default function useDocumentSidebarSearch({
                 viewUrn: viewUrn ?? undefined,
                 sortInput: { sortCriteria: [sortCriterion] },
             },
+            // Parent chain for under-title breadcrumbs on flat search hits.
+            includeParentDocuments: true,
         },
         skip,
         // network-only so filter changes are fresh; previousData avoids blanking the list mid-refetch.

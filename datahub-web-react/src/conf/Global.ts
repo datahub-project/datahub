@@ -29,13 +29,13 @@ export enum PageRoutes {
     DOCUMENT = '/document',
     GLOSSARY = '/glossary',
     STRUCTURED_PROPERTIES = '/structured-properties',
+    STRUCTURED_PROPERTIES_CREATE = '/structured-properties/create',
+    STRUCTURED_PROPERTIES_EDIT = '/structured-properties/edit/:urn',
     SETTINGS_VIEWS = '/settings/views',
     EMBED = '/embed',
     EMBED_LOOKUP = '/embed/lookup/:url',
     BUSINESS_ATTRIBUTE = '/business-attribute',
     INTRODUCE = '/introduce',
-    // Temporary route to view all data products
-    DATA_PRODUCTS = '/search?filter__entityType___false___EQUAL___0=DATA_PRODUCT&page=1&query=%2A&unionType=0',
     MANAGE_TAGS = '/tags',
     MANAGE_APPLICATIONS = '/applications',
     CONTEXT = '/context',
@@ -43,6 +43,8 @@ export enum PageRoutes {
     METRICS = '/metrics',
     METRIC_ENTITY = '/metric',
     SEMANTIC_MODEL_ENTITY = '/semanticModel',
+    MARKETPLACE = '/marketplace',
+    DATA_PRODUCT_ENTITY = '/dataProduct',
 }
 
 export enum HelpLinkRoutes {

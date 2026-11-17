@@ -26,6 +26,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.parseq.retry.backoff.ExponentialBackoff;
 import com.linkedin.util.Configuration;
 import config.ConfigurationProvider;
+import controllers.ProxyAdmission;
 import controllers.SsoCallbackController;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.AuthorizationContext;
@@ -144,7 +145,8 @@ public class AuthModule extends AbstractModule {
                   SystemEntityClient.class,
                   AuthServiceClient.class,
                   org.pac4j.core.config.Config.class,
-                  com.typesafe.config.Config.class));
+                  com.typesafe.config.Config.class,
+                  ProxyAdmission.class));
     } catch (NoSuchMethodException | SecurityException e) {
       throw new RuntimeException(
           "Failed to bind to SsoCallbackController. Cannot find constructor", e);
@@ -257,9 +259,9 @@ public class AuthModule extends AbstractModule {
     composite.config().commonTags("application", "datahub-frontend");
     MetricUtils metricUtils = MetricUtils.builder().registry(composite).build();
 
-    if (prometheusRegistry != null) {
-      PrometheusScrapeServer.startIfConfigured(prometheusRegistry);
-    }
+    // Health probes listen on MANAGEMENT_SERVER_PORT even when Prometheus export is off.
+    // The scrape handler is registered only when a Prometheus registry exists.
+    PrometheusScrapeServer.startIfConfigured(prometheusRegistry);
 
     return metricUtils;
   }
