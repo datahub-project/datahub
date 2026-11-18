@@ -70,8 +70,7 @@ public class BulkRequeueLifecycleTest {
       assertEquals(shim.getBulkWriteResultTracker().getPendingItems(), 0);
       assertEquals(shim.drainBulkTransferFailures(), 1L);
     }
-    verify(shim.metrics(), times(2))
-        .increment(BulkListener.class, "bulk_item_transfer_failure", 1);
+    verify(shim.metrics(), times(2)).increment(BulkListener.class, "bulk_item_transfer_failure", 1);
   }
 
   @DataProvider
