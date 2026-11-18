@@ -12,6 +12,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.SystemAspect;
 import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.elasticsearch.query.v3.ranking.RankingFormulaCheck;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.search.template.EntityTypeBoostArray;
 import com.linkedin.search.template.FieldFactorArray;
 import com.linkedin.search.template.FieldValueScoreArray;
@@ -407,7 +408,7 @@ public class SearchTemplateLoader {
         requireKnownFields(retrieval.getBridge(), "retrieval.bridge");
       }
       if (props.hasKnn()) {
-        knnLevel = props.getKnn() == null || props.getKnn().isBlank() ? -1 : i;
+        knnLevel = props.getKnn().isBlank() ? -1 : i;
         ownKnn = knnLevel < 0 ? null : props.getKnn();
       }
       if (props.hasRetrieval()) {
@@ -515,17 +516,9 @@ public class SearchTemplateLoader {
     // combine, keeps the reading that knn had before combine existed. A knn that only sets the
     // blend
     // still inherits the combine.
-    if (knnLevel >= 0
-        && retrievalLevel > knnLevel
-        && namesField(ownKnn)
-        && mergedRetrieval != null
-        && mergedRetrieval.hasCombine()) {
-      SearchTemplateRetrieval legacy;
-      try {
-        legacy = mergedRetrieval.copy();
-      } catch (CloneNotSupportedException e) {
-        throw new IllegalStateException(e);
-      }
+    if (knnLevel >= 0 && retrievalLevel > knnLevel && namesField(ownKnn)) {
+      SearchTemplateRetrieval legacy =
+          GenericRecordUtils.copy(mergedRetrieval, SearchTemplateRetrieval.class);
       legacy.removeCombine();
       builder.retrieval(emptyRetrieval(legacy) ? null : legacy);
     }
