@@ -226,6 +226,7 @@ import com.linkedin.datahub.graphql.resolvers.ownership.CreateOwnershipTypeResol
 import com.linkedin.datahub.graphql.resolvers.ownership.DeleteOwnershipTypeResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.ListOwnershipTypesResolver;
 import com.linkedin.datahub.graphql.resolvers.ownership.UpdateOwnershipTypeResolver;
+import com.linkedin.datahub.graphql.resolvers.policy.ActorPoliciesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.DeletePolicyResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.GetGrantedPrivilegesResolver;
 import com.linkedin.datahub.graphql.resolvers.policy.ListPoliciesResolver;
@@ -2498,7 +2499,8 @@ public class GmsGraphQLEngine {
                 .dataFetcher("relationships", new EntityRelationshipsResultResolver(graphClient))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
+                .dataFetcher("policies", new ActorPoliciesResolver(featureFlags)));
     builder.type(
         "CorpUserInfo",
         typeWiring ->
@@ -2576,7 +2578,8 @@ public class GmsGraphQLEngine {
                     new EntityRelationshipsResultResolver(graphClient, entityService))
                 .dataFetcher("privileges", new EntityPrivilegesResolver(entityClient))
                 .dataFetcher("aspects", new WeaklyTypedAspectsResolver())
-                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags)));
+                .dataFetcher("exists", new EntityExistsResolver(entityService, featureFlags))
+                .dataFetcher("policies", new ActorPoliciesResolver(featureFlags)));
     builder
         .type(
             "CorpGroupInfo",
@@ -3928,6 +3931,26 @@ public class GmsGraphQLEngine {
   }
 
   private void configurePolicyResolvers(final RuntimeWiring.Builder builder) {
+    builder.type(
+        "PolicyMatchReason",
+        typeWiring ->
+            typeWiring
+                .dataFetcher(
+                    "group",
+                    new LoadableTypeResolver<>(
+                        corpGroupType,
+                        (env) -> {
+                          final CorpGroup group = ((PolicyMatchReason) env.getSource()).getGroup();
+                          return group != null ? group.getUrn() : null;
+                        }))
+                .dataFetcher(
+                    "role",
+                    new LoadableTypeResolver<>(
+                        dataHubRoleType,
+                        (env) -> {
+                          final DataHubRole role = ((PolicyMatchReason) env.getSource()).getRole();
+                          return role != null ? role.getUrn() : null;
+                        })));
     // Register resolvers for "resolvedUsers" and "resolvedGroups" field of the
     // Policy type.
     builder.type(
