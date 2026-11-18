@@ -97,6 +97,9 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     final VectorRetrievalExplanation explanation = new VectorRetrievalExplanation();
     explanation.setOutcome(input.getOutcome());
     explanation.setProfile(input.getProfile());
+    explanation.setStore(input.getStore());
+    explanation.setAdapterLatencyMillis(input.getAdapterLatencyMillis());
+    explanation.setRemovedByHydration(input.getRemovedByHydration());
     explanation.setEntityTypes(new ArrayList<>(input.getEntityTypes()));
     explanation.setExcludedEntityTypes(new ArrayList<>(input.getExcludedEntityTypes()));
     explanation.setK(input.getK());

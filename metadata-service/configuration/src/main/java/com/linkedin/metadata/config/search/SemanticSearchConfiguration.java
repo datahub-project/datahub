@@ -31,4 +31,11 @@ public class SemanticSearchConfiguration {
    * retrieval.minSimilarity} unset. Null means no floor.
    */
   private Float minSimilarity;
+
+  /**
+   * External vector stores by name. An embedding profile whose systems list one of these names is
+   * served by that store's adapter. One that lists elasticsearch or opensearch is served by the
+   * DataHub index.
+   */
+  private Map<String, VectorStoreConfiguration> stores;
 }

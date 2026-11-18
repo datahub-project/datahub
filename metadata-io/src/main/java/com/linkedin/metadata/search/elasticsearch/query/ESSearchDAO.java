@@ -71,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
@@ -209,6 +210,12 @@ public class ESSearchDAO {
    * fails that rung closed.
    */
   @Nullable final HybridQueryEmbeddingService vectorQueryEmbedding;
+
+  /**
+   * Adapters for the external vector stores named in {@code semanticSearch.stores}. DataHub ships
+   * none, so a profile served by an external store fails its vector rung closed.
+   */
+  @Nonnull volatile Map<String, VectorStore> vectorStores = Map.of();
 
   private final TemplateSearchExecutor templateSearch = new TemplateSearchExecutor(this);
 
@@ -1194,6 +1201,11 @@ public class ESSearchDAO {
   @VisibleForTesting
   void setHybridPauseMillis(long millis) {
     hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(millis);
+  }
+
+  @VisibleForTesting
+  void setVectorStores(@Nonnull Map<String, VectorStore> stores) {
+    vectorStores = Map.copyOf(stores);
   }
 
   @VisibleForTesting

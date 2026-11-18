@@ -160,6 +160,9 @@ public class UrnSearchResultsMapperTest {
             new com.linkedin.metadata.search.VectorRetrievalExplanation()
                 .setOutcome("served")
                 .setProfile("text_embedding_3_small")
+                .setStore("external")
+                .setAdapterLatencyMillis(42L)
+                .setRemovedByHydration(2)
                 .setEntityTypes(new StringArray("document"))
                 .setExcludedEntityTypes(new StringArray("dataset:entityNotEnabled"))
                 .setK(1000)
@@ -177,6 +180,9 @@ public class UrnSearchResultsMapperTest {
 
     assertEquals(mapped.getOutcome(), "served");
     assertEquals(mapped.getProfile(), "text_embedding_3_small");
+    assertEquals(mapped.getStore(), "external");
+    assertEquals(mapped.getAdapterLatencyMillis().longValue(), 42L);
+    assertEquals(mapped.getRemovedByHydration(), 2);
     assertEquals(mapped.getEntityTypes(), List.of("document"));
     assertEquals(mapped.getExcludedEntityTypes(), List.of("dataset:entityNotEnabled"));
     assertEquals(mapped.getK().intValue(), 1000);

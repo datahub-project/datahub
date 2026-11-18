@@ -1,6 +1,12 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
+import java.util.Collection;
+import java.util.Map;
+import java.util.TreeSet;
+import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
 /**
@@ -43,6 +49,9 @@ public final class SearchTemplateVectorRetrieval {
   /** This process cannot run a vector rung: semantic read is off or no embedding provider. */
   public static final String UNAVAILABLE = "unavailable";
 
+  /** The request has a caller filter, and the store serving the profile cannot apply it. */
+  public static final String NO_PRE_FILTER = "noPreFilter";
+
   /** The floor inherited from configuration was skipped: the profile's metric is not cosine. */
   public static final String PROFILE_NOT_COSINE = "profileNotCosine";
 
@@ -66,6 +75,51 @@ public final class SearchTemplateVectorRetrieval {
     }
     int oversampled = (int) Math.ceil(((long) from + size) * PAGE_OVERSAMPLE);
     return Math.max(1, Math.min(MAX_K, Math.max(size, Math.min(PAGE_WINDOW_MAX, oversampled))));
+  }
+
+  /**
+   * The system that serves a vector rung: the engine serving the search when the rung's profiles
+   * join there, else the first external store, by name, they join on. When they join nowhere, it is
+   * the engine, and the entity gates report why.
+   */
+  @Nullable
+  public static String system(
+      @Nonnull SearchTemplateGates gates,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Collection<String> entityTypes,
+      @Nullable String engine,
+      @Nonnull Map<String, VectorStoreConfiguration> stores) {
+    if (stores.isEmpty() || !gates.joinedProfileIds(template, entityTypes, engine).isEmpty()) {
+      return engine;
+    }
+    for (String store : new TreeSet<>(stores.keySet())) {
+      if (!gates.joinedProfileIds(template, entityTypes, store).isEmpty()) {
+        return store;
+      }
+    }
+    return engine;
+  }
+
+  /** The external vector stores semantic search configures, by name. */
+  @Nonnull
+  public static Map<String, VectorStoreConfiguration> stores(
+      @Nullable SemanticSearchConfiguration semanticSearch) {
+    return semanticSearch == null || semanticSearch.getStores() == null
+        ? Map.of()
+        : semanticSearch.getStores();
+  }
+
+  /**
+   * Cache identity of the window a page from an external store falls in, so the search cache stops
+   * serving that page once the store's result TTL passes. Empty on the DataHub index.
+   */
+  @Nonnull
+  public static String resultWindow(
+      @Nullable String system, @Nonnull Map<String, VectorStoreConfiguration> stores) {
+    final VectorStoreConfiguration store = system == null ? null : stores.get(system);
+    return store == null
+        ? ""
+        : ":" + System.currentTimeMillis() / Math.max(1L, store.getResultTtlMillis());
   }
 
   /**

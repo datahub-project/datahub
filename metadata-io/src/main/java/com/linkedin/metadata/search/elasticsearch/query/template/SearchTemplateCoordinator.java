@@ -6,6 +6,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateRolloutConfiguration;
+import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
@@ -24,6 +25,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -548,27 +550,38 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   // A vector rung's hits also depend on this build's execution, the profile it resolves on the
-  // engine serving the search, and a floor inherited from configuration. The rung's lastModified
-  // covers its own floor and cap, and the search key covers the filter, flags, page, and caller.
+  // system serving it, a floor inherited from configuration, and, on an external store, the window
+  // of that store's result TTL. The rung's lastModified covers its own floor and cap, and the
+  // search key covers the filter, flags, page, and caller.
   @Nonnull
   private String vectorIdentity(
       @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
     if (!SearchTemplateCapabilities.vectorRetrieval(template)) {
       return "";
     }
+    final Map<String, VectorStoreConfiguration> stores =
+        SearchTemplateVectorRetrieval.stores(
+            elasticSearchConfiguration.getEntityIndex() == null
+                ? null
+                : elasticSearchConfiguration.getEntityIndex().getSemanticSearch());
+    final String system =
+        resolved.getEntityTypes() == null
+            ? resolved.getSearchSystem()
+            : SearchTemplateVectorRetrieval.system(
+                gates, template, resolved.getEntityTypes(), resolved.getSearchSystem(), stores);
     Set<String> profiles =
         resolved.getEntityTypes() == null
             ? Set.of()
-            : gates.joinedProfileIds(
-                template, resolved.getEntityTypes(), resolved.getSearchSystem());
+            : gates.joinedProfileIds(template, resolved.getEntityTypes(), system);
     return "~vr"
         + SearchTemplateVectorRetrieval.EXECUTION_VERSION
         + ":"
         + profiles.stream().map(this::profileIdentity).collect(Collectors.joining(","))
         + ":"
-        + resolved.getSearchSystem()
+        + system
         + ":"
-        + gates.minSimilarity(template);
+        + gates.minSimilarity(template)
+        + SearchTemplateVectorRetrieval.resultWindow(system, stores);
   }
 
   // The metric decides whether an inherited floor applies and what an engine score means, so the
