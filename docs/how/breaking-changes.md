@@ -15,6 +15,10 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Home page Platforms module counts only default search types
+
+The home page Platforms module now counts only entity types that default search returns ([PR #21385](https://github.com/datahub-project/datahub/pull/21385)), so each platform tile's count matches what clicking it finds. It also counts Repository, Service, API, Agent Skill and AI Agent assets when those types are in default search. If you removed types with `SEARCH_DEFAULT_ENTITY_TYPES_REMOVE` (for example `container` or `tag`), assets of those types no longer count toward Platforms tiles, and a platform with only those assets no longer appears. To keep counting them, keep them in default search.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing

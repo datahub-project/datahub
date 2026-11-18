@@ -51,6 +51,7 @@ public class TopPlatformsSourceTest {
   public void setup() {
     Mockito.reset(entityService, entitySearchService);
     opContext = TestOperationContexts.userContextNoSearchAuthorization(USER);
+    withDefaultSearchEntityNames(List.of(Constants.DATASET_ENTITY_NAME));
     source = new TopPlatformsSource(entitySearchService, entityService, entityRegistry);
     // By default every candidate platform exists.
     Mockito.when(entityService.exists(any(OperationContext.class), anySet(), anyBoolean()))
@@ -156,13 +157,23 @@ public class TopPlatformsSourceTest {
   }
 
   @Test
-  public void testUnresolvedDefaultSearchListCountsAllPlatformBearingTypes() {
-    withDefaultSearchEntityNames(null);
+  public void testNoPlatformBearingTypeSearchableReturnsNoRecommendations() {
+    // An empty entity list would make the aggregation count every type, so nothing is aggregated.
+    withDefaultSearchEntityNames(List.of(Constants.GLOSSARY_TERM_ENTITY_NAME));
+    stubAggregation(5);
 
-    List<String> entityNames = aggregatedEntityNames();
-    assertTrue(entityNames.contains(Constants.DATASET_ENTITY_NAME));
-    assertTrue(entityNames.contains(Constants.REPOSITORY_ENTITY_NAME));
-    assertTrue(entityNames.contains(Constants.AI_AGENT_ENTITY_NAME));
+    assertTrue(recommendedPlatforms().isEmpty());
+    verify(entitySearchService, never()).aggregateByValue(any(), any(), any(), any(), anyInt());
+  }
+
+  @Test
+  public void testUnresolvedDefaultSearchListReturnsNoRecommendations() {
+    // GraphQL search treats an unresolved default list as no types, so the tiles must match.
+    withDefaultSearchEntityNames(null);
+    stubAggregation(5);
+
+    assertTrue(recommendedPlatforms().isEmpty());
+    verify(entitySearchService, never()).aggregateByValue(any(), any(), any(), any(), anyInt());
   }
 
   private void withDefaultSearchEntityNames(List<String> defaultSearchEntityNames) {

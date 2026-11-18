@@ -4,27 +4,31 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.recommendation.RecommendationContent;
 import com.linkedin.metadata.recommendation.RecommendationRenderType;
 import com.linkedin.metadata.recommendation.RecommendationRequestContext;
 import com.linkedin.metadata.recommendation.ScenarioType;
 import com.linkedin.metadata.search.EntitySearchService;
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
 public class TopPlatformsSource extends EntitySearchAggregationSource {
 
   /**
-   * Entity types considered when aggregating top platforms. Intentionally a platform-bearing
-   * subset, not the full search default entity-type list. At request time it is further narrowed to
-   * the default search entity types, see {@link #getEntityNames(OperationContext, EntityRegistry)}.
+   * Platform-bearing entity types considered when aggregating top platforms. At request time this
+   * is narrowed to the default search entity types, see {@link
+   * #getPlatformEntityNames(OperationContext)}.
    */
-  private static final List<String> SEARCHABLE_ENTITY_TYPES =
+  private static final List<String> PLATFORM_ENTITY_TYPES =
       ImmutableList.of(
           Constants.DATASET_ENTITY_NAME,
           Constants.DASHBOARD_ENTITY_NAME,
@@ -75,24 +79,42 @@ public class TopPlatformsSource extends EntitySearchAggregationSource {
     return requestContext.getScenario() == ScenarioType.HOME;
   }
 
-  /**
-   * Only count entity types that default search returns. A platform tile opens a search with just a
-   * platform filter, so counting a type outside the default search types would show assets on the
-   * tile that the click-through search cannot find. If the default list was not resolved onto the
-   * search context, the platform-bearing list is used as is.
-   */
+  @Override
+  public List<RecommendationContent> getRecommendations(
+      @Nonnull OperationContext opContext,
+      @Nullable RecommendationRequestContext requestContext,
+      @Nullable Filter filter) {
+    // An empty entity list makes the aggregation count every entity type, so skip it instead.
+    if (getPlatformEntityNames(opContext).isEmpty()) {
+      return Collections.emptyList();
+    }
+    return super.getRecommendations(opContext, requestContext, filter);
+  }
+
   @Override
   protected List<String> getEntityNames(
       @Nonnull OperationContext opContext, EntityRegistry entityRegistry) {
+    return getPlatformEntityNames(opContext);
+  }
+
+  /**
+   * Only count entity types that default search returns. A platform tile opens a search with just a
+   * platform filter, so counting a type outside the default search types would show assets on the
+   * tile that the click-through search cannot find. An unresolved default list is treated as empty,
+   * matching how GraphQL search resolves it.
+   */
+  private static List<String> getPlatformEntityNames(@Nonnull OperationContext opContext) {
     final List<String> defaultSearchEntityNames =
         opContext.getSearchContext().getDefaultSearchEntityNames();
     if (defaultSearchEntityNames == null) {
-      return SEARCHABLE_ENTITY_TYPES;
+      log.warn(
+          "Default search entity types were not resolved onto SearchContext; the Platforms module"
+              + " has no entity types to count. Ensure elasticsearch.search.defaultEntityTypes is"
+              + " configured.");
+      return Collections.emptyList();
     }
     final Set<String> searchable = new HashSet<>(defaultSearchEntityNames);
-    return SEARCHABLE_ENTITY_TYPES.stream()
-        .filter(searchable::contains)
-        .collect(Collectors.toList());
+    return PLATFORM_ENTITY_TYPES.stream().filter(searchable::contains).collect(Collectors.toList());
   }
 
   @Override
