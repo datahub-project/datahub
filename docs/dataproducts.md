@@ -194,6 +194,7 @@ Key behaviors:
 - A child may belong to a different Domain than its parent; Domain membership is independent of the parent-child relationship.
 - Permissions remain scoped to each Data Product's own Domain; **Manage Data Products** privilege is not inherited from the parent.
 - A product cannot be moved under one of its own descendants.
+- A product with child Data Products cannot be deleted, hard or soft. Delete the children or move them to another parent first. Rolling back an ingestion run is not blocked.
 
 <p align="center">
   <img width="70%" alt="Move dialog for re-parenting a Data Product in the hierarchy" src="https://raw.githubusercontent.com/datahub-project/static-assets/3ca67aad505de1157a5c5a14ef527dd2d88a1cd1/imgs/data_products/dataproducts-hierarchy-move.png"/>
