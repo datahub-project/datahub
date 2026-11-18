@@ -115,7 +115,11 @@ public class V3HybridKnnRequestBuilderTest {
   public void testRerankDedupesASharedIndex() {
     SemanticSearchConfiguration config =
         new SemanticSearchConfiguration(
-            true, Set.of("dataset", "chart"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null, null);
+            true,
+            Set.of("dataset", "chart"),
+            Map.of(MODEL_KEY, new ModelEmbeddingConfig()),
+            null,
+            null);
     V3HybridKnnRequestBuilder rerank = new V3HybridKnnRequestBuilder(config);
     EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
     EntitySpec dataset = spy(registry.getEntitySpec("dataset"));
