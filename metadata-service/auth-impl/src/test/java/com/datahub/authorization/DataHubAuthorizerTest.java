@@ -72,6 +72,7 @@ import io.datahubproject.metadata.context.ValidationContext;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -105,6 +106,12 @@ public class DataHubAuthorizerTest {
   private static final Urn INSTANCE_SCOPED_USER =
       UrnUtils.getUrn("urn:li:corpuser:instanceScopedWriter");
   private static final Urn EXISTING_CONTAINER_URN = UrnUtils.getUrn("urn:li:container:existing");
+  private static final Urn EXPLAIN_USER = UrnUtils.getUrn("urn:li:corpuser:explainUser");
+  private static final Urn EXPLAIN_GROUP = UrnUtils.getUrn("urn:li:corpGroup:explainGroup");
+  private static final Urn EXPLAIN_USER_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Admin");
+  private static final Urn EXPLAIN_GROUP_ROLE = UrnUtils.getUrn("urn:li:dataHubRole:Editor");
+  private static final Urn EXPLAIN_POLICY_1 = UrnUtils.getUrn("urn:li:dataHubPolicy:explain-1");
+  private static final Urn EXPLAIN_POLICY_2 = UrnUtils.getUrn("urn:li:dataHubPolicy:explain-2");
   private static final String STORED_INSTANCE =
       "urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,instance_a)";
 
@@ -1508,6 +1515,255 @@ public class DataHubAuthorizerTest {
                 "DOMAIN", PolicyMatchCondition.EQUALS, CHILD_DOMAIN_URN.toString()));
     assertEquals(
         authorizer.authorize(request, new HashMap<>()).getType(), AuthorizationResult.Type.DENY);
+  }
+
+  @Test
+  public void explainUserPolicies_returnsUrnsAndReasons() throws Exception {
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(
+                        true, new DataHubActorFilter().setGroups(new UrnArray(EXPLAIN_GROUP)))),
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_2,
+                    explainPolicy(
+                        true,
+                        new DataHubActorFilter()
+                            .setUsers(new UrnArray(UrnUtils.getUrn("urn:li:corpuser:other")))))));
+
+    ActorPolicies result = authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false);
+
+    ActorPolicyMatch match = findByUrn(result.policies(), EXPLAIN_POLICY_1);
+    assertFalse(match.builtIn());
+    assertEquals(
+        match.reasons(),
+        List.of(
+            new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.GROUP, EXPLAIN_GROUP, null)));
+    assertFalse(policyUrns(result.policies()).contains(EXPLAIN_POLICY_2));
+    assertEquals(
+        authorizer.getActorGroupUrns(systemOpContext, EXPLAIN_USER), Set.of(EXPLAIN_GROUP));
+  }
+
+  @Test
+  public void explainUserPolicies_includesBuiltInViewSelf() throws Exception {
+    DataHubAuthorizer authorizer = explainAuthorizer(List.of());
+
+    ActorPolicies result = authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false);
+
+    List<ActorPolicyMatch> builtIn =
+        result.policies().stream().filter(ActorPolicyMatch::builtIn).toList();
+    assertEquals(builtIn.size(), 1);
+    assertEquals(builtIn.get(0).policyUrn(), null);
+    assertEquals(builtIn.get(0).info().getDisplayName(), "View Self");
+  }
+
+  @Test
+  public void explainUserPolicies_multipleReasons_singleEntry() throws Exception {
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(
+                        true,
+                        new DataHubActorFilter()
+                            .setUsers(new UrnArray(EXPLAIN_USER))
+                            .setGroups(new UrnArray(EXPLAIN_GROUP))
+                            .setRoles(new UrnArray(EXPLAIN_USER_ROLE))))));
+
+    ActorPolicies result = authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false);
+
+    assertEquals(
+        result.policies().stream().filter(m -> EXPLAIN_POLICY_1.equals(m.policyUrn())).count(), 1);
+    assertEquals(
+        Set.copyOf(findByUrn(result.policies(), EXPLAIN_POLICY_1).reasons()),
+        Set.of(
+            new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_USER, null, null),
+            new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.GROUP, EXPLAIN_GROUP, null),
+            new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ROLE, null, EXPLAIN_USER_ROLE)));
+  }
+
+  @Test
+  public void explainUserPolicies_excludesInactiveUnlessRequested() throws Exception {
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(
+                        false, new DataHubActorFilter().setUsers(new UrnArray(EXPLAIN_USER))))));
+
+    assertFalse(
+        policyUrns(authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false).policies())
+            .contains(EXPLAIN_POLICY_1));
+    assertTrue(
+        policyUrns(authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, true).policies())
+            .contains(EXPLAIN_POLICY_1));
+  }
+
+  @Test
+  public void explainUserPolicies_ownerPolicySplit() throws Exception {
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(true, new DataHubActorFilter().setResourceOwners(true))),
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_2,
+                    explainPolicy(
+                        true,
+                        new DataHubActorFilter()
+                            .setResourceOwners(true)
+                            .setUsers(new UrnArray(EXPLAIN_USER))))));
+
+    ActorPolicies result = authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false);
+
+    assertEquals(policyUrns(result.ownerPolicies()), Set.of(EXPLAIN_POLICY_1, EXPLAIN_POLICY_2));
+    assertFalse(policyUrns(result.policies()).contains(EXPLAIN_POLICY_1));
+    assertEquals(
+        findByUrn(result.policies(), EXPLAIN_POLICY_2).reasons(),
+        List.of(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_USER, null, null)));
+  }
+
+  @Test
+  public void explainGroupPolicies_noAllUsersNoBuiltIn() throws Exception {
+    final Urn allUsersPolicy = UrnUtils.getUrn("urn:li:dataHubPolicy:explain-all-users");
+    final Urn allGroupsPolicy = UrnUtils.getUrn("urn:li:dataHubPolicy:explain-all-groups");
+    final Urn rolePolicy = UrnUtils.getUrn("urn:li:dataHubPolicy:explain-role");
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    allUsersPolicy,
+                    explainPolicy(true, new DataHubActorFilter().setAllUsers(true))),
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(
+                        true, new DataHubActorFilter().setGroups(new UrnArray(EXPLAIN_GROUP)))),
+                new PolicyFetcher.Policy(
+                    allGroupsPolicy,
+                    explainPolicy(true, new DataHubActorFilter().setAllGroups(true))),
+                new PolicyFetcher.Policy(
+                    rolePolicy,
+                    explainPolicy(
+                        true,
+                        new DataHubActorFilter()
+                            .setRoles(new UrnArray(EXPLAIN_GROUP_ROLE, EXPLAIN_USER_ROLE))))));
+
+    ActorPolicies result = authorizer.explainGroupPolicies(systemOpContext, EXPLAIN_GROUP, false);
+
+    assertEquals(
+        Set.copyOf(result.policies().stream().map(ActorPolicyMatch::policyUrn).toList()),
+        Set.of(EXPLAIN_POLICY_1, allGroupsPolicy, rolePolicy));
+    assertEquals(
+        findByUrn(result.policies(), EXPLAIN_POLICY_1).reasons(),
+        List.of(
+            new ActorPolicyMatchReason(
+                ActorPolicyMatchReason.Type.DIRECT_GROUP, EXPLAIN_GROUP, null)));
+    assertEquals(
+        findByUrn(result.policies(), allGroupsPolicy).reasons(),
+        List.of(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ALL_GROUPS, null, null)));
+    assertEquals(
+        findByUrn(result.policies(), rolePolicy).reasons(),
+        List.of(
+            new ActorPolicyMatchReason(
+                ActorPolicyMatchReason.Type.ROLE, null, EXPLAIN_GROUP_ROLE)));
+    assertTrue(result.ownerPolicies().isEmpty());
+  }
+
+  @Test
+  public void cacheRefresh_replacesUrnMap() throws Exception {
+    final DataHubActorFilter actors = new DataHubActorFilter().setUsers(new UrnArray(EXPLAIN_USER));
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(new PolicyFetcher.Policy(EXPLAIN_POLICY_1, explainPolicy(true, actors))));
+    refreshPolicies(
+        authorizer,
+        List.of(new PolicyFetcher.Policy(EXPLAIN_POLICY_2, explainPolicy(true, actors))));
+
+    assertEquals(
+        policyUrns(authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false).policies()),
+        Set.of(EXPLAIN_POLICY_2));
+  }
+
+  /**
+   * Authorizer without the scheduled refresh, loaded with the given policies. The explain user is
+   * in {@link #EXPLAIN_GROUP} and holds {@link #EXPLAIN_USER_ROLE} directly; the group holds {@link
+   * #EXPLAIN_GROUP_ROLE}.
+   */
+  private DataHubAuthorizer explainAuthorizer(final List<PolicyFetcher.Policy> policies)
+      throws Exception {
+    final EnvelopedAspectMap userAspects = new EnvelopedAspectMap();
+    userAspects.put(
+        GROUP_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(
+                new Aspect(new GroupMembership().setGroups(new UrnArray(EXPLAIN_GROUP)).data())));
+    userAspects.put(
+        ROLE_MEMBERSHIP_ASPECT_NAME,
+        new EnvelopedAspect()
+            .setValue(
+                new Aspect(new RoleMembership().setRoles(new UrnArray(EXPLAIN_USER_ROLE)).data())));
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class), any(), eq(Collections.singleton(EXPLAIN_USER)), any()))
+        .thenReturn(
+            Map.of(
+                EXPLAIN_USER, new EntityResponse().setUrn(EXPLAIN_USER).setAspects(userAspects)));
+    when(_entityClient.batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(EXPLAIN_GROUP)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME))))
+        .thenReturn(createRoleMembershipBatchResponse(EXPLAIN_GROUP, EXPLAIN_GROUP_ROLE));
+
+    DataHubAuthorizer authorizer =
+        new DataHubAuthorizer(
+            systemOpContext,
+            _entityClient,
+            _groupService,
+            0,
+            0,
+            DataHubAuthorizer.AuthorizationMode.DEFAULT,
+            1);
+    authorizer.init(
+        Collections.emptyMap(), createAuthorizerContext(systemOpContext, _entityClient));
+    refreshPolicies(authorizer, policies);
+    return authorizer;
+  }
+
+  private void refreshPolicies(
+      final DataHubAuthorizer authorizer, final List<PolicyFetcher.Policy> policies)
+      throws Exception {
+    PolicyFetcher fetcher = mock(PolicyFetcher.class);
+    when(fetcher.fetchPolicies(any(OperationContext.class), anyInt(), isNull(), isNull()))
+        .thenReturn(new PolicyFetcher.PolicyFetchResult(policies, policies.size(), null));
+    new DataHubAuthorizer.PolicyRefreshRunnable(
+            systemOpContext,
+            fetcher,
+            authorizer.policyCache,
+            authorizer.policyUrnCache,
+            authorizer.readWriteLock.writeLock(),
+            100)
+        .run();
+  }
+
+  private DataHubPolicyInfo explainPolicy(final boolean active, final DataHubActorFilter actors)
+      throws Exception {
+    return createDataHubPolicyInfoFor(active, List.of("EDIT_ENTITY_TAGS"), null, null, actors);
+  }
+
+  private static ActorPolicyMatch findByUrn(final List<ActorPolicyMatch> matches, final Urn urn) {
+    return matches.stream().filter(m -> urn.equals(m.policyUrn())).findFirst().orElseThrow();
+  }
+
+  private static Set<Urn> policyUrns(final List<ActorPolicyMatch> matches) {
+    return matches.stream()
+        .map(ActorPolicyMatch::policyUrn)
+        .filter(Objects::nonNull)
+        .collect(Collectors.toSet());
   }
 
   private DataHubPolicyInfo createDataHubPolicyInfo(

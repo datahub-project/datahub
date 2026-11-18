@@ -10,6 +10,7 @@ import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.authorization.PoliciesConfig;
+import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import io.datahubproject.metadata.context.ActorContext;
 import io.datahubproject.metadata.context.AuthorizationContext;
@@ -21,6 +22,7 @@ import java.util.Collection;
 import java.util.Collections;
 import java.util.EnumMap;
 import java.util.HashMap;
+import java.util.IdentityHashMap;
 import java.util.LinkedList;
 import java.util.List;
 import java.util.Map;
@@ -33,6 +35,7 @@ import java.util.concurrent.TimeUnit;
 import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -66,6 +69,9 @@ public class DataHubAuthorizer
   // Not concurrent data structure because writes are always against the entire thing.
   protected final Map<String, List<DataHubPolicyInfo>> policyCache =
       new HashMap<>(); // Shared Policy Cache.
+  // URN of each cached policy, keyed by instance: distinct policies can have equal contents.
+  // Swapped together with policyCache. Only the explain* methods read it, never authorize.
+  protected final Map<DataHubPolicyInfo, Urn> policyUrnCache = new IdentityHashMap<>();
   protected final ReadWriteLock readWriteLock = new ReentrantReadWriteLock();
   protected final Lock readLock = readWriteLock.readLock();
 
@@ -98,6 +104,7 @@ public class DataHubAuthorizer
               systemOpContext,
               new PolicyFetcher(entityClient),
               policyCache,
+              policyUrnCache,
               readWriteLock.writeLock(),
               policyFetchSize);
       refreshExecutorService.scheduleAtFixedRate(
@@ -342,6 +349,150 @@ public class DataHubAuthorizer
         .collect(Collectors.toSet());
   }
 
+  /**
+   * Lists the policies that apply to a user and why: the stored policies plus the built-in ones.
+   * Owner policies, which apply only on resources the user owns, are returned separately.
+   */
+  public ActorPolicies explainUserPolicies(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn, boolean includeInactive) {
+    final ResolvedEntitySpec actorSpec =
+        resolveActorEntitySpec(
+            new EntitySpec(userUrn.getEntityType(), userUrn.toString()), opContext);
+    // Seeds the user's direct roles, so a role held both directly and via a group shows as both.
+    final PolicyEngine.PolicyEvaluationContext context =
+        buildActorEvaluationContext(opContext, userUrn, null, null, null);
+    final Map<Urn, Set<Urn>> rolesByGroup = new HashMap<>();
+    for (final Urn group : groupUrns(actorSpec)) {
+      rolesByGroup.put(group, groupService.fetchRolesViaGroups(opContext, List.of(group)));
+    }
+
+    final Function<DataHubActorFilter, List<ActorPolicyMatchReason>> explain =
+        actors ->
+            policyEngine.explainActorMatch(opContext, actorSpec, actors, context, rolesByGroup);
+
+    final List<ActorPolicyMatch> matches = new ArrayList<>();
+    for (final Map.Entry<Urn, DataHubPolicyInfo> policy : cachedPoliciesWithUrns()) {
+      addMatch(matches, policy.getKey(), policy.getValue(), false, includeInactive, explain);
+    }
+    for (final DataHubPolicyInfo policy : PoliciesConfig.getDefaultPolicies(userUrn)) {
+      addMatch(matches, null, policy, true, includeInactive, explain);
+    }
+    return splitOwnerPolicies(matches);
+  }
+
+  /**
+   * Lists the stored policies that name a group, directly, through all groups or through a role the
+   * group holds. Policies for all users and built-in policies are not group policies, so they are
+   * left out.
+   */
+  public ActorPolicies explainGroupPolicies(
+      @Nonnull OperationContext opContext, @Nonnull final Urn groupUrn, boolean includeInactive) {
+    final Set<Urn> groupRoles = groupService.fetchRolesViaGroups(opContext, List.of(groupUrn));
+    final List<ActorPolicyMatch> matches = new ArrayList<>();
+    for (final Map.Entry<Urn, DataHubPolicyInfo> policy : cachedPoliciesWithUrns()) {
+      addMatch(
+          matches,
+          policy.getKey(),
+          policy.getValue(),
+          false,
+          includeInactive,
+          actors -> explainGroupMatch(groupUrn, groupRoles, actors));
+    }
+    return splitOwnerPolicies(matches);
+  }
+
+  public Set<Urn> getActorGroupUrns(
+      @Nonnull OperationContext opContext, @Nonnull final Urn userUrn) {
+    return groupUrns(
+        resolveActorEntitySpec(
+            new EntitySpec(userUrn.getEntityType(), userUrn.toString()), opContext));
+  }
+
+  private static Set<Urn> groupUrns(@Nonnull final ResolvedEntitySpec actorSpec) {
+    return actorSpec.getGroupMembership().stream()
+        .map(UrnUtils::getUrn)
+        .collect(Collectors.toSet());
+  }
+
+  private static List<ActorPolicyMatchReason> explainGroupMatch(
+      @Nonnull final Urn groupUrn,
+      @Nonnull final Set<Urn> groupRoles,
+      @Nonnull final DataHubActorFilter actors) {
+    final List<ActorPolicyMatchReason> reasons = new ArrayList<>();
+    if (actors.hasGroups() && Objects.requireNonNull(actors.getGroups()).contains(groupUrn)) {
+      reasons.add(
+          new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_GROUP, groupUrn, null));
+    }
+    if (actors.isAllGroups()) {
+      reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ALL_GROUPS, null, null));
+    }
+    if (actors.hasRoles()) {
+      Objects.requireNonNull(actors.getRoles()).stream()
+          .filter(groupRoles::contains)
+          .forEach(
+              role ->
+                  reasons.add(
+                      new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ROLE, null, role)));
+    }
+    if (actors.isResourceOwners()) {
+      reasons.add(
+          new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.RESOURCE_OWNER, null, null));
+    }
+    return reasons;
+  }
+
+  private static void addMatch(
+      @Nonnull final List<ActorPolicyMatch> matches,
+      @Nullable final Urn policyUrn,
+      @Nonnull final DataHubPolicyInfo policy,
+      final boolean builtIn,
+      final boolean includeInactive,
+      @Nonnull final Function<DataHubActorFilter, List<ActorPolicyMatchReason>> explain) {
+    if (policy.getActors() == null
+        || (!includeInactive && !PoliciesConfig.ACTIVE_POLICY_STATE.equals(policy.getState()))) {
+      return;
+    }
+    final List<ActorPolicyMatchReason> reasons = explain.apply(policy.getActors());
+    if (!reasons.isEmpty()) {
+      matches.add(new ActorPolicyMatch(policyUrn, policy, builtIn, reasons));
+    }
+  }
+
+  /**
+   * Owner policies go to {@code ownerPolicies}. One that also applies for another reason is listed
+   * in {@code policies} too, without its owner reason.
+   */
+  private static ActorPolicies splitOwnerPolicies(@Nonnull final List<ActorPolicyMatch> matches) {
+    final List<ActorPolicyMatch> policies = new ArrayList<>();
+    final List<ActorPolicyMatch> ownerPolicies = new ArrayList<>();
+    for (final ActorPolicyMatch match : matches) {
+      final List<ActorPolicyMatchReason> otherReasons =
+          match.reasons().stream()
+              .filter(reason -> reason.type() != ActorPolicyMatchReason.Type.RESOURCE_OWNER)
+              .toList();
+      if (otherReasons.size() < match.reasons().size()) {
+        ownerPolicies.add(match);
+      }
+      if (!otherReasons.isEmpty()) {
+        policies.add(
+            new ActorPolicyMatch(match.policyUrn(), match.info(), match.builtIn(), otherReasons));
+      }
+    }
+    return new ActorPolicies(policies, ownerPolicies);
+  }
+
+  /** The cached policies with their URNs, read under one lock so both come from one refresh. */
+  private List<Map.Entry<Urn, DataHubPolicyInfo>> cachedPoliciesWithUrns() {
+    readLock.lock();
+    try {
+      return policyCache.getOrDefault(ALL, List.of()).stream()
+          .map(policy -> Map.entry(policyUrnCache.get(policy), policy))
+          .toList();
+    } finally {
+      readLock.unlock();
+    }
+  }
+
   @Override
   public Optional<SessionActorIdentity> resolveSessionActorIdentity(@Nonnull Urn actorUrn) {
     return resolveSessionActorIdentity(actorUrn, systemOpContext);
@@ -560,6 +711,7 @@ public class DataHubAuthorizer
     private final OperationContext systemOpContext;
     private final PolicyFetcher policyFetcher;
     private final Map<String, List<DataHubPolicyInfo>> policyCache;
+    private final Map<DataHubPolicyInfo, Urn> policyUrnCache;
     private final Lock writeLock;
     private final int count;
 
@@ -568,6 +720,7 @@ public class DataHubAuthorizer
       try {
         // Populate new cache and swap.
         Map<String, List<DataHubPolicyInfo>> newCache = new HashMap<>();
+        Map<DataHubPolicyInfo, Urn> newUrnCache = new IdentityHashMap<>();
         Integer total = null;
         String scrollId = null;
 
@@ -576,7 +729,7 @@ public class DataHubAuthorizer
             final PolicyFetcher.PolicyFetchResult policyFetchResult =
                 policyFetcher.fetchPolicies(systemOpContext, count, scrollId, null);
 
-            addPoliciesToCache(newCache, policyFetchResult.getPolicies());
+            addPoliciesToCache(newCache, newUrnCache, policyFetchResult.getPolicies());
 
             total = policyFetchResult.getTotal();
             scrollId = policyFetchResult.getScrollId();
@@ -594,6 +747,8 @@ public class DataHubAuthorizer
         try {
           policyCache.clear();
           policyCache.putAll(newCache);
+          policyUrnCache.clear();
+          policyUrnCache.putAll(newUrnCache);
         } finally {
           // To unlock the acquired write thread
           writeLock.unlock();
@@ -609,8 +764,13 @@ public class DataHubAuthorizer
 
     private void addPoliciesToCache(
         final Map<String, List<DataHubPolicyInfo>> cache,
+        final Map<DataHubPolicyInfo, Urn> urnCache,
         final List<PolicyFetcher.Policy> policies) {
-      policies.forEach(policy -> addPolicyToCache(cache, policy.getPolicyInfo()));
+      policies.forEach(
+          policy -> {
+            addPolicyToCache(cache, policy.getPolicyInfo());
+            urnCache.put(policy.getPolicyInfo(), policy.getUrn());
+          });
     }
 
     private void addPolicyToCache(
