@@ -297,6 +297,29 @@ public class EntityGraphViewTest {
   }
 
   @Test
+  public void neighborsWithResultCountZeroReturnsMemberTotal() {
+    EntityGraphView view =
+        new EntityGraphView(
+            List.of(
+                DirectedEdge.builder()
+                    .sourceUrn(USER)
+                    .destinationUrn(GROUP)
+                    .relationshipType("IsMemberOfGroup")
+                    .build(),
+                DirectedEdge.builder()
+                    .sourceUrn("urn:li:corpuser:bob")
+                    .destinationUrn(GROUP)
+                    .relationshipType("IsMemberOfGroup")
+                    .build()));
+
+    EntityGraphView.NeighborResult members =
+        view.neighborsWithResult(
+            TraversalDirection.REVERSE, GROUP, Set.of("IsMemberOfGroup"), 1, 0, 0);
+    assertEquals(members.getTotal(), 2);
+    assertTrue(members.getNeighbors().isEmpty());
+  }
+
+  @Test
   public void neighborsWithResultPaginates() {
     EntityGraphView view =
         new EntityGraphView(

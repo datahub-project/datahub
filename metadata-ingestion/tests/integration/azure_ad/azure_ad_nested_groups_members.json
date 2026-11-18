@@ -11,7 +11,9 @@
         "mail": "foobar@acryl.io",
         "mobilePhone": null,
         "officeLocation": null,
-        "preferredLanguage": null
+        "preferredLanguage": null,
+        "accountEnabled": true,
+        "usageLocation": null
     },
     {
         "@odata.type": "#microsoft.graph.group",
@@ -83,7 +85,8 @@
         "visibility": null,
         "onPremisesProvisioningErrors": []
     },
-    {"@odata.type": "#microsoft.graph.orgContact",
+    {
+        "@odata.type": "#microsoft.graph.orgContact",
         "id": "00000000-0000-0000-9999-000000000000",
         "deletedDateTime": null,
         "companyName": null,

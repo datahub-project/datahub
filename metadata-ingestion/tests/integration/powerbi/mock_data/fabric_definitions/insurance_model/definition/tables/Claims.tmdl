@@ -1,0 +1,45 @@
+/// Claims filed against policies.
+table Claims
+	lineageTag: 0c9d7a52-7a5d-4f0f-8a35-1a3cbe5f2d11
+
+	column ClaimId
+		dataType: int64
+		isHidden
+		isKey
+		lineageTag: 2c1d8d4e-11a5-4d9b-9a1e-7f5d3c2b1a00
+		summarizeBy: none
+		sourceColumn: CLAIM_ID
+
+	column PolicyId
+		dataType: int64
+		isHidden
+		lineageTag: 3d2e9e5f-22b6-4e0c-8b2f-8a6e4d3c2b11
+		summarizeBy: none
+		sourceColumn: POLICY_ID
+
+	column Status
+		dataType: string
+		lineageTag: 4e3f0f60-33c7-4f1d-9c30-9b7f5e4d3c22
+		summarizeBy: none
+		sourceColumn: CLAIM_STATUS
+
+	/// Amount paid out on the claim in USD.
+	column PaidAmount
+		dataType: double
+		formatString: $#,##0.00
+		lineageTag: 5f401071-44d8-402e-8d41-0c806f5e4d33
+		summarizeBy: sum
+		sourceColumn: PAID_AMOUNT
+
+	partition Claims = m
+		mode: import
+		source =
+				let
+				    Source = Snowflake.Databases("my-account.snowflakecomputing.com","COMPUTE_WH",[Implementation="2.0"]),
+				    Db = Source{[Name="INSURANCE_DB",Kind="Database"]}[Data],
+				    Sch = Db{[Name="ANALYTICS",Kind="Schema"]}[Data],
+				    Tbl = Sch{[Name="CLAIMS",Kind="Table"]}[Data]
+				in
+				    Tbl
+
+	annotation PBI_ResultType = Table

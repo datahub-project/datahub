@@ -79,16 +79,16 @@ describe('Editor', () => {
         expect(screen.getByTestId('default-mentions')).toBeInTheDocument();
     });
 
-    it('renders mentions as @name without mentionNodeView', async () => {
+    it('renders mentions as @name without mentionView', async () => {
         renderEditor({ content: '[@Alice](urn:li:corpuser:alice)' });
 
         await waitFor(() => expect(getSurface()).toHaveTextContent('@Alice'));
     });
 
-    it('renders mentions with mentionNodeView', async () => {
+    it('renders mentions with mentionView', async () => {
         renderEditor({
             content: '[@Alice](urn:li:corpuser:alice)',
-            mentionNodeView: ({ node }) => <span data-testid="mention-view">{node.attrs.urn}</span>,
+            mentionView: ({ urn }) => <span data-testid="mention-view">{urn}</span>,
         });
 
         expect(await screen.findByTestId('mention-view')).toHaveTextContent('urn:li:corpuser:alice');

@@ -2506,7 +2506,10 @@ public class GmsGraphQLEngine {
                 "manager",
                 new LoadableTypeResolver<>(
                     corpUserType,
-                    (env) -> ((CorpUserInfo) env.getSource()).getManager().getUrn())));
+                    (env) -> {
+                      final CorpUser manager = ((CorpUserInfo) env.getSource()).getManager();
+                      return manager != null ? manager.getUrn() : null;
+                    })));
     builder.type(
         "CorpUserHomePageSettings",
         typeWiring ->

@@ -15,4 +15,10 @@ record SearchTemplateRoute {
    * Template to run when the pattern matches.
    */
   template: Urn
+
+  /**
+   * Conditions besides the pattern. Unset matches on the pattern alone. A release that does not
+   * evaluate route conditions fails the search when this route is selected.
+   */
+  match: optional SearchTemplateRouteMatch
 }

@@ -134,5 +134,43 @@
         "typeNames": ["Database"]
       }
     }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pw_matrix_tag_key",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Matrix Tag",
+        "description": "Seeded tag for the catalog matrix specs; key differs from name on purpose"
+      }
+    }
+  },
+  {
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:pw_matrix_term_key",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "PW Matrix Term",
+        "definition": "Seeded term for the catalog matrix specs; key differs from name on purpose",
+        "termSource": "INTERNAL"
+      }
+    }
+  },
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw_matrix_domain_key",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Matrix Domain",
+        "description": "Seeded domain for the catalog matrix specs; key differs from name on purpose"
+      }
+    }
   }
 ]

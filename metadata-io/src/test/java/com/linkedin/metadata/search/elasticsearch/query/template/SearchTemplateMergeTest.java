@@ -16,6 +16,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.HighlightFieldOverrides;
@@ -375,9 +376,11 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration indexV3 = new EntityIndexVersionConfiguration();
     indexV3.setEnabled(true);
     indexV3.setKeywordReadEnabled(true);
-    indexV3.setSemanticReadEnabled(true);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getEntityIndex().setV3(indexV3);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     elastic.getSearch().getV3().setTemplates(templates);
     SearchTemplateCoordinator semanticCoordinator =
         new SearchTemplateCoordinator(
