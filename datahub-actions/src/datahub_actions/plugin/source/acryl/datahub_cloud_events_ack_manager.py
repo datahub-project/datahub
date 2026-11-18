@@ -29,12 +29,7 @@ class AckManager:
             # Batching actions defer the ack and send it once the batch is written.
             logger.debug(f"Event not acked yet: {meta}")
             return
-        # An ack covers every earlier event, like a Kafka offset commit. Actions
-        # that batch (Action.act() returns False) ack only the last event of
-        # each written batch.
-        acked = (meta["batch_id"], meta["msg_id"])
-        for key in [k for k in self.acks if k <= acked]:
-            del self.acks[key]
+        self.acks.pop((meta["batch_id"], meta["msg_id"]), None)
 
     def outstanding_acks(self) -> int:
         return len(self.acks)
