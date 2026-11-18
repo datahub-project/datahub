@@ -18,7 +18,7 @@ the one you are on and the one you are moving to, not just the target.
 ### Show Applications setting is hidden by default
 
 Applications are being deprioritized. The **Show Applications** setting on the **Settings > Appearance**
-page is now hidden by default ([PR #PR_NUMBER](https://github.com/datahub-project/datahub/pull/PR_NUMBER)),
+page is now hidden by default ([PR #21432](https://github.com/datahub-project/datahub/pull/21432)),
 so admins can no longer turn Applications on from the UI. If your organization already turned
 Applications on, they stay visible, and existing Applications are not deleted. To bring the setting
 back, set `SHOW_APPLICATIONS_FEATURE_TOGGLE=true` on GMS.
