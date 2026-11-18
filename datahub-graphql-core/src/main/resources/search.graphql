@@ -808,6 +808,12 @@ type SearchResults {
   explanation
   """
   keywordRerank: KeywordRerankExplanation
+
+  """
+  How the served template's vector rung retrieved this result, when the caller asked for an
+  explanation
+  """
+  vectorRetrieval: VectorRetrievalExplanation
 }
 
 type ExtraProperty {
@@ -1793,6 +1799,73 @@ type KeywordRerankExplanation {
   entity gates
   """
   ineligibleRows: Int
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
+}
+
+"""
+How the served template's vector rung (combine: vector) retrieved a search result
+"""
+type VectorRetrievalExplanation {
+  """
+  served, empty (no hit survived), pastWindow (the page starts past the surviving hits), or
+  noEligibleEntities (no requested entity type passes the entity gates)
+  """
+  outcome: String!
+
+  """
+  The embedding profile the kNN request queried
+  """
+  profile: String
+
+  """
+  Requested entity types the kNN request searched
+  """
+  entityTypes: [String!]
+
+  """
+  Requested entity types left out of the vector leg, each as entityType:reason
+  """
+  excludedEntityTypes: [String!]
+
+  """
+  Neighbors requested: the template's candidateCap, clamped to the store's maximum, or the window
+  semantic search fetches for the page when the template sets no cap
+  """
+  k: Int
+
+  """
+  The template's candidateCap, set when it exceeded the store's maximum and k was clamped to it
+  """
+  clampedCandidateCap: Int
+
+  """
+  Hits the store returned, before any floor
+  """
+  candidates: Int
+
+  """
+  The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity
+  """
+  minSimilarity: Float
+
+  """
+  Hits below minSimilarity. They are dropped and the window is not refilled
+  """
+  belowMinSimilarity: Int!
+
+  """
+  Hits below the deprecated SearchFlags.minScore. They are dropped and the window is not refilled
+  """
+  belowMinScore: Int!
+
+  """
+  The caller's filter and the default search filters ran inside the kNN request
+  """
+  filterInVectorSearch: Boolean!
 
   """
   Deprecated inputs this search used, each with its replacement
