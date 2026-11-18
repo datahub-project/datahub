@@ -424,7 +424,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             + "@"
             + template.getLastModified()
             + SearchTemplateComponents.cacheSuffix(template.getComponent())
-            + rerankIdentity(template, resolved));
+            + rerankIdentity(template, resolved)
+            + vectorIdentity(template, resolved));
     append(bodies, template.getQuery());
     template.getQueryFragments().values().forEach(value -> append(bodies, value));
     append(bodies, template.getClauses());
@@ -508,6 +509,30 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         + resolved.isDocumentRerank()
         + ":"
         + gates.hybridRead();
+  }
+
+  // A vector rung's hits also depend on this build's execution, the profile it resolves on the
+  // engine serving the search, and a floor inherited from configuration. The rung's lastModified
+  // covers its own floor and cap, and the search key covers the filter, flags, page, and caller.
+  @Nonnull
+  private String vectorIdentity(
+      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+    if (!SearchTemplateCapabilities.vectorRetrieval(template)) {
+      return "";
+    }
+    Set<String> profiles =
+        resolved.getEntityTypes() == null
+            ? Set.of()
+            : gates.joinedProfileIds(
+                template, resolved.getEntityTypes(), resolved.getSearchSystem());
+    return "~vr"
+        + SearchTemplateVectorRetrieval.EXECUTION_VERSION
+        + ":"
+        + String.join(",", profiles)
+        + ":"
+        + resolved.getSearchSystem()
+        + ":"
+        + gates.minSimilarity(template);
   }
 
   private static void append(@Nonnull StringBuilder bodies, @Nullable String section) {
