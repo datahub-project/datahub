@@ -9,6 +9,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicBoolean;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
@@ -30,13 +31,28 @@ public class RateLimitFilter extends OncePerRequestFilter {
    */
   private final Supplier<String> restActorUrnSupplier;
 
+  /**
+   * Servlet paths excluded in code ({@code RateLimitExcludedPathProvider} beans), matched exactly,
+   * in addition to the engine's configured patterns. Read per request: the set may change after
+   * this filter is built.
+   */
+  private final Supplier<Set<String>> exactExcludedPaths;
+
+  public RateLimitFilter(
+      @Nonnull RateLimitEngine engine, @Nonnull Supplier<String> restActorUrnSupplier) {
+    this(engine, restActorUrnSupplier, () -> Set.of());
+  }
+
   @Override
   protected void doFilterInternal(
       @Nonnull HttpServletRequest request,
       @Nonnull HttpServletResponse response,
       @Nonnull FilterChain filterChain)
       throws ServletException, IOException {
-    if (!engine.isEnabled() || engine.isExcluded(request.getRequestURI())) {
+    final String servletPath = request.getServletPath();
+    if (!engine.isEnabled()
+        || engine.isExcluded(request.getRequestURI())
+        || (servletPath != null && exactExcludedPaths.get().contains(servletPath))) {
       filterChain.doFilter(request, response);
       return;
     }

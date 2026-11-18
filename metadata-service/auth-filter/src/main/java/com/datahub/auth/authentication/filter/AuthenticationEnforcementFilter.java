@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.ANONYMOUS_ACTOR_ID;
 
 import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationContext;
+import com.datahub.authentication.AuthenticationExcludedPathProvider;
 import com.google.common.annotations.VisibleForTesting;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import jakarta.annotation.PostConstruct;
@@ -14,6 +15,7 @@ import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
 import java.util.Arrays;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
@@ -46,6 +48,13 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
+  /**
+   * Asked on every request, never copied at startup: a provider's set may only be known once the
+   * application has started. Its paths match exactly, never as wildcards.
+   */
+  @Autowired(required = false)
+  private List<AuthenticationExcludedPathProvider> excludedPathProviders = List.of();
+
   private Set<String> excludedPathPatterns;
 
   @PostConstruct
@@ -72,6 +81,7 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
               .filter(path -> !path.isBlank())
               .toList());
     }
+    log.info("Auth exclusion path providers found: {}", excludedPathProviders.size());
   }
 
   @Override
@@ -174,7 +184,8 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
 
     // Check if the path matches any of the excluded patterns
     boolean shouldExclude =
-        excludedPathPatterns.stream()
+        excludedPathProviders.stream().anyMatch(provider -> provider.excludedPaths().contains(path))
+            || excludedPathPatterns.stream()
             .anyMatch(
                 pattern -> {
                   if (pattern.endsWith("/*")) {
