@@ -370,6 +370,7 @@ public class SearchTemplateLoader {
     List<String> capabilities = null;
     SearchTemplateRanking ranking = null;
     SearchTemplateProfiles profiles = null;
+    boolean profilesSet = false;
     SearchTemplateScope scope = null;
     Set<String> addSatisfiedRemoves = new LinkedHashSet<>();
     // Root first so the child replaces sections it sets.
@@ -400,6 +401,7 @@ public class SearchTemplateLoader {
       if (props.getProfiles() != null) {
         requireKnownFields(props.getProfiles(), "profiles");
         profiles = SearchTemplateProfilesPolicy.merge(profiles, props.getProfiles());
+        profilesSet |= !emptyProfiles(props.getProfiles());
       }
       if (props.hasScope()) {
         requireKnownFields(props.getScope(), "scope");
@@ -506,6 +508,7 @@ public class SearchTemplateLoader {
     builder.entityTypeBoosts(entityTypeBoosts);
     builder.normalization(normalization);
     builder.profiles(profiles);
+    builder.profilesSet(profilesSet);
     builder.scope(scope);
     builder.routes(SearchTemplateRoutes.compile(routes, maxRoutes, maxRoutePatternLength));
     builder.defaultRoute(defaultRouteSet ? defaultRoute : null);
