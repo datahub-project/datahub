@@ -588,11 +588,21 @@ public class ESSearchDAOVectorRetrievalTest {
                 new SearchTemplateLadderStopArray(new SearchTemplateLadderStop().setMinHits(1)))
             .setNext(UrnUtils.getUrn(VECTOR_URN)));
     harness.store(KEYWORD_URN, root);
+    // A parallel group with the vector member, whose next is a plain keyword rung
+    String plain = "urn:li:searchTemplate:plain";
+    harness.store(plain, keyword());
+    SearchTemplateProperties group = keyword();
+    group.setLadder(
+        new SearchTemplateLadder()
+            .setParallel(new UrnArray(UrnUtils.getUrn(VECTOR_URN)))
+            .setJoin("any")
+            .setNext(UrnUtils.getUrn(plain)));
+    harness.store(GROUP_URN, group);
     SearchResponse empty = keywordResponse(0);
     when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
         .thenReturn(empty);
 
-    for (String first : List.of(VECTOR_URN, KEYWORD_URN)) {
+    for (String first : List.of(VECTOR_URN, KEYWORD_URN, GROUP_URN)) {
       OperationContext explaining = pinned(context(DOCUMENT, f -> {}), first);
       assertThrows(
           SearchTemplateException.class,

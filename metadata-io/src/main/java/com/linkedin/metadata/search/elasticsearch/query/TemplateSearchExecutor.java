@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateC
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRankingInput;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
@@ -96,10 +97,10 @@ final class TemplateSearchExecutor {
                   query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
               urn -> {
                 // A vector rung has no keyword query to explain, so explain fails closed, as
-                // scroll does
+                // scroll does, also from a parallel group
                 if (SearchTemplateCapabilities.vectorRetrieval(
                     coordinator.loader().load(bound, urn))) {
-                  throw new SearchTemplateException(
+                  throw new SearchTemplateFailClosedException(
                       "Search template "
                           + urn
                           + " retrieves by vector and has no keyword query to explain");
