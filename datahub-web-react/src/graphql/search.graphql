@@ -113,6 +113,12 @@ fragment searchResultCardFields on Entity {
                                 actor
                             }
                         }
+                        subTypes {
+                            typeNames
+                        }
+                        viewProperties {
+                            materialized
+                        }
                     }
                 }
             }

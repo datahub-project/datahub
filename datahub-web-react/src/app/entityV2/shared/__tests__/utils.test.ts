@@ -428,7 +428,7 @@ describe('getDatasetLastUpdatedMs inputs from the search queries ->', () => {
     const isDefinitionTime = (dataset?: Dataset | null) =>
         !!dataset && getDatasetLastUpdatedMs(dataset.properties, [], dataset).definitionTime;
 
-    it('keeps viewProperties in main search, for its sibling, and in the card query', () => {
+    it('keeps viewProperties in main search, in the card query, and for their siblings', () => {
         const siblingsSearch = {
             __typename: 'ScrollResults',
             count: 1,
@@ -436,9 +436,9 @@ describe('getDatasetLastUpdatedMs inputs from the search queries ->', () => {
             searchResults: [{ __typename: 'SearchResult', entity: view('my_view_sibling') }],
         };
         const mainSearch = roundTrip(GetSearchResultsForMultipleDocument, { ...view('my_view'), siblingsSearch });
-        const card = roundTrip(GetSearchResultsForMultipleCardsDocument, view('my_view'));
-        expect(
-            [mainSearch, mainSearch.siblingsSearch?.searchResults[0]?.entity as Dataset, card].map(isDefinitionTime),
-        ).toEqual([true, true, true]);
+        const card = roundTrip(GetSearchResultsForMultipleCardsDocument, { ...view('my_view'), siblingsSearch });
+        const siblingOf = (dataset: Dataset) => dataset.siblingsSearch?.searchResults[0]?.entity as Dataset;
+        const results = [mainSearch, siblingOf(mainSearch), card, siblingOf(card)].map(isDefinitionTime);
+        expect(results).toEqual([true, true, true, true]);
     });
 });
