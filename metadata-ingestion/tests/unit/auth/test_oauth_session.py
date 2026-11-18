@@ -28,10 +28,18 @@ def _jwt(expires_in: float) -> str:
 
 @pytest.fixture
 def session_file(tmp_path: Path, monkeypatch: pytest.MonkeyPatch) -> Path:
-    for name in ("DATAHUB_GMS_URL", "DATAHUB_GMS_TOKEN", "DATAHUB_AUTH_TYPE"):
+    for name in (
+        "DATAHUB_GMS_URL",
+        "DATAHUB_GMS_TOKEN",
+        "DATAHUB_AUTH_TYPE",
+        "DATAHUB_PROFILE",
+        "DATAHUB_SKIP_CONFIG",
+        "DATAHUB_GMS_HOST",
+        "DATAHUB_GMS_PORT",
+    ):
         monkeypatch.delenv(name, raising=False)
     path = tmp_path / ".datahubenv"
-    monkeypatch.setattr("datahub.cli.config_utils.DATAHUB_CONFIG_PATH", str(path))
+    monkeypatch.setenv("HOME", str(tmp_path))
     return path
 
 

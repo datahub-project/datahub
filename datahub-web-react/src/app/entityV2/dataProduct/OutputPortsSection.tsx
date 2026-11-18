@@ -4,10 +4,10 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 // import AddOutputPortCard from './AddOutputPortCard';
 import { StyledHeaderWrapper } from '@app/entityV2/dataProduct/AssetsSections';
 import { SCREEN_WIDTH_BREAK_POINT } from '@app/entityV2/dataProduct/constants';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SummaryTabHeaderTitle } from '@app/entityV2/shared/summary/HeaderComponents';
 import { HorizontalList } from '@app/entityV2/shared/summary/ListComponents';
 import { OUTPUT_PORTS_FIELD } from '@app/search/utils/constants';

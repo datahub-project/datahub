@@ -1,8 +1,8 @@
 import React, { useMemo } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import GlossaryEntityIcon from '@app/glossaryV2/GlossaryEntityIcon';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';

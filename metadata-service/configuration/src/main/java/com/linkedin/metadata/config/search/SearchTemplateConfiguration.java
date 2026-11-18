@@ -13,12 +13,12 @@ import lombok.experimental.Accessors;
 @Data
 @Accessors(chain = true)
 public class SearchTemplateConfiguration {
-  /** Bound from application.yaml. Shipped false, which is the rollback to the Java builder. */
+  /** Bound from application.yaml. Shipped true. False is the rollback to the Java builder. */
   private boolean enabled;
 
   /**
-   * Per-surface off, shadow, and canary controls. Ignored while {@link #enabled} is false, which is
-   * the shipped rollback to the Java V2.5 builder.
+   * Per-surface off, shadow, and canary controls. Ignored while {@link #enabled} is false, which
+   * rolls every surface back to the Java V2.5 builder.
    */
   private SearchTemplateRolloutConfiguration rollout = new SearchTemplateRolloutConfiguration();
 
@@ -51,6 +51,12 @@ public class SearchTemplateConfiguration {
 
   /** Bound from application.yaml. A stored route regex may not be longer than this. */
   private int maxRoutePatternLength;
+
+  /** Bound from application.yaml. A template ranking may not declare more signals than this. */
+  private int maxRankingSignals;
+
+  /** Bound from application.yaml. A template ranking window may not exceed this value. */
+  private int maxRankingWindow;
 
   /** Bound from application.yaml. Selection may not follow more templates than this. */
   private int maxRouteHops;

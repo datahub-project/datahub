@@ -6,6 +6,7 @@ import com.fasterxml.jackson.databind.node.ObjectNode;
 import java.io.IOException;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.function.Function;
 import javax.annotation.Nonnull;
@@ -43,11 +44,152 @@ public final class SearchTemplateJson {
 
   @Nonnull
   public static QueryBuilder parseQuery(@Nonnull String json) {
-    try (XContentParser parser = parser(json)) {
+    try (XContentParser parser = parser(foldCaseInsensitiveWildcards(json))) {
       return AbstractQueryBuilder.parseInnerQueryBuilder(parser);
     } catch (IOException | RuntimeException e) {
       throw failure("Search template query is not valid JSON DSL", e);
     }
+  }
+
+  /**
+   * A wildcard that sets {@code case_insensitive} is rewritten before the engine sees it. Search V3
+   * keyword roots keep the stored casing and have no {@code .keyword} subfield. On OpenSearch 3 a
+   * case-insensitive wildcard builds a case-folding automaton that can be null and fails the shard.
+   * The written pattern stays, and the lowercase pattern is added beside it when they differ. An
+   * array clause gets that copy as the next element. An object-valued clause, such as {@code
+   * function_score.query} or a single {@code bool.filter}, is wrapped in {@code bool.should}. Term
+   * queries keep {@code case_insensitive}.
+   */
+  @Nonnull
+  static String foldCaseInsensitiveWildcards(@Nonnull String json) {
+    if (!json.contains("\"case_insensitive\"")) {
+      return json;
+    }
+    JsonNode root = read(json);
+    boolean changed = foldWildcards(root);
+    if (root instanceof ObjectNode object) {
+      List<ObjectNode> extras = new ArrayList<>();
+      if (relaxWildcard(object, extras)) {
+        changed = true;
+        if (!extras.isEmpty()) {
+          root = boolShould(object, extras);
+        }
+      }
+    }
+    if (!changed) {
+      return json;
+    }
+    try {
+      return SearchTemplateMappers.JSON.writeValueAsString(root);
+    } catch (IOException e) {
+      throw new SearchTemplateException("Search template query is not valid JSON DSL", e);
+    }
+  }
+
+  private static boolean foldWildcards(@Nonnull JsonNode node) {
+    if (node instanceof ObjectNode object) {
+      boolean changed = false;
+      List<String> names = new ArrayList<>();
+      object.fieldNames().forEachRemaining(names::add);
+      for (String name : names) {
+        JsonNode child = object.get(name);
+        if (child instanceof ObjectNode childObject) {
+          List<ObjectNode> extras = new ArrayList<>();
+          if (relaxWildcard(childObject, extras)) {
+            changed = true;
+            if (!extras.isEmpty()) {
+              object.remove(name);
+              object.set(name, boolShould(childObject, extras));
+            }
+          } else {
+            changed |= foldWildcards(childObject);
+          }
+        } else {
+          changed |= foldWildcards(child);
+        }
+      }
+      return changed;
+    }
+    if (!(node instanceof ArrayNode array)) {
+      return false;
+    }
+    boolean changed = false;
+    List<Integer> positions = new ArrayList<>();
+    List<ObjectNode> extras = new ArrayList<>();
+    for (int i = 0; i < array.size(); i++) {
+      JsonNode element = array.get(i);
+      changed |= foldWildcards(element);
+      List<ObjectNode> folded = new ArrayList<>();
+      if (relaxWildcard(element, folded)) {
+        changed = true;
+        for (int extra = 0; extra < folded.size(); extra++) {
+          positions.add(i + 1);
+          extras.add(folded.get(extra));
+        }
+      }
+    }
+    for (int i = extras.size() - 1; i >= 0; i--) {
+      array.insert(positions.get(i), extras.get(i));
+    }
+    return changed;
+  }
+
+  /**
+   * Drops {@code case_insensitive} from a one-field wildcard. When the lowercase pattern differs,
+   * the caller adds that copy next to the written pattern.
+   */
+  @Nonnull
+  private static ObjectNode boolShould(
+      @Nonnull ObjectNode clause, @Nonnull List<ObjectNode> extras) {
+    ObjectNode bool = SearchTemplateMappers.JSON.createObjectNode();
+    ArrayNode should = bool.putArray("should");
+    should.add(clause);
+    extras.forEach(should::add);
+    bool.put("minimum_should_match", 1);
+    ObjectNode wrapped = SearchTemplateMappers.JSON.createObjectNode();
+    wrapped.set("bool", bool);
+    return wrapped;
+  }
+
+  private static boolean relaxWildcard(
+      @Nonnull JsonNode element, @Nonnull List<ObjectNode> extras) {
+    if (!(element instanceof ObjectNode object)) {
+      return false;
+    }
+    JsonNode wildcard = object.get("wildcard");
+    if (!(wildcard instanceof ObjectNode fields) || fields.isEmpty()) {
+      return false;
+    }
+    boolean relaxed = false;
+    var clauses = fields.fields();
+    while (clauses.hasNext()) {
+      JsonNode clause = clauses.next().getValue();
+      if (clause instanceof ObjectNode clauseObject
+          && clauseObject.path("case_insensitive").asBoolean(false)) {
+        clauseObject.remove("case_insensitive");
+        relaxed = true;
+      }
+    }
+    if (!relaxed || fields.size() != 1) {
+      return relaxed;
+    }
+    String fieldName = fields.fieldNames().next();
+    JsonNode clause = fields.get(fieldName);
+    if (!(clause instanceof ObjectNode clauseObject)) {
+      return true;
+    }
+    String valueKey = clauseObject.has("value") ? "value" : "wildcard";
+    JsonNode valueNode = clauseObject.get(valueKey);
+    if (valueNode == null || !valueNode.isTextual()) {
+      return true;
+    }
+    String folded = valueNode.asText().toLowerCase(Locale.ROOT);
+    if (!folded.equals(valueNode.asText())) {
+      ObjectNode copy = object.deepCopy();
+      ((ObjectNode) copy.get("wildcard").get(fieldName)).put(valueKey, folded);
+      extras.add(copy);
+    }
+    return true;
   }
 
   @Nonnull
@@ -326,6 +468,93 @@ public final class SearchTemplateJson {
     float vectorWeight = (float) node.path("vector_weight").asDouble(1.0d);
     return new SearchTemplateKnn(
         node.get("field").asText(), k, numCandidates, keywordWeight, vectorWeight);
+  }
+
+  /** Rejects a section that does not render to one JSON object. */
+  public static void requireObject(@Nonnull String json, @Nonnull String section) {
+    if (!read(json).isObject()) {
+      throw new SearchTemplateException("Search template " + section + " must be an object");
+    }
+  }
+
+  /**
+   * Reads the {@code knn} blend of a {@code keywordRerank} rung. {@code field} is optional, unknown
+   * keys and {@code minScore} are ignored, and every blend value that is set must be in range. A
+   * {@code k} that is set must still be positive, as on the earlier shape.
+   */
+  @Nonnull
+  public static SearchTemplateRerankKnn parseRerankKnn(@Nonnull String knnJson) {
+    JsonNode node = read(knnJson);
+    if (!node.isObject()) {
+      throw new SearchTemplateException("Search template knn must be an object");
+    }
+    String model = optionalText(node, "model");
+    String field = optionalText(node, "field");
+    if (node.has("k") && node.path("k").asInt(100) <= 0) {
+      throw new SearchTemplateException("Search template knn.k must be positive");
+    }
+    double vectorWeight =
+        optionalNumber(node, "vectorWeight", SearchTemplateRerankKnn.DEFAULT_VECTOR_WEIGHT);
+    if (vectorWeight < 0d || vectorWeight > 1d) {
+      throw new SearchTemplateException("Search template knn.vectorWeight must be from 0 to 1");
+    }
+    JsonNode lexical = node.path("lexical");
+    if (!lexical.isMissingNode() && !lexical.isNull() && !lexical.isObject()) {
+      throw new SearchTemplateException("Search template knn.lexical must be an object");
+    }
+    double inputMin =
+        optionalNumber(lexical, "inputMin", SearchTemplateRerankKnn.DEFAULT_LEXICAL_INPUT_MIN);
+    double inputMax =
+        optionalNumber(lexical, "inputMax", SearchTemplateRerankKnn.DEFAULT_LEXICAL_INPUT_MAX);
+    double steepness =
+        optionalNumber(lexical, "steepness", SearchTemplateRerankKnn.DEFAULT_LEXICAL_STEEPNESS);
+    if (inputMax <= inputMin) {
+      throw new SearchTemplateException(
+          "Search template knn.lexical.inputMax must be greater than inputMin");
+    }
+    if (steepness <= 0d) {
+      throw new SearchTemplateException("Search template knn.lexical.steepness must be positive");
+    }
+    Double blendFloor = null;
+    if (node.hasNonNull("blendFloor")) {
+      blendFloor = optionalNumber(node, "blendFloor", 0d);
+      if (blendFloor < 0d || blendFloor > 1d) {
+        throw new SearchTemplateException("Search template knn.blendFloor must be from 0 to 1");
+      }
+    }
+    String others = optionalText(node, "others");
+    if (others == null) {
+      others = SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES;
+    } else if (!SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES.equals(others)) {
+      throw new SearchTemplateException("Search template knn.others is not valid: " + others);
+    }
+    return new SearchTemplateRerankKnn(
+        model, field, vectorWeight, inputMin, inputMax, steepness, blendFloor, others);
+  }
+
+  @Nullable
+  private static String optionalText(@Nonnull JsonNode node, @Nonnull String key) {
+    JsonNode value = node.path(key);
+    if (value.isMissingNode() || value.isNull()) {
+      return null;
+    }
+    if (!value.isTextual() || value.asText().isBlank()) {
+      throw new SearchTemplateException(
+          "Search template knn." + key + " must be a non-empty string");
+    }
+    return value.asText();
+  }
+
+  private static double optionalNumber(
+      @Nonnull JsonNode node, @Nonnull String key, double fallback) {
+    JsonNode value = node.path(key);
+    if (value.isMissingNode() || value.isNull()) {
+      return fallback;
+    }
+    if (!value.isNumber() || !Double.isFinite(value.asDouble())) {
+      throw new SearchTemplateException("Search template knn " + key + " must be a number");
+    }
+    return value.asDouble();
   }
 
   public static boolean boostModeReplace(@Nullable String functionScoreJson) {

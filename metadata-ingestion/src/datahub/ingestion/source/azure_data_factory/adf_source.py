@@ -3217,6 +3217,15 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
             )
             return None
 
+        # The first Table of these names something other than the table written
+        # to: the procedure an EXEC calls, the index a DROP INDEX drops. sqlglot
+        # 30.22 parses both forms on MSSQL, where older versions failed.
+        if isinstance(parsed, sqlglot_exp.Execute) or (
+            isinstance(parsed, sqlglot_exp.Drop)
+            and (parsed.args.get("kind") or "").upper() not in {"TABLE", "VIEW"}
+        ):
+            return None
+
         table = parsed.find(sqlglot_exp.Table)
         if table is None:
             return None
@@ -3384,8 +3393,13 @@ class AzureDataFactorySource(StatefulIngestionSourceBase):
                         yield mcp.as_workunit()
 
         except Exception as e:
-            logger.warning(
-                f"Failed to fetch activity runs for pipeline run {pipeline_run.run_id}: {e}"
+            self.report.warning(
+                title="Failed to Fetch Activity Runs",
+                message="Unable to retrieve activity runs for a pipeline run; "
+                "its activity-level run history is incomplete.",
+                context=f"factory={factory_name}, run_id={pipeline_run_id}",
+                exc=e,
+                log=False,
             )
 
     def get_report(self) -> AzureDataFactorySourceReport:

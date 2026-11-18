@@ -1,34 +1,42 @@
 [
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Classification",
-            "aspects": [
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Classification",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_confidential": "True"
+            },
+            "definition": "A set of terms related to Data Classification",
+            "name": "Classification"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Classification",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-                        "customProperties": {
-                            "is_confidential": "True"
-                        },
-                        "definition": "A set of terms related to Data Classification",
-                        "name": "Classification"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -64,39 +72,47 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Classification.Sensitive",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_confidential": "False"
+            },
+            "name": "Sensitive",
+            "definition": "Sensitive Data",
+            "parentNode": "urn:li:glossaryNode:Classification",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Sensitive",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {
-                            "is_confidential": "False"
-                        },
-                        "name": "Sensitive",
-                        "definition": "Sensitive Data",
-                        "parentNode": "urn:li:glossaryNode:Classification",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -132,39 +148,47 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Classification.Confidential",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_confidential": "True"
+            },
+            "name": "Confidential",
+            "definition": "Confidential Data",
+            "parentNode": "urn:li:glossaryNode:Classification",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {
-                            "is_confidential": "True"
-                        },
-                        "name": "Confidential",
-                        "definition": "Confidential Data",
-                        "parentNode": "urn:li:glossaryNode:Classification",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -192,38 +216,130 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Classification.Highly-Confidential",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Highly-Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {
+                "is_confidential": "True"
+            },
+            "name": "Highly Confidential",
+            "definition": "Highly Confidential Data",
+            "parentNode": "urn:li:glossaryNode:Classification",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Classification.Highly-Confidential",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {
-                            "is_confidential": "True"
-                        },
-                        "name": "Highly Confidential",
-                        "definition": "Highly Confidential Data",
-                        "parentNode": "urn:li:glossaryNode:Classification",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Personal-Information",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "All terms related to personal information",
+            "name": "Personal Information"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Personal-Information",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Email",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Email",
+            "definition": "An individual's email address",
+            "parentNode": "urn:li:glossaryNode:Personal-Information",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Email",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+        "json": {
+            "isRelatedTerms": [
+                "urn:li:glossaryTerm:Classification.Confidential"
             ]
         }
     },
@@ -234,32 +350,110 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Personal-Information",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Email",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-                        "customProperties": {},
-                        "definition": "All terms related to personal information",
-                        "name": "Personal Information"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpGroup:Trust and Safety",
+                    "type": "DEVELOPER"
                 }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Address",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Address",
+            "definition": "A physical address",
+            "parentNode": "urn:li:glossaryNode:Personal-Information",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Address",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DATAOWNER"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Gender",
+            "definition": "The gender identity of the individual",
+            "parentNode": "urn:li:glossaryNode:Personal-Information",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Gender",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+        "json": {
+            "isRelatedTerms": [
+                "urn:li:glossaryTerm:Classification.Sensitive"
             ]
         }
     },
@@ -270,43 +464,110 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Personal-Information.Email",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Personal-Information.Gender",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Email",
-                        "definition": "An individual's email address",
-                        "parentNode": "urn:li:glossaryNode:Personal-Information",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
-                        "isRelatedTerms": [
-                            "urn:li:glossaryTerm:Classification.Confidential"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpGroup:Trust and Safety",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DATAOWNER"
                 }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Clients-And-Accounts",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities",
+            "name": "Clients And Accounts"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:Clients-And-Accounts",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
+                {
+                    "owner": "urn:li:corpGroup:finance",
+                    "type": "CUSTOM",
+                    "typeUrn": "urn:li:ownershipType:my_cutom_type"
+                }
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Account",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Account",
+            "definition": "Container for records associated with a business arrangement for regular transactions and services",
+            "parentNode": "urn:li:glossaryNode:Clients-And-Accounts",
+            "termSource": "EXTERNAL",
+            "sourceRef": "FIBO",
+            "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
+        }
+    },
+    "systemMetadata": {
+        "lastObserved": 1586847600000,
+        "runId": "datahub-business-glossary-2020_04_14-07_00_00-h7iopd",
+        "lastRunId": "no-run-id-provided"
+    }
+},
+{
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Account",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryRelatedTerms",
+    "aspect": {
+        "json": {
+            "isRelatedTerms": [
+                "urn:li:glossaryTerm:Classification.Highly-Confidential"
+            ],
+            "hasRelatedTerms": [
+                "urn:li:glossaryTerm:Clients-And-Accounts.Balance"
             ]
         }
     },
@@ -317,37 +578,24 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Personal-Information.Address",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Account",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Address",
-                        "definition": "A physical address",
-                        "parentNode": "urn:li:glossaryNode:Personal-Information",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpGroup:finance",
+                    "type": "CUSTOM",
+                    "typeUrn": "urn:li:ownershipType:my_cutom_type"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -357,44 +605,19 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Personal-Information.Gender",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Gender",
-                        "definition": "The gender identity of the individual",
-                        "parentNode": "urn:li:glossaryNode:Personal-Information",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
-                        "isRelatedTerms": [
-                            "urn:li:glossaryTerm:Classification.Sensitive"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DATAOWNER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Balance",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "Balance",
+            "definition": "Amount of money available or owed",
+            "parentNode": "urn:li:glossaryNode:Clients-And-Accounts",
+            "termSource": "EXTERNAL",
+            "sourceRef": "FIBO",
+            "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
         }
     },
     "systemMetadata": {
@@ -404,34 +627,24 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:Clients-And-Accounts",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:Clients-And-Accounts.Balance",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-                        "customProperties": {},
-                        "definition": "Provides basic concepts such as account, account holder, account provider, relationship manager that are commonly used by financial services providers to describe customers and to determine counterparty identities",
-                        "name": "Clients And Accounts"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpGroup:finance",
-                                "type": "CUSTOM",
-                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpGroup:finance",
+                    "type": "CUSTOM",
+                    "typeUrn": "urn:li:ownershipType:my_cutom_type"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -441,48 +654,15 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Clients-And-Accounts.Account",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Account",
-                        "definition": "Container for records associated with a business arrangement for regular transactions and services",
-                        "parentNode": "urn:li:glossaryNode:Clients-And-Accounts",
-                        "termSource": "EXTERNAL",
-                        "sourceRef": "FIBO",
-                        "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Account"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryRelatedTerms": {
-                        "isRelatedTerms": [
-                            "urn:li:glossaryTerm:Classification.Highly-Confidential"
-                        ],
-                        "hasRelatedTerms": [
-                            "urn:li:glossaryTerm:Clients-And-Accounts.Balance"
-                        ]
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpGroup:finance",
-                                "type": "CUSTOM",
-                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:KPIs",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryNodeInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "definition": "Common Business KPIs",
+            "name": "KPIs"
         }
     },
     "systemMetadata": {
@@ -492,38 +672,23 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:Clients-And-Accounts.Balance",
-            "aspects": [
+    "entityType": "glossaryNode",
+    "entityUrn": "urn:li:glossaryNode:KPIs",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "Balance",
-                        "definition": "Amount of money available or owed",
-                        "parentNode": "urn:li:glossaryNode:Clients-And-Accounts",
-                        "termSource": "EXTERNAL",
-                        "sourceRef": "FIBO",
-                        "sourceUrl": "https://spec.edmcouncil.org/fibo/ontology/FBC/ProductsAndServices/ClientsAndAccounts/Balance"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpGroup:finance",
-                                "type": "CUSTOM",
-                                "typeUrn": "urn:li:ownershipType:my_cutom_type"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {
@@ -533,33 +698,19 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryNodeSnapshot": {
-            "urn": "urn:li:glossaryNode:KPIs",
-            "aspects": [
-                {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryNodeInfo": {
-                        "customProperties": {},
-                        "definition": "Common Business KPIs",
-                        "name": "KPIs"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
-                }
-            ]
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:KPIs.CSAT",
+    "changeType": "UPSERT",
+    "aspectName": "glossaryTermInfo",
+    "aspect": {
+        "json": {
+            "customProperties": {},
+            "name": "CSAT %",
+            "definition": "Customer Satisfaction Score",
+            "parentNode": "urn:li:glossaryNode:KPIs",
+            "termSource": "INTERNAL",
+            "sourceRef": "DataHub",
+            "sourceUrl": "https://github.com/datahub-project/datahub/"
         }
     },
     "systemMetadata": {
@@ -569,37 +720,23 @@
     }
 },
 {
-    "proposedSnapshot": {
-        "com.linkedin.pegasus2avro.metadata.snapshot.GlossaryTermSnapshot": {
-            "urn": "urn:li:glossaryTerm:KPIs.CSAT",
-            "aspects": [
+    "entityType": "glossaryTerm",
+    "entityUrn": "urn:li:glossaryTerm:KPIs.CSAT",
+    "changeType": "UPSERT",
+    "aspectName": "ownership",
+    "aspect": {
+        "json": {
+            "owners": [
                 {
-                    "com.linkedin.pegasus2avro.glossary.GlossaryTermInfo": {
-                        "customProperties": {},
-                        "name": "CSAT %",
-                        "definition": "Customer Satisfaction Score",
-                        "parentNode": "urn:li:glossaryNode:KPIs",
-                        "termSource": "INTERNAL",
-                        "sourceRef": "DataHub",
-                        "sourceUrl": "https://github.com/datahub-project/datahub/"
-                    }
-                },
-                {
-                    "com.linkedin.pegasus2avro.common.Ownership": {
-                        "owners": [
-                            {
-                                "owner": "urn:li:corpuser:mjames",
-                                "type": "DEVELOPER"
-                            }
-                        ],
-                        "ownerTypes": {},
-                        "lastModified": {
-                            "time": 0,
-                            "actor": "urn:li:corpuser:unknown"
-                        }
-                    }
+                    "owner": "urn:li:corpuser:mjames",
+                    "type": "DEVELOPER"
                 }
-            ]
+            ],
+            "ownerTypes": {},
+            "lastModified": {
+                "time": 0,
+                "actor": "urn:li:corpuser:unknown"
+            }
         }
     },
     "systemMetadata": {

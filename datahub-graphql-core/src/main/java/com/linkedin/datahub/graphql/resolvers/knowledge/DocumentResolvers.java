@@ -8,6 +8,7 @@ import com.linkedin.datahub.graphql.types.dataplatform.DataPlatformType;
 import com.linkedin.datahub.graphql.types.dataplatforminstance.DataPlatformInstanceType;
 import com.linkedin.datahub.graphql.types.knowledge.DocumentType;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.service.DocumentService;
@@ -36,6 +37,7 @@ public class DocumentResolvers {
   private final TimelineService timelineService;
   private final ViewService viewService;
   @Nullable private final DocumentImportService documentImportService;
+  @Nullable private final EntityIndexConfiguration entityIndexConfiguration;
 
   public DocumentResolvers(
       @Nonnull DocumentService documentService,
@@ -50,6 +52,36 @@ public class DocumentResolvers {
       @Nonnull TimelineService timelineService,
       @Nonnull ViewService viewService,
       @Nullable DocumentImportService documentImportService) {
+    this(
+        documentService,
+        entityTypes,
+        documentType,
+        dataPlatformType,
+        dataPlatformInstanceType,
+        entityClient,
+        entityService,
+        graphClient,
+        entityRegistry,
+        timelineService,
+        viewService,
+        documentImportService,
+        null);
+  }
+
+  public DocumentResolvers(
+      @Nonnull DocumentService documentService,
+      @Nonnull java.util.List<com.linkedin.datahub.graphql.types.EntityType<?, ?>> entityTypes,
+      @Nonnull DocumentType documentType,
+      @Nonnull DataPlatformType dataPlatformType,
+      @Nonnull DataPlatformInstanceType dataPlatformInstanceType,
+      @Nonnull EntityClient entityClient,
+      @Nonnull EntityService entityService,
+      @Nonnull com.linkedin.metadata.graph.GraphClient graphClient,
+      @Nonnull EntityRegistry entityRegistry,
+      @Nonnull TimelineService timelineService,
+      @Nonnull ViewService viewService,
+      @Nullable DocumentImportService documentImportService,
+      @Nullable EntityIndexConfiguration entityIndexConfiguration) {
     this.documentService = documentService;
     this.entityTypes = entityTypes;
     this.documentType = documentType;
@@ -62,6 +94,7 @@ public class DocumentResolvers {
     this.timelineService = timelineService;
     this.viewService = viewService;
     this.documentImportService = documentImportService;
+    this.entityIndexConfiguration = entityIndexConfiguration;
   }
 
   public void configureResolvers(final RuntimeWiring.Builder builder) {
@@ -77,7 +110,7 @@ public class DocumentResolvers {
                 .dataFetcher(
                     "searchDocuments",
                     new com.linkedin.datahub.graphql.resolvers.knowledge.SearchDocumentsResolver(
-                        documentService, entityClient, viewService)));
+                        documentService, entityClient, viewService, entityIndexConfiguration)));
 
     // Mutation resolvers
     builder.type(

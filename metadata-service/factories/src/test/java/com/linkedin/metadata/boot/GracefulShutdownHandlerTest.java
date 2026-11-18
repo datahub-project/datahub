@@ -1,9 +1,13 @@
 package com.linkedin.metadata.boot;
 
-import static org.junit.jupiter.api.Assertions.*;
+import static org.mockito.Mockito.mock;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertTrue;
 
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.Test;
+import org.springframework.context.ApplicationContext;
+import org.springframework.context.event.ContextClosedEvent;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
 
 /**
  * Unit tests for GracefulShutdownHandler.
@@ -15,25 +19,23 @@ public class GracefulShutdownHandlerTest {
 
   private GracefulShutdownHandler handler;
 
-  @BeforeEach
-  void setUp() {
+  @BeforeMethod
+  public void setUp() {
     handler = new GracefulShutdownHandler();
   }
 
   @Test
-  void testShutdownInProgressInitiallyFalse() {
+  public void testShutdownInProgressInitiallyFalse() {
     // When: Handler is created
     // Then: Shutdown should not be in progress
     assertFalse(handler.isShutdownInProgress());
   }
 
   @Test
-  void testContextClosedEventTriggersShutdown() {
+  public void testContextClosedEventTriggersShutdown() {
     // When: Application context closes (SIGTERM)
     // Create a minimal mock to avoid NPE if implementation changes to use the event
-    org.springframework.context.event.ContextClosedEvent mockEvent =
-        new org.springframework.context.event.ContextClosedEvent(
-            org.mockito.Mockito.mock(org.springframework.context.ApplicationContext.class));
+    ContextClosedEvent mockEvent = new ContextClosedEvent(mock(ApplicationContext.class));
     handler.onApplicationClosed(mockEvent);
 
     // Then: Shutdown flag should be set

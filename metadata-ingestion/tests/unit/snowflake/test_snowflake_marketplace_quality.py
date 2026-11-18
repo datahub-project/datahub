@@ -23,7 +23,7 @@ from datahub.ingestion.source.snowflake.snowflake_utils import (
 from datahub.metadata.com.linkedin.pegasus2avro.structured import (
     StructuredPropertyDefinition,
 )
-from tests.unit.snowflake.conftest_marketplace import (  # type: ignore[import-untyped]
+from tests.unit.snowflake.conftest_marketplace import (
     FakeNativeConn as _FakeNativeConn,
 )
 
@@ -286,7 +286,7 @@ class TestMarketplaceBusinessLogic:
         with patch.object(
             _FakeNativeConn, "execute", side_effect=SnowflakePermissionError("test")
         ):
-            connection_wrapper = SnowflakeConnection(mock_conn)
+            connection_wrapper = SnowflakeConnection(cast(Any, mock_conn))
 
             handler = SnowflakeMarketplaceHandler(
                 config=config,
@@ -322,7 +322,7 @@ class TestMarketplaceBusinessLogic:
             ],
         )
 
-        malformed_describe_rows = [
+        malformed_describe_rows: List[Dict[str, Any]] = [
             {"unexpected_key": "unexpected_value"},
             {"property": None, "value": "some_value"},
         ]
@@ -331,7 +331,7 @@ class TestMarketplaceBusinessLogic:
         )
 
         identifiers = SnowflakeIdentifierBuilder(config, report)
-        connection_wrapper = SnowflakeConnection(mock_conn)
+        connection_wrapper = SnowflakeConnection(cast(Any, mock_conn))
 
         handler = SnowflakeMarketplaceHandler(
             config=config,
@@ -383,7 +383,7 @@ class TestMarketplaceBusinessLogic:
         )
 
         identifiers = SnowflakeIdentifierBuilder(config, report)
-        connection_wrapper = SnowflakeConnection(mock_conn)
+        connection_wrapper = SnowflakeConnection(cast(Any, mock_conn))
 
         handler = SnowflakeMarketplaceHandler(
             config=config,
@@ -429,7 +429,7 @@ class TestMarketplaceBusinessLogic:
         )
 
         identifiers = SnowflakeIdentifierBuilder(config, report)
-        connection_wrapper = SnowflakeConnection(mock_conn)
+        connection_wrapper = SnowflakeConnection(cast(Any, mock_conn))
 
         handler = SnowflakeMarketplaceHandler(
             config=config,

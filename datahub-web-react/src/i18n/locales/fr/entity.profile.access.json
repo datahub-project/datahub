@@ -1,10 +1,13 @@
 {
     "accessManagement.accessAlreadyGranted": "Accès déjà accordé",
     "accessManagement.accessGrantedTooltip": "Vous avez déjà accès à ce rôle",
+    "accessManagement.accessNotGranted": "Accès non accordé",
+    "accessManagement.accessNotGrantedTooltip": "Aucun lien de demande n'est configuré pour ce rôle",
     "accessManagement.columnAccess": "Accès",
     "accessManagement.columnAccessType": "Type d'accès",
     "accessManagement.columnRoleName": "Nom du rôle",
     "accessManagement.granted": "Accordé",
+    "accessManagement.notGranted": "Non accordé",
     "accessManagement.request": "Demander",
     "accessManagement.requestAccess": "Demander l'accès",
     "accessManagement.tableAriaLabel": "Tableau des rôles de gestion des accès"

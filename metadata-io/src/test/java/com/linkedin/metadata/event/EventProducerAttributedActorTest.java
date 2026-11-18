@@ -2,10 +2,12 @@ package com.linkedin.metadata.event;
 
 import static org.mockito.Mockito.CALLS_REAL_METHODS;
 import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
+import com.datahub.authentication.Authentication;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringMap;
@@ -59,6 +61,21 @@ public class EventProducerAttributedActorTest {
 
     producer.produceMetadataChangeProposal(
         TestOperationContexts.systemContextNoSearchAuthorization(), DATASET, mcp);
+
+    assertFalse(
+        mcp.hasHeaders() && mcp.getHeaders().containsKey(AttributedActorHeaders.ATTRIBUTED_ACTOR));
+  }
+
+  @Test
+  public void nonSystemSessionWithoutActorStripsClientHeader() {
+    OperationContext opContext = mock(OperationContext.class);
+    when(opContext.isSystemAuth()).thenReturn(false);
+    when(opContext.getSessionAuthentication()).thenReturn(mock(Authentication.class));
+
+    MetadataChangeProposal mcp = new MetadataChangeProposal();
+    AttributedActorHeaders.stamp(mcp, "urn:li:corpuser:mallory");
+
+    producer.produceMetadataChangeProposal(opContext, DATASET, mcp);
 
     assertFalse(
         mcp.hasHeaders() && mcp.getHeaders().containsKey(AttributedActorHeaders.ATTRIBUTED_ACTOR));

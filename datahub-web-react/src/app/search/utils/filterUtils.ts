@@ -1,4 +1,4 @@
-import { FilterSet } from '@app/entity/shared/components/styled/search/types';
+import { FilterSet } from '@app/entityV2/shared/components/styled/search/types';
 import { UnionType } from '@app/search/utils/constants';
 
 import { AndFilterInput, FacetFilterInput, QuickFilter } from '@types';

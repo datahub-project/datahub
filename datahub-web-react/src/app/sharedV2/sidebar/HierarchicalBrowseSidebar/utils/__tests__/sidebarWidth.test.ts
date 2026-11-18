@@ -45,6 +45,13 @@ describe('sidebar width localStorage helpers', () => {
         expect(readStoredSidebarWidth()).toBe(SIDEBAR_MAX_WIDTH);
     });
 
+    it('keeps widths under a custom key separate from the shared one', () => {
+        writeStoredSidebarWidth(400);
+        writeStoredSidebarWidth(300, 'otherSidebarWidth');
+        expect(readStoredSidebarWidth()).toBe(400);
+        expect(readStoredSidebarWidth('otherSidebarWidth')).toBe(300);
+    });
+
     it('returns null for non-numeric storage', () => {
         localStorage.setItem(SIDEBAR_WIDTH_STORAGE_KEY, 'nope');
         expect(readStoredSidebarWidth()).toBeNull();

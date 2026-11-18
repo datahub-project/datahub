@@ -1,8 +1,8 @@
 import { Folder } from '@phosphor-icons/react/dist/csr/Folder';
 import React from 'react';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
 import { IconStyleType } from '@app/entityV2/Entity';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import {
     PlatformIcon,
     getFilterIconAndLabel,

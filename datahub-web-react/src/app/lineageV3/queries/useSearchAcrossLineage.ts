@@ -1,3 +1,5 @@
+import { notification } from '@components';
+import i18next from 'i18next';
 import { useEffect, useState } from 'react';
 
 import {
@@ -23,6 +25,9 @@ import { useSearchAcrossLineageStructureLazyQuery } from '@graphql/search.genera
 import { Entity, EntityType, LineageDirection, Maybe, SearchAcrossLineageInput } from '@types';
 
 const PER_HOP_LIMIT = 2;
+
+// Shared key so the upstream and downstream instances of this hook show one toast, not two.
+export const LOAD_ERROR_NOTIFICATION_KEY = 'lineage-load-error';
 
 export const DEFAULT_SEARCH_FLAGS = {
     groupingSpec: { groupingCriteria: [] },
@@ -87,6 +92,18 @@ export default function useSearchAcrossLineage(
 
     const [processed] = useState(new Set<string>());
 
+    const handleFetchFailure = () => {
+        // UNFETCHED, not COMPLETE, so a failed expand stays retryable.
+        const node = nodes.get(urn);
+        if (node) {
+            node.fetchStatus = { ...node.fetchStatus, [direction]: FetchStatus.UNFETCHED };
+        }
+        processed.add(urn);
+        setNodeVersion((version) => version + 1);
+        setDisplayVersion(([version]) => [version + 1, []]);
+        notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:loadError') });
+    };
+
     const [fetchLineage] = useSearchAcrossLineageStructureLazyQuery({
         variables: { input },
         fetchPolicy: skipCache ? 'no-cache' : undefined,
@@ -135,6 +152,7 @@ export default function useSearchAcrossLineage(
                 setDisplayVersion(([version]) => [version + 1, nodesToZoom]);
             }
         },
+        onError: handleFetchFailure,
     });
 
     useEffect(() => {

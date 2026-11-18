@@ -4,14 +4,25 @@ import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.ElasticSearchServiceFactory;
 import com.linkedin.gms.factory.search.EntityDocumentIdHasherFactory;
+import com.linkedin.gms.factory.search.SearchClusterRegistry;
+import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.config.search.SearchComponent;
+import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchV3Configuration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.TimeseriesWriteThrottleConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyIndexFields;
+import com.linkedin.metadata.search.elasticsearch.index.StructuredPropertyMappingCache;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentContributor;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchIndexSkip;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
 import com.linkedin.metadata.search.transformer.SearchDocumentTransformer;
 import com.linkedin.metadata.service.IncrementalReindexWriteTargets;
 import com.linkedin.metadata.service.TimeseriesWriteThrottleCache;
@@ -19,13 +30,17 @@ import com.linkedin.metadata.service.UpdateIndicesStrategy;
 import com.linkedin.metadata.service.UpdateIndicesV2Strategy;
 import com.linkedin.metadata.timeseries.TimeseriesAspectService;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import java.util.LinkedHashMap;
 import java.util.List;
+import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.opensearch.client.RequestOptions;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.boot.autoconfigure.condition.ConditionalOnExpression;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -51,8 +66,24 @@ public class UpdateIndicesStrategyFactory {
     return new TimeseriesWriteThrottleCache(throttleConfig);
   }
 
+  /**
+   * The V2 flag on the live configuration. The startup read hold mutates this object before the
+   * writer beans are created, and {@code isEnabled()} keeps reading it. A missing V2 block is
+   * disabled, which matches the shipped default.
+   */
+  public static boolean liveV2Enabled(
+      @Nullable ElasticSearchConfiguration elasticSearchConfiguration) {
+    if (elasticSearchConfiguration == null
+        || elasticSearchConfiguration.getEntityIndex() == null
+        || elasticSearchConfiguration.getEntityIndex().getV2() == null) {
+      return false;
+    }
+    return elasticSearchConfiguration.getEntityIndex().getV2().isEnabled();
+  }
+
   @Bean("updateIndicesV2Strategy")
-  @ConditionalOnProperty(name = "elasticsearch.entityIndex.v2.enabled", havingValue = "true")
+  @ConditionalOnExpression(
+      "${elasticsearch.entityIndex.v2.enabled:false} or ${elasticsearch.entityIndex.v3.enabled:false}")
   @Nonnull
   protected UpdateIndicesStrategy createUpdateIndicesV2Strategy(
       ElasticSearchService elasticSearchService,
@@ -63,30 +94,26 @@ public class UpdateIndicesStrategyFactory {
       @Qualifier("legacyMappingsBuilder") V2MappingsBuilder mappingsBuilder,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
       @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
-      @Value("${elasticsearch.entityIndex.v2.cleanup:false}") boolean v2Cleanup,
-      @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates:false}")
-          boolean coalesceBatchUpdates) {
+      @Value("${elasticsearch.entityIndex.v2.cleanup}") boolean v2Cleanup,
+      @Value("${elasticsearch.entityIndex.v2.coalesceBatchUpdates}") boolean coalesceBatchUpdates,
+      StructuredPropertyMappingCache structuredPropertyMappingCache,
+      final ElasticSearchConfiguration elasticSearchConfiguration) {
 
-    EntityIndexVersionConfiguration v2Config =
-        EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v2Cleanup).build();
+    // The same object the hold mutates. isEnabled() reads it on each write.
+    if (elasticSearchConfiguration.getEntityIndex() == null) {
+      elasticSearchConfiguration.setEntityIndex(new EntityIndexConfiguration());
+    }
+    EntityIndexVersionConfiguration v2Config = elasticSearchConfiguration.getEntityIndex().getV2();
+    if (v2Config == null) {
+      v2Config = new EntityIndexVersionConfiguration();
+      elasticSearchConfiguration.getEntityIndex().setV2(v2Config);
+    }
+    v2Config.setCleanup(v2Cleanup);
 
     // Get semantic search configuration for dual-write support
     SemanticSearchConfiguration semanticSearchConfig =
         configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
 
-    // #region agent debug log - H2/H3/H4 instrumentation
-    log.debug(
-        "[DEBUG-DUALWRITE] SemanticSearchConfig null check: isNull={}",
-        semanticSearchConfig == null);
-    if (semanticSearchConfig != null) {
-      log.debug(
-          "[DEBUG-DUALWRITE] SemanticSearchConfig.isEnabled()={}",
-          semanticSearchConfig.isEnabled());
-      log.debug(
-          "[DEBUG-DUALWRITE] SemanticSearchConfig.getEnabledEntities()={}",
-          semanticSearchConfig.getEnabledEntities());
-    }
-    // #endregion
     log.info(
         "Creating UpdateIndicesV2Strategy bean with semantic search enabled: {}, entities: {}",
         semanticSearchConfig != null && semanticSearchConfig.isEnabled(),
@@ -102,7 +129,8 @@ public class UpdateIndicesStrategyFactory {
         indexConvention,
         coalesceBatchUpdates,
         mappingsBuilder,
-        timeseriesWriteThrottleCache);
+        timeseriesWriteThrottleCache,
+        structuredPropertyMappingCache);
   }
 
   @Bean("updateIndicesV3Strategy")
@@ -113,30 +141,133 @@ public class UpdateIndicesStrategyFactory {
       SearchDocumentTransformer searchDocumentTransformer,
       TimeseriesAspectService timeseriesAspectService,
       TimeseriesWriteThrottleCache timeseriesWriteThrottleCache,
-      EntityDocumentIdHasher entityDocumentIdHasher,
       ConfigurationProvider configProvider,
+      EntityDocumentIdHasher entityDocumentIdHasher,
       @Autowired(required = false) @Nullable List<V3SearchDocumentContributor> documentContributors,
-      @Value("${elasticsearch.entityIndex.v3.cleanup:false}") boolean v3Cleanup,
-      @Value("${elasticsearch.entityIndex.v2.enabled:true}") boolean v2Enabled,
+      @Value("${elasticsearch.entityIndex.v3.cleanup}") boolean v3Cleanup,
+      @Value("${elasticsearch.entityIndex.v2.idHashAlgo}") String idHashAlgo,
+      @Value("${entityService.impl:ebean}") String entityServiceImpl,
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      final SearchClusterRegistry searchClusterRegistry,
       @Qualifier("incrementalReindexWriteTargets") @Nullable
-          IncrementalReindexWriteTargets incrementalReindexWriteTargets) {
+          IncrementalReindexWriteTargets incrementalReindexWriteTargets,
+      StructuredPropertyMappingCache structuredPropertyMappingCache,
+      @Autowired(required = false) @Nullable List<V3SearchIndexSkip> searchIndexSkips) {
 
     EntityIndexVersionConfiguration v3Config =
         EntityIndexVersionConfiguration.builder().enabled(true).cleanup(v3Cleanup).build();
+    boolean vectorProjectionEnabled = isV3VectorProjectionEnabled(configProvider);
 
-    log.info("Creating UpdateIndicesV3Strategy bean");
+    log.info(
+        "Creating UpdateIndicesV3Strategy bean with vectorProjectionEnabled={}",
+        vectorProjectionEnabled);
+    if ("cassandra".equals(entityServiceImpl)) {
+      log.warn(
+          "Search V3 is on with entityService.impl=cassandra. {}", CassandraSearchLimitations.ALL);
+    }
     return UpdateIndicesV3Strategy.builder()
         .v3Config(v3Config)
         .elasticSearchService(elasticSearchService)
         .searchDocumentTransformer(searchDocumentTransformer)
         .timeseriesAspectService(timeseriesAspectService)
+        // Same object the hold mutates. A missing V2 block stays off.
+        .v2Enabled(liveV2Enabled(elasticSearchConfiguration))
+        .idHashAlgo(idHashAlgo)
         .timeseriesThrottleCache(timeseriesWriteThrottleCache)
+        .searchClientShim(searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3))
+        .vectorProjectionEnabled(vectorProjectionEnabled)
+        .expectedVectorDimensions(expectedVectorDimensions(configProvider))
         .entityDocumentIdHasher(entityDocumentIdHasher)
-        .documentContributors(documentContributors == null ? List.of() : documentContributors)
-        .v2Enabled(v2Enabled)
-        .semanticSearchConfiguration(
-            configProvider.getElasticSearch().getEntityIndex().getSemanticSearch())
+        .documentContributors(documentContributors)
+        .semanticSearchConfiguration(semanticSearchConfiguration(configProvider))
         .incrementalReindexWriteTargets(incrementalReindexWriteTargets)
+        .structuredPropertyMappingCache(structuredPropertyMappingCache)
+        .searchIndexSkips(searchIndexSkips)
         .build();
+  }
+
+  static boolean isV3VectorProjectionEnabled(@Nullable final ConfigurationProvider configProvider) {
+    if (configProvider == null) {
+      return false;
+    }
+    final ElasticSearchConfiguration elasticSearch = configProvider.getElasticSearch();
+    if (elasticSearch == null) {
+      return false;
+    }
+    final SearchConfiguration search = elasticSearch.getSearch();
+    if (search == null) {
+      return false;
+    }
+    final SearchV3Configuration v3 = search.getV3();
+    return v3 != null && v3.isVectorProjectionEnabled();
+  }
+
+  @Nullable
+  private static SemanticSearchConfiguration semanticSearchConfiguration(
+      @Nullable final ConfigurationProvider configProvider) {
+    if (configProvider == null
+        || configProvider.getElasticSearch() == null
+        || configProvider.getElasticSearch().getEntityIndex() == null) {
+      return null;
+    }
+    return configProvider.getElasticSearch().getEntityIndex().getSemanticSearch();
+  }
+
+  @Nonnull
+  private static Map<String, Integer> expectedVectorDimensions(
+      @Nullable final ConfigurationProvider configProvider) {
+    if (configProvider == null
+        || configProvider.getElasticSearch() == null
+        || configProvider.getElasticSearch().getEntityIndex() == null
+        || configProvider.getElasticSearch().getEntityIndex().getSemanticSearch() == null
+        || configProvider.getElasticSearch().getEntityIndex().getSemanticSearch().getModels()
+            == null) {
+      return Map.of();
+    }
+    final Map<String, Integer> dimensions = new LinkedHashMap<>();
+    configProvider
+        .getElasticSearch()
+        .getEntityIndex()
+        .getSemanticSearch()
+        .getModels()
+        .forEach(
+            (modelKey, modelConfig) -> {
+              if (modelConfig != null) {
+                dimensions.put(modelKey, modelConfig.getVectorDimension());
+              }
+            });
+    return dimensions;
+  }
+
+  /**
+   * One mapping read per index per TTL, shared by the index writers and the on-demand consistency
+   * check. The flag defaults on; a missing index configuration keeps that default.
+   */
+  @Bean
+  @Nonnull
+  public StructuredPropertyMappingCache structuredPropertyMappingCache(
+      @Nonnull ConfigurationProvider configProvider,
+      @Nonnull ElasticSearchService elasticSearchService) {
+    IndexConfiguration index =
+        configProvider.getElasticSearch() == null
+            ? null
+            : configProvider.getElasticSearch().getIndex();
+    boolean enabled = index == null || index.isStructuredPropertyRestateEnabled();
+    int ttlSeconds = index == null ? 300 : index.getStructuredPropertyMappingCacheTtlSeconds();
+    return new StructuredPropertyMappingCache(
+        enabled, ttlSeconds, elasticSearchService::indexMappingSource);
+  }
+
+  /** Reads structured-property values a batch at a time from the index being compared. */
+  @Bean
+  @Nonnull
+  public StructuredPropertyIndexFields structuredPropertyIndexFields(
+      @Nonnull ElasticSearchService elasticSearchService) {
+    return new StructuredPropertyIndexFields(
+        (opContext, indexName, request) ->
+            elasticSearchService
+                .getIndexBuilder(indexName)
+                .getSearchClient()
+                .search(opContext, request, RequestOptions.DEFAULT));
   }
 }

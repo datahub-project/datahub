@@ -27,7 +27,7 @@ const meta = {
             options: Object.values(NotificationType),
             table: {
                 type: { summary: 'NotificationType' },
-                defaultValue: { summary: 'ERROR' },
+                defaultValue: { summary: 'error' },
             },
         },
         message: {
@@ -52,7 +52,7 @@ const meta = {
             control: { type: 'number', min: 0 },
             table: {
                 type: { summary: 'number' },
-                defaultValue: { summary: '3' },
+                defaultValue: { summary: '4.5' },
             },
         },
         placement: {

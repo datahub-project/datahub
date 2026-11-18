@@ -5,7 +5,7 @@ import styled from 'styled-components';
 import { PreviewType } from '@app/entityV2/Entity';
 import EditDataProductModal from '@app/entityV2/domain/DataProductsTab/EditDataProductModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
-import { useEntityContext } from '@src/app/entity/shared/EntityContext';
+import { useEntityContext } from '@src/app/entityV2/shared/EntityContext';
 
 import { DataProduct, EntityType } from '@types';
 

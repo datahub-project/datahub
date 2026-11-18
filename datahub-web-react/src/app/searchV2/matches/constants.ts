@@ -5,6 +5,7 @@ import { EntityType, MatchedField } from '@types';
 export type MatchedFieldName =
     | 'urn'
     | 'name'
+    | 'id'
     | 'displayName'
     | 'title'
     | 'description'
@@ -45,6 +46,12 @@ function getDefaultMatchedFieldConfig(): Array<MatchedFieldConfig> {
         },
         {
             name: 'name',
+            groupInto: 'name',
+            label: i18next.t('search:matches.field.name'),
+        },
+        {
+            // A schema field path is stored on id. Group it with name so the title highlights.
+            name: 'id',
             groupInto: 'name',
             label: i18next.t('search:matches.field.name'),
         },

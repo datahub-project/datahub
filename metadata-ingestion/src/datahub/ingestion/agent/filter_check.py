@@ -38,6 +38,8 @@ from datahub.ingestion.agent.probe_methods import (
 from datahub.ingestion.agent.verdicts import (
     UNFILTERED,
     ClassifyContext,
+    ContainerNeed,
+    ContainerUnknown,
     ProbeArgumentError,
     ProbeInternalError,
     Verdict,
@@ -414,6 +416,33 @@ def _warn_if_undeclared(
         )
 
 
+def _with_context(
+    refusal: ProbeArgumentError, warnings: Sequence[str]
+) -> ProbeArgumentError:
+    """`refusal` with what the connector already said appended."""
+    if not warnings:
+        return refusal
+    said = " ".join(warnings)
+    # Same type: the refusal's class is what tests and the error policy key on.
+    return type(refusal)(f"{refusal} This source also reported: {said}")
+
+
+def _rests_on_the_container(
+    decided: Optional[Verdict], override: Optional[Verdict]
+) -> bool:
+    """Whether the verdict about to be returned needed the missing container.
+
+    A need is only recorded when some field a verdict for this kind may rest
+    on depends on the container, so the question left here is who decided.
+    Nothing did, and the kind's own pattern will judge a target without its
+    container. Or the connector's override did, and it may have consulted any
+    of those fields -- Unity checks `table_pattern` for every table-like kind
+    -- without saying which. A kind switch is neither: it excludes in every
+    container.
+    """
+    return decided is None or decided is override
+
+
 def _judge_name(
     judged: _Judged,
     resolution: _Resolution,
@@ -428,6 +457,11 @@ def _judge_name(
     config = judged.config
     pattern_field = resolution.pattern_field
     prefix = ".".join(parent_path)
+    # Filled while the target is built; read after the verdict, because a
+    # kind switch, a connector's override or an excluded --parent can each
+    # decide a name in every container -- and then "this cannot be judged
+    # without the container" is simply false.
+    needed: List[ContainerNeed] = []
     ctx = ClassifyContext(
         config=config,
         name=name,
@@ -436,6 +470,7 @@ def _judge_name(
         parent_path=tuple(parent_path),
         warn=warn,
         kind=kind,
+        note_container=needed.append,
     )
     structural = _switch_verdict(config, kind)
     by_rule = resolution.filtering is Filtering.BY_RULE
@@ -453,6 +488,7 @@ def _judge_name(
             structural=structural,
             attributes=dict(attributes),
             warn=warn,
+            note_container=needed.append,
         ),
     )
     if by_rule and override is None and structural is None:
@@ -461,15 +497,17 @@ def _judge_name(
             f"{pattern_field}, but its probe_verdict_override gave no verdict "
             f"for '{name}'"
         )
-    verdict = (
-        override
-        or structural
-        or (
-            # No pattern field means an allow-all pattern, which excludes nothing.
-            Verdict.include()
-            if pattern_field is None or judged.pattern.allowed(target)
-            else Verdict.exclude(pattern_field)
-        )
+    decided = override or structural
+    if needed and _rests_on_the_container(decided, override):
+        # The name was judged on a target missing the container ingestion
+        # matches on, and nothing decided it on other grounds. That is the
+        # verdict ingestion does not make, so none is given.
+        raise needed[0].refusal()
+    verdict = decided or (
+        # No pattern field means an allow-all pattern, which excludes nothing.
+        Verdict.include()
+        if pattern_field is None or judged.pattern.allowed(target)
+        else Verdict.exclude(pattern_field)
     )
     return FilterVerdict(
         name=name,
@@ -528,19 +566,49 @@ def check_filters(
         try_deny,
         warn,
     )
-    results = [
-        _judge_name(judged, resolution, kind, name, parent_path, name_attrs, warn)
-        for name, name_attrs in zip(names, per_name, strict=True)
-    ]
-
+    # Judged first: nothing inside an excluded container is ingested, whatever
+    # container the names inside it would otherwise need to be judged on.
     # Not for a kind nothing resolves: the warning above already says so.
-    parent_excluded_by = (
-        None
-        if unresolved
-        else _parent_exclusion(
-            source_type, config_dict, judged.config, kind, parent_path, warn
-        )
-    )
+    parent_excluded_by: Optional[str] = None
+    parent_refusal: Optional[ContainerUnknown] = None
+    if not unresolved:
+        try:
+            parent_excluded_by = _parent_exclusion(
+                source_type, config_dict, judged.config, kind, parent_path, warn
+            )
+        except ContainerUnknown as refusal:
+            # Held, not raised. The parent's verdict is only needed for a name
+            # something else would have included: one already excluded -- by a
+            # kind switch, an override or its own pattern -- is excluded in
+            # every container, so a container nobody named cannot change it.
+            parent_refusal = refusal
+    results = []
+    for name, name_attrs in zip(names, per_name, strict=True):
+        try:
+            results.append(
+                _judge_name(
+                    judged, resolution, kind, name, parent_path, name_attrs, warn
+                )
+            )
+        except ContainerUnknown as refusal:
+            if parent_excluded_by is None:
+                # Carried with it: a refusal replaces the result, so anything
+                # the connector said on the way -- Unity naming `catalogs`,
+                # MSSQL naming the database -- would otherwise be lost, and
+                # those are the hints a Qualifier field cannot supply.
+                raise _with_context(refusal, warnings) from None
+            results.append(
+                FilterVerdict(
+                    name=name,
+                    target=name,
+                    included=False,
+                    excluded_by=parent_excluded_by,
+                )
+            )
+    if parent_refusal is not None and any(result.included for result in results):
+        # Same context as the direct path above: holding the refusal must not
+        # cost it the connector's own hints.
+        raise _with_context(parent_refusal, warnings)
     if parent_excluded_by is not None:
         for result in results:
             result.included = False

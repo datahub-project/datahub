@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import com.datahub.util.exception.ESQueryException;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.ScrollResult;
@@ -13,11 +14,16 @@ import com.linkedin.metadata.search.elasticsearch.query.request.PreparedSearchRe
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchAfterWrapper;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.OwnRungComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCandidates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRankingInput;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRollout;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
@@ -25,7 +31,6 @@ import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplat
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.search.utils.SearchOperation;
 import com.linkedin.metadata.search.utils.SearchTookMetrics;
-import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.search.template.SearchTemplateComponentMode;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
@@ -88,7 +93,16 @@ final class TemplateSearchExecutor {
                   query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
               urn ->
                   searchAttempt(
-                      bound, urn, entityNames, query, postFilters, sortCriteria, 0, size, facets),
+                      bound,
+                      urn,
+                      entityNames,
+                      query,
+                      normalizeQuery(bound, query),
+                      postFilters,
+                      sortCriteria,
+                      0,
+                      size,
+                      facets),
               (first, entities, total) -> {
                 SearchResult copy = new SearchResult();
                 copy.setEntities(new SearchEntityArray(entities));
@@ -147,7 +161,11 @@ final class TemplateSearchExecutor {
   }
 
   record SearchExecution<T>(
-      @Nonnull T page, boolean shardFailed, @Nullable RenderedSearchTemplate renderedTemplate) {}
+      @Nonnull T page,
+      boolean shardFailed,
+      @Nullable RenderedSearchTemplate renderedTemplate,
+      boolean templateSort,
+      @Nullable SearchResponse response) {}
 
   record PreparedRequestComponents(
       @Nonnull PreparedSearchRequest prepared,
@@ -180,6 +198,7 @@ final class TemplateSearchExecutor {
           bound,
           searchOnce(bound, entityNames, input, postFilters, sortCriteria, from, size, facets));
     }
+    String normalizedQuery = normalizeQuery(bound, input);
     SearchTemplateWalk.Served<SearchResult> served =
         SearchTemplateWalk.walk(
             bound,
@@ -193,10 +212,27 @@ final class TemplateSearchExecutor {
                 size,
                 (urn, raw) ->
                     componentReorder(
-                        bound, urn, raw, input, postFilters, sortCriteria, from, size)),
+                        bound,
+                        urn,
+                        raw,
+                        input,
+                        normalizedQuery,
+                        postFilters,
+                        sortCriteria,
+                        from,
+                        size)),
             urn ->
                 searchAttempt(
-                    bound, urn, entityNames, input, postFilters, sortCriteria, from, size, facets),
+                    bound,
+                    urn,
+                    entityNames,
+                    input,
+                    normalizedQuery,
+                    postFilters,
+                    sortCriteria,
+                    from,
+                    size,
+                    facets),
             (first, entities, total) -> {
               SearchResult copy = new SearchResult();
               copy.setEntities(new SearchEntityArray(entities));
@@ -209,8 +245,11 @@ final class TemplateSearchExecutor {
     ResolvedSearchTemplate current = bound.getSearchContext().getResolvedSearchTemplate();
     if (current != null) {
       current.setHighlightFields(served.highlights());
+      current.setTemplateSortApplied(served.templateSort());
     }
-    coordinator.armServed(bound, ESSearchDAO.isRelevanceSort(sortCriteria) ? served.urn() : null);
+    // Every sort records the served rung, so a keywordRerank search can report that its rerank does
+    // not apply. Whether it applies is decided where the page is ranked.
+    coordinator.armServed(bound, served.urn());
     return new BoundSearch(bound, served.page());
   }
 
@@ -240,6 +279,7 @@ final class TemplateSearchExecutor {
       @Nonnull String urn,
       @Nonnull List<String> entityNames,
       @Nonnull String input,
+      @Nullable String normalizedQuery,
       @Nullable Filter postFilters,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
@@ -249,14 +289,23 @@ final class TemplateSearchExecutor {
       SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
       int fetchFrom = from;
       Integer fetchSize = size;
+      boolean runPostProcess = false;
       if (coordinator != null) {
         MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
         com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
         if (!SearchTemplateComponents.empty(spec)
             && spec.getMode() == SearchTemplateComponentMode.OWN_RUNG) {
           Map<String, String> config = SearchTemplateComponents.config(spec);
-          SearchTemplateComponent implementation =
-              coordinator.components().require(spec.getName(), spec.getVersion());
+          SearchTemplateComponent loaded =
+              coordinator.components().require(spec.getName(), spec.getVersion(), spec.getMode());
+          if (!(loaded instanceof OwnRungComponent implementation)) {
+            throw new SearchTemplateException(
+                "Search template component "
+                    + spec.getName()
+                    + ":"
+                    + spec.getVersion()
+                    + " is not an own-rung component");
+          }
           SearchTemplateComponentPage ranked =
               implementation.execute(
                   SearchTemplateComponentRequest.builder()
@@ -283,7 +332,9 @@ final class TemplateSearchExecutor {
               new ArrayList<>(owned.getEntities()),
               List.of(),
               ranked.shardFailed(),
-              null);
+              null,
+              null,
+              false);
         }
         if (!SearchTemplateComponents.empty(spec)
             && spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
@@ -299,28 +350,64 @@ final class TemplateSearchExecutor {
                   .config(config)
                   .mode(spec.getMode())
                   .build();
-          int window =
-              coordinator
-                  .components()
-                  .require(spec.getName(), spec.getVersion())
-                  .plan(planned, config);
-          if (!SearchTemplateComponents.skip(false, size, sortCriteria, from, window)) {
+          PostProcessComponent post =
+              (PostProcessComponent)
+                  coordinator
+                      .components()
+                      .require(spec.getName(), spec.getVersion(), spec.getMode());
+          int window = post.plan(planned, config, template.getRanking());
+          if (!SearchTemplateComponents.skip(
+              false, size, sortCriteria, from, window, normalizedQuery)) {
             fetchFrom = 0;
-            fetchSize = window;
+            fetchSize = post.fetchSize(from, size, window);
+            runPostProcess = true;
           }
         }
       }
-      SearchExecution<SearchResult> execution =
-          searchOnceExecution(
-              opContext,
-              entityNames,
-              input,
-              postFilters,
-              sortCriteria,
-              fetchFrom,
-              fetchSize,
-              facets,
-              urn);
+      SearchExecution<SearchResult> execution;
+      SearchTemplateCandidates candidates = null;
+      if (runPostProcess) {
+        PreparedRequestComponents prepared =
+            prepareTemplateSearch(
+                opContext,
+                entityNames,
+                input,
+                postFilters,
+                sortCriteria,
+                fetchFrom,
+                fetchSize,
+                facets,
+                urn);
+        execution =
+            executeTemplateSearch(
+                opContext,
+                prepared.entitySpecs(),
+                prepared.prepared().request(),
+                prepared.filter(),
+                fetchFrom,
+                fetchSize,
+                prepared.prepared().template(),
+                prepared.prepared().templateSort());
+        int mergeWindow = fetchSize == null ? 0 : fetchSize;
+        SearchTemplateCandidates.SupplementaryMerge merge =
+            TemplateResultSupplements.get()
+                .offer(opContext, dao, prepared, normalizedQuery, mergeWindow);
+        candidates =
+            new SearchTemplateCandidates(
+                SearchTemplateCandidates.lookup(execution.response()), merge);
+      } else {
+        execution =
+            searchOnceExecution(
+                opContext,
+                entityNames,
+                input,
+                postFilters,
+                sortCriteria,
+                fetchFrom,
+                fetchSize,
+                facets,
+                urn);
+      }
       SearchResult page = execution.page();
       List<SearchEntity> entities =
           page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
@@ -336,7 +423,9 @@ final class TemplateSearchExecutor {
               ? List.of()
               : execution.renderedTemplate().highlights(),
           execution.shardFailed(),
-          rendered);
+          rendered,
+          candidates,
+          execution.templateSort());
     } catch (RuntimeException e) {
       return SearchTemplateWalk.AttemptResult.failed(e);
     }
@@ -348,6 +437,7 @@ final class TemplateSearchExecutor {
       @Nonnull String urn,
       @Nonnull SearchTemplateWalk.AttemptResult<?> raw,
       @Nonnull String input,
+      @Nullable String normalizedQuery,
       @Nullable Filter postFilters,
       @Nullable List<SortCriterion> sortCriteria,
       int from,
@@ -369,9 +459,7 @@ final class TemplateSearchExecutor {
         (SearchTemplateWalk.AttemptResult<SearchResult>) raw;
     List<SearchEntity> hits =
         page.getEntities() == null ? List.of() : new ArrayList<>(page.getEntities());
-    return SearchTemplateComponents.reorder(
-        coordinator.components(),
-        template,
+    SearchTemplateComponentRequest.SearchTemplateComponentRequestBuilder request =
         SearchTemplateComponentRequest.builder()
             .opContext(opContext)
             .query(input)
@@ -384,9 +472,27 @@ final class TemplateSearchExecutor {
             .total(page.getNumEntities())
             .metadata(page.getMetadata())
             .config(SearchTemplateComponents.config(spec))
-            .mode(spec.getMode())
-            .build(),
-        typed);
+            .mode(spec.getMode());
+    if (spec.getMode() == SearchTemplateComponentMode.POST_PROCESS) {
+      SearchFlags flags = opContext.getSearchContext().getSearchFlags();
+      PostProcessComponent post =
+          (PostProcessComponent)
+              coordinator.components().require(spec.getName(), spec.getVersion(), spec.getMode());
+      boolean includeExplain = post.includeExplain(flags);
+      boolean rescoreEnabled = post.rescoreEnabled(flags);
+      SearchTemplateCandidates candidates =
+          typed.candidates() == null ? SearchTemplateCandidates.NONE : typed.candidates();
+      request.ranking(
+          new SearchTemplateRankingInput(
+              template.getRanking(),
+              candidates,
+              normalizedQuery == null ? "" : normalizedQuery,
+              includeExplain,
+              rescoreEnabled,
+              urn));
+    }
+    return SearchTemplateComponents.reorder(
+        coordinator.components(), template, request.build(), typed);
   }
 
   @Nonnull
@@ -433,7 +539,8 @@ final class TemplateSearchExecutor {
         components.filter(),
         from,
         size,
-        components.prepared().template());
+        components.prepared().template(),
+        components.prepared().templateSort());
   }
 
   @Nonnull
@@ -481,7 +588,6 @@ final class TemplateSearchExecutor {
       @Nullable String keepAlive,
       @Nullable Integer size,
       @Nullable String renderUrn) {
-    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
     final String finalInput = input.isEmpty() ? "*" : input;
     List<EntitySpec> entitySpecs =
         entities.stream()
@@ -489,7 +595,9 @@ final class TemplateSearchExecutor {
             .distinct()
             .collect(Collectors.toList());
     String[] indexArray = dao.entityIndexNames(opContext, entities);
-    Filter transformedFilters = dao.transformFilter(opContext, postFilters, indexConvention);
+    Filter transformedFilters =
+        dao.transformFilter(
+            opContext, entities, postFilters, opContext.getSearchContext().getIndexConvention());
     boolean hasSliceOptions = opContext.getSearchContext().getSearchFlags().hasSliceOptions();
     boolean usePIT = (dao.pointInTimeCreationEnabled || hasSliceOptions) && keepAlive != null;
     String pitId =
@@ -528,7 +636,8 @@ final class TemplateSearchExecutor {
         transformedFilters,
         keepAlive,
         size,
-        prepared.template());
+        prepared.template(),
+        prepared.templateSort());
   }
 
   @Nonnull
@@ -550,7 +659,7 @@ final class TemplateSearchExecutor {
             .collect(Collectors.toList());
     Filter transformedFilters =
         dao.transformFilter(
-            opContext, postFilters, opContext.getSearchContext().getIndexConvention());
+            opContext, entityNames, postFilters, opContext.getSearchContext().getIndexConvention());
     PreparedSearchRequest prepared =
         SearchRequestHandler.getBuilder(
                 opContext,
@@ -581,7 +690,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       int from,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     SearchResponse searchResponse = null;
     try {
       searchResponse =
@@ -606,7 +716,7 @@ final class TemplateSearchExecutor {
                       from,
                       ConfigUtils.applyLimit(dao.searchServiceConfig, size),
                       template));
-      return new SearchExecution<>(page, shardFailed, template);
+      return new SearchExecution<>(page, shardFailed, template, templateSort, searchResponse);
     } catch (Exception e) {
       log.error("Search query failed", e);
       throw new ESQueryException("Search query failed:", e);
@@ -621,7 +731,8 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       @Nullable String keepAlive,
       @Nullable Integer size,
-      @Nullable RenderedSearchTemplate template) {
+      @Nullable RenderedSearchTemplate template,
+      boolean templateSort) {
     try {
       SearchResponse searchResponse =
           dao.searchClient(opContext, searchRequest)
@@ -646,11 +757,39 @@ final class TemplateSearchExecutor {
                       dao.pointInTimeCreationEnabled,
                       template));
       return new SearchExecution<>(
-          page, searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(), template);
+          page,
+          searchResponse.getFailedShards() > 0 || searchResponse.isTimedOut(),
+          template,
+          templateSort,
+          null);
     } catch (Exception e) {
       log.error("Search query failed: {}", searchRequest, e);
       throw new ESQueryException("Search query failed:", e);
     }
+  }
+
+  @Nonnull
+  private static String normalizeQuery(@Nonnull OperationContext opContext, @Nonnull String query) {
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    if (coordinator == null || resolved == null) {
+      return query;
+    }
+    MergedSearchTemplate template = coordinator.loader().load(opContext, resolved.getUrn());
+    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+    if (spec == null
+        || spec.getMode() != SearchTemplateComponentMode.POST_PROCESS
+        || !spec.hasName()
+        || spec.getVersion() == null) {
+      return query;
+    }
+    return coordinator
+        .components()
+        .find(spec.getName(), spec.getVersion())
+        .filter(PostProcessComponent.class::isInstance)
+        .map(PostProcessComponent.class::cast)
+        .map(post -> post.normalizeQuery(query))
+        .orElse(query);
   }
 
   boolean templateReads(@Nonnull OperationContext opContext) {

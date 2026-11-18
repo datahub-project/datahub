@@ -15,7 +15,12 @@ record DataJobKey {
   @Searchable = {
     "fieldName": "dataFlow",
     "fieldType": "URN_PARTIAL",
-    "queryByDefault": false
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "parent",
+      "queryByDefault": false,
+      "hasValuesFieldName": "hasParent"
+    }
   }
   @Relationship = {
     "name": "IsPartOf",
@@ -28,7 +33,15 @@ record DataJobKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "WORD_GRAM",
     "enableAutocomplete": true

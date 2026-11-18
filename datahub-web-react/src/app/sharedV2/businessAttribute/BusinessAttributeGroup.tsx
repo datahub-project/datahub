@@ -5,7 +5,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { EMPTY_MESSAGES } from '@app/entity/shared/constants';
+import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import EditBusinessAttributeModal from '@app/sharedV2/businessAttribute/AddBusinessAttributeModal';
 import StyledAttribute from '@app/sharedV2/businessAttribute/StyledAttribute';
 

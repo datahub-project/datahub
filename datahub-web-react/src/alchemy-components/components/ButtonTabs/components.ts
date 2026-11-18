@@ -1,10 +1,18 @@
 import styled from 'styled-components';
 
 import { Button } from '@components/components/Button';
-import { TabButtonsFit } from '@components/components/ButtonTabs/types';
+import { TabButtonsFit, TabButtonsSize } from '@components/components/ButtonTabs/types';
+import { spacing, typography } from '@components/theme';
 
-export const StyledTabButton = styled(Button)<{ $active?: boolean; $fit: TabButtonsFit }>`
+export const StyledTabButton = styled(Button)<{ $active?: boolean; $fit: TabButtonsFit; $size: TabButtonsSize }>`
     justify-content: center;
+    ${(props) =>
+        props.$size === 'sm' &&
+        `
+        height: 26px;
+        padding: 0 ${spacing.xsm};
+        font-size: ${typography.fontSizes.md};
+    `}
     width: ${(props) => (props.$fit === 'fill' ? '100%' : 'auto')};
     flex: ${(props) => (props.$fit === 'fill' ? '1 1 0' : '0 0 auto')};
     min-width: ${(props) => (props.$fit === 'hug' ? '32px' : undefined)};

@@ -1,6 +1,6 @@
 import React, { useMemo } from 'react';
 
-import { useEntityContext } from '@app/entity/shared/EntityContext';
+import { useEntityContext } from '@app/entityV2/shared/EntityContext';
 import DateStructuredProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/components/DateStructuredProperty';
 import EntityStructuredProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/components/EntityStructuredProperty';
 import NumberStructuredProperty from '@app/entityV2/summary/properties/property/properties/structuredProperty/components/NumberStructuredProperty';

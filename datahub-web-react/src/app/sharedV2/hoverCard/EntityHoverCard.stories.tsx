@@ -495,8 +495,7 @@ const meta = {
             description: {
                 component:
                     'Every section is data-gated, so the same component ranges from a name-plus-path chip ' +
-                    '(a tag pill hover) up to the full asset summary shown here for a dataset. ' +
-                    'Use the **Overview** story to compare what already existed with what this PR adds.',
+                    '(a tag pill hover) up to the full asset summary shown here for a dataset.',
             },
         },
     },
@@ -514,7 +513,7 @@ export default meta;
 type Story = StoryObj<typeof meta>;
 
 /**
- * Side-by-side of what a hover showed before this PR and what it shows after, on the same data.
+ * The same dataset at different levels of loaded data, from a bare fragment to the full result.
  */
 export const Overview: Story = {
     args: { entity: ordersFull },
@@ -527,31 +526,30 @@ export const Overview: Story = {
                             Dataset
                         </Text>
                         <Text size="md" color="gray">
-                            Left: what the old hover actually rendered (the search card without its pills). Right: the
-                            new card on the same data.
+                            Sections appear only when their data is loaded, so one component covers every hover trigger.
                         </Text>
                     </div>
                     <Gallery>
                         <Labelled
-                            label="Before — bare hover fragment"
-                            note="Old cards were fed by whatever the trigger had loaded; a tag or owner pill hover only had name, platform and description."
+                            label="Minimal fragment"
+                            note="What a tag or owner pill hover has loaded: name, platform and description."
                         >
                             <EntityHoverCard entity={ordersMinimal} />
                         </Labelled>
                         <Labelled
-                            label="After — full result fragment"
+                            label="Full result fragment"
                             note="Owners, tags, terms, domain, data product, badges, usage footer, stacked sibling logos, markdown in the description, and a View in Snowflake link section after the others."
                         >
                             <EntityHoverCard entity={ordersFull} />
                         </Labelled>
                         <Labelled
-                            label="After — deprecated + failing"
+                            label="Deprecated + failing"
                             note="Deprecation and health badges sit in the header exactly where the search card puts them; the hover to explain them still works."
                         >
                             <EntityHoverCard entity={ordersLegacy} />
                         </Labelled>
                         <Labelled
-                            label="After — DataHub Cloud"
+                            label="DataHub Cloud"
                             note="Cloud adds usage percentiles to statsSummary, which is all the popularity bars need. Same component, no Cloud-specific code path."
                         >
                             <EntityHoverCard entity={ordersCloud} />

@@ -457,3 +457,25 @@ def test_closed_when_shared_connection_closed_externally():
         cache = FileBackedDict[int](shared_connection=conn)
         assert not cache.closed
     assert cache.closed
+
+
+def test_file_backed_dict_with_extra_columns_reopens_on_existing_file(
+    tmp_path: pathlib.Path,
+) -> None:
+    filename = tmp_path / "cache.db"
+
+    def open_dict(conn: ConnectionWrapper) -> FileBackedDict[int]:
+        return FileBackedDict[int](
+            shared_connection=conn, extra_columns={"is_even": lambda v: v % 2 == 0}
+        )
+
+    with ConnectionWrapper(filename=filename) as conn:
+        cache = open_dict(conn)
+        cache["a"] = 2
+        cache.create_indexes()
+
+    # Re-opening the persisted file must not fail on the already-created index.
+    with ConnectionWrapper(filename=filename) as conn:
+        cache = open_dict(conn)
+        cache.create_indexes()
+        assert cache["a"] == 2

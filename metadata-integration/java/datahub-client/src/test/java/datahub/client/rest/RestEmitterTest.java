@@ -490,7 +490,8 @@ public class RestEmitterTest {
   }
 
   @Test
-  public void testUserAgentHeader() throws IOException, ExecutionException, InterruptedException {
+  public void testClientIdentificationHeaders()
+      throws IOException, ExecutionException, InterruptedException {
     TestDataHubServer testDataHubServer = new TestDataHubServer();
     Integer port = testDataHubServer.getMockServer().getPort();
     RestEmitter emitter = RestEmitter.create(b -> b.server("http://localhost:" + port));
@@ -502,7 +503,10 @@ public class RestEmitterTest {
     String version = properties.getProperty("clientVersion");
     testDataHubServer
         .getMockServer()
-        .verify(request("/config").withHeader("User-Agent", "DataHub-RestClient/" + version));
+        .verify(
+            request("/config")
+                .withHeader("User-Agent", "DataHub-RestClient/" + version)
+                .withHeader(RestEmitterConfig.CLIENT_VERSION_HEADER, version));
   }
 
   @Test

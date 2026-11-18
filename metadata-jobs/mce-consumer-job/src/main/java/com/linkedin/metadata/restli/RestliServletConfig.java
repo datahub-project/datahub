@@ -4,6 +4,7 @@ import com.datahub.auth.authentication.filter.AuthenticationEnforcementFilter;
 import com.datahub.auth.authentication.filter.AuthenticationExtractionFilter;
 import com.linkedin.gms.factory.auth.SystemAuthenticationFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
+import com.linkedin.gms.factory.search.SearchV3ReadHold;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.r2.transport.http.server.RAPJakartaServlet;
 import com.linkedin.restli.server.RestliHandlerServlet;
@@ -90,7 +91,10 @@ public class RestliServletConfig {
   @Bean
   @ConditionalOnBean
   public ElasticSearchConfiguration elasticSearchConfiguration(
-      final ConfigurationProvider configurationProvider) {
-    return configurationProvider.getElasticSearch();
+      final ConfigurationProvider configurationProvider, final SearchV3ReadHold searchV3ReadHold) {
+    ElasticSearchConfiguration elasticSearchConfiguration =
+        configurationProvider.getElasticSearch();
+    searchV3ReadHold.applyTo(elasticSearchConfiguration);
+    return elasticSearchConfiguration;
   }
 }

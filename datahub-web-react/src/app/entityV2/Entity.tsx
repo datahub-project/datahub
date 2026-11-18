@@ -1,10 +1,10 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
-import { EntitySidebarSection, EntitySidebarTab } from '@app/entityV2/shared/types';
+import { EntitySidebarSection, EntitySidebarTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import { FetchedEntity } from '@app/lineageV3/types';
+import { FeatureFlags } from '@src/appConfigContext';
 
-import { DataPlatform, EntityType, Exact, FeatureFlagsConfig, SearchResult } from '@types';
+import { DataPlatform, EntityType, Exact, SearchResult } from '@types';
 
 export enum PreviewType {
     /**
@@ -209,7 +209,7 @@ export interface Entity<T> {
     /**
      * Returns generic entity properties for the entity
      */
-    getGenericEntityProperties: (data: T, flags?: FeatureFlagsConfig) => GenericEntityProperties | null;
+    getGenericEntityProperties: (data: T, flags?: FeatureFlags) => GenericEntityProperties | null;
 
     /**
      * Returns the supported features for the entity

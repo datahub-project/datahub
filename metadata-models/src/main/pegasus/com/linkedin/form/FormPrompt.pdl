@@ -19,11 +19,41 @@ record FormPrompt {
   /**
    * The title of this prompt
    */
+  @Searchable = {
+    "fieldType": "WORD_GRAM",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "boostScore": 10.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   title: string
 
   /**
    * The description of this prompt
    */
+  @Searchable = {
+    "fieldType": "TEXT",
+    "queryByDefault": false,
+    "hasValuesFieldName": "hasDescription",
+    "sanitizeRichText": true,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "description",
+      "mappings": [
+        { "type": "KEYWORD", "index": false, "docValues": false },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   description: optional string
 
   /**
@@ -50,7 +80,11 @@ record FormPrompt {
      */
     @Searchable = {
       "fieldType": "URN",
-      "fieldName": "structuredPropertyPromptUrns"
+      "fieldName": "structuredPropertyPromptUrns",
+      "queryByDefault": false,
+      "v3": {
+        "queryByDefault": false
+      }
     }
     urn: Urn
   }

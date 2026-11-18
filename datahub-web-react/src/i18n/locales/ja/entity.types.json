@@ -1,9 +1,12 @@
 {
     "api.name": "API",
     "api.namePlural": "API",
+    "api.signature.definedByDataset_other": "Datasetで定義",
+    "api.signature.inputDatasetsTitle": "入力Schema",
     "api.signature.inputTitle": "入力パラメーター",
     "api.signature.noInput": "入力パラメーターはありません",
     "api.signature.noOutput": "宣言された出力はありません",
+    "api.signature.outputDatasetsTitle": "出力Schema",
     "api.signature.outputTitle": "出力",
     "api.signature.returns": "戻り値",
     "api.signature.tableDescription": "説明",

@@ -156,7 +156,7 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces.json",
+                        "filename": f"{tmp_path}/mode.json",
                     },
                 },
             }
@@ -166,9 +166,10 @@ def test_mode_ingest_success(pytestconfig, tmp_path):
 
         mce_helpers.check_golden_file(
             pytestconfig,
-            output_path=f"{tmp_path}/mode_mces.json",
-            golden_path=test_resources_dir / "mode_mces_golden.json",
+            output_path=f"{tmp_path}/mode.json",
+            golden_path=test_resources_dir / "mode_golden.json",
             ignore_paths=mce_helpers.IGNORE_PATH_TIMESTAMPS,
+            fail_on_output_mces=True,
         )
 
 
@@ -196,7 +197,7 @@ def test_mode_ingest_failure(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces.json",
+                        "filename": f"{tmp_path}/mode.json",
                     },
                 },
             }
@@ -238,7 +239,7 @@ def test_mode_ingest_json_empty(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces.json",
+                        "filename": f"{tmp_path}/mode.json",
                     },
                 },
             }
@@ -279,7 +280,7 @@ def test_mode_ingest_json_failure(pytestconfig, tmp_path):
                 "sink": {
                     "type": "file",
                     "config": {
-                        "filename": f"{tmp_path}/mode_mces.json",
+                        "filename": f"{tmp_path}/mode.json",
                     },
                 },
             }

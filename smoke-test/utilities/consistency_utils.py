@@ -626,7 +626,9 @@ def _capture_offset_targets(
             )
             return None
         for partition, (offset, lag) in partitions.items():
-            targets[(consumer_type, partition)] = offset + lag
+            # A partition with no lag has already consumed this call's write.
+            if lag > 0:
+                targets[(consumer_type, partition)] = offset + lag
     return targets
 
 
@@ -641,8 +643,12 @@ def _await_offset_targets(
     Returns the targets still outstanding (empty dict means fully consumed).
     """
     remaining = dict(targets)
+    first_check = True
     while remaining and time.time() < deadline:
-        time.sleep(poll_interval_sec)
+        # Check before the first sleep: the consumer has often caught up already.
+        if not first_check:
+            time.sleep(poll_interval_sec)
+        first_check = False
         for consumer_type in {c for (c, _p) in remaining}:
             endpoint = _MESSAGING_LAG_ENDPOINTS[consumer_type]
             partitions = _fetch_detailed_partitions(gms_url, endpoint)

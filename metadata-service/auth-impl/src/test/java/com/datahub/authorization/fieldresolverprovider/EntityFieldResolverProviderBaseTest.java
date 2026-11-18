@@ -10,6 +10,9 @@ import java.util.Collections;
 import java.util.concurrent.ExecutionException;
 import org.testng.annotations.Test;
 
+// Class-level @Test: Gradle's TestNG detection ignores method annotations on abstract classes, so
+// without it a subclass that declares no @Test of its own is never run.
+@Test
 public abstract class EntityFieldResolverProviderBaseTest<T extends EntityFieldResolverProvider> {
   protected abstract T buildFieldResolverProvider();
 

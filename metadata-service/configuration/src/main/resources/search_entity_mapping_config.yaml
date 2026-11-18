@@ -28,15 +28,11 @@ entity_mapping_config:
                 type: date
               actor:
                 type: keyword
-          lastObserved:
-            type: date
-          runId:
-            type: keyword
-          lastRunId:
-            type: keyword
       runId:
         type: keyword
       systemCreated:
         type: date
       systemIndexModified:
         type: date
+      _v3Tombstone:
+        type: boolean

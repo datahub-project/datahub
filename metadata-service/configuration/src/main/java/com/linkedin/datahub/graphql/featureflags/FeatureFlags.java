@@ -59,8 +59,6 @@ public class FeatureFlags {
   private boolean showSearchBarAutocompleteRedesign = false;
   private boolean showManageTags = false;
   private boolean showIntroducePage = false;
-  private boolean showIngestionPageRedesign = false;
-  private boolean ingestionOnboardingRedesignV1 = false;
   private boolean showLineageExpandMore = true;
   private boolean showLineageFilterNodes = false;
   private boolean showStatsTabRedesign = false;
@@ -87,6 +85,15 @@ public class FeatureFlags {
   private boolean showTestsInHealthIcon = false;
   private boolean createSchemaVersionIndex = false;
   private boolean aspectMigrationMutatorEnabled = false;
+  // How data a newer version wrote (read after a zero-downtime upgrade rollback) is treated:
+  // skipped or left out on read when on, failing as it did before this tolerance existed when off.
+  // Turn on for a rollback the kinds the newer version added and the deployment used: env
+  // UNKNOWN_DATA_TOLERANCE_ENABLED turns on both, and each kind's own env var overrides it.
+  // Entity types, aspects and references this version's entity registry doesn't know (not enum
+  // values, which unknownEnumToleranceEnabled covers).
+  private boolean unknownEntityAspectToleranceEnabled = false;
+  // Enum symbols and union members this version's schemas don't define.
+  private boolean unknownEnumToleranceEnabled = false;
   private boolean i18nEnabled = true;
   private boolean timeseriesAspectBatchLoadEnabled = true;
   private boolean timeseriesAspectAggBatchLoadEnabled = true;
@@ -100,6 +107,9 @@ public class FeatureFlags {
   private boolean datasetStatsSummaryBatchLoadEnabled = true;
   private boolean entityHealthBatchLoadEnabled = true;
   private boolean siblingsSearchBatchLoadEnabled = true;
+  // When a GraphQL lineage request selects only totals (search cards, sidebars), answer it with
+  // a count aggregation over the sibling group instead of walking every sibling's edges.
+  private boolean lineageCountOnlyEnabled = false;
   private boolean entityExistsBatchLoadEnabled = true;
   private boolean parentContainersBatchLoadEnabled = true;
   private boolean parentNodesBatchLoadEnabled = true;

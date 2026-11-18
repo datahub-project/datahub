@@ -428,12 +428,17 @@ class BaseStatGenerator(ABC):
         return rows
 
     def _append_filters(self, query: LookerQuery) -> LookerQuery:
-        query.filters.update(
-            {HistoryViewField.HISTORY_CREATED_DATE: self.config.interval}
-        )
+        # The query definitions in ``query_collection`` are module-level singletons
+        # shared by every generator in the process, so build a copy instead of
+        # mutating them: otherwise the entity-id filter of one run leaks into the
+        # next one (which may rely on post-filtering and send no id filter at all).
+        filters = {
+            **query.filters,
+            HistoryViewField.HISTORY_CREATED_DATE: self.config.interval,
+        }
         if not self.post_filter:
-            query.filters.update(self.get_filter())
-        return query
+            filters.update(self.get_filter())
+        return dataclasses.replace(query, filters=filters)
 
     def emits_absolute_stats(self) -> bool:
         """Whether the source exposes an absolute usage snapshot for this entity.

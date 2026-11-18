@@ -1,0 +1,30 @@
+namespace com.linkedin.search.template
+
+/**
+ * When a keyword signal is true. At least one of {@code values}, {@code excludedValues}, or
+ * {@code presence} is set.
+ */
+record RankingKeywordMatch {
+  /**
+   * How {@code values} combine, and how that clause combines with {@code presence}. Unset is
+   * {@code OR}.
+   */
+  operator: optional RankingBooleanOperator
+
+  /**
+   * Tokens that count. At least one when set. {@code OR} matches any token. {@code AND} matches
+   * every token.
+   */
+  values: optional array[string]
+
+  /**
+   * Tokens that do not count. At least one when set. A stored token from this list fails the
+   * value clause. A token also listed in {@code values} is rejected.
+   */
+  excludedValues: optional array[string]
+
+  /**
+   * Presence clause. {@code AND} of {@code NOT_EXISTS} with either token list is rejected.
+   */
+  presence: optional RankingKeywordPresence
+}

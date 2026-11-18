@@ -3,9 +3,9 @@ import { message } from 'antd';
 import React, { useEffect, useState } from 'react';
 
 import TestConnectionModal from '@app/ingest/source/builder/RecipeForm/TestConnection/TestConnectionModal';
-import { TestConnectionResult } from '@app/ingest/source/builder/RecipeForm/TestConnection/types';
 import { SourceConfig } from '@app/ingest/source/builder/types';
 import { FAILURE, RUNNING, yamlToJson } from '@app/ingest/source/utils';
+import { TestConnectionResult } from '@app/ingestV2/source/builder/RecipeForm/TestConnection/types';
 import { Button } from '@src/alchemy-components';
 import { pollingContext } from '@src/apolloPolling';
 

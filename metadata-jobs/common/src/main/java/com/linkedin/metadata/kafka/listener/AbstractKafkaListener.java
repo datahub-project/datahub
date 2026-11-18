@@ -142,7 +142,7 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
 
     // Check if should skip processing
     if (shouldSkipProcessing(event)) {
-      log.info("Skipping event: {}", event);
+      logSkipped(event);
       return;
     }
 
@@ -245,6 +245,11 @@ public abstract class AbstractKafkaListener<E, H extends EventHook<E>, R>
    * @return true if event should be skipped, false otherwise
    */
   protected abstract boolean shouldSkipProcessing(E event);
+
+  /** Logs an event {@link #shouldSkipProcessing} skipped. */
+  protected void logSkipped(E event) {
+    log.info("Skipping event: {}", event);
+  }
 
   /**
    * Gets attributes for fine-grained logging.
