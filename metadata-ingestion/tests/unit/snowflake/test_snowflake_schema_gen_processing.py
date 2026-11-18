@@ -5,10 +5,13 @@ conftest.py) so these tests exercise filtering, aspect construction and the
 lineage registered with the aggregator rather than row parsing.
 """
 
+from typing import Iterable
+
 import pytest
 
 from datahub.emitter.mce_builder import make_schema_field_urn
 from datahub.emitter.mcp_builder import StructuredPropertyWriteMode
+from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
 from datahub.ingestion.source.snowflake.constants import GENERIC_PERMISSION_ERROR_KEY
 from datahub.ingestion.source.snowflake.snowflake_connection import (
@@ -36,9 +39,10 @@ from datahub.metadata.schema_classes import (
     StructuredPropertyValueAssignmentClass,
     SubTypesClass,
     TagAssociationClass,
+    TagKeyClass,
     TagPropertiesClass,
 )
-from datahub.metadata.urns import DatasetUrn
+from datahub.metadata.urns import DatasetUrn, PlatformResourceUrn
 from datahub.sql_parsing.sql_parsing_aggregator import KnownLineageMapping
 from tests.unit.snowflake.conftest import (
     CREATED,
@@ -327,6 +331,41 @@ def test_failed_record_load_keeps_column_tags_from_datahub() -> None:
     schema_metadata = aspects(workunits, SchemaMetadataClass)[_DATASET_URN]
     assert schema_metadata.fields[0].globalTags is not None
     assert [t.tag for t in schema_metadata.fields[0].globalTags.tags] == [_PII_TAG_URN]
+
+
+def test_datahub_tags_are_protected_when_a_permission_error_ends_the_run() -> None:
+    # The run fails part-way, after an asset already kept a DataHub tag. Its
+    # checkpoint is still committed, so the kept tag must go out as
+    # non-primary here too, or a later run would soft-delete it.
+    managed = tag_record(_PII, "urn:li:tag:pii")
+    gen = make_gen(
+        tag_repository=fake_tag_repository(
+            [managed],
+            in_datahub={
+                _DATASET_URN: [GlobalTagsClass([TagAssociationClass("urn:li:tag:pii")])]
+            },
+        )
+    )
+    gen.get_databases = lambda: [database()]  # type: ignore[method-assign]
+
+    def process_then_fail(_db: object) -> Iterable[MetadataWorkUnit]:
+        gen.tag_resolver.global_tags(_DATASET_URN, [_TIER])
+        raise SnowflakePermissionError("not authorized")
+        yield  # pragma: no cover
+
+    gen._process_database = process_then_fail  # type: ignore[method-assign,assignment]
+
+    workunits = list(gen.get_workunits_internal())
+
+    protected = {
+        wu.get_urn(): wu.is_primary_source
+        for wu in workunits
+        if wu.get_aspect_of_type(StatusClass) or wu.get_aspect_of_type(TagKeyClass)
+    }
+    managed_urn = str(PlatformResourceUrn(managed.id.to_platform_resource_key().id))
+    assert protected[managed_urn] is False
+    assert protected["urn:li:tag:pii"] is False
+    assert gen.report.failures
 
 
 def test_managed_records_are_protected_when_no_database_is_left() -> None:

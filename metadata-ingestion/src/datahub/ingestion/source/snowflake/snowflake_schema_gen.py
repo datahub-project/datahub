@@ -424,14 +424,15 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         ):
                             self.aggregator.add(entry)
 
-            yield from self.tag_resolver.platform_resource_workunits()
-
         except SnowflakePermissionError as e:
             self.structured_reporter.failure(
                 GENERIC_PERMISSION_ERROR_KEY,
                 exc=e,
             )
-            return
+
+        # On both paths: a failed run's checkpoint is still committed, so what
+        # DataHub owns must go out as non-primary even when the run stops early.
+        yield from self.tag_resolver.platform_resource_workunits()
 
     def get_databases(self) -> Optional[List[SnowflakeDatabase]]:
         try:
