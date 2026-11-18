@@ -49,11 +49,18 @@ record CorpUserInfo includes CustomProperties {
    * email address of this user
    */
   @Searchable = {
-    "v3": {
-      "queryByDefault": true
-    },
     "fieldType": "KEYWORD",
-    "queryByDefault": true
+    "queryByDefault": true,
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "email",
+      "copyToOther": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   email: optional EmailAddress
 

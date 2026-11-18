@@ -16,8 +16,8 @@ limit memory use. GMS processes start after bootstrap finishes. Readiness requir
 HTTP health and, when authentication is enabled, the bootstrap user's policies.
 
 Use `--skip-build` after building those artifacts. `--heap 1g` sets each
-GMS/upgrade heap cap. One OpenSearch JVM, with a 4 GB default heap, serves all
-local stacks. Set `EMBEDDED_OPENSEARCH_HEAP` when **building** its distribution
+GMS/upgrade heap cap. One OpenSearch JVM per major, with a 4 GB default heap, serves local
+stacks using that major. Set `EMBEDDED_OPENSEARCH_HEAP` when **building** its distribution
 to change that cap, then stop and start the shared node to apply it:
 
 ```bash
@@ -26,15 +26,55 @@ python3 metadata-service/gms-lite/bin/_opensearch_manager.py stop
 python3 metadata-service/gms-lite/bin/_opensearch_manager.py start
 ```
 
+Select the engine with `--opensearch 2|3` on either Python entry point,
+`EMBEDDED_OPENSEARCH_VERSION=2|3`, or `-PopensearchVersion=2|3` when building
+with Gradle (the Gradle property takes precedence over the environment).
+The single default is `embeddedOpenSearchDefault=3` in the root
+`gradle.properties`, matching the Docker compose and `head` quickstart default
+(OpenSearch 3.7). The no-version quickstart still pins v1.9.0, which runs 2.19. The embedded
+runner is 2.19.1.0 for major 2 and 3.7.0.0 for major 3. Both include their matching
+custom-codecs plugin; `-Pknn` or `OPENSEARCH_KNN_ENABLED=true` adds the matching k-NN
+plugin at build time. Plugin extraction uses `Sync` in per-major directories.
+Both majors' dependencies and plugin archives are always locked, independently
+of selection and k-NN. To refresh this module's lockfile:
+
+```bash
+./gradlew :metadata-service:opensearch-embedded:resolveAndLockAllForProject --write-locks
+```
+
+`run`, `classes`, and `installDist` select the requested major. Distributions live
+under `metadata-service/opensearch-embedded/build/install/opensearch-embedded-os<major>/`,
+so building one major preserves the other. `test` runs `testOs2` and `testOs3`,
+compiling the shared tests and lifecycle code separately against each server.
+
+The launcher records the major in `<data-dir>/opensearch-major` and publishes
+`opensearchVersion` in `stack.json`. Warm starts retain the recorded major;
+changing it requires `--fresh`. Existing stacks without a major are treated as 3.
+The manager records and checks data-directory ownership by major and refuses
+`~/.datahub/local/opensearch/`, which belongs to another tool. Nodes of both
+majors may run together on separate ephemeral ports.
+
+GMS and upgrade processes use these settings from the selected configuration:
+
+| Major | `ELASTICSEARCH_SHIM_ENGINE_TYPE` | `ELASTICSEARCH_SHIM_AUTO_DETECT` | `ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED` |
+| ----- | -------------------------------- | -------------------------------- | ---------------------------------------------------------- |
+| 2     | `OPENSEARCH_2`                   | `false`                          | `false`                                                    |
+| 3     | `OPENSEARCH_3`                   | `false`                          | `true`                                                     |
+
+Both explicit engine types are supported by the search shim. Auto-detection is
+unnecessary because the launcher starts a known engine. Keeping schema-field ID
+hashing disabled on 2 preserves Docker 2.x document-ID compatibility. On 3,
+hashing avoids the 512-byte bulk document-ID limit and retains existing IDs. These settings apply to bootstrap and GMS alike.
+
 The shared node keeps its data, logs, `port`, `pid`, and `startup.lock` under
-`~/.datahub/local/opensearch-3/`. This versioned directory separates major
+`~/.datahub/local/opensearch-<major>/` (`opensearch-2/` or `opensearch-3/`). These directories separate major
 versions because OpenSearch data directories are not portable across major
 versions. Override it with `--shared-opensearch-dir /path/to/state` on the
 launcher or `GMS_LITE_OPENSEARCH_DIR` for both entry points. Manager commands
 accept `--dir /path/to/state`. Always use the same directory to manage a node.
 
 The manager serializes start/stop with an exclusive file lock, verifies process
-identity before signalling, and reuses only a healthy OpenSearch 3.x node.
+identity before signalling, and reuses only a healthy node of the selected major.
 A dead node or a verified node whose connection is refused is replaced while
 retaining its data; a different major version or an unrelated PID is refused.
 For a live node, readiness waits up to 600 seconds for yellow health. Override
@@ -53,7 +93,7 @@ short `reason` for a red, paused, unreachable, or incompatible node.
 There is no automatic deletion of other stacks' indices.
 
 Both HTTP and transport ports are ephemeral. Use `--private-opensearch` for a
-node owned by this stack, with data under `<data-dir>/opensearch/`, that stops
+node owned by this stack, with data under `<data-dir>/opensearch-<major>/`, that stops
 with the launcher. Supplying `--opensearch-port N` also selects private mode
 (`0` means ephemeral); occupied ports are refused. Private mode is useful for
 CI and self-contained runs.
@@ -97,6 +137,7 @@ Once ready, `<data-dir>/stack.json` is published atomically, with mode `0600`:
 ```json
 {
   "bootId": "unique-random-id-for-this-start",
+  "opensearchVersion": "2",
   "opensearchPort": 54321,
   "opensearchShared": true,
   "default": "gms-0",

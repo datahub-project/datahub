@@ -446,15 +446,19 @@ It takes the following parameters:
 
 - **hasValuesFieldName**: string (optional) - If set, add an index field of the given name that checks whether the field
   exists. Search V2 and V2.5 index that boolean for every field that declares it, storing both `true` and `false`.
-  Search V3 indexes it only when the field has a `searchLabel`. Every source of that label writes the same boolean.
-  The boolean is stored under the aspect only when the source is populated, and `copy_to` collects those
-  trues onto the shared name. It is not stored as `false`: a false filter matches documents where
-  the field is missing. A Search V3 field with no `searchLabel` has no boolean. Presence is an
-  `EXISTS` or `IS_NULL` query on the field itself. A dedicated URN root stores that value on
-  `<field>_urn`. A filter or sort that still names the old boolean is rewritten onto that field when
-  it is a presence check: a true or `EXISTS` filter becomes `exists`, a false or `IS_NULL` filter
-  matches documents where the field is missing, and a sort reads the field. A contains, range, or
-  other condition is not a boolean check and matches nothing.
+  Search V3 indexes it in one of two ways:
+
+  - **Shared**: the field has a `searchLabel`, so several sources can write the same boolean. Each
+    populated source stores `true` under its aspect, and `copy_to` collects those values onto the
+    root name, so the root is true when any source has a value. It is never stored as `false`: a
+    false filter matches documents where no source has a value.
+  - **Direct**: the field has no `searchLabel`. Exactly one source per entity may declare the name.
+    The root boolean is written as `true` or `false` with no `copy_to`, as in Search V2. A false
+    filter matches documents where the field was written and then cleared. Documents that were
+    never written have no value.
+
+  A name cannot be both shared and direct, and two direct sources on one entity cannot share a
+  name. A contains filter on either kind is not a text match, so it is dropped from the query.
 
 - **numValuesFieldName**: string (optional) - If set, add an index field of the given name that checks the number of
   elements
@@ -661,7 +665,7 @@ keeps its keyword, number or date field for filters and facets only.
 
 A shared field fed by several fields holds all of their values, so an ingested description and an edited
 description are both searchable, and an edited display name is searched as `name` with the ingested
-name. A label that declares `text` and `stemmed` is analyzed on those subfields (an identifier such as `customer_id` is indexed whole and by its parts, and short parts such as `id` are dropped like any short word). `other` is a search-only keyword plus `text` and `stemmed`, because no PDL field owns it. A label whose root is an indexed keyword stays exact for sorts and filters; analyzer subfields do not replace that root. Matches in `name` and
+name. A label that declares `text` and `stemmed` is analyzed on those subfields (an identifier such as `customer_id` is indexed whole and by its parts, a camelCase name such as `SampleKafkaDataset` is indexed whole and by its words, and short parts such as `id` are dropped like any short word). `other` is a search-only keyword plus `text` and `stemmed`, because no PDL field owns it. A label whose root is an indexed keyword stays exact for sorts and filters; analyzer subfields do not replace that root. Matches in `name` and
 `qualifiedName` weigh 10, in `other` 0.5, and in every other
 shared field 1. A structured property's `.text` subfield weighs its `boostScore`, or 0.8 when that is unset. A field configuration names every opted-in property with `structuredProperties`, or one property with its full field path. A search field
 configuration (`fieldConfigurations` in the search configuration) names a shared field either directly or by any field

@@ -8,6 +8,7 @@ import com.linkedin.search.template.SearchTemplateRetrievalBridge;
 import java.util.Collection;
 import java.util.List;
 import java.util.Set;
+import java.util.regex.Pattern;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -19,8 +20,20 @@ import org.apache.commons.lang3.StringUtils;
  * declare.
  */
 public final class SearchTemplateCapabilities {
-  /** Template and Mustache-context contract this process implements. */
+  /** Template and Mustache-context contract stored when a write omits it. */
   public static final int API_VERSION = 1;
+
+  /**
+   * Contract that adds the semantic fields: retrieval {@code combine}, {@code querySource}, {@code
+   * anchor}, {@code profileScore}, {@code minSimilarity}, and {@code vectorBody}, plus {@code
+   * profiles}, {@code scope}, and route {@code match}. A template that sets one must resolve to
+   * this version, so a release that does not read those fields rejects the template instead of
+   * running it without them.
+   */
+  public static final int SEMANTIC_API_VERSION = 2;
+
+  /** Contracts this process implements. */
+  public static final Set<Integer> API_VERSIONS = Set.of(API_VERSION, SEMANTIC_API_VERSION);
 
   /**
    * Capability names a template may declare. A name outside this set is rejected at write and at
@@ -102,6 +115,26 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> FACETS = Set.of("firstMember", "patchFromMembers", "candidates");
   public static final Set<String> MODES = Set.of("keyword", "vector");
 
+  public static final String COMBINE_VECTOR = "vector";
+  public static final String COMBINE_KEYWORD_RERANK = "keywordRerank";
+
+  /** Closed {@code retrieval.combine} values. Unset is keyword. */
+  public static final Set<String> COMBINES =
+      Set.of(COMBINE_VECTOR, COMBINE_KEYWORD_RERANK, "vectorThenKeyword", "vectorFilter");
+
+  public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
+  public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
+  public static final String PROFILE_SCORE_WEIGHTED_SUM = "weightedSum";
+  public static final Set<String> PROFILE_SCORES = Set.of("best", PROFILE_SCORE_WEIGHTED_SUM);
+  public static final Set<String> ANCHOR_URN_PARAMETERS = Set.of("raw");
+
+  /**
+   * {@code embeddingClausesJson} and {@code embeddingField} under any Mustache tag: variable,
+   * unescaped, triple braces, section, inverted section, or section end.
+   */
+  private static final Pattern EMBEDDING_PLACEHOLDER =
+      Pattern.compile("\\{\\{\\{?\\s*[&#^/]?\\s*(?:embeddingClausesJson|embeddingField)\\s*}?}}");
+
   private SearchTemplateCapabilities() {}
 
   /**
@@ -127,12 +160,14 @@ public final class SearchTemplateCapabilities {
 
   public static void requireDeclared(
       @Nullable Integer apiVersion, @Nullable Collection<String> capabilities) {
-    if (apiVersion != null && apiVersion != API_VERSION) {
+    if (apiVersion != null && !API_VERSIONS.contains(apiVersion)) {
       throw new SearchTemplateException(
           "Search template apiVersion "
               + apiVersion
               + " is not supported. This release implements "
-              + API_VERSION);
+              + API_VERSION
+              + " and "
+              + SEMANTIC_API_VERSION);
     }
     if (capabilities == null) {
       return;
@@ -214,7 +249,9 @@ public final class SearchTemplateCapabilities {
         return "rankingWindow";
       }
     }
-    if (template.getKnn() != null && !scroll && !documentRerank) {
+    // keywordRerank serves keyword order when the rerank cannot run, so it is not a capability
+    // failure. This release reads that shape and does not execute the rerank.
+    if (template.getKnn() != null && !scroll && !documentRerank && !keywordRerank(template)) {
       return "knn";
     }
     if (template.getLadder() != null
@@ -223,6 +260,25 @@ public final class SearchTemplateCapabilities {
         && "merge".equalsIgnoreCase(template.getLadder().getJoin())) {
       return "mergeJoin";
     }
+    if (template.getScope() != null) {
+      return "scope";
+    }
+    if (citesEmbeddingPlaceholders(template)) {
+      return "nativeQuery";
+    }
+    // This release resolves no embedding profile. A keywordRerank rung only uses the selection
+    // inside the rerank, which this release skips while keeping keyword order, so it still binds.
+    // Any other shape that selects profiles fails closed.
+    if (!keywordRerank(template)) {
+      if (template.getProfiles() != null) {
+        return "profiles";
+      }
+      if (template.getRetrieval() != null
+          && template.getRetrieval().hasProfileScore()
+          && StringUtils.isNotBlank(template.getRetrieval().getProfileScore())) {
+        return "profileScore";
+      }
+    }
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     if (retrieval == null) {
       return null;
@@ -230,6 +286,13 @@ public final class SearchTemplateCapabilities {
     String mode = retrieval.hasMode() ? retrieval.getMode() : null;
     if (mode != null && !mode.isBlank() && !"keyword".equals(mode)) {
       return "retrievalMode";
+    }
+    String combine = combine(retrieval);
+    if (combine != null && !COMBINE_KEYWORD_RERANK.equals(combine)) {
+      return "retrievalCombine";
+    }
+    if (retrieval.hasVectorBody() && StringUtils.isNotBlank(retrieval.getVectorBody())) {
+      return "vectorBody";
     }
     SearchTemplateRetrievalBridge bridge = retrieval.hasBridge() ? retrieval.getBridge() : null;
     if (bridge != null && !SearchTemplateLoader.emptyRetrieval(retrievalWithBridge(bridge))) {
@@ -251,9 +314,98 @@ public final class SearchTemplateCapabilities {
       case "knn" -> "knn";
       case "mergeJoin" -> "merge join";
       case "retrievalMode" -> "retrieval mode " + retrieval.getMode();
+      case "retrievalCombine" -> "retrieval combine " + retrieval.getCombine();
+      case "vectorBody" -> "retrieval vectorBody";
+      case "scope" -> "scope";
+      case "profiles" -> "profiles";
+      case "profileScore" -> "retrieval profileScore";
+      case "nativeQuery" -> "native embedding placeholders";
       case "retrievalBridge" -> "retrieval bridge";
       default -> code;
     };
+  }
+
+  /**
+   * The effective combine: {@code retrieval.combine}, else {@code vector} when {@code mode} is
+   * vector, else null for keyword.
+   */
+  @Nullable
+  public static String combine(@Nullable SearchTemplateRetrieval retrieval) {
+    if (retrieval == null) {
+      return null;
+    }
+    if (retrieval.hasCombine() && StringUtils.isNotBlank(retrieval.getCombine())) {
+      return retrieval.getCombine();
+    }
+    if (retrieval.hasMode() && COMBINE_VECTOR.equals(retrieval.getMode())) {
+      return COMBINE_VECTOR;
+    }
+    return null;
+  }
+
+  /**
+   * True when a body cites the native embedding placeholders, which only the later native mixed
+   * query renders.
+   */
+  public static boolean citesEmbeddingPlaceholders(@Nullable String body) {
+    return body != null && EMBEDDING_PLACEHOLDER.matcher(body).find();
+  }
+
+  // Every body section is scanned: a citation outside the native query sections never renders,
+  // so it must fail closed rather than serve an empty value. The write check in
+  // SearchTemplatePolicyChecks scans the same sections.
+  private static boolean citesEmbeddingPlaceholders(@Nonnull MergedSearchTemplate template) {
+    if (citesEmbeddingPlaceholders(template.getQuery())
+        || citesEmbeddingPlaceholders(template.getClauses())
+        || citesEmbeddingPlaceholders(template.getFunctionScore())
+        || citesEmbeddingPlaceholders(template.getRescore())
+        || citesEmbeddingPlaceholders(template.getKnn())
+        || citesEmbeddingPlaceholders(template.getAggregations())
+        || citesEmbeddingPlaceholders(template.getSort())) {
+      return true;
+    }
+    for (String fragment : template.getQueryFragments().values()) {
+      if (citesEmbeddingPlaceholders(fragment)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  /** Rejects a merged template that sets a semantic field but resolves to an earlier contract. */
+  public static void requireSemanticApiVersion(@Nonnull MergedSearchTemplate template) {
+    if (template.getApiVersion() < SEMANTIC_API_VERSION && usesSemanticFields(template)) {
+      throw new SearchTemplateException(
+          "Search template semantic fields require apiVersion " + SEMANTIC_API_VERSION);
+    }
+  }
+
+  private static boolean usesSemanticFields(@Nonnull MergedSearchTemplate template) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null
+        && ((retrieval.hasCombine() && StringUtils.isNotBlank(retrieval.getCombine()))
+            || (retrieval.hasQuerySource() && StringUtils.isNotBlank(retrieval.getQuerySource()))
+            || retrieval.hasAnchor()
+            || (retrieval.hasProfileScore() && StringUtils.isNotBlank(retrieval.getProfileScore()))
+            || retrieval.hasMinSimilarity()
+            || (retrieval.hasVectorBody() && StringUtils.isNotBlank(retrieval.getVectorBody())))) {
+      return true;
+    }
+    if (template.getProfiles() != null
+        || template.getScope() != null
+        || citesEmbeddingPlaceholders(template)) {
+      return true;
+    }
+    for (SearchTemplateRoutes.Compiled route : template.getRoutes()) {
+      if (route.match() != null) {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
+    return COMBINE_KEYWORD_RERANK.equals(combine(template.getRetrieval()));
   }
 
   /**

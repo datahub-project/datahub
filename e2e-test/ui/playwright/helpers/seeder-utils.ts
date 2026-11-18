@@ -19,6 +19,87 @@ import type { DataHubLogger } from '../utils/logger';
 
 export type Urn = string;
 
+// ── Waiting for seeded writes to settle ─────────────────────────────────────
+
+const LAG_ENDPOINTS = ['mcp', 'mcl', 'mcl-timeseries'] as const;
+
+/**
+ * Sum of committed-offset lag across the MCP, MCL and timeseries-MCL consumers,
+ * or null when the lag is unknown: an endpoint cannot be read (missing privilege,
+ * older GMS), or it answers without lag figures. GMS catches offset-read failures
+ * and still returns 200, with no consumer groups or no topics, or with a topic
+ * whose totalLag is missing, so none of those count as zero lag.
+ * Same endpoints and envelope as smoke-test/utilities/consistency_utils.py.
+ */
+export async function totalConsumerLag(api: APIRequestContext, gmsBaseUrl: string): Promise<number | null> {
+  let total = 0;
+  for (const endpoint of LAG_ENDPOINTS) {
+    const resp = await api
+      .get(`${gmsBaseUrl}/openapi/operations/messaging/${endpoint}/consumer/lag?skipCache=true`, {
+        failOnStatusCode: false,
+        timeout: 5_000,
+      })
+      .catch(() => null);
+    if (!resp?.ok()) return null;
+    const body = (await resp.json().catch(() => null)) as {
+      consumerGroups?: Record<string, Record<string, { metrics?: { totalLag?: number | null } | null }>>;
+    } | null;
+    const groups = Object.values(body?.consumerGroups ?? {});
+    if (groups.length === 0) return null;
+    for (const topics of groups) {
+      const infos = Object.values(topics ?? {});
+      if (infos.length === 0) return null;
+      for (const info of infos) {
+        const lag = info?.metrics?.totalLag;
+        if (typeof lag !== 'number') return null;
+        total += lag;
+      }
+    }
+  }
+  return total;
+}
+
+/**
+ * Wait until the writes just sent to GMS have been consumed by every hook.
+ *
+ * The search index writes and the other async MCL hooks (siblings, lineage features, …)
+ * run in the consumers, which consumer lag tracks. Zero must be read twice in a row: an
+ * MCP can be committed a moment before the MCL it produced shows up as lag.
+ *
+ * Zero lag means the bulk writes were acknowledged, not that they are searchable: the
+ * index refresh (1s) can still be pending, so `refreshMs` is waited after lag settles.
+ *
+ * Falls back to the old fixed wait when lag cannot be read, e.g. on a deployed
+ * environment where the token lacks the system-status privilege.
+ */
+export async function waitForSeededWritesToSettle(
+  api: APIRequestContext,
+  gmsBaseUrl: string,
+  { minMs = 1_500, timeoutMs = 30_000, fallbackMs = 15_000, pollMs = 500, refreshMs = 1_500 } = {},
+): Promise<{ waitedMs: number; usedFallback: boolean; settled: boolean }> {
+  const start = Date.now();
+  const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms));
+  await sleep(minMs);
+  let zeroReads = 0;
+  while (Date.now() - start < timeoutMs) {
+    const lag = await totalConsumerLag(api, gmsBaseUrl);
+    if (lag === null) {
+      await sleep(Math.max(0, fallbackMs - (Date.now() - start)));
+      return { waitedMs: Date.now() - start, usedFallback: true, settled: false };
+    }
+    zeroReads = lag === 0 ? zeroReads + 1 : 0;
+    if (zeroReads >= 2) {
+      await sleep(refreshMs);
+      return { waitedMs: Date.now() - start, usedFallback: false, settled: true };
+    }
+    await sleep(pollMs);
+  }
+  // Timed out with lag still present (other shards keep writing); seeding goes on, but the
+  // last acknowledged writes still need the index refresh before they are searchable.
+  await sleep(refreshMs);
+  return { waitedMs: Date.now() - start, usedFallback: false, settled: false };
+}
+
 // ── Cross-worker artifact locking ────────────────────────────────────────────
 
 /**

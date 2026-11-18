@@ -488,6 +488,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           java: ${{ env.IMAGE_BUILD_MODULES != '' }}
           python: ${{ env.IMAGE_BUILD_MODULES != '' }}
 
@@ -1057,6 +1058,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
@@ -1309,6 +1311,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' && steps.retry-check.outputs.parse_result != 'all_passed' }}
 
       - name: Login to DockerHub
@@ -1618,6 +1621,7 @@ jobs:
       - name: Set up toolchain
         uses: ./.github/actions/setup-toolchain
         with:
+          node: true
           gradle: ${{ needs.setup.outputs.use_depot_cache != 'true' }}
 
       - name: Free up disk space
@@ -1683,7 +1687,7 @@ jobs:
 
       # The classical provider is lexical hashing, not semantic search; GMS refuses
       # it without the explicit opt-in. system-update reads the same env file,
-      # which is what adds the hash_v1_2048 field to the semantic index before
+      # which is what adds the hash_v1_2048 field to the V3 document index before
       # GMS starts.
       - name: Write GMS AI env file (classical)
         if: matrix.provider == 'classical'
@@ -1722,7 +1726,7 @@ jobs:
           DATAHUB_TOKEN_SERVICE_SIGNING_KEY=${SIGNING_KEY} \
           DATAHUB_TOKEN_SERVICE_SALT=${SIGNING_SALT} \
           DATAHUB_SEARCH_IMAGE=opensearchproject/opensearch \
-          DATAHUB_SEARCH_TAG=2.19.3 \
+          DATAHUB_SEARCH_TAG=3.7.0 \
           XPACK_SECURITY_ENABLED=plugins.security.disabled=true \
           ELASTICSEARCH_USE_SSL=false \
           USE_AWS_ELASTICSEARCH=true \

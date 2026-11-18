@@ -42,13 +42,10 @@ public class ElasticSearchServiceFactoryHybridTest {
   }
 
   @Test
-  public void testRequiresV3KeywordAndSemanticReads() {
+  public void testRequiresSemanticReadsOnV3() {
     expectThrows(
         IllegalStateException.class,
         () -> build(entityIndex(v3 -> v3.keywordReadEnabled(false)), provider));
-    expectThrows(
-        IllegalStateException.class,
-        () -> build(entityIndex(v3 -> v3.semanticReadEnabled(false)), provider));
   }
 
   @Test
@@ -101,7 +98,6 @@ public class ElasticSearchServiceFactoryHybridTest {
         EntityIndexVersionConfiguration.builder()
             .enabled(true)
             .keywordReadEnabled(true)
-            .semanticReadEnabled(true)
             .hybridReadEnabled(true);
     v3.accept(v3Builder);
     EmbeddingProviderConfiguration providerConfiguration = new EmbeddingProviderConfiguration();

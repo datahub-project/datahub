@@ -6,6 +6,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 
 /**
  * Builds the OpenSearch 2.x kNN query map from a {@link KnnSearchRequest}.
@@ -56,7 +57,9 @@ public final class OpenSearch2KnnQueryBuilder {
     if (req.numCandidates() > req.k()) {
       knnParams.put("method_parameters", Map.of("ef_search", req.numCandidates()));
     }
-    req.filter().ifPresent(f -> knnParams.put("filter", f));
+    req.filter()
+        .map(OpenSearch2KnnQueryBuilder::withRequiredOrGroups)
+        .ifPresent(f -> knnParams.put("filter", f));
 
     Map<String, Object> query = new HashMap<>();
     query.put(
@@ -77,6 +80,67 @@ public final class OpenSearch2KnnQueryBuilder {
     }
     body.put("query", query);
     return body;
+  }
+
+  /**
+   * Moves a top-level OR that sits next to required clauses into one required clause, so the root
+   * filter keeps parent-document scope inside the nested kNN query.
+   *
+   * <p>OpenSearch 2.x decides where a nested kNN filter runs from the filter's required clauses
+   * alone ({@code NestedHelper#mightMatchNestedDocs}): when a bool has any, its {@code should}
+   * clauses are not looked at. A filter shaped {@code must: [latest-version clause], should:
+   * [group, ...], minimum_should_match: 1} is therefore judged by the latest-version clause, whose
+   * "not versioned" branch might match chunk documents. The whole filter then runs against the
+   * chunks, which carry no root fields, and kNN finds no candidates. Written as {@code filter:
+   * [{bool: {should, minimum_should_match}}]} it matches the same documents, and the root-field
+   * clauses inside the groups keep it at parent scope. OpenSearch 3.x scopes these filters itself
+   * (opensearch-project/k-NN#2990).
+   */
+  @Nonnull
+  private static Map<String, Object> withRequiredOrGroups(@Nonnull Map<String, Object> filter) {
+    if (!(filter.get("bool") instanceof Map<?, ?> bool)
+        || !(bool.get("should") instanceof List<?> groups)
+        || groups.isEmpty()
+        || !requiresShouldMatch(bool.get("minimum_should_match"))
+        || (clauses(bool.get("must")).isEmpty() && clauses(bool.get("filter")).isEmpty())) {
+      return filter;
+    }
+    Map<String, Object> rewritten = new HashMap<>();
+    bool.forEach((key, value) -> rewritten.put(String.valueOf(key), value));
+    rewritten.remove("should");
+    rewritten.remove("minimum_should_match");
+    List<Object> required = new ArrayList<>(clauses(bool.get("filter")));
+    required.add(
+        Map.of(
+            "bool",
+            Map.of("should", groups, "minimum_should_match", bool.get("minimum_should_match"))));
+    rewritten.put("filter", required);
+    return Map.of("bool", rewritten);
+  }
+
+  /** A bool clause value in either JSON form: an array of clauses, or a single clause. */
+  @Nonnull
+  private static List<?> clauses(@Nullable Object value) {
+    if (value instanceof List<?> list) {
+      return list;
+    }
+    return value == null ? List.of() : List.of(value);
+  }
+
+  /**
+   * Whether {@code minimum_should_match} makes at least one {@code should} clause mandatory.
+   * Without it, {@code should} clauses next to {@code must} or {@code filter} only affect scoring,
+   * and making them required would change which documents match.
+   */
+  private static boolean requiresShouldMatch(@Nullable Object minimumShouldMatch) {
+    if (minimumShouldMatch == null) {
+      return false;
+    }
+    try {
+      return Integer.parseInt(String.valueOf(minimumShouldMatch).trim()) >= 1;
+    } catch (NumberFormatException e) {
+      return false;
+    }
   }
 
   @Nonnull
