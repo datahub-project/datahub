@@ -2168,13 +2168,14 @@ class TestGetTraceStatus:
 
 
 class TestOpenApiModeSelection:
-    def test_sdk_client_mode_no_env_var(self, mock_session, mock_response):
-        """Test that SDK client mode defaults to OpenAPI when no env var is present"""
+    @pytest.mark.parametrize("client_mode", [ClientMode.SDK, ClientMode.MCP])
+    def test_sdk_client_mode_no_env_var(self, mock_session, mock_response, client_mode):
+        """Test that SDK and MCP client modes default to OpenAPI when no env var is present"""
         mock_session.get.return_value = mock_response
 
         # Ensure no env vars
         with patch.dict(os.environ, {}, clear=True):
-            emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=ClientMode.SDK)
+            emitter = DataHubRestEmitter(MOCK_GMS_ENDPOINT, client_mode=client_mode)
             emitter._session = mock_session
             emitter.test_connection()
             assert emitter._openapi_ingestion is True

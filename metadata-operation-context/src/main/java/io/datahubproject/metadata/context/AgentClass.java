@@ -17,6 +17,8 @@ public enum AgentClass {
   CLI(false),
   INGESTION(false),
   SDK(false),
+  /** Model Context Protocol server calling GMS on behalf of an AI agent. */
+  MCP(false),
   ROBOT(false),
   CRAWLER(false),
   LIBRARY(false),

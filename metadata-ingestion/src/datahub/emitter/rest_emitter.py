@@ -730,7 +730,9 @@ class DataHubRestEmitter(Closeable, Emitter):
             # No constructor parameter
             if (
                 not get_rest_emitter_default_endpoint()
-                and self._session_config.client_mode == ClientMode.SDK
+                # MCP servers are SDK clients that report a distinct mode for usage
+                # attribution, so they get the same OpenAPI default.
+                and self._session_config.client_mode in (ClientMode.SDK, ClientMode.MCP)
                 and self._server_config.supports_feature(ServiceFeature.OPEN_API_SDK)
             ):
                 # Enable if SDK client and no environment variable specified

@@ -1142,7 +1142,7 @@ GMS aggregates API usage in-memory (`datahub.usage.aggregation`), flushes on a s
 
 | Tag / metric              | Source                                   | Meaning                                                                          |
 | ------------------------- | ---------------------------------------- | -------------------------------------------------------------------------------- |
-| `agent_class`             | User-Agent parsing (`AgentClass`)        | Client type: browser, CLI, ingestion, SDK, etc.                                  |
+| `agent_class`             | User-Agent parsing (`AgentClass`)        | Client type: browser, CLI, ingestion, SDK, MCP, etc.                             |
 | `actor_class`             | `UsageActorClassResolver` at record time | Usage bucket: `regular`, `system`, or `support` (support users and admin actors) |
 | Legacy JMX `userCategory` | `UsageActorClass.fromActorUrn()`         | URN-only classification; support users remain `regular` on this path             |
 
