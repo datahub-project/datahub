@@ -284,6 +284,11 @@ public final class SearchTemplateCapabilities {
       if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG && scroll) {
         return "componentScroll";
       }
+      // An own-rung component returns its own hits, which the rung's scope cannot restrict
+      if (component.getMode() == SearchTemplateComponentMode.OWN_RUNG
+          && template.getScope() != null) {
+        return "componentScope";
+      }
     }
     SearchTemplateRanking ranking = template.getRanking();
     if (ranking != null) {
@@ -353,6 +358,7 @@ public final class SearchTemplateCapabilities {
     return switch (code) {
       case "component" -> "component";
       case "componentScroll" -> "component scroll";
+      case "componentScope" -> "own-rung component on a scoped rung";
       case "rankingPreset" -> "ranking preset " + ranking.getPreset();
       case "rankingWindow" -> "ranking windowSizer " + ranking.getWindowSizer();
       case "knn" -> "knn";
