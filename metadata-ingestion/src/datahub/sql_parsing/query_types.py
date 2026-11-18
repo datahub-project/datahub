@@ -9,6 +9,25 @@ from datahub.sql_parsing.sqlglot_utils import (
     is_dialect_instance,
 )
 
+# Databricks COPY may quote storage paths as Identifier; only known schemes are URIs.
+_COPY_SOURCE_URI_SCHEMES = frozenset(
+    {
+        "s3",
+        "s3a",
+        "s3n",
+        "gs",
+        "gcs",
+        "abfs",
+        "abfss",
+        "wasb",
+        "wasbs",
+        "adl",
+        "dbfs",
+        "hdfs",
+        "file",
+    }
+)
+
 
 def _is_temp_table(table: sqlglot.exp.Table, dialect: sqlglot.Dialect) -> bool:
     identifier: sqlglot.exp.Identifier = table.this
@@ -44,11 +63,14 @@ def is_copy_source_uri_table(table: sqlglot.exp.Table) -> bool:
     table_name = table.this
     if isinstance(table_name, sqlglot.exp.Literal):
         return True
-    return (
+    if not (
         isinstance(table_name, sqlglot.exp.Identifier)
-        and bool(table_name.args.get("quoted"))
+        and table_name.args.get("quoted")
         and "://" in table_name.name
-    )
+    ):
+        return False
+    scheme = table_name.name.split("://", 1)[0].lower()
+    return scheme in _COPY_SOURCE_URI_SCHEMES
 
 
 def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
@@ -61,22 +83,31 @@ def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
     )
 
 
-def is_copy_load(expression: sqlglot.exp.Expr) -> bool:
+def get_copy_load_target(
+    expression: sqlglot.exp.Expr,
+) -> Optional[sqlglot.exp.Table]:
     if not isinstance(expression, sqlglot.exp.Copy):
-        return False
+        return None
     if not expression.args.get("kind"):
-        return False
+        return None
 
     copy_target = expression.this
     if isinstance(copy_target, sqlglot.exp.Table):
-        return not is_stage_or_uri_table(copy_target)
-    if isinstance(copy_target, sqlglot.exp.Schema):
+        if is_stage_or_uri_table(copy_target):
+            return None
+        return copy_target
+    if isinstance(copy_target, sqlglot.exp.Schema) and isinstance(
+        copy_target.this, sqlglot.exp.Table
+    ):
         inner = copy_target.this
-        if isinstance(inner, sqlglot.exp.Table):
-            return not is_stage_or_uri_table(inner)
-        if isinstance(inner, sqlglot.exp.Identifier):
-            return True
-    return False
+        if is_stage_or_uri_table(inner):
+            return None
+        return inner
+    return None
+
+
+def is_copy_load(expression: sqlglot.exp.Expr) -> bool:
+    return get_copy_load_target(expression) is not None
 
 
 def _get_create_type_from_kind(kind: Optional[str]) -> QueryType:
