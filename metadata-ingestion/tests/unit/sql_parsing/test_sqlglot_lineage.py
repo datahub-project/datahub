@@ -452,6 +452,31 @@ FROM source_db.dbo.source_table
     )
 
 
+def test_insert_column_list_mapping_retargets_column_logic_alias() -> None:
+    # The column logic is rendered with the SELECT output name as its
+    # trailing alias; when the INSERT list renames the output, the logic
+    # alias follows, for plain copies and computed expressions alike.
+    result = sqlglot_lineage(
+        """\
+INSERT INTO Foo.Items (ID, ItemName)
+SELECT TempID, UPPER(Name)
+FROM Foo.SalesReason
+""",
+        _schema_resolver("tsql", {}),
+        default_db="my_db",
+        default_schema="my_schema",
+    )
+    assert result.debug_info.column_error is None
+    assert {
+        info.downstream.column: info.logic.column_logic
+        for info in result.column_lineage or []
+        if info.logic
+    } == {
+        "id": "[salesreason].[tempid] AS [id]",
+        "itemname": "UPPER([salesreason].[name]) AS [itemname]",
+    }
+
+
 @pytest.mark.parametrize(
     "platform", ["snowflake", "postgres", "bigquery", "redshift", "duckdb"]
 )

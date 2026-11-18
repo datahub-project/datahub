@@ -1624,12 +1624,48 @@ def _insert_column_names(
     return [col.name for col in statement.this.expressions]
 
 
+def _retarget_column_logic_alias(
+    info: _ColumnLineageInfo,
+    *,
+    output_name: str,
+    downstream_column: str,
+    dialect: sqlglot.Dialect,
+) -> None:
+    # The column logic is rendered with the SELECT output name as its
+    # trailing alias (e.g. "[src].[tempid] AS [tempid]"). When the INSERT
+    # list renames the output, retarget that alias as well, so the logic
+    # keeps describing the expression as it lands in the downstream column.
+    if info.logic is None:
+        return
+    head, sep, tail = info.logic.column_logic.rpartition(" AS ")
+    if not sep:
+        return
+    try:
+        tail_expression = sqlglot.parse_one(tail, read=dialect)
+    except sqlglot.errors.SqlglotError:
+        return
+    if isinstance(tail_expression, sqlglot.exp.Column):
+        tail_expression = tail_expression.this
+    if not isinstance(tail_expression, sqlglot.exp.Identifier):
+        return
+    if tail_expression.name.lower() != output_name.lower():
+        return
+    new_tail = sqlglot.exp.to_identifier(
+        downstream_column, quoted=tail_expression.args.get("quoted", False)
+    ).sql(dialect=dialect)
+    info.logic = ColumnTransformation(
+        is_direct_copy=info.logic.is_direct_copy,
+        column_logic=f"{head}{sep}{new_tail}",
+    )
+
+
 def _rename_insert_output_columns(
     column_lineage: List[_ColumnLineageInfo],
     *,
     statement: sqlglot.exp.Expression,
     select_statement: sqlglot.exp.Expression,
     column_resolver: _ColumnResolver,
+    dialect: sqlglot.Dialect,
 ) -> List[_ColumnLineageInfo]:
     insert_columns = _insert_column_names(statement)
     if not insert_columns:
@@ -1679,9 +1715,17 @@ def _rename_insert_output_columns(
     # The INSERT list name wins over the casing computed from the SELECT:
     # it names the actual target column, so resolve it against the target
     # schema the same way output columns are resolved.
-    for info, insert_column in zip(column_lineage, insert_columns, strict=True):
+    for info, insert_column, output_name in zip(
+        column_lineage, insert_columns, output_names, strict=True
+    ):
         info.downstream.column = column_resolver.schema_aware_fuzzy_column_resolve(
             info.downstream.table, insert_column
+        )
+        _retarget_column_logic_alias(
+            info,
+            output_name=output_name,
+            downstream_column=info.downstream.column,
+            dialect=dialect,
         )
     return column_lineage
 
@@ -1798,6 +1842,7 @@ def _column_level_lineage(
         statement=statement,
         select_statement=select_statement,
         column_resolver=column_resolver,
+        dialect=dialect,
     )
 
     joins: Optional[List[_JoinInfo]] = None
