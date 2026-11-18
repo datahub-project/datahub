@@ -22,6 +22,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.SetMode;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -76,6 +77,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -717,6 +719,82 @@ public class ESSearchDAOVectorRetrievalTest {
       release.countDown();
       ladder.shutdownNow();
     }
+  }
+
+  @Test
+  public void testAPageAcrossTheBatchSeamRunsOnceThroughTheCache() throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    // The first kNN call answers; a second one would fail over to the keyword rung
+    List<KnnSearchResponse.Hit> neighbors =
+        hits(IntStream.range(0, 300).mapToDouble(i -> 0.99 - i * 0.001).toArray());
+    AtomicInteger calls = new AtomicInteger();
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              if (calls.incrementAndGet() > 1) {
+                throw new IOException("kNN unavailable");
+              }
+              return new KnnSearchResponse(
+                  neighbors.subList(0, ((KnnSearchRequest) invocation.getArgument(1)).k()));
+            });
+
+    SearchResult page =
+        cached(dao(null, embedding()))
+            .search(
+                context(DOCUMENT, f -> {}),
+                DOCUMENT,
+                "quarterly revenue",
+                null,
+                null,
+                95,
+                10,
+                List.of());
+
+    // One execution of the vector rung serves the whole page: no keyword rows are mixed in
+    assertEquals(calls.get(), 1);
+    assertEquals(
+        urns(page), IntStream.range(95, 105).mapToObj(i -> "urn:li:document:d" + i).toList());
+  }
+
+  @Test
+  public void testACountOnlyPageSizeSelectRoutesTheSameThroughTheCache() throws Exception {
+    String paged = "urn:li:searchTemplate:paged";
+    store(vector(r -> {}));
+    // A keyword root that runs only for a page with rows; a count goes to the vector rung
+    SearchTemplateProperties root = keyword();
+    root.setLadder(
+        new SearchTemplateLadder()
+            .setSelect(new StringArray(List.of("pageSize")))
+            .setNext(UrnUtils.getUrn(VECTOR_URN)));
+    harness.store(paged, root);
+    List<KnnSearchResponse.Hit> neighbors =
+        hits(IntStream.range(0, 600).mapToDouble(i -> 0.99 - i * 0.0005).toArray());
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation ->
+                new KnnSearchResponse(
+                    neighbors.subList(0, ((KnnSearchRequest) invocation.getArgument(1)).k())));
+    ESSearchDAO dao = dao(null, embedding());
+
+    SearchResult direct =
+        search(dao, pinned(context(DOCUMENT, f -> {}), paged), null, 0, 0, DOCUMENT);
+    SearchResult throughCache =
+        cached(dao)
+            .search(
+                pinned(context(DOCUMENT, f -> {}), paged),
+                DOCUMENT,
+                "quarterly revenue",
+                null,
+                null,
+                0,
+                0,
+                List.of());
+
+    assertEquals(direct.getNumEntities().intValue(), 500);
+    assertEquals(throughCache.getNumEntities(), direct.getNumEntities());
   }
 
   private CachingEntitySearchService cached(ESSearchDAO dao) {

@@ -137,16 +137,6 @@ final class TemplateVectorSearch {
               + ", and this deployment embeds queries for "
               + embedding.getModelEmbeddingKey());
     }
-    // Run in batches through the search cache, the rung sizes and judges its window from the page
-    // the caller asked for, so every batch reads the same window
-    final int requestedFrom =
-        resolved != null && resolved.getRequestedFrom() != null
-            ? resolved.getRequestedFrom()
-            : from;
-    final int requestedSize =
-        resolved != null && resolved.getRequestedSize() != null
-            ? resolved.getRequestedSize()
-            : pageSize;
     try {
       return retrieve(
           opContext,
@@ -159,8 +149,6 @@ final class TemplateVectorSearch {
           postFilters,
           from,
           pageSize,
-          requestedFrom,
-          requestedSize,
           facets,
           explanation);
     } catch (RuntimeException | IOException e) {
@@ -194,13 +182,11 @@ final class TemplateVectorSearch {
       @Nullable Filter postFilters,
       int from,
       int pageSize,
-      int requestedFrom,
-      int requestedSize,
       @Nonnull List<String> facets,
       @Nonnull VectorRetrievalExplanation explanation)
       throws IOException {
     final Integer cap = template.getRetrieval().getCandidateCap();
-    final int k = SearchTemplateVectorRetrieval.window(cap, requestedFrom, requestedSize);
+    final int k = SearchTemplateVectorRetrieval.window(cap, from, pageSize);
     final Filter filter =
         dao.transformFilter(
             opContext, searched, postFilters, opContext.getSearchContext().getIndexConvention());
@@ -299,7 +285,7 @@ final class TemplateVectorSearch {
         .setOutcome(
             survivors.isEmpty()
                 ? SearchTemplateVectorRetrieval.EMPTY
-                : requestedFrom >= survivors.size()
+                : from >= survivors.size()
                     ? SearchTemplateVectorRetrieval.PAST_WINDOW
                     : SearchTemplateVectorRetrieval.SERVED)
         .setProfile(embedding.getModelEmbeddingKey())

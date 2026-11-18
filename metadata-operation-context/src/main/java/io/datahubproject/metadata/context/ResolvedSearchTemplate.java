@@ -62,16 +62,11 @@ public class ResolvedSearchTemplate {
    */
   @Nullable private String cacheIdentity;
 
-  /** A rung this search may reach retrieves by vector. Set at bind. */
-  private boolean vectorReachable;
-
   /**
-   * The page the caller asked for, when the search runs in batches. A vector rung sizes and judges
-   * its window from it, so it is part of the cache identity when a vector rung is reachable.
+   * A rung this search may reach retrieves by vector, so the search cache runs it once for the
+   * caller's page instead of in batches. Set at bind.
    */
-  @Nullable private Integer requestedFrom;
-
-  @Nullable private Integer requestedSize;
+  private boolean vectorReachable;
 
   /**
    * A vector rung failed and the ladder served its next rung, so the result is not cached and the
@@ -135,11 +130,6 @@ public class ResolvedSearchTemplate {
     this.vectorReachable = vectorReachable;
   }
 
-  public void setRequestedPage(int from, int size) {
-    this.requestedFrom = from;
-    this.requestedSize = size;
-  }
-
   public void setSkipResultCache(boolean skipResultCache) {
     this.skipResultCache = skipResultCache;
   }
@@ -150,9 +140,6 @@ public class ResolvedSearchTemplate {
    */
   @Nonnull
   public String cacheKeyComponent() {
-    String identity = cacheIdentity == null ? urn + "@" + lastModified : cacheIdentity;
-    return vectorReachable && requestedFrom != null
-        ? identity + "|page=" + requestedFrom + ":" + requestedSize
-        : identity;
+    return cacheIdentity == null ? urn + "@" + lastModified : cacheIdentity;
   }
 }

@@ -184,9 +184,9 @@ public class CachingEntitySearchService {
     size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
     OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, false, entityNames);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
-    if (resolved != null) {
-      // A vector rung sizes one window from this page, not from each batch
-      resolved.setRequestedPage(from, size);
+    if (resolved != null && resolved.isVectorReachable()) {
+      return searchOnce(
+          bound, resolved, entityNames, query, filters, sortCriteria, from, size, facets);
     }
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
@@ -211,7 +211,48 @@ public class CachingEntitySearchService {
                     cacheKeyList(facets),
                     querySize),
             enableCache)
-        .getSearchResults(bound, from, size);
+        .getSearchResults(opContext, from, size);
+  }
+
+  /**
+   * A template that can reach a vector rung runs once for the caller's page, not in batches: a
+   * vector rung retrieves one window sized from the page, and the ladder's predicates see the
+   * caller's size. The result is cached under that page, unless a vector rung failed over to the
+   * ladder's next, so the next search tries it again.
+   */
+  @Nonnull
+  private SearchResult searchOnce(
+      @Nonnull OperationContext bound,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames,
+      @Nonnull String query,
+      @Nullable Filter filters,
+      @Nullable List<SortCriterion> sortCriteria,
+      int from,
+      int size,
+      @Nonnull List<String> facets) {
+    final Cache cache = cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME);
+    final Object cacheKey =
+        Septet.with(
+            bound.getSearchContextId(),
+            cacheKeyList(entityNames),
+            query,
+            filters != null ? toJsonString(filters) : null,
+            CollectionUtils.isNotEmpty(sortCriteria) ? toJsonString(sortCriteria) : null,
+            cacheKeyList(facets),
+            new CacheableSearcher.QueryPagination(from, size));
+    if (enableCache(bound.getSearchContext().getSearchFlags())) {
+      final String json = cache.get(cacheKey, String.class);
+      if (json != null) {
+        return toRecordTemplate(SearchResult.class, json);
+      }
+    }
+    final SearchResult result =
+        getRawSearchResults(bound, entityNames, query, filters, sortCriteria, from, size, facets);
+    if (enableCache && !resolved.isSkipResultCache()) {
+      cache.put(cacheKey, toJsonString(result));
+    }
+    return result;
   }
 
   /** Returns cached auto-complete results. */
