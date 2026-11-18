@@ -130,15 +130,15 @@ Native SQL query parsing is supported for `Snowflake`, `Amazon Redshift`, `Oracl
 
 When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNavigation=true])`), the upstream URN is built from the navigation levels in the shape that platform's own source plugin emits:
 
-| Platform                                                                  | URN shape                      |
-| ------------------------------------------------------------------------- | ------------------------------ |
-| Oracle, Hive                                                              | `schema.table`                 |
-| BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix | `database.schema.table`        |
-| Athena                                                                    | `database.table`               |
-| MySQL, Teradata                                                           | `database.table`               |
-| Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
+| Platform                                                                  | URN shape               |
+| ------------------------------------------------------------------------- | ----------------------- |
+| Oracle, Hive                                                              | `schema.table`          |
+| BigQuery, Snowflake, Postgres, MSSQL, Redshift, Databricks, Db2, Informix | `database.schema.table` |
+| Athena                                                                    | `database.table`        |
+| MySQL, Teradata                                                           | `database.table`        |
+| Other platforms (Sybase, Elasticsearch, Excel, ...)                       | not emitted             |
 
-Db2, Informix, Teradata and the other platforms in the last row have no `dataset_type_mapping` key of their own, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default), and takes that entry's `platform_instance` when platform instances are resolved from `dataset_type_mapping`. The other platforms in the table follow their own key, for example `Sql` for MSSQL, `MySQL` or `Snowflake`.
+Db2, Informix and Teradata have no `dataset_type_mapping` key of their own, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default), and takes that entry's `platform_instance` when platform instances are resolved from `dataset_type_mapping`. The other platforms in the table follow their own key, for example `Sql` for MSSQL, `MySQL` or `Snowflake`. ODBC lineage to the platforms in the last row is not emitted: their DataHub sources, where one exists, name datasets differently, so the URNs would not join.
 
 For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database. Navigation with both levels is skipped with a warning unless the two names match, since `database.table` cannot keep a second level without merging tables from different schemas.
 

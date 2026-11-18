@@ -94,7 +94,7 @@ Requirements:
   - **MySQL, Teradata:** `database.table` instead of `database.schema.table` when the schema repeats the database; when they differ, the table is skipped with a warning. `Schema + Table` navigation, previously skipped, now emits `schema.table`. For MySQL, Teradata and Hive ODBC SQL queries, a one-part `dsn_to_database_schema` value now fills only unqualified table names, so `bank.transactions` no longer becomes `employees.bank.transactions`.
   - **Other platforms:** URN shape unchanged.
 
-  ODBC lineage to MSSQL was never emitted before, because its driver name `SQL Server` is not a `dataset_type_mapping` key; it now follows MSSQL's own `Sql` key, as `Sql.Database` lineage does. ODBC lineage to Db2, Informix, Teradata, Sybase and other platforms with no `dataset_type_mapping` key of their own was never emitted before either; it is now emitted while `dataset_type_mapping` includes `Odbc` (the default).
+  ODBC lineage to MSSQL was never emitted before, because its driver name `SQL Server` is not a `dataset_type_mapping` key; it now follows MSSQL's own `Sql` key, as `Sql.Database` lineage does. ODBC lineage to Db2, Informix and Teradata, which have no `dataset_type_mapping` key of their own, was never emitted before either; it is now emitted while `dataset_type_mapping` includes `Odbc` (the default). ODBC lineage to other platforms without a key (Sybase, Elasticsearch, Excel, ...) is still not emitted.
 
   `dsn_to_database_schema`, previously read only for ODBC SQL queries, now also fills levels that navigation leaves out, so navigation that was skipped for a missing level (for example Hive `Database + Table`) can now produce lineage.
 

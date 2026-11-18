@@ -1,6 +1,8 @@
 import pytest
 
+from datahub.ingestion.source.powerbi.config import DATAHUB_PLATFORM_TO_POWERBI_TYPES
 from datahub.ingestion.source.powerbi.m_query.odbc import (
+    ODBC_ONLY_MODELED_PLATFORMS,
     extract_driver,
     extract_dsn,
     extract_platform,
@@ -191,3 +193,18 @@ def test_odbc_tier_platforms_match_odbc_platform_names():
         ORACLE_PLATFORM,
     }
     assert tier_platforms - platform_patterns.keys() == set()
+
+
+def test_odbc_only_modeled_platforms_match_the_modeled_tiers() -> None:
+    """The Odbc dataset_type_mapping fallback must cover exactly the modeled
+    platforms that have no key of their own, so a platform added to a tier set
+    is not silently filtered out (or one left out of them let through)."""
+    modeled = (
+        ODBC_TWO_TIER_PLATFORMS
+        | ODBC_THREE_TIER_PLATFORMS
+        | ODBC_DATABASE_TABLE_PLATFORMS
+        | {ATHENA_PLATFORM}
+    )
+    assert (
+        modeled - DATAHUB_PLATFORM_TO_POWERBI_TYPES.keys()
+    ) == ODBC_ONLY_MODELED_PLATFORMS

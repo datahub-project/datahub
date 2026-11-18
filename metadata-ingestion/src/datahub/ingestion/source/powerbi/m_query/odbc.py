@@ -6,6 +6,13 @@ from typing import Optional, Tuple, Union
 DB2_PLATFORM = "db2"
 INFORMIX_PLATFORM = "informix"
 TERADATA_PLATFORM = "teradata"
+# The ODBC-only platforms whose navigation URN shape OdbcLineage builds to match
+# their own DataHub source. Only these follow the Odbc dataset_type_mapping
+# entry; other ODBC-only platforms (Sybase, Elasticsearch, Excel, ...) keep
+# their lineage filtered out, since their URNs would not join.
+ODBC_ONLY_MODELED_PLATFORMS = frozenset(
+    {DB2_PLATFORM, INFORMIX_PLATFORM, TERADATA_PLATFORM}
+)
 
 server_patterns = [
     r"Server=([^:]+)[:][0-9]+/.*",

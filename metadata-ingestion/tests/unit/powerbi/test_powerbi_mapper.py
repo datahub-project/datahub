@@ -511,12 +511,6 @@ _DATABASE_SCHEMA_TABLE = [
             "urn:li:dataset:(urn:li:dataPlatform:teradata,salesdb.orders,PROD)",
             id="teradata",
         ),
-        pytest.param(
-            "Sybase ASE ODBC Driver",
-            _DATABASE_SCHEMA_TABLE,
-            "urn:li:dataset:(urn:li:dataPlatform:sybase,salesdb.dbo.orders,PROD)",
-            id="sybase",
-        ),
     ],
 )
 def test_extract_lineage_emits_odbc_navigation_upstream(
@@ -536,6 +530,32 @@ def test_extract_lineage_emits_odbc_navigation_upstream(
     assert [u.dataset for item in lineage for u in item.upstreams] == [
         expected_upstream
     ]
+
+
+@pytest.mark.parametrize(
+    "driver",
+    [
+        pytest.param("Sybase ASE ODBC Driver", id="sybase"),
+        pytest.param("Elasticsearch Driver", id="elasticsearch"),
+        pytest.param("Microsoft Excel Driver (*.xls, *.xlsx)", id="excel"),
+    ],
+)
+def test_extract_lineage_skips_odbc_only_platform_with_unmodeled_urn(
+    driver: str,
+) -> None:
+    """Only ODBC-only platforms whose navigation URN shape is modeled follow the
+    Odbc entry; for the others the URN would not join their own source, so the
+    default mapping keeps filtering them out."""
+    config = powerbi_config(extract_column_level_lineage=False)
+    workspace = make_workspace()
+    mapper = make_mapper(config, workspace)
+    dataset = _dataset(
+        expression=_odbc_navigation_m_query(driver, _DATABASE_SCHEMA_TABLE)
+    )
+
+    assert (
+        mapper.extract_lineage(dataset.tables[0], "urn:li:dataset:x", workspace) == []
+    )
 
 
 def test_extract_lineage_skips_odbc_only_platform_when_odbc_is_not_mapped() -> None:

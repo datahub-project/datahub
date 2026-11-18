@@ -39,6 +39,7 @@ from datahub.ingestion.source.common.subtypes import (
     BIContainerSubTypes,
 )
 from datahub.ingestion.source.powerbi.m_query.odbc import (
+    ODBC_ONLY_MODELED_PLATFORMS,
     fold_dsn_case,
     normalize_platform_name,
 )
@@ -1422,8 +1423,8 @@ class PowerBiDashboardSourceConfig(
         # "IBM DB2", "Teradata"), which is not a dataset_type_mapping key. A
         # platform with a SupportedDataPlatform member follows that member's key
         # ("Sql" for SQL Server); one without can never be added to
-        # dataset_type_mapping, so it follows the Odbc entry, for both the
-        # lineage filter and the platform instance.
+        # dataset_type_mapping, so if OdbcLineage models its URN shape it follows
+        # the Odbc entry, for both the lineage filter and the platform instance.
         native_keys = DATAHUB_PLATFORM_TO_POWERBI_TYPES.get(
             platform_pair.datahub_data_platform_name
         )
@@ -1432,6 +1433,8 @@ class PowerBiDashboardSourceConfig(
                 value = self.get_from_dataset_type_mapping(key)
                 if value is not None:
                     return value
+            return None
+        if platform_pair.datahub_data_platform_name not in ODBC_ONLY_MODELED_PLATFORMS:
             return None
         return self.get_from_dataset_type_mapping(
             SupportedDataPlatform.ODBC.value.powerbi_data_platform_name
