@@ -53,7 +53,10 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
 )
 from datahub.ingestion.source.data_lake_common.path_spec import PathSpec
-from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    coerce_profiling_config_instance,
+)
 from datahub.ingestion.source.sql.sql_config import (
     SQLCommonConfig,
     SQLFilterConfig,
@@ -739,13 +742,7 @@ class BigQueryV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # A code caller may pass a ProfilingConfig instance rather than a YAML dict.
-        # Re-validating it as the BigQueryProfilingConfig subclass runs ProfilingConfig's
-        # inherited before-validators, which assume a dict and raise on a model instance;
-        # dump it back to a dict so re-validation runs on plain data.
-        if isinstance(v, ProfilingConfig):
-            return v.dict()
-        return v
+        return coerce_profiling_config_instance(v)
 
     pushdown_deny_usernames: List[str] = Field(
         default=[],

@@ -34,7 +34,10 @@ from datahub.ingestion.glossary.classification_mixin import (
     ClassificationSourceConfigMixin,
 )
 from datahub.ingestion.source.common.subtypes import DatasetContainerSubTypes
-from datahub.ingestion.source.profiling.config import ProfilingConfig
+from datahub.ingestion.source.profiling.config import (
+    ProfilingConfig,
+    coerce_profiling_config_instance,
+)
 from datahub.ingestion.source.snowflake.constants import SnowflakeEdition
 from datahub.ingestion.source.snowflake.snowflake_connection import (
     SnowflakeConnectionConfig,
@@ -518,13 +521,7 @@ class SnowflakeV2Config(
     @field_validator("profiling", mode="before")
     @classmethod
     def coerce_profiling_config(cls, v: object) -> object:
-        # Mirrors BigQueryV2Config: a code caller may pass a ProfilingConfig
-        # instance rather than a YAML dict, and re-validating it as the subclass
-        # runs ProfilingConfig's inherited before-validators, which assume a dict
-        # and raise on a model instance. Dump it so re-validation sees plain data.
-        if isinstance(v, ProfilingConfig):
-            return v.dict()
-        return v
+        return coerce_profiling_config_instance(v)
 
     include_usage_stats: bool = Field(
         default=True,

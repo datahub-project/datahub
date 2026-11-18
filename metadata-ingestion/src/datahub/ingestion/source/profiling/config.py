@@ -508,3 +508,23 @@ class ProfilingConfig(ProfilingBaseConfig):
             for flag in config_dict
             if flag in _PROFILING_FLAGS_TO_REPORT or flag.startswith("include_field_")
         }
+
+
+def coerce_profiling_config_instance(v: object) -> object:
+    """Normalize a `profiling` block so a source's own ProfilingConfig subclass can validate it.
+
+    A code caller may pass a ProfilingConfig instance rather than a YAML dict.
+    Re-validating it as the subclass runs ProfilingConfig's inherited
+    before-validators, which assume a dict and raise on a model instance, so it
+    has to be dumped back to plain data first.
+
+    `exclude_unset` is what makes the dump safe: a full dump carries every
+    field at *this* class's default, which would pin a field the subclass
+    overrides -- `use_sampling`, which BigQuery and Snowflake turn back on --
+    to the shared default and silently profile the whole table. Only the fields
+    the caller (or a before-validator) actually set survive, so everything else
+    falls through to the subclass's own defaults.
+    """
+    if isinstance(v, ProfilingConfig):
+        return v.model_dump(exclude_unset=True)
+    return v
