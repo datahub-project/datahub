@@ -66,7 +66,7 @@ class ConfluenceJiraLinker:
             return self._listed_servers
         self._listed_servers = {}
         try:
-            servers = self.client.list_jira_servers()
+            listing = self.client.list_jira_servers()
         except Exception as e:
             self.report.info(
                 title="Jira server list unavailable",
@@ -74,12 +74,12 @@ class ConfluenceJiraLinker:
                 exc=e,
             )
             return self._listed_servers
-        for server in servers:
+        for server in listing.servers:
             url = server.url.rstrip("/")
             self._listed_servers[server.id] = url
             if server.name:
                 self._listed_servers.setdefault(server.name, url)
-            if server.selected or len(servers) == 1:
+            if server.selected or listing.listed == 1:
                 self._listed_servers.setdefault(_DEFAULT_SERVER, url)
         return self._listed_servers
 

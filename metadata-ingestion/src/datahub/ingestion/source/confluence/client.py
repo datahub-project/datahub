@@ -17,6 +17,7 @@ from datahub.ingestion.source.confluence.models import (
     ConfluencePage,
     ConfluenceUser,
     JiraServer,
+    JiraServerList,
     PageBatch,
     SpaceBatch,
 )
@@ -112,9 +113,13 @@ class ConfluenceClient:
         raw = self.api.get_page_by_id(page_id, expand=VIEW_EXPAND) or {}
         return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
 
-    def list_jira_servers(self) -> List[JiraServer]:
+    def list_jira_servers(self) -> JiraServerList:
+        response = self.api.get(JIRA_SERVERS_PATH) or []
+        if not isinstance(response, list):
+            raise ValueError(f"Expected a list of Jira servers, got {type(response)}")
+        raw_servers: List[Any] = response
         servers = []
-        for raw in self.api.get(JIRA_SERVERS_PATH) or []:
+        for raw in raw_servers:
             try:
                 servers.append(JiraServer.model_validate(raw))
             except ValidationError as e:
@@ -129,7 +134,7 @@ class ConfluenceClient:
                     else None,
                     exc=e,
                 )
-        return servers
+        return JiraServerList(servers=servers, listed=len(raw_servers))
 
     def iter_child_pages(self, page_id: str) -> Iterator[ConfluencePage]:
         """Direct child pages, with the same expand as every other listing, so

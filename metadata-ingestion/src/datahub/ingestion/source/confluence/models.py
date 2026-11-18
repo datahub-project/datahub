@@ -136,6 +136,13 @@ class JiraServer(BaseModel):
     selected: bool = False
 
 
+class JiraServerList(BaseModel):
+    servers: List[JiraServer]
+    # Servers Confluence listed, including any that could not be parsed, so a
+    # skipped server is not mistaken for the site having a single Jira.
+    listed: int
+
+
 class PageBatch(BaseModel):
     pages: List[ConfluencePage]
     # Results the API returned, including any that could not be parsed. Paging

@@ -126,3 +126,19 @@ def test_unreadable_jira_server_is_skipped_and_the_rest_are_kept() -> None:
     assert [w.title for w in linker.report.warnings] == [
         "Skipped unreadable Jira server"
     ]
+
+
+def test_skipped_server_does_not_make_the_other_one_the_default() -> None:
+    api = MagicMock()
+    api.get.return_value = [
+        {"id": "broken", "name": "Site Jira", "selected": True},
+        {"id": "s2", "name": "Legacy Jira", "url": "https://jira.example.com"},
+    ]
+    api.get_page_by_id.return_value = _rendered(
+        '<a href="https://site.example.com/browse/ABC-1">ABC-1</a>'
+    )
+    linker = _linker(api)
+
+    link = linker.for_page("1")(JiraIssueRef(key="ABC-1"))
+
+    assert link == "https://site.example.com/browse/ABC-1"
