@@ -23,7 +23,11 @@ server_patterns = [
     r"Host=([^;]*)",
 ]
 
+# A braced value (dsn={My DSN}) is returned without its braces, as
+# server_patterns does, so the DSN keys every dsn_* mapping and the
+# server_to_platform_instance lookup with one spelling.
 dsn_patterns = [
+    r"DSN\s*=\s*\{([^}]*)\}",
     r"DSN\s*=\s*\"([^\"]+)\"",
     r"DSN\s*=\s*\'([^\']+)\'",
     r"DSN\s*=\s*([^;]+)",

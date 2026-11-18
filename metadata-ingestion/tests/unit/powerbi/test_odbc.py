@@ -1,3 +1,5 @@
+import pytest
+
 from datahub.ingestion.source.powerbi.m_query.odbc import (
     extract_driver,
     extract_dsn,
@@ -128,6 +130,24 @@ def test_dsn_mapping():
             dsn_to_platform_map[dsn]
         )
         assert mapped_platform == expected
+
+
+@pytest.mark.parametrize(
+    "connection_string, expected",
+    [
+        pytest.param(
+            "driver={Oracle in OraClient19Home1};dsn={Oracle Prod}",
+            "Oracle Prod",
+            id="braced",
+        ),
+        pytest.param("driver={X};dsn=Oracle Prod", "Oracle Prod", id="bare"),
+    ],
+)
+def test_extract_dsn_strips_braces_like_extract_server(
+    connection_string: str, expected: str
+) -> None:
+    assert extract_dsn(connection_string) == expected
+    assert extract_server(connection_string) == expected
 
 
 def test_hive_resolves_distinctly_from_hadoop():

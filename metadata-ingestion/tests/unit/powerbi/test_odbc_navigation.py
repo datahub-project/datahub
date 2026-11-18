@@ -412,6 +412,24 @@ _ODBC_NAV_SUCCESS_CASES = [
         "urn:li:dataset:(urn:li:dataPlatform:oracle,mydb.sales.orders,PROD)",
         id="oracle-query-unqualified-falls-back-to-default-schema",
     ),
+    # A braced DSN must key server_to_platform_instance and dsn_to_database_schema
+    # with the same unbraced spelling.
+    pytest.param(
+        'let\n    Source = Odbc.DataSource("driver={Oracle in OraClient19Home1};'
+        'dsn={Oracle Prod}", [HierarchicalNavigation=true]),\n'
+        '    EMPLOYEES_Table = Source{[Name="EMPLOYEES",Kind="Table"]}[Data]\n'
+        "in\n    EMPLOYEES_Table",
+        "EMPLOYEES",
+        "HR.EMPLOYEES",
+        {
+            "server_to_platform_instance": {
+                "Oracle Prod": {"platform_instance": "ora", "default_database": "ORCL"}
+            },
+            "dsn_to_database_schema": {"Oracle Prod": "ORCL.HR"},
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,ora.orcl.hr.employees,PROD)",
+        id="oracle-braced-dsn-one-key-for-both-mappings",
+    ),
     pytest.param(
         _ODBC_MYSQL_NAV_DATABASE_TABLE,
         "employees",
