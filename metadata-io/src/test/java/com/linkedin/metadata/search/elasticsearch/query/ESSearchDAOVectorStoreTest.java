@@ -67,6 +67,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.io.InterruptedIOException;
 import java.time.Duration;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -111,8 +112,8 @@ public class ESSearchDAOVectorStoreTest {
   private VectorStoreConfiguration storeConfig;
   private FakeVectorStore fake;
   private ESSearchDAO dao;
-  // The system the document profile lists
-  private String profileSystem;
+  // The systems the document profile lists
+  private Set<String> profileSystems;
 
   @BeforeMethod
   public void setUp() throws IOException {
@@ -133,7 +134,7 @@ public class ESSearchDAOVectorStoreTest {
     elastic = harness.elastic();
     elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.store(VECTOR_URN, vector(r -> {}));
-    profileSystem = STORE;
+    profileSystems = Set.of(STORE);
     fake = new FakeVectorStore();
     fake.hits =
         List.of(
@@ -310,7 +311,7 @@ public class ESSearchDAOVectorStoreTest {
                 new VectorStoreConfiguration(),
                 STORE,
                 storeConfig));
-    profileSystem = EmbeddingProfileRegistry.OPENSEARCH;
+    profileSystems = Set.of(EmbeddingProfileRegistry.OPENSEARCH);
     when(client.searchKnn(any(), any()))
         .thenReturn(
             new KnnSearchResponse(
@@ -323,6 +324,25 @@ public class ESSearchDAOVectorStoreTest {
         result.getMetadata().getVectorRetrieval().getStore(), EmbeddingProfileRegistry.OPENSEARCH);
     verify(client, times(1)).searchKnn(any(), any());
     assertTrue(fake.requests.isEmpty());
+  }
+
+  @Test
+  public void testOfTwoStoresServingTheProfileTheFirstByNameServes() throws Exception {
+    hydrationReturns(D0);
+    FakeVectorStore declaredFirst = new FakeVectorStore();
+    Map<String, VectorStoreConfiguration> stores = new LinkedHashMap<>();
+    stores.put("zeta", new VectorStoreConfiguration());
+    stores.put("alpha", storeConfig);
+    elastic.getEntityIndex().getSemanticSearch().setStores(stores);
+    dao.setVectorStores(Map.of("zeta", declaredFirst, "alpha", fake));
+    profileSystems = Set.of("zeta", "alpha");
+
+    SearchResult result = search(null, f -> {});
+
+    // The configuration declares zeta first, but alpha sorts first by name, so alpha serves
+    assertEquals(result.getMetadata().getVectorRetrieval().getStore(), "alpha");
+    assertEquals(fake.requests.size(), 1);
+    assertTrue(declaredFirst.requests.isEmpty());
   }
 
   @Test
@@ -522,7 +542,7 @@ public class ESSearchDAOVectorStoreTest {
     return auth;
   }
 
-  /** The document profile, listed on {@link #profileSystem}. */
+  /** The document profile, listed on {@link #profileSystems}. */
   private SearchTemplateGates gates() {
     EmbeddingProfile profile =
         new EmbeddingProfile(
@@ -531,7 +551,7 @@ public class ESSearchDAOVectorStoreTest {
             "text-embedding-3-small",
             "cosine",
             Set.of("document"),
-            Set.of(profileSystem));
+            profileSystems);
     return SearchTemplateGates.of(
         new EmbeddingProfileRegistry(List.of(profile), Map.of("document", MODEL_KEY)),
         elastic.getEntityIndex().getSemanticSearch(),
