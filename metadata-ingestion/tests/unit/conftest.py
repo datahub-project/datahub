@@ -30,8 +30,6 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.metadata.schema_classes import (
-    DatasetSnapshotClass,
-    MetadataChangeEventClass,
     MetadataChangeProposalClass,
     _Aspect,
 )
@@ -92,8 +90,7 @@ def single_aspect(
 
 
 def aspects_by_urn(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[_Aspect]]:
-    """Every aspect emitted per entity urn, whether it came as an MCP (wrapped or
-    raw) or inside an MCE dataset snapshot.
+    """Every aspect emitted per entity urn, from wrapped or raw MCPs.
 
     Raw PATCH proposals carry a JSON patch rather than an aspect, so they have
     nothing to decode and are not included.
@@ -106,14 +103,10 @@ def aspects_by_urn(workunits: Iterable[MetadataWorkUnit]) -> Dict[str, List[_Asp
             if decoded is None:
                 continue
             metadata = decoded
-        if isinstance(metadata, MetadataChangeProposalWrapper):
-            assert metadata.entityUrn is not None
-            if metadata.aspect is not None:
-                aspects.setdefault(metadata.entityUrn, []).append(metadata.aspect)
-        elif isinstance(metadata, MetadataChangeEventClass):
-            snapshot = metadata.proposedSnapshot
-            assert isinstance(snapshot, DatasetSnapshotClass)
-            aspects.setdefault(snapshot.urn, []).extend(snapshot.aspects)
+        assert isinstance(metadata, MetadataChangeProposalWrapper), type(metadata)
+        assert metadata.entityUrn is not None
+        if metadata.aspect is not None:
+            aspects.setdefault(metadata.entityUrn, []).append(metadata.aspect)
     return aspects
 
 

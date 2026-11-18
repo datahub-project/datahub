@@ -304,8 +304,7 @@ ALTER TABLE metadata_aspect_v2 CONVERT TO CHARACTER SET utf8mb4 COLLATE utf8mb4_
 Currently, `user.props` is a file used by the JAAS PropertyFileLoginModule solely for the purpose of **Authentication**. The file is not used as an source from which to
 ingest additional metadata about the user. For that, you'll need to ingest some custom information about your new user using the Rest.li APIs or the [Metadata File ingestion source](../generated/ingestion/sources/metadata-file.md).
 
-For an example of a file that ingests user information, check out [single_mce.json](https://github.com/datahub-project/datahub/blob/master/metadata-ingestion/examples/mce_files/single_mce.json), which ingests a single user object into DataHub. Notice that the "urn" field provided
-will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:
+The `entityUrn` of the user you ingest will need to align with the custom username you've provided in user.props file. For example, if your user.props file contains:
 
 ```
 my-custom-user:my-custom-password
@@ -315,36 +314,19 @@ You'll need to ingest some metadata of the following form to see it inside the D
 
 ```
 {
-  "auditHeader": null,
-  "proposedSnapshot": {
-    "com.linkedin.pegasus2avro.metadata.snapshot.CorpUserSnapshot": {
-      "urn": "urn:li:corpuser:my-custom-user",
-      "aspects": [
-        {
-          "com.linkedin.pegasus2avro.identity.CorpUserInfo": {
-            "active": true,
-            "displayName": {
-              "string": "The name of the custom user"
-            },
-            "email": "my-custom-user-email@example.io",
-            "title": {
-              "string": "Engineer"
-            },
-            "managerUrn": null,
-            "departmentId": null,
-            "departmentName": null,
-            "firstName": null,
-            "lastName": null,
-            "fullName": {
-              "string": "My Custom User"
-            },
-            "countryCode": null
-          }
-        }
-      ]
+  "entityType": "corpuser",
+  "entityUrn": "urn:li:corpuser:my-custom-user",
+  "changeType": "UPSERT",
+  "aspectName": "corpUserInfo",
+  "aspect": {
+    "json": {
+      "active": true,
+      "displayName": "The name of the custom user",
+      "email": "my-custom-user-email@example.io",
+      "title": "Engineer",
+      "fullName": "My Custom User"
     }
-  },
-  "proposedDelta": null
+  }
 }
 ```
 

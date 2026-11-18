@@ -1,31 +1,34 @@
 import json
+import pathlib
 
 import pytest
 
 from datahub.cli import timeline_cli
 from datahub.cli.cli_utils import guess_entity_type, post_entity
-from tests.e2e.utils import ingest_file_via_rest, wait_for_writes_to_sync
+from datahub.emitter.rest_emitter import EmitMode
+from datahub.ingestion.source.file import read_metadata_file
+from tests.e2e.utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
 pytestmark = [pytest.mark.no_cypress_suite1, pytest.mark.domain(Domain.CATALOG)]
 
 
 @pytest.mark.p0
-def test_all(auth_session, graph_client):
+def test_all(graph_client):
     platform = "urn:li:dataPlatform:kafka"
     dataset_name = "test-timeline-sample-kafka"
     env = "PROD"
     dataset_urn = f"urn:li:dataset:({platform},{dataset_name},{env})"
 
-    ingest_file_via_rest(
-        auth_session, "tests/e2e/timeline/timeline_test_data.json", mode="ASYNC"
-    )
-    ingest_file_via_rest(
-        auth_session, "tests/e2e/timeline/timeline_test_datav2.json", mode="ASYNC"
-    )
-    ingest_file_via_rest(
-        auth_session, "tests/e2e/timeline/timeline_test_datav3.json", mode="ASYNC"
-    )
+    # Each file is one dataset version. The timeline groups aspects written at the same
+    # time, so each version goes in one synchronous batch to become one timeline change.
+    for version_file in [
+        "timeline_test_data.json",
+        "timeline_test_datav2.json",
+        "timeline_test_datav3.json",
+    ]:
+        mcps = list(read_metadata_file(pathlib.Path(__file__).parent / version_file))
+        graph_client.emit_mcps(mcps, emit_mode=EmitMode.SYNC_PRIMARY)
 
     res_data = timeline_cli.get_timeline(
         dataset_urn,

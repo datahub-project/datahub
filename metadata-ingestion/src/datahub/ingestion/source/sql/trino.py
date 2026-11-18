@@ -3,7 +3,7 @@ import json
 import logging
 import uuid
 from textwrap import dedent
-from typing import Any, Dict, Iterable, List, Mapping, Optional, Union
+from typing import Any, Dict, Iterable, List, Mapping, Optional
 
 import sqlalchemy
 import trino
@@ -43,7 +43,6 @@ from datahub.ingestion.source.common.data_reader import DataReader
 from datahub.ingestion.source.common.subtypes import SourceCapabilityModifier
 from datahub.ingestion.source.sql.sql_common import (
     SQLAlchemySource,
-    SqlWorkUnit,
     register_custom_type,
 )
 from datahub.ingestion.source.sql.sql_config import (
@@ -521,7 +520,7 @@ class TrinoSource(SQLAlchemySource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         schema_metadata: Optional[SchemaMetadataClass] = None
         for wu in super()._process_table(
             dataset_name, inspector, schema, table, sql_config, data_reader
@@ -542,7 +541,7 @@ class TrinoSource(SQLAlchemySource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         schema_metadata: Optional[SchemaMetadataClass] = None
         for wu in super()._process_view(
             dataset_name, inspector, schema, view, sql_config

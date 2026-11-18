@@ -228,6 +228,5 @@ def test_informix_ingest(informix_runner, pytestconfig, test_resources_dir, tmp_
             r"root\[\d+\]\['aspect'\]\['json'\]\['lastUpdatedTimestamp'\]",
             r"root\[\d+\]\['aspect'\]\['json'\]\['timestampMillis'\]",
             r"root\[\d+\]\['aspect'\]\['json'\].+\[\d+\]\['auditStamp'\]\['time'\]",
-            r"root\[\d+\]\['proposedSnapshot'\].+\['aspects'\].+\['created'\]\['time'\]",
         ],
     )

@@ -5,15 +5,13 @@ from unittest import mock
 from sqlalchemy import create_engine, inspect
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.emitter.mcp_builder import mcps_from_mce
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.source.sql.vertica import VerticaConfig, VerticaSource
 from datahub.ingestion.source.sql.vertica_inspector import VerticaInspector
-from datahub.metadata.schema_classes import MetadataChangeEventClass
 from tests.unit.test_vertica_source import _FakeConnection
 
-# Row = (entity urn, aspect name, aspect JSON). MCEs are expanded to one row per
-# snapshot aspect, in snapshot order, so the rows read the same for MCE and MCP output.
+# Row = (entity urn, aspect name, aspect JSON), one per emitted MCP.
 Row = Tuple[str, str, Dict[str, Any]]
 
 _CATALOG: Dict[str, List[Dict[str, Any]]] = {
@@ -110,16 +108,10 @@ def _run() -> List[Row]:
 
     rows: List[Row] = []
     for wu in workunits:
-        if isinstance(wu.metadata, MetadataChangeEventClass):
-            # Tables and views come from SQLAlchemySource as MCEs; projections
-            # and models must not.
-            assert wu.get_urn() not in _ASPECT_ORDER
-            mcps = list(mcps_from_mce(wu.metadata))
-        else:
-            mcps = [wu.metadata]  # type: ignore[list-item]
-        for mcp in mcps:
-            assert mcp.entityUrn and mcp.aspectName and mcp.aspect
-            rows.append((mcp.entityUrn, mcp.aspectName, mcp.aspect.to_obj()))
+        mcp = wu.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        assert mcp.entityUrn and mcp.aspectName and mcp.aspect
+        rows.append((mcp.entityUrn, mcp.aspectName, mcp.aspect.to_obj()))
     return rows
 
 

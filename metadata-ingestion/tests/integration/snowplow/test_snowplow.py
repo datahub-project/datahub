@@ -100,7 +100,6 @@ def test_snowplow_ingest(pytestconfig, tmp_path, mock_time):
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],
@@ -242,7 +241,6 @@ def test_snowplow_event_specs_and_tracking_plans(pytestconfig, tmp_path, mock_ti
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],
@@ -383,7 +381,6 @@ def test_snowplow_tracking_plans(pytestconfig, tmp_path, mock_time):
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],
@@ -489,7 +486,6 @@ def test_snowplow_pipelines(pytestconfig, tmp_path, mock_time):
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],
@@ -629,7 +625,6 @@ def test_snowplow_enrichments(pytestconfig, tmp_path, mock_time):
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],
@@ -725,7 +720,6 @@ def test_snowplow_iglu_autodiscovery(
         golden_path=golden_file,
         ignore_paths=[
             # Ignore timestamps and run IDs
-            r"root\[\d+\]\['proposedSnapshot'\]\['com\.linkedin\.pegasus2avro\.metadata\.snapshot\.DatasetSnapshot'\]\['aspects'\]\[\d+\]\['com\.linkedin\.pegasus2avro\.schema\.SchemaMetadata'\]\['created'\]",
             r"root\[\d+\]\['systemMetadata'\]\['lastObserved'\]",
             r"root\[\d+\]\['systemMetadata'\]\['runId'\]",
         ],

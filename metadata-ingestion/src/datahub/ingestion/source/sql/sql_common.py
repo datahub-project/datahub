@@ -581,7 +581,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         inspector: Inspector,
         schema: str,
         database: str,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         yield from self.gen_schema_containers(schema=schema, database=database)
 
         if self.config.include_tables:
@@ -608,7 +608,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
                     exc=e,
                 )
 
-    def get_workunits_internal(self) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    def get_workunits_internal(self) -> Iterable[MetadataWorkUnit]:
         sql_config = self.config
         if logger.isEnabledFor(logging.DEBUG):
             # If debug logging is enabled, we also want to echo each SQL query issued.
@@ -775,7 +775,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         inspector: Inspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         tables_seen: Set[str] = set()
         data_reader = self.make_data_reader(inspector)
         with data_reader or contextlib.nullcontext():
@@ -843,7 +843,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         table: str,
         sql_config: SQLCommonConfig,
         data_reader: Optional[DataReader],
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         columns = self._get_columns(dataset_name, inspector, schema, table)
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
@@ -1191,7 +1191,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         inspector: Inspector,
         schema: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         try:
             for view in self._get_view_names(inspector, schema):
                 dataset_name = self.get_identifier(
@@ -1285,7 +1285,7 @@ class SQLAlchemySource(StatefulIngestionSourceBase, TestableSource):
         schema: str,
         view: str,
         sql_config: SQLCommonConfig,
-    ) -> Iterable[Union[SqlWorkUnit, MetadataWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         dataset_urn = make_dataset_urn_with_platform_instance(
             self.platform,
             dataset_name,

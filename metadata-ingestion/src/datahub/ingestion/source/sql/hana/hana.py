@@ -1,5 +1,5 @@
 import logging
-from typing import Iterable, Iterator, List, Optional, Union
+from typing import Iterable, Iterator, List, Optional
 
 from sqlalchemy import create_engine
 from sqlalchemy.engine import Engine, Inspector
@@ -20,7 +20,7 @@ from datahub.ingestion.source.sql.hana.hana_schema_gen import (
     HanaCalculationViewExtractor,
 )
 from datahub.ingestion.source.sql.hana.hana_utils import HanaIdentifierBuilder
-from datahub.ingestion.source.sql.sql_common import SQLAlchemySource, SqlWorkUnit
+from datahub.ingestion.source.sql.sql_common import SQLAlchemySource
 from datahub.ingestion.source.sql.stored_procedures.models import BaseProcedure
 from datahub.ingestion.source_report.ingestion_stage import (
     LINEAGE_EXTRACTION,
@@ -212,7 +212,7 @@ class HanaSource(SQLAlchemySource):
 
     def get_workunits_internal(
         self,
-    ) -> Iterable[Union[MetadataWorkUnit, SqlWorkUnit]]:
+    ) -> Iterable[MetadataWorkUnit]:
         with self.report.new_stage(METADATA_EXTRACTION):
             yield from super().get_workunits_internal()
 
