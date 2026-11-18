@@ -43,9 +43,16 @@ public class LinkPhysicalChildResolver implements DataFetcher<CompletableFuture<
                 fieldPathMap.put(m.getParentFieldPath(), m.getChildFieldPath());
               }
             }
+            final List<String> childFieldPaths =
+                SchemaMetadataUtils.fieldPathsOf(
+                    _entityClient, context.getOperationContext(), childUrn);
             final List<MetadataChangeProposal> proposals =
                 LogicalModelUtils.buildLinkProposals(
-                    childUrn, parentUrn, fieldPathMap, context.getOperationContext());
+                    childUrn,
+                    parentUrn,
+                    fieldPathMap,
+                    childFieldPaths,
+                    context.getOperationContext());
             _entityClient.batchIngestProposals(context.getOperationContext(), proposals, false);
             return true;
           } catch (Exception e) {

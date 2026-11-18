@@ -8,13 +8,16 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.entity.Aspect;
+import com.linkedin.logical.LogicalParent;
 import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SchemaFieldUtils;
 import com.linkedin.mxe.MetadataChangeProposal;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,9 +40,9 @@ public class LogicalModelUtilsTest {
       UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:logical,other,PROD)");
 
   @Test
-  public void testBuildUnlinkClearsOnlyLinksToTheCurrentParent() {
-    // Child is linked to PARENT at dataset level and on columns "id" and "name"; column "code" maps
-    // to a different logical model; column "unlinked" has no logical parent at all.
+  public void testBuildUnlinkClearsEveryColumnLinkAndSkipsUnlinkedColumns() {
+    // Columns "id" and "name" map to PARENT, "code" was left pointing at another model by an
+    // earlier relink, and "unlinked" has no logical parent at all.
     Map<Urn, Urn> currentParents = new HashMap<>();
     currentParents.put(CHILD, PARENT);
     currentParents.put(field(CHILD, "id"), field(PARENT, "id"));
@@ -54,25 +57,59 @@ public class LogicalModelUtilsTest {
 
     assertEquals(
         proposals.stream().map(MetadataChangeProposal::getEntityUrn).collect(Collectors.toSet()),
-        Set.of(CHILD, field(CHILD, "id"), field(CHILD, "name")),
-        "only the dataset link and the columns mapped to the unlinked parent are cleared");
+        Set.of(CHILD, field(CHILD, "id"), field(CHILD, "name"), field(CHILD, "code")),
+        "every column link is cleared; the never-linked column gets no write");
   }
 
   @Test
-  public void testBuildUnlinkWithoutDatasetLevelParentClearsAllColumnLinks() {
-    // No dataset-level parent identifies a model to scope to, so every existing column link goes.
+  public void testRelinkToAnotherModelClearsColumnsLeftOnThePreviousModel() {
+    // Child was linked to OTHER_PARENT with columns ID and CODE. It is now linked to PARENT,
+    // mapping only ID; CODE must not keep pointing at the previous model.
     Map<Urn, Urn> currentParents = new HashMap<>();
-    currentParents.put(field(CHILD, "id"), field(PARENT, "id"));
-    currentParents.put(field(CHILD, "code"), field(OTHER_PARENT, "code"));
+    currentParents.put(CHILD, OTHER_PARENT);
+    currentParents.put(field(CHILD, "ID"), field(OTHER_PARENT, "id"));
+    currentParents.put(field(CHILD, "CODE"), field(OTHER_PARENT, "code"));
     OperationContext opContext =
         TestOperationContexts.systemContextNoSearchAuthorization(retrieverOf(currentParents));
 
     List<MetadataChangeProposal> proposals =
-        LogicalModelUtils.buildUnlinkProposals(CHILD, List.of("id", "code", "unlinked"), opContext);
+        LogicalModelUtils.buildLinkProposals(
+            CHILD, PARENT, Map.of("id", "ID"), List.of("ID", "CODE", "UNMAPPED"), opContext);
+
+    // A cleared link maps to null, which Collectors.toMap rejects.
+    Map<Urn, Urn> written = new HashMap<>();
+    proposals.forEach(p -> written.put(p.getEntityUrn(), parentWritten(p)));
+    assertEquals(written.keySet(), Set.of(CHILD, field(CHILD, "ID"), field(CHILD, "CODE")));
+    assertEquals(written.get(CHILD), PARENT);
+    assertEquals(written.get(field(CHILD, "ID")), field(PARENT, "id"));
+    assertNull(written.get(field(CHILD, "CODE")), "the stale column link must be cleared");
+  }
+
+  @Test
+  public void testLinkKeepsUnmappedColumnsAlreadyLinkedToTheSameModel() {
+    // A link call that maps only some columns must not undo earlier mappings to the same model.
+    Map<Urn, Urn> currentParents = new HashMap<>();
+    currentParents.put(CHILD, PARENT);
+    currentParents.put(field(CHILD, "NAME"), field(PARENT, "name"));
+    OperationContext opContext =
+        TestOperationContexts.systemContextNoSearchAuthorization(retrieverOf(currentParents));
+
+    List<MetadataChangeProposal> proposals =
+        LogicalModelUtils.buildLinkProposals(
+            CHILD, PARENT, Map.of("id", "ID"), List.of("ID", "NAME"), opContext);
 
     assertEquals(
         proposals.stream().map(MetadataChangeProposal::getEntityUrn).collect(Collectors.toSet()),
-        Set.of(CHILD, field(CHILD, "id"), field(CHILD, "code")));
+        Set.of(CHILD, field(CHILD, "ID")));
+  }
+
+  private static Urn parentWritten(MetadataChangeProposal proposal) {
+    LogicalParent logicalParent =
+        GenericRecordUtils.deserializeAspect(
+            proposal.getAspect().getValue(),
+            proposal.getAspect().getContentType(),
+            LogicalParent.class);
+    return logicalParent.hasParent() ? logicalParent.getParent().getDestinationUrn() : null;
   }
 
   private static Urn field(Urn dataset, String fieldPath) {
@@ -109,7 +146,8 @@ public class LogicalModelUtilsTest {
   public void testBuildLinkProposalsCreatesDatasetAndColumnEdges() {
     OperationContext opContext = TestOperationContexts.systemContextNoSearchAuthorization();
     List<MetadataChangeProposal> proposals =
-        LogicalModelUtils.buildLinkProposals(CHILD, PARENT, Map.of("id", "ID"), opContext);
+        LogicalModelUtils.buildLinkProposals(
+            CHILD, PARENT, Map.of("id", "ID"), List.of(), opContext);
     // 1 dataset-level + 1 column-level
     assertEquals(proposals.size(), 2);
   }

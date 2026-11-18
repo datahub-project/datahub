@@ -22,15 +22,18 @@ import com.linkedin.common.Edge;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.logical.LogicalParent;
+import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.batch.AspectsBatch;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.authorization.EntityAspectAuthorizationUtils;
 import com.linkedin.metadata.entity.EntityServiceImpl;
 import com.linkedin.metadata.entity.IngestResult;
 import com.linkedin.metadata.entity.UpdateAspectResult;
+import com.linkedin.metadata.entity.logical.LogicalModelUtils;
 import com.linkedin.metadata.graph.elastic.ElasticSearchGraphService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.SearchService;
@@ -113,10 +116,35 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
 
   @Captor private ArgumentCaptor<AspectsBatch> batchCaptor;
 
+  /** Serves the current logicalParent of schema fields to the controller's operation context. */
+  private static final AspectRetriever ASPECT_RETRIEVER = mock(AspectRetriever.class);
+
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
-    org.mockito.Mockito.reset(mockEntityService, mockSearchService, mockTimeseriesAspectService);
+    org.mockito.Mockito.reset(
+        mockEntityService, mockSearchService, mockTimeseriesAspectService, ASPECT_RETRIEVER);
+    when(ASPECT_RETRIEVER.getEntityRegistry())
+        .thenReturn(TestOperationContexts.defaultEntityRegistry());
+  }
+
+  /** Makes each given column currently linked to some logical model field. */
+  private static void givenLinkedColumns(Urn... columnUrns) {
+    Urn logicalField =
+        SchemaFieldUtils.generateSchemaFieldUrn(
+            UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:logical,model,PROD)"), "f");
+    Map<Urn, Map<String, Aspect>> current = new HashMap<>();
+    for (Urn columnUrn : columnUrns) {
+      current.put(
+          columnUrn,
+          Map.of(
+              LOGICAL_PARENT_ASPECT_NAME,
+              new Aspect(
+                  LogicalModelUtils.createLogicalParent(
+                          logicalField, TestOperationContexts.systemContextNoSearchAuthorization())
+                      .data())));
+    }
+    when(ASPECT_RETRIEVER.getLatestAspectObjects(any(), anySet(), anySet())).thenReturn(current);
   }
 
   @Test
@@ -134,7 +162,9 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
 
     @Bean(name = "systemOperationContext")
     public OperationContext systemOperationContext() {
-      return TestOperationContexts.systemContextNoSearchAuthorization();
+      when(ASPECT_RETRIEVER.getEntityRegistry())
+          .thenReturn(TestOperationContexts.defaultEntityRegistry());
+      return TestOperationContexts.systemContextNoSearchAuthorization(ASPECT_RETRIEVER);
     }
 
     @Bean("entityRegistry")
@@ -534,6 +564,7 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
     // Mock successful ingest with null logicalParent aspects (removal)
     Urn childField1Urn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, "child_field1");
     Urn childField2Urn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, "child_field2");
+    givenLinkedColumns(childField1Urn, childField2Urn);
     List<IngestResult> mockResults =
         List.of(
             createMockIngestResultWithNullLogicalParent(childDatasetUrn),
@@ -654,10 +685,13 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
     // Mock successful ingest
     List<IngestResult> mockResults = new java.util.ArrayList<>();
     mockResults.add(createMockIngestResultWithNullLogicalParent(childDatasetUrn));
+    List<Urn> fieldUrns = new java.util.ArrayList<>();
     for (int i = 1; i <= 5; i++) {
       Urn fieldUrn = SchemaFieldUtils.generateSchemaFieldUrn(childDatasetUrn, "field" + i);
+      fieldUrns.add(fieldUrn);
       mockResults.add(createMockIngestResultWithNullLogicalParent(fieldUrn));
     }
+    givenLinkedColumns(fieldUrns.toArray(Urn[]::new));
     when(mockEntityService.ingestProposal(any(), any(), eq(false))).thenReturn(mockResults);
 
     // Execute the request
