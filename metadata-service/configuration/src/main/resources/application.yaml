@@ -2261,6 +2261,13 @@ searchCard:
 searchFlags:
   defaultSkipHighlighting: ${DEFAULT_SKIP_HIGHLIGHTING:false}
 
+# Max quick filters shown under the search bar. Entity type quick filters are taken in the order of
+# elasticsearch.search.prioritizedSourceEntityTypes / prioritizedDatahubEntityTypes.
+searchQuickFilters:
+  platformCount: ${SEARCH_QUICK_FILTERS_PLATFORM_COUNT:5}
+  sourceEntityCount: ${SEARCH_QUICK_FILTERS_SOURCE_ENTITY_COUNT:3}
+  datahubEntityCount: ${SEARCH_QUICK_FILTERS_DATAHUB_ENTITY_COUNT:2}
+
 homePage:
   firstInPersonalSidebar: ${FIRST_IN_PERSONAL_SIDEBAR:YOUR_ASSETS}
 

@@ -15,6 +15,7 @@ import com.linkedin.datahub.graphql.generated.QuickFilter;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
+import com.linkedin.metadata.config.SearchQuickFiltersConfiguration;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValue;
@@ -34,21 +35,62 @@ import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class GetQuickFiltersResolver
     implements DataFetcher<CompletableFuture<GetQuickFiltersResult>> {
 
   private final EntityClient _entityClient;
   private final ViewService _viewService;
+  private final int _platformCount;
+  private final int _sourceEntityCount;
+  private final int _datahubEntityCount;
 
   private static final String PLATFORM = "platform";
-  private static final int PLATFORM_COUNT = 5;
-  private static final int SOURCE_ENTITY_COUNT = 3;
-  private static final int DATAHUB_ENTITY_COUNT = 2;
+  static final int DEFAULT_PLATFORM_COUNT = 5;
+  static final int DEFAULT_SOURCE_ENTITY_COUNT = 3;
+  static final int DEFAULT_DATAHUB_ENTITY_COUNT = 2;
+
+  public GetQuickFiltersResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nonnull final ViewService viewService,
+      @Nullable final SearchQuickFiltersConfiguration config) {
+    _entityClient = entityClient;
+    _viewService = viewService;
+    _platformCount =
+        resolveCount(
+            "platformCount",
+            config != null ? config.getPlatformCount() : null,
+            DEFAULT_PLATFORM_COUNT);
+    _sourceEntityCount =
+        resolveCount(
+            "sourceEntityCount",
+            config != null ? config.getSourceEntityCount() : null,
+            DEFAULT_SOURCE_ENTITY_COUNT);
+    _datahubEntityCount =
+        resolveCount(
+            "datahubEntityCount",
+            config != null ? config.getDatahubEntityCount() : null,
+            DEFAULT_DATAHUB_ENTITY_COUNT);
+  }
+
+  /** Unset or negative counts fall back to the default. Zero hides that group of quick filters. */
+  private static int resolveCount(
+      @Nonnull final String name, @Nullable final Integer configured, final int defaultCount) {
+    if (configured == null) {
+      return defaultCount;
+    }
+    if (configured < 0) {
+      log.warn(
+          "Ignoring negative searchQuickFilters.{}={}; using default {}",
+          name,
+          configured,
+          defaultCount);
+      return defaultCount;
+    }
+    return configured;
+  }
 
   public CompletableFuture<GetQuickFiltersResult> get(final DataFetchingEnvironment environment)
       throws Exception {
@@ -111,7 +153,7 @@ public class GetQuickFiltersResolver
 
   /**
    * Get platforms and their count from an aggregations array, sorts by entity count, and map the
-   * top 5 to quick filters
+   * top platformCount to quick filters
    */
   private List<QuickFilter> getPlatformQuickFilters(
       @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
@@ -125,7 +167,7 @@ public class GetQuickFiltersResolver
               .collect(Collectors.toList());
       sortedPlatforms.forEach(
           platformFilter -> {
-            if (platforms.size() < PLATFORM_COUNT && platformFilter.getFacetCount() > 0) {
+            if (platforms.size() < _platformCount && platformFilter.getFacetCount() > 0) {
               platforms.add(mapQuickFilter(context, PLATFORM, platformFilter));
             }
           });
@@ -153,7 +195,7 @@ public class GetQuickFiltersResolver
               context,
               SearchUtils.getPrioritizedSourceEntityTypes(
                   context != null ? context.getOperationContext() : null),
-              SOURCE_ENTITY_COUNT,
+              _sourceEntityCount,
               entityAggregations.get());
       entityTypes.addAll(sourceEntityTypeFilters);
 
@@ -162,7 +204,7 @@ public class GetQuickFiltersResolver
               context,
               SearchUtils.getPrioritizedDatahubEntityTypes(
                   context != null ? context.getOperationContext() : null),
-              DATAHUB_ENTITY_COUNT,
+              _datahubEntityCount,
               entityAggregations.get());
       entityTypes.addAll(dataHubEntityTypeFilters);
     }

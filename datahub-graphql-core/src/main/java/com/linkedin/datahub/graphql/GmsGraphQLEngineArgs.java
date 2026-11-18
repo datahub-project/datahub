@@ -85,6 +85,7 @@ public class GmsGraphQLEngineArgs {
   SearchBarConfiguration searchBarConfiguration;
   SearchCardConfiguration searchCardConfiguration;
   SearchFlagsConfiguration searchFlagsConfiguration;
+  SearchQuickFiltersConfiguration searchQuickFiltersConfiguration;
   HomePageConfiguration homePageConfiguration;
   SiblingGraphService siblingGraphService;
   GroupService groupService;

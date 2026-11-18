@@ -43,6 +43,9 @@ public class DataHubAppConfiguration {
   /** Search flags related configs */
   private SearchFlagsConfiguration searchFlags;
 
+  /** Search quick filter related configs */
+  private SearchQuickFiltersConfiguration searchQuickFilters;
+
   /** Home page related configs */
   private HomePageConfiguration homePage;
 

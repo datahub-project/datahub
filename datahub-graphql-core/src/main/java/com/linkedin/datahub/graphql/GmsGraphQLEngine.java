@@ -522,6 +522,7 @@ public class GmsGraphQLEngine {
   private final SearchBarConfiguration searchBarConfiguration;
   private final SearchCardConfiguration searchCardConfiguration;
   private final SearchFlagsConfiguration searchFlagsConfiguration;
+  private final SearchQuickFiltersConfiguration searchQuickFiltersConfiguration;
   private final HomePageConfiguration homePageConfiguration;
   private final ChromeExtensionConfiguration chromeExtensionConfiguration;
   private final SemanticSearchConfiguration semanticSearchConfiguration;
@@ -678,6 +679,7 @@ public class GmsGraphQLEngine {
     this.searchBarConfiguration = args.searchBarConfiguration;
     this.searchCardConfiguration = args.searchCardConfiguration;
     this.searchFlagsConfiguration = args.searchFlagsConfiguration;
+    this.searchQuickFiltersConfiguration = args.searchQuickFiltersConfiguration;
     this.homePageConfiguration = args.homePageConfiguration;
     this.featureFlags = args.featureFlags;
     this.chromeExtensionConfiguration = args.chromeExtensionConfiguration;
@@ -1382,7 +1384,8 @@ public class GmsGraphQLEngine {
                     new ListQueriesResolver(this.entityClient, this.entityIndexConfiguration))
                 .dataFetcher(
                     "getQuickFilters",
-                    new GetQuickFiltersResolver(this.entityClient, this.viewService))
+                    new GetQuickFiltersResolver(
+                        this.entityClient, this.viewService, this.searchQuickFiltersConfiguration))
                 .dataFetcher("dataProduct", getResolver(dataProductType))
                 .dataFetcher(
                     "bulkEntityDataProducts", new BulkEntityDataProductsResolver(this.entityClient))
