@@ -2,6 +2,7 @@ import aerospikeLogo from '@images/aerospike.png';
 import airflowLogo from '@images/airflowlogo.png';
 import athenaLogo from '@images/awsathenalogo.png';
 import azureLogo from '@images/azure-ad.png';
+import azureAnalysisServicesLogo from '@images/azureanalysisserviceslogo.svg';
 import absLogo from '@images/azureblobstoragelogo.svg';
 import azureDataFactoryLogo from '@images/azuredatafactorylogo.svg';
 import bigidLogo from '@images/bigidlogo.png';
@@ -103,6 +104,8 @@ const AIRFLOW = 'airflow';
 const AIRFLOW_URN = `urn:li:dataPlatform:${AIRFLOW}`;
 const ATHENA = 'athena';
 const ATHENA_URN = `urn:li:dataPlatform:${ATHENA}`;
+export const AZURE_ANALYSIS_SERVICES = 'azure-analysis-services';
+const AZURE_ANALYSIS_SERVICES_URN = `urn:li:dataPlatform:${AZURE_ANALYSIS_SERVICES}`;
 export const AZURE = 'azure-ad';
 const AZURE_URN = `urn:li:dataPlatform:${AZURE}`;
 const AZURE_DATA_FACTORY = 'azure-data-factory';
@@ -327,6 +330,7 @@ export const RDF = 'rdf';
 export const PLATFORM_URN_TO_LOGO = {
     [AIRFLOW_URN]: airflowLogo,
     [ATHENA_URN]: athenaLogo,
+    [AZURE_ANALYSIS_SERVICES_URN]: azureAnalysisServicesLogo,
     [AZURE_URN]: azureLogo,
     [AZURE_DATA_FACTORY_URN]: azureDataFactoryLogo,
     [BIGID_URN]: bigidLogo,

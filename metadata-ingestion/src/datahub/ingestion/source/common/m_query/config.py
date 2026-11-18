@@ -1,11 +1,12 @@
 from dataclasses import dataclass
 from enum import Enum
-from typing import Final, Optional
+from typing import Dict, Final, Optional, Sequence, Set, TypeVar
 
 import pydantic
 from pydantic import field_validator, model_validator
 from typing_extensions import LiteralString
 
+from datahub.configuration.common import ConfigModel
 from datahub.configuration.source_common import PlatformDetail
 
 # Literal M-Query value emitted when a source argument resolves to null. Kept as a
@@ -213,3 +214,76 @@ class BigQueryExternalQueryPlatformDetail(PlatformDetail):
     @classmethod
     def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
         return _strip_and_reject_blank(value)
+
+
+class AthenaPlatformOverride(ConfigModel):
+    """
+    Configuration for overriding the platform of Athena federated tables.
+
+    Use this when Athena queries data from federated sources (e.g., MySQL, PostgreSQL)
+    and you want the lineage to point to the actual source platform instead of Athena.
+    """
+
+    database: str = pydantic.Field(
+        min_length=1,
+        description="The database name in the Athena query (after catalog stripping).",
+    )
+    table: str = pydantic.Field(
+        min_length=1,
+        description="The table name in the Athena query.",
+    )
+    platform: str = pydantic.Field(
+        min_length=1,
+        description="The target DataHub platform name (e.g., 'mysql', 'postgres').",
+    )
+    dsn: Optional[str] = pydantic.Field(
+        default=None,
+        description="Optional DSN to scope this override to a specific data source. "
+        "If specified, this override only applies when the query comes from this DSN.",
+    )
+
+    # Overrides match by exact string, so padding would silently disable one.
+    @field_validator("database", "table", "dsn")
+    @classmethod
+    def _validate_optional_str(cls, value: Optional[str]) -> Optional[str]:
+        return _strip_and_reject_blank(value)
+
+
+def validate_athena_platform_overrides(
+    overrides: Sequence[AthenaPlatformOverride],
+) -> None:
+    known_platforms: Set[str] = {
+        item.value.datahub_data_platform_name for item in SupportedDataPlatform
+    }
+    for override in overrides:
+        if override.platform not in known_platforms:
+            raise ValueError(
+                f"athena_table_platform_override: platform '{override.platform}' "
+                f"for {override.database}.{override.table} is not a recognized DataHub platform. "
+                f"Known platforms: {sorted(known_platforms)}."
+            )
+
+
+_V = TypeVar("_V")
+
+
+def reject_case_insensitive_duplicate_server_keys(
+    value: Dict[str, _V],
+) -> Dict[str, _V]:
+    # Oracle TNS lookup is case-insensitive in the source system, and the
+    # resolver falls back to a case-insensitive key match. If a recipe
+    # contained both ``EDWPSFN`` and ``edwpsfn``, that fallback would pick
+    # one silently by dict insertion order — a wrong-platform-instance
+    # outcome. Reject the ambiguity at config-load time.
+    seen: Dict[str, str] = {}
+    for key in value:
+        lower = key.lower()
+        if lower in seen:
+            raise ValueError(
+                "server_to_platform_instance has case-insensitive duplicate keys: "
+                f"{seen[lower]!r} and {key!r}. Recipe keys must differ in more "
+                "than just case (the resolver falls back to a case-insensitive "
+                "match for Oracle TNS aliases)."
+            )
+        seen[lower] = key
+    return value
