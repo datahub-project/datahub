@@ -6,6 +6,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
@@ -958,6 +959,36 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testASemanticSelectKeysTheResultCacheOnEligibility() {
+    String whole = "urn:li:searchTemplate:whole";
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    storeSelected("urn:li:searchTemplate:any", "anySemanticEligible");
+    OperationContext selecting =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:any")));
+    OperationContext plain =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(whole)));
+    List<String> documents = List.of("document");
+
+    // enabledEntities decides which rung serves, so deployments that differ in it share no page
+    assertNotEquals(
+        cacheKey(semanticGates("document"), selecting, documents),
+        cacheKey(semanticGates("dataset"), selecting, documents));
+    // A type the request does not name does not split the cache
+    assertEquals(
+        cacheKey(semanticGates("document"), selecting, documents),
+        cacheKey(semanticGates("document", "dataset"), selecting, documents));
+    // Without a semantic select, eligibility stays out of the key
+    assertEquals(
+        cacheKey(semanticGates("document"), plain, documents),
+        cacheKey(semanticGates("dataset"), plain, documents));
+  }
+
+  @Test
   public void testParallelMembersAreAssignedIndependentlyAndOneMemberIsServed() {
     String first = "urn:li:searchTemplate:firstDocuments";
     String second = "urn:li:searchTemplate:secondDocuments";
@@ -1058,6 +1089,21 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
     ladder.setSelect(new StringArray(predicate));
     rung.setLadder(ladder);
     store(urn, rung);
+  }
+
+  private String cacheKey(
+      SearchTemplateGates gates, OperationContext context, List<String> entityTypes) {
+    return new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            gates)
+        .bind(context, "orders", false, entityTypes)
+        .getSearchContext()
+        .getResolvedSearchTemplate()
+        .cacheKeyComponent();
   }
 
   private String servedFor(String urn, List<String> entityTypes) {

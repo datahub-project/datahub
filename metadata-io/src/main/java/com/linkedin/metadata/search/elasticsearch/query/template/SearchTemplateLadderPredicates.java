@@ -75,6 +75,14 @@ public final class SearchTemplateLadderPredicates {
     return true;
   }
 
+  /** Whether the ladder's select reads semantic eligibility, which comes from deployment config. */
+  public static boolean selectsOnSemantic(@Nullable SearchTemplateLadder ladder) {
+    if (ladder == null || !ladder.hasSelect() || ladder.getSelect() == null) {
+      return false;
+    }
+    return ladder.getSelect().stream().anyMatch(name -> base(name, SEMANTIC) != null);
+  }
+
   /** An empty stop keeps the rung. A miss with no {@code next} also keeps it. */
   public static boolean stopMatches(
       @Nullable SearchTemplateLadder ladder,

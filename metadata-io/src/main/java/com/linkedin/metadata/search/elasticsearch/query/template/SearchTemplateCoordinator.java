@@ -444,11 +444,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   /**
-   * Cache identity includes every reachable rung, and the request inputs route conditions read when
-   * a conditional route fired. Capability checks happen when a rung executes, so an unsupported
-   * next does not fail a request that stops before reaching it. The exception is a graph that
-   * reaches a vector rung and a legacy knn rerank: the search cache runs the first once per page,
-   * and the second reranks the first cache batch, so bind fails.
+   * Cache identity includes every reachable rung, the request inputs route conditions read when a
+   * conditional route fired, and the requested types' semantic eligibility when a reachable rung's
+   * select reads it. Capability checks happen when a rung executes, so an unsupported next does not
+   * fail a request that stops before reaching it. The exception is a graph that reaches a vector
+   * rung and a legacy knn rerank: the search cache runs the first once per page, and the second
+   * reranks the first cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -458,6 +459,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
     boolean[] classpathBridge = new boolean[1];
+    boolean[] semanticSelect = new boolean[1];
     collect(
         opContext,
         resolved.getUrn(),
@@ -469,7 +471,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         resolved,
         scroll,
         nameAndValue,
-        classpathBridge);
+        classpathBridge,
+        semanticSelect);
     boolean[] vector = new boolean[1];
     boolean[] legacyKnn = new boolean[1];
     reach(
@@ -496,6 +499,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (resolved.getRouteMatch() != null) {
       identity += "|route=" + resolved.getRouteMatch();
     }
+    if (semanticSelect[0]) {
+      identity += "|eligible=" + gates.eligibilityIdentity(resolved.getEntityTypes());
+    }
     resolved.setCacheIdentity(identity);
   }
 
@@ -510,7 +516,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nonnull ResolvedSearchTemplate resolved,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
-      @Nonnull boolean[] classpathBridge) {
+      @Nonnull boolean[] classpathBridge,
+      @Nonnull boolean[] semanticSelect) {
     if (!seen.add(urn) || depth > loader.maxParentDepth()) {
       return;
     }
@@ -526,6 +533,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
+    }
+    if (SearchTemplateLadderPredicates.selectsOnSemantic(template.getLadder())) {
+      semanticSelect[0] = true;
     }
     rungs.add(
         template.getUrn()
@@ -576,7 +586,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             resolved,
             false,
             nameAndValue,
-            classpathBridge);
+            classpathBridge,
+            semanticSelect);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -591,7 +602,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           resolved,
           false,
           nameAndValue,
-          classpathBridge);
+          classpathBridge,
+          semanticSelect);
     }
   }
 

@@ -19,6 +19,7 @@ import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.apache.commons.lang3.StringUtils;
@@ -505,6 +506,28 @@ public final class SearchTemplateGates {
       any |= enabled;
     }
     return new Eligibility(all, any);
+  }
+
+  /**
+   * The semantic eligibility inputs of a request, for the result-cache identity: the requested
+   * types semantic search is enabled for, or every enabled type when the request names none.
+   */
+  @Nonnull
+  public String eligibilityIdentity(@Nullable Collection<String> entityTypes) {
+    Collection<String> candidates = entityTypes;
+    if (candidates == null) {
+      candidates =
+          semanticSearch == null || semanticSearch.getEnabledEntities() == null
+              ? List.of()
+              : semanticSearch.getEnabledEntities();
+    }
+    Set<String> enabled = new TreeSet<>();
+    for (String entityType : candidates) {
+      if (SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType)) {
+        enabled.add(entityType);
+      }
+    }
+    return enabled.toString();
   }
 
   @Nonnull
