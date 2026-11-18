@@ -22,7 +22,9 @@ datasets with a regular expression, such as `^staging_.*` or `a|b`, now match th
 any entry containing a `.` was treated as already naming the project, so `^staging_.*` matched nothing
 and an `allow` entry like that ingested no datasets, while a `deny` entry denied nothing. Only the
 first alternative of an entry like `a|b` was matched. If you added such an entry to `deny` and it seemed
-to do nothing, it now takes effect. Entries that name the project, such as `my-project.my_dataset`,
+to do nothing, it now takes effect. An entry such as `my-project.*`, where the `.` could be either
+the project separator or a wildcard, keeps matching what it matched before and now also matches
+datasets whose names fit it. Entries that clearly name the project, such as `my-project.my_dataset`,
 `my-project\.prod_.*` or `.*\.my_dataset`, are unchanged.
 
 ### Snowflake schemas whose names end in `INFORMATION_SCHEMA` ([#21430](https://github.com/datahub-project/datahub/pull/21430))

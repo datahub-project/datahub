@@ -28,7 +28,7 @@ from datahub.utilities.file_backed_collections import FileBackedDict
 from tests.unit.bigquery.conftest import PROJECT, as_mock, make_schema_gen, make_table
 
 
-def _filter(dataset_pattern: Dict[str, Any]) -> BigQueryFilter:
+def _filter(dataset_pattern: Dict[str, List[str]]) -> BigQueryFilter:
     config = BigQueryV2Config.model_validate({"dataset_pattern": dataset_pattern})
     assert config.match_fully_qualified_names
     return BigQueryFilter(config, BigQueryV2Report())
@@ -127,6 +127,25 @@ def test_project_qualified_entry_is_kept_as_written(entry: str) -> None:
     assert filters.is_dataset_allowed("prod_events", PROJECT)
 
 
+@pytest.mark.parametrize(
+    "entry",
+    [
+        f"{PROJECT}.*",
+        f"^{PROJECT}.*",
+        f"{PROJECT}.+",
+        f"{PROJECT}.(my_dataset|other)$",
+        f"{PROJECT}.[a-z_]+$",
+        f"{PROJECT}.\\w+",
+        f"{PROJECT}[.]my_dataset",
+    ],
+)
+def test_project_qualified_entry_with_a_wildcard_dot_still_matches(entry: str) -> None:
+    """A `.` that may be the separator keeps matching as it did, in both
+    lists: the dataset-name reading is added, never substituted."""
+    assert _filter({"allow": [entry]}).is_dataset_allowed("my_dataset", PROJECT)
+    assert not _filter({"deny": [entry]}).is_dataset_allowed("my_dataset", PROJECT)
+
+
 def test_escaped_dot_names_the_project() -> None:
     """Dataset names cannot contain a dot, so `a\\.b` can only mean project
     `a`, dataset `b`; it is not read as a dataset-name regex."""
@@ -136,10 +155,11 @@ def test_escaped_dot_names_the_project() -> None:
     assert not filters.is_dataset_allowed("v2", PROJECT)
 
 
-def test_entry_whose_qualified_form_does_not_compile_is_kept() -> None:
-    # A global inline flag must stay at the start of the expression.
-    filters = _filter({"allow": ["(?i)staging"]})
-    assert filters.filter_config.dataset_pattern.allow == ["(?i)staging"]
+@pytest.mark.parametrize("entry", ["(?i)STAGING_events", "(?i)^STAGING_.*"])
+def test_leading_inline_flags_stay_in_front(entry: str) -> None:
+    filters = _filter({"allow": [entry]})
+    assert filters.filter_config.dataset_pattern.allow[0].startswith("(?i)")
+    assert filters.is_dataset_allowed("staging_events", PROJECT)
 
 
 def test_qualification_is_idempotent() -> None:
@@ -147,7 +167,7 @@ def test_qualification_is_idempotent() -> None:
         {"dataset_pattern": {"allow": ["^staging_.*", "a|b"], "deny": ["^tmp$"]}}
     )
     qualified = config.dataset_pattern
-    assert qualified.allow == [r"^.*\.staging_.*", r".*\.a|.*\.b"]
+    assert qualified.allow == [r"^(?:.*\.)?staging_.*", r".*\.a|.*\.b"]
     assert qualified.deny == [r"^.*\.tmp$"]
     validate_pattern_at(config, "dataset_pattern", qualified)
     assert config.dataset_pattern.allow == qualified.allow
