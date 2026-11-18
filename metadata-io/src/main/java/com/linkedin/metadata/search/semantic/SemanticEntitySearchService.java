@@ -80,7 +80,7 @@ import org.apache.commons.lang3.StringUtils;
  *   <li>Elasticsearch 8.18+, or OpenSearch 2.17.0+ (for pre-filtering support with nested kNN
  *       vectors). A model that uses faiss cosine needs OpenSearch 2.19+. {@link
  *       #requireSupportedV3Engine} enforces that floor on the Search V3 client when semantic reads
- *       are on V3. An unreadable OpenSearch version does not fail startup.
+ *       are on V3. An unreadable engine version does not fail startup.
  *   <li>Semantic indices with nested vector fields at {@code
  *       embeddings.{modelEmbeddingKey}.chunks.vector}
  * </ul>
@@ -504,8 +504,8 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
    * Refuses Search V3 semantic reads on an engine below the V2 semantic floor: OpenSearch 2.17+, or
    * 2.19+ when a model uses faiss cosine, and Elasticsearch 8.18+. The old OpenSearch 3.5 refusal
    * was for k-NN pre-filters under {@code _aspects}. Those filters are top-level fields now. An
-   * unreadable OpenSearch version is skipped, matching {@link
-   * OpenSearchSearchClientShim#verifySemanticSearchSupport}.
+   * unreadable version is skipped. {@code getEngineVersion} returns {@code "unknown"} when cluster
+   * info is restricted, and that is not evidence of an old engine.
    */
   public static void requireSupportedV3Engine(
       @Nullable EntityIndexConfiguration entityIndex, @Nonnull SearchClientShim<?> v3Client) {
@@ -522,10 +522,11 @@ public class SemanticEntitySearchService implements SemanticEntitySearch {
     } catch (IOException e) {
       version = null;
     }
+    if (version == null || version.isBlank() || "unknown".equals(version)) {
+      log.warn("Unable to read the Search V3 engine version; skipping the semantic version check");
+      return;
+    }
     if (engine.isOpenSearch()) {
-      if (version == null || version.isBlank() || "unknown".equals(version)) {
-        return;
-      }
       OpenSearchSearchClientShim.assertSemanticSearchSupported(
           version, faissCosineConfigured(entityIndex));
       return;

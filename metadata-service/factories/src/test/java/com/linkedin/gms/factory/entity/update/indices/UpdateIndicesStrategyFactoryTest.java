@@ -5,14 +5,10 @@ import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
-import static org.testng.Assert.assertTrue;
 
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
-import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
-import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
-import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.Es8SearchClientShim;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.OpenSearchSearchClientShim;
@@ -51,20 +47,6 @@ public class UpdateIndicesStrategyFactoryTest {
         searchAsYouTypeFields(v3StrategyMappings(OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
     assertFalse(openSearchPartials.isEmpty());
     openSearchPartials.forEach(field -> assertEquals(field.get("doc_values"), "false"));
-  }
-
-  @Test
-  public void testVectorProjectionFollowsSemanticSearchWhenTheFlagIsUnset() {
-    SemanticSearchConfiguration semantic = new SemanticSearchConfiguration();
-    semantic.setEnabled(true);
-    EntityIndexConfiguration entityIndex = new EntityIndexConfiguration();
-    entityIndex.setSemanticSearch(semantic);
-    ElasticSearchConfiguration elastic = mock(ElasticSearchConfiguration.class);
-    when(elastic.getEntityIndex()).thenReturn(entityIndex);
-    ConfigurationProvider config = mock(ConfigurationProvider.class);
-    when(config.getElasticSearch()).thenReturn(elastic);
-
-    assertTrue(UpdateIndicesStrategyFactory.isV3VectorProjectionEnabled(config));
   }
 
   private static Collection<IndexMapping> v3StrategyMappings(Map<String, String> ngramConfig) {

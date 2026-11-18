@@ -532,6 +532,8 @@ public class SemanticEntitySearchServiceTest {
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "unknown"));
     SemanticEntitySearchService.requireSupportedV3Engine(
+        entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_8, "unknown"));
+    SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.OPENSEARCH_3, "3.5.0"));
     SemanticEntitySearchService.requireSupportedV3Engine(
         entityIndex(true, true), shimFor(SearchEngineType.ELASTICSEARCH_9, "9.1.5"));
