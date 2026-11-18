@@ -32,7 +32,7 @@ RUN test -n "${PYTHON_VERSION}"  # PYTHON_VERSION must be set
 # `apk upgrade` + `apk add` whenever base packages need refreshing. `apk add` alone
 # never upgrades packages already installed (from wolfi-base or earlier steps), so
 # the upgrade keeps the whole OS package set current.
-ARG WOLFI_PKG_REFRESH=2026-10-27
+ARG WOLFI_PKG_REFRESH=2026-11-17
 RUN --mount=type=cache,target=/var/cache/apk,sharing=locked \
     echo "wolfi pkg refresh: ${WOLFI_PKG_REFRESH}" && \
     apk upgrade --no-cache --update-cache && \

@@ -70,6 +70,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -181,22 +182,35 @@ public class SearchV3QueryBuilder {
     context.putAll(renderFragments(template, context, opContext));
     String body = rewrite(template.getQuery(), opContext, template);
     String renderedQuery = body == null ? null : SearchTemplateMustache.render(body, context);
-    SearchTemplateJson.rejectForbidden(renderedQuery, "query");
-    QueryBuilder built =
-        renderedQuery == null || renderedQuery.isBlank()
-            ? QueryBuilders.matchAllQuery()
-            : SearchTemplateJson.parseQuery(renderedQuery);
+    Set<String> removed = removedFields(base, queried);
+    QueryBuilder built;
+    if (renderedQuery == null || renderedQuery.isBlank()) {
+      built = QueryBuilders.matchAllQuery();
+    } else {
+      // A body whose every clause targeted an empty or removed field searches nothing. Matching
+      // everything instead would return the whole index for any text.
+      String prunedQuery = SearchTemplateFieldPruner.pruneRendered(renderedQuery, removed);
+      SearchTemplateJson.rejectForbidden(prunedQuery, "query");
+      built =
+          prunedQuery == null
+              ? new MatchNoneQueryBuilder()
+              : SearchTemplateJson.parseQuery(prunedQuery);
+    }
     built =
         propertyClauses(
             built, queried, properties, query, template.getStructuredPropertyQuery(), bridge);
     if (template.getClauses() != null) {
       String renderedClauses =
-          SearchTemplateMustache.render(
-              rewrite(template.getClauses(), opContext, template), context);
+          SearchTemplateFieldPruner.pruneRenderedClauses(
+              SearchTemplateMustache.render(
+                  rewrite(template.getClauses(), opContext, template), context),
+              removed);
       SearchTemplateJson.rejectForbidden(renderedClauses, "clauses");
-      built = SearchTemplateJson.mergeClauses(built, renderedClauses);
+      if (renderedClauses != null && !renderedClauses.isBlank()) {
+        built = SearchTemplateJson.mergeClauses(built, renderedClauses);
+      }
     }
-    built = SearchTemplateFieldPruner.prune(built, removedFields(base, queried));
+    built = SearchTemplateFieldPruner.prune(built, removed);
     String functionScore =
         template.getFunctionScore() == null
             ? null
@@ -398,7 +412,8 @@ public class SearchV3QueryBuilder {
     List<String> analyzed = defaultQueryFields(queried);
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> defaultWithoutIdentity =
-        SearchTemplateFields.withoutLabels(analyzed, Set.of("name", "qualifiedName", "id"));
+        SearchTemplateFields.withoutLabels(
+            analyzed, Set.of("name", "qualifiedName", "id", "email"));
     List<String> lightFields = shape.nameOnly ? List.of() : defaultWithoutIdentity;
     // A spaceless path scores qualifiedName only through the bounded clause. Leaving it in this
     // best_fields list lets one earlier token on a shorter name outrank that segment match.
@@ -411,6 +426,7 @@ public class SearchV3QueryBuilder {
     List<String> qualifiedNameFields =
         SearchTemplateFields.labelAnalyzedFields(queriedFields, "qualifiedName");
     List<String> idFields = SearchTemplateFields.labelAnalyzedFields(queriedFields, "id");
+    List<String> emailFields = keywordQueryBuilder.labelAnalyzedQueryFields(opContext, "email");
     SearchFieldResolver fieldResolver =
         V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
@@ -441,7 +457,22 @@ public class SearchV3QueryBuilder {
       context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
     }
     context.put(
+        SearchTemplateContextVariables.EMAIL_FIELDS_JSON, SearchTemplateMustache.json(emailFields));
+    if (!emailFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.EMAIL_FIELDS, Boolean.TRUE);
+    }
+    context.put(
         SearchTemplateContextVariables.LIGHT_FIELDS_JSON, SearchTemplateMustache.json(lightFields));
+    // An empty fields list makes OpenSearch search every field, so templates guard those clauses.
+    if (!analyzed.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_DEFAULT_QUERY_FIELDS, Boolean.TRUE);
+    }
+    if (!defaultWithoutIdentity.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY, Boolean.TRUE);
+    }
+    if (!lightFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_LIGHT_FIELDS, Boolean.TRUE);
+    }
     context.put(
         SearchTemplateContextVariables.LIGHT_OPERATOR,
         shape.fullyQualifiedName || shape.longExactName ? "AND" : "OR");
@@ -499,6 +530,10 @@ public class SearchV3QueryBuilder {
     context.put(
         SearchTemplateContextVariables.ID_KEYWORD,
         exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id"));
+    context.put(
+        SearchTemplateContextVariables.EMAIL_KEYWORD,
+        exactPath(fieldResolver, "email", SearchFieldResolver.Intent.EXACT, "email"));
+    context.put(SearchTemplateContextVariables.EMAIL_TEXT, analyzedPath(fieldResolver, "email"));
     context.put(SearchTemplateContextVariables.URN_KEYWORD, urnExact);
     context.put(SearchTemplateContextVariables.ENTITY_TYPES, entityTypeNames(entitySpecs));
     putScoreFunctions(context, entitySpecs);

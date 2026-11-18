@@ -630,7 +630,9 @@ class CubeEntity(BaseModel):
         )
 
 
-def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
+def _overlay_lineage(
+    base: CubeEntity, lineage: CubeEntity, *, include_private: bool
+) -> None:
     # The Metadata API carries warehouse/column lineage that /v1/meta lacks;
     # copy it onto the structural base without clobbering existing values.
     # Copy the lists rather than aliasing them, so base and the (discarded)
@@ -651,6 +653,16 @@ def _overlay_lineage(base: CubeEntity, lineage: CubeEntity) -> None:
         # (view->cube) references when the Metadata API has none.
         if source.member_references:
             member.member_references = list(source.member_references)
+
+    if not include_private:
+        return
+    # /v1/meta omits private (public: false) members, which the Metadata API
+    # returns with include_private. Keep them: they are hidden members, so they
+    # are emitted only with include_hidden, which include_private requires.
+    # The lineage entity is discarded, so moving its member objects is safe.
+    base_names = {m.name for m in base.members}
+    base.measures.extend(m for m in lineage.measures if m.name not in base_names)
+    base.dimensions.extend(m for m in lineage.dimensions if m.name not in base_names)
 
 
 def _entities_from_query_members(
@@ -751,7 +763,10 @@ class CubeWorkbook(BaseModel):
 
 
 def merge_entities(
-    core_entities: List[CubeEntity], cloud_entities: List[CubeEntity]
+    core_entities: List[CubeEntity],
+    cloud_entities: List[CubeEntity],
+    *,
+    include_private: bool = False,
 ) -> List[CubeEntity]:
     # /v1/meta provides the structural/presentation metadata (folders,
     # hierarchies, joins, formats, visibility); the Metadata API provides
@@ -761,7 +776,7 @@ def merge_entities(
     for entity in core_entities:
         lineage = cloud_by_name.get(entity.name)
         if lineage is not None:
-            _overlay_lineage(entity, lineage)
+            _overlay_lineage(entity, lineage, include_private=include_private)
         merged.append(entity)
 
     # Surface entities the Metadata API returns but /v1/meta omits (e.g. cubes

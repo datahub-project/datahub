@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.SearchClusterIndexSettings;
 import com.linkedin.metadata.config.search.SearchClusterSettings;
+import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
@@ -62,6 +63,9 @@ public class SearchClusterRegistryFactory {
             ? Map.of(ElasticSearchConfiguration.PRIMARY_CLUSTER, primaryShim)
             : shims.byCluster();
 
+    SearchClientShim<?> v2Client =
+        clients.get(esConfig.getComponentCluster().clusterFor(SearchComponent.SEARCH_V2));
+
     for (Map.Entry<String, SearchClientShim<?>> entry : clients.entrySet()) {
       String clusterName = entry.getKey();
       SearchClientShim<?> client = entry.getValue();
@@ -85,7 +89,8 @@ public class SearchClusterRegistryFactory {
               clusterConfig,
               configurationProvider.getStructuredProperties(),
               indexSettingOverrides,
-              gitVersion);
+              gitVersion,
+              v2Client);
 
       connections.put(
           clusterName,

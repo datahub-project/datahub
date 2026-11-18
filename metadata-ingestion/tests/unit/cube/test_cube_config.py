@@ -77,3 +77,14 @@ def test_cloud_credentials_rejected_for_core_deployment() -> None:
     # must be rejected rather than silently ignored.
     with pytest.raises(ValueError):
         _config(deployment_type="CORE", cloud_api_key="k", deployment_id="1")
+
+
+def test_include_private_requires_cloud_metadata_api_and_include_hidden() -> None:
+    cloud = {"deployment_type": "CLOUD", "include_private": True}
+    assert _config(**cloud, include_hidden=True).include_private is True
+    with pytest.raises(ValueError):
+        _config(**cloud)
+    with pytest.raises(ValueError):
+        _config(**cloud, include_hidden=True, use_metadata_api=False)
+    with pytest.raises(ValueError):
+        _config(deployment_type="CORE", include_private=True, include_hidden=True)

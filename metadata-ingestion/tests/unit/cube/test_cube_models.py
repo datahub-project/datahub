@@ -1,5 +1,5 @@
 import logging
-from typing import Dict, Optional
+from typing import Dict, List, Optional
 
 import pytest
 
@@ -399,6 +399,77 @@ def test_visible_members_filtering() -> None:
     entity = CubeEntity.from_core_cube(response.cubes[0])
     assert [m.name for m in entity.visible_members(include_hidden=False)] == ["status"]
     assert len(entity.visible_members(include_hidden=True)) == 2
+
+
+@pytest.mark.parametrize(
+    "include_private, expected_measures, expected_dimensions",
+    [
+        (False, [], ["status"]),
+        (True, ["revenue"], ["status", "customer_email"]),
+    ],
+)
+def test_merge_entities_keeps_private_members_only_with_include_private(
+    include_private: bool,
+    expected_measures: List[str],
+    expected_dimensions: List[str],
+) -> None:
+    # /v1/meta omits public: false members; with include_private the Metadata
+    # API returns them on the same (public) cube.
+    core = [
+        CubeEntity.from_core_cube(c)
+        for c in CoreMetaResponse.model_validate(
+            {
+                "cubes": [
+                    {
+                        "name": "orders",
+                        "type": "cube",
+                        "dimensions": [{"name": "orders.status", "type": "string"}],
+                    }
+                ]
+            }
+        ).cubes
+    ]
+    table = {"schema": "public", "table": "orders"}
+    cloud = [
+        CubeEntity.from_cloud_entity(e)
+        for e in CloudEntitiesResponse.model_validate(
+            {
+                "data": [
+                    {
+                        "type": "cube",
+                        "name": "orders",
+                        "measures": [
+                            {
+                                "name": "revenue",
+                                "public": False,
+                                "column_references": [{**table, "column": "amount"}],
+                            }
+                        ],
+                        "dimensions": [
+                            {
+                                "name": "status",
+                                "column_references": [{**table, "column": "status"}],
+                            },
+                            {
+                                "name": "customer_email",
+                                "public": False,
+                                "column_references": [{**table, "column": "email"}],
+                            },
+                        ],
+                    }
+                ]
+            }
+        ).data
+    ]
+
+    [orders] = merge_entities(core, cloud, include_private=include_private)
+
+    assert [m.name for m in orders.measures] == expected_measures
+    assert [m.name for m in orders.dimensions] == expected_dimensions
+    assert [r.column for r in orders.dimensions[0].column_references] == ["status"]
+    private = [m for m in orders.members if m.name != "status"]
+    assert all(m.is_hidden and m.column_references for m in private)
+    assert [m.name for m in orders.visible_members(include_hidden=False)] == ["status"]
 
 
 def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:

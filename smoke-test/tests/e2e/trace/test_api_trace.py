@@ -249,7 +249,8 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
         }
     }
 
-    # Simulate dropped write
+    # A fresh write whose search metadata is already gone stays pending until the commit
+    # grace elapses. That grace covers the mapping put and the system-metadata refresh.
     delete_elasticsearch_system_metadata(urn)
     wait_until_system_metadata_deleted(urn)
 
@@ -261,11 +262,13 @@ def test_missing_elasticsearch_async_write(auth_session, graph_client):
     assert resp.json() == {
         urn: {
             aspect_name: {
-                "success": False,
+                "success": True,
                 "primaryStorage": {"writeStatus": "ACTIVE_STATE"},
                 "searchStorage": {
-                    "writeStatus": "ERROR",
-                    "writeMessage": "Consumer has processed past the offset.",
+                    "writeStatus": "PENDING",
+                    "writeMessage": (
+                        "Consumer has processed past the offset; waiting for search visibility."
+                    ),
                 },
             }
         }
