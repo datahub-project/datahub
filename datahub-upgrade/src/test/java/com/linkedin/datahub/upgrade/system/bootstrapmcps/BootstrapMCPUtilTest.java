@@ -311,8 +311,16 @@ public class BootstrapMCPUtilTest {
     environmentVariables.set(
         SEARCH_TEMPLATES_REVISION_ENV,
         "{\"version\":\"v17-revert\","
-            + "\"mcps_location\":\"bootstrap_mcps/search-templates-revert.yaml\"}");
+            + "\"mcps_location\":\"bootstrap_mcps/search-templates-revert.yaml\","
+            + "\"force\":true}");
     BootstrapMCPConfigFile.MCPTemplate revert = searchTemplatesStep();
+    // A second revert, after a forced re-apply, runs although its upgrade id already ran
+    EntityService<?> ranBefore = mock(EntityService.class);
+    when(ranBefore.exists(any(OperationContext.class), any(Urn.class), anyString(), anyBoolean()))
+        .thenReturn(true);
+    UpgradeContext context = mock(UpgradeContext.class);
+    when(context.opContext()).thenReturn(OP_CONTEXT);
+    assertFalse(new BootstrapMCPStep(OP_CONTEXT, ranBefore, revert).skip(context));
     assertNotEquals(
         new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), revert).id(),
         new BootstrapMCPStep(OP_CONTEXT, mock(EntityService.class), shipped).id());

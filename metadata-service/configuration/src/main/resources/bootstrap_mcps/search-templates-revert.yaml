@@ -1,7 +1,8 @@
 # Restores the v16 search templates. A release without the semantic template contract rejects
 # apiVersion 2, so run one system-update with this file before rolling back to such a release:
-#   DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v17-revert","mcps_location":"bootstrap_mcps/search-templates-revert.yaml"}'
-# then remove the variable. See docs/how/breaking-changes.md.
+#   DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v17-revert","mcps_location":"bootstrap_mcps/search-templates-revert.yaml","force":true}'
+# then unset the variable. force runs it again after a re-apply. See docs/how/breaking-changes.md
+# for the custom templates to change first.
 # Only fulltext changed. light inherits from it and is unchanged. The semantic template stays
 # stored: no earlier release selects it, and one that is asked for it by name rejects it.
 # Each body switches Mustache delimiters, as in search-templates.yaml.
