@@ -1,9 +1,10 @@
-from typing import Dict, List
+from typing import Dict, Iterable, List
 
 import pytest
 import requests
 import requests_mock as rm
 
+from datahub.ingestion.api.source import StructuredLogEntry
 from datahub.ingestion.source.cube.config import CubeSourceConfig, CubeSourceReport
 from datahub.ingestion.source.cube.cube_api import CubeAPIClient
 
@@ -465,3 +466,102 @@ def test_cloud_join_keyed_by_cube_keeps_metadata_api_lineage(
         ("public", "orders")
     ]
     assert [j.name for j in orders.joins] == ["customers"]
+
+
+@pytest.mark.parametrize(
+    "private_config, meta_cubes, expect_failure",
+    [
+        pytest.param({}, ["broken"], False, id="in-meta"),
+        pytest.param({}, [], True, id="metadata-api-only"),
+        pytest.param(_PRIVATE_CONFIG, ["broken"], True, id="include-private"),
+    ],
+)
+def test_invalid_cloud_entity_is_skipped_not_the_page(
+    requests_mock: rm.Mocker,
+    private_config: Dict[str, object],
+    meta_cubes: List[str],
+    expect_failure: bool,
+) -> None:
+    client = _client(**private_config)
+    requests_mock.get(
+        _META, json={"cubes": [{"name": n, "type": "cube"} for n in meta_cubes]}
+    )
+    requests_mock.post(
+        _ENTITIES_ALL,
+        json={
+            "data": [
+                {"type": "cube", "name": "orders"},
+                {"type": "cube", "name": "broken", "measures": "not-a-list"},
+                None,
+                {"type": "view", "name": "orders_view"},
+            ],
+            "pagination": {"offset": 0, "limit": 100, "total": 4},
+        },
+    )
+
+    entities = client.get_entities()
+
+    assert sorted(e.name for e in entities) == sorted(
+        [*meta_cubes, "orders", "orders_view"]
+    )
+    assert client.report.metadata_api_entities_skipped == 1
+    # A null item is counted, not reported, so it never fails the run.
+    assert client.report.metadata_api_null_entities_skipped == 1
+    assert _skipped_contexts(client.report.failures) == (1 if expect_failure else 0)
+    assert _skipped_contexts(client.report.warnings) == (0 if expect_failure else 1)
+
+
+def _skipped_contexts(entries: Iterable[StructuredLogEntry]) -> int:
+    return sum(
+        len(e.context)
+        for e in entries
+        if e.title == "Skipped invalid Metadata API entity"
+    )
+
+
+@pytest.mark.parametrize(
+    "private_config, body",
+    [
+        pytest.param({}, {"json": {"data": {"entities": []}}}, id="wrong-shape"),
+        pytest.param({}, {"text": "<html>maintenance</html>"}, id="not-json"),
+        pytest.param(
+            _PRIVATE_CONFIG,
+            {"json": {"data": {"entities": []}}},
+            id="wrong-shape-include-private",
+        ),
+    ],
+)
+def test_unexpected_cloud_response_is_reported_as_such(
+    requests_mock: rm.Mocker,
+    private_config: Dict[str, object],
+    body: Dict[str, object],
+) -> None:
+    client = _client(**private_config)
+    requests_mock.get(_META, json={"cubes": [{"name": "orders", "type": "cube"}]})
+    requests_mock.post(_ENTITIES_ALL, [body])
+
+    assert [e.name for e in client.get_entities()] == ["orders"]
+    if private_config:
+        # Private entities only come from the Metadata API.
+        assert [f.title for f in client.report.failures] == [
+            "Cube Metadata API unavailable"
+        ]
+    else:
+        assert [w.title for w in client.report.warnings] == [
+            "Unexpected Cube Metadata API response"
+        ]
+
+
+def test_token_mint_error_is_not_reported_as_unexpected_response(
+    requests_mock: rm.Mocker,
+) -> None:
+    client = _client(**_CONTROL_PLANE)
+    requests_mock.get(_META, json={"cubes": []})
+    requests_mock.post(_MINT, text="<html>maintenance</html>")
+    entities = requests_mock.post(_ENTITIES_ALL, json={"data": []})
+
+    assert client.get_entities() == []
+    assert entities.call_count == 0
+    assert [w.title for w in client.report.warnings] == [
+        "Cube Metadata API unavailable"
+    ]

@@ -221,9 +221,10 @@ def test_cloud_entities_response_data_is_flat_list() -> None:
             "pagination": {"offset": 0, "limit": 2, "total": 2},
         }
     )
-    assert len(response.data) == 2
-    assert response.data[0].name == "orders"
-    assert response.data[1].type == "view"
+    assert response.data == [
+        {"type": "cube", "name": "orders"},
+        {"type": "view", "name": "orders_view"},
+    ]
     assert response.pagination is not None
     assert response.pagination.total == 2
 
@@ -431,7 +432,7 @@ def test_merge_entities_keeps_private_members_only_with_include_private(
     ]
     table = {"schema": "public", "table": "orders"}
     cloud = [
-        CubeEntity.from_cloud_entity(e)
+        CubeEntity.from_cloud_entity(CloudEntity.model_validate(e))
         for e in CloudEntitiesResponse.model_validate(
             {
                 "data": [
@@ -497,7 +498,7 @@ def test_merge_entities_overlays_cloud_lineage_onto_core_structural() -> None:
         ).cubes
     ]
     cloud = [
-        CubeEntity.from_cloud_entity(e)
+        CubeEntity.from_cloud_entity(CloudEntity.model_validate(e))
         for e in CloudEntitiesResponse.model_validate(
             {
                 "data": [

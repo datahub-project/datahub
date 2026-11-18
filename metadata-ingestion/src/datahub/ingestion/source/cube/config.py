@@ -439,6 +439,9 @@ class CubeSourceReport(StaleEntityRemovalSourceReport):
     semantic_model_datasets_emitted: int = 0
     metrics_emitted: int = 0
     metadata_api_references_skipped: int = 0
+    metadata_api_entities_skipped: int = 0
+    # null items in the Metadata API entity list; they carry no entity to lose.
+    metadata_api_null_entities_skipped: int = 0
 
     def report_entity_scanned(self, name: str, is_view: bool) -> None:
         if is_view:

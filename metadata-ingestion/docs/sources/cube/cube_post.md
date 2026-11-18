@@ -30,7 +30,7 @@ The Metadata API requires a metadata-scoped JWT. You can either:
 - Provide a pre-generated token in `api_token`, or
 - Let the connector mint one automatically: set `cloud_api_key` (a Cube Cloud API key from Account → API keys) together with `deployment_id` and `environment_id`. The connector calls the Control Plane `tokens-for-meta-sync` endpoint to obtain a short-lived, metadata-only token. Override the Control Plane host with `cloud_api_url` if it differs from the `api_url` host, and embed a `security_context` to scope multi-tenant visibility.
 
-If the Metadata API cannot be reached, the connector logs a warning and continues with `/v1/meta` only (structural metadata and view-to-cube lineage, but no warehouse lineage).
+If the Metadata API cannot be reached, the connector logs a warning and continues with `/v1/meta` only (structural metadata and view-to-cube lineage, but no warehouse lineage). If a single entity in its response cannot be parsed, only that entity is skipped and reported; the others keep their lineage. The skip is reported as a failure, which skips stale removal, when `include_private` is set or when `/v1/meta` does not return that entity. Empty (`null`) items in the response are counted and ignored.
 
 #### Reports and workbooks (Cube Cloud Platform API)
 
