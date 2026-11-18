@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_PROPERTIES_ASPECT_NAME;
 
 import com.datahub.context.OperationFingerprint;
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.StringArray;
@@ -373,6 +374,11 @@ public class SearchTemplateLoader {
     boolean profilesSet = false;
     SearchTemplateScope scope = null;
     Set<String> addSatisfiedRemoves = new LinkedHashSet<>();
+    // Chain index of the template that set the merged knn and retrieval, or -1. The leaf is 0.
+    int knnLevel = -1;
+    String ownKnn = null;
+    int retrievalLevel = -1;
+    SearchTemplateRetrieval mergedRetrieval = null;
     // Root first so the child replaces sections it sets.
     for (int i = chain.size() - 1; i >= 0; i--) {
       TemplateCopy copy = chain.get(i);
@@ -397,6 +403,14 @@ public class SearchTemplateLoader {
         requireKnownFields(retrieval, "retrieval");
         requireKnownFields(retrieval.getAnchor(), "retrieval.anchor");
         requireKnownFields(retrieval.getBridge(), "retrieval.bridge");
+      }
+      if (props.hasKnn()) {
+        knnLevel = props.getKnn() == null || props.getKnn().isBlank() ? -1 : i;
+        ownKnn = knnLevel < 0 ? null : props.getKnn();
+      }
+      if (props.hasRetrieval()) {
+        retrievalLevel = emptyRetrieval(props.getRetrieval()) ? -1 : i;
+        mergedRetrieval = retrievalLevel < 0 ? null : props.getRetrieval();
       }
       if (props.getProfiles() != null) {
         requireKnownFields(props.getProfiles(), "profiles");
@@ -493,6 +507,25 @@ public class SearchTemplateLoader {
     queryFragmentParts.forEach((name, parts) -> queryFragments.put(name, String.join(", ", parts)));
     builder.dialect(chain.get(0).properties().getDialect().name());
     builder.apiVersion(apiVersion == null ? SearchTemplateCapabilities.API_VERSION : apiVersion);
+    builder.knnInherited(knnLevel > 0);
+    // A template that sets its own legacy knn (one that names a field), below the one that set the
+    // combine, keeps the reading that knn had before combine existed. A knn that only sets the
+    // blend
+    // still inherits the combine.
+    if (knnLevel >= 0
+        && retrievalLevel > knnLevel
+        && namesField(ownKnn)
+        && mergedRetrieval != null
+        && mergedRetrieval.hasCombine()) {
+      SearchTemplateRetrieval legacy;
+      try {
+        legacy = mergedRetrieval.copy();
+      } catch (CloneNotSupportedException e) {
+        throw new IllegalStateException(e);
+      }
+      legacy.removeCombine();
+      builder.retrieval(emptyRetrieval(legacy) ? null : legacy);
+    }
     builder.capabilities(capabilities == null ? List.of() : capabilities);
     builder.parameters(parameters);
     builder.queryFragments(queryFragments);
@@ -555,6 +588,11 @@ public class SearchTemplateLoader {
       return List.of();
     }
     return List.copyOf(declared);
+  }
+
+  private static boolean namesField(@Nullable String knn) {
+    JsonNode node = SearchTemplateGates.readKnn(knn);
+    return node != null && node.path("field").isTextual() && !node.path("field").asText().isBlank();
   }
 
   private static void overlay(

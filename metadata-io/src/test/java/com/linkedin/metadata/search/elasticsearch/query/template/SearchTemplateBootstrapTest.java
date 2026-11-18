@@ -275,6 +275,38 @@ public class SearchTemplateBootstrapTest {
     }
   }
 
+  /**
+   * A custom child of fulltext that sets its own knn and no retrieval keeps the reading that knn
+   * had before: a knn with only a field is the legacy document rerank. A child that leaves knn
+   * unset inherits keywordRerank.
+   */
+  @Test
+  public void testChildKnnKeepsItsLegacyReadingUnderTheShippedRerank() {
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyChild", legacy);
+    harness.store("urn:li:searchTemplate:plainChild", child("Plain"));
+
+    MergedSearchTemplate legacyMerged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:legacyChild");
+    assertNull(SearchTemplateCapabilities.effectiveCombine(legacyMerged));
+    assertEquals(legacyMerged.getKnn(), legacy.getKnn());
+    assertFalse(legacyMerged.isKnnInherited());
+    MergedSearchTemplate plainMerged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:plainChild");
+    assertTrue(SearchTemplateCapabilities.keywordRerank(plainMerged));
+    assertTrue(plainMerged.isKnnInherited());
+  }
+
+  private static SearchTemplateProperties child(String name) {
+    SearchTemplateProperties properties = new SearchTemplateProperties();
+    properties.setName(name);
+    properties.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    properties.setEditable(true);
+    properties.setParent(UrnUtils.getUrn(FULLTEXT));
+    return properties;
+  }
+
   /** A quoted phrase of four or more tokens matches a description that contains every term. */
   @Test
   public void testQuotedLongPhraseMatchesDescription() throws Exception {

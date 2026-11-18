@@ -945,6 +945,29 @@ public class ESSearchDAOHybridTest {
         .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
   }
 
+  /**
+   * A custom child of the shipped fulltext that adds its own sort inherits the rerank, and a search
+   * that its sort orders keeps keyword order.
+   */
+  @Test
+  public void testSortedChildOfTheShippedFulltextKeepsKeywordOrder() throws IOException {
+    SearchTemplateProperties sorted = new SearchTemplateProperties();
+    sorted.setName("Sorted");
+    sorted.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    sorted.setEditable(true);
+    sorted.setParent(UrnUtils.getUrn(Constants.SEARCH_TEMPLATE_FULLTEXT_URN));
+    sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
+
+    SearchResult result = searchRung(sorted, "revenue", null);
+
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NOT_APPLICABLE);
+    assertEquals(rowIds(result), range(0, 10));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+  }
+
   /** The engine requests one search sent, and what it served. */
   private record Served(List<String> requests, SearchResult result) {}
 

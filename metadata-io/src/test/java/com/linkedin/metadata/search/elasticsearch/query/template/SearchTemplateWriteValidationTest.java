@@ -11,6 +11,7 @@ import static org.testng.Assert.assertTrue;
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.data.template.StringMap;
 import com.linkedin.datahub.DataHubSearchConfig;
 import com.linkedin.events.metadata.ChangeType;
@@ -31,7 +32,9 @@ import com.linkedin.search.template.SearchFieldBoostArray;
 import com.linkedin.search.template.SearchFieldOverrides;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateLadder;
+import com.linkedin.search.template.SearchTemplateProfiles;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -65,6 +68,54 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
             retrieverContext,
             SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml"));
     assertTrue(revertErrors.isEmpty(), String.valueOf(revertErrors));
+  }
+
+  /**
+   * Custom children written over the shipped fulltext. One that adds a sort stays writable, because
+   * a sorted search keeps keyword order. One that sets only a blend, or sets profiles, relies on
+   * the inherited keywordRerank, so the validator rejects the revert seed until each sets its own
+   * combine.
+   */
+  @Test
+  public void testCustomChildrenOverTheShippedFulltext() {
+    SearchTemplateValidator validator = templateValidator();
+    RetrieverContext retrieverContext = holeContext();
+    SearchTemplateFixtures.readShipped().forEach(this::store);
+
+    SearchTemplateProperties sorted = parentOf("Sorted", SEARCH_TEMPLATE_FULLTEXT_URN);
+    sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
+    assertTrue(validate(validator, retrieverContext, write("sorted", sorted)).isEmpty());
+
+    SearchTemplateProperties blend = parentOf("Blend", SEARCH_TEMPLATE_FULLTEXT_URN);
+    blend.setKnn("{ \"vectorWeight\": 0.5, \"others\": \"keepKeywordPlaces\" }");
+    SearchTemplateProperties profiled = parentOf("Profiled", SEARCH_TEMPLATE_FULLTEXT_URN);
+    profiled.setProfiles(
+        new SearchTemplateProfiles().setReplace(new StringArray(List.of("custom"))));
+    for (Map.Entry<String, SearchTemplateProperties> child :
+        Map.of("blend", blend, "profiled", profiled).entrySet()) {
+      assertTrue(
+          validate(validator, retrieverContext, write(child.getKey(), child.getValue())).isEmpty(),
+          child.getKey());
+      store("urn:li:searchTemplate:" + child.getKey(), child.getValue());
+    }
+    Map<String, SearchTemplateProperties> revert =
+        SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml");
+    assertFalse(validateBatch(validator, retrieverContext, revert).isEmpty());
+
+    // The documented preflight: each child sets its own combine, and the revert is accepted
+    for (Map.Entry<String, SearchTemplateProperties> child :
+        Map.of("blend", blend, "profiled", profiled).entrySet()) {
+      child.getValue().setApiVersion(2);
+      child.getValue().setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+      store("urn:li:searchTemplate:" + child.getKey(), child.getValue());
+    }
+    List<AspectValidationException> fixed = validateBatch(validator, retrieverContext, revert);
+    assertTrue(fixed.isEmpty(), String.valueOf(fixed));
+  }
+
+  private static ChangeMCP write(String id, SearchTemplateProperties properties) {
+    return item(
+        UrnUtils.getUrn("urn:li:searchTemplate:" + id), USER, ChangeType.UPSERT, properties);
   }
 
   /** Both validation phases of one system-actor batch that upserts {@code templates}. */
