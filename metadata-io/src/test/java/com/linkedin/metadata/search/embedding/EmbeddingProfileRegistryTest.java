@@ -80,6 +80,28 @@ public class EmbeddingProfileRegistryTest {
   }
 
   @Test
+  public void testARemovedDefaultIsNotAddedBackAsAFallback() {
+    // Removing Document's default and adding the dataset card leaves Document nothing to search
+    EmbeddingProfileRegistry.Resolution removed =
+        REGISTRY.resolve(
+            new SearchTemplateProfiles()
+                .setRemove(ids(DOCUMENT_DEFAULT.id()))
+                .setAdd(ids(DATASET_CARD.id())),
+            "document",
+            ELASTICSEARCH);
+    assertEquals(removed.failure(), EmbeddingProfileRegistry.EMPTY_SELECTION);
+    // A covering id that remains is still selected
+    assertEquals(
+        resolve(
+            new SearchTemplateProfiles()
+                .setRemove(ids(DOCUMENT_DEFAULT.id()))
+                .setAdd(ids(DATASET_CARD.id(), CONNECTOR.id())),
+            "document",
+            OPENSEARCH),
+        List.of(CONNECTOR.id()));
+  }
+
+  @Test
   public void testNamedProfileOutsideItsTypesIsDroppedWhenTheEntityHasNoDefault() {
     EmbeddingProfile chartCard =
         new EmbeddingProfile(

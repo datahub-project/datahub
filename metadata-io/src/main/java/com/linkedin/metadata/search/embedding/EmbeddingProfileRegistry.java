@@ -138,8 +138,9 @@ public final class EmbeddingProfileRegistry {
    * The ids a selection names for one entity type, before availability is checked. A null selection
    * is the entity default. {@code replace} sets the list, otherwise the entity default starts it,
    * and {@code remove} and {@code add} patch it. A named profile that does not cover the entity is
-   * replaced by the entity default, once, or dropped when the entity has no default, so the ids
-   * that do cover the entity still resolve. An unknown id stays in the list.
+   * replaced by the entity default, once, or dropped when the entity has no default or {@code
+   * remove} names that default, so the ids that do cover the entity still resolve. An unknown id
+   * stays in the list.
    */
   @Nonnull
   public List<String> select(
@@ -157,11 +158,18 @@ public final class EmbeddingProfileRegistry {
     if (selection != null && selection.hasAdd() && selection.getAdd() != null) {
       requested.addAll(selection.getAdd());
     }
+    // A default the selection removed does not come back as another profile's fallback
+    boolean fallbackRemoved =
+        fallback != null
+            && selection != null
+            && selection.hasRemove()
+            && selection.getRemove() != null
+            && selection.getRemove().contains(fallback);
     Set<String> selected = new LinkedHashSet<>();
     for (String id : requested) {
       EmbeddingProfile profile = profiles.get(id);
       if (profile != null && !profile.covers(entityType)) {
-        if (fallback != null) {
+        if (fallback != null && !fallbackRemoved) {
           selected.add(fallback);
         }
       } else {

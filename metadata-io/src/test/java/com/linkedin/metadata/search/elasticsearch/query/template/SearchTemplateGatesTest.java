@@ -246,6 +246,21 @@ public class SearchTemplateGatesTest {
   }
 
   @Test
+  public void testAKeywordRerankThatRemovesTheDefaultLeavesTheEntityOut() {
+    MergedSearchTemplate rerank =
+        merged(retrieval("keywordRerank"))
+            .profiles(
+                new SearchTemplateProfiles()
+                    .setRemove(ids(DOCUMENT_DEFAULT.id()))
+                    .setAdd(ids(DATASET_L2.id())))
+            .build();
+    // The removed default does not come back as the dataset profile's fallback
+    assertEquals(
+        VECTOR_BUILD.entityGates(rerank, List.of("document"), OPENSEARCH).get("document"),
+        EmbeddingProfileRegistry.EMPTY_SELECTION);
+  }
+
+  @Test
   public void testScopedNamedProfileMustCoverEveryScopedType() {
     SearchTemplateScope scope =
         new SearchTemplateScope().setEntityTypes(ids("document", "dataset"));
