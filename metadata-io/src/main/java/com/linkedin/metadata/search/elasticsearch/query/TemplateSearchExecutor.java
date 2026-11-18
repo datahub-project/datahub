@@ -94,18 +94,28 @@ final class TemplateSearchExecutor {
               renderUrn,
               new SearchTemplateWalk.Request(
                   query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
-              urn ->
-                  searchAttempt(
-                      bound,
-                      urn,
-                      entityNames,
-                      query,
-                      normalizeQuery(bound, query),
-                      postFilters,
-                      sortCriteria,
-                      0,
-                      size,
-                      facets),
+              urn -> {
+                // A vector rung has no keyword query to explain, so explain fails closed, as
+                // scroll does
+                if (SearchTemplateCapabilities.vectorRetrieval(
+                    coordinator.loader().load(bound, urn))) {
+                  throw new SearchTemplateException(
+                      "Search template "
+                          + urn
+                          + " retrieves by vector and has no keyword query to explain");
+                }
+                return searchAttempt(
+                    bound,
+                    urn,
+                    entityNames,
+                    query,
+                    normalizeQuery(bound, query),
+                    postFilters,
+                    sortCriteria,
+                    0,
+                    size,
+                    facets);
+              },
               (first, entities, total) -> {
                 SearchResult copy = new SearchResult();
                 copy.setEntities(new SearchEntityArray(entities));

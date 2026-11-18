@@ -406,6 +406,43 @@ public class ESSearchDAOVectorRetrievalTest {
     verify(client, never()).searchKnn(any(), any());
   }
 
+  @Test
+  public void testDocumentExplainFailsClosedOnAVectorRung() throws Exception {
+    store(vector(r -> {}));
+    // A keyword root that finds nothing hands the search to the vector rung
+    SearchTemplateProperties root = keyword();
+    root.setLadder(
+        new SearchTemplateLadder()
+            .setStop(
+                new SearchTemplateLadderStopArray(new SearchTemplateLadderStop().setMinHits(1)))
+            .setNext(UrnUtils.getUrn(VECTOR_URN)));
+    harness.store(KEYWORD_URN, root);
+    SearchResponse empty = keywordResponse(0);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(empty);
+
+    for (String first : List.of(VECTOR_URN, KEYWORD_URN)) {
+      OperationContext explaining = pinned(context(DOCUMENT, f -> {}), first);
+      assertThrows(
+          SearchTemplateException.class,
+          () ->
+              dao(null, embedding())
+                  .explain(
+                      explaining,
+                      "quarterly revenue",
+                      "urn:li:document:d0",
+                      "document",
+                      null,
+                      null,
+                      null,
+                      null,
+                      10,
+                      List.of()));
+    }
+    verify(client, never()).explain(any(), any(), any());
+    verify(client, never()).searchKnn(any(), any());
+  }
+
   private void store(SearchTemplateProperties template) {
     harness.store(VECTOR_URN, template);
   }
