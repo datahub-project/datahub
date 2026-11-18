@@ -1148,6 +1148,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           "searchService.resultBatchSize",
           "siblings.consumerGroupSuffix",
           "siblings.enabled",
+          "siblings.maxGroupHops",
           "springdoc.api-docs.path",
           "springdoc.api-docs.version",
           "springdoc.cache.disabled",

@@ -31,11 +31,9 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
-import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
 @Slf4j
-@RequiredArgsConstructor
 public class SiblingGraphService {
 
   /**
@@ -47,8 +45,32 @@ public class SiblingGraphService {
   /** Sibling aspects read per batch while walking a group. */
   public static final int GROUP_READ_BATCH_SIZE = 500;
 
+  /**
+   * Default for how many sibling links away from the starting dataset a group walk goes. Typical
+   * groups (a dbt model and its warehouse tables) are one or two hops deep; the cap stops a group
+   * built as a long chain from costing one sequential read per member.
+   */
+  public static final int DEFAULT_MAX_GROUP_HOPS = 5;
+
   private final EntityService _entityService;
   private final GraphService _graphService;
+  private final int _maxGroupHops;
+
+  public SiblingGraphService(
+      @Nonnull EntityService entityService, @Nonnull GraphService graphService) {
+    this(entityService, graphService, DEFAULT_MAX_GROUP_HOPS);
+  }
+
+  /**
+   * @param maxGroupHops how many sibling links a group walk follows from its starting dataset;
+   *     values below 1 fall back to {@link #DEFAULT_MAX_GROUP_HOPS}
+   */
+  public SiblingGraphService(
+      @Nonnull EntityService entityService, @Nonnull GraphService graphService, int maxGroupHops) {
+    _entityService = entityService;
+    _graphService = graphService;
+    _maxGroupHops = maxGroupHops >= 1 ? maxGroupHops : DEFAULT_MAX_GROUP_HOPS;
+  }
 
   /** Keeps the capped-group warning to about once a minute per server. */
   private final RateLimiter _capWarning = RateLimiter.create(1.0 / 60);
@@ -341,6 +363,7 @@ public class SiblingGraphService {
     private final Set<Urn> members = new LinkedHashSet<>();
     private Set<Urn> frontier;
     private boolean truncated;
+    private int hops;
 
     private Walk(@Nonnull Urn start) {
       this.start = start;
@@ -375,6 +398,20 @@ public class SiblingGraphService {
           members.add(sibling);
           next.add(sibling);
         }
+      }
+      hops++;
+      if (hops >= _maxGroupHops && !next.isEmpty()) {
+        // Members at the last hop are kept but not expanded, so the group may be larger.
+        if (_capWarning.tryAcquire()) {
+          log.warn(
+              "Sibling group of {} is more than {} hops deep; counting the {} members found so far",
+              start,
+              _maxGroupHops,
+              members.size());
+        }
+        truncated = true;
+        frontier = Set.of();
+        return;
       }
       frontier = next;
     }

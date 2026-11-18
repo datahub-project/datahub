@@ -1804,6 +1804,10 @@ devTooling:
 siblings:
   enabled: ${ENABLE_SIBLING_HOOK:true} # enable to turn on automatic sibling associations for dbt
   consumerGroupSuffix: ${SIBLINGS_HOOK_CONSUMER_GROUP_SUFFIX:}
+  # How many sibling links a sibling-group walk follows from its starting dataset (siblingGroups,
+  # "Composed of", count-only lineage). Typical groups are 1-2 hops deep; a group deeper than this
+  # is reported as truncated. Values below 1 fall back to the default.
+  maxGroupHops: ${SIBLINGS_MAX_GROUP_HOPS:5}
 updateIndices:
   enabled: ${ENABLE_UPDATE_INDICES_HOOK:true}
   consumerGroupSuffix: ${UPDATE_INDICES_CONSUMER_GROUP_SUFFIX:}

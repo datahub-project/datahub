@@ -1192,6 +1192,57 @@ public class SiblingGraphServiceTest {
         .getLatestAspect(any(OperationContext.class), any(Urn.class), anyString());
   }
 
+  /** A chain deeper than the hop cap stops at the cap and is reported truncated. */
+  @Test
+  public void testSiblingGroupStopsAtTheHopCap() {
+    int length = SiblingGraphService.DEFAULT_MAX_GROUP_HOPS + 4;
+    Urn[] chain = new Urn[length];
+    for (int i = 0; i < length; i++) {
+      chain[i] = dataset("glue", "deep.chain." + i);
+    }
+    Map<Urn, Siblings> store = new HashMap<>();
+    for (int i = 0; i < length; i++) {
+      List<Urn> links = new ArrayList<>();
+      if (i > 0) {
+        links.add(chain[i - 1]);
+      }
+      if (i < length - 1) {
+        links.add(chain[i + 1]);
+      }
+      store.put(chain[i], siblings(i == 0, links.toArray(new Urn[0])));
+    }
+    CountFixture fixture = new CountFixture(store, true);
+
+    // The start plus one member per hop, then the walk stops: one batched read per hop.
+    assertEquals(
+        fixture.service.siblingGroup(opContext, chain[0]).size(),
+        SiblingGraphService.DEFAULT_MAX_GROUP_HOPS + 1);
+    verify(fixture.entityService, times(SiblingGraphService.DEFAULT_MAX_GROUP_HOPS))
+        .getLatestAspects(
+            any(OperationContext.class), any(Set.class), any(Set.class), anyBoolean());
+
+    assertTrue(
+        new CountFixture(store, true)
+            .service
+            .siblingGroupMembers(opContext, List.of(chain[0]))
+            .get(chain[0])
+            .truncated());
+  }
+
+  /** The hop cap is configurable, and a value below 1 falls back to the default. */
+  @Test
+  public void testSiblingGroupHopCapIsConfigurable() {
+    Urn a = dataset("glue", "cfg.a");
+    Urn b = dataset("glue", "cfg.b");
+    Urn c = dataset("glue", "cfg.c");
+    Map<Urn, Siblings> store =
+        Map.of(a, siblings(true, b), b, siblings(false, a, c), c, siblings(false, b));
+
+    assertEquals(new CountFixture(store, true, 1).service.siblingGroup(opContext, a), Set.of(a, b));
+    assertEquals(
+        new CountFixture(store, true, 0).service.siblingGroup(opContext, a), Set.of(a, b, c));
+  }
+
   /** A large star is read in bounded batches. */
   @Test
   public void testSiblingGroupReadsLargeGroupsInBoundedBatches() {
@@ -1509,9 +1560,13 @@ public class SiblingGraphServiceTest {
       this(store, false);
     }
 
+    CountFixture(Map<Urn, Siblings> store, boolean allExist) {
+      this(store, allExist, SiblingGraphService.DEFAULT_MAX_GROUP_HOPS);
+    }
+
     /** With {@code allExist}, every dataset exists (none is soft-deleted). */
     @SuppressWarnings("unchecked")
-    CountFixture(Map<Urn, Siblings> store, boolean allExist) {
+    CountFixture(Map<Urn, Siblings> store, boolean allExist, int maxGroupHops) {
       when(graphService.getLineageRegistry()).thenReturn(opContext.getLineageRegistry());
       when(graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
       when(entityService.getLatestAspects(
@@ -1530,7 +1585,7 @@ public class SiblingGraphServiceTest {
         when(entityService.exists(any(OperationContext.class), any(Collection.class), eq(false)))
             .thenAnswer(args -> new HashSet<>((Collection<Urn>) args.getArgument(1)));
       }
-      service = new SiblingGraphService(entityService, graphService);
+      service = new SiblingGraphService(entityService, graphService, maxGroupHops);
     }
   }
 
