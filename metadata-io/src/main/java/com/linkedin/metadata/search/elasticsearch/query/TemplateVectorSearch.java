@@ -13,7 +13,6 @@ import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntity;
@@ -588,26 +587,23 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * True when the caller's filter has a criterion of its own. The system filters come from the
-   * search flags, and the published-document default the GraphQL resolvers merge into the filter is
-   * recognized by {@link DocumentDefaultFilter#isDefault}, so neither counts.
+   * True when the request carries a filter with a criterion, unless that filter is exactly the
+   * published-document default the GraphQL resolvers pass when the caller sets none. The system
+   * filters come from the search flags, so they never count. The default is recognized only as a
+   * whole filter, so a caller filter shaped like part of it still counts.
    */
   private static boolean hasCallerFilter(@Nullable Filter filter) {
-    if (filter == null) {
+    if (filter == null || DocumentDefaultFilter.isDefault(filter)) {
       return false;
     }
     if (filter.hasOr()) {
       for (ConjunctiveCriterion clause : filter.getOr()) {
-        if (clause.hasAnd() && hasCallerCriterion(clause.getAnd())) {
+        if (clause.hasAnd() && !clause.getAnd().isEmpty()) {
           return true;
         }
       }
     }
-    return filter.hasCriteria() && hasCallerCriterion(filter.getCriteria());
-  }
-
-  private static boolean hasCallerCriterion(@Nonnull CriterionArray criteria) {
-    return criteria.stream().anyMatch(criterion -> !DocumentDefaultFilter.isDefault(criterion));
+    return filter.hasCriteria() && !filter.getCriteria().isEmpty();
   }
 
   /**

@@ -28,6 +28,7 @@ import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
@@ -232,14 +233,33 @@ public class ESSearchDAOVectorStoreTest {
     assertEquals(unfiltered.getNumEntities().intValue(), 3);
     assertNull(fake.requests.get(0).filter());
 
-    // The published-document default the GraphQL resolvers merge in is a system default too
+    // The published-document default the GraphQL resolvers pass with no caller filter is a
+    // system default too
     Filter documentDefault = DocumentDefaultFilter.build(true, false);
     search(documentDefault, f -> {});
     assertNull(fake.requests.get(1).filter());
-    // ... and the caller's own criterion beside it still is a caller filter
-    assertThrows(
-        SearchTemplateFailClosedException.class,
-        () -> search(FilterUtils.combineFilters(caller, documentDefault), f -> {}));
+    // A caller filter still counts when it is shaped like part of that default, alone or merged
+    // with it, and so does the default merged with a caller facet
+    Filter published =
+        filter("lifecycleStage", DocumentDefaultFilter.PUBLISHED_LIFECYCLE_STAGE_URN);
+    Filter noStage =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                new Criterion()
+                                    .setField("lifecycleStage")
+                                    .setCondition(Condition.IS_NULL)))));
+    for (Filter callerShaped :
+        List.of(
+            published,
+            noStage,
+            FilterUtils.combineFilters(published, documentDefault),
+            FilterUtils.combineFilters(caller, documentDefault))) {
+      assertThrows(SearchTemplateFailClosedException.class, () -> search(callerShaped, f -> {}));
+    }
     assertEquals(fake.requests.size(), 2);
 
     // A store with preFilter retrieves inside the caller's filter

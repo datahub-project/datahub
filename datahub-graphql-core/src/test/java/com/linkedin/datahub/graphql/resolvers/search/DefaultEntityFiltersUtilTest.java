@@ -170,31 +170,35 @@ public class DefaultEntityFiltersUtilTest {
 
   @Test
   public void testTheDocumentDefaultIsNotTheCallersFilter() {
-    // A vector store that cannot filter fails closed on a caller filter, so the criteria this util
-    // adds must be recognizable as defaults wherever the merged filter is consumed
-    for (boolean canManageDocuments : new boolean[] {false, true}) {
-      Filter defaults =
-          DefaultEntityFiltersUtil.addDefaultEntityFilters(
-              null, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments);
-      for (ConjunctiveCriterion clause : defaults.getOr()) {
-        clause.getAnd().forEach(c -> assertTrue(DocumentDefaultFilter.isDefault(c), c.toString()));
+    // A vector store that cannot filter fails closed on a caller filter, so the filter this util
+    // passes when the caller sets none must be recognizable as the default where it is consumed
+    for (Filter none : new Filter[] {null, new Filter()}) {
+      for (boolean canManageDocuments : new boolean[] {false, true}) {
+        assertTrue(
+            DocumentDefaultFilter.isDefault(
+                DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                    none, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments)));
       }
     }
 
-    Filter caller =
-        new Filter()
-            .setOr(
-                new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                CriterionUtils.buildCriterion(
-                                    "domains", Condition.EQUAL, "urn:li:domain:sales")))));
-    Filter merged =
-        DefaultEntityFiltersUtil.addDefaultEntityFilters(
-            caller, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, false);
-    for (ConjunctiveCriterion clause : merged.getOr()) {
-      assertTrue(clause.getAnd().stream().anyMatch(c -> !DocumentDefaultFilter.isDefault(c)));
+    // A caller filter merged in is not the default, even one shaped like part of it
+    for (String field : new String[] {"domains", "lifecycleStage"}) {
+      String value =
+          "domains".equals(field)
+              ? "urn:li:domain:sales"
+              : DocumentDefaultFilter.PUBLISHED_LIFECYCLE_STAGE_URN;
+      Filter caller =
+          new Filter()
+              .setOr(
+                  new ConjunctiveCriterionArray(
+                      new ConjunctiveCriterion()
+                          .setAnd(
+                              new CriterionArray(
+                                  CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
+      assertFalse(
+          DocumentDefaultFilter.isDefault(
+              DefaultEntityFiltersUtil.addDefaultEntityFilters(
+                  caller, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, false)));
     }
   }
 
