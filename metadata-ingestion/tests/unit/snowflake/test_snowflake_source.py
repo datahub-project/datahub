@@ -1696,7 +1696,6 @@ def test_tag_resolver_looks_up_platform_resources_only_with_a_graph() -> None:
     assert resolver.platform_instance == "acct_a"
 
 
-
 def _info_schema_config(**extra: Any) -> SnowflakeV2Config:
     return SnowflakeV2Config.model_validate(
         {"account_id": "ab12345", "username": "u", "password": "p", **extra}
