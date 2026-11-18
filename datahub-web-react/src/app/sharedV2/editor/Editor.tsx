@@ -1,10 +1,15 @@
-import type { NodeViewComponentProps } from '@remirror/react';
 import React, { Suspense, forwardRef } from 'react';
 
 import { Editor as AlchemyEditor } from '@components/components/Editor';
-import type { EditorMentionsPickerProps, EditorProps } from '@components/components/Editor/types';
+import type {
+    EditorMentionViewProps,
+    EditorMentionsPickerProps,
+    EditorProps,
+} from '@components/components/Editor/types';
 
 import { ErrorBoundary } from '@app/sharedV2/ErrorHandling/ErrorBoundary';
+import { useMentionChipReady } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
+import { MentionEntitiesContextProvider } from '@app/sharedV2/editor/mentions/MentionEntitiesContextProvider';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 import { lazyNamed } from '@app/sharedV2/lazyPage';
 
@@ -13,7 +18,7 @@ const MentionsComponent = lazyNamed(
     () => import('@app/sharedV2/editor/mentions/MentionsComponent'),
     'MentionsComponent',
 );
-const MentionsNodeView = lazyNamed(() => import('@app/sharedV2/editor/mentions/MentionsNodeView'), 'MentionsNodeView');
+const MentionView = lazyNamed(() => import('@app/sharedV2/editor/mentions/MentionView'), 'MentionView');
 
 function NoFallback() {
     return null;
@@ -31,18 +36,22 @@ function LazyMentionsPicker(props: EditorMentionsPickerProps) {
     );
 }
 
-function LazyMentionNodeView(props: NodeViewComponentProps) {
-    const placeholder = <span>{props.node.attrs.name}</span>;
+// Read-only documentation renders mentions too, so the name paints first and the chip follows.
+// There the chip, its chunk and its data also wait until the content is in view and the browser is idle.
+function LazyMentionView(props: EditorMentionViewProps) {
+    const { ref, ready } = useMentionChipReady();
+    const placeholder = <span>{props.name}</span>;
+    if (!ready) return <span ref={ref}>{props.name}</span>;
     return (
         <ErrorBoundary fallback={() => placeholder}>
             <Suspense fallback={placeholder}>
-                <MentionsNodeView {...props} />
+                <MentionView {...props} />
             </Suspense>
         </ErrorBoundary>
     );
 }
 
-export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionNodeView' | 'imageUploadEnabled'>;
+export type Props = Omit<EditorProps, 'mentionsPicker' | 'mentionView' | 'mentionsProvider' | 'imageUploadEnabled'>;
 
 /** The alchemy Editor with DataHub mentions and the documentation file upload flag. */
 export const Editor = forwardRef<unknown, Props>((props, ref) => {
@@ -53,7 +62,8 @@ export const Editor = forwardRef<unknown, Props>((props, ref) => {
             {...props}
             ref={ref}
             mentionsPicker={LazyMentionsPicker}
-            mentionNodeView={LazyMentionNodeView}
+            mentionView={LazyMentionView}
+            mentionsProvider={MentionEntitiesContextProvider}
             imageUploadEnabled={imageUploadEnabled}
         />
     );

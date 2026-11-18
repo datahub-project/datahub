@@ -470,6 +470,93 @@ public final class SearchTemplateJson {
         node.get("field").asText(), k, numCandidates, keywordWeight, vectorWeight);
   }
 
+  /** Rejects a section that does not render to one JSON object. */
+  public static void requireObject(@Nonnull String json, @Nonnull String section) {
+    if (!read(json).isObject()) {
+      throw new SearchTemplateException("Search template " + section + " must be an object");
+    }
+  }
+
+  /**
+   * Reads the {@code knn} blend of a {@code keywordRerank} rung. {@code field} is optional, unknown
+   * keys and {@code minScore} are ignored, and every blend value that is set must be in range. A
+   * {@code k} that is set must still be positive, as on the earlier shape.
+   */
+  @Nonnull
+  public static SearchTemplateRerankKnn parseRerankKnn(@Nonnull String knnJson) {
+    JsonNode node = read(knnJson);
+    if (!node.isObject()) {
+      throw new SearchTemplateException("Search template knn must be an object");
+    }
+    String model = optionalText(node, "model");
+    String field = optionalText(node, "field");
+    if (node.has("k") && node.path("k").asInt(100) <= 0) {
+      throw new SearchTemplateException("Search template knn.k must be positive");
+    }
+    double vectorWeight =
+        optionalNumber(node, "vectorWeight", SearchTemplateRerankKnn.DEFAULT_VECTOR_WEIGHT);
+    if (vectorWeight < 0d || vectorWeight > 1d) {
+      throw new SearchTemplateException("Search template knn.vectorWeight must be from 0 to 1");
+    }
+    JsonNode lexical = node.path("lexical");
+    if (!lexical.isMissingNode() && !lexical.isNull() && !lexical.isObject()) {
+      throw new SearchTemplateException("Search template knn.lexical must be an object");
+    }
+    double inputMin =
+        optionalNumber(lexical, "inputMin", SearchTemplateRerankKnn.DEFAULT_LEXICAL_INPUT_MIN);
+    double inputMax =
+        optionalNumber(lexical, "inputMax", SearchTemplateRerankKnn.DEFAULT_LEXICAL_INPUT_MAX);
+    double steepness =
+        optionalNumber(lexical, "steepness", SearchTemplateRerankKnn.DEFAULT_LEXICAL_STEEPNESS);
+    if (inputMax <= inputMin) {
+      throw new SearchTemplateException(
+          "Search template knn.lexical.inputMax must be greater than inputMin");
+    }
+    if (steepness <= 0d) {
+      throw new SearchTemplateException("Search template knn.lexical.steepness must be positive");
+    }
+    Double blendFloor = null;
+    if (node.hasNonNull("blendFloor")) {
+      blendFloor = optionalNumber(node, "blendFloor", 0d);
+      if (blendFloor < 0d || blendFloor > 1d) {
+        throw new SearchTemplateException("Search template knn.blendFloor must be from 0 to 1");
+      }
+    }
+    String others = optionalText(node, "others");
+    if (others == null) {
+      others = SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES;
+    } else if (!SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES.equals(others)) {
+      throw new SearchTemplateException("Search template knn.others is not valid: " + others);
+    }
+    return new SearchTemplateRerankKnn(
+        model, field, vectorWeight, inputMin, inputMax, steepness, blendFloor, others);
+  }
+
+  @Nullable
+  private static String optionalText(@Nonnull JsonNode node, @Nonnull String key) {
+    JsonNode value = node.path(key);
+    if (value.isMissingNode() || value.isNull()) {
+      return null;
+    }
+    if (!value.isTextual() || value.asText().isBlank()) {
+      throw new SearchTemplateException(
+          "Search template knn." + key + " must be a non-empty string");
+    }
+    return value.asText();
+  }
+
+  private static double optionalNumber(
+      @Nonnull JsonNode node, @Nonnull String key, double fallback) {
+    JsonNode value = node.path(key);
+    if (value.isMissingNode() || value.isNull()) {
+      return fallback;
+    }
+    if (!value.isNumber() || !Double.isFinite(value.asDouble())) {
+      throw new SearchTemplateException("Search template knn " + key + " must be a number");
+    }
+    return value.asDouble();
+  }
+
   public static boolean boostModeReplace(@Nullable String functionScoreJson) {
     if (functionScoreJson == null || functionScoreJson.isBlank()) {
       return false;

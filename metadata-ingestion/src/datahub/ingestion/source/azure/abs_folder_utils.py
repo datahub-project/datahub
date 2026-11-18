@@ -1,7 +1,7 @@
 import logging
-from typing import Dict, Iterable, List, Optional
+from typing import Dict, Iterable, List, Optional, Union
 
-from azure.storage.blob import BlobProperties
+from azure.storage.blob import BlobProperties, ContainerProperties
 
 from datahub.emitter.mce_builder import make_tag_urn
 from datahub.ingestion.api.common import PipelineContext
@@ -98,7 +98,7 @@ def add_property(
 
 
 def create_properties(
-    data: BlobProperties,
+    data: Union[BlobProperties, ContainerProperties],
     prefix: str,
     custom_properties: Dict[str, str],
     resource_name: str,
@@ -150,10 +150,9 @@ def get_abs_tags(
     tags_to_add: List[str] = []
     blob_service_client = azure_config.get_blob_service_client()
     container_client = blob_service_client.get_container_client(container_name)
-    blob_client = container_client.get_blob_client(blob=key_name)
 
     if use_abs_blob_tags and key_name is not None:
-        tag_set = blob_client.get_blob_tags()
+        tag_set = container_client.get_blob_client(blob=key_name).get_blob_tags()
         if tag_set:
             tags_to_add.extend(
                 make_tag_urn(f"""{key}:{value}""") for key, value in tag_set.items()

@@ -54,6 +54,7 @@ describe('TopDomainsModule reload behavior', () => {
                 ({
                     isReloading,
                     onReloadingFinished,
+                    setIsHidden: vi.fn(),
                 }) as ReturnType<typeof useModuleContext>,
         );
     });

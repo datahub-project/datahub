@@ -440,6 +440,8 @@ dynamodb = [
 ]
 
 elasticsearch = [
+    "boto3>=1.35.0,<2.0.0",
+    "botocore!=1.23.0,<2.0.0",
     "cachetools<6.0.0",
     "opensearch-py>=3.0.0,<4.0.0",
 ]
@@ -1881,7 +1883,7 @@ bigquery-queries = "datahub.ingestion.source.bigquery_v2.bigquery_queries:BigQue
 clickhouse = "datahub.ingestion.source.sql.clickhouse:ClickHouseSource"
 clickhouse-usage = "datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource"
 cockroachdb = "datahub.ingestion.source.sql.cockroachdb:CockroachDBSource"
-confluence = "datahub.ingestion.source.confluence.confluence_source:ConfluenceSource"
+confluence = "datahub.ingestion.source.confluence.source:ConfluenceSource"
 google-drive = "datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource"
 delta-lake = "datahub.ingestion.source.delta_lake:DeltaLakeSource"
 s3 = "datahub.ingestion.source.s3:S3Source"

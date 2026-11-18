@@ -7,6 +7,7 @@ import { AvatarType } from '@components/components/AvatarStack/types';
 
 import { getRelatedEntitiesUrl as getBusinessAttributeRelatedEntitiesUrl } from '@app/businessAttribute/businessAttributeUtils';
 import { getRelatedAssetsUrl } from '@app/entityV2/glossaryTerm/utils';
+import { TabType } from '@app/entityV2/group/types';
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
@@ -134,6 +135,13 @@ export default function EntityHoverCard({ entity, propagationDetails, ownershipR
         relatedLinks.push({
             href: resolveRuntimePath(getBusinessAttributeRelatedEntitiesUrl(entityRegistry, entity.urn)),
             label: tTypes('businessAttribute.viewRelatedEntities'),
+        });
+    } else if (memberCount != null && memberCount > 0) {
+        relatedLinks.push({
+            href: resolveRuntimePath(
+                `${entityRegistry.getEntityUrl(entity.type, entity.urn)}/${TabType.Members.toLowerCase()}`,
+            ),
+            label: tTypes('group.viewAllMembers'),
         });
     }
 

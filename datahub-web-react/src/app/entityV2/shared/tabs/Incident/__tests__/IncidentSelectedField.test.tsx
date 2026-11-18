@@ -26,6 +26,8 @@ beforeAll(() => {
 
         readonly rootMargin = '';
 
+        readonly scrollMargin = '';
+
         readonly thresholds = [];
 
         constructor(private readonly callback: IntersectionObserverCallback) {}

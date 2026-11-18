@@ -21,6 +21,7 @@ class UnityCatalogReport(SQLSourceReport):
     tables: EntityFilterReport = EntityFilterReport.field(type="table/view")
     table_profiles: EntityFilterReport = EntityFilterReport.field(type="table profile")
     notebooks: EntityFilterReport = EntityFilterReport.field(type="notebook")
+    volumes: EntityFilterReport = EntityFilterReport.field(type="volume")
     genie_spaces: EntityFilterReport = EntityFilterReport.field(type="genie_space")
     ml_models: EntityFilterReport = EntityFilterReport.field(type="ml_model")
     ml_model_versions: EntityFilterReport = EntityFilterReport.field(
@@ -31,6 +32,9 @@ class UnityCatalogReport(SQLSourceReport):
     hive_metastore_catalog_found: Optional[bool] = None
 
     num_column_lineage_skipped_column_count: int = 0
+    # Upstream tables outside the run whose columns came back empty, so column
+    # lineage keeps the names the lineage reports.
+    num_column_lineage_upstream_without_columns: int = 0
     num_external_upstreams_lacking_permissions: int = 0
     num_external_upstreams_unsupported: int = 0
     num_external_upstreams_partition_stripped: int = 0

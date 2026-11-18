@@ -363,7 +363,11 @@ public final class IncrementalReindexState {
     return result;
   }
 
-  /** Properties of an earlier fill attempt that a fill planned afresh does not inherit. */
+  /**
+   * Properties of an earlier attempt that a fill planned afresh does not inherit. A leftover {@code
+   * dualWriteStartTime} is the previous attempt's window end, and catch-up treats a new window that
+   * opens after it as already closed.
+   */
   private static final List<String> FRESH_FILL_PROPERTIES =
       List.of(
           BACKFILL_CURSOR_ENTITY,
@@ -374,7 +378,10 @@ public final class IncrementalReindexState {
           BACKFILL_GENERATION,
           BACKFILL_COMPLETE_TIME,
           OLD_BACKING_INDEX_ID_SCHEME_STALE,
-          OLD_BACKING_INDEX_INCOMPLETE_MIGRATION);
+          OLD_BACKING_INDEX_INCOMPLETE_MIGRATION,
+          DUAL_WRITE_START_TIME,
+          TASK_ID,
+          REINDEX_COMPLETE_TIME);
 
   /** Pin the baseline generation every document of this fill is written with. */
   public static Map<String, String> setBackfillGeneration(
@@ -604,8 +611,12 @@ public final class IncrementalReindexState {
 
     Map<String, String> result = existing != null ? new HashMap<>(existing) : new HashMap<>();
     result.put(key(indexName, NEXT_INDEX_NAME), nextIndexName);
+    // Null means this run has no old generation. Leaving a name from an earlier deploy would make
+    // a recreated index, after its row is COMPLETED, a rollback target for an index that is gone.
     if (oldBackingIndexName != null) {
       result.put(key(indexName, OLD_BACKING_INDEX_NAME), oldBackingIndexName);
+    } else {
+      result.remove(key(indexName, OLD_BACKING_INDEX_NAME));
     }
     result.put(key(indexName, REINDEX_START_TIME), String.valueOf(reindexStartTime));
     result.put(key(indexName, SOURCE_DOC_COUNT), String.valueOf(sourceDocCount));

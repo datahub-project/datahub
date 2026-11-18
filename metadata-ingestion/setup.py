@@ -703,7 +703,8 @@ plugins: Dict[str, Set[str]] = {
     "dynamodb": aws_common,
     # opensearch-py, not elasticsearch-py: the latter only supports Elasticsearch and rejects OpenSearch.
     # 3.x generated APIs are keyword-only; require >=3 so 2.x is not installed.
-    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *cachetools_lib},
+    # aws_common provides credential resolution for optional AWS IAM (SigV4) auth.
+    "elasticsearch": {"opensearch-py>=3.0.0,<4.0.0", *aws_common, *cachetools_lib},
     "excel": {
         "openpyxl>=3.1.5,<4.0.0",
         "pandas<3.0.0",
@@ -1278,7 +1279,7 @@ entry_points = {
         "clickhouse = datahub.ingestion.source.sql.clickhouse:ClickHouseSource",
         "clickhouse-usage = datahub.ingestion.source.usage.clickhouse_usage:ClickHouseUsageSource",
         "cockroachdb = datahub.ingestion.source.sql.cockroachdb:CockroachDBSource",
-        "confluence = datahub.ingestion.source.confluence.confluence_source:ConfluenceSource",
+        "confluence = datahub.ingestion.source.confluence.source:ConfluenceSource",
         "google-drive = datahub.ingestion.source.google_drive.google_drive_source:GoogleDriveSource",
         "delta-lake = datahub.ingestion.source.delta_lake:DeltaLakeSource",
         "s3 = datahub.ingestion.source.s3:S3Source",
