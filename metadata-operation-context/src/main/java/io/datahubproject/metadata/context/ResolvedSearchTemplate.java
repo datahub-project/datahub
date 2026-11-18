@@ -45,6 +45,12 @@ public class ResolvedSearchTemplate {
   private boolean capabilityScroll;
   private boolean documentRerank;
 
+  /** Requested entity types, for the per-rung embedding profile checks. */
+  @Nullable private List<String> entityTypes;
+
+  /** Registry name of the engine serving this search, or null when it is not known. */
+  @Nullable private String searchSystem;
+
   /**
    * Reachable rungs and, when a body references them, the viewer. Rerank is appended separately.
    */
@@ -83,9 +89,15 @@ public class ResolvedSearchTemplate {
     this.templateRerank = templateRerank;
   }
 
-  public void setExecutionCapabilities(boolean capabilityScroll, boolean documentRerank) {
+  public void setExecutionCapabilities(
+      boolean capabilityScroll,
+      boolean documentRerank,
+      @Nullable List<String> entityTypes,
+      @Nullable String searchSystem) {
     this.capabilityScroll = capabilityScroll;
     this.documentRerank = documentRerank;
+    this.entityTypes = entityTypes == null ? null : List.copyOf(entityTypes);
+    this.searchSystem = searchSystem;
   }
 
   public void setCacheIdentity(@Nonnull String cacheIdentity) {

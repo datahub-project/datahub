@@ -180,13 +180,6 @@ public final class SearchTemplateCapabilities {
     }
   }
 
-  public static void requireSupported(
-      @Nonnull MergedSearchTemplate template,
-      boolean documentRerank,
-      @Nonnull SearchTemplateComponentRegistry registry) {
-    requireSupported(template, documentRerank, false, registry);
-  }
-
   /**
    * Scroll drops {@code knn}, so a knn section does not fail a scroll. On a search, document rerank
    * is advertised only when the request includes the Document entity.
@@ -195,9 +188,10 @@ public final class SearchTemplateCapabilities {
       @Nonnull MergedSearchTemplate template,
       boolean documentRerank,
       boolean scroll,
-      @Nonnull SearchTemplateComponentRegistry registry) {
+      @Nonnull SearchTemplateComponentRegistry registry,
+      @Nonnull SearchTemplateGates gates) {
     requireContract(template);
-    String code = rejectionCode(template, documentRerank, scroll, registry);
+    String code = rejectionCode(template, documentRerank, scroll, registry, gates);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
     }
@@ -210,16 +204,33 @@ public final class SearchTemplateCapabilities {
   }
 
   /**
+   * Fails a template whose resolved embedding profiles this build cannot run for the requested
+   * entity types. Checked after {@link #requireSupported}, when the request is known.
+   */
+  public static void requireResolvable(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull SearchTemplateGates gates,
+      @Nullable Collection<String> entityTypes,
+      @Nullable String system,
+      boolean documentRerank) {
+    String code = gates.bindingRejection(template, entityTypes, system, documentRerank);
+    if (code != null) {
+      throw unsupported(rejectionDetail(template, code));
+    }
+  }
+
+  /**
    * Bounded reason a merged template cannot run, or null when its sections are runnable. {@code
    * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code mergeJoin}, {@code retrievalMode},
-   * or {@code retrievalBridge}.
+   * {@code retrievalBridge}, or a code from {@link SearchTemplateGates#rejectionCode}.
    */
   @Nullable
   public static String rejectionCode(
       @Nonnull MergedSearchTemplate template,
       boolean documentRerank,
       boolean scroll,
-      @Nonnull SearchTemplateComponentRegistry registry) {
+      @Nonnull SearchTemplateComponentRegistry registry,
+      @Nonnull SearchTemplateGates gates) {
     com.linkedin.search.template.SearchTemplateComponent component = template.getComponent();
     if (!SearchTemplateComponents.empty(component)) {
       String name = component.hasName() ? component.getName() : null;
@@ -251,7 +262,12 @@ public final class SearchTemplateCapabilities {
     }
     // keywordRerank serves keyword order when the rerank cannot run, so it is not a capability
     // failure. This release reads that shape and does not execute the rerank.
-    if (template.getKnn() != null && !scroll && !documentRerank && !keywordRerank(template)) {
+    // Only the legacy shape, with no combine, runs its knn through document rerank. With a combine,
+    // knn carries the blend or the deprecated profile names, and the gates decide.
+    if (template.getKnn() != null
+        && !scroll
+        && !documentRerank
+        && combine(template.getRetrieval()) == null) {
       return "knn";
     }
     if (template.getLadder() != null
@@ -260,39 +276,21 @@ public final class SearchTemplateCapabilities {
         && "merge".equalsIgnoreCase(template.getLadder().getJoin())) {
       return "mergeJoin";
     }
-    if (template.getScope() != null) {
-      return "scope";
-    }
-    if (citesEmbeddingPlaceholders(template)) {
-      return "nativeQuery";
-    }
-    // This release resolves no embedding profile. A keywordRerank rung only uses the selection
-    // inside the rerank, which this release skips while keeping keyword order, so it still binds.
-    // Any other shape that selects profiles fails closed.
-    if (!keywordRerank(template)) {
-      if (template.getProfiles() != null) {
-        return "profiles";
-      }
-      if (template.getRetrieval() != null
-          && template.getRetrieval().hasProfileScore()
-          && StringUtils.isNotBlank(template.getRetrieval().getProfileScore())) {
-        return "profileScore";
-      }
+    String gate = gates.rejectionCode(template, documentRerank);
+    if (gate != null) {
+      return gate;
     }
     SearchTemplateRetrieval retrieval = template.getRetrieval();
     if (retrieval == null) {
       return null;
     }
+    // A legacy vector mode is the vector combine, which the gates decide.
     String mode = retrieval.hasMode() ? retrieval.getMode() : null;
-    if (mode != null && !mode.isBlank() && !"keyword".equals(mode)) {
+    if (mode != null
+        && !mode.isBlank()
+        && !"keyword".equals(mode)
+        && !COMBINE_VECTOR.equals(mode)) {
       return "retrievalMode";
-    }
-    String combine = combine(retrieval);
-    if (combine != null && !COMBINE_KEYWORD_RERANK.equals(combine)) {
-      return "retrievalCombine";
-    }
-    if (retrieval.hasVectorBody() && StringUtils.isNotBlank(retrieval.getVectorBody())) {
-      return "vectorBody";
     }
     SearchTemplateRetrievalBridge bridge = retrieval.hasBridge() ? retrieval.getBridge() : null;
     if (bridge != null && !SearchTemplateLoader.emptyRetrieval(retrievalWithBridge(bridge))) {
@@ -314,14 +312,14 @@ public final class SearchTemplateCapabilities {
       case "knn" -> "knn";
       case "mergeJoin" -> "merge join";
       case "retrievalMode" -> "retrieval mode " + retrieval.getMode();
-      case "retrievalCombine" -> "retrieval combine " + retrieval.getCombine();
-      case "vectorBody" -> "retrieval vectorBody";
-      case "scope" -> "scope";
-      case "profiles" -> "profiles";
-      case "profileScore" -> "retrieval profileScore";
-      case "nativeQuery" -> "native embedding placeholders";
+      case SearchTemplateGates.KEYWORD_PROFILES -> "profiles on a keyword rung";
+      case SearchTemplateGates.PROFILE_SCOPE -> "profiles that do not cover the scope";
+      case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
-      default -> code;
+      default ->
+          SearchTemplateGates.CAPABILITIES.contains(code)
+              ? "capability " + code + ", which this build does not run"
+              : code;
     };
   }
 
@@ -354,7 +352,7 @@ public final class SearchTemplateCapabilities {
   // Every body section is scanned: a citation outside the native query sections never renders,
   // so it must fail closed rather than serve an empty value. The write check in
   // SearchTemplatePolicyChecks scans the same sections.
-  private static boolean citesEmbeddingPlaceholders(@Nonnull MergedSearchTemplate template) {
+  static boolean citesEmbeddingPlaceholders(@Nonnull MergedSearchTemplate template) {
     if (citesEmbeddingPlaceholders(template.getQuery())
         || citesEmbeddingPlaceholders(template.getClauses())
         || citesEmbeddingPlaceholders(template.getFunctionScore())
@@ -392,6 +390,7 @@ public final class SearchTemplateCapabilities {
       return true;
     }
     if (template.getProfiles() != null
+        || template.isProfilesSet()
         || template.getScope() != null
         || citesEmbeddingPlaceholders(template)) {
       return true;

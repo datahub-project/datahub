@@ -125,7 +125,8 @@ public class SearchTemplateRolloutTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext search =
         harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
     assertTrue(coordinator.executes(search));
@@ -143,7 +144,8 @@ public class SearchTemplateRolloutTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     OperationContext search =
         harness.opContext.withSearchSurface(SearchTemplateSurfaces.SEARCH_ENTITIES);
@@ -190,7 +192,8 @@ public class SearchTemplateRolloutTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     harness.opContext = harness.opContext.withSearchTemplateRuntime(coordinator);
     EntitySpec dataset = dataset();
     V3SearchQueryBuilder builder = new V3SearchQueryBuilder(elastic.getSearch(), null);

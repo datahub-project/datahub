@@ -34,6 +34,7 @@ import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewrit
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -217,7 +218,8 @@ public class ESSearchDAOHybridTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty()));
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
     try {
       OperationContext searching =
           TestOperationContexts.withFixedSearchClient(harness.opContext, client)
@@ -266,7 +268,8 @@ public class ESSearchDAOHybridTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty()));
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
     try {
       OperationContext searching =
           TestOperationContexts.withFixedSearchClient(harness.opContext, client)
