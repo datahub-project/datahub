@@ -79,6 +79,7 @@ query appConfig {
             contextDocumentsEnabled
             documentExplicitSaveEnabled
             dataContractsEnabled
+            showApplicationsFeatureToggle
             editableDatasetNameEnabled
             themeV2Enabled
             themeV2Default

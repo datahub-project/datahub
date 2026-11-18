@@ -269,6 +269,7 @@ public class AppConfigResolver implements DataFetcher<CompletableFuture<AppConfi
                   .setNestedDomainsEnabled(_featureFlags.isNestedDomainsEnabled())
                   .setPlatformBrowseV2(_featureFlags.isPlatformBrowseV2())
                   .setDataContractsEnabled(_featureFlags.isDataContractsEnabled())
+                  .setShowApplicationsFeatureToggle(_featureFlags.isShowApplicationsFeatureToggle())
                   .setEditableDatasetNameEnabled(_featureFlags.isEditableDatasetNameEnabled())
                   .setThemeV2Enabled(_featureFlags.isThemeV2Enabled())
                   .setThemeV2Default(_featureFlags.isThemeV2Default())
