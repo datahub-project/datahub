@@ -54,6 +54,12 @@ describe('useRemoveRelationship on an Application page', () => {
         expect(result.current.removeButtonText).toBe('removeFromApplication');
     });
 
+    it('removes the asset from this Application only, naming it by the page urn', () => {
+        const { result } = renderHook(() => useRemoveRelationship(EntityType.Dataset));
+        result.current.removeRelationship();
+        expect(mocks.removeApplication).toHaveBeenCalledWith('urn:li:application:child', 'urn:li:application:parent');
+    });
+
     it('hides removal for a child Application, which is linked through parentApplication', () => {
         const { result } = renderHook(() => useRemoveRelationship(EntityType.Application));
         expect(result.current.removeButtonText).toBeNull();
