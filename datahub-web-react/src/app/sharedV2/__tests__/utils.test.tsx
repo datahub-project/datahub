@@ -5,7 +5,7 @@ import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { TextAUnderline } from '@phosphor-icons/react/dist/csr/TextAUnderline';
 import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
 import { render } from '@testing-library/react';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { ColumnTypeIcon, TypeTooltipTitle } from '@app/sharedV2/utils';
 

@@ -1,5 +1,6 @@
 import { Tag as TagIcon } from '@phosphor-icons/react/dist/csr/Tag';
 import i18next from 'i18next';
+import type { JSX } from 'react';
 import * as React from 'react';
 
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';

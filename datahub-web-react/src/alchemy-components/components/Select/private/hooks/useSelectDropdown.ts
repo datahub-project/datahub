@@ -7,8 +7,8 @@ const AUTO_OPEN_OUTSIDE_CLICK_GRACE_MS = 400;
 
 export default function useSelectDropdown(
     defaultOpen: boolean,
-    selectRef: React.RefObject<Element>,
-    dropdownRef: React.RefObject<Element>,
+    selectRef: React.RefObject<Element | null>,
+    dropdownRef: React.RefObject<Element | null>,
     visibilityDeps: React.DependencyList = [],
     onClose?: () => void,
 ) {

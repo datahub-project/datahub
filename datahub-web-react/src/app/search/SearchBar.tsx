@@ -121,10 +121,6 @@ interface Props {
     dataTestId?: string;
 }
 
-const defaultProps = {
-    style: undefined,
-};
-
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -459,5 +455,3 @@ export const SearchBar = ({
         </AutoCompleteContainer>
     );
 };
-
-SearchBar.defaultProps = defaultProps;

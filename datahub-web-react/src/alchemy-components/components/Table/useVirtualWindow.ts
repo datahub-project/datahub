@@ -18,7 +18,7 @@ export interface VirtualWindow {
  * The table renders spacer rows for the rest, so the scrollbar keeps the full height.
  */
 export const useVirtualWindow = (
-    containerRef: RefObject<HTMLElement>,
+    containerRef: RefObject<HTMLElement | null>,
     itemCount: number,
     virtualization: TableVirtualizationProps | undefined,
     headerHeight: number,

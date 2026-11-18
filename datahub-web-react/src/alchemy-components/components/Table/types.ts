@@ -41,7 +41,7 @@ export interface TableProps<T> extends TableHTMLAttributes<HTMLTableElement> {
     rowKey?: string | ((record: T) => string);
     rowSelection?: RowSelectionProps<T>;
     rowRefs?: React.MutableRefObject<HTMLTableRowElement[]>;
-    headerRef?: React.RefObject<HTMLTableSectionElement>;
+    headerRef?: React.RefObject<HTMLTableSectionElement | null>;
     footer?: React.ReactNode;
     renderScrollObserver?: () => React.ReactNode;
     /** Renders rows in collapsible groups, each with a header row inside the same table. */

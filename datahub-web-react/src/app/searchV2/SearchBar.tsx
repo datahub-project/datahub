@@ -152,10 +152,6 @@ export interface SearchBarProps {
     isShowNavBarRedesign?: boolean;
 }
 
-const defaultProps = {
-    style: undefined,
-};
-
 /**
  * Represents the search bar appearing in the default header view.
  */
@@ -501,5 +497,3 @@ export const SearchBar = ({
         </>
     );
 };
-
-SearchBar.defaultProps = defaultProps;

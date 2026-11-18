@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { stripMarkdownLinks } from '@app/sharedV2/stripMarkdownLinks';

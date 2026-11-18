@@ -244,7 +244,9 @@ describe('WelcomeToDataHubModal slide advance', () => {
         expect(lineage).not.toBeNull();
 
         // slick fires afterChange from its own timer, outside a React event.
-        slideChange.current?.(1);
+        act(() => {
+            slideChange.current?.(1);
+        });
 
         expect(document.querySelector('video[src="/lineage.mp4"]')).toBe(lineage);
         expect(document.querySelector('video[src="/search.mp4"]')).toBeNull();

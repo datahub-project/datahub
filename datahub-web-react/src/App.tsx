@@ -127,7 +127,7 @@ const client = new ApolloClient({
 // timer-driven poll ticks without an op-name denylist. Must run after `new ApolloClient`.
 installApolloPollingContextPatch(client);
 
-export const InnerApp: React.VFC = () => {
+export const InnerApp: React.FC = () => {
     const isDarkMode = loadIsDarkMode();
 
     return (
@@ -158,7 +158,7 @@ export const InnerApp: React.VFC = () => {
     );
 };
 
-export const App: React.VFC = () => {
+export const App: React.FC = () => {
     return (
         <ApolloProvider client={client}>
             <InnerApp />

@@ -16,7 +16,7 @@ export default function PropertySelectField({ selectedPropertyUrn, onPropertyCha
     const { t } = useTranslation('settings.permissions');
     const [searchQuery, setSearchQuery] = useState('');
     const [debouncedQuery, setDebouncedQuery] = useState('');
-    const timerRef = useRef<NodeJS.Timeout>();
+    const timerRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     useEffect(() => {
         timerRef.current = setTimeout(() => setDebouncedQuery(searchQuery), 300);

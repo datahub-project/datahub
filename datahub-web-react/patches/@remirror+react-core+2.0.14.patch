@@ -1,0 +1,26 @@
+diff --git a/node_modules/@remirror/react-core/dist/remirror-react-core.cjs b/node_modules/@remirror/react-core/dist/remirror-react-core.cjs
+index 101dcde..e6bc2c1 100644
+--- a/node_modules/@remirror/react-core/dist/remirror-react-core.cjs
++++ b/node_modules/@remirror/react-core/dist/remirror-react-core.cjs
+@@ -326,6 +326,8 @@ var ReactFramework = class extends import_core7.Framework {
+     });
+     __publicField(this, "onRef", (element) => {
+       if (!element) {
++        // React 19 detaches and re-attaches refs (StrictMode, Suspense reappear); a detach frees the slot
++        if (this.rootPropsConfig.count > 0) this.rootPropsConfig.count -= 1;
+         return;
+       }
+       this.rootPropsConfig.count += 1;
+diff --git a/node_modules/@remirror/react-core/dist/remirror-react-core.js b/node_modules/@remirror/react-core/dist/remirror-react-core.js
+index 1997346..663fd89 100644
+--- a/node_modules/@remirror/react-core/dist/remirror-react-core.js
++++ b/node_modules/@remirror/react-core/dist/remirror-react-core.js
+@@ -283,6 +283,8 @@ var ReactFramework = class extends Framework {
+     });
+     __publicField(this, "onRef", (element) => {
+       if (!element) {
++        // React 19 detaches and re-attaches refs (StrictMode, Suspense reappear); a detach frees the slot
++        if (this.rootPropsConfig.count > 0) this.rootPropsConfig.count -= 1;
+         return;
+       }
+       this.rootPropsConfig.count += 1;

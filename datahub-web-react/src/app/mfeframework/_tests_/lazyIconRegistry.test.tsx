@@ -58,8 +58,8 @@ describe('getLazyIcon', () => {
         // reference; a new component would reset its resolved state and re-fetch.
         const el1 = getLazyIcon('CacheCheck');
         const el2 = getLazyIcon('CacheCheck');
-        const inner1 = (el1 as React.ReactElement).props.children as React.ReactElement;
-        const inner2 = (el2 as React.ReactElement).props.children as React.ReactElement;
+        const inner1 = (el1 as React.ReactElement<{ children: React.ReactElement }>).props.children;
+        const inner2 = (el2 as React.ReactElement<{ children: React.ReactElement }>).props.children;
         expect(inner1.type).toBe(inner2.type);
     });
 
@@ -80,7 +80,7 @@ describe('getLazyIcon', () => {
 
         // Fallback sizing: string sizes that coerce to numbers should not collapse to 16.
         const tree = getLazyIcon('PropsIcon', { size: '24' }) as React.ReactElement;
-        const { fallback } = tree.props as { fallback: React.ReactElement };
+        const { fallback } = tree.props as { fallback: React.ReactElement<{ size?: string | number }> };
         expect(fallback.props.size).toBe('24');
     });
 });

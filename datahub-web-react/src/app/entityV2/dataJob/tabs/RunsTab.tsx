@@ -1,6 +1,6 @@
 import { Pagination, Table, Text, Tooltip } from '@components';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
-import React, { useState } from 'react';
+import React, { JSX, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { DefaultTheme, useTheme } from 'styled-components';
 

@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -37,11 +37,13 @@ export const Radio = ({
     const { t } = useTranslation('alchemy');
     const resolvedLabel = label ?? t('radio.label');
     const [checked, setChecked] = useState(isChecked || false);
-    const [generatedId] = useState(() => `radio-${uuidv4()}`);
-
-    useEffect(() => {
+    // Sync during render: an effect lags, and React 19 would undo the click with the stale value
+    const [syncedIsChecked, setSyncedIsChecked] = useState(isChecked);
+    if (isChecked !== syncedIsChecked) {
+        setSyncedIsChecked(isChecked);
         setChecked(isChecked || false);
-    }, [isChecked]);
+    }
+    const [generatedId] = useState(() => `radio-${uuidv4()}`);
 
     const id = props.id || generatedId;
 

@@ -1,5 +1,5 @@
 import { render, screen } from '@testing-library/react';
-import React from 'react';
+import React, { JSX } from 'react';
 import { MemoryRouter } from 'react-router';
 import { ThemeProvider } from 'styled-components';
 import { afterEach, describe, expect, it, vi } from 'vitest';

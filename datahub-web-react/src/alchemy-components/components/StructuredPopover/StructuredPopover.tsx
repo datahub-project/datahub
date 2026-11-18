@@ -24,7 +24,7 @@ export function StructuredPopover(props: StructuredPopoverProps & PopoverProps) 
     const content = (
         <Container>
             {Header && <Header />}
-            {title && <Title>{title}</Title>}
+            {title && <Title>{typeof title === 'function' ? title() : title}</Title>}
             {sections && (
                 <SectionsContainer>
                     {sections?.map((section, i) => (

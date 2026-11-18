@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 
 export interface BaseItemType {
     key: string;

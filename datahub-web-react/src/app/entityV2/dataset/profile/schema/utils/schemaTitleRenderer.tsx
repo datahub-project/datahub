@@ -1,4 +1,4 @@
-import React, { useCallback, useMemo } from 'react';
+import React, { JSX, useCallback, useMemo } from 'react';
 
 import { InteriorTitleContent } from '@app/entityV2/dataset/profile/schema/components/InteriorTitleContent';
 import { getEffectivePrimaryKeys, isPrimaryKeyField } from '@app/entityV2/dataset/profile/schema/utils/primaryKeys';

@@ -10,7 +10,7 @@ import { Key } from '@phosphor-icons/react/dist/csr/Key';
 import { Question } from '@phosphor-icons/react/dist/csr/Question';
 import { TextAUnderline } from '@phosphor-icons/react/dist/csr/TextAUnderline';
 import { TextB } from '@phosphor-icons/react/dist/csr/TextB';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { SchemaFieldDataType } from '@types';
 

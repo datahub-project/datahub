@@ -1,7 +1,7 @@
 import { useEffect, useState } from 'react';
 
 export function useCardsPerRow(
-    containerRef: React.RefObject<HTMLElement>,
+    containerRef: React.RefObject<HTMLElement | null>,
     cardMinWidth: number,
     gap = 8,
     minColumns = 1,

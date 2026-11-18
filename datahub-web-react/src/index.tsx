@@ -1,5 +1,8 @@
+// antd 5's message, notification and Modal.confirm use ReactDOM.render, removed in React 19.
+// Drop this patch (also in setupTests and .storybook/preview) when migrating to antd 6.
+import '@ant-design/v5-patch-for-react-19';
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
 
 import { installChunkReloadHandler } from '@app/sharedV2/chunkReload';
 import { App } from '@src/App';
@@ -9,11 +12,10 @@ import '@utils/dayjs';
 
 installChunkReloadHandler();
 
-ReactDOM.render(
+createRoot(document.getElementById('root') as HTMLElement).render(
     <React.StrictMode>
         <App />
     </React.StrictMode>,
-    document.getElementById('root'),
 );
 
 // If you want to start measuring performance in your app, pass a function

@@ -1,5 +1,5 @@
 import { QueryHookOptions, QueryResult } from '@apollo/client';
-import React from 'react';
+import React, { JSX } from 'react';
 
 import DefaultEntity from '@app/entityV2/DefaultEntity';
 import { Entity, EntityCapabilityType, EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';

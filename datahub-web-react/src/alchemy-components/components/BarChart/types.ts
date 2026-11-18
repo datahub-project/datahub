@@ -1,8 +1,11 @@
 import { AxisScaleOutput, TickRendererProps } from '@visx/axis';
 import { ScaleConfig } from '@visx/scale';
-import { Margin } from '@visx/xychart';
-import { AxisProps as VisxAxisProps } from '@visx/xychart/lib/components/axis/Axis';
-import { GridProps as VisxGridProps } from '@visx/xychart/lib/components/grid/Grid';
+import { Axis, Grid, Margin } from '@visx/xychart';
+import { ComponentProps } from 'react';
+
+// visx 4 blocks deep lib/ imports
+type VisxAxisProps = ComponentProps<typeof Axis>;
+type VisxGridProps = ComponentProps<typeof Grid>;
 
 export enum ColorScheme {
     Violet = 'VIOLET',

@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import React, { JSX, useMemo } from 'react';
 import { useLocation } from 'react-router-dom';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';

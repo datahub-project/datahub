@@ -1,5 +1,5 @@
 import { Button, Tooltip } from '@components';
-import { fireEvent, render, screen } from '@testing-library/react';
+import { act, fireEvent, render, screen } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
 import { describe, expect, it, vi } from 'vitest';
@@ -59,7 +59,9 @@ describe('Tooltip', () => {
 
         vi.useFakeTimers();
         fireEvent.mouseEnter(button.parentElement as HTMLElement);
-        vi.advanceTimersByTime(100);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
 
         expect(screen.getByRole('tooltip')).toHaveTextContent('Missing permission');
         vi.useRealTimers();
@@ -81,7 +83,9 @@ describe('Tooltip', () => {
 
         vi.useFakeTimers();
         fireEvent.mouseEnter(button.parentElement as HTMLElement);
-        vi.advanceTimersByTime(100);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
 
         expect(screen.getByRole('tooltip')).toHaveTextContent('View change history');
         vi.useRealTimers();
@@ -109,7 +113,9 @@ describe('Tooltip', () => {
 
         vi.useFakeTimers();
         fireEvent.mouseEnter(cell.parentElement as Element);
-        vi.advanceTimersByTime(100);
+        act(() => {
+            vi.advanceTimersByTime(100);
+        });
 
         expect(screen.getByRole('tooltip')).toHaveTextContent('Sep 1');
         vi.useRealTimers();

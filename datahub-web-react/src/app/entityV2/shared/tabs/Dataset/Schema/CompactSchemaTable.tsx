@@ -1,4 +1,4 @@
-import React, { useMemo, useState } from 'react';
+import React, { JSX, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router-dom';
 import { useDebounce } from 'react-use';

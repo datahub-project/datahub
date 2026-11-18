@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ExternalDocumentInlineSummaryTab from '@app/entityV2/document/ExternalDocumentInlineSummaryTab';

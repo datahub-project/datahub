@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { JSX, useEffect, useState } from 'react';
 
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';

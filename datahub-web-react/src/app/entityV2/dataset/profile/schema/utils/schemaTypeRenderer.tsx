@@ -1,5 +1,5 @@
 import { Popover } from '@components';
-import React, { useCallback } from 'react';
+import React, { JSX, useCallback } from 'react';
 import styled from 'styled-components';
 
 import { ExtendedSchemaFields } from '@app/entityV2/dataset/profile/schema/utils/types';

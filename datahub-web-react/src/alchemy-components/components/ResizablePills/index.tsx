@@ -37,7 +37,7 @@ export function ResizablePills<T>({
     const { t } = useTranslation('alchemy');
     const containerRef = useRef<HTMLDivElement>(null);
     const [visibleCount, setVisibleCount] = useState(2);
-    const timeoutRef = useRef<NodeJS.Timeout>();
+    const timeoutRef = useRef<NodeJS.Timeout | undefined>(undefined);
 
     useEffect(() => {
         if (!containerRef.current || items.length === 0) return undefined;

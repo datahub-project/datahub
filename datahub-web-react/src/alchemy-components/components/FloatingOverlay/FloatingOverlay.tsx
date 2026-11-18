@@ -78,9 +78,12 @@ type FloatingOverlayInternalProps = FloatingOverlayProps & {
     defaultMaxWidth?: number;
 };
 
-type ElementWithRef = ReactElement & {
+type TriggerChildProps = React.HTMLAttributes<HTMLElement> & {
+    disabled?: boolean;
     ref?: Ref<HTMLElement>;
 };
+
+type ElementWithRef = ReactElement<TriggerChildProps>;
 
 const PLACEMENTS: Record<OverlayPlacement, Placement> = {
     top: 'top',
@@ -122,7 +125,7 @@ const DISABLEABLE_TAGS = new Set(['button', 'input', 'select', 'textarea']);
  * bound directly to one would never open — and explaining *why* a control is disabled is a large
  * part of what these overlays are for. Callers of this get a wrapper element to listen on instead.
  */
-function isDisabledControl(element: ReactElement): boolean {
+function isDisabledControl(element: ReactElement<TriggerChildProps>): boolean {
     if (!element.props?.disabled) return false;
     if (typeof element.type === 'string') return DISABLEABLE_TAGS.has(element.type);
     // antd's Button/Switch/Radio tag themselves and render a native control underneath.
@@ -208,8 +211,8 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
     ) => {
         const theme = useTheme();
         const arrowRef = useRef<HTMLDivElement>(null);
-        const openTimer = useRef<ReturnType<typeof setTimeout>>();
-        const closeTimer = useRef<ReturnType<typeof setTimeout>>();
+        const openTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
+        const closeTimer = useRef<ReturnType<typeof setTimeout> | undefined>(undefined);
         // Clicking non-focusable content inside the overlay blurs the trigger with a null
         // `relatedTarget`, so the pointer state is tracked separately to keep the overlay open.
         const pointerDownInOverlay = useRef(false);
@@ -357,10 +360,11 @@ const FloatingOverlay = React.forwardRef<HTMLElement, FloatingOverlayInternalPro
         const referenceRef = useCallback(
             (node: HTMLElement | null) => {
                 refs.setReference(node);
-                assignRef(child.ref, node);
+                // React 19 passes ref as a prop
+                assignRef(child.props.ref, node);
                 assignRef(forwardedRef, node);
             },
-            [child.ref, forwardedRef, refs],
+            [child.props.ref, forwardedRef, refs],
         );
         // Anchors to the child's root DOM node. Child refs run before the parent's, so it exists.
         // A non-group element in the SVG namespace is an HTML tag React created inside <svg>;
