@@ -15,7 +15,12 @@ from datahub.ingestion.source.confluence.confluence_source import (
 from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (
     create_mock_confluence_client,
 )
-from tests.unit.ingestion.source.confluence.conftest import make_source
+from tests.unit.ingestion.source.confluence.conftest import (
+    document_infos,
+    make_page,
+    make_source,
+    serve_space,
+)
 
 
 def test_source_initialization_cloud(
@@ -1338,3 +1343,35 @@ class TestConfluenceEmptyAndLengthFilter:
         skip_mock, passed_gate = _run_filter(source, "", parents={"p1"})
         assert passed_gate
         skip_mock.assert_not_called()
+
+
+def test_mentions_are_ingested_as_display_names() -> None:
+    client = MagicMock()
+    client.get_user_details_by_accountid.return_value = {"displayName": "Alex Doe"}
+    body = (
+        '<table><tr><td>VP</td><td><ac:link><ri:user ri:account-id="557058:aaaa"/>'
+        "</ac:link></td></tr></table><p>Enough content to pass every filter.</p>"
+    )
+    serve_space(client, [make_page("100", body=body)])
+    source = make_source(client=client)
+
+    infos = document_infos(source.get_workunits_internal())
+
+    (info,) = infos.values()
+    assert info.contents is not None
+    assert "@Alex Doe" in info.contents.text
+    assert source.report.mentions_resolved == 1
+
+
+def test_failed_conversion_falls_back_to_plain_text_and_warns() -> None:
+    source = make_source()
+    page = make_page("100", body="<p>Hello <b>world</b></p>")
+
+    with patch(
+        "datahub.ingestion.source.confluence.confluence_source.storage_to_markdown",
+        side_effect=RuntimeError("conversion failed"),
+    ):
+        text = source._extract_text_from_page(page)
+
+    assert text == "Page 100\n\nHello world"
+    assert len(source.report.warnings) == 1

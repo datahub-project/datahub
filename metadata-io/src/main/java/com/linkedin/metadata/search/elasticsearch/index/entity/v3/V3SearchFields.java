@@ -193,6 +193,29 @@ public final class V3SearchFields {
         .findFirst();
   }
 
+  /**
+   * The root boolean a field with no {@code searchLabel} writes directly. One source owns it, so
+   * the projector stores the transformer's true or false at the root, as V2 does, and false means
+   * the source was written and is now empty. A labeled field's boolean is shared instead: several
+   * sources {@code copy_to} one root name, only true is stored, and false means missing. Empty for
+   * a labeled field or one that declares no {@code hasValuesFieldName}.
+   */
+  @Nonnull
+  public static Optional<String> directHasValuesName(@Nonnull SearchableAnnotation annotation) {
+    if (!annotation.isV3Searchable()) {
+      return Optional.empty();
+    }
+    SearchableAnnotation resolved = annotation.resolvedForV3();
+    if (resolved.indexedFieldName().isPresent()) {
+      return Optional.empty();
+    }
+    Optional<String> declared = resolved.getHasValuesFieldName();
+    if (declared == null) {
+      return Optional.empty();
+    }
+    return declared.filter(name -> !name.isEmpty());
+  }
+
   // Relative weight of built-in fields that are not a PDL label. A PDL label's weight is the
   // resolved boost of its indexed field.
   private static final Map<String, Float> WEIGHTS = Map.of(OTHER, 0.5f);

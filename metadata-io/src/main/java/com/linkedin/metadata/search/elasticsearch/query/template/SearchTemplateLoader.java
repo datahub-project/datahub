@@ -22,11 +22,14 @@ import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateNormalization;
+import com.linkedin.search.template.SearchTemplateProfiles;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateRetrievalAnchor;
 import com.linkedin.search.template.SearchTemplateRetrievalBridge;
 import com.linkedin.search.template.SearchTemplateRoute;
+import com.linkedin.search.template.SearchTemplateScope;
 import com.linkedin.search.template.StructuredPropertyQuery;
 import com.linkedin.search.template.TermWeightArray;
 import io.datahubproject.metadata.context.OperationContext;
@@ -366,14 +369,20 @@ public class SearchTemplateLoader {
     Integer apiVersion = null;
     List<String> capabilities = null;
     SearchTemplateRanking ranking = null;
+    SearchTemplateProfiles profiles = null;
+    SearchTemplateScope scope = null;
     Set<String> addSatisfiedRemoves = new LinkedHashSet<>();
     // Root first so the child replaces sections it sets.
     for (int i = chain.size() - 1; i >= 0; i--) {
       TemplateCopy copy = chain.get(i);
       SearchTemplateProperties props = copy.properties();
       SearchTemplateCapabilities.requireDeclared(props);
+      // A write that omits the version is stamped 1, so a child cannot lower a parent's contract.
       if (props.hasApiVersion() && props.getApiVersion() != null) {
-        apiVersion = props.getApiVersion();
+        apiVersion =
+            apiVersion == null
+                ? props.getApiVersion()
+                : Math.max(apiVersion, props.getApiVersion());
       }
       if (props.hasCapabilities()) {
         capabilities = capabilityList(props.getCapabilities());
@@ -381,6 +390,20 @@ public class SearchTemplateLoader {
       overlay(builder, props);
       if (props.hasRanking()) {
         ranking = mergeRanking(ranking, props.getRanking(), addSatisfiedRemoves);
+      }
+      if (props.getRetrieval() != null) {
+        SearchTemplateRetrieval retrieval = props.getRetrieval();
+        requireKnownFields(retrieval, "retrieval");
+        requireKnownFields(retrieval.getAnchor(), "retrieval.anchor");
+        requireKnownFields(retrieval.getBridge(), "retrieval.bridge");
+      }
+      if (props.getProfiles() != null) {
+        requireKnownFields(props.getProfiles(), "profiles");
+        profiles = SearchTemplateProfilesPolicy.merge(profiles, props.getProfiles());
+      }
+      if (props.hasScope()) {
+        requireKnownFields(props.getScope(), "scope");
+        scope = emptyScope(props.getScope()) ? null : props.getScope();
       }
       if (props.hasFields()) {
         fields = SearchTemplateFields.merge(fields, props.getFields(), resolver);
@@ -482,6 +505,8 @@ public class SearchTemplateLoader {
     builder.termWeights(termWeights);
     builder.entityTypeBoosts(entityTypeBoosts);
     builder.normalization(normalization);
+    builder.profiles(profiles);
+    builder.scope(scope);
     builder.routes(SearchTemplateRoutes.compile(routes, maxRoutes, maxRoutePatternLength));
     builder.defaultRoute(defaultRouteSet ? defaultRoute : null);
     builder.classpathBridge(classpathBridge);
@@ -517,6 +542,7 @@ public class SearchTemplateLoader {
     builder.ranking(ranking);
     MergedSearchTemplate merged = builder.build();
     SearchTemplateCapabilities.requireContract(merged);
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
     return merged;
   }
 
@@ -1068,6 +1094,12 @@ public class SearchTemplateLoader {
     boolean authorization = !retrieval.hasAuthorization() || blank(retrieval.getAuthorization());
     boolean onFailure = !retrieval.hasOnFailure() || blank(retrieval.getOnFailure());
     boolean bridge = !retrieval.hasBridge() || emptyBridge(retrieval.getBridge());
+    boolean combine = blank(retrieval.getCombine());
+    boolean querySource = blank(retrieval.getQuerySource());
+    boolean anchor = !retrieval.hasAnchor() || emptyAnchor(retrieval.getAnchor());
+    boolean profileScore = blank(retrieval.getProfileScore());
+    boolean minSimilarity = retrieval.getMinSimilarity() == null;
+    boolean vectorBody = blank(retrieval.getVectorBody());
     return mode
         && model
         && field
@@ -1077,7 +1109,63 @@ public class SearchTemplateLoader {
         && page
         && authorization
         && onFailure
-        && bridge;
+        && bridge
+        && combine
+        && querySource
+        && anchor
+        && profileScore
+        && minSimilarity
+        && vectorBody;
+  }
+
+  private static boolean emptyAnchor(@Nullable SearchTemplateRetrievalAnchor anchor) {
+    if (anchor == null) {
+      return true;
+    }
+    boolean urnParameter = blank(anchor.getUrnParameter());
+    boolean excludeSelf = anchor.isExcludeSelf() == null;
+    return urnParameter && excludeSelf;
+  }
+
+  /** True when the section selects nothing, so it drops an inherited selection. */
+  public static boolean emptyProfiles(@Nullable SearchTemplateProfiles profiles) {
+    if (profiles == null) {
+      return true;
+    }
+    boolean useDefault = profiles.isUseDefault() == null;
+    boolean add = profiles.getAdd() == null || profiles.getAdd().isEmpty();
+    boolean remove = profiles.getRemove() == null || profiles.getRemove().isEmpty();
+    boolean replace = profiles.getReplace() == null;
+    boolean override =
+        !profiles.hasOverride()
+            || profiles.getOverride() == null
+            || profiles.getOverride().isEmpty();
+    return useDefault && add && remove && replace && override;
+  }
+
+  /**
+   * A field this release does not know may change what the section selects, so the template fails
+   * closed instead of reading the section as empty.
+   */
+  private static void requireKnownFields(
+      @Nullable com.linkedin.data.template.RecordTemplate section, @Nonnull String name) {
+    if (section == null) {
+      return;
+    }
+    for (String key : section.data().keySet()) {
+      if (section.schema().getField(key) == null) {
+        throw new SearchTemplateException(
+            "Search template section is not supported: " + name + "." + key);
+      }
+    }
+  }
+
+  /** True when the section names no entity type, so it drops an inherited scope. */
+  public static boolean emptyScope(@Nullable SearchTemplateScope scope) {
+    return scope == null
+        || !scope.hasEntityTypes()
+        || scope.getEntityTypes() == null
+        || scope.getEntityTypes().isEmpty();
   }
 
   private static boolean emptyBridge(@Nullable SearchTemplateRetrievalBridge bridge) {

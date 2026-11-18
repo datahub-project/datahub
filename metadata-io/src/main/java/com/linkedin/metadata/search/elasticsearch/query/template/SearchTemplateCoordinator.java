@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.search.template.SearchTemplateLadder;
 import io.datahubproject.metadata.context.OperationContext;
@@ -177,12 +178,21 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (resolved == null) {
       return;
     }
-    if (servedUrn == null || !semanticReadEnabled()) {
+    resolved.setTemplateRerank(false);
+    if (servedUrn == null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
     MergedSearchTemplate template = loader.load(opContext, servedUrn);
-    if (template.getKnn() == null) {
+    // A keywordRerank rung owns the rerank of its window. This release reads that shape and does
+    // not execute it, so the rung keeps keyword order and the default hybrid reranker stays off.
+    // That is the expected result for the rung, so it is not counted as a fallback.
+    if (SearchTemplateCapabilities.keywordRerank(template)) {
+      resolved.setTemplateRerank(true);
+      resolved.setKnn(false, 1f, 1f, 100);
+      return;
+    }
+    if (!semanticReadEnabled() || template.getKnn() == null) {
       resolved.setKnn(false, 1f, 1f, 100);
       return;
     }
@@ -470,11 +480,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   private boolean semanticReadEnabled() {
-    if (elasticSearchConfiguration.getEntityIndex() == null
-        || elasticSearchConfiguration.getEntityIndex().getV3() == null) {
-      return false;
-    }
-    return elasticSearchConfiguration.getEntityIndex().getV3().isSemanticReadEnabled();
+    return SemanticEntitySearchService.shouldReadSemanticV3(
+        elasticSearchConfiguration.getEntityIndex());
   }
 
   @Nonnull

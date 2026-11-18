@@ -1,6 +1,9 @@
 from typing import Dict, Iterator, List
 from unittest.mock import MagicMock, patch
 
+import pytest
+import requests_mock as rm
+
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.common.subtypes import DatasetSubTypes
@@ -22,13 +25,18 @@ from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     GlossaryTermsClass,
     OwnershipClass,
+    SchemaMetadataClass,
+    UpstreamLineageClass,
 )
+from datahub.metadata.urns import DatasetUrn
 from datahub.sdk.container import Container
+
+_API_URL = "https://demo.cubecloud.dev/cubejs-api"
 
 
 def _source(**overrides: object) -> CubeSource:
     base: Dict[str, object] = {
-        "api_url": "https://demo.cubecloud.dev/cubejs-api",
+        "api_url": _API_URL,
         "api_token": "t",
     }
     base.update(overrides)
@@ -669,3 +677,138 @@ def test_build_dashboard_no_warning_when_reports_disabled() -> None:
     )
     assert dashboard.charts == []
     assert len(source.report.warnings) == 0
+
+
+_PRIVATE_CUBE = {
+    "type": "cube",
+    "name": "orders",
+    "public": False,
+    "table_references": [{"schema": "public", "table": "orders"}],
+}
+_PUBLIC_VIEW = {"type": "view", "name": "orders_view", "public": True}
+
+
+@pytest.mark.parametrize(
+    "include_private, refuse_private, expected_lineage, expected_failures",
+    [
+        pytest.param(False, False, {}, [], id="off"),
+        pytest.param(
+            True,
+            False,
+            {"orders": ["public.orders"], "orders_view": ["orders"]},
+            [],
+            id="on",
+        ),
+        pytest.param(
+            True, True, {}, ["Cube private entities unavailable"], id="refused"
+        ),
+    ],
+)
+def test_view_over_private_cube_reaches_warehouse_only_with_include_private(
+    requests_mock: rm.Mocker,
+    include_private: bool,
+    refuse_private: bool,
+    expected_lineage: Dict[str, List[str]],
+    expected_failures: List[str],
+) -> None:
+    # Cube Cloud leaves private cubes out of the Metadata API, and prunes the
+    # view's references to them, unless include_private is requested.
+    def entities(
+        request: rm.request._RequestObjectProxy, context: rm.response._Context
+    ) -> Dict[str, object]:
+        if request.json().get("include_private"):
+            if refuse_private:
+                context.status_code = 403
+                return {}
+            data = [
+                _PRIVATE_CUBE,
+                {
+                    **_PUBLIC_VIEW,
+                    "cube_references": [{"type": "upstream", "cube": "orders"}],
+                },
+            ]
+        else:
+            data = [_PUBLIC_VIEW]
+        return {
+            "data": data,
+            "pagination": {"offset": 0, "limit": 100, "total": len(data)},
+        }
+
+    requests_mock.get(f"{_API_URL}/v1/meta", json={"cubes": []})
+    requests_mock.post(f"{_API_URL}/v1/entities/all", json=entities)
+    source = _source(
+        deployment_type="CLOUD",
+        warehouse_platform="postgres",
+        include_hidden=True,
+        include_private=include_private,
+    )
+
+    lineage: Dict[str, List[str]] = {}
+    for wu in source.get_workunits_internal():
+        aspect = wu.metadata.aspect  # type: ignore[union-attr]
+        if isinstance(aspect, UpstreamLineageClass):
+            lineage[DatasetUrn.from_string(wu.get_urn()).name] = [
+                DatasetUrn.from_string(u.dataset).name for u in aspect.upstreams
+            ]
+
+    assert lineage == expected_lineage
+    # The source's own report is what stale removal checks.
+    assert [f.title for f in source.report.failures] == expected_failures
+    assert not source.report.warnings
+
+
+@pytest.mark.parametrize(
+    "include_private, expected_fields",
+    [(False, ["status"]), (True, ["revenue", "status"])],
+)
+def test_private_member_of_public_cube_is_ingested_with_include_private(
+    requests_mock: rm.Mocker, include_private: bool, expected_fields: List[str]
+) -> None:
+    def entities(
+        request: rm.request._RequestObjectProxy, context: rm.response._Context
+    ) -> Dict[str, object]:
+        measures = (
+            [{"name": "revenue", "public": False}]
+            if request.json().get("include_private")
+            else []
+        )
+        return {
+            "data": [
+                {
+                    "type": "cube",
+                    "name": "orders",
+                    "measures": measures,
+                    "dimensions": [{"name": "status"}],
+                }
+            ],
+            "pagination": {"offset": 0, "limit": 100, "total": 1},
+        }
+
+    requests_mock.get(
+        f"{_API_URL}/v1/meta",
+        json={
+            "cubes": [
+                {
+                    "name": "orders",
+                    "type": "cube",
+                    "dimensions": [{"name": "orders.status", "type": "string"}],
+                }
+            ]
+        },
+    )
+    requests_mock.post(f"{_API_URL}/v1/entities/all", json=entities)
+    source = _source(
+        deployment_type="CLOUD",
+        warehouse_platform="postgres",
+        include_hidden=True,
+        include_private=include_private,
+    )
+
+    [schema] = [
+        wu.metadata.aspect  # type: ignore[union-attr]
+        for wu in source.get_workunits_internal()
+        if isinstance(wu.metadata.aspect, SchemaMetadataClass)  # type: ignore[union-attr]
+    ]
+
+    assert [f.fieldPath for f in schema.fields] == expected_fields
+    assert not source.report.failures

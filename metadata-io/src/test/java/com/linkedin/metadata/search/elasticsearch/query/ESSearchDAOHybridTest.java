@@ -23,6 +23,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
@@ -38,11 +39,13 @@ import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -178,6 +181,21 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testKeywordRerankRungKeepsKeywordOrderWithHybridReadOn() throws IOException {
+    ResolvedSearchTemplate resolved =
+        new ResolvedSearchTemplate("urn:li:searchTemplate:fulltext", 1L, "fulltext", null);
+    resolved.setTemplateRerank(true);
+    OperationContext templated = opContext.withResolvedSearchTemplate(resolved);
+
+    SearchResult result =
+        dao.finishTemplateHybrid(templated, ENTITY_NAMES, "revenue", result(100), 10, 10, 100);
+
+    assertEquals(rowIds(result), range(10, 20));
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+  }
+
+  @Test
   public void testSearchUsesTheBoundTemplateKnnContext() throws IOException {
     SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
     harness.setup();
@@ -189,7 +207,9 @@ public class ESSearchDAOHybridTest {
     template.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
     harness.store(Constants.SEARCH_TEMPLATE_FULLTEXT_URN, template);
     ElasticSearchConfiguration elastic = harness.elastic();
-    elastic.getEntityIndex().getV3().setSemanticReadEnabled(true);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.opContext =
         harness.opContext.withSearchTemplateRuntime(
             new SearchTemplateCoordinator(
@@ -228,6 +248,89 @@ public class ESSearchDAOHybridTest {
     } finally {
       harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
     }
+  }
+
+  @Test
+  public void testKeywordRerankTemplateServesTheKeywordOnlyResult() throws IOException {
+    SearchTemplateFixtures.Harness harness = new SearchTemplateFixtures.Harness();
+    harness.setup();
+    String keywordOnly = "urn:li:searchTemplate:keywordOnly";
+    String keywordRerank = "urn:li:searchTemplate:keywordRerank";
+    harness.store(keywordOnly, fulltext(null));
+    harness.store(keywordRerank, fulltext("{ \"others\": \"keepKeywordPlaces\" }"));
+    ElasticSearchConfiguration elastic = harness.elastic();
+    harness.opContext =
+        harness.opContext.withSearchTemplateRuntime(
+            new SearchTemplateCoordinator(
+                elastic,
+                null,
+                harness.loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty()));
+    try {
+      OperationContext searching =
+          TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+              .withSearchFlags(flags -> flags.setFulltext(true));
+      SearchResponse keywordResponse = response(100);
+      when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+          .thenReturn(keywordResponse);
+      List<SortCriterion> byScore =
+          List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
+      SearchResult expected = null;
+      // Hybrid read off, then on: the keywordRerank rung serves the keyword-only result both times.
+      for (HybridSearchResultReranker hybrid : Arrays.asList(null, reranker)) {
+        ESSearchDAO dao =
+            new ESSearchDAO(
+                false,
+                elastic,
+                null,
+                QueryFilterRewriteChain.EMPTY,
+                false,
+                TEST_SEARCH_SERVICE_CONFIG,
+                new Sha256UrnEntityDocumentIdHasher(),
+                hybrid);
+        if (expected == null) {
+          expected = search(dao, searching, keywordOnly, byScore);
+        }
+        SearchResult served = search(dao, searching, keywordRerank, byScore);
+        // The mocked engine ignores size. Hybrid read on fetches the window and slices the page.
+        int page = served.getEntities().size();
+        assertEquals(page, hybrid == null ? 100 : 10);
+        assertEquals(rowIds(served), rowIds(expected).subList(0, page));
+        assertEquals(scores(served), scores(expected).subList(0, page));
+        assertEquals(served.getNumEntities(), expected.getNumEntities());
+        assertEquals(served.getMetadata(), expected.getMetadata());
+      }
+      verify(reranker, never())
+          .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong());
+    } finally {
+      harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
+    }
+  }
+
+  private static SearchResult search(
+      ESSearchDAO dao, OperationContext searching, String template, List<SortCriterion> sort) {
+    OperationContext pinned =
+        searching.withSearchFlags(flags -> flags.setSearchTemplate(UrnUtils.getUrn(template)));
+    return dao.search(pinned, ENTITY_NAMES, "revenue", null, sort, 0, 10, List.of());
+  }
+
+  private static SearchTemplateProperties fulltext(String knn) {
+    SearchTemplateProperties template = new SearchTemplateProperties();
+    template.setName("Fulltext");
+    template.setDialect(SearchTemplateDialect.ELASTICSEARCH);
+    template.setEditable(true);
+    template.setQuery("{ \"match_all\": {} }");
+    if (knn != null) {
+      template.setApiVersion(2);
+      template.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+      template.setKnn(knn);
+    }
+    return template;
+  }
+
+  private static List<Double> scores(SearchResult result) {
+    return result.getEntities().stream().map(SearchEntity::getScore).collect(Collectors.toList());
   }
 
   @Test

@@ -399,21 +399,15 @@ public class V3SearchDocumentProjector {
   }
 
   /**
-   * A field with no searchLabel does not index a has* boolean. Drop the value the V2 transformer
-   * wrote, and do not null the root: a partial update must not clear a name this index no longer
-   * maps.
+   * A field with no searchLabel owns its has* boolean. The root keeps the true or false the
+   * transformer wrote, so false still means the source was written and is now empty. The aspect
+   * copy is dropped because the root is the only indexed value.
    */
-  private static void omitDedicatedHasValues(
+  private static void omitDirectHasValuesFromAspect(
       @Nonnull final AspectSpec aspectSpec, @Nonnull final ObjectNode aspectFields) {
     for (SearchableFieldSpec fieldSpec : aspectSpec.getSearchableFieldSpecs()) {
-      final SearchableAnnotation resolved = fieldSpec.getSearchableAnnotation().resolvedForV3();
-      if (!resolved.isV3Searchable() || resolved.indexedFieldName().isPresent()) {
-        continue;
-      }
-      final Optional<String> declared = resolved.getHasValuesFieldName();
-      if (declared != null && declared.isPresent()) {
-        aspectFields.remove(declared.get());
-      }
+      V3SearchFields.directHasValuesName(fieldSpec.getSearchableAnnotation())
+          .ifPresent(aspectFields::remove);
     }
   }
 
@@ -630,8 +624,7 @@ public class V3SearchDocumentProjector {
 
     final ObjectNode aspectFields = projectedFields.deepCopy();
     aspectFields.remove(URN_FIELD);
-    omitDedicatedHasValues(aspectSpec, rootFields);
-    omitDedicatedHasValues(aspectSpec, aspectFields);
+    omitDirectHasValuesFromAspect(aspectSpec, aspectFields);
     for (String name : sharedHasValues) {
       // Drop a stored root true or false. The indexed term comes from copy_to.
       rootFields.putNull(name);
