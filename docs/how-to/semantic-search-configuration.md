@@ -6,7 +6,7 @@ Semantic search covers document entities (`ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIE
 
 ## Prerequisites
 
-1. **OpenSearch 3.5+** or **Elasticsearch 8.18+** once keyword reads are on V3, which is the default. An install that still has V2 entity indices is held on V2 by the [Search V3 read hold](../how/upgrading-datahub.md#moving-search-to-v3). Semantic search keeps reading the V2 semantic indices during that hold, so **OpenSearch 2.17.0+** with the k-NN plugin still works until the cutover restart. After the cutover, OpenSearch 2.x works only with `ELASTICSEARCH_ENTITY_INDEX_V2_ENABLED=true` and `ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED=false`.
+1. **OpenSearch 2.17+** with the k-NN plugin, or **2.19+** when a model uses faiss cosine, or **Elasticsearch 8.18+**. Semantic search reads the same index family as keyword search. An install that still has V2 entity indices is held on V2 by the [Search V3 read hold](../how/upgrading-datahub.md#moving-search-to-v3), so semantic search keeps reading the V2 semantic indices until that hold lifts. After the cutover it reads the V3 document index on that same engine floor.
 2. **An API key** for your chosen embedding provider (see table below). The in-process `onnx` provider needs a local model download instead of a key. The `classical` provider below needs neither, but it is a CI and smoke-test provider, not semantic search.
 
 ## How to Configure Semantic Search

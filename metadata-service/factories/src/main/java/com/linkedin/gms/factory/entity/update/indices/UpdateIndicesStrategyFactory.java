@@ -186,7 +186,16 @@ public class UpdateIndicesStrategyFactory {
         .build();
   }
 
+  /**
+   * Projects root embeddings whenever semantic search is enabled. V3 documents are written during
+   * the V2 read hold, so projection cannot wait for semantic reads to move to V3. The flag alone
+   * still turns projection on when semantic search is off.
+   */
   static boolean isV3VectorProjectionEnabled(@Nullable final ConfigurationProvider configProvider) {
+    if (semanticSearchConfiguration(configProvider) != null
+        && semanticSearchConfiguration(configProvider).isEnabled()) {
+      return true;
+    }
     if (configProvider == null) {
       return false;
     }
