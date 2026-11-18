@@ -24,6 +24,13 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Parent Data Product is now checked on every API
+
+Setting a Data Product's parent through OpenAPI, Rest.li or YAML now fails if the parent doesn't exist
+or isn't a Data Product, as it already did in the UI and GraphQL ([PR #21307](https://github.com/datahub-project/datahub/pull/21307)).
+Create parents before their children. Existing products are unaffected unless their parent is changed.
+To turn the check off, set `metadataChangeProposal.validation.dataProductProperties.parent.enabled` to `false`.
+
 <!--
 
 ## <version number>
