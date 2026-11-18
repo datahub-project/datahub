@@ -1,23 +1,36 @@
-import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
+import { RESOURCE_TYPE, TYPE } from '@app/permissions/policy/constants';
+import {
+    convertLegacyResourceFilter,
+    getFieldValues,
+    mapResourceTypeToDisplayName,
+} from '@app/permissions/policy/policyUtils';
 
 import { ActorPolicyFieldsFragment } from '@graphql/actorPolicies.generated';
-import { Policy, PolicyType } from '@types';
+import { Entity, Policy, PolicyType, ResourcePrivileges } from '@types';
 
-export const privilegeDisplayName = (privilege: string, config?: PolicyPrivilegesConfig): string => {
-    const all = [
-        ...(config?.platformPrivileges ?? []),
-        ...(config?.resourcePrivileges.find((p) => p.resourceType === 'all')?.privileges ?? []),
-    ];
-    return all.find((p) => p.type === privilege)?.displayName || privilege;
+/**
+ * Labels describing what a policy applies to: resource-type display names, then the specific entities
+ * (resolved to names where the query resolves them). An empty list means every resource; null means resources
+ * do not apply (platform policies).
+ */
+export const resourceScopeLabels = (
+    policy: ActorPolicyFieldsFragment,
+    resourcePrivileges: ResourcePrivileges[],
+    entityName: (entity: Entity) => string,
+): string[] | null => {
+    if (policy.type === PolicyType.Platform) {
+        return null;
+    }
+    const criteria = convertLegacyResourceFilter(policy.resources as Policy['resources'])?.filter?.criteria ?? [];
+    const typeValues = getFieldValues({ criteria }, TYPE, RESOURCE_TYPE);
+    const types = typeValues.map((v) => mapResourceTypeToDisplayName(v.value, resourcePrivileges) || v.value);
+    const entities = criteria
+        .filter((criterion) => criterion.field !== TYPE && criterion.field !== RESOURCE_TYPE)
+        .flatMap((criterion) => criterion.values.map((v) => (v.entity ? entityName(v.entity) : v.value)));
+    return [...types, ...entities];
 };
 
-export const privilegeOptions = (policy: { type: PolicyType; privileges: string[] }, config?: PolicyPrivilegesConfig) =>
-    policy.privileges.map((privilege) => ({ type: privilege, name: privilegeDisplayName(privilege, config) }));
-
-/** The criteria fields a policy's resource filter uses; empty when it covers every resource. */
-export const resourceFields = (policy: ActorPolicyFieldsFragment): string[] =>
-    (policy.resources?.filter?.criteria ?? []).map((criterion) => criterion.field);
-
-/** FULL-view rows carry the same shape the policy details modal renders. */
-export const toPolicy = (policy: ActorPolicyFieldsFragment): Omit<Policy, 'urn'> =>
+// Safe because the fragment mirrors the selection of listPolicies, which is what PolicyDetailsModal renders;
+// the DataHubPolicy entity has a different shape, so it cannot be used here.
+export const toPolicy = (policy: ActorPolicyFieldsFragment) =>
     ({ ...policy, editable: false }) as unknown as Omit<Policy, 'urn'>;

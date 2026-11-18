@@ -1,5 +1,5 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { render, screen, waitFor } from '@testing-library/react';
+import { render, screen, waitFor, within } from '@testing-library/react';
 import userEvent from '@testing-library/user-event';
 import { GraphQLError } from 'graphql';
 import React from 'react';
@@ -65,13 +65,19 @@ const privilegesMock: MockedResponse = {
         data: {
             appConfig: {
                 policiesConfig: {
-                    platformPrivileges: [],
+                    platformPrivileges: [{ type: 'MANAGE_USERS', displayName: 'Manage Users', description: '' }],
                     resourcePrivileges: [
                         {
                             resourceType: 'all',
                             resourceTypeDisplayName: 'All',
                             entityType: null,
                             privileges: [{ type: 'EDIT_ENTITY_TAGS', displayName: 'Edit Tags', description: '' }],
+                        },
+                        {
+                            resourceType: 'dataset',
+                            resourceTypeDisplayName: 'Dataset',
+                            entityType: EntityType.Dataset,
+                            privileges: [],
                         },
                     ],
                 },
@@ -123,6 +129,80 @@ describe('ActorPoliciesTab', () => {
         expect(screen.getByText('Built-in')).toBeInTheDocument();
         await userEvent.click(screen.getByText('View Self'));
         expect(screen.queryByTestId('details-modal')).not.toBeInTheDocument();
+    });
+
+    it('shows the manage policies link in FULL view only', async () => {
+        const { unmount } = renderTab([policiesMock(ActorPoliciesView.Full, [policy()])]);
+        expect(await screen.findByText('Manage policies')).toHaveAttribute('href', '/settings/policies');
+        unmount();
+        renderTab([policiesMock(ActorPoliciesView.Trimmed, [policy()])]);
+        await screen.findByText('Edit Policy');
+        expect(screen.queryByText('Manage policies')).not.toBeInTheDocument();
+    });
+
+    it('describes the resource scope of each policy', async () => {
+        const criterion = (field: string, values: unknown[]) => ({
+            field,
+            values,
+            condition: 'EQUALS',
+            structuredPropertyValues: null,
+        });
+        renderTab([
+            policiesMock(ActorPoliciesView.Trimmed, [
+                policy({
+                    urn: 'urn:li:dataHubPolicy:t',
+                    name: 'Typed',
+                    resources: { filter: { criteria: [criterion('TYPE', [{ value: 'dataset', entity: null }])] } },
+                }),
+                policy({
+                    urn: 'urn:li:dataHubPolicy:d',
+                    name: 'Scoped',
+                    resources: {
+                        filter: {
+                            criteria: [
+                                criterion('DOMAIN', [
+                                    {
+                                        value: 'urn:li:domain:d',
+                                        entity: {
+                                            __typename: 'Domain',
+                                            urn: 'urn:li:domain:d',
+                                            type: EntityType.Domain,
+                                            name: 'Finance',
+                                        },
+                                    },
+                                ]),
+                            ],
+                        },
+                    },
+                }),
+                policy({ urn: 'urn:li:dataHubPolicy:a', name: 'Everything', resources: { filter: { criteria: [] } } }),
+                policy({
+                    urn: 'urn:li:dataHubPolicy:p',
+                    name: 'Platform',
+                    type: PolicyType.Platform,
+                    privileges: ['MANAGE_USERS'],
+                    resources: null,
+                }),
+            ]),
+        ]);
+        await screen.findByText('Typed');
+        const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
+        expect(within(rowOf('Typed')).getByText('Dataset')).toBeInTheDocument();
+        expect(within(rowOf('Scoped')).getByText('Finance')).toBeInTheDocument();
+        expect(within(rowOf('Everything')).getByText('All')).toBeInTheDocument();
+        expect(within(rowOf('Platform')).getByText('—')).toBeInTheDocument();
+        expect(within(rowOf('Platform')).queryByText('All')).not.toBeInTheDocument();
+    });
+
+    it('non-403 errors show an error, not the empty state', async () => {
+        renderTab([
+            {
+                request: { query: GetUserPoliciesDocument, variables: { urn: URN, includeInactive: false } },
+                result: { errors: [{ message: 'boom', extensions: { code: 500 } } as unknown as GraphQLError] },
+            },
+        ]);
+        expect(await screen.findByTestId('actor-policies-error')).toBeInTheDocument();
+        expect(screen.queryByText('No policies apply.')).not.toBeInTheDocument();
     });
 
     it('lists owner policies in a separate section', async () => {

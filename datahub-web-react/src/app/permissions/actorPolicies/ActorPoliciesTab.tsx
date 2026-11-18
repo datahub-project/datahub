@@ -1,13 +1,18 @@
-import { Pill, SearchBar, SimpleSelect, Table, Text } from '@components';
-import React, { useMemo, useState } from 'react';
+import { Pill, SearchBar, SimpleSelect, Table, Text, toast } from '@components';
+import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
+import { Link } from 'react-router-dom';
 import styled from 'styled-components';
 
+import { getGraphqlErrorCode } from '@app/entityV2/shared/utils';
 import { ActorPolicyReasonPills, OverflowPills } from '@app/permissions/actorPolicies/ActorPolicyReasonPills';
-import { privilegeDisplayName, privilegeOptions, resourceFields, toPolicy } from '@app/permissions/actorPolicies/utils';
+import { resourceScopeLabels, toPolicy } from '@app/permissions/actorPolicies/utils';
 import PolicyDetailsModal from '@app/permissions/policy/PolicyDetailsModal';
 import { PolicyStatePill, PolicyTypePill } from '@app/permissions/policy/policyColumns';
 import { PolicyPrivilegesConfig } from '@app/permissions/policy/policyTypes';
+import { getPrivilegeOptions } from '@app/permissions/policy/policyUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
+import { PageRoutes } from '@conf/Global';
 
 import {
     ActorPolicyFieldsFragment,
@@ -28,6 +33,10 @@ const Toolbar = styled.div`
     display: flex;
     align-items: center;
     gap: 8px;
+`;
+
+const ManageLink = styled(Link)`
+    margin-left: auto;
 `;
 
 const PolicyName = styled.span<{ $clickable: boolean }>`
@@ -69,6 +78,7 @@ type Props = {
 
 export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
     const { t } = useTranslation('settings.permissions');
+    const entityRegistry = useEntityRegistry();
     const [query, setQuery] = useState('');
     const [status, setStatus] = useState(StatusFilter.ACTIVE);
     const [focused, setFocused] = useState<ActorPolicyFieldsFragment>();
@@ -94,24 +104,27 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
     const policies = useMemo(() => filterRows(result?.policies), [result, query, status]); // eslint-disable-line react-hooks/exhaustive-deps
     const ownerPolicies = useMemo(() => filterRows(result?.ownerPolicies), [result, query, status]); // eslint-disable-line react-hooks/exhaustive-deps
 
+    const pill = (key: string, label: string) => (
+        <Pill key={key} label={label} variant="outline" color="gray" size="sm" clickable={false} />
+    );
+
     const privilegePills = (p: ActorPolicyFieldsFragment) => (
         <OverflowPills
-            labels={p.privileges.map((priv) => (
-                <Pill
-                    key={priv}
-                    label={privilegeDisplayName(priv, privilegesConfig)}
-                    variant="outline"
-                    color="gray"
-                    size="sm"
-                    clickable={false}
-                />
-            ))}
+            labels={getPrivilegeOptions(
+                p,
+                privilegesConfig?.platformPrivileges ?? [],
+                privilegesConfig?.resourcePrivileges ?? [],
+            ).map((priv) => pill(priv.type, priv.name || priv.type))}
         />
     );
 
     const resources = (p: ActorPolicyFieldsFragment) => {
-        const fields = resourceFields(p);
-        return fields.length ? fields.join(', ') : t('actorPolicies.allResources');
+        const labels = resourceScopeLabels(p, privilegesConfig?.resourcePrivileges ?? [], (entity) =>
+            entityRegistry.getDisplayName(entity.type, entity),
+        );
+        if (labels === null) return '—';
+        if (labels.length === 0) return t('actorPolicies.allResources');
+        return <OverflowPills labels={labels.map((label, i) => pill(`${label}-${i}`, label))} />;
     };
 
     const reasons = {
@@ -175,9 +188,18 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
         />
     );
 
-    // Unauthorized (e.g. viewing another user's policies without the privilege) reads as "nothing to show".
-    const unauthorized = !!error && error.graphQLErrors?.[0]?.extensions?.code === 403;
+    // Unauthorized (e.g. viewing another user's policies without the privilege) reads as "nothing to show";
+    // any other failure is surfaced as an error.
+    const unauthorized = !!error && getGraphqlErrorCode(error) === 403;
+    const failed = !!error && !unauthorized;
+    useEffect(() => {
+        if (failed) toast.error(t('loadError'));
+    }, [failed, t]);
     const hasRows = policies.length > 0 || ownerPolicies.length > 0;
+
+    let message: string | undefined;
+    if (failed) message = t('loadError');
+    else if (!loading && (!hasRows || unauthorized)) message = t('actorPolicies.empty');
 
     return (
         <Container data-testid="actor-policies-tab">
@@ -205,11 +227,18 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
                         dataTestId="actor-policy-status-filter"
                     />
                 )}
+                {isFull && (
+                    <ManageLink to={PageRoutes.SETTINGS_POLICIES}>{t('actorPolicies.managePolicies')}</ManageLink>
+                )}
             </Toolbar>
-            {!loading && (!hasRows || unauthorized) ? (
+            {message ? (
                 <Empty>
-                    <Text size="md" color="gray">
-                        {t('actorPolicies.empty')}
+                    <Text
+                        size="md"
+                        color={failed ? 'red' : 'gray'}
+                        data-testid={failed ? 'actor-policies-error' : undefined}
+                    >
+                        {message}
                     </Text>
                 </Empty>
             ) : (
@@ -230,7 +259,11 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
                     policy={toPolicy(focused)}
                     open
                     onClose={() => setFocused(undefined)}
-                    privileges={privilegeOptions(focused, privilegesConfig)}
+                    privileges={getPrivilegeOptions(
+                        focused,
+                        privilegesConfig?.platformPrivileges ?? [],
+                        privilegesConfig?.resourcePrivileges ?? [],
+                    )}
                     resourcePrivileges={privilegesConfig?.resourcePrivileges}
                 />
             )}

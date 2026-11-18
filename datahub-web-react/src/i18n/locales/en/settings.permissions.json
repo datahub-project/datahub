@@ -20,6 +20,7 @@
     "actorPolicies.column.privileges": "Privileges",
     "actorPolicies.column.resources": "Resources",
     "actorPolicies.empty": "No policies apply.",
+    "actorPolicies.managePolicies": "Manage policies",
     "actorPolicies.ownerSectionGroup": "Applies to assets this group owns",
     "actorPolicies.ownerSectionUser": "Applies to assets you own",
     "actorPolicies.reason.allGroups": "All groups",
