@@ -166,4 +166,36 @@ describe('EntityHoverCard', () => {
         expect(screen.getByText('Edited description')).toBeInTheDocument();
         expect(screen.queryByText('Ingested description')).not.toBeInTheDocument();
     });
+
+    it('hides soft-deleted tags and terms', () => {
+        const removedTag = {
+            ...tag,
+            urn: 'urn:li:tag:Legacy',
+            name: 'Legacy',
+            properties: { name: 'Legacy' },
+            status: { removed: true },
+        } as Tag;
+        const removedTerm = {
+            urn: 'urn:li:glossaryTerm:Retired',
+            type: EntityType.GlossaryTerm,
+            name: 'Retired',
+            properties: { name: 'Retired' },
+            status: { removed: true },
+        } as GlossaryTerm;
+        renderCard({
+            ...dataset,
+            globalTags: {
+                tags: [
+                    { tag, associatedUrn: DATASET_URN },
+                    { tag: removedTag, associatedUrn: DATASET_URN },
+                ],
+            },
+            glossaryTerms: { terms: [{ term: removedTerm, associatedUrn: DATASET_URN }] },
+        } as Dataset);
+
+        expect(screen.getByText('Certified')).toBeInTheDocument();
+        expect(screen.queryByText('Legacy')).not.toBeInTheDocument();
+        expect(screen.queryByText('Terms')).not.toBeInTheDocument();
+        expect(screen.queryByText('Retired')).not.toBeInTheDocument();
+    });
 });

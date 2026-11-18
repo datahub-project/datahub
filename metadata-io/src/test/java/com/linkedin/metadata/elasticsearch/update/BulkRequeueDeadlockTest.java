@@ -10,6 +10,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.context.OperationFingerprint;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
 import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
 import java.net.SocketTimeoutException;
 import java.time.Duration;
 import java.util.Arrays;
@@ -166,6 +167,8 @@ public class BulkRequeueDeadlockTest {
     for (int i = 0; i < items.length; i++) {
       items[i] = mock(BulkItemResponse.class);
       when(items[i].getItemId()).thenReturn(i);
+      when(items[i].getIndex()).thenReturn("idx");
+      when(items[i].getOpType()).thenReturn(DocWriteRequest.OpType.INDEX);
       when(items[i].status()).thenReturn(RestStatus.OK);
     }
     return new BulkResponse(items, 1);
@@ -178,14 +181,16 @@ public class BulkRequeueDeadlockTest {
     ProcessorShim(int bulkActions, BiConsumer<BulkRequest, ActionListener<BulkResponse>> consumer) {
       initBulkProcessors(
           1,
-          () ->
+          completionTracker ->
               BulkProcessor.builder(
                       consumer,
                       BulkListener.create(
                           WriteRequest.RefreshPolicy.NONE,
                           null,
+                          completionTracker,
                           bulkWriteResultTracker,
-                          bulkItemRequeueSupport))
+                          bulkItemRequeueSupport,
+                          null))
                   .setConcurrentRequests(1)
                   .setBulkActions(bulkActions)
                   .setBackoffPolicy(BackoffPolicy.noBackoff())
@@ -200,7 +205,10 @@ public class BulkRequeueDeadlockTest {
     }
 
     @Override
-    protected void addToProcessor(BulkProcessor processor, DocWriteRequest<?> request) {
+    protected void addToProcessor(
+        BulkProcessor processor,
+        DocWriteRequest<?> request,
+        BulkProcessorCompletionTracker.Submission submission) {
       processor.add(request);
       if (adds.incrementAndGet() >= 3) {
         requeued.countDown();

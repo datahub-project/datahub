@@ -6,7 +6,7 @@ import styled from 'styled-components/macro';
 
 import { PLATFORM_FILTER_NAME } from '@app/searchV2/utils/constants';
 import { navigateToSearchUrl } from '@app/searchV2/utils/navigateToSearchUrl';
-import { formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import { formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 import PlatformIcon from '@app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { useShowNavBarRedesign } from '@src/app/useShowNavBarRedesign';

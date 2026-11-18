@@ -1,6 +1,6 @@
 import get from 'lodash/get';
 
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
 
 interface UseEntityDataExtractorOptions {
     customPath?: string;

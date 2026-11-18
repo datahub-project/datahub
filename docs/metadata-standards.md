@@ -65,3 +65,15 @@ OpenLineage is an evolving standard for collecting lineage metadata from data pi
 - While we support OpenLineage, our native integrations offer enhanced capabilities. For instance, the DataHub Airflow plugin uses schema-aware SQL parsing to generate more accurate column-level lineage.
 
 Learn more about the integration in the [OpenLineage integration docs](./lineage/openlineage.md).
+
+### Apache Ossie (Open Semantic Interchange)
+
+Apache Ossie (incubating), also called OSI, is an open standard for exchanging semantic-layer metadata, such as semantic models, datasets, fields, relationships, and metrics, between tools.
+
+**How DataHub relates to it:**
+
+- DataHub's Semantic Model and Metric entities are designed to line up with the Ossie shape, so most Ossie fields have a direct home in DataHub.
+- DataHub does not yet import or export Ossie YAML. Today you load an Ossie model with the Python SDK.
+- A few Ossie fields have no exact DataHub equivalent, so a round trip is not lossless.
+
+Learn more, including a field-by-field mapping and a worked example, in the [Apache Ossie compatibility guide](./features/feature-guides/ossie-compatibility.md).

@@ -1,6 +1,6 @@
 import datetime as _dt
 from contextlib import ExitStack, contextmanager, nullcontext
-from typing import Any, Dict, Iterator, List, Optional
+from typing import Any, Dict, Iterator, List, Optional, Tuple
 from unittest.mock import MagicMock, PropertyMock, patch
 
 import pytest
@@ -133,6 +133,105 @@ def _lineage_response(payload: dict) -> MagicMock:
 
 
 class TestGetElementUpstreamSources:
+    @pytest.mark.parametrize(
+        ("node_id", "dropped_node", "edge"),
+        [
+            ("bad_node", {"type": "formula", "name": "Future"}, None),
+            (
+                "bad_node",
+                {"type": "table", "nodeId": "not-an-inode", "name": "T"},
+                None,
+            ),
+            ("bad_node", {"type": "sheet", "name": "No Id"}, None),
+            ("/suffix", {"type": "data-model", "name": "No Url Id"}, None),
+            ("bad_node", None, {"target": "tgt_node"}),
+            # An edge from a node that `dependencies` does not describe.
+            ("bad_node", None, {"source": "ghost", "target": "tgt_node"}),
+            # Registered or not, a customSQL source is not in the list.
+            ("bad_node", {"type": "customSQL", "name": "Query"}, None),
+        ],
+        ids=[
+            "unknown-type",
+            "bad-table-node",
+            "sheet-without-id",
+            "dm-node-without-url-id",
+            "malformed-edge",
+            "node-missing-from-dependencies",
+            "customsql-source",
+        ],
+    )
+    def test_a_dropped_node_marks_the_upstreams_incomplete(
+        self, node_id: str, dropped_node: Optional[dict], edge: Optional[dict]
+    ) -> None:
+        """The good source is kept, but a partial list must not read as the
+        chart's full lineage."""
+        api = _create_sigma_api()
+        element = _make_element()
+        dependencies: dict = {
+            "tgt_node": {"elementId": "elem1", "name": "My Chart", "type": "sheet"},
+            "ds_node": {"name": "Orders", "type": "dataset"},
+        }
+        edges = [{"source": "ds_node", "target": "tgt_node"}]
+        if dropped_node is not None:
+            dependencies[node_id] = dropped_node
+            edges.append({"source": node_id, "target": "tgt_node"})
+        if edge is not None:
+            edges.append(edge)
+        response = _lineage_response({"dependencies": dependencies, "edges": edges})
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            result = api._get_element_upstream_sources(element, _make_workbook())
+
+        assert list(result) == ["ds_node"]
+        assert not element.upstream_sources_complete
+
+    @pytest.mark.parametrize(
+        "response",
+        [
+            MagicMock(status_code=500),
+            MagicMock(status_code=403),
+            MagicMock(status_code=400),
+            requests.exceptions.ConnectionError(),
+            # No sheet node for the element.
+            _lineage_response(
+                {
+                    "dependencies": {"ds_node": {"name": "O", "type": "dataset"}},
+                    "edges": [],
+                }
+            ),
+            _lineage_response({"dependencies": {}}),
+        ],
+        ids=["500", "403", "400", "request-error", "no-seed-node", "unparseable"],
+    )
+    def test_a_walk_that_returns_early_is_incomplete(self, response: object) -> None:
+        api = _create_sigma_api()
+        element = Element(elementId="elem1", name="My Chart", url="u")
+        mock_call = MagicMock(return_value=response)
+        if isinstance(response, Exception):
+            mock_call.side_effect = response
+        with patch.object(api, "_get_api_call", mock_call):
+            api._get_element_upstream_sources(element, _make_workbook())
+
+        assert not element.upstream_sources_complete
+
+    def test_a_clean_walk_is_complete(self) -> None:
+        api = _create_sigma_api()
+        element = _make_element()
+        response = _lineage_response(
+            {
+                "dependencies": {
+                    "tgt_node": {"elementId": "elem1", "name": "C", "type": "sheet"},
+                    "ds_node": {"name": "Orders", "type": "dataset"},
+                },
+                "edges": [{"source": "ds_node", "target": "tgt_node"}],
+            }
+        )
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            api._get_element_upstream_sources(element, _make_workbook())
+
+        assert element.upstream_sources_complete
+
     def test_sheet_node_missing_element_id_is_skipped_with_warning(self) -> None:
         api = _create_sigma_api()
         element = _make_element()
@@ -2403,6 +2502,62 @@ class TestDataModelElementOwner:
             )
         ]
         return dm
+
+    def test_a_join_elements_lineage_payload_lists_every_joined_table(self) -> None:
+        """The /lineage shape a Data Model join element has, from a test tenant:
+        a chained join A-B, B-C lists all three elements directly."""
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        elements = [
+            SigmaDataModelElement(elementId=eid, name=eid.upper(), type="table")
+            for eid in ("a", "b", "c", "j")
+        ]
+        lineage = [
+            {"type": "element", "elementId": "a", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "b", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "c", "sourceIds": ["inode-x"]},
+            {"type": "element", "elementId": "j", "sourceIds": ["a", "b", "c"]},
+            {"type": "table", "nodeId": "inode-x", "name": "T"},
+        ]
+        with (
+            patch.object(
+                source.sigma_api, "_get_data_model_elements", return_value=elements
+            ),
+            patch.object(source.sigma_api, "_get_data_model_columns", return_value=[]),
+            patch.object(
+                source.sigma_api,
+                "_get_data_model_lineage_entries",
+                return_value=lineage,
+            ),
+        ):
+            source.sigma_api._assemble_data_model(dm, None)
+        source._prepopulate_dm_bridge_maps(dm)
+
+        urn = {
+            e.elementId: source._gen_data_model_element_urn(dm, e) for e in dm.elements
+        }
+        assert source._dm_element_source_urns[urn["j"]] == {
+            urn["a"],
+            urn["b"],
+            urn["c"],
+        }
+
+    def test_a_join_elements_lineage_sources_are_recorded(self) -> None:
+        source = _create_sigma_source(ingest_data_models=True)
+        dm = self._make_dm_with_one_element()
+        dm.elements = [
+            SigmaDataModelElement(elementId="a", name="A", type="table"),
+            SigmaDataModelElement(
+                elementId="j", name="J", type="table", source_ids=["a", "inode-x"]
+            ),
+        ]
+        a_urn = source._gen_data_model_element_urn(dm, dm.elements[0])
+        j_urn = source._gen_data_model_element_urn(dm, dm.elements[1])
+
+        source._prepopulate_dm_bridge_maps(dm)
+
+        assert source._dm_element_source_urns[j_urn] == {a_urn}
+        assert source._dm_element_source_urns[a_urn] == set()
 
     # None: a model that never went through assembly.
     @pytest.mark.parametrize("complete", [True, False, None])
@@ -5040,3 +5195,102 @@ class TestMalformedPageShape:
         context = _contexts(api.report.failures)
         assert "did not have the shape" not in context
         assert "likely a bug in this connector" in context or "Transient" in context
+
+
+class TestGetWorkbookSchema:
+    def test_returns_the_document(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=200)
+        response.json.return_value = {"sheets": {}}
+
+        with patch.object(api, "_get_api_call", return_value=response) as mock_get:
+            assert api.get_workbook_schema("wb-1") == {"sheets": {}}
+
+        assert mock_get.call_args.args[0].endswith("/workbooks/wb-1/schema")
+        assert api.report.workbook_schema_fetch_failed == 0
+
+    def test_a_failure_is_counted_not_raised(self) -> None:
+        api = _create_sigma_api()
+        response = MagicMock(status_code=500)
+        response.raise_for_status.side_effect = requests.HTTPError(response=response)
+
+        with patch.object(api, "_get_api_call", return_value=response):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert api.report.api_call_failures_by_status_or_error == {"500": 1}
+        assert len(api.report.warnings) == 1
+
+    @staticmethod
+    def _response(status: int, body: Any = None) -> MagicMock:
+        response = MagicMock(status_code=status)
+        if status >= 400:
+            response.raise_for_status.side_effect = requests.HTTPError(
+                response=response
+            )
+        if isinstance(body, Exception):
+            response.json.side_effect = body
+        else:
+            response.json.return_value = {} if body is None else body
+        return response
+
+    @pytest.mark.parametrize(
+        "first, then_called",
+        [
+            # Gone: the endpoint, not a workbook.
+            ([(410, None)], False),
+            # One refusal may be that workbook's alone.
+            ([(404, None)], True),
+            ([(403, None)], True),
+            # Refused for several workbooks before anything succeeded.
+            ([(404, None), (403, None), (404, None)], False),
+            # Transient: re-asked for the next workbook.
+            ([(500, None)], True),
+            # Permanent, but about that workbook's request or body.
+            ([(400, None)], True),
+            ([(422, None)], True),
+            ([(200, ["not", "an", "object"])], True),
+            ([(200, requests.exceptions.JSONDecodeError("bad", "<html>", 0))], True),
+            # After a success a 404 is that workbook's alone.
+            ([(200, None), (404, None)], True),
+        ],
+    )
+    def test_only_an_unavailable_endpoint_before_any_success_stops_the_call(
+        self, first: List[Tuple[int, Any]], then_called: bool
+    ) -> None:
+        api = _create_sigma_api()
+        responses = [self._response(status, body) for status, body in first]
+        with patch.object(api, "_get_api_call", side_effect=responses):
+            for i, _ in enumerate(first):
+                api.get_workbook_schema(f"wb-first-{i}")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            result = api.get_workbook_schema("wb-2")
+
+        assert mock_get.called == then_called
+        assert result == ({} if then_called else None)
+        assert api.report.workbook_schema_skipped == (0 if then_called else 1)
+
+    def test_one_workbook_refused_repeatedly_does_not_stop_the_call(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(api, "_get_api_call", return_value=self._response(404)):
+            for _ in range(3):
+                api.get_workbook_schema("wb-1")
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200)
+        ) as mock_get:
+            api.get_workbook_schema("wb-2")
+
+        assert mock_get.called
+
+    def test_a_body_that_is_not_an_object_is_a_failure(self) -> None:
+        api = _create_sigma_api()
+        with patch.object(
+            api, "_get_api_call", return_value=self._response(200, body=[1, 2])
+        ):
+            assert api.get_workbook_schema("wb-1") is None
+
+        assert api.report.workbook_schema_fetched == 0
+        assert api.report.workbook_schema_fetch_failed == 1
+        assert len(api.report.warnings) == 1

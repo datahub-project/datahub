@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Sök vyer...",
     "viewSelect.searchPlaceholderLegacy": "Sök",
     "viewSelect.selectYourView": "Välj din vy",
+    "viewSelect.buttonLabel": "Vyer",
+    "viewSelect.clearView": "Rensa vy",
     "viewType.privateDescription": "<bold>Privat</bold> – endast synlig för dig.",
     "viewType.publicDescription": "<bold>Publik</bold> – synlig för alla."
 }

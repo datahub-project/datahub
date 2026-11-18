@@ -1,5 +1,6 @@
 package com.linkedin.test.metadata.aspect;
 
+import static com.linkedin.metadata.Constants.DATA_PRODUCT_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.VERSION_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
@@ -7,6 +8,7 @@ import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.patch.template.Template;
 import com.linkedin.metadata.aspect.patch.template.common.VersionPropertiesTemplate;
+import com.linkedin.metadata.aspect.patch.template.dataproduct.DataProductPropertiesTemplate;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import java.util.HashMap;
 import java.util.Map;
@@ -41,6 +43,7 @@ public class TestEntityRegistry extends ConfigEntityRegistry {
   public AspectTemplateEngine getAspectTemplateEngine() {
     Map<String, Template<? extends RecordTemplate>> aspectTemplateMap = new HashMap<>();
     aspectTemplateMap.put(VERSION_PROPERTIES_ASPECT_NAME, new VersionPropertiesTemplate());
+    aspectTemplateMap.put(DATA_PRODUCT_PROPERTIES_ASPECT_NAME, new DataProductPropertiesTemplate());
     return new AspectTemplateEngine(aspectTemplateMap);
   }
 }

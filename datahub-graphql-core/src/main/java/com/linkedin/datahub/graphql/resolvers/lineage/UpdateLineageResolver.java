@@ -119,6 +119,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
                       upstreamUrnsToRemove,
                       actor);
                   break;
+                case Constants.DATA_FLOW_ENTITY_NAME:
+                  // dataFlow has no dataset/dataJob-shaped input/output aspect -- its only
+                  // upstream lineage is a linked source-code Repository via repositoryLineage.
+                  _lineageService.updateDataFlowUpstreamLineage(
+                      context.getOperationContext(),
+                      downstreamUrn,
+                      upstreamUrnsToAdd,
+                      upstreamUrnsToRemove,
+                      actor);
+                  break;
                 default:
                   throw new IllegalArgumentException(
                       String.format(
@@ -144,9 +154,16 @@ public class UpdateLineageResolver implements DataFetcher<CompletableFuture<Bool
           // build MCP for upstreamUrn if necessary
           for (Urn upstreamUrn : upstreamUrns) {
             if (!existingUpstreamUrns.contains(upstreamUrn)) {
-              throw new IllegalArgumentException(
-                  String.format(
-                      "Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
+              // Only an upstream being added must exist. One that appears only in removals may
+              // have been hard-deleted; its edge was already removed from the downstream above, and
+              // there is nothing left on it to update, so failing here would report an error for a
+              // committed write and make retries fail forever.
+              if (upstreamToDownstreamsToAdd.containsKey(upstreamUrn)) {
+                throw new IllegalArgumentException(
+                    String.format(
+                        "Cannot upsert lineage as downstream urn %s doesn't exist", upstreamUrn));
+              }
+              continue;
             }
 
             final List<Urn> downstreamUrnsToAdd =

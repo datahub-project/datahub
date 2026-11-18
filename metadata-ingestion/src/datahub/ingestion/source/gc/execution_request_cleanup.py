@@ -188,20 +188,14 @@ class DatahubExecutionRequestCleanup:
             logger.info(f"\n{self.report.as_string()}")
 
     def _to_cleanup_record(self, entry: Dict) -> CleanupRecord:
-        input_aspect = (
-            entry.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME, {})
-            .get("value", {})
+        input_aspect = entry.get(DATAHUB_EXECUTION_REQUEST_INPUT_ASPECT_NAME, {}).get(
+            "value", {}
         )
-        result_aspect = (
-            entry.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {})
-            .get("value", {})
+        result_aspect = entry.get(DATAHUB_EXECUTION_REQUEST_RESULT_ASPECT_NAME, {}).get(
+            "value", {}
         )
-        key_aspect = (
-            entry.get("aspects", {})
-            .get(DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME, {})
-            .get("value", {})
+        key_aspect = entry.get(DATAHUB_EXECUTION_REQUEST_KEY_ASPECT_NAME, {}).get(
+            "value", {}
         )
         return CleanupRecord(
             urn=entry.get("urn"),
@@ -245,18 +239,19 @@ class DatahubExecutionRequestCleanup:
                 )
                 break
             try:
-                url = f"{self.graph.config.server}/openapi/v2/entity/{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}"
+                url = f"{self.graph.config.server}/openapi/v3/entity/{DATAHUB_EXECUTION_REQUEST_ENTITY_NAME}"
                 response = self.graph._session.get(url, headers=headers, params=params)
                 response.raise_for_status()
                 document = response.json()
 
-                entries = document.get("results", [])
+                entries = document.get("entities", [])
                 for entry in entries:
                     yield self._to_cleanup_record(entry)
 
-                if "scrollId" not in document:
+                scroll_id = document.get("scrollId")
+                if not scroll_id:
                     break
-                params["scrollId"] = document["scrollId"]
+                params["scrollId"] = scroll_id
             except Exception as e:
                 self.report.failure(
                     title="Failed to fetch next batch of execution requests",

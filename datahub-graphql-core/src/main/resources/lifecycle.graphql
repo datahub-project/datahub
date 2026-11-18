@@ -29,6 +29,12 @@ type LifecycleStageType {
   entityTypes: [String!]
 
   """
+  Whether users may explicitly set or propose this stage. False indicates a
+  system-managed stage.
+  """
+  userAssignable: Boolean!
+
+  """
   When true, entities in this stage are excluded from default search results.
   """
   hideInSearch: Boolean!
@@ -40,14 +46,20 @@ type LifecycleStageType {
   Use "urn:li:lifecycleStageType:__NONE__" as the sentinel for the default active state.
   """
   allowedPreviousStages: [String!]
+
+  """
+  The status of this lifecycle stage type entity, e.g. whether it has been soft-deleted.
+  """
+  status: Status
 }
 
 extend type Query {
   """
-  Return all registered lifecycle stage types.
+  Return all registered lifecycle stage types. When entityType is provided,
+  userAssignable reflects whether each stage can be assigned to that entity type.
   Useful for agents and UIs to discover available stages before calling setLifecycleStage.
   """
-  listLifecycleStages: [LifecycleStageType!]!
+  listLifecycleStages(entityType: EntityType): [LifecycleStageType!]!
 }
 
 extend input SearchFlags {
@@ -61,8 +73,10 @@ extend input SearchFlags {
 extend type Mutation {
   """
   Set or clear the lifecycle stage on any entity that has a Status aspect.
+  Call listLifecycleStages first and choose an applicable stage with userAssignable=true.
   Pass null for lifecycleStageUrn to clear the stage (publish/activate the entity).
-  Transition rules defined on the destination stage are enforced server-side.
+  Returns a BAD_REQUEST error when the destination stage's allowedPreviousStages excludes the
+  entity's current stage.
   """
   setLifecycleStage(urn: String!, lifecycleStageUrn: String): Boolean!
 }

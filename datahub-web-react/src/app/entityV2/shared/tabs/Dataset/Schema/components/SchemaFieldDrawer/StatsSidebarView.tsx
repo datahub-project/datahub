@@ -9,7 +9,7 @@ import StatsSidebarHeader, {
     StatsViewType,
 } from '@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/StatsSidebarHeader';
 import { LOOKBACK_WINDOWS, LookbackWindow } from '@app/entityV2/shared/tabs/Dataset/Stats/lookbackWindows';
-import { getFixedLookbackWindow, toLocalDateString, toLocalTimeString } from '@app/shared/time/timeUtils';
+import { getFixedLookbackWindow, toLocalDateString, toLocalTimeString } from '@app/sharedV2/time/timeUtils';
 
 import { DatasetFieldProfile, DatasetProfile, SchemaField } from '@types';
 

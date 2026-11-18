@@ -4,12 +4,14 @@ import static auth.AuthUtils.*;
 
 import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import lombok.EqualsAndHashCode;
 
 /**
  * Class responsible for extracting and validating top-level SSO related configurations. TODO:
  * Refactor SsoConfigs to have OidcConfigs and other identity provider specific configs as instance
  * variables. SSoManager should ideally not know about identity provider specific configs.
  */
+@EqualsAndHashCode
 public class SsoConfigs {
 
   /** Required configs */

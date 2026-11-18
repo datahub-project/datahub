@@ -62,6 +62,16 @@ public class EnvironmentUtilsTest {
   }
 
   @Test
+  public void testParseListArgs() {
+    assertEquals(EnvironmentUtils.parseListArgs(null, "SOURCE_FILTER"), Collections.emptyList());
+    assertEquals(
+        EnvironmentUtils.parseListArgs(
+            List.of("SOURCE_FILTER=a=b", "OTHER=x", "SOURCE_FILTER=c", "SOURCE_FILTER"),
+            "SOURCE_FILTER"),
+        List.of("a=b", "c"));
+  }
+
+  @Test
   public void testGetBooleanEnv() {
     // Test with "true" value
     System.setProperty("TEST_BOOL_TRUE", "true");

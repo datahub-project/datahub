@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Cerca viste...",
     "viewSelect.searchPlaceholderLegacy": "Cerca",
     "viewSelect.selectYourView": "Seleziona la Vista",
+    "viewSelect.buttonLabel": "Viste",
+    "viewSelect.clearView": "Cancella vista",
     "viewType.privateDescription": "<bold>Privata</bold> - visibile solo al proprietario.",
     "viewType.publicDescription": "<bold>Pubblica</bold> - visibile a tutti."
 }

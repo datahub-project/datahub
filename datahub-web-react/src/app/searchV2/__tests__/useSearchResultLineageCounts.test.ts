@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useSearchResultLineageCounts } from '@app/searchV2/useSearchResultLineageCounts';
 import { useHideLineageInSearchCards } from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useGetSearchResultLineageCountsQuery } from '@graphql/lineage.generated';
 

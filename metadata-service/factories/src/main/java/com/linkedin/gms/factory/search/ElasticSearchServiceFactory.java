@@ -1,5 +1,6 @@
 package com.linkedin.gms.factory.search;
 
+import com.linkedin.gms.factory.common.IndexConventionFactory;
 import com.linkedin.gms.factory.config.ConfigurationProvider;
 import com.linkedin.gms.factory.search.semantic.SemanticEntitySearchServiceFactory;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
@@ -7,6 +8,8 @@ import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConcurrencyConfiguration;
+import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.custom.CustomSearchConfiguration;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -14,10 +17,15 @@ import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntityDocumentIdHasher;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.ESBrowseDAO;
 import com.linkedin.metadata.search.elasticsearch.query.ESSearchDAO;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.EmptyPostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDocumentSource;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.NoOpEmbeddingProvider;
@@ -28,11 +36,22 @@ import com.linkedin.metadata.search.hybrid.HybridScoreCombiner;
 import com.linkedin.metadata.search.hybrid.HybridScoreMapBuilder;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.hybrid.HybridVectorScoreNormalizer;
-import com.linkedin.metadata.search.hybrid.V3HybridKnnRequestBuilder;
+import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
+import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
 import io.datahubproject.metadata.context.ObjectMapperContext;
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.concurrent.AbstractExecutorService;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.ThreadFactory;
+import java.util.concurrent.ThreadPoolExecutor;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -43,6 +62,7 @@ import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
+import org.springframework.core.env.ConfigurableEnvironment;
 
 @Slf4j
 @Configuration
@@ -54,18 +74,41 @@ public class ElasticSearchServiceFactory {
   private BaseElasticSearchComponentsFactory.BaseElasticSearchComponents components;
 
   @Autowired
-  @Qualifier("settingsBuilder")
-  private SettingsBuilder settingsBuilder;
-
-  @Autowired
   @Qualifier("entityRegistry")
   private EntityRegistry entityRegistry;
 
+  @Autowired(required = false)
+  @Nullable
+  private SearchTemplateLoader searchTemplateLoader;
+
+  @Bean
+  @Nonnull
+  protected SearchV3ReadHold searchV3ReadHold(
+      @Qualifier("searchClusterRegistry") final SearchClusterRegistry searchClusterRegistry,
+      @Qualifier(IndexConventionFactory.INDEX_CONVENTION_BEAN)
+          final IndexConvention indexConvention,
+      final ConfigurableEnvironment environment,
+      final ObjectProvider<SearchV3IndexRebuild> indexRebuild) {
+    return new SearchV3ReadHold(
+        searchClusterRegistry,
+        indexConvention,
+        entityRegistry,
+        environment,
+        indexRebuild.getIfAvailable() != null);
+  }
+
+  /**
+   * Every search consumer depends on this bean, so the read hold is applied before any of them read
+   * the V2 and V3 flags.
+   */
   @Bean
   protected ElasticSearchConfiguration elasticSearchConfiguration(
-      final ConfigurationProvider configurationProvider) {
-    log.info("Search configuration: {}", configurationProvider.getElasticSearch().getSearch());
-    return configurationProvider.getElasticSearch();
+      final ConfigurationProvider configurationProvider, final SearchV3ReadHold searchV3ReadHold) {
+    ElasticSearchConfiguration elasticSearchConfiguration =
+        configurationProvider.getElasticSearch();
+    searchV3ReadHold.applyTo(elasticSearchConfiguration);
+    log.info("Search configuration: {}", elasticSearchConfiguration.getSearch());
+    return elasticSearchConfiguration;
   }
 
   @Bean
@@ -88,7 +131,6 @@ public class ElasticSearchServiceFactory {
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
       final SearchClusterRegistry searchClusterRegistry) {
-
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -105,9 +147,9 @@ public class ElasticSearchServiceFactory {
 
   /**
    * The hybrid reranker when {@code elasticsearch.entityIndex.v3.hybridReadEnabled} is on with V3
-   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors V3 semantic reads
-   * serve, so startup fails unless V3 keyword and semantic reads, semantic search, a real embedding
-   * provider and the active model's mapping are all configured.
+   * enabled, else null. Hybrid read reranks V3 keyword results with the vectors semantic search
+   * reads from V3, so startup fails unless semantic search reads V3, a real embedding provider is
+   * configured, and the active model's mapping is configured.
    */
   @Nullable
   static HybridSearchResultReranker hybridSearchResultReranker(
@@ -120,19 +162,13 @@ public class ElasticSearchServiceFactory {
         || !entityIndex.getV3().isHybridReadEnabled()) {
       return null;
     }
-    if (!EntitySearchIndexResolver.shouldReadV3(entityIndex)) {
+    if (!SemanticEntitySearchService.shouldReadSemanticV3(entityIndex)) {
       throw hybridConfigurationError(
-          "keyword reads must use V3 (elasticsearch.entityIndex.v3.keywordReadEnabled)");
-    }
-    if (!entityIndex.getV3().isSemanticReadEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.v3.semanticReadEnabled must be true");
+          "semantic search must read the V3 index"
+              + " (elasticsearch.entityIndex.semanticSearch.enabled, with V3 keyword reads or V2"
+              + " off)");
     }
     final SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
-    if (semanticSearch == null || !semanticSearch.isEnabled()) {
-      throw hybridConfigurationError(
-          "elasticsearch.entityIndex.semanticSearch.enabled must be true");
-    }
     final EmbeddingProvider provider = embeddingProvider.get();
     if (provider == null || provider instanceof NoOpEmbeddingProvider) {
       throw hybridConfigurationError("an embedding provider must be configured");
@@ -171,6 +207,88 @@ public class ElasticSearchServiceFactory {
   private static IllegalStateException hybridConfigurationError(@Nonnull final String detail) {
     return new IllegalStateException(
         "elasticsearch.entityIndex.v3.hybridReadEnabled is on, but " + detail);
+  }
+
+  @Bean
+  protected SearchTemplateComponentRegistry searchTemplateComponentRegistry(
+      final ObjectProvider<List<SearchTemplateComponent>> searchTemplateComponents) {
+    List<SearchTemplateComponent> components =
+        new ArrayList<>(searchTemplateComponents.getIfAvailable(List::of));
+    boolean registered =
+        components.stream()
+            .anyMatch(
+                component ->
+                    EmptyPostProcessComponent.NAME.equals(component.name())
+                        && component.version() == EmptyPostProcessComponent.VERSION);
+    if (!registered) {
+      components.add(new EmptyPostProcessComponent());
+    }
+    return new SearchTemplateComponentRegistry(components);
+  }
+
+  @Bean
+  @Nullable
+  protected SearchTemplateCoordinator searchTemplateCoordinator(
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      @Nullable final CustomSearchConfiguration customSearchConfiguration,
+      @Qualifier("searchTemplateLadderExecutor") final ExecutorService searchTemplateLadderExecutor,
+      final SearchTemplateComponentRegistry searchTemplateComponentRegistry) {
+    if (searchTemplateLoader == null) {
+      return null;
+    }
+    searchTemplateLoader.installDocuments(
+        new SearchTemplateDocumentSource(elasticSearchConfiguration.getEntityIndex()));
+    return new SearchTemplateCoordinator(
+        elasticSearchConfiguration,
+        customSearchConfiguration,
+        searchTemplateLoader,
+        searchTemplateLadderExecutor,
+        searchTemplateComponentRegistry);
+  }
+
+  @Bean(name = "searchTemplateLadderExecutor", destroyMethod = "shutdown")
+  protected ExecutorService searchTemplateLadderExecutor(
+      final ElasticSearchConfiguration elasticSearchConfiguration,
+      @Nullable final MetricUtils metricUtils) {
+    SearchTemplateConfiguration templates =
+        elasticSearchConfiguration.getSearch().getV3().getTemplates();
+    if (!templates.isEnabled()) {
+      return new CallerRunsExecutor();
+    }
+    SearchTemplateConcurrencyConfiguration concurrency = templates.getConcurrency();
+    int corePoolSize = concurrency.resolveCorePoolSize();
+    int maxPoolSize = concurrency.resolveMaxPoolSize();
+    if (maxPoolSize < corePoolSize) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.maxPoolSize must be >= corePoolSize");
+    }
+    if (concurrency.getKeepAlive() <= 0) {
+      throw new IllegalArgumentException(
+          "elasticsearch.search.v3.templates.concurrency.keepAlive must be positive");
+    }
+    AtomicInteger threadNumber = new AtomicInteger();
+    ThreadFactory threadFactory =
+        runnable -> {
+          Thread thread =
+              new Thread(runnable, "search-template-ladder-" + threadNumber.incrementAndGet());
+          thread.setDaemon(true);
+          return thread;
+        };
+    ThreadPoolExecutor executor =
+        new ThreadPoolExecutor(
+            corePoolSize,
+            maxPoolSize,
+            concurrency.getKeepAlive(),
+            TimeUnit.SECONDS,
+            concurrency.createWorkQueue(),
+            threadFactory,
+            new ThreadPoolExecutor.CallerRunsPolicy());
+    executor.allowCoreThreadTimeOut(true);
+    if (metricUtils != null) {
+      MicrometerMetricsRegistry.registerExecutorMetrics(
+          "search-template-ladder", executor, metricUtils.getRegistry());
+    }
+    return executor;
   }
 
   @Bean
@@ -232,6 +350,43 @@ public class ElasticSearchServiceFactory {
    * Surfaced as a startup warning rather than a failure so existing 2.x-migrated deployments can
    * start; the rejected items themselves are logged at ERROR by the bulk listener.
    */
+  /** Runs work on the caller. Used when template reads are off so no ladder threads start. */
+  private static final class CallerRunsExecutor extends AbstractExecutorService {
+    private volatile boolean shutdown;
+
+    @Override
+    public void shutdown() {
+      shutdown = true;
+    }
+
+    @Override
+    @Nonnull
+    public List<Runnable> shutdownNow() {
+      shutdown = true;
+      return List.of();
+    }
+
+    @Override
+    public boolean isShutdown() {
+      return shutdown;
+    }
+
+    @Override
+    public boolean isTerminated() {
+      return shutdown;
+    }
+
+    @Override
+    public boolean awaitTermination(long timeout, @Nonnull TimeUnit unit) {
+      return true;
+    }
+
+    @Override
+    public void execute(@Nonnull Runnable command) {
+      command.run();
+    }
+  }
+
   static void warnOpenSearch3DocIdRisk(
       @Nonnull final ElasticSearchConfiguration configuration,
       @Nullable final SearchClientShim<?> searchClient) {

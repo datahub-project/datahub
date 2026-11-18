@@ -1,8 +1,9 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 
 import useSearchFilterDropdown from '@app/searchV2/filters/useSearchFilterDropdown';
 import { STRUCTURED_PROPERTIES_FILTER_NAME } from '@app/searchV2/utils/constants';
-import { STRING_TYPE_URN } from '@src/app/shared/constants';
+import { STRING_TYPE_URN } from '@src/app/sharedV2/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { FacetMetadata, FilterOperator } from '@types';
 
@@ -13,7 +14,10 @@ vi.mock('@app/searchV2/useGetSearchQueryInputs', () => ({
     default: () => ({ entityFilters: [], query: '*', orFilters: [], viewUrn: undefined }),
 }));
 
-vi.mock('@src/graphql/search.generated', () => ({
+// Partial mock: the filter utils transitively import other generated documents that embed
+// fragments from this module, so the real exports must stay available.
+vi.mock('@src/graphql/search.generated', async (importOriginal) => ({
+    ...(await importOriginal<typeof import('@src/graphql/search.generated')>()),
     useAggregateAcrossEntitiesLazyQuery: () => [vi.fn(), { data: undefined, loading: false }],
 }));
 

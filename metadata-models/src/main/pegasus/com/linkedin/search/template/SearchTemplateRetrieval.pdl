@@ -1,0 +1,100 @@
+namespace com.linkedin.search.template
+
+/**
+ * How candidates are retrieved before ranking. An explicitly present empty value drops an
+ * inherited retrieval section. Unset mode and unset combine are keyword. Vector retrieval, the
+ * later combine values, and a bridge are stored as data and executed only by a deployment that
+ * advertises them.
+ */
+record SearchTemplateRetrieval {
+  /**
+   * {@code keyword} or {@code vector}. {@code vector} is an alias of {@code combine: vector}.
+   */
+  mode: optional string
+
+  /**
+   * Deprecated. Names the embedding profile id, which is the stored embedding key. Use
+   * {@code profiles} on the template.
+   */
+  model: optional string
+
+  /**
+   * Deprecated. Names the embedding profile id. Use {@code profiles} on the template.
+   */
+  field: optional string
+
+  /**
+   * Cap on vector candidates.
+   */
+  candidateCap: optional int
+
+  /**
+   * How the vector total is counted.
+   */
+  total: optional string
+
+  /**
+   * How vector facets are produced.
+   */
+  facets: optional string
+
+  /**
+   * How a vector page is chosen.
+   */
+  page: optional string
+
+  /**
+   * How authorization is applied to vector candidates.
+   */
+  authorization: optional string
+
+  /**
+   * What to do when vector retrieval fails.
+   */
+  onFailure: optional string
+
+  /**
+   * Optional second retrieval leg.
+   */
+  bridge: optional SearchTemplateRetrievalBridge
+
+  /**
+   * Which leg admits hits and which leg orders them: {@code vector}, {@code keywordRerank},
+   * {@code vectorThenKeyword}, or {@code vectorFilter}. Unset is keyword. {@code keywordRerank}
+   * runs the keyword query and rescores the eligible rows already in its ranking window, using
+   * the {@code knn} blend weights. It adds no hit and removes none. When the rerank cannot run,
+   * the keyword order is served.
+   */
+  combine: optional string
+
+  /**
+   * {@code text} or {@code anchorEntity}. Unset is text. {@code anchorEntity} reads the anchor
+   * entity's stored vectors as the query, and requires {@code combine: vector}.
+   */
+  querySource: optional string
+
+  /**
+   * The anchor entity for {@code querySource: anchorEntity}.
+   */
+  anchor: optional SearchTemplateRetrievalAnchor
+
+  /**
+   * How the scores of several embedding profiles combine: {@code best} or {@code weightedSum}.
+   * Unset is best.
+   */
+  profileScore: optional string
+
+  /**
+   * Drops hits whose raw cosine similarity is below this value, from -1 to 1. Unset inherits the
+   * deployment's {@code semanticSearch.minSimilarity}, and that property unset means no floor. The
+   * floor does not refill the candidate cap. Rejected on {@code keywordRerank}, on a keyword rung,
+   * and with {@code profileScore: weightedSum}.
+   */
+  minSimilarity: optional float
+
+  /**
+   * Native engines only. Mustache that replaces the rendered vector request. Rejected with
+   * {@code profileScore} and on a keyword rung.
+   */
+  vectorBody: optional string
+}

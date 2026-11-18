@@ -15,19 +15,26 @@ entity_analyzer_config:
             tokenizer: unit_separator_path_tokenizer
           unit_separator_pattern:
             tokenizer: unit_separator_pattern_tokenizer
-          # Analyzers of the shared _search fields, the only full-text fields of a V3 index.
+          # Analyzers of the shared root fields, the only full-text fields of a V3 index.
           # They split on anything that is not a letter, a digit, a combining mark (the vowel
           # signs of Indic and Thai scripts are marks) or an underscore, in any script, fold case
           # and accents, add the parts of an identifier such as customer_id next to it (after
           # the synonyms on the search side, so they see whole identifiers), and drop stop words
           # and words shorter than ELASTICSEARCH_MIN_SEARCH_FILTER_LENGTH on both sides, as V2
-          # does; db_id stays whole although its parts are short. datahub_stop_words,
+          # does; db_id stays whole although its parts are short. The index analyzers also split
+          # a camelCase token into its words while keeping the whole token. The search analyzers
+          # do not: a synonym filter cannot parse its rules through that graph. datahub_stop_words,
           # default_syn_graph, stem_override and min_length are the V2 filters that V3 indices
-          # also define.
+          # also define. v3_max_token_length drops a token before it can exceed Lucene's
+          # 32,766-byte term limit. The pattern tokenizer has no max length of its own, and a
+          # RICH_TEXT body copied onto a label is one run when it has no word break.
           v3_text:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
+              - v3_camel_parts
+              - flatten_graph
               - lowercase
               - v3_underscore_parts
               - datahub_stop_words
@@ -36,6 +43,7 @@ entity_analyzer_config:
           v3_text_search:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - default_syn_graph
@@ -46,7 +54,10 @@ entity_analyzer_config:
           v3_stemmed:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
+              - v3_camel_parts
+              - flatten_graph
               - lowercase
               - v3_underscore_parts
               - datahub_stop_words
@@ -57,6 +68,7 @@ entity_analyzer_config:
           v3_stemmed_search:
             tokenizer: v3_word_tokenizer
             filter:
+              - v3_max_token_length
               - asciifolding
               - lowercase
               - default_syn_graph
@@ -67,12 +79,29 @@ entity_analyzer_config:
               - snowball
               - min_length
         filter:
+          # 10,922 chars is under Lucene's 32,766-byte term limit at 3 bytes per char.
+          v3_max_token_length:
+            type: length
+            max: 10922
           # The parts of a token around its underscores, next to the token itself
           v3_underscore_parts:
             type: pattern_capture
             preserve_original: true
             patterns:
               - "([^_]+)"
+          # Words inside a camelCase token, next to the token itself. Index analyzers only: the
+          # synonym filter cannot parse its rules through a graph delimiter, and flatten_graph
+          # follows it because an index cannot store a token graph. A query is already
+          # folded, so it matches the indexed words. A capitalized word such as Sample stays whole.
+          # Digits stay attached, so batch2017 remains one token. Underscores stay for
+          # v3_underscore_parts.
+          v3_camel_parts:
+            type: word_delimiter_graph
+            preserve_original: true
+            split_on_case_change: true
+            split_on_numerics: false
+            type_table:
+              - "_ => ALPHANUM"
         tokenizer:
           unit_separator_path_tokenizer:
             type: path_hierarchy

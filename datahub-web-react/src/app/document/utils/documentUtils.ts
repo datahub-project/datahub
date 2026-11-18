@@ -5,7 +5,7 @@ import { FolderDashed } from '@phosphor-icons/react/dist/csr/FolderDashed';
 import i18next from 'i18next';
 
 import { DocumentCreator, DocumentTreeNode } from '@app/document/DocumentTreeContext';
-import { INGESTION_ACTOR_URN } from '@app/entity/shared/constants';
+import { INGESTION_ACTOR_URN } from '@app/entityV2/shared/constants';
 
 import { Document, DocumentSourceType, DocumentState, EntityType } from '@types';
 
@@ -173,6 +173,17 @@ export function documentToTreeNode(doc: Document, hasChildren: boolean, childCou
         creator: extractDocumentCreator(doc),
         lastModifiedAt: doc.info?.lastModified?.time ?? 0,
     };
+}
+
+/** Map searchDocuments rows to tree nodes using a precomputed child-count map. */
+export function mapDocumentsToTreeNodes(
+    documents: Document[],
+    childCountMap: Record<string, number>,
+): DocumentTreeNode[] {
+    return documents.map((document) => {
+        const childCount = childCountMap[document.urn] || 0;
+        return documentToTreeNode(document, childCount > 0, childCount);
+    });
 }
 
 /**

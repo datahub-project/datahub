@@ -51,8 +51,7 @@ export class BusinessAttributePage extends BasePage {
     this.deleteConfirmButton = page.getByRole('dialog').getByRole('button', { name: 'Yes' });
     this.relatedEntitiesTab = page.getByText('Related Entities');
     this.filterEntitiesInput = page.getByPlaceholder('Filter entities...');
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design v5 select options lack [role="option"]; no semantic equivalent
-    this.dataTypeDropdownOption = page.locator('.ant-select-dropdown .ant-select-item-option');
+    this.dataTypeDropdownOption = page.getByTestId('add-data-type-option-dropdown');
     this.businessAttributePageTitle = page.getByRole('heading', { name: 'Business Attribute', exact: true });
   }
 
@@ -133,13 +132,10 @@ export class BusinessAttributePage extends BasePage {
     await editButton.hover();
     await editButton.click();
 
-    // eslint-disable-next-line playwright/no-raw-locators -- Ant Design internal search input class; no data-testid available
-    const selectInput = this.addDataTypeOption.locator('.ant-select-selection-search-input');
-    await selectInput.click({ force: true });
-    // The select input is readonly (showSearch disabled) — fill() will hang.
-    // Wait for the dropdown to open and click the option directly by text.
-    await this.dataTypeDropdownOption.filter({ hasText: dataType }).first().waitFor({ state: 'visible' });
-    await this.dataTypeDropdownOption.filter({ hasText: dataType }).first().click();
+    await this.addDataTypeOption.getByTestId('add-data-type-option-base').click();
+    const option = this.dataTypeDropdownOption.getByTestId(`option-${dataType}`);
+    await option.waitFor({ state: 'visible' });
+    await option.click();
     // Wait for the mutation to complete and the new data type to be rendered.
     await this.page.waitForLoadState('networkidle');
     await expect(this.page.getByText(dataType).first()).toBeVisible();

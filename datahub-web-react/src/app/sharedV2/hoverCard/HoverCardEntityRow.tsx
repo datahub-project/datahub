@@ -3,7 +3,7 @@ import React from 'react';
 import styled from 'styled-components';
 
 import EntityIcon from '@app/searchV2/autoCompleteV2/components/icon/EntityIcon';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 import { Entity } from '@src/types.generated';
 
 const Row = styled.div`
@@ -42,7 +42,7 @@ type Props = {
 };
 
 export default function HoverCardEntityRow({ entity }: Props) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
 
     return (
         <Row>

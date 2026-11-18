@@ -135,7 +135,14 @@ public interface AspectsBatch {
       @Nonnull RetrieverContext retrieverContext) {
     for (MutationHook mutationHook :
         retrieverContext.getAspectRetriever().getEntityRegistry().getAllMutationHooks()) {
-      mutationHook.applyWriteMutation(operationContext, changeMCPS, retrieverContext).count();
+      mutationHook
+          .applyWriteMutation(operationContext, changeMCPS, retrieverContext)
+          .forEach(
+              result -> {
+                if (Boolean.TRUE.equals(result.getSecond())) {
+                  result.getFirst().invalidateSemanticNoOp();
+                }
+              });
     }
   }
 

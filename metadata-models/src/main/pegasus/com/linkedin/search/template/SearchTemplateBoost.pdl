@@ -1,0 +1,29 @@
+namespace com.linkedin.search.template
+
+/**
+ * A closed list-membership boost. The service renders a terms filter for {@code values} and
+ * applies {@code weight}. {@code values} is one of {@code viewerUrn}, {@code viewerGroupsJson},
+ * {@code viewerDomainsJson}, or {@code domainsJson}.
+ */
+record SearchTemplateBoost {
+  /**
+   * Field the terms filter matches. A structured property is its definition URN. A nested
+   * contribution uses its degree-suffixed indexed name, such as {@code tags_1}.
+   */
+  field: string
+
+  /**
+   * Subfield appended after a structured-property field. {@code keyword} or {@code text}.
+   */
+  subfield: optional string
+
+  /**
+   * Injectable list the service fills for the request.
+   */
+  values: string
+
+  /**
+   * Weight applied when the field matches one value in the list.
+   */
+  weight: double
+}

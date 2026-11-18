@@ -376,7 +376,7 @@ type ERModelRelationship implements EntityWithRelationships & Entity {
 """
 Additional properties about a ERModelRelationship
 """
-type ERModelRelationshipEditableProperties {
+type ERModelRelationshipEditableProperties implements EditableProperties {
   """
   Documentation of the ERModelRelationship
   """
@@ -732,14 +732,6 @@ type Mutation {
   ): Boolean
 
   """
-  Delete a ERModelRelationship
-  """
-  deleteERModelRelationship(
-    "The urn of the ERModelRelationship to delete"
-    urn: String!
-  ): Boolean
-
-  """
   Sets the Deprecation status for a Metadata Entity. Requires the Edit Deprecation status privilege for an entity.
   """
   updateDeprecation(
@@ -995,16 +987,6 @@ type Mutation {
   createApplication(
     "Inputs required to create a new Application."
     input: CreateApplicationInput!
-  ): Application
-
-  """
-  Update a Application
-  """
-  updateApplication(
-    "The urn identifier for the Application to update."
-    urn: String!
-    "Inputs required to create a new Application."
-    input: UpdateApplicationInput!
   ): Application
 
   """
@@ -1439,6 +1421,11 @@ enum EntityType {
   A Semantic Model entity that groups datasets and defines metrics context.
   """
   SEMANTIC_MODEL
+
+  """
+  A source-code repository (GitHub, GitLab, internal SCM, etc.)
+  """
+  REPOSITORY
 }
 
 """
@@ -1817,6 +1804,13 @@ type Dataset implements EntityWithRelationships & Entity & BrowsableEntity {
     @aspectMapping(aspects: ["editableSchemaMetadata"])
 
   """
+  Primary key declared by users, for datasets whose source declares none.
+  A primary key declared by the source takes precedence.
+  """
+  editablePrimaryKeys: EditablePrimaryKeys
+    @aspectMapping(aspects: ["editablePrimaryKeys"])
+
+  """
   Status of the Dataset
   """
   status: Status @aspectMapping(aspects: ["status"])
@@ -2137,7 +2131,7 @@ type RoleGroup {
   group: CorpGroup!
 }
 
-type RoleProperties {
+type RoleProperties implements EntityProperties {
   """
   Name of the Role in an organisation
   """
@@ -2483,7 +2477,7 @@ type AspectRenderSpec {
 """
 Additional read only properties about a Dataset
 """
-type DatasetProperties {
+type DatasetProperties implements EntityProperties {
   """
   The name of the dataset used in display
   """
@@ -2540,7 +2534,7 @@ type DatasetProperties {
 """
 Additional read only properties about a DataPlatformInstance
 """
-type DataPlatformInstanceProperties {
+type DataPlatformInstanceProperties implements EntityProperties {
   """
   The name of the data platform instance used in display
   """
@@ -2750,7 +2744,7 @@ type GlossaryTermInfo {
 """
 Additional read only properties about a Glossary Term
 """
-type GlossaryTermProperties {
+type GlossaryTermProperties implements EntityProperties {
   """
   The name of the Glossary Term
   """
@@ -2938,7 +2932,7 @@ type ParentNodesResult {
 """
 Additional read only properties about a Glossary Node
 """
-type GlossaryNodeProperties {
+type GlossaryNodeProperties implements EntityProperties {
   """
   The name of the Glossary Term
   """
@@ -3438,7 +3432,7 @@ type Container implements Entity {
 """
 Read-only properties that originate in the source data platform
 """
-type ContainerProperties {
+type ContainerProperties implements EntityProperties {
   """
   Display name of the Container
   """
@@ -3463,12 +3457,17 @@ type ContainerProperties {
   Fully-qualified name of the Container
   """
   qualifiedName: String
+
+  """
+  When the Container was created in the source platform
+  """
+  created: AuditStamp
 }
 
 """
 Read-write properties that originate in DataHub
 """
-type ContainerEditableProperties {
+type ContainerEditableProperties implements EditableProperties {
   """
   DataHub description of the Container
   """
@@ -3986,6 +3985,16 @@ type SchemaField {
 }
 
 """
+A primary key declared by users for a dataset whose source declares none
+"""
+type EditablePrimaryKeys {
+  """
+  Field paths of the primary key
+  """
+  primaryKeys: [String!]!
+}
+
+"""
 Information about schema metadata that is editable via the UI
 """
 type EditableSchemaMetadata {
@@ -4145,7 +4154,7 @@ type ViewProperties {
 Dataset properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type DatasetEditableProperties {
+type DatasetEditableProperties implements EditableProperties {
   """
   Description of the Dataset
   """
@@ -4161,7 +4170,7 @@ type DatasetEditableProperties {
 Chart properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type ChartEditableProperties {
+type ChartEditableProperties implements EditableProperties {
   """
   Description of the Chart
   """
@@ -4172,7 +4181,7 @@ type ChartEditableProperties {
 Dashboard properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type DashboardEditableProperties {
+type DashboardEditableProperties implements EditableProperties {
   """
   Description of the Dashboard
   """
@@ -4183,7 +4192,7 @@ type DashboardEditableProperties {
 Notebook properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type NotebookEditableProperties {
+type NotebookEditableProperties implements EditableProperties {
   """
   Description of the Notebook
   """
@@ -4194,7 +4203,7 @@ type NotebookEditableProperties {
 Data Job properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type DataJobEditableProperties {
+type DataJobEditableProperties implements EditableProperties {
   """
   Description of the Data Job
   """
@@ -4205,7 +4214,7 @@ type DataJobEditableProperties {
 Data Flow properties that are editable via the UI This represents logical metadata,
 as opposed to technical metadata
 """
-type DataFlowEditableProperties {
+type DataFlowEditableProperties implements EditableProperties {
   """
   Description of the Data Flow
   """
@@ -5131,7 +5140,7 @@ type CorpGroupProperties {
 """
 Additional read write properties about a group
 """
-type CorpGroupEditableProperties {
+type CorpGroupEditableProperties implements EditableProperties {
   """
   DataHub description of the group
   """
@@ -5289,6 +5298,11 @@ type Tag implements Entity {
   deprecation: Deprecation @aspectMapping(aspects: ["deprecation"])
 
   """
+  The soft-deletion status of the Tag
+  """
+  status: Status @aspectMapping(aspects: ["status"])
+
+  """
   Granular API for querying edges extending from this entity
   """
   relationships(input: RelationshipsInput!): EntityRelationshipsResult
@@ -5325,7 +5339,7 @@ type EditableTagProperties {
 """
 Properties for a DataHub Tag
 """
-type TagProperties {
+type TagProperties implements EntityProperties {
   """
   A display name for the Tag
   """
@@ -6532,7 +6546,7 @@ type NotebookInfo {
 """
 Additional read only properties about a Dashboard
 """
-type DashboardProperties {
+type DashboardProperties implements EntityProperties {
   """
   Display of the dashboard
   """
@@ -6862,7 +6876,7 @@ type ChartInfo {
 """
 Additional read only properties about the chart
 """
-type ChartProperties {
+type ChartProperties implements EntityProperties {
   """
   Display name of the chart
   """
@@ -7255,7 +7269,7 @@ type DataFlowInfo {
 """
 Additional read only properties about a Data Flow aka Pipeline
 """
-type DataFlowProperties {
+type DataFlowProperties implements EntityProperties {
   """
   Display name of the flow
   """
@@ -7664,7 +7678,7 @@ type DataJobInfo {
 """
 Additional read only properties about a Data Job aka Task
 """
-type DataJobProperties {
+type DataJobProperties implements EntityProperties {
   """
   Job display name
   """
@@ -10623,6 +10637,11 @@ input ListUsersInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 """
@@ -10668,6 +10687,11 @@ input ListGroupsInput {
   Optional search query
   """
   query: String
+
+  """
+  Optional - Information on how to sort this search result
+  """
+  sortInput: SearchSortInput
 }
 
 type EntityCountResults {
@@ -11126,7 +11150,7 @@ type MLModelGroup implements EntityWithRelationships & Entity & BrowsableEntity 
 """
 Properties describing a group of related ML models
 """
-type MLModelGroupProperties {
+type MLModelGroupProperties implements EntityProperties {
   """
   Display name of the model group
   """
@@ -11365,7 +11389,7 @@ type MLMetric {
   createdAt: Long
 }
 
-type MLModelProperties {
+type MLModelProperties implements EntityProperties {
   """
   The display name of the model used in the UI
   """
@@ -11793,35 +11817,35 @@ type MLFeatureTable implements EntityWithRelationships & Entity & BrowsableEntit
   privileges: EntityPrivileges @noAspects
 }
 
-type MLFeatureTableEditableProperties {
+type MLFeatureTableEditableProperties implements EditableProperties {
   """
   The edited description
   """
   description: String
 }
 
-type MLFeatureEditableProperties {
+type MLFeatureEditableProperties implements EditableProperties {
   """
   The edited description
   """
   description: String
 }
 
-type MLPrimaryKeyEditableProperties {
+type MLPrimaryKeyEditableProperties implements EditableProperties {
   """
   The edited description
   """
   description: String
 }
 
-type MLModelEditableProperties {
+type MLModelEditableProperties implements EditableProperties {
   """
   The edited description
   """
   description: String
 }
 
-type MLModelGroupEditableProperties {
+type MLModelGroupEditableProperties implements EditableProperties {
   """
   The edited description
   """
@@ -12273,7 +12297,7 @@ type ParentApplicationsResult {
 """
 Properties about a domain
 """
-type DomainProperties {
+type DomainProperties implements EntityProperties {
   """
   Display name of the domain
   """
@@ -12859,7 +12883,9 @@ Input provided when getting an invite token
 """
 input GetInviteTokenInput {
   """
-  The urn of the role to get the invite token for
+  The urn of the role to get the invite token for. Reading or creating a link for a role requires
+  the Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage
+  User Credentials.
   """
   roleUrn: String
 }
@@ -12869,7 +12895,9 @@ Input provided when creating an invite token
 """
 input CreateInviteTokenInput {
   """
-  The urn of the role to create the invite token for
+  The urn of the role to create the invite token for. Creating a link for a role requires the
+  Manage Policies privilege. Omit it to invite a user with no role, which requires only Manage User
+  Credentials.
   """
   roleUrn: String
 }
@@ -13534,7 +13562,7 @@ type QueryStatement {
 """
 Properties about an individual Query
 """
-type QueryProperties {
+type QueryProperties implements EntityProperties {
   """
   The Query statement itself
   """
@@ -13631,6 +13659,11 @@ type QueryEntity implements Entity {
   Platform from which the Query was detected
   """
   platform: DataPlatform @aspectMapping(aspects: ["dataPlatformInstance"])
+
+  """
+  Privileges given to a user relevant to this entity
+  """
+  privileges: EntityPrivileges @noAspects
 }
 
 """
@@ -13921,7 +13954,7 @@ type DataProduct implements Entity {
 """
 Properties about a domain
 """
-type DataProductProperties {
+type DataProductProperties implements EntityProperties {
   """
   Display name of the Data Product
   """
@@ -14184,7 +14217,7 @@ type Application implements Entity {
 """
 Properties about an Application
 """
-type ApplicationProperties {
+type ApplicationProperties implements EntityProperties {
   """
   Display name of the Application
   """
@@ -14269,21 +14302,6 @@ input CreateApplicationPropertiesInput {
   A display name for the Application
   """
   name: String!
-
-  """
-  An optional description for the Application
-  """
-  description: String
-}
-
-"""
-Input properties required for update a Application
-"""
-input UpdateApplicationInput {
-  """
-  A display name for the Application
-  """
-  name: String
 
   """
   An optional description for the Application
@@ -14631,7 +14649,7 @@ type BusinessAttribute implements Entity {
 """
 Business Attribute type
 """
-type BusinessAttributeInfo {
+type BusinessAttributeInfo implements EntityProperties {
   """
   name of the business attribute
   """

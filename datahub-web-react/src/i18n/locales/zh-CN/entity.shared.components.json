@@ -97,5 +97,9 @@
     "searchActions.owners.addTitle": "添加所有者",
     "searchActions.owners.removeTitle": "移除所有者",
     "searchActions.tags.addTitle": "添加标签",
-    "searchActions.tags.removeTitle": "移除标签"
+    "searchActions.tags.removeTitle": "移除标签",
+    "structuredProperty.addMore": "+ 添加更多",
+    "structuredProperty.selectPlaceholder": "选择",
+    "viewAll.resultsIncomplete": "结果可能不完整。",
+    "viewAll.searchAllAssets": "搜索所有通过数据引入导入的 {{platform}} 数据资产"
 }

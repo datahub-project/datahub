@@ -35,6 +35,10 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
     total_chunks_generated: int = 0
     total_embeddings_generated: int = 0
 
+    # User mentions, resolved to display names through the user API
+    mentions_resolved: int = 0
+    mentions_unresolved: int = 0
+
     # Embedding statistics (from chunking source)
     num_documents_with_embeddings: int = 0
     num_embedding_failures: int = 0
@@ -54,14 +58,32 @@ class ConfluenceSourceReport(StaleEntityRemovalSourceReport):
         """Record successful space processing."""
         self.spaces_processed += 1
 
-    def report_space_failed(self, space_key: str, error: str) -> None:
-        """Record space processing failure."""
+    def report_space_failed(self, space_key: str, exc: BaseException) -> None:
+        """Record a space whose pages could not all be listed. This is a failure
+        so stale entity removal skips the run instead of soft-deleting the
+        pages that were not listed."""
         self.spaces_failed += 1
         self.failed_spaces.append(space_key)
-        self.warning(
-            message="Failed to process space",
-            context=f"{space_key}: {error}",
-            log=False,
+        self.failure(
+            title="Failed to list pages in space",
+            message="Some pages in this space were not ingested. Stale entity "
+            "removal is skipped for this run so they are not soft-deleted.",
+            context=space_key,
+            exc=exc,
+        )
+
+    def report_space_truncated(self, space_key: str, max_pages: int) -> None:
+        """Record a space cut short at max_pages_per_space. It counts as failed,
+        not processed: a failure rather than a warning, because stale removal
+        would otherwise soft-delete the pages beyond the cap."""
+        self.spaces_failed += 1
+        self.failed_spaces.append(space_key)
+        self.failure(
+            title="Space stopped at max_pages_per_space",
+            message="Pages beyond max_pages_per_space were not ingested, so "
+            "stale removal is skipped for this run. Raise max_pages_per_space "
+            "to ingest the whole space.",
+            context=f"{space_key}: max_pages_per_space={max_pages}",
         )
 
     def report_page_scanned(self) -> None:

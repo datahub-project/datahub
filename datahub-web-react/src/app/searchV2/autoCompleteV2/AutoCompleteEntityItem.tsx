@@ -12,7 +12,7 @@ import { EntityItemVariant } from '@app/searchV2/autoCompleteV2/types';
 import { getEntityDisplayType } from '@app/searchV2/autoCompleteV2/utils';
 import { useGetModalLinkProps } from '@app/sharedV2/modals/useGetModalLinkProps';
 import { Text } from '@src/alchemy-components';
-import { useEntityRegistryV2 } from '@src/app/useEntityRegistry';
+import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, MatchedField } from '@src/types.generated';
 
 const Container = styled.div<{
@@ -163,7 +163,7 @@ export default function AutoCompleteEntityItem({
     customOnEntityClick,
     dataTestId,
 }: EntityAutocompleteItemProps) {
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const linkProps = useGetModalLinkProps();
 
     const displayName = entityRegistry.getDisplayName(entity.type, entity);

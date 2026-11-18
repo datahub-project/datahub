@@ -47,6 +47,18 @@ public interface SystemMetadataService {
       int from,
       @Nullable Integer size);
 
+  /**
+   * Up to {@code size} of the run's rows in (urn, aspect) order, starting after {@code after}, or
+   * from the first row when it is null. Pass the last row of one page to get the next: a row that
+   * is still in the index is never returned twice, unlike paging with {@code from}.
+   */
+  List<AspectRowSummary> findByRunIdAfter(
+      @Nonnull OperationContext opContext,
+      String runId,
+      boolean includeSoftDeleted,
+      @Nullable AspectRowSummary after,
+      @Nullable Integer size);
+
   List<AspectRowSummary> findByUrn(
       @Nonnull OperationContext opContext,
       String urn,

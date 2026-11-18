@@ -66,7 +66,6 @@ class BigQueryAuditLogApi:
             rate_limiter = RateLimiter(max_calls=self.requests_per_min, period=60)
 
         with self.report.get_exported_log_entries as current_timer:
-            self.report.num_get_exported_log_entries_api_requests += 1
             for dataset in bigquery_audit_metadata_datasets:
                 logger.info(
                     f"Start loading log entries from BigQueryAuditMetadata in {dataset}"
@@ -83,6 +82,7 @@ class BigQueryAuditLogApi:
                     end_date=audit_end_date,
                 )
 
+                self.report.num_get_exported_log_entries_api_requests += 1
                 query_job = bigquery_client.query(query)
                 logger.info(
                     f"Finished loading log entries from BigQueryAuditMetadata in {dataset}"

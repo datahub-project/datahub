@@ -29,7 +29,7 @@ GRANT SELECT_PRIV ON *.* TO 'datahub'@'%';
 GRANT SHOW_VIEW_PRIV ON *.* TO 'datahub'@'%';
 ```
 
-- `SELECT_PRIV`: Required for table and column metadata
+- `SELECT_PRIV`: Required for table and column metadata. `information_schema` only returns rows, and therefore comments, for tables the user holds a privilege on.
 - `SHOW_VIEW_PRIV`: Required for view definitions and lineage
 
 #### Multi-Catalog (Iceberg / Hive / Paimon)

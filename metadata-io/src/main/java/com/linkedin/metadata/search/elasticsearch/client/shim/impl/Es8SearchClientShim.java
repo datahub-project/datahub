@@ -11,6 +11,7 @@ import co.elastic.clients.elasticsearch._types.Refresh;
 import co.elastic.clients.elasticsearch._types.Result;
 import co.elastic.clients.elasticsearch._types.Retries;
 import co.elastic.clients.elasticsearch._types.Script;
+import co.elastic.clients.elasticsearch._types.ScriptField;
 import co.elastic.clients.elasticsearch._types.SearchType;
 import co.elastic.clients.elasticsearch._types.ShardStatistics;
 import co.elastic.clients.elasticsearch._types.SlicedScroll;
@@ -95,6 +96,8 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.builder.es8.Es8Sem
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.CustomQuery;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.Es8BulkListener;
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.v8.LegacyRangeQueryNormalizer;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
+import com.linkedin.metadata.search.elasticsearch.update.V3BulkWriteAccounting;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.elasticsearch.responses.RawResponse;
 import com.linkedin.metadata.utils.elasticsearch.shim.EmbeddingBatch;
@@ -119,7 +122,7 @@ import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.TimeUnit;
-import java.util.function.Supplier;
+import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -427,8 +430,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 .register("https", sslStrategy)
                 .build());
 
-    // Set maxConnectionsPerRoute to match threadCount (minimum 2)
-    int maxConnectionsPerRoute = Math.max(2, config.getThreadCount());
+    int maxConnectionsPerRoute = ShimConfiguration.maxConnectionsPerRoute(config.getThreadCount());
     connectionManager.setDefaultMaxPerRoute(maxConnectionsPerRoute);
     this.connectionManager = connectionManager;
 
@@ -566,6 +568,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     }
     if (searchSourceBuilder.stats() != null && !searchSourceBuilder.stats().isEmpty()) {
       esSearchRequest.stats(searchSourceBuilder.stats());
+    }
+    if (searchSourceBuilder.scriptFields() != null
+        && !searchSourceBuilder.scriptFields().isEmpty()) {
+      esSearchRequest.scriptFields(
+          searchSourceBuilder.scriptFields().stream()
+              .collect(
+                  Collectors.toMap(
+                      SearchSourceBuilder.ScriptField::fieldName,
+                      scriptField ->
+                          new ScriptField.Builder()
+                              .script(convertScript(scriptField.script()))
+                              .ignoreFailure(scriptField.ignoreFailure())
+                              .build())));
     }
 
     co.elastic.clients.elasticsearch.core.SearchResponse<JsonNode> esSearchResponse =
@@ -1023,7 +1038,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       @Nonnull CreateIndexRequest createIndexRequest,
       @Nonnull RequestOptions options)
       throws IOException {
-    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder esCreateIndex =
         new co.elastic.clients.elasticsearch.indices.CreateIndexRequest.Builder()
             .index(createIndexRequest.index())
             .mappings(
@@ -1034,8 +1049,17 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                 createIndexRequest.settings() != null
                         && !Settings.EMPTY.equals(createIndexRequest.settings())
                     ? convertIndexSettings(createIndexRequest.settings())
-                    : null)
-            .build();
+                    : null);
+    if (createIndexRequest.aliases() != null && !createIndexRequest.aliases().isEmpty()) {
+      Map<String, co.elastic.clients.elasticsearch.indices.Alias> aliases = new LinkedHashMap<>();
+      for (org.opensearch.action.admin.indices.alias.Alias alias : createIndexRequest.aliases()) {
+        aliases.put(
+            alias.name(), co.elastic.clients.elasticsearch.indices.Alias.of(builder -> builder));
+      }
+      esCreateIndex.aliases(aliases);
+    }
+    co.elastic.clients.elasticsearch.indices.CreateIndexRequest esCreateIndexRequest =
+        esCreateIndex.build();
     co.elastic.clients.elasticsearch.indices.CreateIndexResponse esCreateResponse =
         withTransportOptions(options).indices().create(esCreateIndexRequest);
     return new CreateIndexResponse(
@@ -1570,6 +1594,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   @Nonnull
   @Override
   public String getEngineVersion() throws IOException {
+    final String versionOverride =
+        shimConfiguration != null ? shimConfiguration.getEngineVersionOverride() : null;
+    if (versionOverride != null) {
+      return versionOverride;
+    }
     try {
       Map<String, String> clusterInfo = getClusterInfo();
       return clusterInfo.getOrDefault("version", "unknown");
@@ -1768,11 +1797,11 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
       long retryInterval,
       int numRetries,
       int threadCount) {
-    // numRetries / retryInterval: item + whole-request requeue uses BulkItemRequeueSupport
-    // (configured via itemRequeueMaxAttempts, typically aligned with numRetries).
-    final Es8BulkListener[] listenerHolder = new Es8BulkListener[1];
-    Supplier<BulkIngester<?>> processorSupplier =
-        () -> {
+    this.metricUtils = metricUtils;
+    // Es8BulkListener requeues item and request failures. A write the completion tracker already
+    // counted on a drain is not requeued: that drain fails closed and the caller redelivers.
+    Function<BulkProcessorCompletionTracker, BulkIngester<?>> processorFactory =
+        completionTracker -> {
           final Refresh refresh;
           switch (writeRequestRefreshPolicy) {
             case NONE:
@@ -1793,19 +1822,19 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
                   .client(client)
                   .flushInterval(bulkFlushPeriod, TimeUnit.SECONDS)
                   .maxOperations(bulkRequestsLimit)
-                  .maxConcurrentRequests(1)
-                  .listener(listenerHolder[0]);
+                  .listener(
+                      new Es8BulkListener(
+                          metricUtils,
+                          completionTracker,
+                          bulkWriteResultTracker,
+                          bulkItemRequeueSupport,
+                          V3BulkWriteAccounting::classifyEs8Response));
 
           builder.globalSettings(new BulkRequest.Builder().refresh(refresh));
           return builder.build();
         };
 
-    initBulkProcessors(
-        threadCount,
-        processorSupplier,
-        () ->
-            listenerHolder[0] =
-                new Es8BulkListener(metricUtils, bulkWriteResultTracker, bulkItemRequeueSupport));
+    initBulkProcessors(threadCount, processorFactory);
 
     log.info("Initialized {} async bulk processors for parallel execution", threadCount);
   }
@@ -1831,7 +1860,10 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
   }
 
   @Override
-  protected void addToProcessor(BulkIngester<?> processor, DocWriteRequest<?> writeRequest) {
+  protected void addToProcessor(
+      BulkIngester<?> processor,
+      DocWriteRequest<?> writeRequest,
+      BulkProcessorCompletionTracker.Submission submission) {
     BulkOperation operation;
     if (writeRequest instanceof UpdateRequest) {
       UpdateRequest update = (UpdateRequest) writeRequest;
@@ -1842,8 +1874,16 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
           new UpdateAction.Builder()
               .detectNoop(update.detectNoop())
               .docAsUpsert(update.docAsUpsert())
-              .script(script)
-              .upsert(update.upsert());
+              .scriptedUpsert(update.scriptedUpsert())
+              .script(script);
+
+      // upsert() on the OpenSearch request is a varargs setter, not a getter: calling it would give
+      // every update an upsert body and let an update-only write create the document.
+      if (update.upsertRequest() != null) {
+        actionBuilder.upsert(
+            XContentHelper.convertToMap(update.upsertRequest().source(), true, XContentType.JSON)
+                .v2());
+      }
 
       // Only set doc if it exists (not present for script-only updates)
       if (update.doc() != null) {
@@ -1908,7 +1948,7 @@ public class Es8SearchClientShim extends AbstractBulkProcessorShim<BulkIngester<
     // Pass DocWriteRequest as context so failed items can be requeued.
     @SuppressWarnings("unchecked")
     BulkIngester<Object> typedProcessor = (BulkIngester<Object>) processor;
-    typedProcessor.add(operation, writeRequest);
+    typedProcessor.add(operation, submission);
   }
 
   @Override

@@ -54,6 +54,7 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -4305,12 +4306,15 @@ public class GraphQueryPITDAOTest {
     dao.getImpactLineage(operationContext, sourceUrn, filters, 1);
 
     io.micrometer.core.instrument.Timer took =
-        registry.get(GraphQueryPITDAO.SEARCH_TOOK_METRIC).tag("operation", "graphQueryPit").timer();
+        registry
+            .get(SearchTookMetrics.SEARCH_TOOK_METRIC)
+            .tag("operation", "graphQueryPit")
+            .timer();
     Assert.assertTrue(took.count() > 0, "took should be recorded per slice search");
     Assert.assertTrue(took.max(TimeUnit.MILLISECONDS) >= 7.0);
     io.micrometer.core.instrument.Timer outsideTook =
         registry
-            .get(GraphQueryPITDAO.SEARCH_OUTSIDE_TOOK_METRIC)
+            .get(SearchTookMetrics.SEARCH_OUTSIDE_TOOK_METRIC)
             .tag("operation", "graphQueryPit")
             .timer();
     Assert.assertEquals(outsideTook.count(), took.count());

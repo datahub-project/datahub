@@ -67,9 +67,8 @@ public class SemanticModelMetricsResolverTest {
                 any(),
                 eq(null),
                 eq("5m"),
-                eq(Collections.emptyList()),
-                eq(10),
-                eq(Collections.emptyList())))
+                any(),
+                eq(10)))
         .thenReturn(mockScrollResult);
 
     final QueryContext mockContext = getMockAllowContext();
@@ -97,7 +96,7 @@ public class SemanticModelMetricsResolverTest {
     Mockito.when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
     Mockito.when(
             _entityClient.scrollAcrossEntities(
-                any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(mockScrollResult);
 
     final QueryContext mockContext = getMockAllowContext();
@@ -141,7 +140,6 @@ public class SemanticModelMetricsResolverTest {
             any(),
             any(),
             any(),
-            any(),
             any());
   }
 
@@ -160,7 +158,7 @@ public class SemanticModelMetricsResolverTest {
     Mockito.when(_dataFetchingEnvironment.getArgument("input")).thenReturn(input);
     Mockito.when(
             _entityClient.scrollAcrossEntities(
-                any(), any(), any(), any(), any(), any(), any(), any(), any()))
+                any(), any(), any(), any(), any(), any(), any(), any()))
         .thenReturn(mockScrollResult);
 
     final QueryContext mockContext = getMockAllowContext();
@@ -172,7 +170,6 @@ public class SemanticModelMetricsResolverTest {
         .scrollAcrossEntities(
             any(),
             eq(Collections.singletonList(Constants.METRIC_ENTITY_NAME)),
-            any(),
             any(),
             any(),
             any(),

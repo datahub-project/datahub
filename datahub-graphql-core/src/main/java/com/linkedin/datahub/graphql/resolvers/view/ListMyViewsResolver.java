@@ -15,14 +15,18 @@ import com.linkedin.datahub.graphql.generated.ListMyViewsInput;
 import com.linkedin.datahub.graphql.generated.ListViewsResult;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.Constants;
-import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.query.filter.SortOrder;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
@@ -40,16 +44,22 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
   private static final String CREATED_AT_FIELD = "createdAt";
   private static final String VIEW_TYPE_FIELD = "type";
   private static final String CREATOR_URN_FIELD = "createdBy";
-  private static final SortCriterion DEFAULT_SORT_CRITERION =
-      new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING);
   private static final Integer DEFAULT_START = 0;
   private static final Integer DEFAULT_COUNT = 20;
   private static final String DEFAULT_QUERY = "";
 
   private final EntityClient _entityClient;
+  @Nullable private final EntityIndexConfiguration _entityIndexConfiguration;
 
   public ListMyViewsResolver(@Nonnull final EntityClient entityClient) {
+    this(entityClient, null);
+  }
+
+  public ListMyViewsResolver(
+      @Nonnull final EntityClient entityClient,
+      @Nullable final EntityIndexConfiguration entityIndexConfiguration) {
     _entityClient = Objects.requireNonNull(entityClient, "entityClient must not be null");
+    _entityIndexConfiguration = entityIndexConfiguration;
   }
 
   @Override
@@ -75,11 +85,8 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
                     context.getOperationContext().withSearchFlags(flags -> flags.setFulltext(true)),
                     Constants.DATAHUB_VIEW_ENTITY_NAME,
                     query,
-                    buildFilters(
-                        viewType,
-                        context.getActorUrn(),
-                        context.getOperationContext().getAspectRetriever()),
-                    Collections.singletonList(DEFAULT_SORT_CRITERION),
+                    buildFilters(viewType, context.getActorUrn(), context.getOperationContext()),
+                    Collections.singletonList(sortCriterion(context.getOperationContext())),
                     start,
                     count);
 
@@ -114,16 +121,35 @@ public class ListMyViewsResolver implements DataFetcher<CompletableFuture<ListVi
     return results;
   }
 
+  private SortCriterion sortCriterion(@Nonnull final OperationContext opContext) {
+    return new SortCriterion()
+        .setField(
+            EntitySearchIndexResolver.indexedField(
+                _entityIndexConfiguration,
+                opContext,
+                CREATED_AT_FIELD,
+                MappingConstants.SYSTEM_CREATED_TIME_FIELD,
+                Intent.SORT))
+        .setOrder(SortOrder.DESCENDING);
+  }
+
   private Filter buildFilters(
       @Nullable final String viewType,
       final String creatorUrn,
-      @Nullable AspectRetriever aspectRetriever) {
+      @Nonnull final OperationContext opContext) {
+    final String creatorField =
+        EntitySearchIndexResolver.indexedField(
+            _entityIndexConfiguration,
+            opContext,
+            CREATOR_URN_FIELD,
+            MappingConstants.SYSTEM_CREATED_ACTOR_FIELD,
+            Intent.FILTER);
     // And GLOBAL views for the authenticated actor.
     final AndFilterInput filterCriteria = new AndFilterInput();
     final List<FacetFilterInput> andConditions = new ArrayList<>();
     andConditions.add(
         new FacetFilterInput(
-            CREATOR_URN_FIELD, ImmutableList.of(creatorUrn), false, FilterOperator.EQUAL));
+            creatorField, ImmutableList.of(creatorUrn), false, FilterOperator.EQUAL));
     if (viewType != null) {
       andConditions.add(
           new FacetFilterInput(

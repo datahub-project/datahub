@@ -116,6 +116,7 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
   @BeforeMethod
   public void setup() {
     org.mockito.MockitoAnnotations.openMocks(this);
+    org.mockito.Mockito.reset(mockEntityService, mockSearchService, mockTimeseriesAspectService);
   }
 
   @Test
@@ -677,6 +678,31 @@ public class LogicalModelControllerTest extends AbstractTestNGSpringContextTests
     // Verify the batch contains all proposals (1 dataset + 5 schema fields)
     AspectsBatch capturedBatch = batchCaptor.getValue();
     assertEquals(6, capturedBatch.getMCPItems().size());
+  }
+
+  @Test
+  public void testRemoveLogicalParentsWithoutContentType() throws Exception {
+    // Swagger UI sends a bodyless DELETE with no Content-Type header.
+    String childDatasetUrnStr = "urn:li:dataset:(urn:li:dataPlatform:bigquery,child_dataset,PROD)";
+    Urn childDatasetUrn = UrnUtils.getUrn(childDatasetUrnStr);
+
+    when(mockEntityService.getLatestAspect(any(), eq(childDatasetUrn), eq("schemaMetadata")))
+        .thenReturn(null);
+    List<IngestResult> mockResults =
+        List.of(createMockIngestResultWithNullLogicalParent(childDatasetUrn));
+    when(mockEntityService.ingestProposal(any(), any(), eq(false))).thenReturn(mockResults);
+
+    mockMvc
+        .perform(
+            MockMvcRequestBuilders.delete(
+                    "/openapi/v3/logical/"
+                        + childDatasetUrnStr
+                        + "/relationship/physicalInstanceOf")
+                .accept(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(MockMvcResultMatchers.jsonPath("$[0].urn").value(childDatasetUrn.toString()));
+
+    verify(mockEntityService, times(1)).ingestProposal(any(), any(), eq(false));
   }
 
   private static String setLogicalParentsPath(

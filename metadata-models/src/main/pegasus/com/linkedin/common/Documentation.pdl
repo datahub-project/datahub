@@ -12,16 +12,16 @@ namespace com.linkedin.common
   * Future evolution considerations:
   * The first entity that uses this aspect is Schema Field. We will expand this
     aspect to other entities eventually.
-  * The values of the documentation are not currently searchable. This will be
-    changed once this aspect develops opinion on which documentation entry is
-    the authoritative one.
+  * Each documentation entry is searchable as text. The aspect does not yet
+    choose which entry is authoritative.
   * Ensuring that there is only one documentation per source is a business
     rule that is not enforced by the aspect yet. This will currently be enforced by the
     application that uses this aspect. We will eventually enforce this rule in
     the aspect using AspectMutators.
  */
 @Aspect = {
-  "name": "documentation"
+  "name": "documentation",
+  "schemaVersion": 2
 }
 record Documentation {
 

@@ -62,10 +62,50 @@ def test_parser_marks_key_field():
     assert key_fields == {"DATE_SQL"}
 
 
-def test_parser_extracts_field_descriptions_from_common_label():
+def test_parser_surfaces_common_label_as_description():
     result = EdmxParser.parse(_MINIMAL_EDMX)
     date_field = next(f for f in result.fields if f.fieldPath == "DATE_SQL")
+    # The lone source label is the field's visible description and is also kept in the
+    # label slot, which backs the fieldLabels search index.
     assert date_field.description == "Calendar Date"
+    assert date_field.label == "Calendar Date"
+
+
+_EDMX_LABEL_EQUALS_NAME = """<?xml version="1.0" encoding="UTF-8"?>
+<edmx:Edmx xmlns:edmx="http://docs.oasis-open.org/odata/ns/edmx"
+            xmlns="http://docs.oasis-open.org/odata/ns/edm" Version="4.0">
+  <edmx:DataServices>
+    <Schema Namespace="ns">
+      <EntityType Name="V">
+        <Property Name="REVENUE" Type="Edm.String" Nullable="true"/>
+        <Property Name="NET_SALES" Type="Edm.String" Nullable="true"/>
+      </EntityType>
+      <Annotations Target="ns.V/REVENUE">
+        <Annotation Term="Common.Label" String=" revenue "/>
+      </Annotations>
+      <Annotations Target="ns.V/NET_SALES">
+        <Annotation Term="Common.Label" String="Net Sales (USD) after returns and allowances"/>
+      </Annotations>
+    </Schema>
+  </edmx:DataServices>
+</edmx:Edmx>
+"""
+
+
+def test_parser_suppresses_description_that_only_repeats_field_name():
+    result = EdmxParser.parse(_EDMX_LABEL_EQUALS_NAME)
+    revenue = next(f for f in result.fields if f.fieldPath == "REVENUE")
+    # "revenue" (whitespace/case-insensitive) just repeats REVENUE, so neither the
+    # description nor the label slot is populated.
+    assert revenue.description is None
+    assert revenue.label is None
+
+
+def test_parser_keeps_long_descriptive_label():
+    result = EdmxParser.parse(_EDMX_LABEL_EQUALS_NAME)
+    net_sales = next(f for f in result.fields if f.fieldPath == "NET_SALES")
+    assert net_sales.description == "Net Sales (USD) after returns and allowances"
+    assert net_sales.label == "Net Sales (USD) after returns and allowances"
 
 
 def test_parser_tags_calendar_fields():

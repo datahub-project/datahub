@@ -9,11 +9,11 @@ import { Warning } from '@phosphor-icons/react/dist/csr/Warning';
 import i18next from 'i18next';
 import * as React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { Entity, EntityCapabilityType, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ChartPreview } from '@app/entityV2/chart/preview/ChartPreview';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { SubType, TYPE_ICON_CLASS_NAME } from '@app/entityV2/shared/components/subtypes';
+import { EntitySidebarTabKey, EntityTabPath } from '@app/entityV2/shared/constants';
 import { getDataForEntityType } from '@app/entityV2/shared/containers/profile/entityData';
 import { lazyProfileComponent } from '@app/entityV2/shared/lazyEntityProfile';
 import {
@@ -39,7 +39,7 @@ import {
     SummaryTab,
 } from '@app/entityV2/shared/profileChunks';
 import { SUMMARY_TAB_ICON } from '@app/entityV2/shared/summary/HeaderComponents';
-import { EntityTab } from '@app/entityV2/shared/types';
+import { EntityTab, GenericEntityProperties } from '@app/entityV2/shared/types';
 import {
     SidebarTitleActionType,
     getDashboardLastUpdatedMs,
@@ -50,7 +50,7 @@ import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSumma
 import { LOOKER_URN, MODE, MODE_URN } from '@app/ingest/source/builder/constants';
 import { MatchedFieldList } from '@app/searchV2/matches/MatchedFieldList';
 import { matchedInputFieldRenderer } from '@app/searchV2/matches/matchedInputFieldRenderer';
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 import { GetChartQuery, useGetChartQuery, useUpdateChartMutation } from '@graphql/chart.generated';
 import { Chart, EntityType, LineageDirection, SearchResult } from '@types';
@@ -83,6 +83,7 @@ const InputFieldsTab = lazyProfileComponent('InputFieldsTab', () =>
 const PREVIEW_SUPPORTED_PLATFORMS = [LOOKER_URN, MODE_URN];
 
 const headerDropdownItems = new Set([
+    EntityMenuItems.CHANGE_HISTORY,
     EntityMenuItems.SHARE,
     EntityMenuItems.UPDATE_DEPRECATION,
     EntityMenuItems.ANNOUNCE,
@@ -146,6 +147,7 @@ export class ChartEntity implements Entity<Chart> {
         return [
             {
                 name: i18next.t('entity.types:tab.summary'),
+                path: EntityTabPath.SUMMARY,
                 component: showSummaryTab ? SummaryTab : ChartSummaryTab,
                 icon: SUMMARY_TAB_ICON,
                 display: showSummaryTab
@@ -162,6 +164,7 @@ export class ChartEntity implements Entity<Chart> {
                 ? [
                       {
                           name: i18next.t('entity.types:tab.documentation'),
+                          path: EntityTabPath.DOCUMENTATION,
                           component: DocumentationTab,
                           icon: File,
                       },
@@ -169,6 +172,7 @@ export class ChartEntity implements Entity<Chart> {
                 : []),
             {
                 name: i18next.t('entity.types:chart.fieldsTab'),
+                path: EntityTabPath.FIELDS,
                 component: InputFieldsTab,
                 icon: Layout,
                 display: {
@@ -178,6 +182,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('common.actions:preview'),
+                path: EntityTabPath.PREVIEW,
                 component: EmbedTab,
                 icon: Eye,
                 display: {
@@ -191,6 +196,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.lineage'),
+                path: EntityTabPath.LINEAGE,
                 component: LineageTab,
                 icon: TreeStructure,
                 properties: {
@@ -200,11 +206,13 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.properties'),
+                path: EntityTabPath.PROPERTIES,
                 component: PropertiesTab,
                 icon: ListBullets,
             },
             {
                 name: i18next.t('entity.types:dashboard.namePlural'),
+                path: EntityTabPath.DASHBOARDS,
                 component: ChartDashboardsTab,
                 icon: Gauge,
                 display: {
@@ -214,6 +222,7 @@ export class ChartEntity implements Entity<Chart> {
             },
             {
                 name: i18next.t('entity.types:tab.incidents'),
+                path: EntityTabPath.INCIDENTS,
                 getCount: (_, chart, loading) => {
                     return !loading ? chart?.chart?.activeIncidents?.total : undefined;
                 },
@@ -267,6 +276,7 @@ export class ChartEntity implements Entity<Chart> {
 
     getSidebarTabs = () => [
         {
+            key: EntitySidebarTabKey.LINEAGE,
             name: i18next.t('entity.types:tab.lineage'),
             component: LineageTab,
             description: i18next.t('entity.types:sidebar.lineageDescription'),
@@ -276,6 +286,7 @@ export class ChartEntity implements Entity<Chart> {
             },
         },
         {
+            key: EntitySidebarTabKey.PROPERTIES,
             name: i18next.t('entity.types:tab.properties'),
             component: PropertiesTab,
             description: i18next.t('entity.types:sidebar.propertiesDescription'),
@@ -305,7 +316,6 @@ export class ChartEntity implements Entity<Chart> {
                 platform={data?.platform?.properties?.displayName || capitalizeFirstLetterOnly(data?.platform?.name)}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}
@@ -332,7 +342,6 @@ export class ChartEntity implements Entity<Chart> {
                 platformInstanceId={data.dataPlatformInstance?.instanceId}
                 name={data.properties?.name}
                 description={data.editableProperties?.description || data.properties?.description}
-                access={data.properties?.access}
                 owners={data.ownership?.owners}
                 tags={data?.globalTags || undefined}
                 glossaryTerms={data?.glossaryTerms}

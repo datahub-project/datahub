@@ -60,8 +60,8 @@ class HiveMetastoreProxy(Closeable):
     # 1. hive ingestion source assumes 2-level namespace heirarchy and currently
     #    there is no other intermediate interface except sqlalchemy inspector
     #    that can be used to fetch hive metadata.
-    # 2. hive recipe for databricks (databricks+pyhive dialect) does not
-    #    readily support SQL warehouse. Also this dialect is not actively maintained.
+    # 2. the hive source does not support Databricks SQL warehouses (its old
+    #    databricks+pyhive scheme was unmaintained and has been removed).
     """
     Proxy to read metadata from hive_metastore databricks catalog. This is required
     as unity catalog apis do not return details about this legacy metastore.
@@ -337,7 +337,7 @@ class HiveMetastoreProxy(Closeable):
             if index is None:
                 raise ValueError("DESCRIBE EXTENDED has no detailed table section")
             rows = rows[index + 1 :]
-            # Copied from https://github.com/acryldata/PyHive/blob/master/pyhive/sqlalchemy_hive.py#L375
+            # Same parsing as HiveDialect.get_table_comment in sql/hive/hive_dialect.py.
 
             active_heading = None
             for col_name, data_type, value in rows:

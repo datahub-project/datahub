@@ -22,6 +22,49 @@ public interface ChangeMCP extends MCPItem {
 
   void setNextAspectVersion(long nextAspectVersion);
 
+  /**
+   * Transient persist decision for this write. It travels with the proposal through the pre-merge
+   * and persist phases and is never serialized.
+   */
+  boolean isSemanticNoOp();
+
+  void setSemanticNoOp(boolean semanticNoOp);
+
+  /**
+   * High bit marks a decision whose suppression metrics must be rewound. The low bits are the
+   * strategies that were counted for that decision.
+   */
+  int SEMANTIC_NO_OP_REWIND = 1 << 30;
+
+  int getSemanticNoOpStrategyMask();
+
+  void setSemanticNoOpStrategyMask(int semanticNoOpStrategyMask);
+
+  /**
+   * Version this write would have taken before a semantic no-op collapsed it. Zero when the
+   * decision is not a suppression.
+   */
+  long getSemanticNoOpProposedVersion();
+
+  void setSemanticNoOpProposedVersion(long semanticNoOpProposedVersion);
+
+  /**
+   * Drops a semantic no-op decision after the proposal body changes. Restores the version the write
+   * had proposed and keeps the strategy mask so the next comparison can rewind its metrics.
+   */
+  default void invalidateSemanticNoOp() {
+    setSemanticNoOp(false);
+    long proposedVersion = getSemanticNoOpProposedVersion();
+    if (proposedVersion > 0) {
+      setNextAspectVersion(proposedVersion);
+      setSemanticNoOpProposedVersion(0);
+    }
+    int mask = getSemanticNoOpStrategyMask();
+    if (mask != 0) {
+      setSemanticNoOpStrategyMask(mask | SEMANTIC_NO_OP_REWIND);
+    }
+  }
+
   @Nullable
   default RecordTemplate getPreviousRecordTemplate() {
     if (getPreviousSystemAspect() != null) {

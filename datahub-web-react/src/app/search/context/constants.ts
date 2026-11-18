@@ -6,8 +6,6 @@ export const RELEVANCE = 'relevance';
 const ENTITY_NAME_FIELD = '_entityName';
 const LAST_MODIFIED_TIME_FIELD = 'lastModifiedAt';
 
-export const DEFAULT_SORT_OPTION = RELEVANCE;
-
 export function getSortOptions() {
     return {
         [RELEVANCE]: { label: i18next.t('search:sort.relevance'), field: RELEVANCE, sortOrder: SortOrder.Descending },

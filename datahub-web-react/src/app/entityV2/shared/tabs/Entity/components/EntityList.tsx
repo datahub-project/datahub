@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
 import { PreviewType } from '@app/entityV2/Entity';
-import { Message } from '@app/shared/Message';
+import { Message } from '@app/sharedV2/Message';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { SearchCfg } from '@src/conf';
 

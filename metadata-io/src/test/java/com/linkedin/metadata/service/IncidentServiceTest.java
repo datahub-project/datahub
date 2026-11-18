@@ -17,6 +17,7 @@ import com.linkedin.entity.Aspect;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
+import com.linkedin.entity.client.EntityClient;
 import com.linkedin.entity.client.SystemEntityClient;
 import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.incident.IncidentInfo;
@@ -219,12 +220,14 @@ public class IncidentServiceTest {
   @Test
   private void testDeleteIncident() throws Exception {
     final SystemEntityClient mockClient = mock(SystemEntityClient.class);
+    final EntityClient.ReferencesCleanup references =
+        Mockito.mock(EntityClient.ReferencesCleanup.class);
+    when(mockClient.deleteEntityThenReferences(any(), any())).thenReturn(references);
     final IncidentService service = new IncidentService(mockClient);
     service.deleteIncident(mockOperationContext(), TEST_INCIDENT_URN);
     Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntity(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
-    Mockito.verify(mockClient, Mockito.times(1))
-        .deleteEntityReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
+        .deleteEntityThenReferences(any(OperationContext.class), Mockito.eq(TEST_INCIDENT_URN));
+    Mockito.verify(references, Mockito.times(1)).run();
   }
 
   private static SystemEntityClient createMockEntityClient() throws Exception {

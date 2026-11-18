@@ -17,6 +17,7 @@ import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.ebean.annotation.TxIsolation;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
@@ -472,6 +473,9 @@ public interface AspectDao {
   @Nonnull
   Integer countAspect(OperationContext operationContext, final RestoreIndicesArgs args);
 
+  /** Rows the urn has in primary storage, every aspect and every version; -1 when not supported. */
+  int countUrnRows(@Nonnull OperationContext opContext, @Nonnull String urn);
+
   /**
    * Stream latest-version aspect rows matching {@code args}, ordered by URN/aspect, and hand the
    * lazily-fetched {@link PartitionedStream} to {@code consumer} to process.
@@ -494,6 +498,22 @@ public interface AspectDao {
       @Nonnull OperationContext opContext,
       @Nonnull final RestoreIndicesArgs args,
       @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer);
+
+  /**
+   * As {@link #streamAspectBatches(OperationContext, RestoreIndicesArgs, Function)}, with the read
+   * running under {@code isolationLevel} when one is given. The level is advisory: a caller either
+   * relaxes consistency for speed or asks for committed reads, and a store without configurable
+   * isolation satisfies both by reading the way it always does. Stores that can honour the request
+   * override this.
+   */
+  @Nullable
+  default <R> R streamAspectBatches(
+      @Nonnull OperationContext opContext,
+      @Nonnull final RestoreIndicesArgs args,
+      @Nullable final TxIsolation isolationLevel,
+      @Nonnull final Function<PartitionedStream<EbeanAspectV2>, R> consumer) {
+    return streamAspectBatches(opContext, args, consumer);
+  }
 
   /**
    * Stream latest-version (v0) rows for the given aspects ordered by creation time ascending,
@@ -529,11 +549,11 @@ public interface AspectDao {
       int limit);
 
   /**
-   * Stream aspects for the given entity / aspect name.
+   * Stream the latest version of the given aspect for every entity of the given entity name.
    *
    * @param entityName the entity name (urn-type prefix)
    * @param aspectName the aspect to stream
-   * @return stream of aspects; caller is responsible for closing
+   * @return stream of latest-version aspects; caller is responsible for closing
    */
   @Nonnull
   @OperationContextExempt(

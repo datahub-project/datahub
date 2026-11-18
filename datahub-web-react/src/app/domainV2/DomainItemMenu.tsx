@@ -5,7 +5,7 @@ import { useTranslation } from 'react-i18next';
 
 import { ItemType } from '@components/components/Menu/types';
 
-import { MenuIcon } from '@app/entity/shared/EntityDropdown/EntityDropdown';
+import { MenuIcon } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

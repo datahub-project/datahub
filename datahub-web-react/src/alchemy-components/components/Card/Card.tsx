@@ -1,4 +1,3 @@
-import { Icon, Tooltip } from '@components';
 import { CaretDown } from '@phosphor-icons/react/dist/csr/CaretDown';
 import { CaretRight } from '@phosphor-icons/react/dist/csr/CaretRight';
 import { TrendDown } from '@phosphor-icons/react/dist/csr/TrendDown';
@@ -11,13 +10,16 @@ import {
     CollapsibleBody,
     ExpandButton,
     Header,
+    HeaderAction,
     SubTitle,
     SubTitleContainer,
     Title,
     TitleContainer,
 } from '@components/components/Card/components';
 import { CardProps } from '@components/components/Card/types';
+import { Icon } from '@components/components/Icon';
 import { Pill } from '@components/components/Pills';
+import { Tooltip } from '@components/components/Tooltip';
 
 export const cardDefaults: CardProps = {
     iconAlignment: 'horizontal',
@@ -172,7 +174,7 @@ export const Card = ({
                                 {!collapsible && subtitleBlock}
                             </TitleContainer>
 
-                            {button}
+                            {button ? <HeaderAction>{button}</HeaderAction> : null}
                             {collapsible && (
                                 <ExpandButton
                                     type="button"

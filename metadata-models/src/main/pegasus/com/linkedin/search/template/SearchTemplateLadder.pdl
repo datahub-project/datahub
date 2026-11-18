@@ -1,0 +1,59 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * How this template hands off to another. {@code select} is a conjunction evaluated before the
+ * query. {@code stop} is a disjunction evaluated after. {@code next} is the following template.
+ * {@code parallel} runs those templates together and {@code join} decides which page is served.
+ * {@code fusion} names how a merge group would combine hits. An explicitly present empty ladder
+ * drops an inherited ladder.
+ */
+record SearchTemplateLadder {
+  /**
+   * Predicates that must all match before this template is searched. Empty means always attempt.
+   * A single leading {@code -} inverts a predicate.
+   */
+  select: optional array[string]
+
+  /**
+   * Conditions that keep this rung. Required when {@code next} is set and {@code parallel} is
+   * not, and when a {@code merge} group sets {@code next}. {@code any} and {@code allEmpty} may
+   * set {@code next} with no group stop.
+   */
+  stop: optional array[SearchTemplateLadderStop]
+
+  /**
+   * Template to run when this rung is skipped, fails, or does not stop. A parallel {@code merge}
+   * fuses member hits and does not search this URN.
+   */
+  next: optional Urn
+
+  /**
+   * Keyword templates to run together. Each member is one query. The group's {@code next} is the
+   * fallback when no member remains.
+   */
+  parallel: optional array[Urn]
+
+  /**
+   * How a parallel group is served: {@code any}, {@code allEmpty}, or {@code merge}.
+   */
+  join: optional string
+
+  /**
+   * Merge policy name. {@code interleave}, {@code weightedBlend}, {@code fillFreeSlots}, or
+   * {@code keywordPreferred}. Stored and checked. The walk's merge stays reciprocal rank.
+   */
+  fusion: optional string
+
+  /**
+   * Cap on hits a merge policy may take from each member.
+   */
+  fusionCap: optional int
+
+  /**
+   * How merge facets are built. {@code firstMember}, {@code patchFromMembers}, or
+   * {@code candidates}. {@code candidates} is legal only on a vector retrieval group.
+   */
+  facets: optional string
+}

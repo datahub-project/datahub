@@ -11,6 +11,7 @@
 
 import { test } from '../../fixtures/base-test';
 import { ContainerPage } from '../../pages/container.page';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 const TEST_DATA = {
   CONTAINER_URN: 'urn:li:container:containers_v2_test',
@@ -33,7 +34,7 @@ test.describe('containers', () => {
     containerPage = new ContainerPage(page, logger, logDir);
   });
 
-  test('can see elements inside the container', async ({ logger }) => {
+  test('can see elements inside the container', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ logger }) => {
     logger.info('Navigating to container page', { urn: TEST_DATA.CONTAINER_URN });
     await containerPage.navigateToContainer(TEST_DATA.CONTAINER_URN);
     await containerPage.openContentsTab();

@@ -1,0 +1,30 @@
+namespace com.linkedin.search.template
+
+/**
+ * Template override of the queried-field set. Applied to the PDL {@code @Searchable}
+ * {@code queryByDefault} fields. {@code replace} cannot be combined with {@code add},
+ * {@code remove}, or {@code override}. An explicitly present empty object clears an inherited
+ * override. {@code add}, {@code remove}, and {@code override} merge by field with the parent.
+ */
+record SearchFieldOverrides {
+  /**
+   * Fields added on top of the base set.
+   */
+  add: optional array[SearchFieldBoost]
+
+  /**
+   * Indexed field names removed from the base set. A nested contribution is removed by its
+   * degree-suffixed name, such as {@code tags_1}, which leaves the direct field in the set.
+   */
+  remove: optional array[string]
+
+  /**
+   * Wholesale replacement of the base set.
+   */
+  replace: optional array[SearchFieldBoost]
+
+  /**
+   * Weight changes for fields that remain in the queried set. Does not add or remove a field.
+   */
+  override: optional array[SearchFieldBoost]
+}

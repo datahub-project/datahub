@@ -1,9 +1,10 @@
 # ABOUTME: Helper functions for common metadata operations like adding/removing tags and terms.
 # ABOUTME: Reduces boilerplate GraphQL code in smoke tests.
 
-from typing import Any, Dict, Optional
+from typing import Any, Dict, List, Optional
 
 import requests
+import tenacity
 
 from tests.e2e.utils import execute_graphql, with_test_retry
 
@@ -318,7 +319,41 @@ def get_data_product(auth_session, urn: str) -> Optional[Dict[str, Any]]:
     return res_data["data"]["dataProduct"]
 
 
-@with_test_retry()
+def _is_lineage_budget_error(exc: BaseException) -> bool:
+    # GMS rejects lineage walks over its maxRelations budget. That is deterministic for a
+    # given graph, so retrying only adds wait time.
+    return "maxRelations" in str(exc)
+
+
+_retry_unless_lineage_budget_error = tenacity.retry_if_exception(
+    lambda exc: not _is_lineage_budget_error(exc)
+)
+
+
+def _degree_filter(values: List[str]) -> List[Dict[str, Any]]:
+    return [
+        {
+            "and": [
+                {
+                    "field": "degree",
+                    "condition": "EQUAL",
+                    "values": values,
+                    "negated": False,
+                }
+            ]
+        }
+    ]
+
+
+def _max_hops_degrees(max_hops: int) -> List[str]:
+    # GraphQL lineage APIs have no maxHops input; the resolver derives it from the degree
+    # filter and only recognises degrees 1 and 2 (anything else walks unbounded).
+    if max_hops not in (1, 2):
+        raise ValueError(f"max_hops must be 1 or 2, got {max_hops}")
+    return [str(d) for d in range(1, max_hops + 1)]
+
+
+@with_test_retry(retry=_retry_unless_lineage_budget_error)
 def search_across_lineage(
     auth_session,
     urn: str,
@@ -326,6 +361,7 @@ def search_across_lineage(
     query: str = "*",
     count: int = 10,
     degree: Optional[int] = None,
+    max_hops: Optional[int] = None,
     skip_cache: bool = False,
 ) -> Dict[str, Any]:
     """Search across lineage from a given entity."""
@@ -357,19 +393,12 @@ def search_across_lineage(
             "count": count,
         }
     }
+    if degree is not None and max_hops is not None:
+        raise ValueError("Pass either degree or max_hops, not both")
     if degree is not None:
-        variables["input"]["orFilters"] = [
-            {
-                "and": [
-                    {
-                        "field": "degree",
-                        "condition": "EQUAL",
-                        "values": [str(degree)],
-                        "negated": False,
-                    }
-                ]
-            }
-        ]
+        variables["input"]["orFilters"] = _degree_filter([str(degree)])
+    if max_hops is not None:
+        variables["input"]["orFilters"] = _degree_filter(_max_hops_degrees(max_hops))
     if skip_cache:
         variables["input"]["searchFlags"] = {"skipCache": True}
 
@@ -377,7 +406,7 @@ def search_across_lineage(
     return res_data["data"]["searchAcrossLineage"]
 
 
-@with_test_retry()
+@with_test_retry(retry=_retry_unless_lineage_budget_error)
 def scroll_across_lineage(
     auth_session,
     urn: str,
@@ -386,6 +415,7 @@ def scroll_across_lineage(
     query: str = "*",
     keep_alive: str = "5m",
     count: int = 10,
+    max_hops: Optional[int] = None,
 ) -> Dict[str, Any]:
     """Scroll across lineage from a given entity."""
     graphql_query = """
@@ -419,6 +449,8 @@ def scroll_across_lineage(
     }
     if scroll_id:
         variables["input"]["scrollId"] = scroll_id
+    if max_hops is not None:
+        variables["input"]["orFilters"] = _degree_filter(_max_hops_degrees(max_hops))
 
     res_data = execute_graphql(auth_session, graphql_query, variables)
     return res_data["data"]["scrollAcrossLineage"]

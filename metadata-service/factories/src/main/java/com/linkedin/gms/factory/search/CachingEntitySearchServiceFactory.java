@@ -2,6 +2,7 @@ package com.linkedin.gms.factory.search;
 
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
@@ -20,6 +21,10 @@ public class CachingEntitySearchServiceFactory {
 
   @Autowired private CacheManager cacheManager;
 
+  @Autowired(required = false)
+  @Qualifier("semanticEntitySearchService")
+  private SemanticEntitySearch semanticEntitySearch;
+
   @Value("${searchService.resultBatchSize}")
   private Integer batchSize;
 
@@ -30,7 +35,9 @@ public class CachingEntitySearchServiceFactory {
   @Primary
   @Nonnull
   protected CachingEntitySearchService getInstance() {
-    return new CachingEntitySearchService(
-        cacheManager, entitySearchService, batchSize, enableCache);
+    CachingEntitySearchService service =
+        new CachingEntitySearchService(cacheManager, entitySearchService, batchSize, enableCache);
+    service.setSemanticEntitySearch(semanticEntitySearch);
+    return service;
   }
 }

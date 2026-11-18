@@ -3,7 +3,7 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import { SecretBuilderState } from '@app/ingestV2/secret/types';
-import { useEnterKeyListener } from '@app/shared/useEnterKeyListener';
+import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Modal } from '@src/alchemy-components';
 
 const NAME_FIELD_NAME = 'name';

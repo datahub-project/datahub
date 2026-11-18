@@ -26,7 +26,7 @@ LIMIT_ARGUMENT_RE = re.compile(r"limit:\s*(\d+)")
 IDENTIFIER_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_]*")
 
 # The live catalog rejects the whole query on a single unknown field, so the stub
-# must too — otherwise a field that 400s in production would pass here.
+# must too - otherwise a field that 400s in production would pass here.
 CONNECTOR_QUERY_KNOWN_FIELDS = frozenset(
     {
         "cn_connector",
@@ -469,7 +469,7 @@ def get_topic(cluster_id, topic_name):
 @app.route("/catalog/graphql", methods=["POST"])
 @require_auth
 def catalog_graphql():
-    """cn_connector stand-in. Variables map → 500, like the live endpoint."""
+    """cn_connector stand-in. Variables map -> 500, like the live endpoint."""
     body = request.get_json(silent=True) or {}
     if "variables" in body:
         return jsonify({"error": "Internal server error"}), 500

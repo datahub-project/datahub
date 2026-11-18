@@ -1,0 +1,148 @@
+from typing import Any
+from unittest.mock import MagicMock
+
+import boto3
+from botocore.exceptions import ClientError
+from botocore.stub import Stubber
+
+from datahub.ingestion.source.aws_messaging.clients import SnsClient, SqsClient
+from datahub.ingestion.source.aws_messaging.config import SqsSourceConfig
+from datahub.ingestion.source.aws_messaging.constants import AwsService
+from datahub.ingestion.source.aws_messaging.report import SqsSourceReport
+
+QUEUE_URL = "https://sqs.us-east-1.amazonaws.com/123456789012/q{}"
+
+
+def _sqs() -> Any:
+    return boto3.client(
+        "sqs",
+        region_name="us-east-1",
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+
+
+def test_list_queues_follows_next_token() -> None:
+    client = _sqs()
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_queues",
+            {"QueueUrls": [QUEUE_URL.format(1)], "NextToken": "page-2"},
+            {"MaxResults": 1000},
+        )
+        stubber.add_response(
+            "list_queues",
+            {"QueueUrls": [QUEUE_URL.format(2)]},
+            {"MaxResults": 1000, "NextToken": "page-2"},
+        )
+        urls = list(SqsClient(client, report).list_queue_urls())
+    assert urls == [QUEUE_URL.format(1), QUEUE_URL.format(2)]
+    assert not report.failures
+
+
+def test_first_page_denial_of_the_queue_listing_fails_the_run() -> None:
+    # Listing queues is the source's whole job, so a denied first page must not
+    # end as a green run with nothing ingested.
+    client = _sqs()
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_client_error("list_queues", service_error_code="AccessDenied")
+        assert list(SqsClient(client, report).list_queue_urls()) == []
+    assert report.failures
+
+
+def test_optional_first_page_denial_is_a_warning() -> None:
+    report = SqsSourceReport()
+    error = ClientError({"Error": {"Code": "AccessDenied", "Message": "x"}}, "ListX")
+    report.report_listing_failure(
+        pages_fetched=0, exc=error, api_label="x:ListX", optional=True
+    )
+    assert report.warnings and not report.failures
+
+
+def test_mid_pagination_failure_fails_the_run() -> None:
+    client = _sqs()
+    report = SqsSourceReport()
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_queues",
+            {"QueueUrls": [QUEUE_URL.format(1)], "NextToken": "page-2"},
+            {"MaxResults": 1000},
+        )
+        stubber.add_client_error("list_queues", service_error_code="RequestThrottled")
+        assert list(SqsClient(client, report).list_queue_urls()) == [
+            QUEUE_URL.format(1)
+        ]
+    assert report.failures
+
+
+def test_subscriptions_are_listed_per_topic() -> None:
+    # ListSubscriptions only returns the caller's own subscriptions; the
+    # per-topic call also returns ones another account created on the topic.
+    topic = "arn:aws:sns:us-east-1:123456789012:events"
+    client = boto3.client(
+        "sns",
+        region_name="us-east-1",
+        aws_access_key_id="testing",
+        aws_secret_access_key="testing",
+    )
+    with Stubber(client) as stubber:
+        stubber.add_response(
+            "list_subscriptions_by_topic",
+            {
+                "Subscriptions": [
+                    {
+                        "SubscriptionArn": f"{topic}:sub-1",
+                        "TopicArn": topic,
+                        "Protocol": "sqs",
+                        "Endpoint": "arn:aws:sqs:us-east-1:210987654321:remote",
+                        "Owner": "210987654321",
+                    }
+                ]
+            },
+            {"TopicArn": topic},
+        )
+        subscriptions = list(
+            SnsClient(client, SqsSourceReport()).list_subscriptions(
+                topic, on_error=lambda _error: None
+            )
+        )
+    assert [s.owner for s in subscriptions] == ["210987654321"]
+
+
+def test_optional_listing_failure_is_only_a_warning() -> None:
+    # A lineage helper failing partway must not block stale removal of the
+    # queues and topics, which a report failure would.
+    report = SqsSourceReport()
+    error = ClientError(
+        {"Error": {"Code": "ThrottlingException", "Message": "x"}}, "ListX"
+    )
+    report.report_listing_failure(
+        pages_fetched=2, exc=error, api_label="x:ListX", optional=True
+    )
+    assert report.warnings and not report.failures
+    report.report_listing_failure(
+        pages_fetched=2, exc=error, api_label="sqs:ListQueues"
+    )
+    assert report.failures
+
+
+def test_endpoint_url_applies_only_to_the_sources_own_service() -> None:
+    # An SQS VPC endpoint can't serve the tagging (or Lambda, Glue, ...) API.
+    config = SqsSourceConfig.model_validate(
+        {
+            "aws_config": {
+                "aws_region": "us-east-1",
+                "aws_endpoint_url": "https://sqs.vpce.example.com",
+            }
+        }
+    )
+    session = MagicMock()
+    config.make_client(session, AwsService.SQS)
+    assert (
+        session.client.call_args.kwargs["endpoint_url"]
+        == "https://sqs.vpce.example.com"
+    )
+    config.make_client(session, AwsService.TAGGING)
+    assert session.client.call_args.kwargs["endpoint_url"] is None

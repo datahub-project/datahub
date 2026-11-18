@@ -3,18 +3,18 @@ import { render, screen } from '@testing-library/react';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import ViewDefinitionTab from '@app/entityV2/shared/tabs/Dataset/View/ViewDefinitionTab';
 import TestPageContainer from '@utils/test-utils/TestPageContainer';
 
-vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/EntityContext', async (importOriginal) => ({
     ...(await importOriginal<object>()),
     useBaseEntity: vi.fn(),
 }));
 
-vi.mock('react-syntax-highlighter', () => ({
-    __esModule: true,
-    Prism: ({ children }: { children: string }) => <pre data-testid="syntax-highlighter">{children}</pre>,
+vi.mock('@components/components/CodeBlock/highlighter', () => ({
+    SyntaxHighlighter: ({ children }: { children: string }) => <pre>{children}</pre>,
+    loadHighlightLanguage: () => Promise.resolve(false),
 }));
 
 vi.mock('@app/entityV2/shared/tabs/Dataset/Queries/CopyQuery', () => ({

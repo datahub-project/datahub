@@ -15,6 +15,8 @@ import com.linkedin.metadata.graph.elastic.utils.GraphQueryConstants;
 import com.linkedin.metadata.graph.elastic.utils.GraphQueryUtils;
 import com.linkedin.metadata.graph.elastic.utils.PreRenderedQueryBuilder;
 import com.linkedin.metadata.search.utils.ESUtils;
+import com.linkedin.metadata.search.utils.SearchOperation;
+import com.linkedin.metadata.search.utils.SearchTookMetrics;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.metadata.utils.metrics.MicrometerMetricsRegistry;
@@ -50,11 +52,7 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
 
   @Getter private final SearchClientShim<?> client;
 
-  static final String SEARCH_TOOK_METRIC = "datahub.elasticsearch.search.took";
-  static final String SEARCH_OUTSIDE_TOOK_METRIC = "datahub.elasticsearch.search.outside_took";
   private static final String PIT_EXECUTOR_METRIC_NAME = "graph-query-pit";
-  private static final String OPERATION_TAG = "operation";
-  private static final String OPERATION_GRAPH_QUERY_PIT = "graphQueryPit";
   // Exact per-query values go on the esQuery span; as metric tags they would be unbounded.
   static final String SEARCH_URNS_ATTR = "search.urns";
   static final String SEARCH_HITS_ATTR = "search.hits";
@@ -438,16 +436,17 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
   }
 
   /**
-   * Runs the slice search and records ES {@code took} and the wall time spent outside it. Also tags
-   * the current esQuery span with the query's URN count, page hit count and took.
+   * Runs the slice search through {@link SearchTookMetrics} and tags the current esQuery span with
+   * the query's URN count, page hit count and took.
    */
   private SearchResponse timedSearch(
       @Nonnull OperationContext opContext, @Nonnull SearchRequest searchRequest, int urnCount)
-      throws Exception {
-    long start = System.nanoTime();
+      throws IOException {
     SearchResponse response =
-        graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT);
-    long wallNanos = System.nanoTime() - start;
+        SearchTookMetrics.time(
+            metricUtils,
+            SearchOperation.GRAPH_QUERY_PIT,
+            () -> graphClient(opContext).search(opContext, searchRequest, RequestOptions.DEFAULT));
     Span span = Span.current();
     span.setAttribute(SEARCH_URNS_ATTR, urnCount);
     if (response != null) {
@@ -457,18 +456,6 @@ public class GraphQueryPITDAO extends GraphQueryBaseDAO {
       if (response.getTook() != null) {
         span.setAttribute(SEARCH_TOOK_MS_ATTR, response.getTook().millis());
       }
-    }
-    if (metricUtils != null && response != null && response.getTook() != null) {
-      // recordTimer caches timers JVM-wide by name and tags, not by registry. That is fine with
-      // GMS's single registry, but a test reading these from its own registry must record first.
-      long tookNanos = response.getTook().nanos();
-      metricUtils.recordTimer(
-          SEARCH_TOOK_METRIC, tookNanos, OPERATION_TAG, OPERATION_GRAPH_QUERY_PIT);
-      metricUtils.recordTimer(
-          SEARCH_OUTSIDE_TOOK_METRIC,
-          Math.max(0L, wallNanos - tookNanos),
-          OPERATION_TAG,
-          OPERATION_GRAPH_QUERY_PIT);
     }
     return response;
   }

@@ -14,11 +14,13 @@ import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.ModelValidationException;
 import com.linkedin.metadata.models.RelationshipEdgeUniquenessValidator;
 import com.linkedin.metadata.models.annotation.EntityAnnotation;
+import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -102,6 +104,10 @@ public class MergedEntityRegistry implements EntityRegistry {
       }
       pendingEntitySpecs.put(e2Entry.getKey(), candidate);
     }
+
+    Map<String, EntitySpec> mergedEntitySpecs = new HashMap<>(entityNameToSpec);
+    mergedEntitySpecs.putAll(pendingEntitySpecs);
+    SearchableAnnotationValidator.validateSharedLabels(mergedEntitySpecs.values());
 
     // Merge Aspect Specs
     // (Fixed issue where custom defined aspects are not included in the API specification.)
@@ -286,6 +292,13 @@ public class MergedEntityRegistry implements EntityRegistry {
           String.format("Failed to find entity with name %s in EntityRegistry", entityName));
     }
     return entityNameToSpec.get(lowercaseEntityName);
+  }
+
+  /** Looks the name up in this registry's map, so a miss doesn't build an exception. */
+  @Nonnull
+  @Override
+  public Optional<EntitySpec> findEntitySpec(@Nonnull final String entityName) {
+    return Optional.ofNullable(entityNameToSpec.get(entityName.toLowerCase()));
   }
 
   @Nonnull

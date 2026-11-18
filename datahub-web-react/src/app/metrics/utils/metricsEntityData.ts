@@ -1,4 +1,4 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { MetricsEntityData } from '@app/metrics/context/MetricsEntityContext';
 
 import { EntityType } from '@types';

@@ -153,6 +153,9 @@ class Element(BaseModel):
     # Built in _gen_elements_workunit after connection config is resolved.
     column_native_names: Dict[str, str] = Field(default_factory=dict)
     upstream_sources: Dict[str, "ElementUpstream"] = Field(default_factory=dict)
+    # True only once a lineage walk finished without dropping a node or edge
+    # or meeting a customSQL source; otherwise upstream_sources may be partial.
+    upstream_sources_complete: bool = False
 
     @model_validator(mode="before")
     @classmethod

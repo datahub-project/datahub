@@ -1,7 +1,7 @@
 import { QueryResult } from '@apollo/client';
-import { renderHook } from '@testing-library/react-hooks';
 
 import useGetDataForProfile from '@app/entityV2/shared/containers/profile/useGetDataForProfile';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

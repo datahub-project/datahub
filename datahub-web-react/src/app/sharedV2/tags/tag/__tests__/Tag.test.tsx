@@ -15,7 +15,7 @@ vi.mock('@app/recommendations/renderer/component/HoverEntityTooltip', () => ({
     HoverEntityTooltip: ({ children }: { children: React.ReactNode }) => <>{children}</>,
 }));
 
-vi.mock('@app/shared/tags/TagProfileDrawer', () => ({
+vi.mock('@app/sharedV2/tags/TagProfileDrawer', () => ({
     TagProfileDrawer: () => null,
 }));
 
@@ -31,7 +31,7 @@ vi.mock('@app/search/context/SearchResultContext', () => ({
     useHasMatchedFieldByUrn: vi.fn(() => false),
 }));
 
-vi.mock('@app/shared/useEmbeddedProfileLinkProps', () => ({
+vi.mock('@app/sharedV2/useEmbeddedProfileLinkProps', () => ({
     useIsEmbeddedProfile: vi.fn(() => false),
 }));
 
@@ -89,5 +89,31 @@ describe('Tag (sharedV2)', () => {
     it('does not render deprecation icon when deprecation is null', () => {
         renderTag(baseTag);
         expect(screen.queryByTestId('deprecation-icon')).not.toBeInTheDocument();
+    });
+
+    it('renders the ingested indicator for an externally-ingested tag', () => {
+        renderTag({
+            ...baseTag,
+            attribution: {
+                sourceDetail: [
+                    { key: 'external', value: 'true' },
+                    { key: 'origin', value: 'lake-formation' },
+                ],
+            },
+        });
+        expect(screen.getByTestId('tag-TestTag-ingested')).toBeInTheDocument();
+    });
+
+    it('does not render the ingested indicator for a tag added in DataHub', () => {
+        renderTag(baseTag);
+        expect(screen.queryByTestId('tag-TestTag-ingested')).not.toBeInTheDocument();
+    });
+
+    it('does not treat a propagated tag as ingested', () => {
+        renderTag({
+            ...baseTag,
+            attribution: { sourceDetail: [{ key: 'propagated', value: 'true' }] },
+        });
+        expect(screen.queryByTestId('tag-TestTag-ingested')).not.toBeInTheDocument();
     });
 });

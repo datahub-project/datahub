@@ -12,7 +12,7 @@ If a change alters a public API, GraphQL schema, PDL aspect, CLI flag, or defaul
 config, then:
 
 - Flag missing updates to callers, tests, smoke tests, Playwright fixtures, and
-  docs (especially `docs/how/updating-datahub.md` for breaking changes).
+  docs (especially `docs/how/breaking-changes.md` for breaking changes).
 - Title: "Follow-through gap"
 - Prefer High when tests or defaults would break at runtime.
 

@@ -23,7 +23,7 @@ const meta = {
     // Component-level argTypes
     argTypes: {
         children: {
-            description: 'The content to display within the heading.',
+            description: 'The content to display within the text.',
             table: {
                 type: { summary: 'string' },
             },
@@ -47,7 +47,7 @@ const meta = {
             },
         },
         weight: {
-            description: 'Override the weight of the heading.',
+            description: 'Override the weight of the text.',
             table: {
                 defaultValue: { summary: textDefaults.weight },
             },

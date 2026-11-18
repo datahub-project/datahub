@@ -3,6 +3,7 @@ package com.linkedin.metadata.aspect.patch.builder;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertThrows;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
@@ -67,5 +68,19 @@ public class InstitutionalMemoryPatchBuilderTest {
     assertEquals(urlOp.getOp(), "remove");
     assertEquals(urlOp.getPath(), "/elements/" + ENCODED_URL);
     assertNull(urlOp.getValue());
+  }
+
+  @Test
+  public void testAddLinkRejectsDisallowedSchemes() {
+    InstitutionalMemoryPatchBuilder builder = new InstitutionalMemoryPatchBuilder();
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            builder.addLink(
+                "javascript:alert(1)", "x", UrnUtils.getUrn("urn:li:corpuser:datahub")));
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            builder.addLink("data:text/html,hi", "x", UrnUtils.getUrn("urn:li:corpuser:datahub")));
   }
 }

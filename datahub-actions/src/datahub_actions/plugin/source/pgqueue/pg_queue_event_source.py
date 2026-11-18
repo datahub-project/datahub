@@ -147,13 +147,20 @@ class PgQueueEventSource(EventSource):
             if k not in route_order:
                 route_order.append(k)
 
+        # request_stop() only clears running. Assigning it here would undo a stop
+        # that landed before this generator started, and join() would wait forever.
+        if self.stop_requested():
+            return
         self.running = True
+        if self.stop_requested():
+            self.running = False
+            return
         logger.info(
             "pgQueue actions source started for pipeline '%s', routes=%s",
             self.ctx.pipeline_name,
             route_order,
         )
-        while self.running:
+        while self.running and not self.stop_requested():
             try:
                 batch = self._consumer.poll_route_keys(
                     route_order, max_messages=self.source_config.batch_size

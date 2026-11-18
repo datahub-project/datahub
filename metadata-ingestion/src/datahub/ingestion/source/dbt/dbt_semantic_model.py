@@ -234,11 +234,13 @@ class DbtSemanticModelMapper:
         config: DBTCommonConfig,
         report: DBTSourceReport,
         project_name: str,
+        platform_instance: Optional[str],
     ) -> None:
         self.config = config
         self.report = report
         self.project_name = project_name
-        self.path = self._build_path(config.platform_instance, project_name)
+        self.platform_instance = platform_instance
+        self.path = self._build_path(platform_instance, project_name)
         self.model_urn = str(
             SemanticModelUrn(
                 platform=DBT_PLATFORM, path=self.path, id=SEMANTIC_MODEL_ID
@@ -292,7 +294,7 @@ class DbtSemanticModelMapper:
             platform=DBT_PLATFORM,
             path=self.path,
             id=SEMANTIC_MODEL_ID,
-            platform_instance=self.config.platform_instance,
+            platform_instance=self.platform_instance,
             name=self.project_name,
             datasets=[prepared.dataset for prepared in models],
             relationships=relationships or None,
@@ -438,7 +440,7 @@ class DbtSemanticModelMapper:
         connector a real container hierarchy is a broader change than this
         feature and is deliberately left out of it.
         """
-        instance = self.config.platform_instance
+        instance = self.platform_instance
         entries: List[BrowsePathEntryClass] = []
         if instance:
             entries.append(
@@ -497,7 +499,7 @@ class DbtSemanticModelMapper:
                     semantic_model=self.model_urn,
                     alias=alias,
                     schema=list(fields.values()),
-                    platform_instance=self.config.platform_instance,
+                    platform_instance=self.platform_instance,
                     env=self.config.env,
                 )
             except SdkUsageError as e:
@@ -1031,7 +1033,7 @@ class DbtSemanticModelMapper:
             path=self.path,
             id=measure.name,
             semantic_model=self.model_urn,
-            platform_instance=self.config.platform_instance,
+            platform_instance=self.platform_instance,
             name=measure.name,
             description=measure.description or None,
             expression=expression,
@@ -1091,7 +1093,7 @@ class DbtSemanticModelMapper:
             path=self.path,
             id=metric_definition.name,
             semantic_model=self.model_urn,
-            platform_instance=self.config.platform_instance,
+            platform_instance=self.platform_instance,
             name=metric_definition.display_name,
             description=metric_definition.description or None,
             expression=self._metric_definition_expression(metric_definition, index),

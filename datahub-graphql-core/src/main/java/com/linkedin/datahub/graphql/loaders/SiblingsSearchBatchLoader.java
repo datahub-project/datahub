@@ -25,6 +25,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import io.datahubproject.metadata.context.OperationContext;
 import io.opentelemetry.context.Context;
@@ -486,7 +487,7 @@ public final class SiblingsSearchBatchLoader {
 
     return new ResolvedQuery(
         SearchUtils.intersectEntityTypes(group.entityNames, view.getDefinition().getEntityTypes()),
-        SearchUtils.combineFilters(group.inputFilter, view.getDefinition().getFilter()));
+        FilterUtils.combineFilters(group.inputFilter, view.getDefinition().getFilter()));
   }
 
   private static Filter combineWithSiblingsFilter(
@@ -503,7 +504,7 @@ public final class SiblingsSearchBatchLoader {
 
     return baseFilter == null
         ? siblingsFilter
-        : SearchUtils.combineFilters(baseFilter, siblingsFilter);
+        : FilterUtils.combineFilters(baseFilter, siblingsFilter);
   }
 
   private static ScrollResults toScrollResults(

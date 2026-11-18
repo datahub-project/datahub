@@ -20,6 +20,7 @@
     "descriptionUpdated": "Beskrivning uppdaterad",
     "expandTerm": "Fäll ut {{label}}",
     "managedTagTooltip": "Den här taggen hanteras inom en annan plattform",
+    "managedTermTooltip": "Den här termen hanteras i en annan plattform",
     "modal.addTagsTitle": "Lägg till taggar",
     "modal.addTermsTitle": "Lägg till termer",
     "modal.addTitle": "Lägg till {{entity}}s",

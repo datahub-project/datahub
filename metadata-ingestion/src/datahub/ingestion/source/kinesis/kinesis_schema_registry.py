@@ -8,16 +8,13 @@ Schema parsing reuses the platform-agnostic utilities under
 datahub.ingestion.extractor.{schema_util, json_schema_util, protobuf_util}.
 """
 
-import json
 import logging
 from typing import TYPE_CHECKING, List, Optional
 
 from botocore.exceptions import BotoCoreError, ClientError
 
-from datahub.ingestion.extractor import protobuf_util, schema_util
-from datahub.ingestion.extractor.json_schema_util import JsonSchemaTranslator
-from datahub.ingestion.extractor.protobuf_util import ProtobufSchema
 from datahub.ingestion.source.aws.aws_common import aws_error_code
+from datahub.ingestion.source.aws.glue_schema_registry import parse_glue_schema_fields
 from datahub.ingestion.source.kinesis.kinesis_config import (
     KinesisGlueSchemaRegistryConfig,
 )
@@ -137,30 +134,9 @@ class KinesisGlueSchemaRegistry:
         self, schema_def: str, data_format: str, stream_name: str
     ) -> Optional[List[SchemaFieldClass]]:
         try:
-            if data_format == "AVRO":
-                # swallow_exceptions=False so parse errors reach our handler
-                # below and get recorded as parse-failed in the report.
-                return schema_util.avro_schema_to_mce_fields(
-                    schema_def, is_key_schema=False, swallow_exceptions=False
-                )
-            if data_format == "JSON":
-                return list(
-                    JsonSchemaTranslator.get_fields_from_schema(
-                        json.loads(schema_def),
-                        is_key_schema=False,
-                    )
-                )
-            if data_format == "PROTOBUF":
-                # AWS allows dots in stream names ([a-zA-Z0-9_.-]), but grpc.protos()
-                # derives a Python module name from this filename, and dots break that
-                # import (e.g. "orders.v2" -> failed parse). Sanitize like the Confluent
-                # Schema Registry path does (topic.replace(".", "_")).
-                proto_name = stream_name.replace(".", "_")
-                return protobuf_util.protobuf_schema_to_mce_fields(
-                    ProtobufSchema(f"{proto_name}.proto", schema_def),
-                    imported_schemas=[],
-                    is_key_schema=False,
-                )
+            fields = parse_glue_schema_fields(schema_def, data_format, stream_name)
+            if fields is not None:
+                return fields
         except (
             Exception
         ) as e:  # schema parsers raise heterogeneous exception types per format

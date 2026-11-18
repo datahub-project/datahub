@@ -1,6 +1,6 @@
 import { TFunction } from 'i18next';
 
-import { capitalizeFirstLetterOnly } from '@app/shared/textUtil';
+import { capitalizeFirstLetterOnly } from '@app/sharedV2/textUtil';
 
 /**
  * Resolves the multi-select labeled chip text for a ValuesSelect property.

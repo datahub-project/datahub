@@ -394,3 +394,25 @@ async def test_exec_out_dir_exists_when_the_subprocess_is_launched(
         await task.execute(sample_args, exec_ctx)
 
     assert observed["exec_out_dir_exists"]
+
+
+async def test_execute_refuses_credential_redirect_before_venv(
+    task_config: SubProcessTestConnectionTaskConfig,
+    executor_ctx: ExecutorContext,
+    exec_ctx: ExecutionContext,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://datahub-gms:8080")
+    task = SubProcessTestConnectionTask(task_config, executor_ctx)
+    recipe = {"source": {"type": "demo-data", "config": {}}}
+    args = {
+        "recipe": json.dumps(recipe),
+        "version": "latest",
+        "extra_env_vars": {"DATAHUB_GMS_URL": "http://other:8080"},
+    }
+    with patch(
+        "datahub.executor.execution.sub_process_test_connection_task.setup_venv"
+    ) as mock_setup_venv:
+        with pytest.raises(TaskError, match=r"extra_env_vars\.DATAHUB_GMS_URL"):
+            await task.execute(args, exec_ctx)
+    mock_setup_venv.assert_not_called()

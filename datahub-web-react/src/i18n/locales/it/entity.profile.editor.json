@@ -11,7 +11,7 @@
     "link.linkUrl": "URL link",
     "link.text": "Testo",
     "link.title": "Aggiungi link",
-    "mentions.failedToFindEntity": "Entità non trovata",
+    "mentions.notFound": "Entità non trovata",
     "table.deleteColumn": "Elimina colonna",
     "table.deleteRow": "Elimina riga",
     "table.deleteTable": "Elimina tabella",

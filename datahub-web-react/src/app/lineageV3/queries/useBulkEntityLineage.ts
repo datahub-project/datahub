@@ -1,6 +1,7 @@
-import { useCallback, useContext, useEffect, useState } from 'react';
+import { notification } from '@components';
+import i18next from 'i18next';
+import { useCallback, useContext, useEffect, useRef, useState } from 'react';
 
-import { useGetLineageTimeParams } from '@app/lineage/utils/useGetLineageTimeParams';
 import {
     FetchStatus,
     LineageEdge,
@@ -15,11 +16,16 @@ import {
 } from '@app/lineageV3/common';
 import pruneAllDuplicateEdges from '@app/lineageV3/queries/pruneAllDuplicateEdges';
 import { getNodeForBulkResult } from '@app/lineageV3/queries/useBulkEntityLineage.utils';
-import { addQueryNodes, setEntityNodeDefault } from '@app/lineageV3/queries/useSearchAcrossLineage';
+import {
+    LOAD_ERROR_NOTIFICATION_KEY,
+    addQueryNodes,
+    setEntityNodeDefault,
+} from '@app/lineageV3/queries/useSearchAcrossLineage';
 import { FetchedEntityV2Relationship } from '@app/lineageV3/types';
-import usePrevious from '@app/shared/usePrevious';
+import { useGetLineageTimeParams } from '@app/lineageV3/utils/useGetLineageTimeParams';
+import usePrevious from '@app/sharedV2/usePrevious';
 import { useAppConfig } from '@app/useAppConfig';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { useGetBulkEntityLineageV2Query } from '@graphql/lineage.generated';
 import { EntityType, LineageDirection } from '@types';
@@ -28,7 +34,7 @@ const BATCH_SIZE = 10;
 
 export default function useBulkEntityLineage(shownUrns: string[]): (urn: string) => void {
     const flags = useAppConfig().config.featureFlags;
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const ignoreSchemaFieldStatus = useIgnoreSchemaFieldStatus();
     const {
         rootType,
@@ -54,7 +60,27 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
     }, [prevShownUrns, shownUrns]);
 
     const [urnsToFetch, setUrnsToFetch] = useState<string[]>([]);
+    // Urns whose batch failed/stalled — excluded from refetch so a persistent failure doesn't loop.
+    const failedUrnsRef = useRef(new Set<string>());
     const { startTimeMillis, endTimeMillis } = useGetLineageTimeParams();
+
+    const errorShownRef = useRef(false);
+
+    // A new time range is a fresh attempt: forget past failures and re-arm the error notice.
+    useEffect(() => {
+        failedUrnsRef.current.clear();
+        errorShownRef.current = false;
+    }, [startTimeMillis, endTimeMillis]);
+
+    const handleBulkFetchFailure = () => {
+        // Don't re-request the batch that failed/stalled; drop it so the next batch can make progress.
+        urnsToFetch.forEach((urn) => failedUrnsRef.current.add(urn));
+        setUrnsToFetch([]);
+        if (!errorShownRef.current) {
+            errorShownRef.current = true;
+            notification.error({ key: LOAD_ERROR_NOTIFICATION_KEY, message: i18next.t('lineage:loadError') });
+        }
+    };
 
     const { refetch, loading } = useGetBulkEntityLineageV2Query({
         skip: !urnsToFetch?.length,
@@ -95,7 +121,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                         entity.upstreamRelationships?.forEach((relationship) => {
                             processEdge(node, relationship, LineageDirection.Upstream, smallContext);
                         });
-                        pruneAllDuplicateEdges(node.urn, null, smallContext);
+                        pruneAllDuplicateEdges(node.urn, null, smallContext, entityRegistry);
                     }
                 }
             });
@@ -104,6 +130,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 setDisplayVersion(([version, n]) => [version + 1, n]); // TODO: Also remove with above todo
             }
         },
+        onError: handleBulkFetchFailure,
     });
 
     useEffect(() => {
@@ -113,7 +140,7 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
             let newUrnsToFetch = memoizedShownUrns
                 .filter((urn) => {
                     const node = nodes.get(urn);
-                    return !node?.entity;
+                    return !node?.entity && !failedUrnsRef.current.has(urn);
                 })
                 .slice(0, BATCH_SIZE);
             if (
@@ -123,7 +150,10 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
                 hideTransformations
             ) {
                 newUrnsToFetch = Array.from(nodes.values())
-                    .filter((node) => isTransformational(node, rootType) && !node.entity)
+                    .filter(
+                        (node) =>
+                            isTransformational(node, rootType) && !node.entity && !failedUrnsRef.current.has(node.urn),
+                    )
                     .map((node) => node.urn);
             }
             if (JSON.stringify(oldUrnsToFetch) !== JSON.stringify(newUrnsToFetch)) {
@@ -140,6 +170,9 @@ export default function useBulkEntityLineage(shownUrns: string[]): (urn: string)
         ignoreSchemaFieldStatus,
         hideTransformations,
         loading,
+        // Re-select after a time-range change so urns cleared from failedUrnsRef are retried.
+        startTimeMillis,
+        endTimeMillis,
     ]);
 
     return useCallback(

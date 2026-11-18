@@ -21,7 +21,7 @@ RETRY_DELAY = 5
 
 def connect_to_hms():
     """Connect to Kerberized HMS with retry logic."""
-    from pyhive.sasl_compat import PureSASLClient
+    from impala.sasl_compat import PureSASLClient
     from pymetastore.hive_metastore import ThriftHiveMetastore
     from thrift.protocol import TBinaryProtocol
     from thrift.transport import TSocket

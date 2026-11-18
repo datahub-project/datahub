@@ -4,6 +4,7 @@ import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
 import static com.linkedin.metadata.Constants.STATUS_ASPECT_NAME;
 import static com.linkedin.metadata.search.utils.QueryUtils.createRelationshipFilter;
 import static com.linkedin.metadata.search.utils.QueryUtils.newRelationshipFilter;
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableSet;
@@ -96,25 +97,54 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
   public void handleChangeEvents(
       @Nonnull OperationContext opContext, @Nonnull final Collection<MetadataChangeLog> events) {
     for (MetadataChangeLog event : events) {
-      try {
-        MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+      MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+      handleItem(opContext, mclItem, mclItem.getPreviousRecordTemplate(), true);
+    }
+  }
 
-        if (UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
-          handleUpdateChangeEvent(opContext, mclItem);
+  /**
+   * Updates the graph for an event built without its previous value, because a newer version wrote
+   * that value and this version can't validate it (e.g. an enum symbol only the newer version
+   * defines). {@code unvalidatedPrevious} is that value as deserialized here, or null if it can't
+   * be; only its urns are read. An upsert diffs against it, or replaces the edges of the new
+   * value's relationship types when it is null. A delete removes its edges.
+   */
+  public void handleChangeEventWithUnvalidatedPrevious(
+      @Nonnull OperationContext opContext,
+      @Nonnull final MetadataChangeLog event,
+      @Nullable final RecordTemplate unvalidatedPrevious) {
+    MCLItemImpl mclItem = MCLItemImpl.builder().build(event, opContext.getAspectRetriever());
+    if (unvalidatedPrevious != null && UPDATE_CHANGE_TYPES.contains(event.getChangeType())) {
+      // As building an item does with a valid previous value: the new value no longer holds
+      // references to entity types this version doesn't know, so the diff must not see them in the
+      // previous value either, or it deletes the newer version's edges. A delete removes the
+      // previous value in full.
+      handling().stripUnknownReferences(unvalidatedPrevious, opContext.getEntityRegistry());
+    }
+    handleItem(opContext, mclItem, unvalidatedPrevious, unvalidatedPrevious != null);
+  }
 
-          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-            handleStatusUpdateChangeEvent(opContext, mclItem);
-          }
-        } else if (event.getChangeType() == ChangeType.DELETE) {
-          handleDeleteChangeEvent(opContext, mclItem);
+  private void handleItem(
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem mclItem,
+      @Nullable final RecordTemplate previousAspect,
+      final boolean diffable) {
+    try {
+      if (UPDATE_CHANGE_TYPES.contains(mclItem.getChangeType())) {
+        handleUpdateChangeEvent(opContext, mclItem, previousAspect, diffable);
 
-          if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
-            handleStatusUpdateChangeEvent(opContext, mclItem);
-          }
+        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+          handleStatusUpdateChangeEvent(opContext, mclItem);
         }
-      } catch (IOException e) {
-        throw new RuntimeException(e);
+      } else if (mclItem.getChangeType() == ChangeType.DELETE) {
+        handleDeleteChangeEvent(opContext, mclItem, previousAspect);
+
+        if (graphStatusEnabled && mclItem.getAspectName().equals(STATUS_ASPECT_NAME)) {
+          handleStatusUpdateChangeEvent(opContext, mclItem);
+        }
       }
+    } catch (IOException e) {
+      throw new RuntimeException(e);
     }
   }
 
@@ -144,19 +174,26 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
    * in response to a given change type to reflect the changes present in the new aspect.
    *
    * @param event the change event to be processed.
+   * @param previousAspect the value the event replaces, to diff against
+   * @param diffable false when there is no previous value to diff against, so the edges of the new
+   *     value's relationship types are replaced even in diff mode
    */
   private void handleUpdateChangeEvent(
-      @Nonnull final OperationContext opContext, @Nonnull final MCLItem event) throws IOException {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nullable final RecordTemplate previousAspect,
+      final boolean diffable)
+      throws IOException {
 
     final AspectSpec aspectSpec = event.getAspectSpec();
     final Urn urn = event.getUrn();
 
     RecordTemplate aspect = event.getRecordTemplate();
-    RecordTemplate previousAspect = event.getPreviousRecordTemplate();
 
     // For all aspects, attempt to update Graph
     SystemMetadata systemMetadata = event.getSystemMetadata();
     if (graphDiffMode
+        && diffable
         && (systemMetadata == null
             || systemMetadata.getProperties() == null
             || !Boolean.parseBoolean(systemMetadata.getProperties().get(FORCE_INDEXING_KEY)))) {
@@ -178,9 +215,12 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
    * search, graph, timeseries, etc.
    *
    * @param event the change event to be processed.
+   * @param previousAspect the deleted value, whose edges are removed
    */
   private void handleDeleteChangeEvent(
-      @Nonnull final OperationContext opContext, @Nonnull final MCLItem event) {
+      @Nonnull final OperationContext opContext,
+      @Nonnull final MCLItem event,
+      @Nullable final RecordTemplate previousAspect) {
 
     final EntitySpec entitySpec = event.getEntitySpec();
     final Urn urn = event.getUrn();
@@ -194,9 +234,7 @@ public class UpdateGraphIndicesService implements SearchIndicesService {
     }
 
     final RecordTemplate aspect =
-        event.getPreviousRecordTemplate() != null
-            ? event.getPreviousRecordTemplate()
-            : event.getRecordTemplate();
+        previousAspect != null ? previousAspect : event.getRecordTemplate();
     Boolean isDeletingKey = event.getAspectName().equals(entitySpec.getKeyAspectName());
 
     if (!aspectSpec.isTimeseries()) {

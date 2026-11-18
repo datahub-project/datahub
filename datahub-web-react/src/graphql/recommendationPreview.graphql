@@ -1,8 +1,35 @@
 fragment recommendationEntityPreview on Entity {
     urn
     type
-    ... on Dataset {
+    ... on HasName {
         name
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasHealth {
+        health {
+            ...entityHealth
+        }
+    }
+    ... on Dataset {
         platform {
             ...platformFields
         }
@@ -14,21 +41,6 @@ fragment recommendationEntityPreview on Entity {
         }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        subTypes {
-            typeNames
-        }
-        domain {
-            ...entityDomain
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
         }
     }
     ... on CorpUser {
@@ -47,7 +59,6 @@ fragment recommendationEntityPreview on Entity {
         }
     }
     ... on CorpGroup {
-        name
         info {
             displayName
         }
@@ -61,23 +72,8 @@ fragment recommendationEntityPreview on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
         platform {
             ...platformFields
-        }
-        domain {
-            ...entityDomain
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
         }
     }
     ... on Chart {
@@ -89,23 +85,8 @@ fragment recommendationEntityPreview on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
         platform {
             ...platformFields
-        }
-        domain {
-            ...entityDomain
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
         }
     }
     ... on DataFlow {
@@ -118,23 +99,8 @@ fragment recommendationEntityPreview on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
         platform {
             ...platformFields
-        }
-        domain {
-            ...entityDomain
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
-        }
-        subTypes {
-            typeNames
         }
     }
     ... on DataJob {
@@ -150,21 +116,6 @@ fragment recommendationEntityPreview on Entity {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        domain {
-            ...entityDomain
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
     }
     ... on GlossaryTerm {
         name
@@ -174,9 +125,6 @@ fragment recommendationEntityPreview on Entity {
         }
         parentNodes {
             ...parentNodesFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on GlossaryNode {
@@ -188,36 +136,18 @@ fragment recommendationEntityPreview on Entity {
         }
     }
     ... on MLFeatureTable {
-        name
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on MLModel {
-        name
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
-        }
-    }
-    ... on MLFeature {
-        name
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on MLModelGroup {
-        name
         platform {
             ...platformFields
-        }
-        deprecation {
-            ...deprecationFields
         }
     }
     ... on Tag {

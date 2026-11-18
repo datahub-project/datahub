@@ -1,8 +1,10 @@
-import { Button, Text } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { css, useTheme } from 'styled-components';
+
+import { Button } from '@components/components/Button';
+import { Text } from '@components/components/Text';
 
 type ErrorFallbackProps = {
     variant?: ErrorVariant;

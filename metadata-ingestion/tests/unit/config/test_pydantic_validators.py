@@ -85,6 +85,54 @@ def test_field_remove():
         assert v.b == "original"
 
 
+def test_field_remove_marks_inherited_field_in_schema():
+    # The field stays declared on the base because sibling sources still use it, so
+    # the subclass inherits it and would otherwise publish it as a live option.
+    class Base(ConfigModel):
+        b: str
+        shared: bool = pydantic.Field(default=True, description="Populates things.")
+
+    class Derived(Base):
+        _validate_removed_shared = pydantic_removed_field(
+            "shared", month="January", year=2025
+        )
+
+    assert Base.model_json_schema()["properties"]["shared"] == {
+        "default": True,
+        "description": "Populates things.",
+        "title": "Shared",
+        "type": "boolean",
+    }
+
+    prop = Derived.model_json_schema()["properties"]["shared"]
+    assert prop["deprecated"] is True
+    assert prop["schema_extra"]["removed"] is True
+    assert prop["description"] == (
+        "Removed in January 2025. This field is ignored and has no effect."
+    )
+
+
+def test_field_remove_keeps_the_field_valid_but_inert():
+    # ConfigModel is extra="forbid", so the property has to stay in the schema or
+    # recipes that still set the field would fail validation against it -- while the
+    # CLI accepts them. The value itself is discarded.
+    class Base(ConfigModel):
+        b: str
+        shared: bool = True
+
+    class Derived(Base):
+        _validate_removed_shared = pydantic_removed_field(
+            "shared", month="January", year=2025
+        )
+
+    assert "shared" in Derived.model_json_schema()["properties"]
+
+    with pytest.warns(ConfigurationWarning, match=r"shared was removed"):
+        v = Derived.model_validate({"b": "original", "shared": False})
+    assert v.b == "original"
+    assert v.shared is True  # supplied value dropped, base default retained
+
+
 def test_field_deprecated():
     clear_global_warnings()
 

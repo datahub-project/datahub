@@ -3,11 +3,13 @@ import logging
 import pathlib
 import time
 from abc import abstractmethod
+from contextlib import contextmanager
 from typing import (
     Any,
     ClassVar,
     Dict,
     Iterable,
+    Iterator,
     List,
     Optional,
     Sequence,
@@ -21,10 +23,13 @@ from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.emitter.serialization_helper import post_json_transform
 from datahub.lite.lite_local import (
+    AspectVersion,
     AutoComplete,
     Browseable,
     DataHubLiteLocal,
     LiteConfig,
+    LiteTransactionError,
+    LiteVersionConflict,
     PathNotFoundException,
     Searchable,
     SearchFlavor,
@@ -70,6 +75,8 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
 
     def __init__(self, config: LiteConfig) -> None:
         self.config = config
+        self._transaction_active = False
+        self._transaction_error: Optional[BaseException] = None
         fpath = pathlib.Path(self.location())
         fpath.parent.mkdir(exist_ok=True)
         self._connect(fpath)
@@ -130,6 +137,10 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             "aspect_idx", "metadata_aspect_v2", ["urn", "aspect_name", "version"]
         )
 
+        self._init_edge_table()
+        self._commit()
+
+    def _init_edge_table(self) -> None:
         self._execute(
             "CREATE TABLE IF NOT EXISTS metadata_edge_v2 "
             f"(src_id {self.STRING_TYPE}, relnship {self.STRING_TYPE}, "
@@ -139,9 +150,9 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         self._create_unique_index(
             "edge_idx", "metadata_edge_v2", ["src_id", "relnship", "dst_id"]
         )
-        self._commit()
 
     def destroy(self) -> None:
+        self._require_no_transaction("destroy")
         fpath = pathlib.Path(self.location())
         # Drop the connection first: Windows refuses to unlink a file SQLite
         # still holds open, and an open connection can rewrite the journal
@@ -153,160 +164,206 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         for suffix in ("-wal", "-shm", "-journal", ".wal"):
             fpath.with_name(fpath.name + suffix).unlink(missing_ok=True)
 
+    def _require_no_transaction(self, operation: str) -> None:
+        if self._transaction_active:
+            raise RuntimeError(f"Cannot {operation} inside a DataHub Lite transaction")
+
+    @contextmanager
+    def transaction(self) -> Iterator[None]:
+        self._require_no_transaction("nest a transaction")
+        self._begin()
+        self._transaction_active = True
+        try:
+            yield
+            if self._transaction_error is not None:
+                raise LiteTransactionError(
+                    "Cannot commit: an operation in this transaction failed"
+                ) from self._transaction_error
+            self._commit()
+        except BaseException:
+            self._rollback()
+            raise
+        finally:
+            self._transaction_active = False
+            self._transaction_error = None
+
+    @contextmanager
+    def _record_transaction_errors(self) -> Iterator[None]:
+        try:
+            yield
+        except BaseException as exc:
+            if self._transaction_active and self._transaction_error is None:
+                self._transaction_error = exc
+            raise
+
+    @contextmanager
+    def _write_transaction(self) -> Iterator[None]:
+        if not self._transaction_active:
+            with self.transaction():
+                yield
+        else:
+            if self._transaction_error is not None:
+                raise LiteTransactionError(
+                    "Cannot write: this transaction is rollback-only"
+                ) from self._transaction_error
+            with self._record_transaction_errors():
+                yield
+
     def write(
         self,
-        record: Union[
-            MetadataChangeEventClass,
-            MetadataChangeProposalWrapper,
-        ],
-    ) -> None:
-        writeables: Iterable[MetadataChangeProposalWrapper]
-        if isinstance(record, MetadataChangeProposalWrapper):
-            writeables = [record]
-        elif isinstance(record, MetadataChangeEventClass):
-            writeables = mcps_from_mce(record)
-        else:
-            raise ValueError(
-                f"DataHub Lite only supports MCEs and MCPs, not {type(record)}"
-            )
-
-        if not writeables:
-            return
-
-        # The edge writes issued by post_update_hook commit as they go, so this
-        # transaction only spans up to the first of those. It still keeps the
-        # paired v0 + vN aspect inserts atomic, and keeps the two engines
-        # behaving the same: SQLite opens a transaction implicitly on DML,
-        # DuckDB needs to be told.
-        self._begin()
-        for writeable in writeables:
-            needs_write = False
-            try:
-                writeable_dict = writeable.to_obj(simplified_structure=True)
-                max_row = self._execute_one(
-                    "SELECT metadata, system_metadata FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ? AND version = 0",
-                    [writeable.entityUrn, writeable.aspectName],
-                )
-                if max_row is None:
-                    new_version = 1
-                    needs_write = True
-                else:
-                    metadata_dict = json.loads(max_row[0])
-                    system_metadata = json.loads(max_row[1])
-                    real_version = system_metadata.get("properties", {}).get(
-                        "sysVersion"
-                    )
-                    if real_version is None:
-                        max_version_row = self._execute_one(
-                            "SELECT max(version) FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ?",
-                            [writeable.entityUrn, writeable.aspectName],
-                        )
-                        assert max_version_row
-                        real_version = max_version_row[0]
-                    # systemMetadata.properties is a map<string, string>, so
-                    # sysVersion comes back as a string.
-                    real_version = int(real_version)
-
-                    if writeable_dict["aspect"]["json"] == metadata_dict:
-                        needs_write = False
-                        new_version = real_version
-                    else:
-                        needs_write = True
-                        new_version = real_version + 1
-
-                current_time = int(time.time() * 1000.0)
-                created_on = current_time
-                if (
-                    writeable.systemMetadata is not None
-                    and writeable.systemMetadata.lastObserved
-                ):
-                    created_on = writeable.systemMetadata.lastObserved
-
-                if writeable.systemMetadata is None:
-                    writeable.systemMetadata = SystemMetadataClass(
-                        lastObserved=created_on, properties={}
-                    )
-                elif writeable.systemMetadata.lastObserved is None:
-                    writeable.systemMetadata.lastObserved = created_on
-
-                if "systemMetadata" not in writeable_dict:
-                    # to_obj() ran before we populated systemMetadata above, so the
-                    # key is absent whenever the caller did not supply one.
-                    writeable_dict["systemMetadata"] = writeable.systemMetadata.to_obj()
-                if "properties" not in writeable_dict["systemMetadata"]:
-                    writeable_dict["systemMetadata"]["properties"] = {}
-                writeable_dict["systemMetadata"]["properties"]["sysVersion"] = str(
-                    new_version
-                )
-                if needs_write:
-                    self._execute(
-                        "INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
-                        [
-                            writeable.entityUrn,
-                            writeable.aspectName,
-                            new_version,
-                            json.dumps(writeable_dict["aspect"]["json"]),
-                            json.dumps(writeable_dict["systemMetadata"]),
-                            created_on,
-                        ],
-                    )
-                    if not max_row:
-                        self._execute(
-                            "INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
-                            [
-                                writeable.entityUrn,
-                                writeable.aspectName,
-                                0,
-                                json.dumps(writeable_dict["aspect"]["json"]),
-                                json.dumps(writeable_dict["systemMetadata"]),
-                                created_on,
-                            ],
-                        )
-                    else:
-                        # we update the existing v0 row
-                        self._execute(
-                            "UPDATE metadata_aspect_v2 SET metadata = ?, system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
-                            [
-                                json.dumps(writeable_dict["aspect"]["json"]),
-                                json.dumps(writeable_dict["systemMetadata"]),
-                                writeable.entityUrn,
-                                writeable.aspectName,
-                            ],
-                        )
-                else:
-                    # this is a dup, we still want to update the lastObserved timestamp
-                    if not system_metadata:
-                        system_metadata = {
-                            "lastObserved": writeable.systemMetadata.lastObserved
-                        }
-                    else:
-                        system_metadata["lastObserved"] = (
-                            writeable.systemMetadata.lastObserved
-                        )
-                    self._execute(
-                        "UPDATE metadata_aspect_v2 SET system_metadata = ? WHERE urn = ? AND aspect_name = ? AND version = 0",
-                        [
-                            json.dumps(system_metadata),
-                            writeable.entityUrn,
-                            writeable.aspectName,
-                        ],
-                    )
-            except Exception as e:
-                self._rollback()
-                logger.error(f"Failed to write {writeable}", exc_info=e)
-                raise
+        record: Union[MetadataChangeEventClass, MetadataChangeProposalWrapper],
+        *,
+        if_version_match: Optional[int] = None,
+    ) -> Dict[str, int]:
+        # Invalid standalone calls need no write lock, but any failed write in an
+        # existing transaction must still prevent a partial batch from committing.
+        with self._record_transaction_errors():
+            writeables: Iterable[MetadataChangeProposalWrapper]
+            if isinstance(record, MetadataChangeProposalWrapper):
+                writeables = [record]
+            elif isinstance(record, MetadataChangeEventClass):
+                if if_version_match is not None:
+                    raise ValueError("Version conditions require a single-aspect MCP")
+                writeables = mcps_from_mce(record)
             else:
-                if needs_write:
-                    assert (
-                        writeable.entityUrn
-                        and writeable.aspectName
-                        and writeable.aspect
-                    )
-                    self.post_update_hook(
-                        writeable.entityUrn, writeable.aspectName, writeable.aspect
-                    )
+                raise ValueError(
+                    f"DataHub Lite only supports MCEs and MCPs, not {type(record)}"
+                )
+            if if_version_match is not None and (
+                if_version_match != -1 and if_version_match < 1
+            ):
+                raise ValueError("Expected version must be positive, or -1 for absent")
+        with self._write_transaction():
+            versions: Dict[str, int] = {}
+            for writeable in writeables:
+                assert writeable.aspectName
+                versions[writeable.aspectName] = self._write_aspect(
+                    writeable, if_version_match=if_version_match
+                )
+            return versions
 
-        self._commit()
+    def _write_aspect(
+        self,
+        writeable: MetadataChangeProposalWrapper,
+        *,
+        if_version_match: Optional[int],
+    ) -> int:
+        assert writeable.entityUrn and writeable.aspectName and writeable.aspect
+        urn, aspect_name = writeable.entityUrn, writeable.aspectName
+        writeable_dict = writeable.to_obj(simplified_structure=True)
+        latest = self._execute_one(
+            "SELECT metadata, system_metadata FROM metadata_aspect_v2 "
+            "WHERE urn = ? AND aspect_name = ? AND version = 0",
+            [urn, aspect_name],
+        )
+        current_version = -1
+        if latest is not None:
+            metadata_dict = json.loads(latest[0])
+            system_metadata = json.loads(latest[1])
+            real_version = system_metadata.get("properties", {}).get("sysVersion")
+            if real_version is None:
+                max_version_row = self._execute_one(
+                    "SELECT max(version) FROM metadata_aspect_v2 WHERE urn = ? AND aspect_name = ?",
+                    [urn, aspect_name],
+                )
+                assert max_version_row
+                real_version = max_version_row[0]
+            current_version = int(real_version)
+
+        if if_version_match is not None and if_version_match != current_version:
+            raise LiteVersionConflict(if_version_match, current_version)
+
+        observed = (
+            writeable.systemMetadata.lastObserved
+            if writeable.systemMetadata is not None
+            and writeable.systemMetadata.lastObserved is not None
+            else int(time.time() * 1000)
+        )
+        if writeable.systemMetadata is None:
+            writeable.systemMetadata = SystemMetadataClass(
+                lastObserved=observed, properties={}
+            )
+        elif writeable.systemMetadata.lastObserved is None:
+            writeable.systemMetadata.lastObserved = observed
+        if latest is not None and writeable_dict["aspect"]["json"] == metadata_dict:
+            # Observation updates belong to the live row, not the immutable history.
+            system_metadata["lastObserved"] = observed
+            self._execute(
+                "UPDATE metadata_aspect_v2 SET system_metadata = ? "
+                "WHERE urn = ? AND aspect_name = ? AND version = 0",
+                [json.dumps(system_metadata), urn, aspect_name],
+            )
+            return current_version
+
+        new_version = current_version + 1 if latest is not None else 1
+        system_metadata = writeable.systemMetadata.to_obj()
+        system_metadata["lastObserved"] = observed
+        system_metadata.setdefault("properties", {})["sysVersion"] = str(new_version)
+        metadata_json = json.dumps(writeable_dict["aspect"]["json"])
+        system_metadata_json = json.dumps(system_metadata)
+        self._execute(
+            "INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
+            [
+                urn,
+                aspect_name,
+                new_version,
+                metadata_json,
+                system_metadata_json,
+                observed,
+            ],
+        )
+        if latest is None:
+            self._execute(
+                "INSERT INTO metadata_aspect_v2 VALUES (?, ?, ?, ?, ?, ?)",
+                [urn, aspect_name, 0, metadata_json, system_metadata_json, observed],
+            )
+        else:
+            self._execute(
+                "UPDATE metadata_aspect_v2 SET metadata = ?, system_metadata = ?, createdon = ? "
+                "WHERE urn = ? AND aspect_name = ? AND version = 0",
+                [metadata_json, system_metadata_json, observed, urn, aspect_name],
+            )
+        self.post_update_hook(urn, aspect_name, writeable.aspect)
+        return new_version
+
+    @staticmethod
+    def _aspect_version(
+        aspect_name: str, row: Tuple[int, str, str, int]
+    ) -> AspectVersion:
+        return AspectVersion(
+            value=ASPECT_MAP[aspect_name].from_obj(
+                post_json_transform(json.loads(row[1]))
+            ),
+            version=row[0],
+            system_metadata=SystemMetadataClass.from_obj(json.loads(row[2])),
+            createdon=row[3],
+        )
+
+    def get_aspect(
+        self, urn: str, aspect_name: str, version: Optional[int] = None
+    ) -> Optional[AspectVersion]:
+        if version is not None and version < 1:
+            raise ValueError("Aspect versions must be positive; use None for latest")
+        query = (
+            "SELECT version, metadata, system_metadata, createdon FROM metadata_aspect_v2 "
+            "WHERE urn = ? AND aspect_name = ? AND version > 0"
+        )
+        params: List[Union[str, int]] = [urn, aspect_name]
+        if version is not None:
+            query += " AND version = ?"
+            params.append(version)
+        row = self._execute_one(query + " ORDER BY version DESC LIMIT 1", params)
+        return self._aspect_version(aspect_name, row) if row is not None else None
+
+    def list_versions(self, urn: str, aspect_name: str) -> List[AspectVersion]:
+        return [
+            self._aspect_version(aspect_name, row)
+            for row in self._execute(
+                "SELECT version, metadata, system_metadata, createdon FROM metadata_aspect_v2 "
+                "WHERE urn = ? AND aspect_name = ? AND version > 0 ORDER BY version",
+                [urn, aspect_name],
+            )
+        ]
 
     def list_ids(self) -> Iterable[str]:
         for row in self._execute("SELECT DISTINCT urn FROM metadata_aspect_v2"):
@@ -376,9 +433,9 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             # LOWER(..) LIKE stands in for ILIKE, which SQLite does not have.
             name = self._json_text("metadata", "$.name")
             base_query = (
-                "SELECT DISTINCT urn, 'urn', NULL FROM metadata_aspect_v2 WHERE LOWER(urn) LIKE ? "
+                "SELECT DISTINCT urn, 'urn', NULL FROM metadata_aspect_v2 WHERE version = 0 AND LOWER(urn) LIKE ? "
                 "UNION "
-                f"SELECT urn, aspect_name, metadata FROM metadata_aspect_v2 WHERE LOWER({name}) LIKE ?"
+                f"SELECT urn, aspect_name, metadata FROM metadata_aspect_v2 WHERE version = 0 AND LOWER({name}) LIKE ?"
             )
             like_pattern = f"%{query.lower()}%"
             for r in self._execute(base_query, [like_pattern, like_pattern]):
@@ -395,15 +452,11 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             raise Exception(f"Unhandled search flavor {flavor}")
 
     def remove_edge(self, src: str, relnship: str) -> None:
-        try:
+        with self._write_transaction():
             self._execute(
                 "DELETE FROM metadata_edge_v2 WHERE src_id = ? AND relnship = ?",
                 [src, relnship],
             )
-        except Exception as e:
-            logger.error("Failed to remove any edge", exc_info=e)
-        else:
-            self._commit()
 
     def add_edge(
         self,
@@ -416,7 +469,7 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
         src_id = str(src)
         dst_id = str(dst)
         logger.debug(f"Add edge {src_id},{dst_id},{relnship},{dst_label}")
-        try:
+        with self._write_transaction():
             query = "SELECT * FROM metadata_edge_v2 WHERE src_id = ? AND relnship = ?"
             params = [src_id, relnship]
             if not remove_existing:
@@ -460,14 +513,6 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                         f"UPDATE metadata_edge_v2 SET {update_fragment} WHERE {where_clause}",
                         update_params + where_params,
                     )
-        except Exception as e:
-            logger.error(
-                f"Failed to write {src_id}, {relnship}, {dst_id}, {dst_label}",
-                exc_info=e,
-            )
-            raise
-
-        self._commit()
 
     def ls(self, path: str) -> List[Browseable]:
         def get_id_for_name(
@@ -589,14 +634,19 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             ]
 
     def reindex(self) -> None:
-        self._execute("DELETE FROM metadata_edge_v2")
-        self._commit()
-        for urn_aspect_dict in self.get_all_entities(typed=True):
-            for urn, aspect_map in urn_aspect_dict.items():
-                for aspect_name, aspect_value in aspect_map.items():
-                    assert isinstance(aspect_value, _Aspect)
-                    self.post_update_hook(urn, aspect_name, aspect_value)
-                self.global_post_update_hook(urn, aspect_map)  # type: ignore
+        self._require_no_transaction("reindex")
+        with self.transaction():
+            # DuckDB can reject deleting and reinserting persisted unique keys in
+            # one transaction. Transactional DDL also preserves the old index if
+            # the rebuild fails, without reusing those index entries.
+            self._execute("DROP TABLE metadata_edge_v2")
+            self._init_edge_table()
+            for urn_aspect_dict in self.get_all_entities(typed=True):
+                for urn, aspect_map in urn_aspect_dict.items():
+                    for aspect_name, aspect_value in aspect_map.items():
+                        assert isinstance(aspect_value, _Aspect)
+                        self.post_update_hook(urn, aspect_name, aspect_value)
+                    self.global_post_update_hook(urn, aspect_map)  # type: ignore
 
     def get_all_entities(
         self, typed: bool = False
@@ -660,6 +710,7 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
             yield mcp
 
     def close(self) -> None:
+        self._require_no_transaction("close")
         if not self.read_only:
             self.reindex()
         self._close_connection()
@@ -768,14 +819,9 @@ class SqlBackedLite(DataHubLiteLocal[LiteConfig]):
                         entity_type="dataPlatformInstance",
                         entity_id=[str(data_platform_urn), data_platform_instance],
                     )
-                    try:
-                        self._create_edges_from_data_platform_instance(
-                            data_platform_instance_urn
-                        )
-                    except Exception as e:
-                        logger.error(
-                            f"Failed to generate edges entity {entity_urn}", exc_info=e
-                        )
+                    self._create_edges_from_data_platform_instance(
+                        data_platform_instance_urn
+                    )
                     parent_urn = str(data_platform_instance_urn)
             else:
                 data_platform_urn = DataPlatformUrn.from_string(dpi.platform)

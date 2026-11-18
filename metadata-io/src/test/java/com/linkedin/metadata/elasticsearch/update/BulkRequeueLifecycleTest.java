@@ -1,11 +1,17 @@
 package com.linkedin.metadata.elasticsearch.update;
 
 import static org.awaitility.Awaitility.await;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.times;
+import static org.mockito.Mockito.verify;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.linkedin.metadata.search.elasticsearch.client.shim.impl.AbstractBulkProcessorShim;
+import com.linkedin.metadata.search.elasticsearch.update.BulkListener;
+import com.linkedin.metadata.search.elasticsearch.update.BulkProcessorCompletionTracker;
+import com.linkedin.metadata.utils.metrics.MetricUtils;
 import java.time.Duration;
 import java.util.Collections;
 import java.util.List;
@@ -64,6 +70,8 @@ public class BulkRequeueLifecycleTest {
       assertEquals(shim.getBulkWriteResultTracker().getPendingItems(), 0);
       assertEquals(shim.drainBulkTransferFailures(), 1L);
     }
+    verify(shim.metrics(), times(2))
+        .increment(BulkListener.class, "bulk_item_transfer_failure", 1);
   }
 
   @DataProvider
@@ -133,7 +141,12 @@ public class BulkRequeueLifecycleTest {
       this.add = add;
       this.close = close;
       configureBulkProcessorWriteOptions(true, 1);
-      initBulkProcessors(1, Object::new);
+      metricUtils = mock(MetricUtils.class);
+      initBulkProcessors(1, completionTracker -> new Object());
+    }
+
+    MetricUtils metrics() {
+      return metricUtils;
     }
 
     boolean retry(DocWriteRequest<?> request) {
@@ -141,7 +154,10 @@ public class BulkRequeueLifecycleTest {
     }
 
     @Override
-    protected void addToProcessor(Object processor, DocWriteRequest<?> request) {
+    protected void addToProcessor(
+        Object processor,
+        DocWriteRequest<?> request,
+        BulkProcessorCompletionTracker.Submission submission) {
       add.accept(request);
     }
 

@@ -61,9 +61,11 @@ import io.datahubproject.openapi.generated.SortOrder;
 import io.datahubproject.openapi.generated.StatusAspectRequestV2;
 import io.datahubproject.openapi.generated.StatusAspectResponseV2;
 import io.datahubproject.openapi.util.OpenApiEntitiesUtil;
+import io.datahubproject.openapi.util.SearchTemplateFlags;
 import io.datahubproject.openapi.v1.entities.EntitiesController;
 import jakarta.servlet.http.HttpServletRequest;
 import java.net.URISyntaxException;
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.Map;
@@ -632,10 +634,15 @@ public class EntityApiDelegateImpl<I, O, S> {
       @Valid String scrollId,
       @Valid List<String> sort,
       @Valid SortOrder sortOrder,
-      @Valid String query) {
+      @Valid String query,
+      @Valid String searchTemplate,
+      @Valid Boolean includeExplain) {
 
     SearchFlags searchFlags =
-        new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true);
+        SearchTemplateFlags.apply(
+            new SearchFlags().setFulltext(false).setSkipAggregates(true).setSkipHighlighting(true),
+            searchTemplate,
+            includeExplain);
     com.linkedin.metadata.models.EntitySpec entitySpec =
         OpenApiEntitiesUtil.responseClassToEntitySpec(_entityRegistry, _respClazz);
 
@@ -724,7 +731,12 @@ public class EntityApiDelegateImpl<I, O, S> {
 
     return ResponseEntity.of(
         OpenApiEntitiesUtil.convertToScrollResponse(
-            _scrollRespClazz, result.getScrollId(), entities));
+            _scrollRespClazz,
+            result.getScrollId(),
+            entities,
+            result.hasMetadata() && result.getMetadata().hasRouteChain()
+                ? new ArrayList<>(result.getMetadata().getRouteChain())
+                : null));
   }
 
   public ResponseEntity<DatasetPropertiesAspectResponseV2> createDatasetProperties(

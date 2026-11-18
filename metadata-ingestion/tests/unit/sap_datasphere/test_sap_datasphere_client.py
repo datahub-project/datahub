@@ -1066,8 +1066,9 @@ def test_list_local_tables_handles_unexpected_shape(requests_mock):
     assert result == []
 
 
-def test_list_local_tables_unexpected_shape_records_report_warning(requests_mock):
-    """A non-list 200 must surface a report.warning, not just a logger.warning, so a silent-empty localtables list is explained."""
+def test_list_local_tables_unexpected_shape_records_report_failure(requests_mock):
+    """A non-list 200 must surface a report.failure (not a warning) so stale-entity
+    removal is suppressed rather than treating the listing as an empty space."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
     requests_mock.get(url, json={"unexpected": "shape"})
@@ -1075,11 +1076,12 @@ def test_list_local_tables_unexpected_shape_records_report_warning(requests_mock
     client = SapDatasphereClient(cfg, report=report)
     result = list(client.list_local_tables("DEMO_SPACE"))
     assert result == []
-    assert any("localtables" in " ".join(w.context or []) for w in report.warnings)
+    assert not report.warnings
+    assert any("localtables" in f.message for f in report.failures)
 
 
-def test_list_local_tables_non_json_records_report_warning(requests_mock):
-    """A non-JSON 200 (proxy/login HTML) must surface a report.warning."""
+def test_list_local_tables_non_json_records_report_failure(requests_mock):
+    """A non-JSON 200 (proxy/login HTML) must surface a report.failure."""
     cfg = _make_config()
     url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
     requests_mock.get(
@@ -1091,7 +1093,7 @@ def test_list_local_tables_non_json_records_report_warning(requests_mock):
     client = SapDatasphereClient(cfg, report=report)
     result = list(client.list_local_tables("DEMO_SPACE"))
     assert result == []
-    assert any("localtables" in " ".join(w.context or []) for w in report.warnings)
+    assert any("localtables" in f.message for f in report.failures)
 
 
 def test_list_connections_logs_when_shape_is_not_list(requests_mock, caplog):
@@ -1120,8 +1122,10 @@ def test_list_connections_logs_when_shape_is_not_list(requests_mock, caplog):
     )
 
 
-def test_list_local_tables_403_warns_and_yields_nothing(requests_mock):
-    """A 403 (principal not a member of the space) must emit a membership report.warning and yield nothing rather than crash."""
+def test_list_local_tables_403_fails_and_yields_nothing(requests_mock):
+    """A 403 (principal not a member of the space) must record a membership
+    report.failure and yield nothing rather than crash. A failure (not a warning)
+    keeps stale-entity removal from soft-deleting the space's objects on lost access."""
     cfg = _make_config()
     report = SapDatasphereReport()
     requests_mock.get(
@@ -1131,29 +1135,129 @@ def test_list_local_tables_403_warns_and_yields_nothing(requests_mock):
     client = SapDatasphereClient(cfg, report=report)
     assert list(client.list_local_tables("S1")) == []
 
-    warnings = [(w.title or "", w.message) for w in report.warnings]
+    failures = [(f.title or "", f.message) for f in report.failures]
     assert any(
         "member" in title.lower() or "member" in message.lower()
-        for title, message in warnings
-    ), f"Expected a membership warning; got: {warnings}"
+        for title, message in failures
+    ), f"Expected a membership failure; got: {failures}"
+
+
+def test_list_local_tables_server_error_records_failure(requests_mock):
+    """A non-403 HTTP error mid-walk must record report.failure, not re-raise. Otherwise
+    _safe_list_objects downgrades it to a warning and stale-entity removal can soft-delete
+    objects the incomplete listing never enumerated."""
+    cfg = _make_config()
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/localtables",
+        status_code=500,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert list(client.list_local_tables("S1")) == []
+    assert report.failures, "Expected a report.failure for a 500 mid-walk"
+
+
+def test_list_local_tables_connection_error_records_failure(requests_mock):
+    """A transport error (ConnectionError/Timeout) mid-walk must also record a failure
+    rather than propagate to be downgraded to a warning."""
+    cfg = _make_config()
+    report = SapDatasphereReport()
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/S1/localtables",
+        exc=requests.exceptions.ConnectionError,
+    )
+    client = SapDatasphereClient(cfg, report=report)
+    assert list(client.list_local_tables("S1")) == []
+    assert report.failures, "Expected a report.failure for a transport error mid-walk"
 
 
 def test_list_local_tables_still_works(requests_mock):
-    """Regression: existing behavior preserved after refactoring onto the shared _list_dwaas_objects helper."""
+    """Regression: a single-page listing is walked to completion and ends cleanly on
+    the first empty page (no failure)."""
     cfg = _make_config()
-    requests_mock.get(
-        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables",
-        json=[
-            {"technicalName": "SAP.TIME.M_TIME_DIMENSION"},
-            {"technicalName": "SAP.TIME.M_TIME_DIMENSION_TDAY"},
-        ],
-    )
-    client = SapDatasphereClient(cfg)
-    result = list(client.list_local_tables("DEMO_SPACE"))
-    assert result == [
+    page = [
         {"technicalName": "SAP.TIME.M_TIME_DIMENSION"},
         {"technicalName": "SAP.TIME.M_TIME_DIMENSION_TDAY"},
     ]
+
+    def respond(request, context):
+        return page if int(request.qs["skip"][0]) == 0 else []
+
+    requests_mock.get(
+        "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables",
+        json=respond,
+    )
+    report = SapDatasphereReport()
+    client = SapDatasphereClient(cfg, report=report)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert result == page
+    assert not report.failures
+
+
+def test_list_dwaas_objects_paginates_with_top_skip(requests_mock):
+    """A space larger than one page is walked to completion via bare top/skip, ending
+    on an empty page."""
+    cfg = _make_config()
+    url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
+    all_objects = [{"technicalName": f"T{i}"} for i in range(450)]
+
+    def respond(request, context):
+        # The dwaas-core list endpoint takes BARE top/skip, never OData $top/$skip; a
+        # strict lookup (no defaults) fails loudly if the client mutates the names.
+        assert "$top" not in request.qs and "$skip" not in request.qs
+        skip = int(request.qs["skip"][0])
+        top = int(request.qs["top"][0])
+        return all_objects[skip : skip + top]
+
+    requests_mock.get(url, json=respond)
+    client = SapDatasphereClient(cfg)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert [r["technicalName"] for r in result] == [f"T{i}" for i in range(450)]
+    # top stays at the page size; skip advances by the rows returned until the empty
+    # page (0, 200, 400, 450).
+    offsets = [(r.qs["top"][0], r.qs["skip"][0]) for r in requests_mock.request_history]
+    assert offsets == [
+        ("200", "0"),
+        ("200", "200"),
+        ("200", "400"),
+        ("200", "450"),
+    ]
+
+
+def test_list_dwaas_objects_fails_when_server_ignores_skip(requests_mock):
+    """A server that re-serves the same full page (ignoring skip) still returns that
+    page's rows but records a failure so the unreachable tail is not treated as
+    deleted."""
+    cfg = _make_config()
+    url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
+    full_page = [{"technicalName": f"T{i}"} for i in range(200)]
+    requests_mock.get(url, json=full_page)
+    report = SapDatasphereReport()
+    client = SapDatasphereClient(cfg, report=report)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert [r["technicalName"] for r in result] == [f"T{i}" for i in range(200)]
+    assert any("localtables" in f.message for f in report.failures)
+
+
+def test_list_dwaas_objects_fails_when_page_budget_exceeded(requests_mock, monkeypatch):
+    """A server that keeps serving full pages of new names forever is cut off by the
+    page ceiling and reported as a failure rather than looping unbounded."""
+    cfg = _make_config()
+    url = "https://myco.eu10.hcs.cloud.sap/dwaas-core/api/v1/spaces/DEMO_SPACE/localtables"
+
+    def respond(request, context):
+        skip = int(request.qs["skip"][0])
+        return [{"technicalName": f"T{skip + i}"} for i in range(200)]
+
+    requests_mock.get(url, json=respond)
+    monkeypatch.setattr(
+        "datahub.ingestion.source.sap_datasphere.client.DWAAS_LIST_MAX_PAGES", 3
+    )
+    report = SapDatasphereReport()
+    client = SapDatasphereClient(cfg, report=report)
+    result = list(client.list_local_tables("DEMO_SPACE"))
+    assert len(result) == 600
+    assert any("page" in f.message.lower() for f in report.failures)
 
 
 def test_api_timing_recorded_for_catalog_list(requests_mock):

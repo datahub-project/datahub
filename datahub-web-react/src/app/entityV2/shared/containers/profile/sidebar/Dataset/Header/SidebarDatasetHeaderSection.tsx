@@ -3,7 +3,7 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SidebarHeaderSectionColumns } from '@app/entityV2/shared/containers/profile/sidebar/SidebarHeaderSectionColumns';
 import SidebarTopUsersHeaderSection from '@app/entityV2/shared/containers/profile/sidebar/shared/SidebarTopUsersHeaderSection';
 import {
@@ -12,8 +12,8 @@ import {
     userExists,
 } from '@app/entityV2/shared/containers/profile/sidebar/shared/utils';
 import { SidebarStatsColumn, getPopularityColumn } from '@app/entityV2/shared/containers/profile/utils';
-import CompactContext from '@app/shared/CompactContext';
-import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/shared/formatNumber';
+import CompactContext from '@app/sharedV2/CompactContext';
+import { formatBytes, formatNumber, formatNumberWithoutAbbreviation } from '@app/sharedV2/formatNumber';
 
 const StatContent = styled.div`
     color: ${(props) => props.theme.colors.textSecondary};

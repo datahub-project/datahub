@@ -20,7 +20,7 @@
                 "odcs.tenant": "ClimateQuantumInc"
             },
             "name": "tbl",
-            "description": "Provides core payment metrics",
+            "description": "Provides core payment metrics\n\n**Grain:** Aggregation on columns txn_ref_dt, pmt_txn_id\n\n**purpose**: Views built on top of the seller tables.\n\n**usage**: Predict sales over time\n\n**limitations**: Data based on seller perspective, no buyer information",
             "tags": []
         }
     },
@@ -58,7 +58,7 @@
                 {
                     "fieldPath": "transaction_reference_date",
                     "nullable": true,
-                    "description": "Reference date for transaction",
+                    "description": "Reference date for transaction\n\n**Derivation:** defines the logic in business terms; logic for dummies\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                     "type": {
                         "type": {
                             "com.linkedin.schema.DateType": {}
@@ -209,14 +209,6 @@
                 {
                     "url": "https://github.com/myorg/myrepo",
                     "description": "transformationImplementation",
-                    "createStamp": {
-                        "time": 0,
-                        "actor": "urn:li:corpuser:datahub"
-                    }
-                },
-                {
-                    "url": "jdbc:postgresql://localhost:5432/adventureworks/tbl_1/rcvr_cntry_code",
-                    "description": "implementation",
                     "createStamp": {
                         "time": 0,
                         "actor": "urn:li:corpuser:datahub"
@@ -398,7 +390,7 @@
                         {
                             "fieldPath": "transaction_reference_date",
                             "nullable": true,
-                            "description": "Reference date for transaction",
+                            "description": "Reference date for transaction\n\n**Derivation:** defines the logic in business terms; logic for dummies\n\n```sql\nsel t1.txn_dt as txn_ref_dt from table_name_1 as t1, table_name_2 as t2, table_name_3 as t3 where t1.txn_dt=date-3\n```",
                             "type": {
                                 "type": {
                                     "com.linkedin.schema.DateType": {}
@@ -578,7 +570,7 @@
                 "odcs.tenant": "ClimateQuantumInc"
             },
             "name": "receivers",
-            "description": "Master data for all receivers",
+            "description": "Master data for all receivers\n\n**purpose**: Views built on top of the seller tables.\n\n**usage**: Predict sales over time\n\n**limitations**: Data based on seller perspective, no buyer information",
             "tags": []
         }
     },

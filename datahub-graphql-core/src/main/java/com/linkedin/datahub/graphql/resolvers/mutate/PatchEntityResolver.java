@@ -61,8 +61,10 @@ public class PatchEntityResolver implements DataFetcher<CompletableFuture<PatchE
 
     final Authentication authentication = context.getAuthentication();
 
-    // Check authorization using common utility method
-    if (!AuthorizationUtils.isAuthorizedForPatch(input, context)) {
+    // A missing URN is a create. A failed existence lookup must not be treated as one:
+    // that would authorize an existing entity with CREATE privileges.
+    if (!AuthorizationUtils.isAuthorizedForPatch(
+        input, context, PatchResolverUtils.entityExists(input, context, entityService))) {
       throw new AuthorizationException(
           authentication.getActor().toUrnStr() + " is unauthorized to update entities.");
     }

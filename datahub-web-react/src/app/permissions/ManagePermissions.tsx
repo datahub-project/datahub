@@ -8,7 +8,7 @@ import styled from 'styled-components';
 import { POLICIES_CREATE_POLICY_ID } from '@app/onboarding/config/PoliciesOnboardingConfig';
 import { ManagePolicies } from '@app/permissions/policy/ManagePolicies';
 import { ManageRoles } from '@app/permissions/roles/ManageRoles';
-import { AlchemyRoutedTabs } from '@app/shared/AlchemyRoutedTabs';
+import { AlchemyRoutedTabs } from '@app/sharedV2/AlchemyRoutedTabs';
 
 const PageContainer = styled.div`
     padding: 16px 20px;

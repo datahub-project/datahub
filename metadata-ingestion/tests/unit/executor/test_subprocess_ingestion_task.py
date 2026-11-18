@@ -6,7 +6,7 @@ import sys
 import uuid
 from collections.abc import Iterator
 from pathlib import Path
-from typing import Any
+from typing import Any, Optional
 from unittest.mock import AsyncMock, Mock, call, mock_open, patch
 
 import pydantic
@@ -23,9 +23,13 @@ from datahub.executor.execution.runner import (
     referenced_env_values,
 )
 from datahub.executor.execution.sub_process_ingestion_task import (
+    RUN_OPTIONS_RECIPE_KEY,
+    IngestionMemoryInfo,
+    IngestionRunOptions,
     SubProcessIngestionTask,
     SubProcessIngestionTaskArgs,
     SubProcessIngestionTaskConfig,
+    split_run_options,
 )
 from datahub.executor.execution.sub_process_task_common import SubProcessTaskUtil
 from datahub.executor.execution.task import TaskError
@@ -327,6 +331,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 exec_out_dir,
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             assert result == mock_process
@@ -387,6 +392,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 "/tmp/exec",
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             mock_process.stdin.write.assert_called_once()
@@ -431,6 +437,7 @@ class TestSubProcessIngestionTaskSubprocessCreation:
                 "/tmp/exec",
                 shared_logs,
                 secret_values,
+                IngestionRunOptions(),
             )
 
             subprocess_env = mock_create.call_args[1]["env"]
@@ -781,6 +788,7 @@ class TestSubProcessIngestionTaskCompletion:
     ) -> None:
         mock_process = Mock()
         mock_process.returncode = -9  # SIGKILL
+        memory_info = IngestionMemoryInfo(last_reported_peak="59.1 GB")
 
         with (
             patch("os.path.exists", return_value=False),
@@ -796,6 +804,7 @@ class TestSubProcessIngestionTaskCompletion:
                     {},
                     "/tmp/exec",
                     LogHolder(),
+                    memory_info=memory_info,
                 )
 
             mock_execution_context.get_report().report_error.assert_called_once()
@@ -803,9 +812,15 @@ class TestSubProcessIngestionTaskCompletion:
                 0
             ][0]
             assert "killed by signal SIGKILL" in error_message
+            assert "last reported a peak memory usage of 59.1 GB" in error_message
+            assert "datahub-actions" not in error_message
 
+    @pytest.mark.parametrize("peak", [None, "10.86 GB"])
     def test_handle_subprocess_completion_oom_exit_code_137(
-        self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        peak: Optional[str],
     ) -> None:
         mock_process = Mock()
         mock_process.returncode = 137  # OOM killer
@@ -824,13 +839,19 @@ class TestSubProcessIngestionTaskCompletion:
                     {},
                     "/tmp/exec",
                     LogHolder(),
+                    memory_info=IngestionMemoryInfo(last_reported_peak=peak),
                 )
 
             mock_execution_context.get_report().report_error.assert_called_once()
             error_message = mock_execution_context.get_report().report_error.call_args[
                 0
             ][0]
+            assert "exit code 137" in error_message
             assert "ran out of memory" in error_message
+            if peak is None:
+                assert "peak memory usage" not in error_message
+            else:
+                assert f"last reported a peak memory usage of {peak}" in error_message
 
     def test_handle_subprocess_completion_cancelled_does_not_raise(
         self, ingestion_task: SubProcessIngestionTask, mock_execution_context: Mock
@@ -1031,6 +1052,46 @@ class TestSubProcessIngestionTaskProgressReporting:
 
         assert progress_callback.call_count >= 1
         assert len(stdout_lines.get_logs()) > 0
+
+    async def test_monitor_remembers_the_peak_printed_by_the_pipeline(
+        self,
+        ingestion_task: SubProcessIngestionTask,
+        mock_execution_context: Mock,
+        monkeypatch: pytest.MonkeyPatch,
+    ) -> None:
+        mock_process = AsyncMock()
+        mock_process.returncode = None
+        mock_process.stdout = AsyncMock()
+        lines = [
+            b" 'mem_info': '1.2 GB',\n",
+            b" 'peak_memory_usage': '1.5 GB',\n",
+            b" 'peak_memory_usage': '59.1 GB',\n",
+            b"",
+        ]
+        mock_process.stdout.readuntil = AsyncMock(side_effect=lines)
+
+        async def mock_wait() -> None:
+            await asyncio.sleep(0.05)
+            mock_process.returncode = -9
+
+        mock_process.wait = mock_wait
+        monkeypatch.setattr(ingestion_task.config, "heartbeat_time_seconds", 0.02)
+        memory_info = IngestionMemoryInfo()
+
+        with patch("sys.stdout"):
+            await asyncio.wait_for(
+                ingestion_task._monitor_subprocess(
+                    mock_process,
+                    "test-exec-id",
+                    mock_execution_context,
+                    LogHolder(),
+                    Mock(),
+                    memory_info=memory_info,
+                ),
+                timeout=5.0,
+            )
+
+        assert memory_info.last_reported_peak == "59.1 GB"
 
     async def test_progress_reporting_with_no_callback(
         self,
@@ -1275,6 +1336,7 @@ class TestSubProcessIngestionTaskHybridArchitecture:
             "/tmp/exec",
             shared_logs,
             {},
+            IngestionRunOptions(),
         )
 
         mock_setup_venv.assert_called_once()
@@ -1320,9 +1382,9 @@ class TestSubProcessIngestionTaskHybridArchitecture:
 
             # The same LogHolder must reach both the subprocess creation and the
             # monitor, otherwise venv-setup logs would be dropped from the run.
-            # LogHolder is the second-to-last arg (last is secret_values dict).
+            # LogHolder is the third-to-last arg (then secret_values, run_options).
             create_subprocess_call = ingestion_task._create_subprocess.call_args  # type: ignore[attr-defined]
-            shared_logs_arg = create_subprocess_call[0][-2]
+            shared_logs_arg = create_subprocess_call[0][-3]
             assert isinstance(shared_logs_arg, LogHolder)
 
             monitor_subprocess_call = ingestion_task._monitor_subprocess.call_args  # type: ignore[attr-defined]
@@ -1396,6 +1458,7 @@ class TestSubProcessIngestionTaskErrorScenarios:
                     "/tmp/exec",
                     shared_logs,
                     {},
+                    IngestionRunOptions(),
                 )
 
             # Verify venv was still set up successfully before the subprocess failure
@@ -1476,6 +1539,7 @@ class TestSubProcessIngestionTaskScaleHandling:
             "/tmp/exec",
             shared_logs,
             {},
+            IngestionRunOptions(),
         )
 
         mock_subprocess_exec.assert_called_once()
@@ -1693,3 +1757,141 @@ class TestPublishChokePoints:
         registry.register_secret("SIBLING_SECRET", "sibling-secret-value")
         self._run_completion(ingestion_task, mock_execution_context, LogHolder())
         assert registry.has_secret("SIBLING_SECRET")
+
+
+async def test_execute_refuses_credential_redirect_before_setup(
+    ingestion_task: SubProcessIngestionTask,
+    mock_execution_context: Mock,
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("DATAHUB_GMS_URL", "http://datahub-gms:8080")
+    recipe = {
+        "source": {"type": "demo-data", "config": {}},
+        "datahub_api": {"server": "http://other:8080"},
+    }
+    args = {"recipe": json.dumps(recipe), "version": "latest"}
+    with (
+        patch(_SETUP_VENV) as mock_setup_venv,
+        patch.object(ingestion_task, "_setup_directories") as mock_setup_dirs,
+    ):
+        with pytest.raises(TaskError, match=r"datahub_api\.server"):
+            await ingestion_task.execute(args, mock_execution_context)
+    mock_setup_dirs.assert_not_called()
+    mock_setup_venv.assert_not_called()
+
+
+def test_split_run_options_strips_the_key_from_the_recipe() -> None:
+    recipe = {
+        "source": {"type": "demo-data"},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": True, "preview": True},
+    }
+    stripped, options = split_run_options(recipe)
+
+    assert stripped == {"source": {"type": "demo-data"}}
+    assert options.dry_run
+    assert options.preview
+    assert options.preview_workunits == 10
+
+
+def test_split_run_options_defaults_to_a_normal_run() -> None:
+    recipe = {"source": {"type": "demo-data"}}
+    stripped, options = split_run_options(recipe)
+
+    assert stripped is recipe
+    assert not options.dry_run
+    assert not options.preview
+
+
+@pytest.mark.parametrize(
+    "raw", [{"dry_run": True, "unknown": 1}, {"preview_workunits": 0}, "yes", None]
+)
+def test_split_run_options_rejects_invalid_options(raw: Any) -> None:
+    # A typo must fail the run, not fall back to a run that writes.
+    with pytest.raises(TaskError, match=RUN_OPTIONS_RECIPE_KEY):
+        split_run_options(
+            {"source": {"type": "demo-data"}, RUN_OPTIONS_RECIPE_KEY: raw}
+        )
+
+
+async def test_create_subprocess_writes_run_options_into_the_envelope(
+    ingestion_task: SubProcessIngestionTask, sample_args: dict[str, str]
+) -> None:
+    validated_args = SubProcessIngestionTaskArgs.model_validate(sample_args)
+    mock_process = AsyncMock()
+    mock_process.stdin = Mock()
+    mock_venv_ref = Mock()
+    mock_venv_ref.venv_loc = "/tmp/venv-demo-data-abc123"
+
+    with (
+        patch("asyncio.create_subprocess_exec", return_value=mock_process),
+        patch.object(ingestion_task, "_setup_venv", return_value=mock_venv_ref),
+    ):
+        await ingestion_task._create_subprocess(
+            validated_args,
+            "demo-data",
+            {"source": {"type": "demo-data"}},
+            "/tmp/report.json",
+            {"PATH": "/usr/bin"},
+            "/tmp/exec",
+            LogHolder(),
+            {},
+            IngestionRunOptions(dry_run=True),
+        )
+
+    envelope = json.loads(mock_process.stdin.write.call_args[0][0].decode("utf-8"))
+    assert yaml.safe_load(envelope["__recipe_yaml__"]) == {
+        "source": {"type": "demo-data"}
+    }
+    assert envelope["__run_options__"]["dry_run"] is True
+
+
+async def test_execute_refuses_invalid_run_options_before_setup(
+    ingestion_task: SubProcessIngestionTask,
+    mock_execution_context: Mock,
+) -> None:
+    recipe = {
+        "source": {"type": "demo-data", "config": {}},
+        RUN_OPTIONS_RECIPE_KEY: {"dry_run": "sometimes"},
+    }
+    args = {"recipe": json.dumps(recipe), "version": "latest"}
+    with (
+        patch(_SETUP_VENV) as mock_setup_venv,
+        patch.object(ingestion_task, "_setup_directories") as mock_setup_dirs,
+    ):
+        with pytest.raises(TaskError, match=RUN_OPTIONS_RECIPE_KEY):
+            await ingestion_task.execute(args, mock_execution_context)
+    mock_setup_dirs.assert_not_called()
+    mock_setup_venv.assert_not_called()
+
+
+class TestIngestionMemoryInfo:
+    def test_remembers_the_latest_peak_from_the_cli_report(self) -> None:
+        """The pipeline prints its CLI report every minute; the last peak wins."""
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'mem_info': '1.2 GB',\n")
+        assert info.last_reported_peak is None
+
+        info.record_log_line(" 'peak_memory_usage': '1.5 GB',\n")
+        info.record_log_line("[2026-10-16 08:37:50,431] INFO some other line\n")
+        info.record_log_line(" 'peak_memory_usage': '59.1 GB',\n")
+        assert info.last_reported_peak == "59.1 GB"
+
+    def test_ignores_a_report_without_a_value(self) -> None:
+        info = IngestionMemoryInfo()
+        info.record_log_line(" 'peak_memory_usage': None,\n")
+        assert info.last_reported_peak is None
+
+    @pytest.mark.parametrize(
+        "line",
+        [
+            " 'peak_memory_usage': 'hunter2-secret-token',\n",
+            "connector says 'peak_memory_usage': '1.5 GB', password=abc\n",
+            " 'peak_memory_usage': '1.5 GB password=abc',\n",
+        ],
+    )
+    def test_only_a_whole_report_line_with_a_size_is_captured(self, line: str) -> None:
+        # The value ends up in an error message that is printed unmasked, so
+        # nothing but a size from a CLI report line may get through.
+        info = IngestionMemoryInfo(last_reported_peak="2 GB")
+        info.record_log_line(line)
+        assert info.last_reported_peak == "2 GB"

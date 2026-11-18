@@ -1,9 +1,9 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import MoveDataProductModal from '@app/entityV2/shared/EntityDropdown/MoveDataProductModal';
 import MoveDomainModal from '@app/entityV2/shared/EntityDropdown/MoveDomainModal';
 import MoveGlossaryEntityModal from '@app/entityV2/shared/EntityDropdown/MoveGlossaryEntityModal';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

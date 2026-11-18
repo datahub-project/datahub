@@ -1,0 +1,12 @@
+namespace com.linkedin.search.template
+
+/**
+ * Static entity scope written by the template author. A ladder member's candidate set is the
+ * request entity set intersected with {@code entityTypes}. Unset means the whole request.
+ */
+record SearchTemplateScope {
+  /**
+   * Entity type names, such as {@code document}.
+   */
+  entityTypes: optional array[string]
+}

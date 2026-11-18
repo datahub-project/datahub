@@ -55,6 +55,13 @@ export const MODULE_TYPE_TO_ICON: Map<DataHubPageModuleType, React.ComponentType
 
 export const DEFAULT_MODULE_ICON = Database;
 
+// Shared list sizing for home-page list modules, kept here so caps aren't hardcoded per
+// module (prevents them drifting out of sync across modules).
+export const MODULE_LIST_PAGE_SIZE = 10; // page size for infinite-scroll list modules
+// Client-side cap for top-N slice modules (e.g. Domains). Keep in sync with the recommendation
+// source's getMaxContent() on the backend (DomainsCandidateSource.java) to avoid FE/BE drift.
+export const MODULE_LIST_MAX_ITEMS = 25;
+
 // keep this in sync with PageModuleService.java
 export const DEFAULT_MODULE_URNS = [
     'urn:li:dataHubPageModule:your_assets',

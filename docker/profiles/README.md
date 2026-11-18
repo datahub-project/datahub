@@ -48,10 +48,26 @@ and their configuration please see the table at the end of each section.
 Quickstart profiles are primarily a way to test drive DataHub features before committing to a production ready deployment.
 A couple of these profiles are also used in our continuous integration (CI) tests.
 
-**Search engine names:** Unversioned profiles (`quickstart`, `debug`) always use the **current
-default** OpenSearch (today **2.x**). Versioned Gradle keys pin an engine across a future default
-change: `./gradlew quickstartOS2` / `quickstartOS2Debug` stay on 2.x; `quickstartOS3` /
-`quickstartOS3Debug` stay on 3.x. Do not treat `quickstart` as an alias of `quickstartOS3`.
+**Search engine names:** Unversioned profiles that use the default OpenSearch service
+(`quickstart*` and `debug*`, excluding `debug-elasticsearch` and the `-opensearch2` and
+`-opensearch3` variants) always use the **current
+default** OpenSearch (today **3.x**, `opensearchproject/opensearch:3.7.0`, volume `os3data`).
+Versioned Gradle keys pin an engine across a default change: `./gradlew quickstartOS2` /
+`quickstartOS2Debug` stay on 2.x; `quickstartOS3` / `quickstartOS3Debug` stay on 3.x. Do not treat
+`quickstart` as an alias of `quickstartOS3`.
+
+2.x Lucene indices are not readable on 3.x, so the default engine keeps its data in a different
+volume than 2.x (`osdata`). To keep an existing 2.x stack on an unversioned profile, set
+`DATAHUB_SEARCH_TAG=2.19.3`, `DATAHUB_SEARCH_VOLUME=osdata`, and
+`ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED=false`. `datahub docker quickstart` sets
+these automatically when a DataHub search container is still on an OpenSearch 2 image and
+`datahub_os3data` is not confirmed to contain a `nodes` directory, or when `datahub_osdata`
+contains a `nodes` directory and `datahub_os3data` is confirmed missing or has no `nodes`
+directory. A failed volume listing does not pin, unless a DataHub search container is already on an
+OpenSearch 2 image, in which case the pin stays. The pin is skipped when one of the three
+variables is already set. When that pin does not apply,
+an existing `osdata` volume is not migrated and the unversioned OpenSearch 3 index starts empty.
+Use `./gradlew quickstartOS2` or `quickstartOS2Debug` to keep that 2.x data.
 
 Note: Quickstart profiles use docker images with the coordinated `quickstart` tag (updated together after smoke tests on `master`). This can be overridden to use a stable release tag by prefixing commands with `DATAHUB_VERSION=v0.12.1`, or to pin a specific build with `DATAHUB_VERSION=sha-<short_sha>`.
 
@@ -70,9 +86,9 @@ Like `quickstart` with Postgres instead of MySQL. Uses pgQueue instead of Kafka 
 ### `quickstart-opensearch2`
 
 Same application set as image-based `quickstart` (MySQL, Kafka, frontend, GMS, actions) with
-**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`).
-Unversioned `quickstart` uses this engine today; use `./gradlew quickstartOS2` when you must stay
-on 2.x after the default flips to 3.x.
+**OpenSearch 2.x** explicitly pinned (`opensearchproject/opensearch:2.19.3`, volume `osdata`;
+override with `DATAHUB_OS2_SEARCH_IMAGE` / `DATAHUB_OS2_SEARCH_TAG`). Use
+`./gradlew quickstartOS2` to stay on 2.x now that unversioned `quickstart` runs 3.x.
 
 ```bash
 ./gradlew quickstartOS2
@@ -130,7 +146,13 @@ created by running the gradle command.
 ./gradlew dockerTagDebug
 ```
 
-Debug GMS, system-update, and actions bind-mount `~/.aws`. For a named or SSO profile, export `AWS_PROFILE` in the host environment (or `scripts/dev/datahub-dev.sh env set AWS_PROFILE=...`) before start; Compose also sets `AWS_SDK_LOAD_CONFIG=1`. Unset `AWS_PROFILE` keeps the SDK default-profile / env-credential chain.
+Debug GMS, system-update, MAE, and actions bind-mount `~/.aws` read-only, with `~/.aws/sso/cache` writable so SSO tokens can refresh. For a named or SSO profile, export `AWS_PROFILE` in the host environment (or `scripts/dev/datahub-dev.sh env set AWS_PROFILE=...`) before start; Compose also sets `AWS_SDK_LOAD_CONFIG=1`. Unset `AWS_PROFILE` keeps the SDK default-profile / env-credential chain. `s3://` object storage also needs `AWS_REGION` or `AWS_ENDPOINT_URL` set in the container, because the S3 client is built only when one of them, or an object-storage role, is set.
+
+On a Linux host running Docker Engine, the containers run as a system user, not as your user ID. The `0600` files that `aws sso login` and `gcloud auth application-default login` write are not readable by that user, so calls can fail with no credentials even though the profile works on the host.
+
+Debug GMS, system-update, and the MAE and MCE consumers also get the host GCP session. `~/.config/gcloud` is mounted read-only, and an external service-account key in `GOOGLE_APPLICATION_CREDENTIALS` is mounted at its host path. All four build the embedding provider when they start, and with `EMBEDDING_PROVIDER_TYPE=vertex_ai` that resolves Application Default Credentials immediately, so a service without the session fails at startup (system-update failing keeps GMS from starting). GMS uses the AWS or GCP session when it embeds queries with Bedrock or Vertex; MAE also uses it for object storage (`DATAHUB_OBJECT_STORAGE_URI` on `s3://` or `gs://`). The containers have no `gcloud` CLI, so set the project explicitly (`GOOGLE_CLOUD_PROJECT`, and `VERTEX_AI_PROJECT_ID` for the Vertex provider). All four call Bedrock in `BEDROCK_EMBEDDING_AWS_REGION` when set, then `BEDROCK_AWS_REGION`, then `AWS_REGION`, otherwise `us-west-2`.
+
+`scripts/dev/datahub-dev.sh` passes these settings to Compose, because Compose reads mount sources and pass-through values from the shell, not from env files. A value exported in the shell wins over one saved with `env set`, and an empty saved value is ignored. A per-service env file (`DATAHUB_LOCAL_GMS_ENV` and so on) cannot set these names, because a name Compose passes through hides the same name in every env file. On a host with no `~/.aws` or `~/.config/gcloud`, `datahub-dev` mounts an empty placeholder from `~/.datahub/dev/` instead, so the stack still starts. These steps run only through `datahub-dev`: when you run Gradle or `docker compose` directly, Docker creates any missing directory as root. Set `DATAHUB_DEV_AWS_DIR` / `DATAHUB_DEV_GCLOUD_DIR` yourself to avoid that.
 
 For a complete list of profiles see the table at the end of this section.
 
@@ -145,7 +167,7 @@ Runs everything except for the GMS. Useful for running just a local (non-docker)
 ### `debug-opensearch2`
 
 Same application set as `debug`, with OpenSearch **2.x** pinned. Use
-`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x after unversioned `debug` moves to
+`./gradlew quickstartOS2Debug` to keep a bind-mount stack on 2.x now that unversioned `debug` runs
 3.x.
 
 ```bash
@@ -184,6 +206,31 @@ instead of a host bind-mount.
 | debug-backend-aws        | X     |          |           |       |          | X   | X       | X            |     |     | X     | X          |               | X                |
 
 ## Advanced Setups
+
+### Search V3 on a second OpenSearch cluster
+
+`docker-compose.search-split-override.yml` adds a second OpenSearch container, `search-secondary` (host port
+`${DATAHUB_MAPPED_ELASTIC_SECONDARY_PORT:-9201}`), and points GMS, system update and the MAE consumer at it for
+Search V3 (`ELASTICSEARCH_CLUSTERS_SECONDARY_URI`, `ELASTICSEARCH_COMPONENT_CLUSTER_SEARCH_V3=secondary`). V2
+entity indices stay on `search`. No base file includes it; layer it explicitly:
+
+```shell
+# Debug stack with the second cluster (same modules as quickstartDebug)
+./gradlew quickstartDebugSearchSplit
+# Raw compose, any profile
+cd docker/profiles
+docker compose -f docker-compose.yml -f docker-compose.search-split-override.yml --profile debug up -d
+```
+
+The override supplies the cluster and the routing only. Enable V3 with the usual variables
+(`ELASTICSEARCH_ENTITY_INDEX_V3_ENABLED=true` to build and dual-write the V3 indices, later
+`ELASTICSEARCH_ENTITY_INDEX_V3_KEYWORD_READ_ENABLED=true` to serve keyword reads from them). Run it while no other
+debug stack is up, or pass the same `-p <project>`, so the two do not compete for ports and networks.
+
+The automated equivalent is `./gradlew :datahub-upgrade:searchV3MigrationTest`: OpenSearch testcontainers run the
+cutover end to end (Phase 1, live dual-writes, resumable fill, catch-up, read flip, a later mapping change and a
+stale-id rebuild) with V3 on a separate cluster and on the same cluster, plus a V3-only fresh install. It is opt-in
+and not part of CI.
 
 ### Version Mixing
 

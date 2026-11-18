@@ -4,7 +4,7 @@ import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import handleGraphQLError from '@app/shared/handleGraphQLError';
+import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 import { Button, Menu, toast } from '@src/alchemy-components';
 

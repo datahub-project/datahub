@@ -3,14 +3,13 @@ import React from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import AvatarPillWithLinkAndHover from '@components/components/Avatar/AvatarPillWithLinkAndHover';
-
 import { removeMarkdown } from '@app/entityV2/shared/components/styled/StripMarkdownText';
 import { formatDateString } from '@app/entityV2/shared/containers/profile/utils';
 import { ResourcePillMeta } from '@app/entityV2/shared/tabs/Documentation/components/ResourcePillMeta';
-import { toRelativeTimeString } from '@app/shared/time/timeUtils';
+import AvatarPillWithLinkAndHover from '@app/sharedV2/avatar/AvatarPillWithLinkAndHover';
 import { DomainLink } from '@app/sharedV2/tags/DomainLink';
-import { useEntityRegistryV2 } from '@app/useEntityRegistry';
+import { toRelativeTimeString } from '@app/sharedV2/time/timeUtils';
+import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import { Document } from '@types';
 
@@ -77,7 +76,7 @@ type Props = {
 export default function ResourceDocumentPillPopover({ document, fallbackTitle }: Props) {
     const { t } = useTranslation('entity.profile.summary');
     const { t: tl } = useTranslation('common.labels');
-    const entityRegistry = useEntityRegistryV2();
+    const entityRegistry = useEntityRegistry();
     const title = document.info?.title || fallbackTitle;
     const description = removeMarkdown(document.info?.contents?.text?.trim() || '');
     const owners = document.ownership?.owners ?? [];

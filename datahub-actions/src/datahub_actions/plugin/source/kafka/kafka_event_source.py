@@ -246,6 +246,28 @@ def kafka_error_logger(pipeline_name: str) -> Callable[[KafkaError], None]:
     return _log
 
 
+def _blocking_topic_error(metadata: Any, topic: str) -> Optional[KafkaError]:
+    """Error from a per-topic metadata response that means the broker is not usable.
+
+    ``list_topics`` returns topic errors instead of raising. A topic that does not
+    exist yet is not one of them: the consumer can subscribe and wait for it.
+    """
+    topics = getattr(metadata, "topics", None)
+    if not isinstance(topics, dict):
+        return None
+    topic_meta = topics.get(topic)
+    if topic_meta is None:
+        return None
+    error = getattr(topic_meta, "error", None)
+    if error is None:
+        return None
+    code_fn = getattr(error, "code", None)
+    code = code_fn() if callable(code_fn) else None
+    if code in (KafkaError.NO_ERROR, KafkaError.UNKNOWN_TOPIC_OR_PART):
+        return None
+    return error
+
+
 # This is the default Kafka-based Event Source.
 @dataclass
 class KafkaEventSource(EventSource):
@@ -304,6 +326,12 @@ class KafkaEventSource(EventSource):
             }
         )
         self._observe_message: Callable = kafka_messages_observer(ctx.pipeline_name)
+        self.running = False
+        # request_stop() sets this before close(). events() must not set running
+        # back to true afterwards, or a SIGTERM during startup restarts the consumer.
+        self._stop_requested = False
+        # Set by close() so events() cannot use a consumer that has already been closed.
+        self._closed = False
         self._skip_mcl_entirely = False
         self._early_mcl_criteria_list: List[Dict[str, Any]] = []
         self._pipeline_name = ctx.pipeline_name
@@ -483,16 +511,35 @@ class KafkaEventSource(EventSource):
             f"Criteria (OR semantics - pass if ANY match, conservative by design): {criteria_list}"
         )
 
+    def _configured_topics(self) -> List[str]:
+        topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
+        return list(dict.fromkeys(topic_routes.values()))
+
     def _wait_until_connected(self) -> None:
-        """Block until the cluster answers a metadata request, so that a client that
-        cannot connect or authenticate fails the pipeline instead of polling forever."""
+        """Block until each configured topic answers a metadata request.
+
+        A cluster-wide ``list_topics()`` needs Describe on the cluster, which a
+        topic-scoped principal does not have. Requesting one topic at a time uses
+        the same permission the consumer needs to subscribe.
+        """
         bootstrap = self.source_config.connection.bootstrap
+        topics = self._configured_topics()
         deadline = time.monotonic() + _STARTUP_CONNECT_TIMEOUT_SECONDS
         while True:
+            if self._closed or self._stop_requested or not self.running:
+                return
             try:
-                self.consumer.list_topics(
-                    timeout=max(0.1, min(5.0, deadline - time.monotonic()))
-                )
+                timeout = max(0.1, min(5.0, deadline - time.monotonic()))
+                for topic in topics:
+                    if self._closed or self._stop_requested or not self.running:
+                        return
+                    metadata = self.consumer.list_topics(topic, timeout=timeout)
+                    # A missing topic is not a connectivity failure: the consumer can
+                    # subscribe before the topic exists. An authorization or broker
+                    # error on the metadata result does not raise, so treat it as one.
+                    error = _blocking_topic_error(metadata, topic)
+                    if error is not None:
+                        raise KafkaException(error)
                 logger.info(
                     f"Kafka event source for pipeline '{self._pipeline_name}' "
                     f"connected to Kafka at {bootstrap}."
@@ -500,7 +547,7 @@ class KafkaEventSource(EventSource):
                 return
             except KafkaException as e:
                 last_error = e
-            if not self.running:  # close() was called during startup.
+            if self._closed or self._stop_requested or not self.running:
                 return
             # Nothing is subscribed yet, so this only serves error_cb, which logs the
             # underlying cause (e.g. a SASL error) that list_topics does not report.
@@ -514,15 +561,30 @@ class KafkaEventSource(EventSource):
                 )
                 raise last_error
 
+    def request_stop(self) -> None:
+        # Do not close the consumer here. events() may be about to call list_topics
+        # or subscribe, and a closed consumer raises. The flag stops events() from
+        # setting running back to true after this returns.
+        self._stop_requested = True
+        self.running = False
+
     def events(self) -> Iterable[EventEnvelope]:
+        if self._closed or self._stop_requested:
+            return
         self.running = True
+        # close() or request_stop() may have landed between the check and the assignment.
+        if self._closed or self._stop_requested:
+            self.running = False
+            return
         self._wait_until_connected()
-        if not self.running:
+        if not self.running or self._closed or self._stop_requested:
             return
 
         topic_routes = self.source_config.topic_routes or DEFAULT_TOPIC_ROUTES
-        topics_to_subscribe = list(topic_routes.values())
+        topics_to_subscribe = self._configured_topics()
         logger.debug(f"Subscribing to the following topics: {topics_to_subscribe}")
+        if self._closed or self._stop_requested:
+            return
         self.consumer.subscribe(topics_to_subscribe)
 
         # Start lag monitoring after subscription
@@ -653,13 +715,17 @@ class KafkaEventSource(EventSource):
             yield EventEnvelope(RELATIONSHIP_CHANGE_EVENT_V1_TYPE, rce, kafka_meta)
 
     def close(self) -> None:
+        # Set before running=False so events() cannot observe a live consumer and
+        # then call list_topics/subscribe after this method closes it.
+        self._closed = True
+        self._stop_requested = True
+        self.running = False
         # Stop lag monitoring first
         if self._lag_monitor is not None:
             self._lag_monitor.stop()
 
         # Then close consumer
         if self.consumer:
-            self.running = False
             self.consumer.close()
 
     def _commit_offsets(self, event: EventEnvelope) -> None:

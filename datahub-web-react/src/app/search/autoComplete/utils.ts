@@ -1,4 +1,4 @@
-import EntityRegistry from '@app/entity/EntityRegistry';
+import EntityRegistry from '@app/entityV2/EntityRegistry';
 
 import { Entity } from '@types';
 

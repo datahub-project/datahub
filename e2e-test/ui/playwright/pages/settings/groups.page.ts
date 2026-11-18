@@ -67,9 +67,20 @@ export class GroupsPage extends BaseSettingsPage {
     this.editGroupButton = page.getByTestId('group-edit-profile-save-button');
   }
 
+  /**
+   * The actor menu stays open after a selection and covers the modal, including Add.
+   * A bubbling mousedown on the title is outside the menu, so the select closes first.
+   */
+  private async confirmSelectionBehindDropdown(modal: Locator, dropdown: Locator, confirm: Locator): Promise<void> {
+    await modal.getByRole('heading').dispatchEvent('mousedown');
+    await dropdown.waitFor({ state: 'hidden', timeout: WAIT_TIMEOUT });
+    await confirm.click();
+  }
+
   async navigate(): Promise<void> {
     await this.page.goto('/settings/identities/groups');
-    await this.page.waitForLoadState('networkidle');
+    // No networkidle here: on CI this page has held a request open for the whole
+    // 120s test budget. The container check below is the readiness signal.
     await expect(this.manageContainer).toBeVisible({ timeout: WAIT_TIMEOUT });
   }
 
@@ -124,8 +135,11 @@ export class GroupsPage extends BaseSettingsPage {
     await this.addMembersModal.waitFor({ state: 'attached', timeout: WAIT_TIMEOUT });
 
     await this.selectFromDropdown(this.addMembersSelectBase, this.addMembersSelectDropdown, username);
-    await this.addMembersSelectBase.click();
-    await this.addMemberConfirmButton.click();
+    await this.confirmSelectionBehindDropdown(
+      this.addMembersModal,
+      this.addMembersSelectDropdown,
+      this.addMemberConfirmButton,
+    );
     await this.toast.expectVisible(TOAST_MESSAGES.GROUP_MEMBERS_ADDED);
     await expect(this.membersSection.getByText(username)).toBeVisible();
   }
@@ -136,8 +150,11 @@ export class GroupsPage extends BaseSettingsPage {
     await this.addOwnersModal.waitFor({ state: 'attached', timeout: WAIT_TIMEOUT });
 
     await this.selectFromDropdown(this.addOwnersSelectBase, this.addOwnersSelectDropdown, username);
-    await this.addOwnersSelectBase.click();
-    await this.addOwnerConfirmButton.click();
+    await this.confirmSelectionBehindDropdown(
+      this.addOwnersModal,
+      this.addOwnersSelectDropdown,
+      this.addOwnerConfirmButton,
+    );
     await this.toast.expectVisible(TOAST_MESSAGES.OWNERS_ADDED);
   }
 

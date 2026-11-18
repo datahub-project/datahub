@@ -5,6 +5,8 @@ import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 
 import com.datahub.authentication.Actor;
 import com.datahub.authentication.ActorType;
@@ -128,5 +130,61 @@ public class TrackingControllerTest {
 
     // Verify response is bad request
     assertEquals(response.getStatusCode().value(), 400);
+  }
+
+  @Test
+  public void testTrackEventFallsBackToAcceptLanguageHeader() throws Exception {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "TestEvent");
+    when(request.getHeader("Accept-Language")).thenReturn("de-DE,de;q=0.9,en-US;q=0.8");
+
+    AuthenticationContext.setAuthentication(authentication);
+
+    ResponseEntity<Void> response = controller.trackEvent(request, event);
+
+    assertEquals(response.getStatusCode().value(), 200);
+    assertEquals(event.get("language").asText(), "de-DE");
+  }
+
+  @Test
+  public void testTrackEventPrefersClientSuppliedLanguage() throws Exception {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "TestEvent");
+    event.put("language", "ja");
+    when(request.getHeader("Accept-Language")).thenReturn("de-DE,de;q=0.9");
+
+    AuthenticationContext.setAuthentication(authentication);
+
+    controller.trackEvent(request, event);
+
+    assertEquals(event.get("language").asText(), "ja");
+  }
+
+  @Test
+  public void testTrackEventWithoutUsableAcceptLanguageHeader() throws Exception {
+    ObjectNode event = objectMapper.createObjectNode();
+    event.put("type", "TestEvent");
+    when(request.getHeader("Accept-Language")).thenReturn(null);
+
+    AuthenticationContext.setAuthentication(authentication);
+
+    ResponseEntity<Void> response = controller.trackEvent(request, event);
+
+    assertEquals(response.getStatusCode().value(), 200);
+    assertFalse(event.has("language"));
+  }
+
+  @Test
+  public void testParsePreferredLanguage() {
+    // Highest q-value wins regardless of position, and canonical casing is restored.
+    assertEquals(
+        TrackingController.parsePreferredLanguage("en;q=0.5,pt-br;q=0.9"), "pt-BR", "q-ordering");
+    assertEquals(TrackingController.parsePreferredLanguage("fr-CA"), "fr-CA", "single tag");
+    // A wildcard expresses no locale, so fall through to the next usable range.
+    assertEquals(TrackingController.parsePreferredLanguage("*,sv;q=0.5"), "sv", "wildcard skipped");
+    assertNull(TrackingController.parsePreferredLanguage("*"), "wildcard only");
+    assertNull(TrackingController.parsePreferredLanguage(null), "absent header");
+    assertNull(TrackingController.parsePreferredLanguage("   "), "blank header");
+    assertNull(TrackingController.parsePreferredLanguage("de;q=not-a-number"), "malformed header");
   }
 }

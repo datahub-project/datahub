@@ -1,0 +1,73 @@
+namespace com.linkedin.search.template
+
+import com.linkedin.common.Urn
+
+/**
+ * One Stage 2 signal. {@code name} is the formula variable. {@code field} and {@code propertyUrn}
+ * are never both set. A structured-property signal names the property definition; the index field
+ * is resolved when the signal is scored.
+ */
+record RankingSignal {
+  /**
+   * Formula variable. Matches {@code [A-Za-z_][A-Za-z0-9_]*}.
+   */
+  name: string
+
+  kind: RankingSignalKind
+
+  /**
+   * Index field for a field kind. Unset for score, match, penalty, tag, and structured-property
+   * signals.
+   */
+  field: optional string
+
+  /**
+   * How a numeric field, timestamp, or structured-property signal combines multiple values.
+   * Unset uses {@code MAX}. A number or structured property may set {@code MIN}, {@code SUM},
+   * or {@code AVERAGE}. An age may set {@code MIN}. {@code MAX} is the newest timestamp and
+   * {@code MIN} is the oldest. {@code SUM} and {@code AVERAGE} are rejected on an age.
+   */
+  valueAggregation: optional RankingValueAggregation
+
+  /**
+   * Registry entity names this signal applies to. At least one when set. A document of another
+   * type contributes the neutral value. Unset does not restrict the type. A name also listed in
+   * {@code excludedEntityTypes} is rejected.
+   */
+  entityTypes: optional array[string]
+
+  /**
+   * Registry entity names this signal skips. At least one when set. A document of a listed type
+   * contributes the neutral value. Unset skips nothing.
+   */
+  excludedEntityTypes: optional array[string]
+
+  /**
+   * When a boolean signal is true. Only a {@code FIELD_BOOLEAN} signal may set this. Unset reads
+   * the stored boolean.
+   */
+  booleanMatch: optional RankingBooleanMatch
+
+  /**
+   * When a keyword signal is true. Only a {@code FIELD_KEYWORD} signal may set this, and that
+   * kind requires it.
+   */
+  keywordMatch: optional RankingKeywordMatch
+
+  /**
+   * Structured property definition. Set only for {@code STRUCTURED_PROPERTY}.
+   */
+  propertyUrn: optional Urn
+
+  normalization: RankingNormalization
+
+  /**
+   * Exponent applied to the normalized value. The result is the signal contribution.
+   */
+  boost: double
+
+  /**
+   * Tag URN to multiplier. Empty is neutral. Set only for {@code TAG_WEIGHTS}.
+   */
+  tagWeights: optional map[string, double]
+}

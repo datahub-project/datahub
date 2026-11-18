@@ -32,13 +32,32 @@ record IncidentExternalLink {
    */
   @Searchable = {
     "fieldType": "KEYWORD",
-    "fieldName": "externalLinkId"
+    "fieldName": "externalLinkId",
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   externalId: string
 
   /**
    * The direct URL to the external issue/ticket.
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "searchLabel": "externalUrl",
+      "queryByDefault": false
+    }
+  }
   url: Url
 
   /**

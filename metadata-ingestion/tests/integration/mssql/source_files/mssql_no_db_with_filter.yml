@@ -15,6 +15,13 @@ source:
         - DemoData.Foo.NewProc
     convert_urns_to_lowercase: true
 
+    options:
+      connect_args:
+        # pytds enables TLS only when cafile is set. This CA signed the
+        # server cert (CN/SAN localhost). forceencryption rejects plaintext.
+        cafile: "${MSSQL_CAFILE}"
+        validate_host: true
+
 sink:
   type: file
   config:

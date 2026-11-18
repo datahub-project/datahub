@@ -110,6 +110,8 @@
     "viewSelect.searchPlaceholder": "Hae näkymiä...",
     "viewSelect.searchPlaceholderLegacy": "Haku",
     "viewSelect.selectYourView": "Valitse näkymäsi",
+    "viewSelect.buttonLabel": "Näkymät",
+    "viewSelect.clearView": "Tyhjennä näkymä",
     "viewType.privateDescription": "<bold>Yksityinen</bold> - näkyy vain sinulle.",
     "viewType.publicDescription": "<bold>Julkinen</bold> - näkyy kaikille."
 }
