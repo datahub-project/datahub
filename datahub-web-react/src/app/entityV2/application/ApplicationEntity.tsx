@@ -36,6 +36,12 @@ import { useShowAssetSummaryPage } from '@app/entityV2/summary/useShowAssetSumma
 import { useGetApplicationQuery } from '@graphql/application.generated';
 import { Application, EntityType, SearchResult } from '@types';
 
+const SidebarParentApplicationSection = lazyProfileComponent('SidebarParentApplicationSection', () =>
+    import('@app/entityV2/application/SidebarParentApplicationSection').then((module) => ({
+        default: module.SidebarParentApplicationSection,
+    })),
+);
+
 const ApplicationSummaryTab = lazyProfileComponent('ApplicationSummaryTab', () =>
     import('@app/entityV2/application/ApplicationSummaryTab').then((module) => ({
         default: module.ApplicationSummaryTab,
@@ -134,6 +140,9 @@ export class ApplicationEntity implements Entity<Application> {
         },
         {
             component: SidebarGlossaryTermsSection,
+        },
+        {
+            component: SidebarParentApplicationSection,
         },
         {
             component: DataProductSection,

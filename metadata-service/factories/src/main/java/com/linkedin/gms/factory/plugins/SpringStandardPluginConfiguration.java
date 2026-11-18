@@ -21,6 +21,7 @@ import com.linkedin.metadata.aspect.plugins.hooks.MCPObserver;
 import com.linkedin.metadata.aspect.plugins.hooks.MCPSideEffect;
 import com.linkedin.metadata.aspect.plugins.hooks.MutationHook;
 import com.linkedin.metadata.aspect.plugins.validation.AspectPayloadValidator;
+import com.linkedin.metadata.aspect.validation.ApplicationPropertiesParentValidator;
 import com.linkedin.metadata.aspect.validation.AssertionAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.AssetSettingsAuthorizationValidator;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
@@ -851,6 +852,28 @@ public class SpringStandardPluginConfiguration {
                         AspectPluginConfig.EntityAspectName.builder()
                             .entityName(DOMAIN_ENTITY_NAME)
                             .aspectName(DOMAIN_PROPERTIES_ASPECT_NAME)
+                            .build()))
+                .build());
+  }
+
+  @Bean
+  @ConditionalOnProperty(
+      name = "metadataChangeProposal.validation.applicationProperties.parent.enabled",
+      havingValue = "true",
+      matchIfMissing = true)
+  public AspectPayloadValidator applicationPropertiesParentValidator() {
+    return new ApplicationPropertiesParentValidator()
+        .setConfig(
+            AspectPluginConfig.builder()
+                .className(ApplicationPropertiesParentValidator.class.getName())
+                .enabled(true)
+                .supportedOperations(
+                    List.of("UPSERT", "UPDATE", "CREATE", "CREATE_ENTITY", "RESTATE", "PATCH"))
+                .supportedEntityAspectNames(
+                    List.of(
+                        AspectPluginConfig.EntityAspectName.builder()
+                            .entityName(APPLICATION_ENTITY_NAME)
+                            .aspectName(APPLICATION_PROPERTIES_ASPECT_NAME)
                             .build()))
                 .build());
   }
