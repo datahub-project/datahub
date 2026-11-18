@@ -86,6 +86,7 @@ query appConfig {
             themeDarkModeEnabled
             showSeparateSiblings
             showManageStructuredProperties
+            actorPoliciesSelfServiceEnabled
             schemaFieldCLLEnabled
             hideDbtSourceInLineage
             schemaFieldLineageIgnoreStatus
