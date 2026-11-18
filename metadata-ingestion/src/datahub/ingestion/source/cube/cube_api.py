@@ -417,6 +417,11 @@ class CubeAPIClient:
                 ) from e
             page = response.data
             for raw_entity in page:
+                if raw_entity is None:
+                    # Nothing to match against /v1/meta or to lose, so this is
+                    # counted rather than failing the run.
+                    self.report.metadata_api_null_entities_skipped += 1
+                    continue
                 try:
                     entity = CloudEntity.model_validate(raw_entity)
                 except ValidationError as e:

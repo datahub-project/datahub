@@ -504,9 +504,10 @@ def test_invalid_cloud_entity_is_skipped_not_the_page(
     assert sorted(e.name for e in entities) == sorted(
         [*meta_cubes, "orders", "orders_view"]
     )
-    assert client.report.metadata_api_entities_skipped == 2
-    # The unnamed (null) item can't be matched to /v1/meta, so it always fails.
-    assert _skipped_contexts(client.report.failures) == (2 if expect_failure else 1)
+    assert client.report.metadata_api_entities_skipped == 1
+    # A null item is counted, not reported, so it never fails the run.
+    assert client.report.metadata_api_null_entities_skipped == 1
+    assert _skipped_contexts(client.report.failures) == (1 if expect_failure else 0)
     assert _skipped_contexts(client.report.warnings) == (0 if expect_failure else 1)
 
 
