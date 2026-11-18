@@ -11,6 +11,7 @@ import com.linkedin.metadata.config.DataHubAppConfiguration;
 import com.linkedin.metadata.config.GraphQLConfiguration;
 import com.linkedin.metadata.config.graphql.GraphQLQueryConfiguration;
 import com.linkedin.metadata.ratelimit.GraphqlDocumentMetadata;
+import graphql.language.Document;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.graphql.GraphqlUsageClassificationRegistry;
@@ -19,6 +20,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
@@ -49,7 +51,8 @@ public class SpringQueryContext implements QueryContext {
       @Nonnull final HttpServletRequest request,
       @Nonnull final GraphqlDocumentMetadata documentMetadata,
       Map<String, Object> variables,
-      @Nonnull GraphqlUsageClassificationRegistry graphqlUsageClassificationRegistry) {
+      @Nonnull GraphqlUsageClassificationRegistry graphqlUsageClassificationRegistry,
+      @Nullable Function<String, Document> cachedDocumentLookup) {
     this.isAuthenticated = isAuthenticated;
     this.authentication = authentication;
     this.authorizer = authorizer;
@@ -69,7 +72,7 @@ public class SpringQueryContext implements QueryContext {
 
     GraphqlRequestUsageClassifier.Result classification =
         GraphqlRequestUsageClassifier.classify(
-            documentMetadata, graphqlUsageClassificationRegistry);
+            documentMetadata, graphqlUsageClassificationRegistry, cachedDocumentLookup);
 
     this.operationContext =
         OperationContext.asSession(

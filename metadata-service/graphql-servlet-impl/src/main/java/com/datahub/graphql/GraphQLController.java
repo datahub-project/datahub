@@ -302,7 +302,8 @@ public class GraphQLController {
             request,
             documentMetadata,
             variables,
-            graphqlUsageClassificationRegistry);
+            graphqlUsageClassificationRegistry,
+            _engine::getCachedDocument);
     context.setAspectMappingRegistry(aspectMappingRegistry);
     Span.current()
         .setAttribute(
