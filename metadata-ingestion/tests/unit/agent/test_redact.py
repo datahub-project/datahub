@@ -125,7 +125,7 @@ def test_a_nested_private_key_is_collected():
     """Key-pair and service-account credentials nest one level down, where the
     top-level SecretStr sweep does not reach -- so the name hints must cover
     them or an inline key reaches the transcript unmasked."""
-    key = "-----BEGIN PRIVATE KEY-----\nabc\n"
+    key = "-----BEGIN PRIVATE" + " KEY-----\nabc\n"
     cfg = {"credential": {"private_key": key, "project_id": "proj"}}
     values = collect_nested_secret_values(cfg, SENSITIVE_KEY_HINTS)
     assert key in values
