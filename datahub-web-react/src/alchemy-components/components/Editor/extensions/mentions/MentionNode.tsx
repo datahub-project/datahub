@@ -1,14 +1,17 @@
 import { NodeViewComponentProps } from '@remirror/react';
 import React, { ComponentType } from 'react';
 
+import type { EditorMentionViewProps } from '@components/components/Editor/types';
+
 type Props = NodeViewComponentProps & {
-    /** The host app's node view. */
-    view?: ComponentType<NodeViewComponentProps>;
+    /** The host app's mention view. */
+    view?: ComponentType<EditorMentionViewProps>;
 };
 
-/** Renders a mention with the host app's node view, or as plain `@name` without one. */
-export function MentionNode({ view: View, ...props }: Props) {
-    if (View) return <View {...props} />;
+/** Renders a mention with the host app's view, or as plain `@name` without one. */
+export function MentionNode({ view: View, node }: Props) {
+    const { urn, name } = node.attrs;
+    if (View) return <View urn={urn} name={name} />;
 
-    return <span className="mentions">@{props.node.attrs.name}</span>;
+    return <span className="mentions">@{name}</span>;
 }

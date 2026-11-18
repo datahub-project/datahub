@@ -105,6 +105,11 @@ public class SearchTestContainerConfiguration {
             .build();
 
     return new ESIndexBuilder(
-        searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+        searchClient,
+        testConfig,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion,
+        searchClient);
   }
 }

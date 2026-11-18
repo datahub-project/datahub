@@ -4,7 +4,7 @@ description: "Track usage against your DataHub Cloud contract and explore how yo
 
 import FeatureAvailability from '@site/src/components/FeatureAvailability';
 
-# Analytics Dashboards
+# Analytics
 
 The **Analytics** section of DataHub has up to two pages:
 

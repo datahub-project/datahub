@@ -52,6 +52,7 @@ export default function LineageBadge({ upstreamTotal, downstreamTotal, entityReg
 
     return (
         <Popover
+            ariaLabel={`${upstreamContent}${separator}${downstreamContent}` || undefined}
             content={
                 hasLineage && (
                     <PopoverContent>

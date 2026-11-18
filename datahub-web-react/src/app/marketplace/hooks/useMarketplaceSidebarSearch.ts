@@ -3,14 +3,16 @@ import { useInView } from 'react-intersection-observer';
 
 import { DataProductEntity } from '@app/marketplace/marketplaceTypes';
 import { buildMarketplaceSidebarFilters } from '@app/marketplace/utils/marketplaceSidebarFilters';
-import { marketplaceSidebarSearchQuery } from '@app/marketplace/utils/marketplaceSidebarMode';
+import {
+    marketplaceSidebarSearchQuery,
+    marketplaceSidebarSearchSort,
+} from '@app/marketplace/utils/marketplaceSidebarMode';
 import { mergeScrollPageResults } from '@app/marketplace/utils/scrollMergeUtils';
-import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
 import { UnionType } from '@app/searchV2/utils/constants';
 import { generateOrFilters } from '@app/searchV2/utils/generateOrFilters';
 
 import { useScrollDataProductsQuery } from '@graphql/marketplaceBrowse.generated';
-import { EntityType, SortOrder } from '@types';
+import { EntityType } from '@types';
 
 const MARKETPLACE_SIDEBAR_SEARCH_COUNT = 50;
 
@@ -93,9 +95,7 @@ export default function useMarketplaceSidebarSearch({
                 count: MARKETPLACE_SIDEBAR_SEARCH_COUNT,
                 orFilters: orFilters.length > 0 ? orFilters : undefined,
                 viewUrn: viewUrn ?? undefined,
-                sortInput: {
-                    sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
-                },
+                sortInput: marketplaceSidebarSearchSort(query),
                 searchFlags: { skipCache: true },
             },
         },

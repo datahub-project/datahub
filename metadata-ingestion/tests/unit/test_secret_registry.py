@@ -10,6 +10,7 @@ from datahub.masking.secret_registry import (
     MAX_SECRET_VERSIONS,
     SecretRegistry,
     is_masking_enabled,
+    maskable_renderings,
 )
 
 
@@ -184,21 +185,57 @@ class TestSecretRegistryInvalidInputs:
         assert "SECRET" in secrets
 
     def test_register_secret_with_special_chars_registers_url_encoded(self):
-        """Secrets with special characters should also register SQLAlchemy-style URL-encoded version."""
+        """Secrets with special characters should also register the forms they
+        take inside a URL."""
         registry = SecretRegistry()
         registry.clear()
 
-        # Password with special characters that SQLAlchemy encodes (only : @ /)
         registry.register_secret("password", "P#!ss@word")
 
         secrets = registry.get_all_secrets()
 
-        # Should have both raw and SQLAlchemy-style encoded versions
-        # SQLAlchemy only encodes : @ / (not # or !)
-        assert "P#!ss@word" in secrets
-        assert "P#!ss%40word" in secrets  # Only @ encoded to %40
         assert secrets["P#!ss@word"] == "password"
+        # SQLAlchemy 2.x encodes every reserved character in the password.
+        assert secrets["P%23%21ss%40word"] == "password"
+        # SQLAlchemy 1.x encoded only : @ /.
         assert secrets["P#!ss%40word"] == "password"
+
+
+class TestUrlEncodedRenderings:
+    """A password inside a connection URL is percent-encoded; every encoding a
+    URL builder may produce must be masked."""
+
+    @pytest.mark.parametrize(
+        "secret, encoded",
+        [
+            pytest.param("Str0ng!Pass#2024", "Str0ng%21Pass%232024", id="userinfo"),
+            pytest.param("my pass+word", "my%20pass%2Bword", id="strict"),
+            pytest.param("my pass+word", "my+pass%2Bword", id="form_encoded"),
+            pytest.param("pa;ss/word", "pa%3Bss%2Fword", id="uppercase_hex"),
+            pytest.param("pa;ss/word", "pa%3bss%2fword", id="lowercase_hex"),
+        ],
+    )
+    def test_url_encoded_forms_are_registered(self, secret: str, encoded: str) -> None:
+        registry = SecretRegistry()
+        registry.register_secret("password", secret)
+
+        assert registry.get_all_secrets()[encoded] == "password"
+
+    def test_secret_without_encodable_characters_registers_only_itself(self) -> None:
+        assert maskable_renderings("alphanumericpassword123") == [
+            "alphanumericpassword123"
+        ]
+
+    def test_multiline_secret_keeps_only_the_legacy_url_encoding(self) -> None:
+        line = "abcd+efgh/ijkl"
+        value = f"-----BEGIN KEY-----\n{line}\n-----END KEY-----"
+
+        renderings = maskable_renderings(value)
+
+        assert line in renderings
+        assert "abcd+efgh%2Fijkl" in renderings
+        assert "abcd%2Befgh%2Fijkl" not in renderings
+        assert not any("%0A" in rendering for rendering in renderings)
 
 
 class TestCapacityFailClosed:
@@ -328,7 +365,7 @@ class TestRegisterSecretsBatch:
         registry.clear()
 
         secrets = {
-            "password1": "P#!ss@word",  # Has @ which SQLAlchemy encodes
+            "password1": "P#!ss@word",  # Has characters URLs encode
             "password2": "simplepass",  # No special chars
         }
 
@@ -336,10 +373,10 @@ class TestRegisterSecretsBatch:
 
         all_secrets = registry.get_all_secrets()
 
-        # First password should have SQLAlchemy-style encoded version
-        # SQLAlchemy only encodes : @ / (not # or !)
+        # First password should have its URL-encoded versions
         assert "P#!ss@word" in all_secrets
-        assert "P#!ss%40word" in all_secrets  # Only @ encoded
+        assert "P%23%21ss%40word" in all_secrets  # SQLAlchemy 2.x
+        assert "P#!ss%40word" in all_secrets  # SQLAlchemy 1.x: only : @ /
 
         # Second password should not have duplicate
         assert "simplepass" in all_secrets

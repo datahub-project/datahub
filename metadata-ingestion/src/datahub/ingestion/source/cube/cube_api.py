@@ -1,8 +1,11 @@
 import logging
+from dataclasses import dataclass
+from http import HTTPStatus
 from typing import Dict, Iterable, List, Mapping, Optional, Type, TypeVar, Union
 from urllib.parse import urlparse
 
 import requests
+from pydantic import ValidationError
 from requests.adapters import HTTPAdapter
 from urllib3.util.retry import Retry
 
@@ -28,6 +31,7 @@ from datahub.ingestion.source.cube.constants import (
     HTTP_RETRY_BACKOFF_FACTOR,
     HTTP_RETRY_MAX_ATTEMPTS,
     HTTP_RETRY_STATUS_CODES,
+    META_PRIVATE_SCOPE,
     METADATA_API_PAGE_SIZE,
     PLATFORM_API_PAGE_SIZE,
 )
@@ -35,6 +39,7 @@ from datahub.ingestion.source.cube.models import (
     CloudDataSource,
     CloudDataSourcesResponse,
     CloudEntitiesResponse,
+    CloudEntity,
     CloudReportsResponse,
     CloudWorkbooksResponse,
     CoreMetaResponse,
@@ -53,12 +58,32 @@ _PlatformResponse = TypeVar(
 )
 
 
+class _UnexpectedMetadataApiResponseError(ValueError):
+    """A /v1/entities/all page did not match the documented envelope."""
+
+
+class _PrivateEntitiesRefusedError(Exception):
+    """Cube Cloud answered the first include_private page with HTTP 403."""
+
+    def __init__(self, http_error: requests.HTTPError) -> None:
+        super().__init__(str(http_error))
+        self.http_error = http_error
+
+
+@dataclass
+class _SkippedCloudEntity:
+    name: Optional[str]
+    context: str
+    error: ValidationError
+
+
 class CubeAPIClient:
     def __init__(self, config: CubeSourceConfig, report: CubeSourceReport):
         self.config = config
         self.report = report
         self.session = self._create_session()
         self._meta_sync_token: Optional[str] = None
+        self._skipped_cloud_entities: List[_SkippedCloudEntity] = []
 
     def _create_session(self) -> requests.Session:
         session = requests.Session()
@@ -103,12 +128,15 @@ class CubeAPIClient:
             environment_id=self.config.environment_id,
         )
         url = f"{self._control_plane_base()}/{path}"
+        body: Dict[str, object] = {
+            "security_context": self.config.security_context,
+            "expires_in": self.config.meta_sync_token_expires_in,
+        }
+        if self.config.include_private:
+            body["scopes"] = [META_PRIVATE_SCOPE]
         response = self.session.post(
             url,
-            json={
-                "security_context": self.config.security_context,
-                "expires_in": self.config.meta_sync_token_expires_in,
-            },
+            json=body,
             headers={
                 HTTP_HEADER_AUTHORIZATION: f"Bearer {self.config.cloud_api_key.get_secret_value()}"
             },
@@ -171,20 +199,78 @@ class CubeAPIClient:
         # the Metadata API or the Control Plane token-mint cannot be reached, so
         # a lineage-only failure never aborts the whole ingestion.
         try:
-            cloud_entities = self._get_cloud_entities()
+            cloud_entities = self._get_cloud_entities_with_private_fallback()
         except (requests.RequestException, ValueError) as e:
+            if self.config.include_private:
+                # Private entities only come from the Metadata API, so a
+                # failure is needed to stop stale removal from deleting the
+                # ones earlier runs ingested.
+                self.report.failure(
+                    title="Cube Metadata API unavailable",
+                    message=(
+                        "Using /v1/meta only, so private cubes, views, and "
+                        "members are missing from this run and stale removal "
+                        "is skipped. See the error for the cause, or set "
+                        "include_private: false."
+                    ),
+                    exc=e,
+                )
+                return core_entities
+            unexpected = isinstance(e, _UnexpectedMetadataApiResponseError)
             self.report.warning(
-                title="Cube Metadata API unavailable",
+                title=(
+                    "Unexpected Cube Metadata API response"
+                    if unexpected
+                    else "Cube Metadata API unavailable"
+                ),
                 message=(
-                    "Using /v1/meta only; lineage to warehouse tables will be "
-                    "unavailable. Provide cloud_api_key + deployment_id + "
+                    "The Metadata API response did not have the expected "
+                    "shape. Using /v1/meta only; lineage to warehouse tables "
+                    "will be unavailable."
+                    if unexpected
+                    else "Using /v1/meta only; lineage to warehouse tables will "
+                    "be unavailable. Provide cloud_api_key + deployment_id + "
                     "environment_id (or a Control Plane token) to enable the "
                     "Metadata API."
                 ),
                 exc=e,
             )
             return core_entities
-        return merge_entities(core_entities, cloud_entities)
+        core_names = {entity.name for entity in core_entities}
+        for skipped in self._skipped_cloud_entities:
+            self._report_skipped_entity(skipped, in_meta=skipped.name in core_names)
+        return merge_entities(
+            core_entities,
+            cloud_entities,
+            include_private=self.config.include_private,
+        )
+
+    def _get_cloud_entities_with_private_fallback(self) -> List[CubeEntity]:
+        # Minting runs inside _request, so mint (and cache) the token first:
+        # otherwise a Control Plane error would be read as a problem with the
+        # /v1/entities/all response (a refused scope, or an unexpected body).
+        self._metadata_api_token()
+        if not self.config.include_private:
+            return self._get_cloud_entities(include_private=False)
+        try:
+            return self._get_cloud_entities(include_private=True)
+        except _PrivateEntitiesRefusedError as e:
+            # Cube Cloud can drop the meta-private scope for callers who
+            # may not read the data model, then rejects include_private.
+            # Reported before the retry, so a failing retry cannot skip it.
+            self.report.failure(
+                title="Cube private entities unavailable",
+                message=(
+                    "Cube Cloud refused include_private (HTTP 403), usually "
+                    "because the token lacks the meta-private scope. Ingesting "
+                    "public entities only. Use a Cube Cloud API key or token for "
+                    "an admin or a user who can read the data model, or set "
+                    "include_private: false. If the retry without it also "
+                    "fails, the token cannot read the Metadata API at all."
+                ),
+                exc=e.http_error,
+            )
+            return self._get_cloud_entities(include_private=False)
 
     def get_data_sources(self) -> List[CloudDataSource]:
         if self.config.deployment_type != CubeDeploymentType.CLOUD:
@@ -294,20 +380,64 @@ class CubeAPIClient:
         response = CoreMetaResponse.model_validate(raw)
         return [CubeEntity.from_core_cube(cube) for cube in response.cubes]
 
-    def _get_cloud_entities(self) -> List[CubeEntity]:
+    def _get_cloud_entities(self, *, include_private: bool) -> List[CubeEntity]:
         entities: List[CubeEntity] = []
+        self._skipped_cloud_entities = []
+        body = {"include_private": True} if include_private else {}
         offset = 0
         while True:
-            raw = self._request(
-                HTTP_METHOD_POST,
-                API_ENDPOINT_ENTITIES_ALL,
-                params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
-                json_body={},
-                bearer=True,
-            )
-            response = CloudEntitiesResponse.model_validate(raw)
-            page = response.data.entities
-            entities.extend(CubeEntity.from_cloud_entity(entity) for entity in page)
+            try:
+                raw = self._request(
+                    HTTP_METHOD_POST,
+                    API_ENDPOINT_ENTITIES_ALL,
+                    params={"offset": offset, "limit": METADATA_API_PAGE_SIZE},
+                    json_body=body,
+                    bearer=True,
+                )
+            except requests.HTTPError as e:
+                # Only the first page can be a refused scope; a 403 after
+                # include_private already succeeded has another cause.
+                if (
+                    include_private
+                    and offset == 0
+                    and e.response is not None
+                    and e.response.status_code == HTTPStatus.FORBIDDEN
+                ):
+                    raise _PrivateEntitiesRefusedError(e) from e
+                raise
+            except requests.JSONDecodeError as e:
+                raise _UnexpectedMetadataApiResponseError(
+                    f"/v1/entities/all returned a non-JSON body at offset {offset}"
+                ) from e
+            try:
+                response = CloudEntitiesResponse.model_validate(raw)
+            except ValidationError as e:
+                raise _UnexpectedMetadataApiResponseError(
+                    f"Unexpected /v1/entities/all response at offset {offset}"
+                ) from e
+            page = response.data
+            for raw_entity in page:
+                if raw_entity is None:
+                    # Nothing to match against /v1/meta or to lose, so this is
+                    # counted rather than failing the run.
+                    self.report.metadata_api_null_entities_skipped += 1
+                    continue
+                try:
+                    entity = CloudEntity.model_validate(raw_entity)
+                except ValidationError as e:
+                    name = (
+                        raw_entity.get("name") if isinstance(raw_entity, dict) else None
+                    )
+                    self._skipped_cloud_entities.append(
+                        _SkippedCloudEntity(
+                            name=name if isinstance(name, str) else None,
+                            context=f"{name or '<unnamed entity>'} at offset {offset}",
+                            error=e,
+                        )
+                    )
+                    continue
+                self._report_unusable_references(entity)
+                entities.append(CubeEntity.from_cloud_entity(entity))
 
             pagination = response.pagination
             if pagination is None:
@@ -316,3 +446,51 @@ class CubeAPIClient:
             if offset >= pagination.total or not page:
                 break
         return entities
+
+    def _report_skipped_entity(
+        self, skipped: _SkippedCloudEntity, *, in_meta: bool
+    ) -> None:
+        self.report.metadata_api_entities_skipped += 1
+        if not in_meta:
+            # Only the Metadata API returns this entity, so a failure stops
+            # stale removal deleting it.
+            self.report.failure(
+                title="Skipped invalid Metadata API entity",
+                message="The connector could not parse this entity, so it and "
+                "its lineage are missing from this run; stale removal is skipped.",
+                context=skipped.context,
+                exc=skipped.error,
+            )
+            return
+        if self.config.include_private:
+            # /v1/meta still supplies the entity, but its private members only
+            # come from the Metadata API.
+            self.report.failure(
+                title="Skipped invalid Metadata API entity",
+                message="The connector could not parse this entity, so its "
+                "Metadata API lineage and private members are missing from this "
+                "run; stale removal is skipped.",
+                context=skipped.context,
+                exc=skipped.error,
+            )
+            return
+        self.report.warning(
+            title="Skipped invalid Metadata API entity",
+            message="The connector could not parse this entity, so its "
+            "Metadata API lineage is missing from this run.",
+            context=skipped.context,
+            exc=skipped.error,
+        )
+
+    def _report_unusable_references(self, entity: CloudEntity) -> None:
+        skipped = entity.unusable_reference_count()
+        if not skipped:
+            return
+        self.report.metadata_api_references_skipped += skipped
+        self.report.warning(
+            title="Skipped Metadata API references",
+            message="Some cube or member references could not be used for "
+            "lineage: a member reference without both cube and member, or a "
+            "cube reference that is not of type upstream.",
+            context=f"{entity.name}: {skipped} skipped",
+        )

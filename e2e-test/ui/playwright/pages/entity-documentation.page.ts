@@ -106,14 +106,17 @@ export class EntityDocumentationPage extends BasePage {
     await this.page.waitForLoadState('networkidle');
     // Guard: ensure the entity page loaded and is not a "Not Found" error page.
     // The schema table is rendered only when the entity exists; waiting for any
-    // row with an id matching the column- convention confirms a real schema tab.
-    // eslint-disable-next-line playwright/no-raw-locators -- dynamic id prefix [id^="column-"]; no getByTestId equivalent
-    await expect(this.page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
+    // schema row confirms a real schema tab.
+    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+    await expect(this.page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible(
+      {
+        timeout: 30000,
+      },
+    );
   }
 
   async editFieldDescription(fieldName: string, description: string): Promise<void> {
-    // eslint-disable-next-line playwright/no-raw-locators -- React-generated CSS id (#column-{name}); no data-testid on schema rows
-    const row = this.page.locator(`#column-${fieldName}`);
+    const row = this.page.getByTestId(`schema-field-${fieldName}`);
     const maxAttempts = 2;
 
     for (let attempt = 1; attempt <= maxAttempts; attempt++) {

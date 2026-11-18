@@ -11,11 +11,13 @@ import javax.annotation.Nonnull;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.context.annotation.Bean;
+import org.springframework.context.annotation.Conditional;
 import org.springframework.context.annotation.Configuration;
 
 @Configuration
 @KafkaMessagingDisabled
 @ConditionalOnProperty(name = "entityService.impl", havingValue = "ebean", matchIfMissing = true)
+@Conditional(PostgresQueueStoreCondition.class)
 public class MetadataQueueStoreFactory {
 
   @Bean

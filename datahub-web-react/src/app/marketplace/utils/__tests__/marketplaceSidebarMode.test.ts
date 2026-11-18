@@ -5,10 +5,26 @@ import {
     isMarketplaceSidebarSearchActive,
     isSecondaryBrowseFilter,
     marketplaceSidebarSearchQuery,
+    marketplaceSidebarSearchSort,
     nextPromotedBrowseFilters,
 } from '@app/marketplace/utils/marketplaceSidebarMode';
+import { ENTITY_NAME_FIELD } from '@app/searchV2/context/constants';
+
+import { SortOrder } from '@types';
 
 describe('marketplaceSidebarMode', () => {
+    describe('marketplaceSidebarSearchSort', () => {
+        it('sorts filter-only results by name', () => {
+            expect(marketplaceSidebarSearchSort('*')).toEqual({
+                sortCriteria: [{ field: ENTITY_NAME_FIELD, sortOrder: SortOrder.Ascending }],
+            });
+        });
+
+        it('keeps relevance order for a text query', () => {
+            expect(marketplaceSidebarSearchSort('revenue report')).toBeUndefined();
+        });
+    });
+
     describe('marketplaceSidebarSearchQuery', () => {
         it('uses wildcard when query is blank', () => {
             expect(marketplaceSidebarSearchQuery('')).toBe('*');

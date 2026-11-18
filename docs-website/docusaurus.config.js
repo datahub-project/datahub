@@ -11,10 +11,13 @@ const EXTERNAL_LINK_ICON =
 // /features page EXCEPT 0.13.1, which has no features page in the archive and
 // so points to its version home instead.
 const ARCHIVED_VERSIONS = [
+  ["1.8.0", "1.8.0/features"],
   ["1.7.0", "1.7.0/features"],
   ["1.6.0", "1.6.0/features"],
   ["1.5.0", "1.5.0/features"],
+  ["1.4.0", "1.4.0/features"],
   ["1.3.0", "1.3.0/features"],
+  ["1.2.0", "1.2.0/features"],
   ["1.1.0", "1.1.0/features"],
   ["1.0.0", "1.0.0/features"],
   ["0.15.0", "0.15.0/features"],
@@ -311,7 +314,7 @@ module.exports = {
           lastVersion: "current",
           versions: {
             current: {
-              label: "1.8.0",
+              label: "1.9.0",
               banner: 'none',
             },
           },
@@ -409,6 +412,14 @@ module.exports = {
           {
             from: '/docs/features/feature-guides/observe',
             to: '/docs/managed-datahub/observe/overview',
+          },
+          {
+            from: '/docs/features/feature-guides/file-upload-download',
+            to: '/docs/features/feature-guides/asset-profiles',
+          },
+          {
+            from: '/docs/posts',
+            to: '/docs/features/feature-guides/custom-home-page',
           },
           {
             from: '/docs/managed-datahub/context/overview',

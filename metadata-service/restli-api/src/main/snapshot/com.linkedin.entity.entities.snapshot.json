@@ -7927,7 +7927,7 @@
     }, {
       "name" : "minScore",
       "type" : "float",
-      "doc" : "Minimum relevance score (inclusive) for results on the semantic (kNN) search path. Hits scoring\nbelow this floor are dropped, letting an agent abstain instead of returning weak matches. When\nnull/unset, no floor is applied. Currently honored only by the semantic search path.\n\nThe value is compared against the engine's raw kNN relevance score (cosine-derived), which is\nnot a normalized 0..1 value; its scale depends on the embedding model and search engine, so a\nsuitable floor must be calibrated per deployment rather than assumed.",
+      "doc" : "Deprecated. Minimum engine kNN score (inclusive). On the cosine engines that hybrid read\nallows, the engine score is (1 + cosine) / 2, a normalized value from 0 to 1.\n\nOn semantic search, a hit below this score is dropped, letting an agent abstain instead of\nreturning weak matches. On document rerank, a row below it is not blended and keeps its\nkeyword position; the row is not dropped. When null/unset, no floor is applied. Search\ntemplates add retrieval.minSimilarity, a raw cosine, on the vector leg and knn.blendFloor on\nrerank. Until this flag is removed, a hit or row must pass both it and those controls.",
       "optional" : true
     }, {
       "name" : "searchTemplate",
@@ -8260,6 +8260,39 @@
     } ]
   }, "com.linkedin.metadata.search.FilterValue", {
     "type" : "record",
+    "name" : "KeywordRerankExplanation",
+    "namespace" : "com.linkedin.metadata.search",
+    "doc" : "How the served template's keywordRerank ordered a search result.",
+    "fields" : [ {
+      "name" : "outcome",
+      "type" : "string",
+      "doc" : "applied when the rerank reordered the ranking window, else keptKeywordOrder."
+    }, {
+      "name" : "reason",
+      "type" : "string",
+      "doc" : "Why the result kept keyword order: hybridReadOff, semanticReadOff, noDocument, noEligibleRows,\nprofileNotEmbeddable, rejected, failed, timeout, paused, or notApplicable. Unset when the\nrerank applied.",
+      "optional" : true
+    }, {
+      "name" : "eligibleRows",
+      "type" : "int",
+      "doc" : "Rows in the ranking window whose entity type passes the entity gates. Set when the rerank\nscored its window.",
+      "optional" : true
+    }, {
+      "name" : "ineligibleRows",
+      "type" : "int",
+      "doc" : "Rows in the ranking window that keep their keyword places because their entity type fails the\nentity gates. Set when the rerank scored its window.",
+      "optional" : true
+    }, {
+      "name" : "deprecations",
+      "type" : {
+        "type" : "array",
+        "items" : "string"
+      },
+      "doc" : "Deprecated inputs this search used, each with its replacement.",
+      "default" : [ ]
+    } ]
+  }, {
+    "type" : "record",
     "name" : "LineageScrollResult",
     "namespace" : "com.linkedin.metadata.search",
     "doc" : "The model for the result of a lineage search query",
@@ -8435,6 +8468,11 @@
             "items" : "string"
           },
           "doc" : "Templates visited while choosing this result. Set when the caller asks for an explanation.",
+          "optional" : true
+        }, {
+          "name" : "keywordRerank",
+          "type" : "KeywordRerankExplanation",
+          "doc" : "How the served template's keywordRerank ordered this result. Set when the caller asks for an\nexplanation and the served rung declares keywordRerank.",
           "optional" : true
         } ]
       },

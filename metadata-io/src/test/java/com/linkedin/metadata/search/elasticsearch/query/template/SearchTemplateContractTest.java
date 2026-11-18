@@ -118,11 +118,11 @@ public class SearchTemplateContractTest {
   @Test
   public void testUnsupportedVersionAndCapabilityFailAtWrite() {
     SearchTemplateProperties version = body("Version");
-    version.setApiVersion(2);
+    version.setApiVersion(3);
     SearchTemplateException versionError =
         expectThrows(
             SearchTemplateException.class, () -> SearchTemplateChecks.check(version, 1024));
-    assertTrue(versionError.getMessage().contains("apiVersion 2"));
+    assertTrue(versionError.getMessage().contains("apiVersion 3"));
 
     SearchTemplateProperties capability = body("Capability");
     capability.setApiVersion(SearchTemplateCapabilities.API_VERSION);
@@ -140,23 +140,31 @@ public class SearchTemplateContractTest {
 
   @Test
   public void testMergedContractRejectsUnsupportedValues() {
-    MergedSearchTemplate version = merged().apiVersion(2).build();
+    MergedSearchTemplate version = merged().apiVersion(3).build();
     SearchTemplateException versionError =
         expectThrows(
             SearchTemplateException.class, () -> SearchTemplateChecks.checkMerged(version, 1024));
-    assertTrue(versionError.getMessage().contains("apiVersion 2"));
+    assertTrue(versionError.getMessage().contains("apiVersion 3"));
     expectThrows(
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                version, false, SearchTemplateComponentRegistry.empty()));
+                version,
+                false,
+                false,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
 
     MergedSearchTemplate capability = merged().capabilities(List.of("merge")).build();
     expectThrows(
         SearchTemplateException.class,
         () ->
             SearchTemplateCapabilities.requireSupported(
-                capability, false, true, SearchTemplateComponentRegistry.empty()));
+                capability,
+                false,
+                true,
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none()));
   }
 
   @Test
@@ -182,16 +190,16 @@ public class SearchTemplateContractTest {
     clock.addAndGet(60_000L + 1);
     assertEquals(loader.load(harness.opContext, CHILD).getCapabilities(), List.of("routes"));
 
-    parent.setApiVersion(2);
+    parent.setApiVersion(3);
     clock.addAndGet(60_000L + 1);
     SearchTemplateException dropped =
         expectThrows(SearchTemplateException.class, () -> loader.load(harness.opContext, CHILD));
-    assertTrue(dropped.getMessage().contains("apiVersion 2"));
+    assertTrue(dropped.getMessage().contains("apiVersion 3"));
     SearchTemplateException hidden =
         expectThrows(
             SearchTemplateException.class,
             () -> catalog(parent, child, new AtomicLong()).load(harness.opContext, CHILD));
-    assertTrue(hidden.getMessage().contains("apiVersion 2"));
+    assertTrue(hidden.getMessage().contains("apiVersion 3"));
   }
 
   @Test
@@ -220,14 +228,14 @@ public class SearchTemplateContractTest {
     assertEquals(custom.getApiVersion().intValue(), SearchTemplateCapabilities.API_VERSION);
 
     SearchTemplateProperties rejectedVersion = body("Rejected");
-    rejectedVersion.setApiVersion(2);
+    rejectedVersion.setApiVersion(3);
     List<AspectValidationException> versionRejected =
         validate(
             validator,
             retrieverContext,
             item(UrnUtils.getUrn(CHILD), SYSTEM, ChangeType.UPSERT, rejectedVersion));
     assertFalse(versionRejected.isEmpty());
-    assertTrue(versionRejected.get(0).getMessage().contains("apiVersion 2"));
+    assertTrue(versionRejected.get(0).getMessage().contains("apiVersion 3"));
 
     for (String id : List.of("search", "fulltext", "searchLight")) {
       Urn urn = UrnUtils.getUrn("urn:li:searchTemplate:" + id);
