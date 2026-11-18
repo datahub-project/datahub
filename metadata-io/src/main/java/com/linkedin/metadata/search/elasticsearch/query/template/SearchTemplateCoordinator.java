@@ -122,7 +122,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
    * Nothing is sent to the search engine. Failures are counted and do not fail the Java query.
    *
    * @param walks the request walks a ladder, as a page search does. A filter, aggregation, or count
-   *     does not, so, as when it executes, a scope that leaves out a requested type fails it.
+   *     does not, so, as when it executes, a scope that leaves out a requested type fails it. A
+   *     scroll fails such a scope at bind, so its shadow fails it whether or not it walks.
    */
   public void shadow(
       @Nonnull OperationContext opContext,
@@ -144,7 +145,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         names.add(entitySpec.getName());
       }
       SearchTemplateDryRender preview = preview(rendered, query, names, scroll, null);
-      if (!walks) {
+      if (!walks || scroll) {
         SearchTemplateCapabilities.requireWholeScope(
             loader.load(rendered, preview.resolvedUrn()), names);
       }

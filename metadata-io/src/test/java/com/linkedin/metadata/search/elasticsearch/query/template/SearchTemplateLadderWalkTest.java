@@ -949,6 +949,10 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
     coordinator.shadow(
         scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, false, true);
     assertNotNull(coordinator.lastShadowDsl());
+    // A scroll fails a partial scope at bind, so its shadow fails it too, even where it walks
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, true, true);
+    assertNull(coordinator.lastShadowDsl());
   }
 
   private static boolean sectionsAccepted(SearchTemplateDryRender preview) {
