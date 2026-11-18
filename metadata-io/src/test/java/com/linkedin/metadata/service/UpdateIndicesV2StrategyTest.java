@@ -3,7 +3,9 @@ package com.linkedin.metadata.service;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyBoolean;
 import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.Mockito.doThrow;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -15,6 +17,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.node.JsonNodeFactory;
 import com.fasterxml.jackson.databind.node.ObjectNode;
 import com.linkedin.common.AuditStamp;
@@ -691,6 +694,79 @@ public class UpdateIndicesV2StrategyTest {
     verify(elasticSearchService)
         .upsertDocumentByIndexName(
             eq(operationContext), eq("datasetindex_v2_semantic"), anyString(), anyString());
+  }
+
+  @Test
+  public void testUpdateSearchIndices_OrderedRunFieldsAreScriptedOnTheSemanticIndex()
+      throws Exception {
+    // The run fields leave the upserted documents, so the semantic index needs the script too.
+    SemanticSearchConfiguration semanticConfig = mock(SemanticSearchConfiguration.class);
+    when(semanticConfig.isEnabled()).thenReturn(true);
+    when(semanticConfig.getEnabledEntities()).thenReturn(Set.of("dataset"));
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.getEntityIndexNameSemantic(operationContext, "dataset"))
+        .thenReturn("datasetindex_v2_semantic");
+    when(elasticSearchService.indexExists(
+            any(OperationContext.class), eq("datasetindex_v2_semantic")))
+        .thenReturn(true);
+    UpdateIndicesV2Strategy strategyWithSemantic =
+        new UpdateIndicesV2Strategy(
+            v2Config,
+            elasticSearchService,
+            searchDocumentTransformer,
+            timeseriesAspectService,
+            "MD5",
+            semanticConfig,
+            indexConvention,
+            false,
+            mockMappingsBuilder,
+            null);
+    when(mockAspectSpec.getName()).thenReturn(Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(mockEvent.getAspectName()).thenReturn(Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    ObjectNode current = JsonNodeFactory.instance.objectNode();
+    current.put("urn", testUrn.toString());
+    current.put("lastRunRequestedAtMillis", 200L);
+    current.put("lastRunStatus", "SUCCESS");
+    ObjectNode previous = JsonNodeFactory.instance.objectNode();
+    previous.put("urn", testUrn.toString());
+    previous.put("lastRunRequestedAtMillis", 100L);
+    previous.put("lastRunStatus", "FAILURE");
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(current));
+    when(searchDocumentTransformer.transformAspect(
+            eq(operationContext),
+            eq(testUrn),
+            eq(mockPreviousAspect),
+            eq(mockAspectSpec),
+            eq(false),
+            eq(mockAuditStamp)))
+        .thenReturn(Optional.of(previous));
+
+    strategyWithSemantic.updateSearchIndices(
+        operationContext, Collections.singletonList(mockEvent));
+
+    ArgumentCaptor<String> semanticDocument = ArgumentCaptor.forClass(String.class);
+    verify(elasticSearchService)
+        .upsertDocumentByIndexName(
+            eq(operationContext),
+            eq("datasetindex_v2_semantic"),
+            semanticDocument.capture(),
+            anyString());
+    assertFalse(new ObjectMapper().readTree(semanticDocument.getValue()).has("lastRunStatus"));
+    verify(elasticSearchService)
+        .applyScriptUpdateByIndexName(
+            eq(operationContext),
+            eq("datasetindex_v2_semantic"),
+            anyString(),
+            anyString(),
+            argThat(params -> ((Number) params.get("orderValue")).longValue() == 200L),
+            notNull());
   }
 
   @Test

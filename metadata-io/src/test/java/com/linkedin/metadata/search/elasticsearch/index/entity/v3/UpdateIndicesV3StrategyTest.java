@@ -8,6 +8,7 @@ import static com.linkedin.metadata.Constants.DATASET_USAGE_STATISTICS_ASPECT_NA
 import static com.linkedin.metadata.Constants.DOCUMENT_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DOCUMENT_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORCE_INDEXING_KEY;
+import static com.linkedin.metadata.Constants.INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.SEMANTIC_TEXT_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME;
@@ -19,6 +20,8 @@ import static org.mockito.ArgumentMatchers.anySet;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.ArgumentMatchers.eq;
+import static org.mockito.ArgumentMatchers.isNull;
+import static org.mockito.ArgumentMatchers.notNull;
 import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
@@ -5513,6 +5516,152 @@ public class UpdateIndicesV3StrategyTest {
         operationContext, Collections.singletonMap(testUrn, List.of(event)), false);
 
     assertEquals(capturedDocument(DATASET_ENTITY_NAME).get("removed").asText(), "false");
+  }
+
+  private MCLItem runEvent(RecordTemplate aspect) {
+    AspectSpec runEventSpec = mock(AspectSpec.class);
+    when(runEventSpec.getName()).thenReturn(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME);
+    when(runEventSpec.isTimeseries()).thenReturn(true);
+    when(runEventSpec.getTimeseriesFieldSpecs()).thenReturn(List.of());
+    when(runEventSpec.getTimeseriesFieldCollectionSpecs()).thenReturn(List.of());
+    // The timeseries index writer reads the record itself.
+    DataMap data = new DataMap();
+    data.put("timestampMillis", 1L);
+    when(aspect.data()).thenReturn(data);
+    return aspectEvent(runEventSpec, aspect, ChangeType.UPSERT, null, null);
+  }
+
+  /** Projects each run event to its requested time, and any other aspect to a plain document. */
+  private void stubRunEventProjection(Map<RecordTemplate, Long> requestedAt) throws Exception {
+    when(searchDocumentTransformer.transformAspect(
+            any(OperationContext.class),
+            any(Urn.class),
+            nullable(RecordTemplate.class),
+            any(AspectSpec.class),
+            anyBoolean(),
+            any(AuditStamp.class)))
+        .thenAnswer(
+            invocation -> {
+              AspectSpec spec = invocation.getArgument(3);
+              if (!INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME.equals(spec.getName())) {
+                return Optional.of(searchDocument("source"));
+              }
+              ObjectNode document = JsonNodeFactory.instance.objectNode();
+              document.put("lastRunRequestedAtMillis", requestedAt.get(invocation.getArgument(2)));
+              document.put("lastRunStatus", "SUCCESS");
+              return Optional.of(document);
+            });
+  }
+
+  private static long orderValue(Map<String, Object> params) {
+    return ((Number) params.get("orderValue")).longValue();
+  }
+
+  @Test
+  public void testOrderedRunFieldsAreScriptedOnEveryIndexTheMergeWrites() throws Exception {
+    // The run fields leave the partial merge and are written by a script on the alias, the rollback
+    // copy and, for a batch carrying a delete, the fill target. The fill target only updates a
+    // document the fill already wrote, so its script does not upsert.
+    String alias = v3IndexName("dataset");
+    String oldBacking = alias + "_old";
+    String next = alias + "_0_14_0-0_1679000000000";
+    UpdateIndicesV3Strategy mirroring =
+        createStrategyWithWriteTargets(
+            new IncrementalReindexWriteTargets(
+                Map.of(alias, v3Target(alias, oldBacking)), Map.of(alias, next), null, null, true));
+    when(mockEntitySpec.getAspectSpec(DATASET_PROPERTIES_ASPECT_NAME)).thenReturn(mockAspectSpec);
+    stubRunEventProjection(Map.of(mockAspect, 200L));
+    MCLItem delete = aspectEvent(mockAspectSpec, null, ChangeType.DELETE, "delete-run", null);
+
+    mirroring.processBatch(
+        operationContext, Map.of(testUrn, List.of(delete, runEvent(mockAspect))), false);
+
+    ArgumentCaptor<V3SearchDocumentWrite> writeCaptor =
+        ArgumentCaptor.forClass(V3SearchDocumentWrite.class);
+    verify(elasticSearchService, atLeastOnce())
+        .writeV3SearchDocument(eq(operationContext), writeCaptor.capture());
+    V3SearchDocumentWrite live = writeCaptor.getAllValues().get(0);
+    JsonNode liveDocument = new ObjectMapper().readTree(live.source());
+    assertFalse(liveDocument.has("lastRunRequestedAtMillis"));
+    assertFalse(liveDocument.has("lastRunStatus"));
+    assertFalse(liveDocument.path("_aspects").has(INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME));
+    verify(elasticSearchService)
+        .applyScriptUpdateBySearchGroup(
+            eq(operationContext),
+            eq("dataset"),
+            eq(live.docId()),
+            anyString(),
+            argThat(params -> orderValue(params) == 200L),
+            notNull());
+    verify(elasticSearchService)
+        .applyScriptUpdateByIndexName(
+            eq(operationContext), eq(oldBacking), eq(live.docId()), anyString(), any(), notNull());
+    verify(elasticSearchService)
+        .applyScriptUpdateByIndexName(
+            eq(operationContext), eq(next), eq(live.docId()), anyString(), any(), isNull());
+  }
+
+  @Test
+  public void testEachRunEventInABatchGetsItsOwnScriptInOrder() throws Exception {
+    // The partial merge keeps only the batch's last event, which may be the older run.
+    RecordTemplate newer = mock(RecordTemplate.class);
+    RecordTemplate older = mock(RecordTemplate.class);
+    stubRunEventProjection(Map.of(newer, 200L, older, 100L));
+
+    strategy.processBatch(
+        operationContext, Map.of(testUrn, List.of(runEvent(newer), runEvent(older))), true);
+
+    ArgumentCaptor<Map<String, Object>> params = ArgumentCaptor.forClass(Map.class);
+    ArgumentCaptor<Map<String, Object>> upserts = ArgumentCaptor.forClass(Map.class);
+    verify(elasticSearchService, times(2))
+        .applyScriptUpdateBySearchGroup(
+            eq(operationContext),
+            eq("dataset"),
+            anyString(),
+            anyString(),
+            params.capture(),
+            upserts.capture());
+    assertEquals(
+        params.getAllValues().stream().map(p -> orderValue(p)).toList(), List.of(200L, 100L));
+    // A script that runs before the document exists creates it with its identity.
+    assertEquals(upserts.getValue().get("urn"), testUrn.toString());
+  }
+
+  @Test
+  public void testRunEventScriptDoesNotUpsertWhileTheAliasIsFilledInPlace() throws Exception {
+    // A timeseries-only merge during an in-place fill only updates an existing document, or the
+    // fill would skip the entity. Its run-field script must not create the document either.
+    String alias = v3IndexName("dataset");
+    UpdateIndicesV3Strategy fillingInPlace =
+        createStrategyWithWriteTargets(
+            new IncrementalReindexWriteTargets(Map.of(), Map.of(alias, alias), null, null, true));
+    stubRunEventProjection(Map.of(mockAspect, 200L));
+
+    fillingInPlace.processBatch(
+        operationContext, Map.of(testUrn, List.of(runEvent(mockAspect))), true);
+
+    verify(elasticSearchService)
+        .applyScriptUpdateByIndexName(
+            eq(operationContext), eq(alias), anyString(), anyString(), any(), isNull());
+    verify(elasticSearchService, never())
+        .applyScriptUpdateBySearchGroup(any(), anyString(), anyString(), any(), any(), any());
+  }
+
+  @Test
+  public void testThrottledRunEventGetsNoScript() throws Exception {
+    TimeseriesWriteThrottleCache cache = buildThrottleCache(true, false, false);
+    UpdateIndicesV3Strategy throttledStrategy = createStrategy(false, cache);
+    stubRunEventProjection(Map.of(mockAspect, 200L));
+    when(mockAuditStamp.getTime()).thenReturn(1_000_001_000L);
+    cache.recordWrite(testUrn.toString(), INGESTION_SOURCE_RUN_EVENT_ASPECT_NAME, 1_000_000_000L);
+
+    // Another aspect in the batch still writes the document.
+    throttledStrategy.processBatch(
+        operationContext, Map.of(testUrn, List.of(mockEvent, runEvent(mockAspect))), true);
+
+    verify(elasticSearchService).writeV3SearchDocument(eq(operationContext), any());
+    verify(elasticSearchService, never())
+        .applyScriptUpdateBySearchGroup(any(), anyString(), anyString(), any(), any(), any());
   }
 
   private MCLItem aspectEvent(String aspectName) {
