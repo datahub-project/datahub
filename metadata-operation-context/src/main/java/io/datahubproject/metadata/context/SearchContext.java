@@ -103,6 +103,13 @@ public class SearchContext implements ContextInterface {
   @Nullable private final Set<String> callerOptionalFilterFields;
 
   /**
+   * Whether the caller's own filter, with its view, had a criterion before a GraphQL resolver added
+   * the published-document default. Null when the entry point does not say, as on Rest.li and
+   * OpenAPI, which cannot set it: every filter criterion is then the caller's.
+   */
+  @Nullable private final Boolean callerFiltered;
+
+  /**
    * Search V3 template surface ({@code searchEntities}, {@code scrollEntities}, ...). Selection
    * reads this. It is not an API operation name and not itself a cache component; the resolved
    * template URN is.
@@ -156,7 +163,8 @@ public class SearchContext implements ContextInterface {
                 templateKey,
                 Optional.ofNullable(callerOptionalFilterFields).orElse(Set.of()).stream()
                     .sorted()
-                    .collect(Collectors.joining(",")))
+                    .collect(Collectors.joining(",")),
+                Optional.ofNullable(callerFiltered).map(String::valueOf).orElse(""))
             .mapToInt(String::hashCode)
             .sum());
   }
@@ -252,6 +260,7 @@ public class SearchContext implements ContextInterface {
           this.prioritizedSourceEntityTypes,
           this.prioritizedDatahubEntityTypes,
           this.callerOptionalFilterFields,
+          this.callerFiltered,
           this.searchSurface,
           this.resolvedSearchTemplate,
           this.skipTemplateExecution);

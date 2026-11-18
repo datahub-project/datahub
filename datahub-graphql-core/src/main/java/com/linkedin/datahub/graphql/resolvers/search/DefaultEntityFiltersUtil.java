@@ -6,16 +6,20 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Set;
@@ -47,6 +51,8 @@ public class DefaultEntityFiltersUtil {
    */
   public static final Set<String> DEFAULT_FILTER_FIELDS =
       ImmutableSet.of("state", "lifecycleStage", "showInGlobalContext");
+
+  static final String PUBLISHED_LIFECYCLE_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED";
 
   private DefaultEntityFiltersUtil() {
     // Utility class - prevent instantiation
@@ -138,7 +144,7 @@ public class DefaultEntityFiltersUtil {
 
     // Build default filter for documents (uses negated conditions so non-documents pass through)
     Filter documentDefaults =
-        DocumentDefaultFilter.build(applyShowInGlobalContext, canManageDocuments);
+        buildDocumentDefaultFilter(applyShowInGlobalContext, canManageDocuments);
 
     if (baseFilter == null || !baseFilter.hasOr() || baseFilter.getOr().isEmpty()) {
       return documentDefaults;
@@ -191,5 +197,80 @@ public class DefaultEntityFiltersUtil {
       }
     }
     return Set.copyOf(fields);
+  }
+
+  /**
+   * Builds default filter for documents in cross-entity search. Mirrors the MCP tool's anchor
+   * filter pattern: {@code lifecycleStage = PUBLISHED OR (lifecycleStage IS NULL AND state !=
+   * UNPUBLISHED)}.
+   *
+   * <p>Clause 1 matches documents with the new lifecycleStage field set to PUBLISHED. Clause 2
+   * handles legacy documents (no lifecycleStage) and non-document entities (both fields absent —
+   * negated EQUAL and IS_NULL both succeed when the field does not exist).
+   *
+   * @param applyShowInGlobalContext Whether to filter out showInGlobalContext=false documents
+   * @return Filter with document defaults
+   */
+  private static Filter buildDocumentDefaultFilter(
+      boolean applyShowInGlobalContext, boolean canManageDocuments) {
+    List<ConjunctiveCriterion> orClauses = new ArrayList<>();
+
+    // Clause 1: lifecycleStage = PUBLISHED
+    List<Criterion> publishedCriteria = new ArrayList<>();
+    publishedCriteria.add(buildEqualCriterion("lifecycleStage", PUBLISHED_LIFECYCLE_STAGE_URN));
+    if (applyShowInGlobalContext) {
+      publishedCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+    }
+    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(publishedCriteria)));
+
+    // Clause 2: lifecycleStage IS_NULL AND state != UNPUBLISHED (legacy fallback).
+    // Non-document entities also match this clause (both fields absent).
+    // When canManageDocuments is true, skip the state != UNPUBLISHED filter so
+    // privileged users can see unpublished documents.
+    List<Criterion> legacyCriteria = new ArrayList<>();
+    legacyCriteria.add(buildIsNullCriterion("lifecycleStage"));
+    if (!canManageDocuments) {
+      legacyCriteria.add(buildNegatedCriterion("state", "UNPUBLISHED"));
+    }
+    if (applyShowInGlobalContext) {
+      legacyCriteria.add(buildNegatedCriterion("showInGlobalContext", "false"));
+    }
+    orClauses.add(new ConjunctiveCriterion().setAnd(new CriterionArray(legacyCriteria)));
+
+    return new Filter().setOr(new ConjunctiveCriterionArray(orClauses));
+  }
+
+  private static Criterion buildEqualCriterion(String field, String value) {
+    Criterion criterion = new Criterion();
+    criterion.setField(field);
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList(value)));
+    return criterion;
+  }
+
+  /** Builds an IS_NULL criterion — matches documents where the field is absent / not set. */
+  private static Criterion buildIsNullCriterion(String field) {
+    Criterion criterion = new Criterion();
+    criterion.setField(field);
+    criterion.setCondition(Condition.IS_NULL);
+    return criterion;
+  }
+
+  /**
+   * Helper to build a negated Criterion (field != value).
+   *
+   * @param field The field name
+   * @param value The value to exclude
+   * @return A Criterion with EQUAL condition and negated=true
+   */
+  private static Criterion buildNegatedCriterion(String field, String value) {
+    Criterion criterion = new Criterion();
+    criterion.setField(field);
+    criterion.setCondition(Condition.EQUAL);
+    criterion.setValues(
+        new com.linkedin.data.template.StringArray(Collections.singletonList(value)));
+    criterion.setNegated(true);
+    return criterion;
   }
 }

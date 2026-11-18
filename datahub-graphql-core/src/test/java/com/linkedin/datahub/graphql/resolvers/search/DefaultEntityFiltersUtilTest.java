@@ -8,9 +8,7 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
-import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -18,8 +16,6 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
-import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
-import com.linkedin.metadata.utils.CriterionUtils;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -166,40 +162,6 @@ public class DefaultEntityFiltersUtilTest {
     ConjunctiveCriterion legacyClause = result.getOr().get(1);
     assertTrue(hasFieldWithCondition(legacyClause, "lifecycleStage", Condition.IS_NULL));
     assertNull(findNegatedCriterion(legacyClause, "state"));
-  }
-
-  @Test
-  public void testTheDocumentDefaultIsNotTheCallersFilter() {
-    // A vector store that cannot filter fails closed on a caller filter, so the filter this util
-    // passes when the caller sets none must be recognizable as the default where it is consumed
-    for (Filter none : new Filter[] {null, new Filter()}) {
-      for (boolean canManageDocuments : new boolean[] {false, true}) {
-        assertTrue(
-            DocumentDefaultFilter.isDefault(
-                DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                    none, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments)));
-      }
-    }
-
-    // A caller filter merged in is not the default, even one shaped like part of it
-    for (String field : new String[] {"domains", "lifecycleStage"}) {
-      String value =
-          "domains".equals(field)
-              ? "urn:li:domain:sales"
-              : DocumentDefaultFilter.PUBLISHED_LIFECYCLE_STAGE_URN;
-      Filter caller =
-          new Filter()
-              .setOr(
-                  new ConjunctiveCriterionArray(
-                      new ConjunctiveCriterion()
-                          .setAnd(
-                              new CriterionArray(
-                                  CriterionUtils.buildCriterion(field, Condition.EQUAL, value)))));
-      assertFalse(
-          DocumentDefaultFilter.isDefault(
-              DefaultEntityFiltersUtil.addDefaultEntityFilters(
-                  caller, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, false)));
-    }
   }
 
   private static boolean hasField(ConjunctiveCriterion clause, String field) {

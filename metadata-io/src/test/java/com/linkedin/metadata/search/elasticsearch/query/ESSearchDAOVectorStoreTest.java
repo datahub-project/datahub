@@ -20,6 +20,7 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -50,7 +51,6 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
-import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -274,33 +274,21 @@ public class ESSearchDAOVectorStoreTest {
     assertEquals(unfiltered.getNumEntities().intValue(), 3);
     assertNull(fake.requests.get(0).filter());
 
-    // The published-document default the GraphQL resolvers pass with no caller filter is a
-    // system default too
-    Filter documentDefault = DocumentDefaultFilter.build(true, false);
-    search(documentDefault, f -> {});
+    // A Rest.li or OpenAPI caller cannot mark its filter, so a filter equal to the
+    // published-document default is still the caller's
+    Filter documentDefault = documentDefault();
+    assertThrows(SearchTemplateFailClosedException.class, () -> search(documentDefault, f -> {}));
+    // A GraphQL resolver records that the caller set no filter before it added that default
+    search(harness.opContext.withCallerFiltered(false), documentDefault, f -> {});
     assertNull(fake.requests.get(1).filter());
-    // A caller filter still counts when it is shaped like part of that default, alone or merged
-    // with it, and so does the default merged with a caller facet
-    Filter published =
-        filter("lifecycleStage", DocumentDefaultFilter.PUBLISHED_LIFECYCLE_STAGE_URN);
-    Filter noStage =
-        new Filter()
-            .setOr(
-                new ConjunctiveCriterionArray(
-                    new ConjunctiveCriterion()
-                        .setAnd(
-                            new CriterionArray(
-                                new Criterion()
-                                    .setField("lifecycleStage")
-                                    .setCondition(Condition.IS_NULL)))));
-    for (Filter callerShaped :
-        List.of(
-            published,
-            noStage,
-            FilterUtils.combineFilters(published, documentDefault),
-            FilterUtils.combineFilters(caller, documentDefault))) {
-      assertThrows(SearchTemplateFailClosedException.class, () -> search(callerShaped, f -> {}));
-    }
+    // ... or that the caller set one
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () ->
+            search(
+                harness.opContext.withCallerFiltered(true),
+                FilterUtils.combineFilters(caller, documentDefault),
+                f -> {}));
     assertEquals(fake.requests.size(), 2);
 
     // A store with preFilter retrieves inside the caller's filter
@@ -611,6 +599,34 @@ public class ESSearchDAOVectorStoreTest {
     verify(client, times(1))
         .search(any(OperationContext.class), request.capture(), eq(RequestOptions.DEFAULT));
     return request.getValue();
+  }
+
+  /** The published-document default the GraphQL resolvers add when the caller sets no filter. */
+  private static Filter documentDefault() {
+    return new Filter()
+        .setOr(
+            new ConjunctiveCriterionArray(
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            equal("lifecycleStage", "urn:li:lifecycleStageType:PUBLISHED", false),
+                            equal("showInGlobalContext", "false", true))),
+                new ConjunctiveCriterion()
+                    .setAnd(
+                        new CriterionArray(
+                            new Criterion()
+                                .setField("lifecycleStage")
+                                .setCondition(Condition.IS_NULL),
+                            equal("state", "UNPUBLISHED", true),
+                            equal("showInGlobalContext", "false", true)))));
+  }
+
+  private static Criterion equal(String field, String value, boolean negated) {
+    return new Criterion()
+        .setField(field)
+        .setCondition(Condition.EQUAL)
+        .setValues(new StringArray(value))
+        .setNegated(negated);
   }
 
   /** The URNs the request's terms clause on {@code urn} names, in order. */

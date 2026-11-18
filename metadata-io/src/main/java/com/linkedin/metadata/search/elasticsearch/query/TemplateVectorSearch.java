@@ -12,7 +12,6 @@ import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
-import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntity;
@@ -35,9 +34,9 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
-import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
@@ -170,7 +169,8 @@ final class TemplateVectorSearch {
               + ", which has no adapter in this process");
     }
     // Trimming a global top-k to the caller's filter would return the wrong neighbors
-    if (!store.capabilities().contains(VectorStore.PRE_FILTER) && hasCallerFilter(postFilters)) {
+    if (!store.capabilities().contains(VectorStore.PRE_FILTER)
+        && hasCallerFilter(opContext, postFilters)) {
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.NO_PRE_FILTER);
       throw new SearchTemplateFailClosedException(
           "Search template "
@@ -610,23 +610,15 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * True when the request carries a filter with a criterion, unless that filter is exactly the
-   * published-document default the GraphQL resolvers pass when the caller sets none. The system
-   * filters come from the search flags, so they never count. The default is recognized only as a
-   * whole filter, so a caller filter shaped like part of it still counts.
+   * True when the request carries a filter of the caller's own. The system filters come from the
+   * search flags, so they never count. A GraphQL resolver that adds the published-document default
+   * records whether the caller's filter had a criterion before it did. Without that record, as on
+   * Rest.li and OpenAPI, every filter criterion is the caller's.
    */
-  private static boolean hasCallerFilter(@Nullable Filter filter) {
-    if (filter == null || DocumentDefaultFilter.isDefault(filter)) {
-      return false;
-    }
-    if (filter.hasOr()) {
-      for (ConjunctiveCriterion clause : filter.getOr()) {
-        if (clause.hasAnd() && !clause.getAnd().isEmpty()) {
-          return true;
-        }
-      }
-    }
-    return filter.hasCriteria() && !filter.getCriteria().isEmpty();
+  private static boolean hasCallerFilter(
+      @Nonnull OperationContext opContext, @Nullable Filter filter) {
+    final Boolean callerFiltered = opContext.getSearchContext().getCallerFiltered();
+    return callerFiltered != null ? callerFiltered : FilterUtils.hasCriterion(filter);
   }
 
   /**
