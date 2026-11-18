@@ -1,0 +1,133 @@
+fragment actorPolicyFields on ActorPolicy {
+    urn
+    builtIn
+    name
+    description
+    type
+    state
+    privileges
+    resources {
+        type
+        allResources
+        resources
+        filter {
+            criteria {
+                field
+                values {
+                    value
+                    entity {
+                        ...searchResultFieldsNoLineage
+                    }
+                }
+                condition
+                structuredPropertyValues {
+                    propertyUrn
+                    values
+                }
+            }
+        }
+    }
+    actors {
+        users
+        groups
+        roles
+        allUsers
+        allGroups
+        resourceOwners
+        resourceOwnersTypes
+        resolvedOwnershipTypes {
+            urn
+            info {
+                name
+            }
+        }
+        resolvedUsers {
+            username
+            urn
+            type
+            properties {
+                active
+                displayName
+                title
+                firstName
+                lastName
+                fullName
+                email
+            }
+            editableProperties {
+                displayName
+                pictureLink
+                teams
+                title
+                skills
+            }
+        }
+        resolvedGroups {
+            name
+            urn
+            type
+            properties {
+                displayName
+                description
+                email
+            }
+            editableProperties {
+                description
+                slack
+                email
+            }
+        }
+        resolvedRoles {
+            urn
+            type
+            name
+            description
+        }
+    }
+    matchedBy {
+        type
+        group {
+            urn
+            type
+            name
+            properties {
+                displayName
+            }
+        }
+        role {
+            urn
+            type
+            name
+        }
+    }
+}
+
+query getUserPolicies($urn: String!, $includeInactive: Boolean, $skipSiblingsSearch: Boolean = false) {
+    corpUser(urn: $urn) {
+        urn
+        policies(input: { includeInactive: $includeInactive }) {
+            view
+            policies {
+                ...actorPolicyFields
+            }
+            ownerPolicies {
+                ...actorPolicyFields
+            }
+        }
+    }
+}
+
+query getGroupPolicies($urn: String!, $includeInactive: Boolean, $skipSiblingsSearch: Boolean = false) {
+    corpGroup(urn: $urn) {
+        urn
+        policies(input: { includeInactive: $includeInactive }) {
+            view
+            policies {
+                ...actorPolicyFields
+            }
+            ownerPolicies {
+                ...actorPolicyFields
+            }
+        }
+    }
+}
