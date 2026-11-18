@@ -48,7 +48,7 @@ and mapped to the DataHub `CorpUserInfo` aspect:
 
 Country is read from `usageLocation`.
 
-To ingest more user properties, list them in `user_select_attributes`, for example `country` or `userType`. They are stored as custom properties on the user.
+To ingest more user properties, list them in `user_select_attributes`, for example `country` or `userType`. They are stored as custom properties on the user. Lists, booleans and objects are stored as JSON, and empty values are skipped.
 
 This connector emits both `corpUserInfo.active` and the `corpUserStatus` aspect for each user. Azure AD `accountEnabled: false` maps to DataHub `SUSPENDED` (and `active: false`); enabled or missing values map to `ACTIVE` (and `active: true`). Azure AD only returns `accountEnabled` when the app registration has `User.Read.All`. If it is missing, users are treated as active and the run reports a warning.
 
