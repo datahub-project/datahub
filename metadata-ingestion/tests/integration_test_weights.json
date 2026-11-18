@@ -49176,7 +49176,7 @@
     "duration": "0.006s"
   },
   {
-    "testId": "tests.unit.ingestion.source.unstructured.test_provider_lazy_imports.TestDocumentSourcesImportWithoutProviderSDKs::test_source_already_importable[datahub.ingestion.source.confluence.confluence_source]",
+    "testId": "tests.unit.ingestion.source.unstructured.test_provider_lazy_imports.TestDocumentSourcesImportWithoutProviderSDKs::test_source_already_importable[datahub.ingestion.source.confluence.source]",
     "duration": "0.006s"
   },
   {

@@ -66,7 +66,8 @@ public class SearchTemplateOperationsTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     opContext = opContext.withSearchTemplateRuntime(coordinator);
   }
 
@@ -191,7 +192,8 @@ public class SearchTemplateOperationsTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertFalse(disabled.active());
     assertNull(disabled.bind(opContext, "orders").getSearchContext().getResolvedSearchTemplate());
 
@@ -207,7 +209,8 @@ public class SearchTemplateOperationsTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .active());
     assertTrue(
         new SearchTemplateCoordinator(
@@ -215,7 +218,8 @@ public class SearchTemplateOperationsTest {
                 null,
                 harness.loader,
                 ForkJoinPool.commonPool(),
-                SearchTemplateComponentRegistry.empty())
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.none())
             .active());
   }
 
@@ -241,7 +245,7 @@ public class SearchTemplateOperationsTest {
                   "orders", null, null, 10, SearchTemplateWalk.identity()),
               urn ->
                   SearchTemplateWalk.AttemptResult.ok(
-                      urn, 1, List.of(), List.of(), false, null, null),
+                      urn, 1, List.of(), List.of(), false, null, null, false),
               (first, entities, total) -> first);
       assertEquals(served.urn(), FULL);
     } finally {

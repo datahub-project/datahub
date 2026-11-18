@@ -137,7 +137,11 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
               SearchTemplateException.class,
               () ->
                   SearchTemplateCapabilities.requireSupported(
-                      merged, true, false, SearchTemplateComponentRegistry.empty()));
+                      merged,
+                      true,
+                      false,
+                      SearchTemplateComponentRegistry.empty(),
+                      SearchTemplateGates.none()));
         });
   }
 
@@ -158,6 +162,16 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
     assertThrows(
         SearchTemplateException.class,
         () -> loader.load(opContext, "urn:li:searchTemplate:matchV1"));
+  }
+
+  @Test
+  public void testAProfilesResetNeedsTheSemanticVersion() {
+    SearchTemplateProperties reset = body("Reset", "{ \"match_all\": {} }", null);
+    reset.setProfiles(new SearchTemplateProfiles().setUseDefault(true));
+    store("urn:li:searchTemplate:resetV1", reset);
+    assertThrows(
+        SearchTemplateException.class,
+        () -> loader.load(opContext, "urn:li:searchTemplate:resetV1"));
   }
 
   @Test

@@ -67,7 +67,8 @@ public class SearchTemplateParityTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     javaBuilder = new V3SearchQueryBuilder(elastic.getSearch(), null);
     dataset = harness.registry.getEntitySpec("dataset");
     harness.opContext = harness.opContext.withSearchTemplateRuntime(coordinator);

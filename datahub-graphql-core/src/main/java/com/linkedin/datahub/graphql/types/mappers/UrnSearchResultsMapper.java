@@ -8,6 +8,7 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.RecordTemplate;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.generated.Entity;
+import com.linkedin.datahub.graphql.generated.KeywordRerankExplanation;
 import com.linkedin.datahub.graphql.generated.SearchResult;
 import com.linkedin.datahub.graphql.generated.SearchResults;
 import com.linkedin.datahub.graphql.resolvers.policy.mappers.PolicyInfoPolicyMapper;
@@ -67,8 +68,23 @@ public class UrnSearchResultsMapper<T extends RecordTemplate, E extends Entity> 
     if (searchResultMetadata.hasRouteChain()) {
       result.setRouteChain(new ArrayList<>(searchResultMetadata.getRouteChain()));
     }
+    if (searchResultMetadata.hasKeywordRerank()) {
+      result.setKeywordRerank(mapKeywordRerank(searchResultMetadata.getKeywordRerank()));
+    }
 
     return result;
+  }
+
+  @Nonnull
+  private static KeywordRerankExplanation mapKeywordRerank(
+      @Nonnull com.linkedin.metadata.search.KeywordRerankExplanation input) {
+    final KeywordRerankExplanation explanation = new KeywordRerankExplanation();
+    explanation.setOutcome(input.getOutcome());
+    explanation.setReason(input.getReason());
+    explanation.setEligibleRows(input.getEligibleRows());
+    explanation.setIneligibleRows(input.getIneligibleRows());
+    explanation.setDeprecations(new ArrayList<>(input.getDeprecations()));
+    return explanation;
   }
 
   /**

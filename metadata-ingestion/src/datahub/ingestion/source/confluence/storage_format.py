@@ -5,7 +5,7 @@ from bs4 import BeautifulSoup, NavigableString, Tag
 from markdownify import markdownify
 from pydantic import BaseModel, ConfigDict
 
-from datahub.ingestion.source.confluence.confluence_constants import (
+from datahub.ingestion.source.confluence.constants import (
     DISCARD_MACROS,
     NAMESPACED_TAG_PATTERN,
     TASK_STATUS_COMPLETE,

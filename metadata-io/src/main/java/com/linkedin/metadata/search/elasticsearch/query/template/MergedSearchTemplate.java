@@ -75,6 +75,12 @@ public class MergedSearchTemplate {
    */
   @Nullable SearchTemplateProfiles profiles;
 
+  /**
+   * True when a template in the chain set {@code profiles}, a {@code useDefault} reset included. A
+   * reset merges to a null selection, and it still supersedes the deprecated model and field names.
+   */
+  @Builder.Default boolean profilesSet = false;
+
   /** Static entity scope. Null means the whole request. */
   @Nullable SearchTemplateScope scope;
 

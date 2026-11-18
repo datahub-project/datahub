@@ -102,8 +102,11 @@ ENV UV_DEFAULT_INDEX=http://127.0.0.1:1/simple
 ENV PIP_INDEX_URL=http://127.0.0.1:1/simple
 ENV PIP_EXTRA_INDEX_URL=""
 ENV UV_EXTRA_INDEX_URL=""
+ENV INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false
 USER datahub
 ```
+
+`INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false` tells the executor it cannot install packages at run time: every run then uses the bundled venv for its connector, whatever CLI version the source requests, and a run for a connector the image does not bundle fails with an error naming it.
 
 ## Using a bundled connector
 

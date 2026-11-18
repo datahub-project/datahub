@@ -1,0 +1,36 @@
+namespace com.linkedin.metadata.search
+
+/**
+ * How the served template's keywordRerank ordered a search result.
+ */
+record KeywordRerankExplanation {
+
+  /**
+   * applied when the rerank reordered the ranking window, else keptKeywordOrder.
+   */
+  outcome: string
+
+  /**
+   * Why the result kept keyword order: hybridReadOff, semanticReadOff, noDocument, noEligibleRows,
+   * profileNotEmbeddable, rejected, failed, timeout, paused, or notApplicable. Unset when the
+   * rerank applied.
+   */
+  reason: optional string
+
+  /**
+   * Rows in the ranking window whose entity type passes the entity gates. Set when the rerank
+   * scored its window.
+   */
+  eligibleRows: optional int
+
+  /**
+   * Rows in the ranking window that keep their keyword places because their entity type fails the
+   * entity gates. Set when the rerank scored its window.
+   */
+  ineligibleRows: optional int
+
+  /**
+   * Deprecated inputs this search used, each with its replacement.
+   */
+  deprecations: array[string] = []
+}

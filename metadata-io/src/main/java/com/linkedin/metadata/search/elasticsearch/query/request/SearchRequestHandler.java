@@ -541,21 +541,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   @Nonnull
@@ -589,22 +590,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
     searchRequest.indicesOptions(null);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   private static boolean templatesActive(@Nonnull OperationContext opContext) {

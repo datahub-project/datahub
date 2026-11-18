@@ -501,7 +501,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                       List.of(),
                       urn.equals(shard),
                       null,
-                      null);
+                      null,
+                      false);
                 },
                 (first, entities, total) -> {
                   SearchResult copy = new SearchResult();
@@ -635,7 +636,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext searching =
         opContext
             .withSearchFlags(flags -> flags.setFulltext(true))

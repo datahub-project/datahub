@@ -802,6 +802,12 @@ type SearchResults {
   Templates visited while choosing this result, when the caller asked for an explanation
   """
   routeChain: [String!]
+
+  """
+  How the served template's keywordRerank ordered this result, when the caller asked for an
+  explanation
+  """
+  keywordRerank: KeywordRerankExplanation
 }
 
 type ExtraProperty {
@@ -1760,4 +1766,36 @@ enum LineageSearchPath {
   Designates the lightning lineage code path
   """
   LIGHTNING
+}
+
+"""
+How the served template's keywordRerank ordered a search result
+"""
+type KeywordRerankExplanation {
+  """
+  applied when the rerank reordered the ranking window, else keptKeywordOrder
+  """
+  outcome: String!
+
+  """
+  Why the result kept keyword order, such as hybridReadOff, noEligibleRows, failed, timeout, or
+  notApplicable. Unset when the rerank applied
+  """
+  reason: String
+
+  """
+  Rows in the ranking window whose entity type passes the entity gates
+  """
+  eligibleRows: Int
+
+  """
+  Rows in the ranking window that keep their keyword places because their entity type fails the
+  entity gates
+  """
+  ineligibleRows: Int
+
+  """
+  Deprecated inputs this search used, each with its replacement
+  """
+  deprecations: [String!]
 }

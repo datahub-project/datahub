@@ -657,7 +657,8 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext scrolled = coordinator.bind(opContext, "*", true);
     assertEquals(
         scrolled.getSearchContext().getResolvedSearchTemplate().getUrn(),
