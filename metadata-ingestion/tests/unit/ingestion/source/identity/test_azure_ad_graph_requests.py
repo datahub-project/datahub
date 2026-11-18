@@ -119,14 +119,7 @@ def test_select_includes_department_company_and_extra_attributes() -> None:
     )
 
 
-def test_manager_is_expanded_only_when_enabled() -> None:
-    assert "$expand" not in _requested_query(_make_source())
-
-    expand = _requested_query(_make_source(ingest_user_manager=True))["$expand"][0]
-    assert expand == "manager($select=id,userPrincipalName)"
-
-
-def test_user_mapping_department_manager_and_custom_properties() -> None:
+def test_user_mapping_department_and_custom_properties() -> None:
     source = _make_source(user_select_attributes=["officeLocation", "employeeId"])
     azure_ad_user: Dict[str, object] = {
         "displayName": "Jane Doe",
@@ -135,32 +128,16 @@ def test_user_mapping_department_manager_and_custom_properties() -> None:
         "companyName": "Example Corp",
         "officeLocation": "Madrid",
         "employeeId": None,
-        "manager": {
-            "@odata.type": "#microsoft.graph.user",
-            "id": "m-1",
-            "userPrincipalName": "boss@example.com",
-        },
     }
 
     info = source._map_azure_ad_user_to_corp_user(azure_ad_user)
 
     assert info.departmentName == "Data & AI"
-    assert info.managerUrn == "urn:li:corpuser:boss@example.com"
     # Unset attributes are left out rather than stored as "None".
     assert info.customProperties == {
         "companyName": "Example Corp",
         "officeLocation": "Madrid",
     }
-
-
-def test_manager_that_is_not_a_user_is_ignored() -> None:
-    source = _make_source()
-    azure_ad_user: Dict[str, object] = {
-        "displayName": "Jane Doe",
-        "manager": {"@odata.type": "#microsoft.graph.orgContact", "id": "c-1"},
-    }
-
-    assert source._map_azure_ad_user_to_corp_user(azure_ad_user).managerUrn is None
 
 
 def test_warns_when_graph_omits_account_enabled() -> None:

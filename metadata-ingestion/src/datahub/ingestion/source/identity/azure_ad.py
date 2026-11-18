@@ -174,14 +174,8 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
     user_select_attributes: List[str] = Field(
         default=[],
         description="Additional Azure AD user properties to request from Microsoft Graph, for example "
-        "`officeLocation` or `employeeId`. They are stored as custom properties on the DataHub user. "
+        "`country` or `userType`. They are stored as custom properties on the DataHub user. "
         "`department` and `companyName` are always requested.",
-    )
-    ingest_user_manager: bool = Field(
-        default=False,
-        description="Whether to ingest each user's manager. The manager's username is derived with "
-        "`azure_ad_response_to_username_attr` and `azure_ad_response_to_username_regex`. Only applies "
-        "to users fetched with `ingest_users`, not to users found through group membership.",
     )
 
     # Configuration for stateful ingestion
@@ -495,11 +489,7 @@ class AzureADSource(StatefulIngestionSourceBase):
         return "$select=" + ",".join(properties)
 
     def _get_azure_ad_users(self) -> Iterable[List]:
-        query = self._user_select_query()
-        if self.config.ingest_user_manager:
-            username_attr = self.config.azure_ad_response_to_username_attr
-            query += f"&$expand=manager($select=id,{username_attr})"
-        yield from self._get_azure_ad_data(kind=f"/users?{query}")
+        yield from self._get_azure_ad_data(kind=f"/users?{self._user_select_query()}")
 
     def _get_azure_ad_group_members(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
@@ -709,23 +699,8 @@ class AzureADSource(StatefulIngestionSourceBase):
             title=azure_ad_user.get("jobTitle"),
             countryCode=azure_ad_user.get("usageLocation"),
             departmentName=azure_ad_user.get("department"),
-            managerUrn=self._map_azure_ad_manager_to_urn(azure_ad_user.get("manager")),
             customProperties=self._map_azure_ad_user_custom_properties(azure_ad_user),
         )
-
-    def _map_azure_ad_manager_to_urn(self, manager: Optional[dict]) -> Optional[str]:
-        # A manager can also be an organizational contact, which is not a DataHub user.
-        if not manager or manager.get("@odata.type") != "#microsoft.graph.user":
-            return None
-        try:
-            return self._map_azure_ad_user_to_urn(manager)
-        except ValueError as e:
-            self.report.warning(
-                message="Failed to derive the username of a user's manager",
-                context=str(manager.get("id")),
-                exc=e,
-            )
-            return None
 
     def _map_azure_ad_user_custom_properties(
         self, azure_ad_user: dict
