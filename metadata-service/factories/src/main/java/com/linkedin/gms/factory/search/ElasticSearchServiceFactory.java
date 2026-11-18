@@ -133,6 +133,10 @@ public class ElasticSearchServiceFactory {
       @Qualifier("embeddingProvider")
           final ObjectProvider<EmbeddingProvider> embeddingProviderProvider,
       final SearchClusterRegistry searchClusterRegistry) {
+    // One query embedding service, so a vector rung and the reranker share its recent embeddings
+    final HybridQueryEmbeddingService queryEmbedding =
+        vectorQueryEmbedding(
+            elasticSearchConfiguration.getEntityIndex(), embeddingProviderProvider::getIfAvailable);
     return new ESSearchDAO(
         elasticSearchConfiguration.getSearch().isPointInTimeCreationEnabled(),
         elasticSearchConfiguration,
@@ -144,10 +148,9 @@ public class ElasticSearchServiceFactory {
         hybridSearchResultReranker(
             elasticSearchConfiguration.getEntityIndex(),
             embeddingProviderProvider::getIfAvailable,
-            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3)),
-        vectorQueryEmbedding(
-            elasticSearchConfiguration.getEntityIndex(),
-            embeddingProviderProvider::getIfAvailable));
+            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3),
+            queryEmbedding),
+        queryEmbedding);
   }
 
   /**
@@ -190,7 +193,8 @@ public class ElasticSearchServiceFactory {
   static HybridSearchResultReranker hybridSearchResultReranker(
       @Nullable final EntityIndexConfiguration entityIndex,
       @Nonnull final Supplier<EmbeddingProvider> embeddingProvider,
-      @Nonnull final Supplier<SearchClientShim<?>> searchV3Client) {
+      @Nonnull final Supplier<SearchClientShim<?>> searchV3Client,
+      @Nullable final HybridQueryEmbeddingService sharedQueryEmbedding) {
     if (entityIndex == null
         || entityIndex.getV3() == null
         || !entityIndex.getV3().isEnabled()
@@ -232,7 +236,11 @@ public class ElasticSearchServiceFactory {
     final SearchClientShim<?> client = searchV3Client.get();
     SemanticEntitySearchService.requireSupportedV3Engine(entityIndex, client);
     return new HybridSearchResultReranker(
-        new HybridQueryEmbeddingService(provider, modelId, modelKey, model.getVectorDimension()),
+        // Every check above implies the vector rung's, so the shared service exists here
+        sharedQueryEmbedding != null
+            ? sharedQueryEmbedding
+            : new HybridQueryEmbeddingService(
+                provider, modelId, modelKey, model.getVectorDimension()),
         new V3HybridKnnRequestBuilder(semanticSearch),
         new HybridScoreMapBuilder(
             new HybridVectorScoreNormalizer(client.getEngineType(), model.getSpaceType())),

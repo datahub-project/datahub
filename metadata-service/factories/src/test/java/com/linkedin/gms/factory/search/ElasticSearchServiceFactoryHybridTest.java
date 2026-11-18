@@ -80,7 +80,7 @@ public class ElasticSearchServiceFactoryHybridTest {
         IllegalStateException.class,
         () ->
             ElasticSearchServiceFactory.hybridSearchResultReranker(
-                entityIndex(v3 -> {}), () -> provider, () -> openSearch34));
+                entityIndex(v3 -> {}), () -> provider, () -> openSearch34, null));
   }
 
   @Test
@@ -105,7 +105,7 @@ public class ElasticSearchServiceFactoryHybridTest {
     SearchClientShim<?> elasticsearch = mock(SearchClientShim.class);
     when(elasticsearch.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
     return ElasticSearchServiceFactory.hybridSearchResultReranker(
-        entityIndex, () -> provider, () -> elasticsearch);
+        entityIndex, () -> provider, () -> elasticsearch, null);
   }
 
   /** V3 with keyword, semantic and hybrid reads on, then {@code v3} adjusts the V3 settings. */
