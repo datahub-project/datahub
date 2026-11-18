@@ -7,14 +7,14 @@ import { EntityTab } from '@app/entityV2/shared/types';
 
 const routeToTab = vi.fn();
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: () => ({ entityData: {}, loading: false }),
     useBaseEntity: () => ({}),
     useRouteToTab: () => routeToTab,
 }));
 
 // Render each tab as a button so the test checks how EntityTabs wires keys, selection and routing.
-vi.mock('@components', () => ({
+vi.mock('@app/sharedV2/tabs/Tabs', () => ({
     Tabs: ({
         tabs,
         selectedTab,

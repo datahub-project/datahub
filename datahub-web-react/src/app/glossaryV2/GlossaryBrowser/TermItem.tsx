@@ -41,6 +41,7 @@ interface Props {
     includeActiveTabPath?: boolean;
     depth: number;
     selectedUrns?: string[];
+    termUrnToHide?: string;
     iconColor?: string;
     /**
      * SaaS: pass lifecycle / version badges here (or compose in a fork wrapper).
@@ -50,7 +51,17 @@ interface Props {
 }
 
 function TermItem(props: Props) {
-    const { term, isSelecting, selectTerm, includeActiveTabPath, depth, selectedUrns, iconColor, afterLabel } = props;
+    const {
+        term,
+        isSelecting,
+        selectTerm,
+        includeActiveTabPath,
+        depth,
+        selectedUrns,
+        termUrnToHide,
+        iconColor,
+        afterLabel,
+    } = props;
 
     const history = useHistory();
     const { entityData } = useGlossaryEntityData();
@@ -109,6 +120,8 @@ function TermItem(props: Props) {
             {afterLabel}
         </>
     ) : undefined;
+
+    if (termUrnToHide === term.urn) return null;
 
     return (
         <HierarchicalBrowseTreeRow

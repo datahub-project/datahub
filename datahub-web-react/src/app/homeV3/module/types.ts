@@ -20,4 +20,6 @@ export interface ModuleContextType {
     isReloading: boolean;
     onReloadingFinished: () => void;
     size?: ModuleSize;
+    // Lets a module that renders nothing (e.g. no data) tell its row, so a row with only hidden modules can collapse
+    setIsHidden: (isHidden: boolean) => void;
 }

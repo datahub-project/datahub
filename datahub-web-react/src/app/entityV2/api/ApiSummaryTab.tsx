@@ -4,15 +4,15 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useBaseEntity } from '@app/entity/shared/EntityContext';
 import SignatureTab from '@app/entityV2/api/SignatureTab';
+import { useBaseEntity } from '@app/entityV2/shared/EntityContext';
 import {
     SectionContainer,
     SummaryTabHeaderTitle,
     SummaryTabWrapper,
 } from '@app/entityV2/shared/summary/HeaderComponents';
 import SummaryAboutSection from '@app/entityV2/shared/summary/SummaryAboutSection';
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 import { GetApiQuery } from '@graphql/api.generated';
 

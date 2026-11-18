@@ -17,6 +17,9 @@ import com.linkedin.metadata.graph.cache.client.EntityGraphCacheClients;
 import com.linkedin.metadata.graph.cache.client.GraphExpandRequest;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.RelationshipDirection;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFieldModel;
 import com.linkedin.metadata.search.utils.QueryUtils;
 import com.linkedin.metadata.utils.metrics.CascadeOperationContext;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
@@ -29,6 +32,7 @@ import java.util.Set;
 import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
+import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Setter;
@@ -44,6 +48,35 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
 
   @Setter @Nullable protected MetricUtils metricUtils;
 
+  /**
+   * Field names whose terms queries this rewriter expands for the current request. Search V3 names
+   * the URN field differently from V2, so a rewriter adds its V3 field here.
+   */
+  @Nonnull
+  protected Set<String> rewriterFieldNames(@Nonnull OperationContext opContext) {
+    return getRewriterFieldNames();
+  }
+
+  /**
+   * Adds the field {@link SearchFieldResolver} returns for {@code logicalField} with {@code FILTER}
+   * intent. On Search V3 a URN label filters on its full-URN sibling, so a V2 name alone misses
+   * every filter the V3 query builder emits.
+   */
+  @Nonnull
+  protected static Set<String> withSearchV3FilterField(
+      @Nonnull OperationContext opContext,
+      @Nonnull String logicalField,
+      @Nonnull Set<String> v2FieldNames) {
+    SearchFieldResolver resolver =
+        V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
+    if (!resolver.supports(logicalField, Intent.FILTER)) {
+      return v2FieldNames;
+    }
+    return Stream.concat(
+            v2FieldNames.stream(), Stream.of(resolver.exactPath(logicalField, Intent.FILTER)))
+        .collect(Collectors.toUnmodifiableSet());
+  }
+
   protected <T extends QueryBuilder> T expandUrnsByGraph(
       @Nonnull OperationContext opContext,
       T queryBuilder,
@@ -52,7 +85,7 @@ public abstract class BaseQueryFilterRewriter implements QueryFilterRewriter {
       int pageSize,
       int limit) {
 
-    if (matchTermsQueryFieldName(queryBuilder, getRewriterFieldNames())) {
+    if (matchTermsQueryFieldName(queryBuilder, rewriterFieldNames(opContext))) {
       return (T)
           expandTerms(
               opContext,

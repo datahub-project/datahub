@@ -1,0 +1,10 @@
+namespace com.linkedin.okf
+
+/** A generation or verification event declared by an OKF producer. */
+record OkfStamp {
+  /** Actor string as written, such as human:alice, process:nightly, or reference_agent/model. */
+  by: string
+
+  /** Event time in milliseconds since epoch, when a valid timestamp with an offset is available. */
+  at: optional long
+}

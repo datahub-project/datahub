@@ -167,7 +167,7 @@ Above config has 3 path_specs and will ingest following datasets
 
 ```python
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/bar.avro # single file table
-https://storageaccountname.blob.core.windows.net/my-container/foo/tests/*.* # mulitple file level tables
+https://storageaccountname.blob.core.windows.net/my-container/foo/tests/*.* # multiple file level tables
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/{table}/*.avro #table without partition
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/{table}/*/*.avro #table where partitions are not specified
 https://storageaccountname.blob.core.windows.net/my-container/foo/tests/{table}/*.* # table where no partitions as well as data type specified

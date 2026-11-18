@@ -7,6 +7,7 @@ import static org.testng.Assert.fail;
 
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
+import io.datahubproject.test.wiring.WiringCoverage;
 import io.micrometer.core.instrument.Clock;
 import io.micrometer.core.instrument.Counter;
 import io.micrometer.jmx.JmxConfig;
@@ -53,6 +54,7 @@ public class MicrometerMetricsFactoryTest {
 
     contextRunner =
         new ApplicationContextRunner()
+            .withInitializer(WiringCoverage.initializer())
             .withUserConfiguration(MicrometerMetricsFactory.class)
             .withBean(Clock.class, () -> clock)
             .withBean(SystemTelemetryContext.class, () -> telemetryContext);

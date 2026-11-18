@@ -1,0 +1,29 @@
+"""
+An entity that can belong to a data platform instance
+"""
+interface HasDataPlatformInstance {
+  """
+  The specific instance of the data platform that the entity belongs to
+  """
+  dataPlatformInstance: DataPlatformInstance
+}
+
+extend type Api implements HasDataPlatformInstance
+extend type Assertion implements HasDataPlatformInstance
+extend type Chart implements HasDataPlatformInstance
+extend type Container implements HasDataPlatformInstance
+extend type Dashboard implements HasDataPlatformInstance
+extend type DataFlow implements HasDataPlatformInstance
+extend type DataJob implements HasDataPlatformInstance
+extend type DataProcessInstance implements HasDataPlatformInstance
+extend type Dataset implements HasDataPlatformInstance
+extend type Document implements HasDataPlatformInstance
+extend type MLFeature implements HasDataPlatformInstance
+extend type MLFeatureTable implements HasDataPlatformInstance
+extend type MLModel implements HasDataPlatformInstance
+extend type MLModelGroup implements HasDataPlatformInstance
+extend type MLPrimaryKey implements HasDataPlatformInstance
+extend type Metric implements HasDataPlatformInstance
+extend type Notebook implements HasDataPlatformInstance
+extend type Repository implements HasDataPlatformInstance
+extend type SemanticModel implements HasDataPlatformInstance

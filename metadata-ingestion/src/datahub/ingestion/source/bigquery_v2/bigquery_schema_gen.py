@@ -667,24 +667,7 @@ class BigQuerySchemaGenerator:
                 max_calls=self.config.requests_per_min, period=60
             )
 
-        if self.config.include_schema_metadata:
-            columns = self.schema_api.get_columns_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                column_limit=self.config.column_limit,
-                run_optimized_column_query=self.config.run_optimized_column_query,
-                extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
-                report=self.report,
-                rate_limiter=rate_limiter,
-            )
-            if (
-                self.config.include_table_constraints
-                and bigquery_dataset.supports_table_constraints()
-            ):
-                constraints = self.schema_api.get_table_constraints_for_dataset(
-                    project_id=project_id, dataset_name=dataset_name, report=self.report
-                )
-        elif self.store_table_refs:
+        if not self.config.include_schema_metadata and self.store_table_refs:
             # Need table_refs to calculate lineage and usage
             logger.debug(
                 f"Lightweight table discovery for dataset {dataset_name} in project {project_id}"
@@ -736,79 +719,110 @@ class BigQuerySchemaGenerator:
                 self._add_table_to_refs(table_item, project_id, dataset_name)
             return
 
-        if self.config.include_tables:
-            db_tables[dataset_name] = list(
-                self.get_tables_for_dataset(project_id, bigquery_dataset)
-            )
-
-            for table in db_tables[dataset_name]:
-                table_columns = columns.get(table.name, []) if columns else []
-                table_constraints = (
-                    constraints.get(table.name, []) if constraints else []
-                )
-
-                table.constraints = table_constraints
-                table_wu_generator = self._process_table(
-                    table=table,
-                    columns=table_columns,
+        # `columns` is a file-backed dict holding a temp sqlite file; acquire and
+        # consume it inside the try so any failure - fetching columns/constraints
+        # or downstream processing - still closes the temp file deterministically.
+        try:
+            if self.config.include_schema_metadata:
+                columns = self.schema_api.get_columns_for_dataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
+                    column_limit=self.config.column_limit,
+                    run_optimized_column_query=self.config.run_optimized_column_query,
+                    extract_policy_tags_from_catalog=self.config.extract_policy_tags_from_catalog,
+                    report=self.report,
+                    rate_limiter=rate_limiter,
                 )
-                yield from classification_workunit_processor(
-                    table_wu_generator,
-                    self.classification_handler,
-                    self.data_reader,
-                    [project_id, dataset_name, table.name],
-                    data_reader_kwargs=dict(
-                        sample_size_percent=(
-                            self.config.classification.sample_size
-                            * SAMPLE_SIZE_MULTIPLIER
-                            / table.rows_count
-                            if table.rows_count
-                            else None
-                        )
-                    ),
+                if (
+                    self.config.include_table_constraints
+                    and bigquery_dataset.supports_table_constraints()
+                ):
+                    constraints = self.schema_api.get_table_constraints_for_dataset(
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                        report=self.report,
+                    )
+
+            if self.config.include_tables:
+                db_tables[dataset_name] = list(
+                    self.get_tables_for_dataset(project_id, bigquery_dataset)
                 )
 
-        # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
-        # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
-        fetch_legacy_table_stats = self.config.use_legacy_table_stats
+                for table in db_tables[dataset_name]:
+                    table_columns = (
+                        columns.get(table.name, []) if columns is not None else []
+                    )
+                    table_constraints = (
+                        constraints.get(table.name, []) if constraints else []
+                    )
 
-        if self.config.include_views:
-            db_views[dataset_name] = list(
-                self.schema_api.get_views_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
+                    table.constraints = table_constraints
+                    table_wu_generator = self._process_table(
+                        table=table,
+                        columns=table_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+                    yield from classification_workunit_processor(
+                        table_wu_generator,
+                        self.classification_handler,
+                        self.data_reader,
+                        [project_id, dataset_name, table.name],
+                        data_reader_kwargs=dict(
+                            sample_size_percent=(
+                                self.config.classification.sample_size
+                                * SAMPLE_SIZE_MULTIPLIER
+                                / table.rows_count
+                                if table.rows_count
+                                else None
+                            )
+                        ),
+                    )
+
+            # Views/snapshots get last_altered/row/size only from the undocumented __TABLES__
+            # (PARTITIONS does not cover them), so gate that solely on the legacy opt-in.
+            fetch_legacy_table_stats = self.config.use_legacy_table_stats
+
+            if self.config.include_views:
+                db_views[dataset_name] = list(
+                    self.schema_api.get_views_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
                 )
-            )
-            yield from self._process_views_for_dataset(
-                project_id=project_id,
-                dataset_name=dataset_name,
-                views=db_views[dataset_name],
-                columns=columns,
-                rate_limiter=rate_limiter,
-            )
-
-        if self.config.include_table_snapshots:
-            db_snapshots[dataset_name] = list(
-                self.schema_api.get_snapshots_for_dataset(
-                    project_id,
-                    dataset_name,
-                    fetch_legacy_table_stats,
-                    self.report,
-                )
-            )
-
-            for snapshot in db_snapshots[dataset_name]:
-                snapshot_columns = columns.get(snapshot.name, []) if columns else []
-                yield from self._process_snapshot(
-                    snapshot=snapshot,
-                    columns=snapshot_columns,
+                yield from self._process_views_for_dataset(
                     project_id=project_id,
                     dataset_name=dataset_name,
+                    views=db_views[dataset_name],
+                    columns=columns,
+                    rate_limiter=rate_limiter,
                 )
+
+            if self.config.include_table_snapshots:
+                db_snapshots[dataset_name] = list(
+                    self.schema_api.get_snapshots_for_dataset(
+                        project_id,
+                        dataset_name,
+                        fetch_legacy_table_stats,
+                        self.report,
+                    )
+                )
+
+                for snapshot in db_snapshots[dataset_name]:
+                    snapshot_columns = (
+                        columns.get(snapshot.name, []) if columns is not None else []
+                    )
+                    yield from self._process_snapshot(
+                        snapshot=snapshot,
+                        columns=snapshot_columns,
+                        project_id=project_id,
+                        dataset_name=dataset_name,
+                    )
+        finally:
+            if columns is not None:
+                columns.close()
 
     def _dataset_container_properties(
         self, project_id: str, dataset_name: str, bigquery_dataset: BigqueryDataset
@@ -1018,7 +1032,7 @@ class BigQuerySchemaGenerator:
         project_id: str,
         dataset_name: str,
         views: List[BigqueryView],
-        columns: Optional[Dict[str, List[BigqueryColumn]]],
+        columns: Optional[FileBackedDict[List[BigqueryColumn]]],
         rate_limiter: Optional[RateLimiter] = None,
     ) -> Iterable[MetadataWorkUnit]:
         for view in views:
@@ -1029,7 +1043,7 @@ class BigQuerySchemaGenerator:
                     dataset_name=dataset_name,
                     rate_limiter=rate_limiter,
                 )
-            view_columns = columns.get(view.name, []) if columns else []
+            view_columns = columns.get(view.name, []) if columns is not None else []
             yield from self._process_view(
                 view=view,
                 columns=view_columns,
@@ -1199,17 +1213,19 @@ class BigQuerySchemaGenerator:
         if table.partition_info:
             custom_properties["partition_info"] = str(table.partition_info)
 
-        if table.size_in_bytes:
-            custom_properties["size_in_bytes"] = str(table.size_in_bytes)
+        # A collapsed sharded table reports the totals of all its shards.
+        stats = table.sharded_table_stats or table
+        if stats.size_in_bytes:
+            custom_properties["size_in_bytes"] = str(stats.size_in_bytes)
 
-        if table.active_billable_bytes:
+        if stats.active_billable_bytes:
             custom_properties["billable_bytes_active"] = str(
-                table.active_billable_bytes
+                stats.active_billable_bytes
             )
 
-        if table.long_term_billable_bytes:
+        if stats.long_term_billable_bytes:
             custom_properties["billable_bytes_long_term"] = str(
-                table.long_term_billable_bytes
+                stats.long_term_billable_bytes
             )
 
         if table.max_partition_id:
@@ -1648,8 +1664,12 @@ class BigQuerySchemaGenerator:
 
             # We get the list of tables in the dataset to get core table properties and to be able to process the tables in batches
             # We collect only the latest shards from sharded tables (tables with _YYYYMMDD suffix) and ignore temporary tables
+            shard_families: Dict[str, List[str]] = {}
             table_items = self.get_core_table_details(
-                dataset.name, project_id, self.config.temp_table_dataset_prefix
+                dataset.name,
+                project_id,
+                self.config.temp_table_dataset_prefix,
+                shard_families=shard_families,
             )
 
             if with_partitions:
@@ -1667,29 +1687,70 @@ class BigQuerySchemaGenerator:
             for table_item in table_items:
                 items_to_get[table_item] = table_items[table_item]
                 if len(items_to_get) % max_batch_size == 0:
-                    yield from self.schema_api.get_tables_for_dataset(
+                    yield from self._get_table_batch(
                         project_id,
                         dataset.name,
                         items_to_get,
-                        with_partitions=with_partitions,
-                        use_legacy_table_stats=self.config.use_legacy_table_stats,
-                        report=self.report,
+                        with_partitions,
+                        shard_families,
                     )
                     items_to_get.clear()
 
             if items_to_get:
-                yield from self.schema_api.get_tables_for_dataset(
+                yield from self._get_table_batch(
                     project_id,
                     dataset.name,
                     items_to_get,
-                    with_partitions=with_partitions,
-                    use_legacy_table_stats=self.config.use_legacy_table_stats,
-                    report=self.report,
+                    with_partitions,
+                    shard_families,
                 )
 
         self.report.metadata_extraction_sec[f"{project_id}.{dataset.name}"] = (
             timer.elapsed_seconds(digits=2)
         )
+
+    def _get_table_batch(
+        self,
+        project_id: str,
+        dataset_name: str,
+        items_to_get: Dict[str, TableListItem],
+        with_partitions: bool,
+        shard_families: Dict[str, List[str]],
+    ) -> Iterable[BigqueryTable]:
+        tables = self.schema_api.get_tables_for_dataset(
+            project_id,
+            dataset_name,
+            items_to_get,
+            with_partitions=with_partitions,
+            use_legacy_table_stats=self.config.use_legacy_table_stats,
+            report=self.report,
+        )
+        # Only the latest shard of a collapsed sharded table is queried above, so its
+        # stats cover that one shard. Sum the whole family separately.
+        families = {
+            name: shard_families[name]
+            for name in items_to_get
+            if name in shard_families
+        }
+        if not with_partitions or not families:
+            yield from tables
+            return
+
+        try:
+            totals = self.schema_api.get_sharded_table_stats(
+                project_id, dataset_name, families
+            )
+        except Exception as e:
+            totals = {}
+            self.report.warning(
+                title="Failed to sum sharded table stats",
+                message="Sharded tables keep the stats of their latest shard only",
+                context=f"{project_id}.{dataset_name}",
+                exc=e,
+            )
+        for table in tables:
+            table.sharded_table_stats = totals.get(table.name)
+            yield table
 
     @staticmethod
     def _collides_with_base_table(
@@ -1702,11 +1763,18 @@ class BigQuerySchemaGenerator:
         return shard.get_table_name() == base.get_table_name()
 
     def get_core_table_details(
-        self, dataset_name: str, project_id: str, temp_table_dataset_prefix: str
+        self,
+        dataset_name: str,
+        project_id: str,
+        temp_table_dataset_prefix: str,
+        shard_families: Optional[Dict[str, List[str]]] = None,
     ) -> Dict[str, TableListItem]:
+        """List the dataset's tables, keeping only the latest shard of each sharded
+        table. If shard_families is given, it is filled with each kept latest shard
+        mapped to every shard of its family, for families of more than one shard."""
         table_items: Dict[str, TableListItem] = {}
         sharded_tables: Dict[str, Tuple[TableListItem, str]] = {}
-        shard_counts: Dict[str, int] = defaultdict(int)
+        shard_ids: Dict[str, List[str]] = defaultdict(list)
         # Every table id in the dataset, including ones dropped by the filters below.
         # Whether an un-suffixed table physically exists is a fact about BigQuery, so
         # it must not depend on which tables the recipe happens to select. Otherwise an
@@ -1746,7 +1814,7 @@ class BigQuerySchemaGenerator:
                         self.report.report_dropped(qualified_base)
                         continue
 
-                shard_counts[base_name] += 1
+                shard_ids[base_name].append(table_id)
                 if base_name not in sharded_tables:
                     sharded_tables[base_name] = (table, shard)
                 else:
@@ -1800,9 +1868,9 @@ class BigQuerySchemaGenerator:
             if base_name in all_table_ids and self._collides_with_base_table(
                 project_id, dataset_name, table.table_id, base_name
             ):
-                self.report.num_sharded_tables_shadowed_by_base_table += shard_counts[
-                    base_name
-                ]
+                self.report.num_sharded_tables_shadowed_by_base_table += len(
+                    shard_ids[base_name]
+                )
                 self.report.warning(
                     title="Date-suffixed tables skipped",
                     message="Table(s) with a date suffix were skipped because a table "
@@ -1816,5 +1884,13 @@ class BigQuerySchemaGenerator:
                 continue
 
             table_items[table.table_id] = table
+            # INFORMATION_SCHEMA.PARTITIONS has no rows for views, so a view family
+            # would only cost a query that returns nothing.
+            if (
+                shard_families is not None
+                and table.table_type != "VIEW"
+                and len(shard_ids[base_name]) > 1
+            ):
+                shard_families[table.table_id] = shard_ids[base_name]
 
         return table_items

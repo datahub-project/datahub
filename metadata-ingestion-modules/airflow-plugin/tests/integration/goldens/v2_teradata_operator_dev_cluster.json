@@ -12,11 +12,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=teradata_operator",
+            "externalUrl": "http://airflow.example.com/dags/teradata_operator",
             "name": "teradata_operator",
             "env": "DEV"
         }
@@ -118,11 +119,12 @@
                 "doc_md": "",
                 "fileloc": "<fileloc>",
                 "is_paused_upon_creation": "",
+                "schedule": "None",
                 "start_date": "2023-01-01T00:00:00+00:00",
                 "tags": "[]",
                 "timezone": "UTC"
             },
-            "externalUrl": "http://airflow.example.com/tree?dag_id=teradata_operator",
+            "externalUrl": "http://airflow.example.com/dags/teradata_operator",
             "name": "teradata_operator",
             "env": "DEV"
         }

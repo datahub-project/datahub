@@ -2,7 +2,7 @@ import { Collapse } from 'antd';
 import React from 'react';
 import styled from 'styled-components';
 
-import { ANTD_GRAY } from '@app/entity/shared/constants';
+import { ANTD_GRAY } from '@app/entityV2/shared/constants';
 import { StructuredReportItemContext } from '@app/ingest/source/executions/reporting/StructuredReportItemContext';
 import { StructuredReportLogEntry } from '@app/ingest/source/types';
 import { applyOpacity } from '@app/sharedV2/styleUtils';

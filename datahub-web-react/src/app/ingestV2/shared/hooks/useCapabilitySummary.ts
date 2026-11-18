@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react';
 
 import { type ConnectorRegistry, type PluginDetails } from '@app/ingestV2/shared/connectorRegistry';
+import { SOURCE_TYPE_ALIASES } from '@app/ingestV2/source/builder/constants';
 import { resolveRuntimePath } from '@utils/runtimeBasePath';
 
 export const useCapabilitySummary = () => {
@@ -72,10 +73,8 @@ export const useCapabilitySummary = () => {
 
     const getPluginCapabilities = useCallback(
         (platformId: string): PluginDetails | null => {
-            if (!capabilitySummary?.plugin_details?.[platformId]) {
-                return null;
-            }
-            return capabilitySummary.plugin_details[platformId];
+            const registryKey = SOURCE_TYPE_ALIASES[platformId] ?? platformId;
+            return capabilitySummary?.plugin_details?.[registryKey] ?? null;
         },
         [capabilitySummary],
     );
@@ -112,11 +111,13 @@ export const useCapabilitySummary = () => {
 
         const connectorsWithTestConnection = new Set<string>();
 
-        Object.keys(capabilitySummary.plugin_details).forEach((platformId) => {
-            if (isTestConnectionSupported(platformId)) {
-                connectorsWithTestConnection.add(platformId);
-            }
-        });
+        [...Object.keys(capabilitySummary.plugin_details), ...Object.keys(SOURCE_TYPE_ALIASES)].forEach(
+            (platformId) => {
+                if (isTestConnectionSupported(platformId)) {
+                    connectorsWithTestConnection.add(platformId);
+                }
+            },
+        );
 
         return connectorsWithTestConnection;
     }, [capabilitySummary, isTestConnectionSupported]);

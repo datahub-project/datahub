@@ -1,0 +1,56 @@
+{
+  "environment": {
+    "applied": {
+      "models": {
+        "edges": [
+          {
+            "node": {
+              "uniqueId": "model.my_project.customers",
+              "contractEnforced": true,
+              "constraints": [],
+              "catalog": null
+            }
+          },
+          {
+            "node": {
+              "uniqueId": "model.my_project.customer_summary",
+              "contractEnforced": true,
+              "constraints": [],
+              "catalog": null
+            }
+          },
+          {
+            "node": {
+              "uniqueId": "model.my_project.orders",
+              "contractEnforced": true,
+              "constraints": [
+                {
+                  "name": "uq_orders_order_line",
+                  "type": "unique",
+                  "expression": null,
+                  "columns": [
+                    "order_id",
+                    "line_no"
+                  ]
+                },
+                {
+                  "name": "fk_orders_customer",
+                  "type": "foreign_key",
+                  "expression": null,
+                  "columns": [
+                    "customer_id"
+                  ]
+                }
+              ],
+              "catalog": null
+            }
+          }
+        ],
+        "pageInfo": {
+          "hasNextPage": false,
+          "endCursor": "Y3Vyc29yOm1vZGVsLm15X3Byb2plY3Qub3JkZXJzOi0x"
+        }
+      }
+    }
+  }
+}

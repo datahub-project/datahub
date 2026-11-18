@@ -4,7 +4,7 @@ import styled, { useTheme } from 'styled-components';
 
 import analytics from '@app/analytics';
 import { EventType } from '@app/analytics/event';
-import { EmbeddedListSearchModal } from '@app/entity/shared/components/styled/search/EmbeddedListSearchModal';
+import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import {
     extractEntityTypeCountsFromFacets,
     getEntitiesIngestedByTypeOrSubtype,

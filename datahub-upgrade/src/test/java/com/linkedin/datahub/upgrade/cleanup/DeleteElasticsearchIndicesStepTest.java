@@ -12,11 +12,13 @@ import com.linkedin.gms.factory.search.BaseElasticSearchComponentsFactory;
 import com.linkedin.gms.factory.search.SearchClusterRegistry;
 import com.linkedin.metadata.config.search.ComponentClusterConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
+import com.linkedin.metadata.utils.elasticsearch.IndexConventionImpl;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
 import com.linkedin.metadata.utils.elasticsearch.SearchClusterAccess;
 import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
@@ -370,7 +372,11 @@ public class DeleteElasticsearchIndicesStepTest {
             secondaryClient,
             mock(ESBulkProcessor.class),
             mock(ESIndexBuilder.class)));
-    return new SearchClusterRegistry(routing, connections);
+    return new SearchClusterRegistry(
+        routing,
+        connections,
+        IndexConventionImpl.noPrefix("MD5", new EntityIndexConfiguration()),
+        null);
   }
 
   private static ElasticSearchConfiguration elasticSearchConfig(IndexConfiguration indexConfig) {

@@ -17,12 +17,18 @@ from typing import (
 from urllib.parse import urljoin
 
 from authlib.integrations.requests_client import OAuth2Session
-from pydantic import Field, SecretStr, ValidationInfo, field_validator
+from pydantic import (
+    Field,
+    SecretStr,
+    ValidationInfo,
+    field_validator,
+    model_validator,
+)
 from requests.adapters import HTTPAdapter
 from requests.exceptions import RequestException
 from urllib3.util.retry import Retry
 
-from datahub.configuration.common import AllowDenyPattern
+from datahub.configuration.common import AllowDenyPattern, ConfigEnum, ConfigModel
 from datahub.configuration.source_common import DatasetSourceConfigMixin, EnvConfigMixin
 from datahub.emitter.mce_builder import (
     DEFAULT_ENV,
@@ -108,6 +114,24 @@ _SAC_JSON_DATE_PATTERN = re.compile(r"^/Date\((?P<ms>-?\d+)(?P<offset>[+-]\d+)?\
 _DWC_SYSTEM_TYPE = "DWC"
 _DATASPHERE_PLATFORM = "sap-datasphere"
 
+_BW_SYSTEM_TYPE = "BW"
+_HANA_SYSTEM_TYPE = "HANA"
+_S4HANA_SYSTEM_TYPE = "S/4 HANA"
+_QUERY_EXTERNAL_ID_PREFIX = "query:"
+_VIEW_EXTERNAL_ID_PREFIX = "view:"
+# SAC reads S/4HANA through the BW embedded in it: each CDS analytical query view
+# (`@Analytics.query: true`) is exposed as a transient BW query named `2C<name>`, and
+# the model's externalId is BW-style (`query:[][][2C<name>]`). The upstream is the CDS
+# view itself, so it is named without the `2C` prefix and without the BW-specific
+# `query_name_template`, under its own platform rather than `bw`. For CDS view entities
+# `<name>` is the entity name; for older DDIC-based CDS views it is the SQL view name.
+# ABAP names are case-insensitive and SAC reports them upper-cased, while CDS sources
+# spell them in mixed case, so the name is lower-cased by default (see
+# `convert_urns_to_lowercase`) to give a stable URN any S/4HANA source can match.
+# A query without the prefix is an ordinary BW query modelled in the embedded BW, and
+# is resolved exactly like one on a `BW` connection.
+_S4HANA_TRANSIENT_QUERY_PREFIX = "2C"
+_S4HANA_PLATFORM = "s4hana"
 # SAC models are discovered through the stories that consume them, so SAC exposes no
 # folder for a model on that path (and most are private/embedded models created by a
 # data import, which have no standalone folder at all). Without an explicit browse path,
@@ -115,6 +139,83 @@ _DATASPHERE_PLATFORM = "sap-datasphere"
 # meaningless `t` > `4` tree. Group all models under a single synthetic "Models" root
 # instead. SAC has no such folder — the connector invents this root.
 _MODEL_BROWSE_ROOT = "Models"
+
+
+class ExternalIdFormat(ConfigEnum):
+    # query:[][][<query>]
+    QUERY = "QUERY"
+    # view:[<schema>][<schema>.<namespace>][<view>]
+    VIEW = "VIEW"
+
+
+class SystemTypeMappingConfig(ConfigModel):
+    platform: str = Field(
+        description=(
+            "DataHub platform of the upstream datasets for models of this system type, "
+            "e.g. `bw` or `hana`. `connection_mapping.<connection_id>.platform` takes "
+            "precedence for an individual connection."
+        ),
+    )
+
+    external_id_format: ExternalIdFormat = Field(
+        description=(
+            "How to parse the model's SAC `externalId` into the upstream dataset name: "
+            "`QUERY` for `query:[][][<query>]` (BW-style, named with "
+            "`query_name_template`), `VIEW` for "
+            "`view:[<schema>][<schema>.<namespace>][<view>]` (HANA-style)."
+        ),
+    )
+
+    transient_query_prefix: Optional[str] = Field(
+        default=None,
+        description=(
+            "`QUERY` format only. For systems with an embedded BW that exposes their own "
+            "views as generated BW queries, as S/4HANA does with `2C<CDS view>`. A query "
+            "with this prefix resolves to the view: prefix removed, "
+            "`query_name_template` not applied, and lower-cased unless "
+            "`connection_mapping.<connection_id>.convert_urns_to_lowercase` is false. A "
+            "query without it is an ordinary BW query, resolved like one on a `BW` "
+            "connection."
+        ),
+    )
+
+    @model_validator(mode="after")
+    def _transient_query_prefix_requires_query_format(
+        self,
+    ) -> "SystemTypeMappingConfig":
+        if (
+            self.transient_query_prefix
+            and self.external_id_format != ExternalIdFormat.QUERY
+        ):
+            raise ValueError(
+                "transient_query_prefix is only supported with external_id_format QUERY"
+            )
+        return self
+
+
+# Built-in system types. `system_type_mapping` in the recipe adds to these, or replaces
+# one of them wholesale.
+_BUILTIN_SYSTEM_TYPE_MAPPINGS: Dict[str, SystemTypeMappingConfig] = {
+    _BW_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform="bw", external_id_format=ExternalIdFormat.QUERY
+    ),
+    _HANA_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform="hana", external_id_format=ExternalIdFormat.VIEW
+    ),
+    _S4HANA_SYSTEM_TYPE: SystemTypeMappingConfig(
+        platform=_S4HANA_PLATFORM,
+        external_id_format=ExternalIdFormat.QUERY,
+        transient_query_prefix=_S4HANA_TRANSIENT_QUERY_PREFIX,
+    ),
+}
+
+
+@dataclass(frozen=True)
+class _ParsedUpstream:
+    name: str
+    platform: str
+    # Named after a view exposed as a transient query; lower-cased by default.
+    from_transient_query: bool = False
 
 
 class ConnectionMappingConfig(EnvConfigMixin):
@@ -149,9 +250,9 @@ class ConnectionMappingConfig(EnvConfigMixin):
             "Whether to lower-case identifiers when constructing the upstream dataset "
             "urn for this connection. Must match the `convert_urns_to_lowercase` setting "
             "used by the corresponding upstream connector recipe so the urns stitch. "
-            "Currently applied to SAP Datasphere ('DWC') upstreams only; BW/HANA "
-            "upstreams preserve case as before. Defaults to True (matching the SAP "
-            "Datasphere connector default)."
+            "Applied to SAP Datasphere ('DWC') upstreams and to S/4HANA CDS view "
+            "upstreams; BW/HANA upstreams preserve case as before. Defaults to True "
+            "(matching the SAP Datasphere connector default)."
         ),
     )
 
@@ -295,6 +396,20 @@ class SACSourceConfig(
         default={}, description="Custom mappings for connections"
     )
 
+    system_type_mapping: Dict[str, SystemTypeMappingConfig] = Field(
+        default={},
+        description=(
+            "Resolve upstream lineage for Live Data Models on connection system types "
+            "the source plugin doesn't map yet. Keyed by the system type exactly as SAC "
+            "reports it (the `system_type=` value in the 'Unknown system type for model' "
+            "warning). `BW`, `HANA` and `S/4 HANA` are built in; an entry with one of "
+            "those keys replaces the built-in mapping wholesale, so to change only the "
+            "upstream platform use `connection_mapping.<connection_id>.platform` "
+            "instead. SAP Datasphere (`DWC`) has its own resolution and can't be mapped "
+            "here."
+        ),
+    )
+
     query_name_template: Optional[str] = Field(
         default="QUERY/{name}",
         description="Template for generating dataset urns of consumed queries, the placeholder {query} can be used within the template for inserting the name of the query",
@@ -334,6 +449,18 @@ class SACSourceConfig(
     @classmethod
     def remove_trailing_slash(cls, v):
         return config_clean.remove_trailing_slashes(v)
+
+    @field_validator("system_type_mapping", mode="after")
+    @classmethod
+    def _reject_datasphere_system_type(
+        cls, v: Dict[str, SystemTypeMappingConfig]
+    ) -> Dict[str, SystemTypeMappingConfig]:
+        if _DWC_SYSTEM_TYPE in v:
+            raise ValueError(
+                f"system_type_mapping can't map '{_DWC_SYSTEM_TYPE}'; Datasphere lineage "
+                "is configured with resolve_datasphere_lineage and connection_mapping"
+            )
+        return v
 
     @field_validator(
         "public_root_folder_name", "private_root_folder_name", mode="after"
@@ -404,6 +531,10 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
 
         self.ingested_dataset_entities = set()
         self.ingested_upstream_dataset_keys = set()
+        self.system_type_mappings: Dict[str, SystemTypeMappingConfig] = {
+            **_BUILTIN_SYSTEM_TYPE_MAPPINGS,
+            **config.system_type_mapping,
+        }
         # One graph fetch per upstream urn, shared by suffix-correction and column lineage.
         self._datasphere_schema_cache: Dict[str, Optional[SchemaMetadataClass]] = {}
         # Urns whose schema lookup errored (as opposed to a clean "no aspect"). A cached
@@ -672,51 +803,51 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
             and self.config.ingest_acquired_data_model_schema_metadata
         ):
             if model.system_type is None:
-                # system_type is only set for BW/HANA. DWC and undetectable/builtin models
-                # arrive as None and still hit DES (DWC 412s there; acquired models resolve).
+                # system_type is only set for live (BW/HANA/S/4 HANA) models. DWC and
+                # undetectable/builtin models arrive as None and still hit DES (DWC 412s there; acquired models resolve).
                 yield from self._emit_acquired_model_schema(dataset_urn, model)
             else:
                 # BW/HANA are live: skip the DES request up front. Counted separately from
                 # the 412 rejections so the report can answer "how many did DES reject?".
                 self.report.acquired_model_schema_skipped_known_live += 1
 
-        if model.system_type in ("BW", "HANA") and model.external_id is not None:
-            upstream_dataset_name: Optional[str] = None
+        system_type_mapping = (
+            self.system_type_mappings.get(model.system_type)
+            if model.system_type is not None
+            else None
+        )
+        if system_type_mapping is not None:
+            parsed_upstream = (
+                self._parse_upstream(model.external_id, system_type_mapping)
+                if model.external_id is not None
+                else None
+            )
 
-            if model.system_type == "BW" and model.external_id.startswith(
-                "query:"
-            ):  # query:[][][query]
-                query = model.external_id[11:-1]
-                upstream_dataset_name = self.get_query_name(query)
-            elif model.system_type == "HANA" and model.external_id.startswith(
-                "view:"
-            ):  # view:[schema][schema.namespace][view]
-                schema, namespace_with_schema, view = model.external_id.split("][", 2)
-                schema = schema[6:]
-                namespace: Optional[str] = None
-                if len(schema) < len(namespace_with_schema):
-                    namespace = namespace_with_schema[len(f"{schema}.") :]
-                view = view[:-1]
-                upstream_dataset_name = self.get_view_name(schema, namespace, view)
-
-            if upstream_dataset_name is not None:
-                if model.connection_id in self.config.connection_mapping:
-                    connection = self.config.connection_mapping[model.connection_id]
-                    platform = (
-                        connection.platform
-                        if connection.platform
-                        else model.system_type.lower()
-                    )
+            if parsed_upstream is not None:
+                upstream_dataset_name = parsed_upstream.name
+                default_platform = parsed_upstream.platform
+                connection: Optional[ConnectionMappingConfig] = (
+                    self.config.connection_mapping.get(model.connection_id)
+                    if model.connection_id is not None
+                    else None
+                )
+                if connection is not None:
+                    platform = connection.platform or default_platform
                     platform_instance = connection.platform_instance
                     env = connection.env
                 else:
-                    platform = model.system_type.lower()
+                    platform = default_platform
                     platform_instance = model.connection_id
                     env = DEFAULT_ENV
 
                     logger.info(
                         f"No connection mapping found for connection with id {model.connection_id}, connection id will be used as platform instance"
                     )
+
+                if parsed_upstream.from_transient_query and (
+                    connection is None or connection.convert_urns_to_lowercase
+                ):
+                    upstream_dataset_name = upstream_dataset_name.lower()
 
                 upstream_dataset_urn = make_dataset_urn_with_platform_instance(
                     platform=platform,
@@ -753,7 +884,7 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 yield from self._emit_datasphere_lineage(dataset_urn, model)
         elif model.system_type is not None:
             self.report.warning(
-                message="Unknown system type for model",
+                message="Unknown system type for model. Map it with `system_type_mapping` to resolve its upstream lineage",
                 context=f"{model.namespace}:{model.model_id} (external_id={model.external_id}, system_type={model.system_type})",
                 log=False,
             )
@@ -1102,7 +1233,8 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                         description=nav_description.strip()
                         if nav_description is not None
                         else None,
-                        system_type=nav_entity.get("systemType"),  # BW or HANA
+                        # e.g. BW, HANA, S/4 HANA, DWC
+                        system_type=nav_entity.get("systemType"),
                         connection_id=nav_entity.get("connectionId"),
                         external_id=nav_entity.get(
                             "externalId"
@@ -1264,6 +1396,49 @@ class SACSource(StatefulIngestionSourceBase, TestableSource):
                 ),
             )
         return parse_result
+
+    def _parse_upstream(
+        self, external_id: str, mapping: SystemTypeMappingConfig
+    ) -> Optional[_ParsedUpstream]:
+        if mapping.external_id_format == ExternalIdFormat.VIEW:
+            if not external_id.startswith(_VIEW_EXTERNAL_ID_PREFIX):
+                return None
+            view_name = self._get_hana_view_name(external_id)
+            if view_name is None:
+                return None
+            return _ParsedUpstream(name=view_name, platform=mapping.platform)
+
+        if not external_id.startswith(_QUERY_EXTERNAL_ID_PREFIX):
+            return None
+        query = external_id[11:-1]  # query:[][][query]
+        prefix = mapping.transient_query_prefix
+        if prefix and query.startswith(prefix):
+            return _ParsedUpstream(
+                name=query.removeprefix(prefix),
+                platform=mapping.platform,
+                from_transient_query=True,
+            )
+        # A system with transient queries also hosts ordinary BW queries in its
+        # embedded BW; those resolve exactly like a query on a BW connection.
+        platform = (
+            _BUILTIN_SYSTEM_TYPE_MAPPINGS[_BW_SYSTEM_TYPE].platform
+            if prefix
+            else mapping.platform
+        )
+        return _ParsedUpstream(name=self.get_query_name(query), platform=platform)
+
+    def _get_hana_view_name(self, external_id: str) -> Optional[str]:
+        # view:[schema][schema.namespace][view]
+        parts = external_id.split("][", 2)
+        if len(parts) != 3 or not external_id.endswith("]"):
+            # Malformed: report it as an unknown upstream rather than abort the run.
+            return None
+        schema, namespace_with_schema, view = parts
+        schema = schema[len(_VIEW_EXTERNAL_ID_PREFIX) + 1 :]
+        namespace: Optional[str] = None
+        if len(schema) < len(namespace_with_schema):
+            namespace = namespace_with_schema[len(f"{schema}.") :]
+        return self.get_view_name(schema, namespace, view[:-1])
 
     def get_query_name(self, query: str) -> str:
         if not self.config.query_name_template:

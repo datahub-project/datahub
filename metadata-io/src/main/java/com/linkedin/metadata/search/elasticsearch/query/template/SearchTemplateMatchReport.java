@@ -1,5 +1,7 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
+
 import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.metadata.search.MatchedField;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.MatchEvidence;
@@ -18,11 +20,12 @@ import javax.annotation.Nullable;
 import org.opensearch.index.query.QueryBuilder;
 
 /**
- * Reports a structured-property match from a query {@code _name}. The name is {@code exact}, {@code
- * prefix}, {@code contains}, or {@code nameAndValue}, and it is reported only when that name is on
- * exactly one clause and that clause targets exactly one structured-property field.
+ * Reports a structured-property match from a namespaced query {@code _name}. The mode is {@code
+ * exact}, {@code prefix}, {@code contains}, or {@code nameAndValue}, and it is reported only when
+ * that name is on exactly one clause and that clause targets exactly one structured-property field.
  */
 public final class SearchTemplateMatchReport {
+  public static final String MATCHED_FIELD_PREFIX = "matchedField:";
   public static final String EXACT = "exact";
   public static final String PREFIX = "prefix";
   public static final String CONTAINS = "contains";
@@ -67,6 +70,41 @@ public final class SearchTemplateMatchReport {
 
   private SearchTemplateMatchReport() {}
 
+  @Nonnull
+  public static String queryName(@Nonnull String field) {
+    return MATCHED_FIELD_PREFIX + field;
+  }
+
+  /**
+   * A source scan records the bare label. {@code matchedField:name} is that same label, so an empty
+   * fallback must not be added beside the scanned value. A named mode such as {@code
+   * matchedField:exact} stays on its own key: the empty value is filled from the clause, and it is
+   * not a field named {@code exact}.
+   */
+  public static boolean labelAlreadyMatched(
+      @Nonnull Map<String, Set<String>> matched, @Nonnull String queryName) {
+    if (matched.containsKey(queryName)) {
+      return true;
+    }
+    if (isNamedMode(queryName)) {
+      return false;
+    }
+    String label = fieldName(queryName);
+    return matched.containsKey(label) || matched.containsKey(queryName(label));
+  }
+
+  private static boolean isNamedMode(@Nonnull String name) {
+    return name.startsWith(MATCHED_FIELD_PREFIX)
+        && MODES.contains(name.substring(MATCHED_FIELD_PREFIX.length()));
+  }
+
+  @Nonnull
+  private static String fieldName(@Nonnull String name) {
+    return name.startsWith(MATCHED_FIELD_PREFIX)
+        ? name.substring(MATCHED_FIELD_PREFIX.length())
+        : name;
+  }
+
   /**
    * Records unique named clauses on this query. A reused name or a multi-property clause is
    * omitted.
@@ -104,10 +142,11 @@ public final class SearchTemplateMatchReport {
       if (urn == null) {
         continue;
       }
-      String mode = entry.getKey();
+      String name = entry.getKey();
+      String mode = fieldName(name);
       String subfield = fields.size() == 1 ? fields.iterator().next() : subfieldFor(path, mode);
       unique.put(
-          mode,
+          name,
           new RenderedSearchTemplate.NamedClause(
               urn, path, subfield, PREFIX.equals(mode) || CONTAINS.equals(mode)));
     }
@@ -140,9 +179,28 @@ public final class SearchTemplateMatchReport {
       covered.add(clause.path());
     }
     remaining.keySet().removeAll(consumed);
-    remaining.keySet().removeIf(name -> MODES.contains(name) || covers(name, covered));
+    // The entity-type scope filter is a named query that matches every hit. It is not a field the
+    // query read.
+    remaining
+        .keySet()
+        .removeIf(
+            name -> INDEX_VIRTUAL_FIELD.equals(name) || isNamedMode(name) || covers(name, covered));
+    // A highlight or match-tier scan records the field name, and the relevance clause records
+    // matchedField:<field>. Both describe the same field. Keep one, and keep a stored value ahead
+    // of the empty name the clause contributes on its own.
+    Map<String, LinkedHashSet<String>> byField = new LinkedHashMap<>();
     for (Map.Entry<String, Set<String>> entry : remaining.entrySet()) {
+      byField
+          .computeIfAbsent(fieldName(entry.getKey()), ignored -> new LinkedHashSet<>())
+          .addAll(entry.getValue());
+    }
+    for (Map.Entry<String, LinkedHashSet<String>> entry : byField.entrySet()) {
+      boolean hasText =
+          entry.getValue().stream().anyMatch(value -> value != null && !value.isBlank());
       for (String value : entry.getValue()) {
+        if (hasText && (value == null || value.isBlank())) {
+          continue;
+        }
         reported.add(new MatchedField().setName(entry.getKey()).setValue(value));
       }
     }
@@ -168,7 +226,7 @@ public final class SearchTemplateMatchReport {
                 clause.urn(),
                 matchedValue(source, query, clause, value),
                 clause.subfield(),
-                entry.getKey(),
+                fieldName(entry.getKey()),
                 query));
       }
     }
@@ -201,7 +259,7 @@ public final class SearchTemplateMatchReport {
     if (MatchEvidence.WORD.equals(mode)) {
       return path + StructuredPropertySubfields.STEMMED_SUFFIX;
     }
-    return path + StructuredPropertySubfields.KEYWORD_SUFFIX;
+    return path;
   }
 
   private static void walk(
@@ -219,7 +277,7 @@ public final class SearchTemplateMatchReport {
       return;
     }
     JsonNode name = node.get("_name");
-    if (name != null && name.isTextual() && MODES.contains(name.asText())) {
+    if (name != null && name.isTextual() && isNamedMode(name.asText())) {
       Set<String> properties = new LinkedHashSet<>();
       addProperty(parentKey, properties);
       collect(node, properties, true);

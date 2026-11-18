@@ -4,8 +4,8 @@ import React from 'react';
 import styled from 'styled-components';
 
 import EntityForm from '@app/entityV2/shared/entityForm/EntityForm';
-import EntityFormContextProvider from '@src/app/entity/shared/entityForm/EntityFormContextProvider';
-import FormPageHeader from '@src/app/entity/shared/entityForm/FormHeader/FormPageHeader';
+import EntityFormContextProvider from '@src/app/entityV2/shared/entityForm/EntityFormContextProvider';
+import FormPageHeader from '@src/app/entityV2/shared/entityForm/FormHeader/FormPageHeader';
 
 const StyledModal = styled(Modal)`
     &&& .ant-modal-content {

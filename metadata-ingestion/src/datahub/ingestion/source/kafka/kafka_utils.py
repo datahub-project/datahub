@@ -62,7 +62,7 @@ def flatten_json(
                 new_key = f"{parent_key}.{key}" if parent_key else key
                 if stringify_values and isinstance(value, (dict, list)):
                     flatten_json(
-                        {"value": value} if isinstance(value, list) else value,
+                        value,
                         new_key,
                         flattened_dict,
                         max_depth,

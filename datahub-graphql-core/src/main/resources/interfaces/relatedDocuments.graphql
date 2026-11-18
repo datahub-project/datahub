@@ -1,0 +1,27 @@
+"""
+An entity that can have related context documents
+"""
+interface HasRelatedDocuments {
+  """
+  Get context documents related to this entity
+  """
+  relatedDocuments(input: RelatedDocumentsInput!): RelatedDocumentsResult
+}
+
+extend type Application implements HasRelatedDocuments
+extend type Chart implements HasRelatedDocuments
+extend type Container implements HasRelatedDocuments
+extend type Dashboard implements HasRelatedDocuments
+extend type DataFlow implements HasRelatedDocuments
+extend type DataJob implements HasRelatedDocuments
+extend type DataProduct implements HasRelatedDocuments
+extend type Dataset implements HasRelatedDocuments
+extend type Domain implements HasRelatedDocuments
+extend type GlossaryNode implements HasRelatedDocuments
+extend type GlossaryTerm implements HasRelatedDocuments
+extend type MLFeature implements HasRelatedDocuments
+extend type MLFeatureTable implements HasRelatedDocuments
+extend type MLModel implements HasRelatedDocuments
+extend type MLModelGroup implements HasRelatedDocuments
+extend type MLPrimaryKey implements HasRelatedDocuments
+extend type SchemaFieldEntity implements HasRelatedDocuments

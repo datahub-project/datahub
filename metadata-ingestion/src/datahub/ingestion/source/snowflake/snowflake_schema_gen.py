@@ -126,6 +126,9 @@ from datahub.metadata.schema_classes import (
     FineGrainedLineageDownstreamTypeClass,
     FineGrainedLineageUpstreamTypeClass,
     GlobalTagsClass,
+    OperationClass,
+    OperationSourceTypeClass,
+    OperationTypeClass,
     TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
@@ -137,14 +140,7 @@ from datahub.metadata.urns import (
 from datahub.sdk.dashboard import Dashboard
 from datahub.sql_parsing.sql_parsing_aggregator import (
     KnownLineageMapping,
-    KnownQueryLineageInfo,
     SqlParsingAggregator,
-)
-from datahub.sql_parsing.sql_parsing_common import QueryType
-from datahub.sql_parsing.sqlglot_lineage import (
-    ColumnLineageInfo,
-    ColumnRef,
-    DownstreamColumnRef,
 )
 from datahub.sql_parsing.sqlglot_utils import get_dialect, parse_statement
 from datahub.utilities.registries.domain_registry import DomainRegistry
@@ -459,7 +455,7 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                     f"Failed to list databases {database.name} information_schema"
                 )
                 # SNOWFLAKE database always shows up even if permissions are missing
-                if database == SNOWFLAKE_DATABASE:
+                if database.name == SNOWFLAKE_DATABASE:
                     continue
                 logger.info(
                     f"The role {self.report.role} has `MANAGE GRANTS` privilege. This is not advisable and also not required."
@@ -1350,6 +1346,18 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
 
         if self.config.include_technical_schema:
             yield from self.gen_dataset_workunits(view, schema_name, db_name)
+            if self.config.include_operational_stats and view.last_refreshed:
+                refreshed_ms = int(view.last_refreshed.timestamp() * 1000)
+                # Event time, not run time, so a re-run without a new refresh rewrites the same row.
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=self.identifiers.gen_dataset_urn(view_name),
+                    aspect=OperationClass(
+                        timestampMillis=refreshed_ms,
+                        lastUpdatedTimestamp=refreshed_ms,
+                        operationType=OperationTypeClass.UPDATE,
+                        sourceType=OperationSourceTypeClass.DATA_PLATFORM,
+                    ),
+                ).as_workunit()
 
     def _process_semantic_view(
         self,
@@ -2079,105 +2087,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
         )
 
         yield lineage_mcp.as_workunit()
-
-    def _register_semantic_view_column_lineage(
-        self,
-        semantic_view: SnowflakeSemanticView,
-        semantic_view_urn: str,
-        fine_grained_lineages: List[FineGrainedLineageClass],
-        upstream_table_urns: List[str],
-    ) -> None:
-        """
-        Register explicit table and column lineage with the SQL aggregator.
-
-        This prevents the aggregator from auto-generating incorrect column lineage
-        based on column name matching. We register both table and column lineage
-        together in a single call.
-
-        Args:
-            semantic_view: The semantic view entity
-            semantic_view_urn: URN of the semantic view
-            fine_grained_lineages: List of column-level lineage mappings (validated, only actual columns)
-            upstream_table_urns: List of all upstream table URNs (for table-level lineage)
-        """
-        # Convert FineGrainedLineageClass to ColumnLineageInfo
-        column_lineage_infos = []
-
-        for fg_lineage in fine_grained_lineages:
-            # Extract column name from URN
-            # Format: urn:li:schemaField:(urn:li:dataset:(...),column_name)
-            if not fg_lineage.downstreams:
-                continue
-            downstream_urn = fg_lineage.downstreams[0]
-
-            # Parse schema field URN: extract dataset URN and column name
-            if downstream_urn.startswith(
-                "urn:li:schemaField:("
-            ) and downstream_urn.endswith(")"):
-                inner = downstream_urn[len("urn:li:schemaField:(") : -1]
-                last_comma = inner.rfind(",")
-                if last_comma > 0:
-                    downstream_col = inner[last_comma + 1 :]
-                else:
-                    logger.debug(
-                        f"Could not parse downstream URN (no comma found): {downstream_urn}"
-                    )
-                    continue
-            else:
-                logger.debug(f"Unexpected downstream URN format: {downstream_urn}")
-                continue
-
-            upstream_cols = []
-            if not fg_lineage.upstreams:
-                continue
-            for upstream_field_urn in fg_lineage.upstreams:
-                # Parse schema field URN for upstream
-                if upstream_field_urn.startswith(
-                    "urn:li:schemaField:("
-                ) and upstream_field_urn.endswith(")"):
-                    inner = upstream_field_urn[len("urn:li:schemaField:(") : -1]
-                    last_comma = inner.rfind(",")
-                    if last_comma > 0:
-                        table_urn = inner[:last_comma]
-                        col_name = inner[last_comma + 1 :]
-                        upstream_cols.append(
-                            ColumnRef(table=table_urn, column=col_name)
-                        )
-                    else:
-                        logger.debug(
-                            f"Could not parse upstream URN (no comma): {upstream_field_urn}"
-                        )
-                else:
-                    logger.debug(
-                        f"Unexpected upstream URN format: {upstream_field_urn}"
-                    )
-
-            if upstream_cols:
-                column_lineage_infos.append(
-                    ColumnLineageInfo(
-                        downstream=DownstreamColumnRef(
-                            table=semantic_view_urn, column=downstream_col
-                        ),
-                        upstreams=upstream_cols,
-                    )
-                )
-
-        if column_lineage_infos:
-            if self.aggregator:
-                self.aggregator.add_known_query_lineage(
-                    KnownQueryLineageInfo(
-                        query_text=f"-- Semantic view {semantic_view.name} definition",
-                        downstream=semantic_view_urn,
-                        upstreams=upstream_table_urns,
-                        column_lineage=column_lineage_infos,
-                        query_type=QueryType.CREATE_VIEW,
-                    )
-                )
-                logger.debug(
-                    f"Registered lineage for {semantic_view.name}: "
-                    f"{len(upstream_table_urns)} upstream tables, "
-                    f"{len(column_lineage_infos)} column mappings"
-                )
 
     def _is_table_allowed(
         self, db_name: str, schema_name: str, table_name: str
@@ -3137,8 +3046,6 @@ class SnowflakeSchemaGenerator(SnowflakeStructuredReportMixin):
                         downstream_urn=self.identifiers.gen_dataset_urn(key),
                     )
                     self.report.num_external_table_edges_scanned += 1
-
-                self.report.num_external_table_edges_scanned += 1
         except Exception as e:
             self.structured_reporter.warning(
                 "External table ddl lineage extraction failed",

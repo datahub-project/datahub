@@ -7,15 +7,21 @@ import com.linkedin.metadata.config.GMSConfiguration;
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigLoader;
 import com.linkedin.metadata.config.ratelimit.RateLimitConfigValidator;
 import com.linkedin.metadata.config.ratelimit.RateLimitEffectiveConfig;
+import com.linkedin.metadata.config.ratelimit.RateLimitExcludedPathProvider;
 import com.linkedin.metadata.config.ratelimit.RateLimitProperties;
 import com.linkedin.metadata.ratelimit.RateLimitEngine;
 import com.linkedin.metadata.ratelimit.RateLimitFilter;
 import com.linkedin.metadata.utils.BasePathUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.micrometer.core.instrument.MeterRegistry;
+import java.util.List;
+import java.util.Set;
+import java.util.function.Supplier;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.context.annotation.Bean;
@@ -66,11 +72,21 @@ public class RateLimitEngineFactory {
   @Nonnull
   public RateLimitFilter rateLimitFilter(
       RateLimitEngine rateLimitEngine,
-      @Qualifier("systemOperationContext") OperationContext systemOperationContext) {
+      @Qualifier("systemOperationContext") OperationContext systemOperationContext,
+      ObjectProvider<RateLimitExcludedPathProvider> excludedPathProviders) {
     // Capture the system principal's URN once so per-request resolution can exempt it (its
     // high-volume internal calls shouldn't be per-actor throttled — mirrors the GraphQL gate).
     String systemActorUrn = systemOperationContext.getAuthentication().getActor().toUrnStr();
-    return new RateLimitFilter(rateLimitEngine, () -> resolveRestActorUrn(systemActorUrn));
+    List<RateLimitExcludedPathProvider> providers = excludedPathProviders.orderedStream().toList();
+    log.info("Rate limit exclusion path providers found: {}", providers.size());
+    // Providers resolved once; their paths asked per request, as they may change after startup.
+    Supplier<Set<String>> exactExcludedPaths =
+        () ->
+            providers.stream()
+                .flatMap(provider -> provider.excludedPaths().stream())
+                .collect(Collectors.toUnmodifiableSet());
+    return new RateLimitFilter(
+        rateLimitEngine, () -> resolveRestActorUrn(systemActorUrn), exactExcludedPaths);
   }
 
   /**

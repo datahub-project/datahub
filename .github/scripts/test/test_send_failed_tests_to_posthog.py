@@ -170,5 +170,44 @@ class SendPostHogEventTests(unittest.TestCase):
         self.assertNotIn("custom_properties", captured["payload"]["properties"])
 
 
+class BuildWorkflowMetadataTests(unittest.TestCase):
+    def _args(self, *extra: str):
+        with patch.object(
+            sys,
+            "argv",
+            [
+                "send_failed_tests_to_posthog.py",
+                "--input-dir", "x",
+                "--posthog-api-key", "phc_test",
+                "--repository", "org/repo",
+                "--workflow-name", "wf",
+                "--branch", "feature",
+                "--run-id", "1",
+                *extra,
+            ],
+        ), patch.object(sender, "process_and_send_failures") as process, patch.object(
+            sender.Path, "exists", return_value=True
+        ), patch.object(sender.Path, "is_dir", return_value=True):
+            with self.assertRaises(SystemExit):
+                sender.main()
+        return process.call_args.args[2]
+
+    def test_smart_args_land_in_metadata(self) -> None:
+        metadata = self._args(
+            "--smart-mode", "shadow",
+            "--smart-selection", "canary",
+            "--smart-confidence", "MEDIUM",
+        )
+        self.assertEqual(metadata["smart_mode"], "shadow")
+        self.assertEqual(metadata["smart_selection"], "canary")
+        self.assertEqual(metadata["smart_confidence"], "MEDIUM")
+
+    def test_empty_smart_args_are_omitted(self) -> None:
+        metadata = self._args("--smart-mode", "", "--smart-selection", "")
+        self.assertNotIn("smart_mode", metadata)
+        self.assertNotIn("smart_selection", metadata)
+        self.assertNotIn("smart_confidence", metadata)
+
+
 if __name__ == "__main__":
     unittest.main()

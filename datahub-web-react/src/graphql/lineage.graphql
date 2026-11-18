@@ -1,17 +1,89 @@
 fragment lineageNodeProperties on EntityWithRelationships {
     urn
     type
+    ... on HasExists {
+        exists
+    }
+    ... on HasOwnership {
+        ownership {
+            ...ownershipFields
+        }
+    }
+    ... on HasGlossaryTerms {
+        glossaryTerms {
+            ...glossaryTerms
+        }
+    }
+    ... on HasDomain {
+        domain {
+            ...entityDomainWithoutCounts
+        }
+    }
+    ... on HasDeprecation {
+        deprecation {
+            ...deprecationFields
+        }
+    }
+    ... on HasDataPlatformInstance {
+        dataPlatformInstance {
+            ...dataPlatformInstanceFields
+        }
+    }
+    ... on HasSubTypes {
+        subTypes {
+            typeNames
+        }
+    }
+    ... on HasEditableProperties {
+        editableProperties {
+            description
+        }
+    }
+    ... on HasStatus {
+        status {
+            removed
+        }
+    }
+    ... on HasHealth {
+        health {
+            ...entityHealth
+        }
+    }
+    ... on HasStructuredProperties {
+        structuredProperties {
+            properties {
+                ...structuredPropertiesFields
+            }
+        }
+    }
+    ... on HasBrowsePathV2 {
+        browsePathV2 {
+            ...browsePathV2Fields
+        }
+    }
+    ... on HasParentContainers {
+        parentContainers {
+            ...parentContainersFields
+        }
+    }
+    ... on HasName {
+        name
+    }
+    ... on HasDescription {
+        description
+    }
+    ... on HasTags {
+        tags {
+            ...globalTagsFields
+        }
+    }
     ... on DataJob {
         urn
         type
-        exists
         dataFlow {
             ...nonRecursiveDataFlowFields
         }
         jobId
-        ownership {
-            ...ownershipFields
-        }
         properties {
             name
             description
@@ -24,28 +96,7 @@ fragment lineageNodeProperties on EntityWithRelationships {
         globalTags {
             ...globalTagsFields
         }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        subTypes {
-            typeNames
-        }
-        editableProperties {
-            description
-        }
-        status {
-            removed
-        }
         inputOutput {
             fineGrainedLineages {
                 upstreams {
@@ -59,17 +110,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 query
                 transformOperation
             }
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
         }
         lastRun: runs(start: 0, count: 1) {
             count
@@ -98,7 +138,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
     }
     ... on DataFlow {
-        exists
         orchestrator
         flowId
         cluster
@@ -107,45 +146,15 @@ fragment lineageNodeProperties on EntityWithRelationships {
             description
             project
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        editableProperties {
-            description
         }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        status {
-            removed
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
     }
     ... on Dashboard {
-        exists
         urn
         type
         tool
@@ -162,128 +171,34 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 time
             }
         }
-        ownership {
-            ...ownershipFields
-        }
         globalTags {
             ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
         }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
         ...entityDataProduct
-        parentContainers {
-            ...parentContainersFields
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        status {
-            removed
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        editableProperties {
-            description
-        }
-        status {
-            removed
-        }
-        subTypes {
-            typeNames
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on Chart {
-        exists
         tool
         chartId
         properties {
             name
             description
         }
-        editableProperties {
-            description
-        }
-        ownership {
-            ...ownershipFields
-        }
         platform {
             ...platformFields
         }
-        domain {
-            ...entityDomainWithoutCounts
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
         ...entityDataProduct
-        status {
-            removed
-        }
-        subTypes {
-            typeNames
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on Dataset {
-        exists
-        name
         properties {
             name
             description
             qualifiedName
         }
-        editableProperties {
-            description
-        }
         platform {
             ...platformFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        parentContainers {
-            ...parentContainersFields
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        subTypes {
-            typeNames
-        }
-        status {
-            removed
         }
         fineGrainedLineages {
             upstreams {
@@ -297,39 +212,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
             query
             transformOperation
         }
-        health {
-            ...entityHealth
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on MLModelGroup {
-        exists
         urn
         type
-        name
-        description
         origin
-        tags {
-            ...globalTagsFields
-        }
         platform {
             ...platformFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        status {
-            removed
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
         }
         properties {
             propertiesName: name
@@ -342,39 +231,13 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 value
             }
         }
-        editableProperties {
-            description
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on MLModel {
-        exists
         urn
         type
-        name
-        description
         origin
-        tags {
-            ...globalTagsFields
-        }
         platform {
             ...platformFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        status {
-            removed
         }
         versionProperties {
             versionSet {
@@ -401,20 +264,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
                 value
             }
         }
-        editableProperties {
-            description
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        deprecation {
-            ...deprecationFields
-        }
     }
     ... on MLFeatureTable {
         ...nonRecursiveMLFeatureTable
@@ -426,7 +275,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         ...nonRecursiveMLPrimaryKey
     }
     ... on Metric {
-        exists
         path
         id
         info {
@@ -445,41 +293,8 @@ fragment lineageNodeProperties on EntityWithRelationships {
         platform {
             ...platformFields
         }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        domain {
-            ...entityDomainWithoutCounts
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        subTypes {
-            typeNames
-        }
-        status {
-            removed
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
-        }
     }
     ... on SemanticModel {
-        exists
         path
         id
         info {
@@ -489,38 +304,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
         }
         platform {
             ...platformFields
-        }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
-        domain {
-            ...entityDomainWithoutCounts
-        }
-        deprecation {
-            ...deprecationFields
-        }
-        dataPlatformInstance {
-            ...dataPlatformInstanceFields
-        }
-        subTypes {
-            typeNames
-        }
-        status {
-            removed
-        }
-        browsePathV2 {
-            ...browsePathV2Fields
-        }
-        structuredProperties {
-            properties {
-                ...structuredPropertiesFields
-            }
         }
         fineGrainedLineages {
             upstreams {
@@ -545,20 +328,10 @@ fragment lineageNodeProperties on EntityWithRelationships {
         editableProperties {
             ...ermodelrelationEditablePropertiesFields
         }
-        ownership {
-            ...ownershipFields
-        }
-        tags {
-            ...globalTagsFields
-        }
-        glossaryTerms {
-            ...glossaryTerms
-        }
     }
     ... on Repository {
         urn
         type
-        exists
         properties {
             name
             description
@@ -566,17 +339,10 @@ fragment lineageNodeProperties on EntityWithRelationships {
         repositoryPlatform: platform {
             ...platformFields
         }
-        subTypes {
-            typeNames
-        }
-        status {
-            removed
-        }
     }
     ... on Api {
         urn
         type
-        exists
         properties {
             name
             description
@@ -586,12 +352,6 @@ fragment lineageNodeProperties on EntityWithRelationships {
             platform {
                 ...platformFields
             }
-        }
-        subTypes {
-            typeNames
-        }
-        status {
-            removed
         }
     }
     ... on Restricted {

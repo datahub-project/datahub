@@ -1,6 +1,6 @@
 import React from 'react';
 
-import { GenericEntityProperties } from '@src/app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import PlatformIcon from '@src/app/sharedV2/icons/PlatformIcon';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { DataPlatform, Dataset, EntityType } from '@src/types.generated';

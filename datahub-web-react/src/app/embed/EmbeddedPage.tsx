@@ -6,8 +6,8 @@ import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
 import { UnauthorizedPage } from '@app/authorization/UnauthorizedPage';
 import { useUserContext } from '@app/context/useUserContext';
-import { VIEW_ENTITY_PAGE } from '@app/entity/shared/constants';
-import { decodeUrn } from '@app/entity/shared/utils';
+import { VIEW_ENTITY_PAGE } from '@app/entityV2/shared/constants';
+import { decodeUrn } from '@app/entityV2/shared/utils';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

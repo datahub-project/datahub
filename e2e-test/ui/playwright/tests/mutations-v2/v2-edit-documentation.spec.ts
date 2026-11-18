@@ -33,7 +33,14 @@ test.describe.configure({ mode: 'serial' });
 test.describe('edit documentation and link to dataset', { tag: [TestTag.P0] }, () => {
   let docPage: EntityDocumentationPage;
 
-  test.beforeEach(async ({ page, logger, logDir }) => {
+  test.beforeEach(async ({ page, logger, logDir, apiMock }) => {
+    // datasetSummaryPageV1 removes the standalone "Documentation" tab this suite exercises;
+    // editing now lives inside the Summary tab's About section (different component, different
+    // testids — entityV2/summary/documentation/AboutSection.tsx) instead. Pinning the flag off
+    // keeps this suite covering the legacy tab, which the flag still makes reachable. The default
+    // About-section flow for datasets is covered by
+    // entity-pages/summary-tab/v2-dataset-summary-about-section.spec.ts.
+    await apiMock.setFeatureFlags({ datasetSummaryPageV1: false });
     docPage = new EntityDocumentationPage(page, logger, logDir);
     await docPage.navigateToDatasetDocumentationTab(SAMPLE_DATASET_URN, SAMPLE_DATASET_NAME);
   });
@@ -88,8 +95,6 @@ test.describe('edit documentation and link to dataset', { tag: [TestTag.P0] }, (
 
       // Verify link is visible in entity header from the search page too
       await page.goto(`/search?query=${SAMPLE_DATASET_NAME}`);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(3000);
       await expect(page.getByText(SAMPLE_DATASET_NAME).first()).toBeVisible({ timeout: 30000 });
       await docPage.expectLinkInEntityHeader(sample);
 

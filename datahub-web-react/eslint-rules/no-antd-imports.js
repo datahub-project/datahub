@@ -9,7 +9,7 @@
  * Alchemy wrappers, tests, and generated GraphQL are excluded in .eslintrc.js.
  */
 
-/* eslint-disable @typescript-eslint/no-var-requires */
+/* eslint-disable @typescript-eslint/no-require-imports */
 const { execFileSync } = require('child_process');
 const path = require('path');
 

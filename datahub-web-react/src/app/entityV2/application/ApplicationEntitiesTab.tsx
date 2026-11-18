@@ -1,7 +1,7 @@
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { SearchCardContext } from '@app/entityV2/shared/SearchCardContext';
 import { EmbeddedListSearchSection } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchSection';
 import { UnionType } from '@app/searchV2/utils/constants';
@@ -13,6 +13,12 @@ export function ApplicationEntitiesTab() {
     const fixedOrFilters = [
         {
             field: 'applications',
+            values: [urn],
+        },
+        {
+            // Child Applications: an Application whose parentApplication is this urn belongs in
+            // the parent's Assets tab alongside the assets that are directly assigned to it.
+            field: 'parentApplication',
             values: [urn],
         },
     ];

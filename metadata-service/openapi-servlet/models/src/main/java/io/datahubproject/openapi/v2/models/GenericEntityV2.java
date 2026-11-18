@@ -63,14 +63,16 @@ public class GenericEntityV2 implements GenericEntity<GenericAspectV2> {
                               : valueMap.get("value");
 
                       if (e.getValue().getSecond() != null) {
+
+                        Object systemMetadataValue =
+                            objectMapper.readTree(
+                                RecordUtils.toJsonString(e.getValue().getSecond())
+                                    .getBytes(StandardCharsets.UTF_8));
                         return Map.entry(
                             e.getKey(),
                             new GenericAspectV2(
                                 Map.of(
-                                    "systemMetadata",
-                                    e.getValue().getSecond(),
-                                    "value",
-                                    aspectValue)));
+                                    "systemMetadata", systemMetadataValue, "value", aspectValue)));
                       } else {
                         return Map.entry(
                             e.getKey(), new GenericAspectV2(Map.of("value", aspectValue)));

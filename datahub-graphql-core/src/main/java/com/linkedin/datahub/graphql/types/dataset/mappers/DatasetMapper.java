@@ -28,6 +28,7 @@ import com.linkedin.datahub.graphql.generated.Container;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.Dataset;
 import com.linkedin.datahub.graphql.generated.DatasetEditableProperties;
+import com.linkedin.datahub.graphql.generated.EditablePrimaryKeys;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.FabricType;
 import com.linkedin.datahub.graphql.types.application.ApplicationAssociationMapper;
@@ -152,6 +153,14 @@ public class DatasetMapper implements ModelMapper<EntityResponse, Dataset> {
             dataset.setEditableSchemaMetadata(
                 EditableSchemaMetadataMapper.map(
                     context, new EditableSchemaMetadata(dataMap), entityUrn)));
+    mappingHelper.mapToResult(
+        EDITABLE_PRIMARY_KEYS_ASPECT_NAME,
+        (dataset, dataMap) -> {
+          EditablePrimaryKeys editablePrimaryKeys = new EditablePrimaryKeys();
+          editablePrimaryKeys.setPrimaryKeys(
+              new com.linkedin.dataset.EditablePrimaryKeys(dataMap).getPrimaryKeys());
+          dataset.setEditablePrimaryKeys(editablePrimaryKeys);
+        });
     mappingHelper.mapToResult(
         GLOSSARY_TERMS_ASPECT_NAME,
         (dataset, dataMap) ->

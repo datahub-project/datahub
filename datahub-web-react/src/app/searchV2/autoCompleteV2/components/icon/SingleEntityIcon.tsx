@@ -1,4 +1,3 @@
-import { Image } from 'antd';
 import React, { useState } from 'react';
 import styled from 'styled-components';
 
@@ -9,7 +8,8 @@ import { getPlatformNameFromEntityData } from '@src/app/entityV2/shared/utils';
 import { useEntityRegistry } from '@src/app/useEntityRegistry';
 import { Entity, EntityType, GlossaryNode, GlossaryTerm } from '@src/types.generated';
 
-const ImageIcon = styled(Image)<{ $size: number }>`
+const ImageIcon = styled.img<{ $size: number }>`
+    display: block;
     height: ${(props) => props.$size}px;
     width: ${(props) => props.$size}px;
     object-fit: contain;
@@ -45,7 +45,6 @@ export function SingleEntityIcon({ entity, size }: Props) {
     return (
         (platformLogoUrl && !isBrokenPlatformLogoUrl && (
             <ImageIcon
-                preview={false}
                 src={platformLogoUrl}
                 alt={platformName || ''}
                 $size={size}

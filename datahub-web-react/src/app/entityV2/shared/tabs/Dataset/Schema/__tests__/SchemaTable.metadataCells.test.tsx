@@ -16,7 +16,7 @@ import TestPageContainer from '@utils/test-utils/TestPageContainer';
 const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,cells_ds,PROD)';
 
 // Keep the real module (contexts, useBaseEntity, ...) and pin only the entity identity.
-vi.mock('@app/entity/shared/EntityContext', async (importOriginal) => ({
+vi.mock('@app/entityV2/shared/EntityContext', async (importOriginal) => ({
     ...(await importOriginal<any>()),
     useEntityData: () => ({ urn: DATASET_URN, entityType: 'DATASET', entityData: null }),
     useMutationUrn: () => DATASET_URN,
@@ -30,12 +30,6 @@ vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/utils/useGetTableColumnPropert
 
 vi.mock('@app/entityV2/shared/tabs/Dataset/Schema/components/SchemaFieldDrawer/SchemaFieldDrawer', () => ({
     default: () => null,
-}));
-
-// jsdom has no layout, so the virtualised body would compute a zero-height viewport and
-// render no rows. Plain antd table components render every row.
-vi.mock('virtualizedtableforantd4', () => ({
-    useVT: () => [{}, () => {}, { current: null }],
 }));
 
 const fields = [
@@ -132,10 +126,8 @@ describe('SchemaTable metadata cells across the two loading phases', () => {
         await waitFor(() => expect(screen.getByTestId('schema-field-user_id')).toBeInTheDocument());
         expect(rowOrder()).toEqual(['schema-field-user_id', 'schema-field-user_name']);
 
-        // Ascending by name (already the fixture order), then descending. antd labels the
-        // sortable header cell with aria-label; with a fixed table height the header lives in
-        // its own table, so look it up by that label rather than by role.
-        const nameHeader = screen.getAllByLabelText('Name')[0];
+        // Ascending by name (already the fixture order), then descending.
+        const nameHeader = screen.getByTestId('sort-fieldPath');
         fireEvent.click(nameHeader);
         await waitFor(() => expect(rowOrder()).toEqual(['schema-field-user_id', 'schema-field-user_name']));
         fireEvent.click(nameHeader);

@@ -116,7 +116,7 @@ public class GraphCacheReader {
         || seedUrn.isBlank()
         || relationshipTypes.isEmpty()
         || maxDepth <= 0
-        || count <= 0
+        || count < 0
         || !EntityGraphSources.supports(definition, source)
         || definition.getScope().getMode() != ScopeMode.FULL) {
       return MembershipNeighborResult.miss(ReadMissReason.INVALID_REQUEST);

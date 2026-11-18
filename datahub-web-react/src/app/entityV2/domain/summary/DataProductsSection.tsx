@@ -4,9 +4,9 @@ import { useTranslation } from 'react-i18next';
 import { useHistory } from 'react-router';
 import styled, { useTheme } from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
 import { IconStyleType } from '@app/entityV2/Entity';
 import ContentSectionLoading from '@app/entityV2/domain/summary/ContentSectionLoading';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { navigateToDomainDataProducts } from '@app/entityV2/shared/containers/profile/sidebar/Domain/utils';
 import SectionActionButton from '@app/entityV2/shared/containers/profile/sidebar/SectionActionButton';
 import { DataProductMiniPreview } from '@app/entityV2/shared/links/DataProductMiniPreview';

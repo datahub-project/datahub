@@ -1,5 +1,7 @@
 package com.linkedin.metadata.entity.validation;
 
+import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
+
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.DataList;
 import com.linkedin.data.DataMap;
@@ -9,13 +11,17 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
+import com.linkedin.metadata.models.registry.RegistryKnowledge;
 import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.EntityRegistryUrnValidator;
 import com.linkedin.metadata.utils.RecordTemplateValidator;
+import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.UnknownTypeDeferringUrnValidator;
 import com.linkedin.metadata.utils.UrnValidationUtil;
 import com.linkedin.mxe.MetadataChangeProposal;
 import java.util.Objects;
+import java.util.Optional;
 import java.util.Set;
 import java.util.function.Consumer;
 import javax.annotation.Nonnull;
@@ -25,6 +31,9 @@ import lombok.extern.slf4j.Slf4j;
 @Slf4j
 public class ValidationApiUtils {
   public static final String STRICT_URN_VALIDATION_ENABLED = "STRICT_URN_VALIDATION_ENABLED";
+  private static final UnknownDataGuard UNKNOWN_REFERENCES =
+      UnknownDataGuard.forSite(ValidationApiUtils.class, "references to unknown entity types in");
+
   private static final Set<String> AUDIT_STAMP_FIELD_NAMES =
       Set.of("auditStamp", "created", "lastModified");
   private static final String TIME_FIELD_NAME = "time";
@@ -186,6 +195,22 @@ public class ValidationApiUtils {
     }
   }
 
+  /**
+   * While unknown data is tolerated, rejects a urn whose key nests an entity type this registry
+   * doesn't know (e.g. a schema field of a newer version's entity type) as a ValidationException,
+   * like an unknown entity type, not as the IllegalArgumentException batch building skips. Any
+   * unknown nested type is rejected, whether or not a newer version registered it, as an unknown
+   * outer type is.
+   */
+  public static void validateKeyEntityTypes(
+      @Nonnull EntityRegistry entityRegistry, @Nonnull final Urn urn) {
+    if (handling().toleratesUnknownEntityAspect()
+        && RegistryKnowledge.referencesUnknownEntityType(entityRegistry, urn, entityType -> true)) {
+      throw new ValidationException(
+          String.format("Urn %s nests an entity type this version doesn't know", urn));
+    }
+  }
+
   @Nonnull
   public static AspectSpec validateAspect(@Nonnull EntitySpec entitySpec, String aspectName) {
     if (aspectName == null || aspectName.isEmpty()) {
@@ -203,6 +228,65 @@ public class ValidationApiUtils {
     return aspectSpec;
   }
 
+  /**
+   * Validates an aspect being written. With unknown data tolerated, urns of entity types the
+   * registry doesn't know are not rejected here: they are kept if the stored aspect already holds
+   * them and rejected otherwise when the write is applied ({@link
+   * com.linkedin.metadata.utils.UnknownReferenceMerger}). A timeseries aspect has no stored value
+   * to keep them from, so it is validated in full, as is every aspect when unknown data isn't
+   * tolerated.
+   */
+  public static void validateWrittenRecordTemplate(
+      EntitySpec entitySpec,
+      @Nonnull AspectSpec aspectSpec,
+      Urn urn,
+      @Nullable RecordTemplate aspect,
+      @Nonnull AspectRetriever aspectRetriever) {
+    if (!handling().toleratesUnknownEntityAspect() || aspectSpec.isTimeseries()) {
+      validateRecordTemplate(
+          entitySpec,
+          urn,
+          aspect,
+          new EntityRegistryUrnValidator(aspectRetriever.getEntityRegistry()),
+          aspectRetriever);
+      return;
+    }
+    validateRecordTemplate(
+        entitySpec,
+        urn,
+        aspect,
+        new UnknownTypeDeferringUrnValidator(aspectRetriever.getEntityRegistry()),
+        aspectRetriever);
+  }
+
+  private static void validateRecordTemplate(
+      EntitySpec entitySpec,
+      Urn urn,
+      @Nullable RecordTemplate aspect,
+      @Nonnull EntityRegistryUrnValidator validator,
+      @Nonnull AspectRetriever aspectRetriever) {
+    EntityRegistry entityRegistry = aspectRetriever.getEntityRegistry();
+    validator.setCurrentEntitySpec(entitySpec);
+    Consumer<ValidationResult> resultFunction =
+        validationResult -> {
+          throw new ValidationException(
+              "Invalid format for aspect: "
+                  + entitySpec.getName()
+                  + "\n Cause: "
+                  + validationResult.getMessages());
+        };
+
+    RecordTemplateValidator.validate(
+        EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
+    if (aspect != null) {
+      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    }
+  }
+
+  /**
+   * Validates an aspect being indexed (an MCL). References to entity types this registry doesn't
+   * know are dropped first, so they are neither indexed nor rejected.
+   */
   public static void validateRecordTemplate(
       EntitySpec entitySpec,
       Urn urn,
@@ -224,7 +308,21 @@ public class ValidationApiUtils {
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
 
     if (aspect != null) {
+      // References to entity types this registry doesn't know (written by a newer version before
+      // a rollback) are dropped rather than indexed, and don't fail the aspect.
+      reportStripped(handling().stripUnknownReferences(aspect, entityRegistry), aspect, urn);
       RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+    }
+  }
+
+  private static void reportStripped(
+      final int removed, @Nonnull final RecordTemplate aspect, @Nonnull final Urn urn) {
+    if (removed > 0) {
+      UNKNOWN_REFERENCES.skippedBecause(
+          Optional.empty(),
+          aspect.schema().getName(),
+          removed + " removed before indexing " + aspect.schema().getName(),
+          urn);
     }
   }
 
@@ -262,6 +360,7 @@ public class ValidationApiUtils {
               urn.getEntityType(), mcp.getEntityType()));
     }
 
+    validateKeyEntityTypes(entityRegistry, urn);
     validateUrn(entityRegistry, urn);
     validateAspect(entitySpec, mcp.getAspectName());
 

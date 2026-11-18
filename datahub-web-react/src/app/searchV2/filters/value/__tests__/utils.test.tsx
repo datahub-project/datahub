@@ -1,4 +1,3 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { FieldType, FilterField, FilterOperatorType, FilterValueOption } from '@app/searchV2/filters/types';
@@ -12,16 +11,21 @@ import {
 } from '@app/searchV2/filters/value/utils';
 import { FILTER_DELIMITER } from '@app/searchV2/utils/constants';
 import useGetSearchQueryInputs from '@src/app/search/useGetSearchQueryInputs';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { useAggregateAcrossEntitiesQuery } from '@graphql/search.generated';
 import { AllowedValue, EntityType } from '@types';
 
 // Mock the GraphQL queries
-vi.mock('@graphql/search.generated', () => ({
-    useAggregateAcrossEntitiesQuery: vi.fn(),
-    useGetAutoCompleteMultipleResultsQuery: vi.fn(),
-    useGetSearchResultsForMultipleQuery: vi.fn(),
-}));
+vi.mock('@graphql/search.generated', async (importOriginal) => {
+    const actual = (await importOriginal()) as any;
+    return {
+        ...actual,
+        useAggregateAcrossEntitiesQuery: vi.fn(),
+        useGetAutoCompleteMultipleResultsQuery: vi.fn(),
+        useGetSearchResultsForMultipleQuery: vi.fn(),
+    };
+});
 
 // Mock the search query inputs hook
 vi.mock('@src/app/search/useGetSearchQueryInputs', () => ({
@@ -264,14 +268,12 @@ describe('useLoadAggregationOptions', () => {
         expect(result.current.options[0]).toEqual({
             value: 'snowflake',
             entity: null,
-            icon: undefined,
             count: 10,
             displayName: undefined,
         });
         expect(result.current.options[1]).toEqual({
             value: 'bigquery',
             entity: null,
-            icon: undefined,
             count: 5,
             displayName: undefined,
         });

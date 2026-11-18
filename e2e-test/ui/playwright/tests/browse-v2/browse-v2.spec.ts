@@ -27,6 +27,7 @@
 import { test, expect } from '../../fixtures/base-test';
 import { SearchPage } from '../../pages/search.page';
 import { BrowseV2Page } from '../../pages/browse-v2.page';
+import { DatasetPage } from '../../pages/dataset.page';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
 import { GLOBAL_FEATURE_FLAGS } from '../../utils/test-feature-flags';
 import { DomainTag, TestTag } from '../../utils/test-tags';
@@ -52,10 +53,13 @@ const CONTAINER_URNS = {
   SCHEMA: 'urn:li:container:playwright_browse_entity_schema_container',
 };
 
+const DATASET_URNS = {
+  CUSTOMERS: 'urn:li:dataset:(urn:li:dataPlatform:bigquery,PlaywrightBrowseEntity.test_schema.customers,PROD)',
+};
+
 const SEARCH_QUERIES = {
   WILDCARD: '*',
   ENTITY_TYPE: 'dataset',
-  CUSTOMERS: 'customers',
 };
 
 const URL_PATTERNS = {
@@ -158,16 +162,12 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     logger?.step('expand BigQuery platform');
     await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify sidebar remains visible after expanding');
     await browseV2Page.expectBrowseV2Visible();
 
     logger?.step('collapse BigQuery platform');
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify sidebar remains visible after collapsing');
     await browseV2Page.expectBrowseV2Visible();
@@ -198,8 +198,6 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
     logger?.step('expand BigQuery platform');
     await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
 
     logger?.step('verify PlaywrightBrowseEntity browse path is visible');
     await browseV2Page.expectBrowseNodeVisible(BROWSE_PATHS.PROJECT);
@@ -227,13 +225,9 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
       logger?.step('expand BigQuery platform');
       await browseV2Page.expectBrowsePlatformExists(PLATFORM.BIGQUERY, TIMEOUTS.EXTRA_LONG);
       await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(TIMEOUTS.QUICK);
 
       logger?.step('expand PlaywrightBrowseEntity path');
       await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
-      // eslint-disable-next-line playwright/no-wait-for-timeout
-      await page.waitForTimeout(TIMEOUTS.QUICK);
 
       logger?.step('click test_schema node to apply filters');
       await browseV2Page.clickBrowseNode(BROWSE_PATHS.SCHEMA);
@@ -248,10 +242,14 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
       expect(url).toContain(BROWSE_PATHS.SCHEMA);
 
       logger?.step('verify result count decreased');
-      const filteredCount = await searchPage.getResultCount();
-      logger?.step(`filtered: ${filteredCount} results`);
-      expect(filteredCount).toBeLessThan(baselineCount);
-      expect(filteredCount).toBeGreaterThan(0);
+      // The count text can lag the filtered response by a render, and can briefly read 0.
+      await expect
+        .poll(async () => {
+          const count = await searchPage.getResultCount();
+          return count > 0 && count < baselineCount;
+        })
+        .toBe(true);
+      logger?.step(`filtered: ${await searchPage.getResultCount()} results`);
     },
   );
 
@@ -262,11 +260,7 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
 
     logger?.step('apply browse path filter');
     await browseV2Page.clickBrowsePlatform(PLATFORM.BIGQUERY);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
     await browseV2Page.expandBrowseNode(BROWSE_PATHS.PROJECT);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
     await browseV2Page.clickBrowseNode(BROWSE_PATHS.SCHEMA);
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
@@ -288,23 +282,21 @@ test.describe('Browse V2 - Platform Browse Mode', () => {
   test(
     'Browse path click navigates to container entity page',
     { tag: [TestTag.P0, DomainTag.Catalog] },
-    async ({ page, logger }) => {
-      logger?.step('search for customers dataset');
-      await searchPage.search(SEARCH_QUERIES.CUSTOMERS);
-      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+    async ({ page, logger, logDir }) => {
+      const datasetPage = new DatasetPage(page, logger, logDir);
 
-      logger?.step('click on customers dataset to open profile');
-      await searchPage.clickResult(SEARCH_QUERIES.CUSTOMERS);
-      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      // Several seeded datasets are exact matches for "customers". This test checks the
+      // fixture's browse path, so open that dataset directly instead of taking the first hit.
+      logger?.step('open the fixture dataset profile');
+      await datasetPage.navigateToDataset(DATASET_URNS.CUSTOMERS);
 
-      logger?.step('verify dataset profile page is loaded');
-      expect(page.url()).toContain(SEARCH_QUERIES.ENTITY_TYPE);
-      expect(page.url()).toContain(URL_PATTERNS.BIGQUERY_FILTER);
+      logger?.step('verify the fixture dataset profile is loaded');
+      expect(decodeURIComponent(page.url())).toContain(DATASET_URNS.CUSTOMERS);
 
       logger?.step('verify browse path entries are visible');
       await browseV2Page.expectBrowsePathVisible(CONTAINER_URNS.PROJECT);
 
-      logger?.step('click on first browse path entry to navigate to container');
+      logger?.step('click the project browse path to navigate to the container');
       await browseV2Page.clickBrowsePath(CONTAINER_URNS.PROJECT);
       await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 

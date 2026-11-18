@@ -2,7 +2,8 @@ import { Location } from 'history';
 import { useMemo } from 'react';
 import { useLocation } from 'react-router';
 
-import { useModalContext } from '@app/sharedV2/modals/ModalContext';
+import { useModalContext } from '@components/components/Modal/ModalContext';
+
 import { PageRoutes } from '@conf/Global';
 
 // Function to check if the current page is an embedded profile
