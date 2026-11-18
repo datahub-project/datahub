@@ -1601,6 +1601,84 @@ def _match_known_schema_column(
     return _ColumnRef(table=upstream.table, column=matches[0])
 
 
+def _insert_column_names(
+    statement: sqlglot.exp.Expression,
+) -> Optional[List[str]]:
+    # An explicit INSERT column list is a Schema target whose expressions
+    # are the target columns, expected to be plain Identifiers; anything
+    # else declines the mapping. Other targets can also expose expressions
+    # - e.g. a ClickHouse table function in
+    # INSERT INTO FUNCTION remote(...) SELECT ..., whose expressions are
+    # function arguments, not column names - and must not be mapped.
+    if not isinstance(statement, sqlglot.exp.Insert):
+        return None
+    if (
+        not isinstance(statement.this, sqlglot.exp.Schema)
+        or not statement.this.expressions
+    ):
+        return None
+    if not all(
+        isinstance(col, sqlglot.exp.Identifier) for col in statement.this.expressions
+    ):
+        return None
+    return [col.name for col in statement.this.expressions]
+
+
+def _rename_insert_output_columns(
+    column_lineage: List[_ColumnLineageInfo],
+    *,
+    statement: sqlglot.exp.Expression,
+    select_statement: sqlglot.exp.Expression,
+    column_resolver: _ColumnResolver,
+) -> List[_ColumnLineageInfo]:
+    insert_columns = _insert_column_names(statement)
+    if not insert_columns:
+        return column_lineage
+
+    # _select_statement_cll iterates the same selects and skips unexpanded
+    # stars, so the lineage entries line up positionally with the output
+    # columns only when every output column produced an entry. Rename only
+    # then, and only when the counts also match the INSERT list; anything
+    # else keeps the SELECT output names, as before.
+    output_names = [
+        select_col.alias_or_name for select_col in select_statement.selects
+    ]
+    if (
+        len(column_lineage) != len(insert_columns)
+        or len(column_lineage) != len(output_names)
+        or any(not name or name == "*" for name in output_names)
+    ):
+        logger.debug(
+            "Skipping INSERT column list mapping: output columns %s, "
+            "%s lineage entries, %s INSERT columns",
+            output_names,
+            len(column_lineage),
+            len(insert_columns),
+        )
+        return column_lineage
+
+    # _select_statement_cll looks each output column up by name, so when
+    # two outputs share a name (e.g. a.id and b.id in a join) every entry
+    # for that name carries the first projection's upstreams. Renaming
+    # positionally would label that shared lineage with distinct target
+    # names, so decline instead and keep the SELECT output names.
+    if len({name.lower() for name in output_names}) != len(output_names):
+        logger.debug(
+            "Skipping INSERT column list mapping: duplicate output names %s",
+            output_names,
+        )
+        return column_lineage
+
+    # The INSERT list name wins over the casing computed from the SELECT:
+    # it names the actual target column, so resolve it against the target
+    # schema the same way output columns are resolved.
+    for info, insert_column in zip(column_lineage, insert_columns):
+        info.downstream.column = column_resolver.schema_aware_fuzzy_column_resolve(
+            info.downstream.table, insert_column
+        )
+    return column_lineage
+
+
 class _ColumnLineageWithDebugInfo(_ParserBaseModel):
     column_lineage: List[_ColumnLineageInfo]
     joins: Optional[List[_JoinInfo]] = None
@@ -1701,6 +1779,18 @@ def _column_level_lineage(
         default_db=default_db,
         default_schema=default_schema,
         explicit_synthetic_aliases=explicit_synthetic_aliases,
+    )
+
+    # An explicit INSERT column list names the downstream columns: rename
+    # the computed output columns positionally to the INSERT list. Doing
+    # this here, after star expansion and lineage computation, covers every
+    # SELECT body shape (bare, parenthesized, UNION, CTE) with one rule and
+    # never disturbs the query's own alias references.
+    column_lineage = _rename_insert_output_columns(
+        column_lineage,
+        statement=statement,
+        select_statement=select_statement,
+        column_resolver=column_resolver,
     )
 
     joins: Optional[List[_JoinInfo]] = None
@@ -2333,84 +2423,9 @@ def _try_extract_select(
             statement.expression
         )  # Get the SELECT expression from the INSERT
 
-        # Map INSERT column names to SELECT expressions positionally, so that
-        # column lineage names the downstream columns after the INSERT column
-        # list instead of the SELECT output names. This applies to every
-        # dialect: sqlglot represents an explicit INSERT column list as a
-        # Schema in statement.this whose expressions are the target columns.
-        # Example: INSERT INTO t (col_a) SELECT col_b FROM src
-        #   Should create: downstream=col_a, upstream=col_b
-        #   Without fix:   downstream=col_b, upstream=col_b (WRONG!)
-        if (
-            # Only a Schema target carries an INSERT column list. Other targets
-            # can also expose expressions - e.g. a ClickHouse table function in
-            # INSERT INTO FUNCTION remote(...) SELECT ..., whose expressions are
-            # function arguments, not column names - and must not be mapped.
-            isinstance(statement.this, sqlglot.exp.Schema)
-            and statement.this.expressions
-            and isinstance(select_statement, sqlglot.exp.Select)
-        ):
-            insert_columns = statement.this.expressions
-            select_expressions = select_statement.expressions
-
-            # Only apply mapping if column counts match, and skip it when a
-            # SELECT expression is a star (`*` or `t.*`): the star has not
-            # been expanded yet, so with a one-column list the length check
-            # passes and the mapping would rename the star itself (`* AS a`),
-            # leaving the downstream column with no upstreams. Leaving the
-            # SELECT untouched keeps the lineage that star expansion
-            # produces under the source column names.
-            has_star_expression = any(
-                isinstance(expr, sqlglot.exp.Star)
-                or (
-                    isinstance(expr, sqlglot.exp.Column)
-                    and isinstance(expr.this, sqlglot.exp.Star)
-                )
-                for expr in select_expressions
-            )
-            if (
-                len(insert_columns) == len(select_expressions)
-                and not has_star_expression
-            ):
-                # Create new SELECT with INSERT column names as explicit Alias nodes
-                # This ensures the alias survives sqlglot's optimizer
-                new_selects = []
-                for insert_col, select_expr in zip(
-                    insert_columns, select_expressions, strict=False
-                ):
-                    # Reuse the INSERT column's own Identifier as the alias so
-                    # its quoting is preserved: rebuilding one from the name
-                    # string would drop the quoted flag, and a quoted
-                    # mixed-case target would then fold to lowercase on
-                    # dialects like Postgres, Redshift, and DuckDB.
-                    if isinstance(insert_col, sqlglot.exp.Identifier):
-                        insert_col_identifier = insert_col.copy()
-                    else:
-                        insert_col_identifier = sqlglot.exp.to_identifier(
-                            insert_col.alias_or_name
-                            if hasattr(insert_col, "alias_or_name")
-                            else str(insert_col)
-                        )
-                    # Create an explicit Alias node: expr AS insert_col_name
-                    # The Alias node should survive optimization better than just setting alias property.
-                    # If the SELECT expression already has an alias, replace it instead of
-                    # wrapping it in a second Alias node, which would render as a doubled
-                    # "AS x AS y" in the extracted column logic.
-                    # Defensive copy to preserve the original statement in case the aliased ones need to be mutated
-                    expr_to_alias = select_expr.copy()
-                    if isinstance(expr_to_alias, sqlglot.exp.Alias):
-                        expr_to_alias = expr_to_alias.this
-                    aliased_expr = sqlglot.exp.Alias(
-                        this=expr_to_alias,
-                        alias=insert_col_identifier,
-                    )
-                    new_selects.append(aliased_expr)
-
-                # Replace SELECT expressions with aliased versions
-                # Defensive copy to preserve the original statement before mutating it
-                select_statement = select_statement.copy()
-                select_statement.set("expressions", new_selects)
-
+        # The SELECT is extracted untouched: an explicit INSERT column
+        # list is applied to the computed lineage afterwards, in
+        # _column_level_lineage (see _rename_insert_output_columns).
         statement = select_statement
         if isinstance(statement, sqlglot.exp.Query) and original_ctes:
             for cte in original_ctes:

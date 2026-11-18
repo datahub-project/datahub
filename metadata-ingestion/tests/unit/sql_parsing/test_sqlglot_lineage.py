@@ -457,10 +457,10 @@ FROM source_db.dbo.source_table
 )
 def test_insert_column_list_mapping_applies_to_all_dialects(platform: str) -> None:
     # The INSERT column list names the downstream columns in every dialect,
-    # not just T-SQL: each SELECT expression is paired positionally with the
-    # target column at the same position. This covers a plain column, a
+    # not just T-SQL: each SELECT output column is paired positionally with
+    # the target column at the same position. This covers a plain column, a
     # computed expression, and an expression that already carries an alias
-    # (the alias is replaced by the target column name, not wrapped).
+    # (the target column name wins over the SELECT alias).
     assert _column_upstreams(
         """\
 INSERT INTO my_db.my_schema.order_totals (order_id, total_amount, region_code)
@@ -487,9 +487,9 @@ SELECT id, amount * 1.1, region AS rgn FROM my_db.my_schema.orders
 
 
 def test_insert_column_list_mapping_preserves_quoted_case() -> None:
-    # A quoted mixed-case target column keeps its case: the alias reuses the
-    # INSERT column's own Identifier instead of rebuilding one from the name
-    # string, which would drop the quoting and fold the name to lowercase.
+    # A quoted mixed-case target column keeps its case: the downstream name
+    # is taken from the INSERT column's own Identifier and resolved against
+    # the target schema, instead of being folded to lowercase.
     assert _column_upstreams(
         """\
 INSERT INTO my_db.my_schema.order_totals ("OrderId", total_amount)
@@ -512,18 +512,18 @@ SELECT id, amount FROM my_db.my_schema.orders
 @pytest.mark.parametrize(
     "select_list",
     [
-        "*",  # bare star parses as a Star expression
-        "s.*",  # qualified star parses as a Column wrapping a Star
+        "*",  # bare star
+        "s.*",  # qualified star
     ],
 )
-def test_insert_column_list_mapping_skipped_for_star_select(
+def test_insert_column_list_mapping_applies_after_star_expansion(
     select_list: str,
 ) -> None:
-    # The star has not been expanded when the mapping runs, so a one-column
-    # INSERT list passes the length check and the mapping would rename the
-    # star itself (`* AS a`), leaving the downstream column with no
-    # upstreams. The mapping is skipped instead, and lineage keeps the
-    # source column names produced by star expansion.
+    # The mapping runs after star expansion, so a star select is paired
+    # with the INSERT list by its expanded columns: the downstream column
+    # takes the target name and keeps the source column as its upstream.
+    # Renaming the unexpanded star itself (`* AS a`) would leave the
+    # downstream column with no upstreams.
     assert _column_upstreams(
         f"""\
 INSERT INTO my_db.my_schema.my_target (a)
@@ -531,19 +531,17 @@ SELECT {select_list} FROM my_db.my_schema.my_source s
 """,
         platform="postgres",
         schemas={
-            "my_db.my_schema.my_source": {"x": "NUMBER", "y": "NUMBER"},
+            "my_db.my_schema.my_source": {"x": "NUMBER"},
             "my_db.my_schema.my_target": {"a": "NUMBER"},
         },
     ) == {
-        "x": ["my_db.my_schema.my_source.x"],
-        "y": ["my_db.my_schema.my_source.y"],
+        "a": ["my_db.my_schema.my_source.x"],
     }
 
 
-def test_insert_column_list_mapping_skipped_when_star_is_mixed_in() -> None:
-    # A star anywhere in the SELECT list skips the whole mapping: positions
-    # after the star shift by however many columns it expands to, so no
-    # positional pairing is trustworthy until expansion has happened.
+def test_insert_column_list_mapping_applies_when_star_is_mixed_in() -> None:
+    # A star mixed into the SELECT list expands first, so the positional
+    # pairing covers the columns on both sides of it.
     assert _column_upstreams(
         """\
 INSERT INTO my_db.my_schema.my_target (a, b)
@@ -555,16 +553,15 @@ SELECT *, 1 FROM my_db.my_schema.my_source
             "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
         },
     ) == {
-        "x": ["my_db.my_schema.my_source.x"],
-        "1": [],
+        "a": ["my_db.my_schema.my_source.x"],
+        "b": [],
     }
 
 
 def test_insert_column_list_mapping_still_applies_for_count_star() -> None:
-    # A star inside a function is not a SELECT-list star: the mapping still
-    # applies, so the downstream column takes the INSERT list name. This
-    # guards against the star check growing into a find-any-star check,
-    # which would silently drop the mapping for aggregates.
+    # A star inside a function is not a SELECT-list star: count(*) is a
+    # single output column, so the mapping applies and the downstream
+    # column takes the INSERT list name.
     assert _column_upstreams(
         """\
 INSERT INTO my_db.my_schema.my_target (a)
@@ -576,6 +573,232 @@ SELECT count(*) FROM my_db.my_schema.my_source
             "my_db.my_schema.my_target": {"a": "NUMBER"},
         },
     ) == {"a": []}
+
+
+def test_insert_column_list_mapping_with_lateral_alias_reference() -> None:
+    # A later SELECT expression may refer back to an earlier alias (lateral
+    # column aliases in Snowflake/Redshift/Databricks). The mapping must
+    # not rename the alias out from under that reference: the downstream
+    # column paired with `x + 1` still traces back to `amount`.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (a, b)
+SELECT amount * 2 AS x, x + 1 AS y FROM my_db.my_schema.my_source
+""",
+        platform="snowflake",
+        schemas={
+            "my_db.my_schema.my_source": {"amount": "NUMBER"},
+            "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
+        },
+    ) == {
+        "a": ["my_db.my_schema.my_source.amount"],
+        "b": ["my_db.my_schema.my_source.amount"],
+    }
+
+
+def test_insert_column_list_mapping_with_qualify_alias_reference() -> None:
+    # QUALIFY refers to the SELECT alias, not the target column name.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (id, rnk)
+SELECT id, row_number() OVER (ORDER BY ts) AS rn
+FROM my_db.my_schema.my_source
+QUALIFY rn = 1
+""",
+        platform="snowflake",
+        schemas={
+            "my_db.my_schema.my_source": {"id": "NUMBER", "ts": "TIMESTAMP"},
+            "my_db.my_schema.my_target": {"id": "NUMBER", "rnk": "NUMBER"},
+        },
+    ) == {
+        "id": ["my_db.my_schema.my_source.id"],
+        "rnk": ["my_db.my_schema.my_source.ts"],
+    }
+
+
+def test_insert_column_list_mapping_with_group_by_alias_reference() -> None:
+    # GROUP BY refers to the SELECT alias, not the target column name.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (k, n)
+SELECT upper(region) AS rg, count(*) FROM my_db.my_schema.my_source
+GROUP BY rg
+""",
+        platform="snowflake",
+        schemas={
+            "my_db.my_schema.my_source": {"region": "STRING"},
+            "my_db.my_schema.my_target": {"k": "STRING", "n": "NUMBER"},
+        },
+    ) == {
+        "k": ["my_db.my_schema.my_source.region"],
+        "n": [],
+    }
+
+
+def test_insert_column_list_mapping_for_parenthesized_select() -> None:
+    # A parenthesized SELECT body is not a bare Select expression, but the
+    # INSERT column list still names its output columns.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (order_id, total)
+(SELECT id, amount FROM my_db.my_schema.my_source)
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_source": {"id": "NUMBER", "amount": "NUMBER"},
+            "my_db.my_schema.my_target": {
+                "order_id": "NUMBER",
+                "total": "NUMBER",
+            },
+        },
+    ) == {
+        "order_id": ["my_db.my_schema.my_source.id"],
+        "total": ["my_db.my_schema.my_source.amount"],
+    }
+
+
+def test_insert_column_list_mapping_for_union_select() -> None:
+    # A UNION body produces its output names from the first branch; the
+    # INSERT column list renames them positionally, with upstreams from
+    # every branch.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (order_id, total)
+SELECT id, amount FROM my_db.my_schema.my_source
+UNION ALL
+SELECT id, amount FROM my_db.my_schema.my_source
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_source": {"id": "NUMBER", "amount": "NUMBER"},
+            "my_db.my_schema.my_target": {
+                "order_id": "NUMBER",
+                "total": "NUMBER",
+            },
+        },
+    ) == {
+        "order_id": ["my_db.my_schema.my_source.id"],
+        "total": ["my_db.my_schema.my_source.amount"],
+    }
+
+
+@pytest.mark.parametrize(
+    "sql, expected_downstream",
+    [
+        # a.id and b.id in a join share the output name `id`.
+        (
+            """\
+INSERT INTO my_db.my_schema.my_target (src_id, dst_id)
+SELECT a.id, b.id
+FROM my_db.my_schema.table_a a
+JOIN my_db.my_schema.table_b b ON a.k = b.k
+""",
+            ["id", "id"],
+        ),
+        # Aliases that differ only by case are duplicates too.
+        (
+            """\
+INSERT INTO my_db.my_schema.my_target (src_id, dst_id)
+SELECT id AS X, amount AS x FROM my_db.my_schema.my_source
+""",
+            ["x", "x"],
+        ),
+    ],
+)
+def test_insert_column_list_mapping_skipped_for_duplicate_names(
+    sql: str, expected_downstream: List[str]
+) -> None:
+    # Lineage is looked up by output name, so outputs that share a name all
+    # carry the first projection's upstreams. A positional rename would
+    # label that shared lineage with distinct target names, so the mapping
+    # is skipped and the SELECT output names are kept. This reads the raw
+    # lineage list because _column_upstreams keys by downstream column and
+    # would merge the duplicates.
+    result = sqlglot_lineage(
+        sql,
+        _schema_resolver(
+            "postgres",
+            {
+                "my_db.my_schema.table_a": {"id": "NUMBER", "k": "NUMBER"},
+                "my_db.my_schema.table_b": {"id": "NUMBER", "k": "NUMBER"},
+                "my_db.my_schema.my_source": {
+                    "id": "NUMBER",
+                    "amount": "NUMBER",
+                },
+                "my_db.my_schema.my_target": {
+                    "src_id": "NUMBER",
+                    "dst_id": "NUMBER",
+                },
+            },
+        ),
+        default_db="my_db",
+        default_schema="my_schema",
+    )
+    assert result.debug_info.column_error is None
+    assert [
+        info.downstream.column for info in result.column_lineage or []
+    ] == expected_downstream
+
+
+def test_insert_column_list_mapping_skipped_on_count_mismatch() -> None:
+    # The pairing is positional, so it only applies when the SELECT
+    # produces exactly as many output columns as the INSERT list names;
+    # otherwise the SELECT output names are kept.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (a, b)
+SELECT id FROM my_db.my_schema.my_source
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_source": {"id": "NUMBER", "amount": "NUMBER"},
+            "my_db.my_schema.my_target": {"a": "NUMBER", "b": "NUMBER"},
+        },
+    ) == {
+        "id": ["my_db.my_schema.my_source.id"],
+    }
+
+
+def test_insert_column_list_mapping_with_unexpandable_star() -> None:
+    # Without the source schema the star cannot be expanded, so there are
+    # no output columns to rename: no lineage is produced for it, and the
+    # INSERT list name must not end up on an entry of its own.
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (a)
+SELECT * FROM my_db.my_schema.unknown_source
+""",
+        platform="postgres",
+        schemas={
+            "my_db.my_schema.my_target": {"a": "NUMBER"},
+        },
+    ) == {}
+
+
+@pytest.mark.parametrize(
+    "platform, expected_column",
+    [
+        # An unquoted mixed-case INSERT column resolves exactly like the
+        # same name written as a SELECT alias: Snowflake takes the target
+        # schema's casing, Postgres folds it to lowercase.
+        ("snowflake", "OrderId"),
+        ("postgres", "orderid"),
+    ],
+)
+def test_insert_column_list_mapping_unquoted_mixed_case(
+    platform: str, expected_column: str
+) -> None:
+    assert _column_upstreams(
+        """\
+INSERT INTO my_db.my_schema.my_target (OrderId)
+SELECT id FROM my_db.my_schema.my_source
+""",
+        platform=platform,
+        schemas={
+            "my_db.my_schema.my_source": {"id": "NUMBER"},
+            "my_db.my_schema.my_target": {"OrderId": "NUMBER"},
+        },
+    ) == {expected_column: ["my_db.my_schema.my_source.id"]}
 
 
 def test_insert_into_table_function_does_not_map_arguments() -> None:
