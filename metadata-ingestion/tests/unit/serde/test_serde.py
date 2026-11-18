@@ -121,6 +121,35 @@ def test_file_source_reports_mce_without_aspects(tmp_path: pathlib.Path) -> None
     assert len(source.report.failures) == 1
 
 
+def test_file_source_aspect_filter_applies_to_mces(tmp_path: pathlib.Path) -> None:
+    json_path = tmp_path / "mce.json"
+    urn = mce_builder.make_dataset_urn("hive", "db.table")
+    write_metadata_file(
+        json_path,
+        [
+            MetadataChangeEventClass(
+                proposedSnapshot=models.DatasetSnapshotClass(
+                    urn=urn,
+                    aspects=[
+                        models.StatusClass(removed=False),
+                        models.DatasetPropertiesClass(description="d"),
+                    ],
+                )
+            )
+        ],
+    )
+    source = GenericFileSource(
+        ctx=PipelineContext(run_id="file-source-mce-aspect"),
+        config=FileSourceConfig(path=str(json_path), aspect="status"),
+    )
+
+    assert [wu.metadata for wu in source.get_workunits_internal()] == [
+        MetadataChangeProposalWrapper(
+            entityUrn=urn, aspect=models.StatusClass(removed=False)
+        )
+    ]
+
+
 @pytest.mark.parametrize(
     "json_filename",
     [
