@@ -170,13 +170,14 @@ public class SearchTemplateRouteTest extends SearchTemplateFixture {
     assertFalse(
         SearchTemplateLadderPredicates.stopMatches(light.getLadder(), 0, "orders", null, null, 10));
     assertTrue(
-        SearchTemplateLadderPredicates.selectMatches(light.getLadder(), "orders", null, null, 10));
+        SearchTemplateLadderPredicates.selectMatches(
+            light.getLadder(), "orders", null, null, 10, INELIGIBLE));
     assertTrue(
         SearchTemplateLadderPredicates.selectMatches(
-            light.getLadder(), "customer orders", null, null, 10));
+            light.getLadder(), "customer orders", null, null, 10, INELIGIBLE));
     assertFalse(
         SearchTemplateLadderPredicates.selectMatches(
-            light.getLadder(), "one two three four", null, null, 10));
+            light.getLadder(), "one two three four", null, null, 10, INELIGIBLE));
 
     SearchV3QueryBuilder builder =
         new SearchV3QueryBuilder(classpath, new SearchConfiguration(), null);

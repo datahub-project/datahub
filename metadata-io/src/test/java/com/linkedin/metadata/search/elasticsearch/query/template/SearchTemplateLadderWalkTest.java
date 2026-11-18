@@ -64,15 +64,18 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   public void testSelectIsAConjunctionAndStopIsADisjunction() {
     SearchTemplateLadder select = new SearchTemplateLadder();
     select.setSelect(new StringArray("scoreSort", "pageSize", "-columnFilter"));
-    assertTrue(SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 10));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 10, INELIGIBLE));
     assertFalse(
         SearchTemplateLadderPredicates.selectMatches(
             select,
             "orders",
             null,
             List.of(new SortCriterion().setField("name").setOrder(SortOrder.ASCENDING)),
-            10));
-    assertFalse(SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 0));
+            10,
+            INELIGIBLE));
+    assertFalse(
+        SearchTemplateLadderPredicates.selectMatches(select, "orders", null, null, 0, INELIGIBLE));
 
     SearchTemplateLadder stop = new SearchTemplateLadder();
     SearchTemplateLadderStop minHits = new SearchTemplateLadderStop();
@@ -94,7 +97,9 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
 
     SearchTemplateLadder pageSize = new SearchTemplateLadder();
     pageSize.setSelect(new StringArray("pageSize"));
-    assertTrue(SearchTemplateLadderPredicates.selectMatches(pageSize, "orders", null, null, null));
+    assertTrue(
+        SearchTemplateLadderPredicates.selectMatches(
+            pageSize, "orders", null, null, null, INELIGIBLE));
 
     assertFalse(matches("singleTerm", " "));
     assertTrue(matches("dotted", "a.b.c"));
@@ -817,6 +822,45 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testSemanticPredicatesReadTheTypesTheRungIsAssigned() {
+    // Semantic search is on for Document and Dataset. This build runs vectors for Document only.
+    useRuntime(
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            semanticGates("document", "dataset")));
+    String whole = "urn:li:searchTemplate:whole";
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    storeSelected("urn:li:searchTemplate:documents", "semanticEligible", "document");
+    storeSelected("urn:li:searchTemplate:all", "semanticEligible");
+    storeSelected("urn:li:searchTemplate:any", "anySemanticEligible");
+    storeSelected("urn:li:searchTemplate:none", "-anySemanticEligible");
+    storeSelected("urn:li:searchTemplate:datasets", "semanticEligible", "dataset");
+    List<String> mixed = List.of("chart", "document");
+
+    // The Document rung reads its assignment, so the requested Chart does not make it ineligible
+    assertEquals(
+        servedFor("urn:li:searchTemplate:documents", mixed), "urn:li:searchTemplate:documents");
+    assertEquals(servedFor("urn:li:searchTemplate:all", mixed), whole);
+    assertEquals(servedFor("urn:li:searchTemplate:any", mixed), "urn:li:searchTemplate:any");
+    assertEquals(servedFor("urn:li:searchTemplate:none", mixed), whole);
+    // Eligibility is enabledEntities, not the other gates: Dataset is enabled, though this build
+    // does not run vectors for it
+    assertEquals(
+        servedFor("urn:li:searchTemplate:datasets", List.of("chart", "dataset")),
+        "urn:li:searchTemplate:datasets");
+    // Only select reads the assignment. A stop sees the result.
+    accept("-semanticEligible");
+    accept("anySemanticEligible");
+    assertThrows(
+        SearchTemplateException.class,
+        () -> SearchTemplatePolicyChecks.checkLadder(emptyWhen("semanticEligible"), null));
+  }
+
+  @Test
   public void testParallelMembersAreAssignedIndependentlyAndOneMemberIsServed() {
     String first = "urn:li:searchTemplate:firstDocuments";
     String second = "urn:li:searchTemplate:secondDocuments";
@@ -910,10 +954,31 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
             .getResolvedSearchTemplate());
   }
 
+  private void storeSelected(String urn, String predicate, String... scope) {
+    SearchTemplateProperties rung =
+        scope.length == 0 ? body("Rung", "{ \"match_all\": {} }", null) : scoped("Rung", scope);
+    SearchTemplateLadder ladder = stopLadder(1, "urn:li:searchTemplate:whole");
+    ladder.setSelect(new StringArray(predicate));
+    rung.setLadder(ladder);
+    store(urn, rung);
+  }
+
+  private String servedFor(String urn, List<String> entityTypes) {
+    return walk(
+            ForkJoinPool.commonPool(),
+            urn,
+            "orders",
+            null,
+            10,
+            entityTypes,
+            (rung, assigned) -> page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)"))
+        .urn();
+  }
+
   private static boolean matches(String predicate, String query) {
     SearchTemplateLadder ladder = new SearchTemplateLadder();
     ladder.setSelect(new StringArray(predicate));
-    return SearchTemplateLadderPredicates.selectMatches(ladder, query, null, null, 10);
+    return SearchTemplateLadderPredicates.selectMatches(ladder, query, null, null, 10, INELIGIBLE);
   }
 
   private static void accept(String predicate) {

@@ -41,9 +41,11 @@ import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
+import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchTemplateConfiguration;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.entity.SearchRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
@@ -59,6 +61,7 @@ import com.linkedin.metadata.search.elasticsearch.client.shim.SearchClientShimUt
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
 import com.linkedin.policy.DataHubResourceFilter;
@@ -107,6 +110,10 @@ import org.testng.annotations.BeforeMethod;
 abstract class SearchTemplateFixture {
   /** The requested entity types when a test does not partition them. */
   protected static final List<String> REQUEST = List.of(DATASET_ENTITY_NAME);
+
+  /** Semantic eligibility of a set with no enabled type. */
+  protected static final SearchTemplateGates.Eligibility INELIGIBLE =
+      new SearchTemplateGates.Eligibility(false, false);
 
   protected static final Urn SYSTEM = UrnUtils.getUrn(SYSTEM_ACTOR);
   protected static final Urn USER = UrnUtils.getUrn("urn:li:corpuser:tester");
@@ -381,6 +388,15 @@ abstract class SearchTemplateFixture {
         .getSearchContext()
         .getResolvedSearchTemplate()
         .getRouteChain();
+  }
+
+  /** This build's gates with semantic search on for {@code enabled} and no registered profile. */
+  protected static SearchTemplateGates semanticGates(String... enabled) {
+    SemanticSearchConfiguration semantic = new SemanticSearchConfiguration();
+    semantic.setEnabled(true);
+    semantic.setEnabledEntities(Set.of(enabled));
+    semantic.setModels(Map.of("model", new ModelEmbeddingConfig()));
+    return SearchTemplateGates.of(EmbeddingProfileRegistry.empty(), semantic, false);
   }
 
   /** A match-all template scoped to {@code entityTypes}. */

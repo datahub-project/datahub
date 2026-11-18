@@ -236,7 +236,7 @@ public final class SearchTemplateWalk {
       requireSupported(opContext, template);
       SearchTemplateLadder ladder = template.getLadder();
       List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
-      if (!selected(ladder, assigned, request)) {
+      if (!selected(opContext, ladder, assigned, request)) {
         return follow(
             opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
       }
@@ -460,7 +460,7 @@ public final class SearchTemplateWalk {
     }
     SearchTemplateLadder ladder = template.getLadder();
     List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
-    if (!selected(ladder, assigned, request)) {
+    if (!selected(opContext, ladder, assigned, request)) {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     AttemptResult<T> result;
@@ -489,14 +489,27 @@ public final class SearchTemplateWalk {
     return new Member<>(urn, result, stopped);
   }
 
-  // A rung runs on a non-empty assignment whose select matches
+  // A rung runs on a non-empty assignment whose select matches. The semantic predicates read the
+  // assignment, not the whole request.
   private static boolean selected(
+      @Nonnull OperationContext opContext,
       @Nullable SearchTemplateLadder ladder,
       @Nonnull List<String> assigned,
       @Nonnull Request request) {
     return !assigned.isEmpty()
         && SearchTemplateLadderPredicates.selectMatches(
-            ladder, request.query(), request.filter(), request.sort(), request.size());
+            ladder,
+            request.query(),
+            request.filter(),
+            request.sort(),
+            request.size(),
+            gates(opContext).eligibility(assigned));
+  }
+
+  @Nonnull
+  private static SearchTemplateGates gates(@Nonnull OperationContext opContext) {
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    return coordinator == null ? SearchTemplateGates.none() : coordinator.gates();
   }
 
   private static void requireSupported(
@@ -505,8 +518,7 @@ public final class SearchTemplateWalk {
     SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     SearchTemplateComponentRegistry registry =
         coordinator == null ? SearchTemplateComponentRegistry.empty() : coordinator.components();
-    SearchTemplateGates gates =
-        coordinator == null ? SearchTemplateGates.none() : coordinator.gates();
+    SearchTemplateGates gates = gates(opContext);
     boolean documentRerank = resolved != null && resolved.isDocumentRerank();
     SearchTemplateCapabilities.requireSupported(
         template,

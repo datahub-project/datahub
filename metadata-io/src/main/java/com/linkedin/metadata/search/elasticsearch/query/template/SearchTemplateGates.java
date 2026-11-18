@@ -479,6 +479,25 @@ public final class SearchTemplateGates {
     return assigned;
   }
 
+  /**
+   * Live semantic eligibility of an entity set, read from {@code semanticSearch.enabledEntities}
+   * alone, not the other entity gates: {@code all} when every type is enabled, {@code any} when at
+   * least one is. An empty set is neither.
+   */
+  public record Eligibility(boolean all, boolean any) {}
+
+  @Nonnull
+  public Eligibility eligibility(@Nonnull Collection<String> entityTypes) {
+    boolean all = !entityTypes.isEmpty();
+    boolean any = false;
+    for (String entityType : entityTypes) {
+      boolean enabled = SemanticEmbeddingMappings.isEnabledForEntity(semanticSearch, entityType);
+      all &= enabled;
+      any |= enabled;
+    }
+    return new Eligibility(all, any);
+  }
+
   @Nonnull
   private static Set<String> named(@Nullable SearchTemplateProfiles selection) {
     Set<String> ids = new LinkedHashSet<>();
