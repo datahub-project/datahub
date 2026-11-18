@@ -122,6 +122,7 @@ public final class SearchTemplateChecks {
     SearchTemplateGates.legacyProfileId(merged);
     run(
         true,
+        merged.isKnnInherited() && SearchTemplateCapabilities.keywordRerank(merged),
         compose(merged),
         maxLeafClauses,
         maxRoutes,
@@ -351,6 +352,7 @@ public final class SearchTemplateChecks {
       @Nonnull SearchTemplateComponentRegistry registry) {
     run(
         false,
+        false,
         properties,
         maxLeafClauses,
         maxRoutes,
@@ -369,6 +371,7 @@ public final class SearchTemplateChecks {
    */
   private static void run(
       boolean merged,
+      boolean knnInherited,
       @Nonnull SearchTemplateProperties properties,
       int maxLeafClauses,
       int maxRoutes,
@@ -382,6 +385,7 @@ public final class SearchTemplateChecks {
     try {
       checkProperties(
           merged,
+          knnInherited,
           properties,
           maxLeafClauses,
           maxRoutes,
@@ -401,6 +405,7 @@ public final class SearchTemplateChecks {
 
   private static void checkProperties(
       boolean merged,
+      boolean knnInherited,
       @Nonnull SearchTemplateProperties properties,
       int maxLeafClauses,
       int maxRoutes,
@@ -506,8 +511,15 @@ public final class SearchTemplateChecks {
           properties.hasRetrieval() ? properties.getRetrieval() : null,
           merged || properties.hasRetrieval());
     }
-    if (renderedKnn != null && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
-      throw new SearchTemplateException("Search template knn cannot be combined with sort");
+    // A template that inherits a keywordRerank knn and adds a sort keeps keyword order on a sorted
+    // search, so an existing sorted child stays writable. Any other knn with a sort is rejected.
+    if (renderedKnn != null
+        && !knnInherited
+        && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
+      throw new SearchTemplateException(
+          "Search template knn cannot be combined with a sort that renders clauses at write time."
+              + " A sort that renders empty here is accepted: a query it orders keeps that order"
+              + " and is not reranked");
     }
     if (renderedQuery != null) {
       SearchTemplateJson.parseQuery(renderedQuery);

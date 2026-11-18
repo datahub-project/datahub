@@ -343,39 +343,45 @@ public final class SearchTemplateWalk {
     List<Member<T>> finished = new ArrayList<>();
     RuntimeException lastError = null;
     boolean shard = false;
-    if (any) {
-      try {
-        for (int i = 0; i < futures.size(); i++) {
-          Member<T> member = join(Objects.requireNonNull(completion).take());
-          if (member.stopped && member.result.page != null) {
-            cancel(futures);
-            return served(opContext, request, member.urn, member.result, depth + 1);
+    // A member that fails the search closed throws out of join, so the siblings are cancelled here
+    // rather than left running on the ladder executor. Cancelling a finished member does nothing.
+    try {
+      if (any) {
+        try {
+          for (int i = 0; i < futures.size(); i++) {
+            Member<T> member = join(Objects.requireNonNull(completion).take());
+            if (member.stopped && member.result.page != null) {
+              cancel(futures);
+              return served(opContext, request, member.urn, member.result, depth + 1);
+            }
+            finished.add(member);
+            if (member.result.error != null) {
+              lastError = member.result.error;
+            }
+            shard = shard || member.result.shardFailed;
           }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          cancel(futures);
+          throw new SearchTemplateException("Search template ladder was interrupted", e);
+        }
+      } else {
+        for (Future<Member<T>> future : futures) {
+          Member<T> member = join(future);
           finished.add(member);
           if (member.result.error != null) {
             lastError = member.result.error;
           }
           shard = shard || member.result.shardFailed;
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        cancel(futures);
-        throw new SearchTemplateException("Search template ladder was interrupted", e);
-      }
-    } else {
-      for (Future<Member<T>> future : futures) {
-        Member<T> member = join(future);
-        finished.add(member);
-        if (member.result.error != null) {
-          lastError = member.result.error;
-        }
-        shard = shard || member.result.shardFailed;
-        // A failure will not use a sibling page, so the remaining members do not need to finish.
-        if (lastError != null || shard) {
-          cancel(futures);
-          break;
+          // A failure will not use a sibling page, so the remaining members do not need to finish.
+          if (lastError != null || shard) {
+            cancel(futures);
+            break;
+          }
         }
       }
+    } finally {
+      cancel(futures);
     }
     // A member failure follows next, and fails the search when this group is the last rung. A
     // sibling page, empty or with hits, is not a substitute for that failure.
@@ -440,12 +446,16 @@ public final class SearchTemplateWalk {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     path.add(urn);
-    final MergedSearchTemplate template;
+    MergedSearchTemplate template = null;
     try {
       template = loader.load(opContext, urn);
       requireSupported(opContext, template);
     } catch (RuntimeException e) {
-      // Load and capability failures are member results. The group's next is the fallback.
+      // Load and capability failures are member results, and the group's next is the fallback. A
+      // vector member that cannot run fails the search closed instead.
+      if (template != null && SearchTemplateCapabilities.admitsVectorHits(template)) {
+        throw e;
+      }
       return new Member<>(urn, AttemptResult.failed(e), false);
     }
     SearchTemplateLadder ladder = template.getLadder();
@@ -458,6 +468,8 @@ public final class SearchTemplateWalk {
     long started = System.nanoTime();
     try {
       result = attempt.run(urn);
+    } catch (SearchTemplateFailClosedException e) {
+      throw e;
     } catch (RuntimeException e) {
       result = AttemptResult.failed(e);
     } finally {

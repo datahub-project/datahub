@@ -115,6 +115,50 @@ def _wait_for_semantic_index(
         time.sleep(INDEXING_POLL_INTERVAL_SECONDS)
 
 
+SEMANTIC_TEMPLATE_URN = "urn:li:searchTemplate:semantic"
+
+SEMANTIC_TEMPLATE_SEARCH = """
+    query SemanticTemplateSearch($input: SearchAcrossEntitiesInput!) {
+        searchAcrossEntities(input: $input) {
+            total
+            searchResults {
+                entity {
+                    urn
+                }
+            }
+            vectorRetrieval {
+                outcome
+                profile
+                entityTypes
+                k
+                filterInVectorSearch
+            }
+        }
+    }
+"""
+
+
+def _search_semantic_template(auth_session, query: str, count: int = 50) -> dict:
+    """Search documents through the keyword search API with the shipped semantic template named.
+
+    includeExplain returns the vector rung's explanation, which shows the template served the
+    page rather than a keyword query.
+    """
+    variables = {
+        "input": {
+            "query": query,
+            "types": ["DOCUMENT"],
+            "start": 0,
+            "count": count,
+            "searchFlags": {
+                "searchTemplate": SEMANTIC_TEMPLATE_URN,
+                "includeExplain": True,
+            },
+        }
+    }
+    return execute_graphql(auth_session, SEMANTIC_TEMPLATE_SEARCH, variables)
+
+
 def _verify_classical_embedding(auth_session, urn: str) -> None:
     """Verify semanticContent uses the classical model key with integer-valued vectors."""
     semantic_content = verify_semantic_content(auth_session, urn)
@@ -385,3 +429,67 @@ class TestClassicalEmbeddingProvider:
             f"for the lexical query '{test_query}'"
         )
         logger.info("✓ End-to-end classical embedding semantic search test passed!")
+
+    # ------------------------------------------------------------------
+    # Test 4 — The shipped semantic search template
+    # ------------------------------------------------------------------
+
+    def test_semantic_template_serves_document_search(self, auth_session, tmp_path):
+        """
+        System update writes the shipped semantic template (combine: vector). Naming it in the
+        searchTemplate flag of searchAcrossEntities runs it on the Search V3 document index with
+        the embedding profile the server registers for documents, here the classical key. The
+        template names no model or field, so this also checks that the profile resolves.
+
+        The classical provider is lexical, so the ranking assertion is lexical: the document whose
+        title holds every query word must outrank the two that share none.
+        """
+        test_query = "data access request process"
+        created_docs = create_documents_with_sdk(auth_session, SAMPLE_DOCUMENTS)
+        for _doc_id, urn in created_docs:
+            self.created_urns.append(urn)
+        doc_ids = [doc_id for doc_id, _ in created_docs]
+        getting_started_urn, access_doc_urn, churn_doc_urn = [
+            f"urn:li:document:{doc_id}" for doc_id in doc_ids
+        ]
+
+        recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+        run_ingestion(auth_session, recipe_path)
+        wait_for_writes_to_sync(mcp_only=True)
+        # The template reads the same index as semantic search, so wait on that
+        _wait_for_semantic_index(auth_session, test_query, [access_doc_urn])
+
+        result = _search_semantic_template(auth_session, test_query)
+        if "errors" in result:
+            pytest.fail(
+                f"GraphQL errors from the semantic template: {result['errors']}"
+            )
+        search_data = result["data"]["searchAcrossEntities"]
+        explanation = search_data.get("vectorRetrieval")
+        assert explanation, (
+            "No vectorRetrieval explanation: the vector rung did not serve"
+        )
+        assert explanation["outcome"] == "served", explanation
+        assert explanation["profile"] == EXPECTED_EMBEDDING_KEY, explanation
+        assert explanation["entityTypes"] == ["document"], explanation
+        assert explanation["filterInVectorSearch"] is True, explanation
+        # The total counts the retrieved window, not every document that matches
+        assert 0 < search_data["total"] <= explanation["k"], (
+            search_data["total"],
+            explanation,
+        )
+
+        result_urns = [item["entity"]["urn"] for item in search_data["searchResults"]]
+        assert access_doc_urn in result_urns, (
+            f"{access_doc_urn} not in the semantic template results for '{test_query}'"
+        )
+
+        def rank(urn: str) -> float:
+            return result_urns.index(urn) if urn in result_urns else float("inf")
+
+        assert rank(access_doc_urn) < rank(getting_started_urn), result_urns
+        assert rank(access_doc_urn) < rank(churn_doc_urn), result_urns
+        logger.info(
+            f"✓ The semantic template ranked 'Data Access Request Process' "
+            f"#{rank(access_doc_urn) + 1} with profile {explanation['profile']}"
+        )

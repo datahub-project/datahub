@@ -259,7 +259,9 @@ class CloudPagination(BaseModel):
 
 
 class CloudEntitiesResponse(BaseModel):
-    data: List[CloudEntity] = Field(default_factory=list)
+    # Entities are validated individually in cube_api, so one the connector
+    # can't parse is skipped instead of failing the whole page.
+    data: List[object] = Field(default_factory=list)
     pagination: Optional[CloudPagination] = None
 
 

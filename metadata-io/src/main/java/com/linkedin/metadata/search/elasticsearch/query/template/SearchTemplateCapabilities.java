@@ -123,6 +123,18 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> COMBINES =
       Set.of(COMBINE_VECTOR, COMBINE_KEYWORD_RERANK, "vectorThenKeyword", "vectorFilter");
 
+  /**
+   * A template reaches a vector rung and a {@link #legacyKnn} rung. The search cache runs the first
+   * once per page, and the second reranks the first cache batch, so bind rejects the template.
+   */
+  public static final String VECTOR_WITH_LEGACY_KNN = "vectorWithLegacyKnn";
+
+  /** A failed vector rung follows the ladder's {@code next}. */
+  public static final String ON_FAILURE_NEXT = "next";
+
+  /** Closed {@code retrieval.onFailure} values. Unset is {@code fail}: the search fails. */
+  public static final Set<String> ON_FAILURES = Set.of("fail", ON_FAILURE_NEXT);
+
   public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
   public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
   public static final String PROFILE_SCORE_WEIGHTED_SUM = "weightedSum";
@@ -222,8 +234,9 @@ public final class SearchTemplateCapabilities {
 
   /**
    * Bounded reason a merged template cannot run, or null when its sections are runnable. {@code
-   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code mergeJoin}, {@code retrievalMode},
-   * {@code retrievalBridge}, or a code from {@link SearchTemplateGates#rejectionCode}.
+   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code vectorScroll}, {@code mergeJoin},
+   * {@code retrievalMode}, {@code retrievalBridge}, {@code retrievalCandidateCap}, or a code from
+   * {@link SearchTemplateGates#rejectionCode}.
    */
   @Nullable
   public static String rejectionCode(
@@ -271,6 +284,10 @@ public final class SearchTemplateCapabilities {
         && effectiveCombine(template) == null) {
       return "knn";
     }
+    // A vector rung has no keyword query for a scroll cursor to continue.
+    if (scroll && admitsVectorHits(template)) {
+      return "vectorScroll";
+    }
     if (template.getLadder() != null
         && template.getLadder().hasJoin()
         && template.getLadder().getJoin() != null
@@ -297,6 +314,10 @@ public final class SearchTemplateCapabilities {
     if (bridge != null && !SearchTemplateLoader.emptyRetrieval(retrievalWithBridge(bridge))) {
       return "retrievalBridge";
     }
+    // Write rejects it too; a template stored before that check fails here.
+    if (retrieval.getCandidateCap() != null && retrieval.getCandidateCap() < 1) {
+      return "retrievalCandidateCap";
+    }
     return null;
   }
 
@@ -317,6 +338,8 @@ public final class SearchTemplateCapabilities {
       case SearchTemplateGates.PROFILE_SCOPE -> "profiles that do not cover the scope";
       case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
+      case "vectorScroll" -> "vector retrieval on scroll";
+      case "retrievalCandidateCap" -> "retrieval candidateCap below 1";
       default ->
           SearchTemplateGates.CAPABILITIES.contains(code)
               ? "capability " + code + ", which this build does not run"
@@ -428,6 +451,22 @@ public final class SearchTemplateCapabilities {
 
   public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
     return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
+  }
+
+  /** A knn section that no combine reads, such as a field-only knn: the legacy document rerank. */
+  public static boolean legacyKnn(@Nonnull MergedSearchTemplate template) {
+    return template.getKnn() != null && effectiveCombine(template) == null;
+  }
+
+  /** The rung retrieves by corpus kNN: {@code combine: vector}, or the legacy vector mode. */
+  public static boolean vectorRetrieval(@Nonnull MergedSearchTemplate template) {
+    return COMBINE_VECTOR.equals(effectiveCombine(template));
+  }
+
+  /** Any combine other than keywordRerank lets the vector leg admit hits. */
+  public static boolean admitsVectorHits(@Nonnull MergedSearchTemplate template) {
+    String combine = effectiveCombine(template);
+    return combine != null && !COMBINE_KEYWORD_RERANK.equals(combine);
   }
 
   /**

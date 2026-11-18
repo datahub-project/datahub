@@ -31,6 +31,14 @@ instead of running ([PR #21330](https://github.com/datahub-project/datahub/pull/
 without logging in. To fix an affected recipe, add the matching `username`, or remove `password`
 if the cluster does not need a username and password.
 
+### Filtering policies with more than one filter group ([#21412](https://github.com/datahub-project/datahub/pull/21412))
+
+The `listPolicies` GraphQL query now treats each entry in `orFilters` as an alternative, the same
+way search does: a policy is returned when it matches any one entry. Previously the conditions of
+all entries were combined, so a policy had to match every entry. A request with a single entry,
+including the Policies page in the UI, returns the same results as before. If a script sends several
+entries and expects a policy to match all of them, put those conditions into one entry's `and` list.
+
 ### Search templates with a `knn` section that names `model` and `field`
 
 A stored search template whose `knn` section names both `model` and `field`, with no
@@ -41,6 +49,65 @@ rerank cannot run, the search keeps keyword order instead of failing. The `model
 are ignored; the rerank uses the default embedding profile for each entity type. A `knn` section
 with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
 the section.
+
+### Deleting a Data Product that has children
+
+A Data Product that has child Data Products can no longer be deleted, either hard or soft. Previously
+the delete succeeded and the children were left pointing at a parent that no longer existed. The
+delete now fails with an error saying the product has children. Delete the children, or move them to
+another parent, before deleting the parent. This applies to the UI, GraphQL, OpenAPI,
+Rest.li and the `datahub delete` CLI. A bulk delete that removes parents and children together may
+reject some parents on the first pass; run it again, or delete the children first. Rolling back an
+ingestion run is not affected.
+
+### Rest.li status codes for rejected writes
+
+When a validator rejects a Rest.li request that was previously answered with HTTP 500, such as
+deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
+preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
+
+### Shipped search templates rerank keyword search and add a semantic template
+
+System update now writes version 17 of the shipped search templates. `urn:li:searchTemplate:fulltext`
+sets `retrieval.combine: keywordRerank`, and `urn:li:searchTemplate:light` inherits it. With hybrid
+read on (`ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED=true`), keyword search reranks the Document
+rows in its ranking window through the template, with the same blend the hybrid reranker used, and
+other rows keep their places. With hybrid read off, keyword results do not change. A custom template
+whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
+that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
+rerank. The new
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
+`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+
+**Upgrade through the release that adds the semantic search template contract**
+([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
+pods of an earlier release reject `apiVersion: 2`, so in a rolling upgrade straight from such a release,
+keyword search fails on the old pods from the time system update writes these templates until those
+pods are replaced.
+
+**Before rolling back** to a release without that contract, restore the previous templates, or keyword
+search fails on the new `fulltext`. While this release is still deployed:
+
+1. Change the custom templates the revert would leave invalid. A template whose parent chain reaches
+   `fulltext` or `light`, and that sets a `knn` blend without a `field` or sets `profiles` without its
+   own `retrieval.combine`, relies on the inherited `keywordRerank`. Remove those sections, or set
+   `apiVersion: 2` and `retrieval.combine: keywordRerank` on it so the revert can run. Any custom
+   template that declares `apiVersion: 2`, including one changed this way, fails on the earlier release
+   when it is selected, so make sure no slot or route selects it there.
+2. Run system update once with
+   `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v17-revert","mcps_location":"bootstrap_mcps/search-templates-revert.yaml","force":true}'`,
+   then unset the variable. `force` runs the revert even if it ran before, for example after a
+   re-apply.
+3. Check that the revert was written: `datahub get --urn "urn:li:searchTemplate:fulltext" --aspect searchTemplateProperties`
+   shows `apiVersion: 1` and no `retrieval`. A revert the write validator rejects is only logged by
+   system update, under `mce-consumer batch exceptions` with the template URN, and the step still
+   reports success. Then roll back.
+
+The `semantic` template stays stored, and the earlier release does not use it. If you later upgrade
+to this release again, system update keeps the restored templates, because version 17 already ran.
+To write the shipped templates again, run system update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. A rollback to a
+release that has the contract needs none of these steps.
 
 <!--
 
@@ -221,9 +288,13 @@ Requirements:
 
 ### Other Notable Changes
 
+- [#20466](https://github.com/datahub-project/datahub/pull/20466) **(Sigma ingestion)** A Data Model column with an empty formula now gets column lineage to the warehouse column Sigma's column id names. These columns previously had none. A column whose formula is not empty but reads no other element or table (a constant, only parameters, or only columns of its own element) still gets none, and a column whose id does not name a warehouse column is not matched to other elements by name. Such an empty-formula column whose warehouse table cannot be resolved, for example on a connection DataHub cannot map, now counts once per column under `data_model_element_fgl_warehouse_passthrough_deferred`, so that counter can rise. That counter no longer counts a column whose id does not name a column of one of its element's own source tables, or names a Sigma Dataset this run ingested, since nothing failed there. Among same-named columns of an element, a whitespace-only formula no longer outranks one with no formula, which can change which of them lands in the schema. **Action:** none. Expect more warehouse column lineage on Data Model elements.
+
 - [#20508](https://github.com/datahub-project/datahub/pull/20508) **(Sigma ingestion)** A chart column that no formula reference resolves by name, and so pointed at itself, now gets column lineage when Sigma's workbook schema names another chart's column by id. The upstream chart is also added to the chart's inputs. Only exact references are used: a column of another element on the workbook, where exactly one element shows that sheet; references to warehouse tables, Data Models or the column's own element are ignored, and a schema that leaves out any element the run ingested is not used at all (`workbook_schema_incomplete`). This adds one Sigma API call (`/v2/workbooks/{id}/schema`, counted in `workbook_schema_fetched`) per workbook with two or more charts that has such a column; other workbooks make no new call. That endpoint is deprecated by Sigma; if it fails, the column keeps pointing at itself, `workbook_schema_fetch_failed` counts it and the report carries a warning. A 410, or a 403 or 404 for three different workbooks, before any workbook's schema has been read means the endpoint is gone or refused, and stops the call for the rest of the run (`workbook_schema_skipped` counts the workbooks not asked); other failures affect only their own workbook. A schema in a shape the connector does not recognise is not used, counted in `workbook_schema_incomplete`, and reported once as a warning. The new option `resolve_chart_refs_from_workbook_schema` (default `true`) turns this off. **Action:** none. Expect fewer self-referencing chart columns; set `resolve_chart_refs_from_workbook_schema: false` to keep the previous behaviour and make no `/schema` calls.
 
 - [#20415](https://github.com/datahub-project/datahub/pull/20415) **(Sigma ingestion)** When a Data Model element reads a warehouse table that the Data Model's own lineage does not list, the connector now looks the table up in Sigma and emits the warehouse upstream and column lineage that were previously skipped. The lookup is two Sigma API calls per such table per run: one by the id the element names, and one for the table's connection, which supplies the platform and database coordinates exactly as for tables the lineage does list. It also runs, as one call, for any other Sigma object an element reads that this run did not ingest, including Sigma Datasets excluded by `workspace_pattern`; those yield no lineage. A table on a connection DataHub cannot map gets no edge and is counted under `dm_element_warehouse_unknown_connection`. New report counters: `dm_element_warehouse_resolved_by_url_id`, `dm_element_warehouse_url_id_unresolvable` (the table is deleted or not visible to the credential) and `dm_element_warehouse_url_id_lookup_failed`. **Action:** none. Expect more warehouse lineage on some Data Model elements and, on tenants where elements read objects the run does not ingest, more Sigma API calls.
+
+- [#20182](https://github.com/datahub-project/datahub/pull/20182) **(Ingestion / Sigma)** Sigma Data Model union elements now get column lineage from every branch: a column reading a union's output names the output in its formula, not a branch. The connector reads each Data Model's `/spec` for this, which adds one API call per Data Model and is on by default through the new `extract_data_model_spec_lineage` option. It needs no new permission, and a failed call is counted in `data_model_spec_fetch_failed` and reported with each model's status, without failing the run; a 410, or a 403/404 from 3 Data Models before any call succeeds, stops the call for the rest of the run and counts the models skipped in `data_model_spec_skipped`. **Action:** none. Expect more column lineage on Sigma Data Models with unions; set `extract_data_model_spec_lineage: false` to skip the extra call.
 
 - [#20180](https://github.com/datahub-project/datahub/pull/20180) **(Ingestion / Sigma)** A Sigma Data Model column whose formula reads a sibling element that Sigma's element lineage does not list used to lose that column lineage. It now gets it when that sibling is the only element of that name with the referenced column, and the sibling is added as an upstream of the element. The edge carries a `confidenceScore` of 0.8. It is skipped when the name may mean something else (another Data Model or custom SQL the element reads, a warehouse table or Sigma Dataset it reads or one whose name could not be looked up, or the element itself), when the owner is uncertain (including when the Data Model's `/columns` listing came back incomplete), when the edge would make a cycle, and when none of the element's upstreams resolves. With `ingest_datasets: false`, a Sigma Dataset's name is known only if the element's columns on it name it, so an element that reads a Sigma Dataset is otherwise not recovered. The counters are `data_model_element_fgl_orphan_recovered` and `data_model_element_intra_upstreams_recovered`. A column whose listed upstream element came back with no columns is now reported as `data_model_element_fgl_upstream_schema_unavailable`, with a warning naming the upstream and its Data Model, instead of as an unknown column. **Action:** none. Expect more column lineage on Sigma Data Models; if the new warning appears, check for a failed `/columns` fetch on that Data Model.
 

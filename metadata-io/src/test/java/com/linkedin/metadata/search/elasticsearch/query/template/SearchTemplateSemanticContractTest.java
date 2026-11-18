@@ -178,6 +178,87 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testVectorCacheIdentityFollowsTheVectorInputs() {
+    store("urn:li:searchTemplate:vectorRung", rung(r -> r.setCombine("vector")));
+    templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:vectorRung"));
+    SearchClientShim<?> client = mock(SearchClientShim.class);
+    when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    OperationContext searching = TestOperationContexts.withFixedSearchClient(opContext, client);
+    Set<String> identities = new HashSet<>();
+    for (String metric : List.of("cosine", "l2")) {
+      EmbeddingProfile documentDefault =
+          new EmbeddingProfile(
+              "text_embedding_3_small",
+              EmbeddingProfile.TEXT_CHUNKS,
+              "text-embedding-3-small",
+              metric,
+              Set.of("document"),
+              Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+      EmbeddingProfileRegistry registry =
+          new EmbeddingProfileRegistry(
+              List.of(documentDefault), Map.of("document", documentDefault.id()));
+      for (Float floor : java.util.Arrays.asList(null, 0.7f)) {
+        SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+        semanticSearch.setEnabled(true);
+        semanticSearch.setEnabledEntities(Set.of("document"));
+        semanticSearch.setModels(Map.of(documentDefault.id(), new ModelEmbeddingConfig()));
+        semanticSearch.setMinSimilarity(floor);
+        SearchTemplateCoordinator coordinator =
+            new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.of(registry, semanticSearch, false));
+        for (List<String> entities : List.of(List.of("dataset"), List.of("document"))) {
+          String identity =
+              coordinator
+                  .bind(searching, "customer orders", false, entities)
+                  .getSearchContext()
+                  .getResolvedSearchTemplate()
+                  .cacheKeyComponent();
+          assertTrue(
+              identity.contains("~vr" + SearchTemplateVectorRetrieval.EXECUTION_VERSION), identity);
+          identities.add(identity);
+        }
+      }
+    }
+    // The resolved profile, its metric, and the floor inherited from configuration each move the
+    // key. Dataset joins no profile, so only the floor moves its key.
+    assertEquals(identities.size(), 6);
+    assertTrue(identities.stream().anyMatch(id -> id.contains("text_embedding_3_small/l2")));
+  }
+
+  @Test
+  public void testScrollFailsClosedOnAVectorRung() {
+    store("urn:li:searchTemplate:vectorRung", rung(r -> r.setCombine("vector")));
+    templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:vectorRung"));
+    SearchTemplateCoordinator coordinator = coordinator(true);
+
+    // A search binds the rung. A scroll has no keyword query to continue, and it does not fall
+    // back to one.
+    coordinator.bind(opContext, "customer orders", false, List.of("document"));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(opContext, "customer orders", true, List.of("document")));
+    SearchTemplateDryRender preview =
+        coordinator.preview(
+            opContext,
+            "customer orders",
+            List.of("document"),
+            true,
+            SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertTrue(
+        preview.capabilities().stream()
+            .anyMatch(
+                decision ->
+                    "sections".equals(decision.name())
+                        && !decision.accepted()
+                        && "vectorScroll".equals(decision.detail())));
+  }
+
+  @Test
   public void testKnnShapeFollowsTheEffectiveCombine() {
     SearchTemplateProperties blend = rung(r -> r.setCombine("keywordRerank"));
     blend.setKnn(BLEND);
@@ -232,10 +313,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     profiles.setProfiles(
         new SearchTemplateProfiles().setReplace(new StringArray(List.of("a", "b"))));
     SearchTemplateChecks.check(profiles, 1024);
+    SearchTemplateChecks.check(
+        rung(r -> r.setCombine("vector").setCandidateCap(1).setOnFailure("next")), 1024);
 
     List<Consumer<SearchTemplateRetrieval>> invalid =
         List.of(
             r -> r.setCombine("hybrid"),
+            r -> r.setCombine("vector").setCandidateCap(0),
+            r -> r.setCombine("vector").setOnFailure("degradeIfNative"),
             r -> r.setMode("vector").setCombine("keywordRerank"),
             r -> r.setCombine("keywordRerank").setMinSimilarity(0.5f),
             r -> r.setMode("keyword").setMinSimilarity(0.5f),
@@ -292,7 +377,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   @Test
   public void testDeferredSectionsFailClosedAtBind() {
-    assertEquals(rejectionOf("vector", rung(r -> r.setCombine("vector"))), "vectorRetrieval");
+    assertNull(rejectionOf("vector", rung(r -> r.setCombine("vector"))));
+    // Write rejects a cap below 1; bind rejects one stored before that check
+    assertEquals(
+        rejectionOf("zeroCap", rung(r -> r.setCombine("vector").setCandidateCap(0))),
+        "retrievalCandidateCap");
+    assertEquals(
+        rejectionOf("similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))),
+        "similarity");
     assertEquals(
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");
