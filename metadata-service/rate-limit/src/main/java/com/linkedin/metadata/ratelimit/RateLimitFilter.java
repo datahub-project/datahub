@@ -38,11 +38,6 @@ public class RateLimitFilter extends OncePerRequestFilter {
    */
   private final Supplier<Set<String>> exactExcludedPaths;
 
-  public RateLimitFilter(
-      @Nonnull RateLimitEngine engine, @Nonnull Supplier<String> restActorUrnSupplier) {
-    this(engine, restActorUrnSupplier, () -> Set.of());
-  }
-
   @Override
   protected void doFilterInternal(
       @Nonnull HttpServletRequest request,

@@ -37,7 +37,7 @@ public class RateLimitFilterTest {
   @BeforeMethod
   public void setup() {
     engine = mock(RateLimitEngine.class);
-    filter = new RateLimitFilter(engine, () -> ACTOR);
+    filter = new RateLimitFilter(engine, () -> ACTOR, Set::of);
     request = mock(HttpServletRequest.class);
     response = mock(HttpServletResponse.class);
     when(request.getMethod()).thenReturn("POST");
