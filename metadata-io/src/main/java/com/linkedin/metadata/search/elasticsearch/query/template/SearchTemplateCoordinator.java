@@ -572,7 +572,10 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   // The metric decides whether an inherited floor applies and what an engine score means, so the
-  // same profile id on another metric does not share a cached page.
+  // same profile id on another metric does not share a cached page. Provider tuning that changes
+  // the query vector under the same profile id, such as a query instruction, is a configuration
+  // rollout: as with any other configuration change, a page cached before it is served until it
+  // expires. Changing how stored vectors are made needs a new profile id.
   @Nonnull
   private String profileIdentity(@Nonnull String id) {
     EmbeddingProfile profile = gates.profiles().profile(id);
