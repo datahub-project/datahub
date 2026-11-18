@@ -51,6 +51,49 @@ When a validator rejects a Rest.li request that was previously answered with HTT
 deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
 preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
 
+### Shipped search templates rerank keyword search and add a semantic template
+
+System update now writes version 17 of the shipped search templates. `urn:li:searchTemplate:fulltext`
+sets `retrieval.combine: keywordRerank`, and `urn:li:searchTemplate:light` inherits it. With hybrid
+read on (`ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED=true`), keyword search reranks the Document
+rows in its ranking window through the template, with the same blend the hybrid reranker used, and
+other rows keep their places. With hybrid read off, keyword results do not change. A custom template
+whose parent is `fulltext` inherits the rerank, unless it sets its own `knn` that names a `field`:
+that `knn` keeps the reading it had before, so one with only `field` is still the earlier document
+rerank. The new
+`urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
+`searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+
+**Upgrade through the release that adds the semantic search template contract**
+([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
+pods of an earlier release reject `apiVersion: 2`, so in a rolling upgrade straight from such a release,
+keyword search fails on the old pods from the time system update writes these templates until those
+pods are replaced.
+
+**Before rolling back** to a release without that contract, restore the previous templates, or keyword
+search fails on the new `fulltext`. While this release is still deployed:
+
+1. Change the custom templates the revert would leave invalid. A template whose parent chain reaches
+   `fulltext` or `light`, and that sets a `knn` blend without a `field` or sets `profiles` without its
+   own `retrieval.combine`, relies on the inherited `keywordRerank`. Remove those sections, or set
+   `apiVersion: 2` and `retrieval.combine: keywordRerank` on it so the revert can run. Any custom
+   template that declares `apiVersion: 2`, including one changed this way, fails on the earlier release
+   when it is selected, so make sure no slot or route selects it there.
+2. Run system update once with
+   `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v17-revert","mcps_location":"bootstrap_mcps/search-templates-revert.yaml","force":true}'`,
+   then unset the variable. `force` runs the revert even if it ran before, for example after a
+   re-apply.
+3. Check that the revert was written: `datahub get --urn "urn:li:searchTemplate:fulltext" --aspect searchTemplateProperties`
+   shows `apiVersion: 1` and no `retrieval`. A revert the write validator rejects is only logged by
+   system update, under `mce-consumer batch exceptions` with the template URN, and the step still
+   reports success. Then roll back.
+
+The `semantic` template stays stored, and the earlier release does not use it. If you later upgrade
+to this release again, system update keeps the restored templates, because version 17 already ran.
+To write the shipped templates again, run system update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. A rollback to a
+release that has the contract needs none of these steps.
+
 <!--
 
 ## <version number>

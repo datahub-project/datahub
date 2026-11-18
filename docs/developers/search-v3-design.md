@@ -778,7 +778,7 @@ Three features, three shapes:
 
 `join: any` serves one member and cancels the other. It does not fuse, and it does not add the other member's hits.
 
-In OSS, document rerank, hybrid retrieval, and pure semantic search run for the Document entity only. No other entity gets semantic search. Bootstrapped keyword templates do not set `knn` or `retrieval.mode: vector` and do not require those capabilities. The Document semantic surface points at a vector template, and the hybrid surface points at a keyword template whose `knn` is set. Hybrid retrieval adds vector-only hits once a fusion policy is chosen. Until then a hybrid result does not add vector-only rows.
+In OSS, document rerank, hybrid retrieval, and pure semantic search run for the Document entity only. No other entity gets semantic search. The shipped `fulltext` template sets `retrieval.combine: keywordRerank` and `knn.others: keepKeywordPlaces`, with no floor. `light` leaves both unset and inherits them, so the keyword surface reranks the same way whichever of the two rungs serves. Scroll drops the rerank, and a request that cannot rerank keeps keyword order. The shipped `semantic` template is `combine: vector` with the page window, no `next`, and no floor. Neither template names a model, a vector field, a store, or an entity type, and `profiles` is unset, so each entity type resolves to its registry default. A search runs `semantic` when it names it in `SearchFlags.searchTemplate`. The semantic search surface still runs its own kNN search and does not select a template. Hybrid retrieval adds vector-only hits once a fusion policy is chosen. Until then a hybrid result does not add vector-only rows.
 
 ### Render context
 
