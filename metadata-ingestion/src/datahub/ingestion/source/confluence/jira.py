@@ -45,9 +45,13 @@ class ConfluenceJiraLinker:
         return lambda ref: self._link(page_id, ref)
 
     def _link(self, page_id: str, ref: JiraIssueRef) -> Optional[str]:
-        server = ref.server_id or ref.server_name or _DEFAULT_SERVER
+        # Macros usually carry both id and name. The id goes stale when an
+        # application link is recreated while the name stays, so try both.
+        keys = [k for k in (ref.server_id, ref.server_name) if k] or [_DEFAULT_SERVER]
+        listed = self._server_urls()
+        server = keys[0]
         base = (
-            self._server_urls().get(server)
+            next((listed[k] for k in keys if k in listed), None)
             or self._base_urls.get(server)
             or self._learn_base_url(server, page_id, ref.key)
         )

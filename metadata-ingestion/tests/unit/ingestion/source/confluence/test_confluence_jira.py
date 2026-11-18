@@ -95,3 +95,34 @@ def test_misses_on_one_page_count_once_toward_giving_up() -> None:
         "https://jira.example.com/browse/NEXT-1"
     )
     assert not linker.report.warnings
+
+
+def test_stale_server_id_falls_back_to_the_server_name() -> None:
+    api = MagicMock()
+    api.get.return_value = [
+        {"id": "new-id", "name": "Legacy Jira", "url": "https://jira.example.com"}
+    ]
+    linker = _linker(api)
+
+    link = linker.for_page("1")(
+        JiraIssueRef(key="ABC-1", server_id="old-id", server_name="Legacy Jira")
+    )
+
+    assert link == "https://jira.example.com/browse/ABC-1"
+    api.get_page_by_id.assert_not_called()
+
+
+def test_unreadable_jira_server_is_skipped_and_the_rest_are_kept() -> None:
+    api = MagicMock()
+    api.get.return_value = [
+        {"id": "broken", "name": "Broken link"},
+        {"id": "s1", "name": "Jira", "url": "https://jira.example.com"},
+    ]
+    linker = _linker(api)
+
+    link = linker.for_page("1")(JiraIssueRef(key="ABC-1", server_id="s1"))
+
+    assert link == "https://jira.example.com/browse/ABC-1"
+    assert [w.title for w in linker.report.warnings] == [
+        "Skipped unreadable Jira server"
+    ]

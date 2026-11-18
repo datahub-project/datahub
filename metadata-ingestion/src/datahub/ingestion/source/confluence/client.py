@@ -113,10 +113,23 @@ class ConfluenceClient:
         return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
 
     def list_jira_servers(self) -> List[JiraServer]:
-        return [
-            JiraServer.model_validate(server)
-            for server in self.api.get(JIRA_SERVERS_PATH) or []
-        ]
+        servers = []
+        for raw in self.api.get(JIRA_SERVERS_PATH) or []:
+            try:
+                servers.append(JiraServer.model_validate(raw))
+            except ValidationError as e:
+                # A broken application link often has no URL. Skip it and keep
+                # the rest, so its macros fall back to rendered pages alone.
+                self.report.warning(
+                    title="Skipped unreadable Jira server",
+                    message="Confluence listed a Jira server without an id or "
+                    "URL. Issue links for it are read from rendered pages.",
+                    context=str(raw.get("name") or raw.get("id"))
+                    if isinstance(raw, dict)
+                    else None,
+                    exc=e,
+                )
+        return servers
 
     def iter_child_pages(self, page_id: str) -> Iterator[ConfluencePage]:
         """Direct child pages, with the same expand as every other listing, so
