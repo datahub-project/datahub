@@ -60,7 +60,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     this.components = components;
     this.gates = gates;
     SearchTemplateConfiguration templates = templates(elasticSearchConfiguration);
-    this.selector = new SearchTemplateSelector(templates, loader);
+    this.selector = new SearchTemplateSelector(templates, loader, gates);
     this.queryBuilder =
         new SearchV3QueryBuilder(
             loader, elasticSearchConfiguration.getSearch(), customSearchConfiguration);
@@ -241,7 +241,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         opContext.getSearchContext().getSearchFlags() != null
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
     ResolvedSearchTemplate resolved =
-        selector.select(opContext, query, fulltext, engineType(opContext));
+        selector.select(
+            opContext,
+            query,
+            fulltext,
+            engineType(opContext),
+            entityNames == null ? List.of() : entityNames);
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
     resolved.setExecutionCapabilities(
@@ -286,7 +291,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
     SearchClientShim.SearchEngineType engine =
         engineType == null ? engineType(opContext) : engineType;
-    ResolvedSearchTemplate resolved = selector.select(opContext, query, fulltext, engine);
+    ResolvedSearchTemplate resolved =
+        selector.select(opContext, query, fulltext, engine, entityNames);
     OperationContext bound = opContext.withResolvedSearchTemplate(resolved);
     List<EntitySpec> entitySpecs = new ArrayList<>();
     for (String entityName : entityNames) {
@@ -385,10 +391,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   /**
-   * Cache identity includes every reachable rung. Capability checks happen when a rung executes, so
-   * an unsupported next does not fail a request that stops before reaching it. The exception is a
-   * graph that reaches a vector rung and a legacy knn rerank: the search cache runs the first once
-   * per page, and the second reranks the first cache batch, so bind fails.
+   * Cache identity includes every reachable rung, and the request inputs route conditions read when
+   * a conditional route fired. Capability checks happen when a rung executes, so an unsupported
+   * next does not fail a request that stops before reaching it. The exception is a graph that
+   * reaches a vector rung and a legacy knn rerank: the search cache runs the first once per page,
+   * and the second reranks the first cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -422,6 +429,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (!classpathBridge[0] && nameAndValue[0]) {
       identity += "|sp=" + queryBuilder.structuredPropertyCatalogStamp(opContext);
+    }
+    if (resolved.getRouteMatch() != null) {
+      identity += "|route=" + resolved.getRouteMatch();
     }
     resolved.setCacheIdentity(identity);
   }

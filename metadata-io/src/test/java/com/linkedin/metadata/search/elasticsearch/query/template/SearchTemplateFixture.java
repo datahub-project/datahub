@@ -115,6 +115,10 @@ abstract class SearchTemplateFixture {
   protected static final SearchTemplateGates.Eligibility INELIGIBLE =
       new SearchTemplateGates.Eligibility(false, false);
 
+  /** Route inputs for routes that set no {@code match} conditions. */
+  protected static final SearchTemplateRoutes.Inputs NO_INPUTS =
+      new SearchTemplateRoutes.Inputs(REQUEST, null, INELIGIBLE);
+
   protected static final Urn SYSTEM = UrnUtils.getUrn(SYSTEM_ACTOR);
   protected static final Urn USER = UrnUtils.getUrn("urn:li:corpuser:tester");
   protected static final String HOLE_QUERY =

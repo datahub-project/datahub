@@ -39,6 +39,12 @@ public class ResolvedSearchTemplate {
   @Nonnull private final List<String> routeChain = new ArrayList<>();
 
   /**
+   * The request inputs route conditions read (entity types, surface, and their semantic
+   * eligibility), set when a route with conditions fired. Part of the result-cache identity.
+   */
+  @Nullable private String routeMatch;
+
+  /**
    * Engine slot that supplied the seed ({@code default}, {@code elasticsearch8}, {@code
    * opensearch3}, …) or {@code caller} when the request named a template. Not part of the
    * result-cache identity.
@@ -94,6 +100,10 @@ public class ResolvedSearchTemplate {
 
   public void setEngineSlot(@Nullable String engineSlot) {
     this.engineSlot = engineSlot;
+  }
+
+  public void setRouteMatch(@Nullable String routeMatch) {
+    this.routeMatch = routeMatch;
   }
 
   public void setKnn(boolean applied, float keywordWeight, float vectorWeight, int knnK) {

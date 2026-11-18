@@ -416,17 +416,23 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     nativeSibling.setApiVersion(2);
     SearchTemplateChecks.check(nativeSibling, 1024);
 
+    // A route condition this release does not know fails the search when its pattern matches,
+    // instead of being read as met.
     SearchTemplateProperties router = body("Router", "{ \"match_all\": {} }", null);
     router.setApiVersion(2);
-    SearchTemplateRoute conditional = route("^urn:.*", SEARCH_TEMPLATE_FULLTEXT_URN);
-    conditional.setMatch(new SearchTemplateRouteMatch().setSemanticEligible(true));
-    router.setRoutes(routes(conditional, route("^orders$", SEARCH_TEMPLATE_FULLTEXT_URN)));
+    SearchTemplateRoute future = route("^urn:.*", SEARCH_TEMPLATE_FULLTEXT_URN);
+    SearchTemplateRouteMatch futureMatch = new SearchTemplateRouteMatch();
+    futureMatch.data().put("futureCondition", true);
+    future.setMatch(futureMatch);
+    router.setRoutes(routes(future, route("^orders$", SEARCH_TEMPLATE_FULLTEXT_URN)));
     store("urn:li:searchTemplate:router", router);
     MergedSearchTemplate routes = loader.load(opContext, "urn:li:searchTemplate:router");
     assertEquals(
-        SearchTemplateRoutes.decide(routes, "orders").target(), SEARCH_TEMPLATE_FULLTEXT_URN);
+        SearchTemplateRoutes.decide(routes, "orders", NO_INPUTS).target(),
+        SEARCH_TEMPLATE_FULLTEXT_URN);
     assertThrows(
-        SearchTemplateException.class, () -> SearchTemplateRoutes.decide(routes, "urn:li:x"));
+        SearchTemplateException.class,
+        () -> SearchTemplateRoutes.decide(routes, "urn:li:x", NO_INPUTS));
   }
 
   @Test
