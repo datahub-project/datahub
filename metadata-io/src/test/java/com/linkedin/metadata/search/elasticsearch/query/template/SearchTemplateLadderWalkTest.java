@@ -867,6 +867,58 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testPreviewAndShadowApplyTheScopeAsExecutionDoes() {
+    String documents = "urn:li:searchTemplate:documents";
+    String keyword = "urn:li:searchTemplate:keyword";
+    SearchTemplateProperties unsupported = scoped("Documents", "document");
+    unsupported.setRetrieval(new SearchTemplateRetrieval().setCombine("vectorThenKeyword"));
+    unsupported.setLadder(stopLadder(1, keyword));
+    store(documents, unsupported);
+    store(keyword, body("Keyword", "{ \"match_all\": {} }", null));
+    store("urn:li:searchTemplate:scopedKeyword", scoped("Scoped keyword", "document"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(documents)));
+
+    // A page search skips a root the request assigns no type, so the dry render accepts it
+    assertTrue(
+        sectionsAccepted(coordinator.preview(pinned, "orders", List.of("dataset"), false, null)));
+    assertFalse(
+        sectionsAccepted(coordinator.preview(pinned, "orders", List.of("document"), false, null)));
+
+    // A filter, aggregation, or count does not walk, so its shadow fails a partial scope
+    OperationContext scopedKeyword =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:scopedKeyword")));
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, false, false);
+    assertNull(coordinator.lastShadowDsl());
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("document")), "*", true, false, false);
+    assertNotNull(coordinator.lastShadowDsl());
+    // A page search's shadow partitions the request instead
+    coordinator.shadow(
+        scopedKeyword, List.of(registry.getEntitySpec("dataset")), "*", true, false, true);
+    assertNotNull(coordinator.lastShadowDsl());
+  }
+
+  private static boolean sectionsAccepted(SearchTemplateDryRender preview) {
+    return preview.capabilities().stream()
+        .anyMatch(decision -> "sections".equals(decision.name()) && decision.accepted());
+  }
+
+  @Test
   public void testSemanticPredicatesReadTheTypesTheRungIsAssigned() {
     // Semantic search is on for Document and Dataset. This build runs vectors for Document only.
     useRuntime(

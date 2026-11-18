@@ -120,13 +120,17 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   /**
    * Resolves and renders the template the request would serve. The rendered body is discarded.
    * Nothing is sent to the search engine. Failures are counted and do not fail the Java query.
+   *
+   * @param walks the request walks a ladder, as a page search does. A filter, aggregation, or count
+   *     does not, so, as when it executes, a scope that leaves out a requested type fails it.
    */
   public void shadow(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext,
-      boolean scroll) {
+      boolean scroll,
+      boolean walks) {
     shadowRenders.incrementAndGet();
     try {
       OperationContext rendered = opContext;
@@ -140,6 +144,10 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         names.add(entitySpec.getName());
       }
       SearchTemplateDryRender preview = preview(rendered, query, names, scroll, null);
+      if (!walks) {
+        SearchTemplateCapabilities.requireWholeScope(
+            loader.load(rendered, preview.resolvedUrn()), names);
+      }
       lastShadowDsl = preview.queryDsl();
       SearchTemplateMetrics.shadow(
           opContext, preview.resolvedUrn(), opContext.getSearchContext().getSearchSurface());
@@ -303,9 +311,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     MergedSearchTemplate template = loader.load(bound, resolved.getUrn());
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
+    // As at bind, a root the request assigns no type is skipped, so its shape is not checked
     String rejection =
-        SearchTemplateCapabilities.rejectionCode(
-            template, documentRerank, scroll, components, gates);
+        SearchTemplateGates.assigns(template, entityNames)
+            ? SearchTemplateCapabilities.rejectionCode(
+                template, documentRerank, scroll, components, gates)
+            : null;
     List<String> rungs = ladderRungs(bound, resolved.getUrn(), !scroll);
     if (rejection == null && vectorWithLegacyKnn(bound, resolved.getUrn(), entityNames, !scroll)) {
       rejection = SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN;

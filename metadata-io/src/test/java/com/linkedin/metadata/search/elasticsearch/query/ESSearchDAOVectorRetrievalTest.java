@@ -727,6 +727,9 @@ public class ESSearchDAOVectorRetrievalTest {
                 searching, List.of("dataset", "document"), "platform", null, 10));
     assertThrows(
         SearchTemplateException.class, () -> dao.buildDocCountRequest(searching, "dataset", null));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> dao.buildFilterRequest(searching, "dataset", null, null, 0, 10));
     verify(client, never()).search(any(OperationContext.class), any(), any());
     // A scope that covers the request renders as before
     assertEquals(dao.filter(searching, "document", null, null, 0, 10).getEntities().size(), 3);

@@ -596,7 +596,7 @@ final class TemplateSearchExecutor {
    * requested type fails closed instead of rendering the template for that type.
    */
   @Nonnull
-  private OperationContext bindWhole(
+  OperationContext bindWhole(
       @Nonnull OperationContext opContext,
       @Nonnull String input,
       @Nonnull List<String> entityNames) {
@@ -919,7 +919,8 @@ final class TemplateSearchExecutor {
     boolean fulltext =
         opContext.getSearchContext().getSearchFlags() != null
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
-    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+    // Its callers, filter, aggregation, and count, do not walk a ladder
+    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll, false);
   }
 
   @Nonnull
