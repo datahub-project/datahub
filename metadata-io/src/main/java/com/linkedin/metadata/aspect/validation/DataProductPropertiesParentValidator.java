@@ -14,6 +14,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import java.util.Collection;
 import java.util.HashMap;
+import java.util.HashSet;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -85,14 +86,36 @@ public class DataProductPropertiesParentValidator extends AspectPayloadValidator
             ? Map.of()
             : retrieverContext.getAspectRetriever().entityExists(operationContext, toCheck);
 
+    Set<Urn> rejected =
+        exceptions
+            .streamAllExceptions()
+            .map(AspectValidationException::getEntityUrn)
+            .collect(Collectors.toCollection(HashSet::new));
     changedParents.forEach(
         (item, parent) -> {
           if (toCheck.contains(parent) && !Boolean.TRUE.equals(exists.get(parent))) {
             exceptions.addException(
                 AspectValidationException.forItem(
                     item, String.format("Parent Data Product %s does not exist.", parent)));
+            rejected.add(item.getUrn());
           }
         });
+
+    // The MCE consumer commits the rest of a batch when some items fail, so a child whose
+    // same-batch parent is rejected here must be rejected too, down the whole chain.
+    boolean changed = !rejected.isEmpty();
+    while (changed) {
+      changed = false;
+      for (Map.Entry<ChangeMCP, Urn> entry : changedParents.entrySet()) {
+        ChangeMCP item = entry.getKey();
+        if (rejected.contains(entry.getValue()) && rejected.add(item.getUrn())) {
+          exceptions.addException(
+              AspectValidationException.forItem(
+                  item, String.format("Parent Data Product %s was rejected.", entry.getValue())));
+          changed = true;
+        }
+      }
+    }
 
     return exceptions.streamAllExceptions();
   }

@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import javax.annotation.Nullable;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -112,6 +113,25 @@ public class DataProductPropertiesParentValidatorTest {
             .toList()
             .isEmpty());
     verify(aspectRetriever, never()).entityExists(any(), anySet());
+  }
+
+  @Test
+  public void rejectsChainWhenSameBatchParentIsRejected() {
+    // The MCE consumer would commit grandchild and child even though parent never exists.
+    Urn grandchildUrn = UrnUtils.getUrn("urn:li:dataProduct:grandchild");
+    mockExists(PARENT_URN, false);
+    ChangeMCP child = item(CHILD_URN, properties(PARENT_URN), null);
+    ChangeMCP grandchild = item(grandchildUrn, properties(CHILD_URN), null);
+
+    List<AspectValidationException> errors =
+        validator
+            .validatePreCommitAspects(
+                OperationFingerprint.EMPTY, List.of(grandchild, child), retrieverContext)
+            .toList();
+
+    assertEquals(
+        errors.stream().map(AspectValidationException::getEntityUrn).collect(Collectors.toSet()),
+        Set.of(CHILD_URN, grandchildUrn));
   }
 
   private List<AspectValidationException> validate(ChangeMCP item) {
