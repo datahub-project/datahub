@@ -390,6 +390,19 @@ POWERBI_TYPE_TO_DATA_PLATFORM_PAIR: Dict[str, DataPlatformPair] = {
     item.value.powerbi_data_platform_name: item.value for item in SupportedDataPlatform
 }
 
+# Lookup of DataHub platform -> its PowerBI datasourceTypes (dataset_type_mapping
+# keys). Databricks has two, so this maps to a list.
+DATAHUB_PLATFORM_TO_POWERBI_TYPES: Dict[str, List[str]] = {
+    datahub_name: [
+        item.value.powerbi_data_platform_name
+        for item in SupportedDataPlatform
+        if item.value.datahub_data_platform_name == datahub_name
+    ]
+    for datahub_name in {
+        item.value.datahub_data_platform_name for item in SupportedDataPlatform
+    }
+}
+
 
 def default_for_dataset_type_mapping() -> Dict[str, str]:
     return {
@@ -1387,27 +1400,41 @@ class PowerBiDashboardSourceConfig(
         return self.get_from_dataset_type_mapping(platform_name) is not None
 
     def get_upstream_from_dataset_type_mapping(
-        self, platform_name: str
+        self, platform_pair: DataPlatformPair
     ) -> Optional[Union[str, PlatformDetail]]:
+        platform_name = platform_pair.powerbi_data_platform_name
         value = self.get_from_dataset_type_mapping(platform_name)
         if value is not None:
             return value
-        # ODBC upstreams carry the driver's platform name (e.g. "SQL Server",
-        # "IBM DB2", "Teradata"). Names with no SupportedDataPlatform member can
-        # never be added to dataset_type_mapping, so they follow the Odbc entry,
-        # for both the lineage filter and the platform instance.
         is_known_platform = (
             platform_name in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR
             or platform_name.replace(" ", "") in POWERBI_TYPE_TO_DATA_PLATFORM_PAIR
         )
         if is_known_platform:
             return None
+        # ODBC upstreams carry the driver's platform name (e.g. "SQL Server",
+        # "IBM DB2", "Teradata"), which is not a dataset_type_mapping key. A
+        # platform with a SupportedDataPlatform member follows that member's key
+        # ("Sql" for SQL Server); one without can never be added to
+        # dataset_type_mapping, so it follows the Odbc entry, for both the
+        # lineage filter and the platform instance.
+        native_keys = DATAHUB_PLATFORM_TO_POWERBI_TYPES.get(
+            platform_pair.datahub_data_platform_name
+        )
+        if native_keys:
+            for key in native_keys:
+                value = self.get_from_dataset_type_mapping(key)
+                if value is not None:
+                    return value
+            return None
         return self.get_from_dataset_type_mapping(
             SupportedDataPlatform.ODBC.value.powerbi_data_platform_name
         )
 
-    def is_upstream_platform_in_dataset_type_mapping(self, platform_name: str) -> bool:
-        return self.get_upstream_from_dataset_type_mapping(platform_name) is not None
+    def is_upstream_platform_in_dataset_type_mapping(
+        self, platform_pair: DataPlatformPair
+    ) -> bool:
+        return self.get_upstream_from_dataset_type_mapping(platform_pair) is not None
 
     @model_validator(mode="after")
     def validate_athena_table_platform_override(

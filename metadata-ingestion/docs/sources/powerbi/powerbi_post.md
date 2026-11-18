@@ -138,7 +138,7 @@ When a table navigates an ODBC source (`Odbc.DataSource(..., [HierarchicalNaviga
 | MySQL, Teradata                                                           | `database.table`               |
 | Other platforms (Sybase, Firebird, ...)                                   | every level navigation exposes |
 
-MSSQL, Db2, Informix, Teradata and the other platforms in the last row have no `dataset_type_mapping` key for their ODBC driver, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default), and takes that entry's `platform_instance` when platform instances are resolved from `dataset_type_mapping`. The other platforms in the table follow their own key, for example `MySQL` or `Snowflake`.
+Db2, Informix, Teradata and the other platforms in the last row have no `dataset_type_mapping` key of their own, so their ODBC lineage is emitted while `dataset_type_mapping` includes `Odbc` (the default), and takes that entry's `platform_instance` when platform instances are resolved from `dataset_type_mapping`. The other platforms in the table follow their own key, for example `Sql` for MSSQL, `MySQL` or `Snowflake`.
 
 For MySQL and Teradata, navigation with a Schema but no Database level emits `schema.table`: the schema is the database. Navigation with both levels is skipped with a warning unless the two names match, since `database.table` cannot keep a second level without merging tables from different schemas.
 

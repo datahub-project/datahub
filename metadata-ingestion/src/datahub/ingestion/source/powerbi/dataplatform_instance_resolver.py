@@ -38,7 +38,7 @@ class ResolvePlatformInstanceFromDatasetTypeMapping(
         )
 
         platform = self.config.get_upstream_from_dataset_type_mapping(
-            powerbi_platform_name
+            data_platform_detail.data_platform_pair
         )
 
         if platform is None:
