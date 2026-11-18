@@ -95,6 +95,7 @@ export const DEFAULT_APP_CONFIG = {
         showAutoCompleteResults: false,
         entityVersioningEnabled: false,
         showHasSiblingsFilter: false,
+        showIngestionSourceLastRunControls: false,
         showSearchBarAutocompleteRedesign: false,
         showManageTags: false,
         showIntroducePage: false,

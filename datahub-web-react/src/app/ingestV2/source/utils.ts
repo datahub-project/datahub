@@ -542,6 +542,21 @@ export function getSortInput(field: string, order: SortingState): SortCriterion 
     };
 }
 
+export const LAST_RUN_SORT_FIELD = 'lastRunRequestedAtMillis';
+
+/**
+ * The last-run fields only exist while the run event hook is on, so with the controls off a sort or
+ * status filter on them, for example from a saved URL, is dropped rather than sent to the backend.
+ */
+export function getLastRunControls(
+    enabled: boolean,
+    sort: SortCriterion | undefined,
+    lastRunStatus: string | undefined,
+): { sort: SortCriterion | undefined; lastRunStatus: string | undefined } {
+    if (enabled) return { sort, lastRunStatus };
+    return { sort: sort?.field === LAST_RUN_SORT_FIELD ? undefined : sort, lastRunStatus: undefined };
+}
+
 export const DEFAULT_SOURCE_SORT_CRITERION: SortCriterion = {
     sortOrder: SortOrder.Ascending,
     field: 'type',

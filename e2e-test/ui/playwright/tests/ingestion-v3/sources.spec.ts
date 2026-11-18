@@ -14,6 +14,13 @@ const SEARCH_SOURCE_2 = 'playwright v3 sources search banana';
 const FILTER_SOURCE = 'playwright v3 filter source';
 const FILTER_CLI_SOURCE = 'playwright v3 filter cli source';
 const FILTER_SEARCH = 'playwright v3 filter';
+const LAST_RUN_SEARCH = 'playwright v3 last run';
+const LAST_RUN_OLDER_SOURCE = 'playwright v3 last run older';
+const LAST_RUN_NEWER_SOURCE = 'playwright v3 last run newer';
+const LAST_RUN_SOURCE_URNS = [
+  'urn:li:dataHubIngestionSource:playwright-v3-last-run-older',
+  'urn:li:dataHubIngestionSource:playwright-v3-last-run-newer',
+];
 
 test.use({ featureName: 'ingestion-v3' });
 
@@ -156,5 +163,31 @@ test.describe('ingestion sources', () => {
 
     await expect(page).toHaveURL((url) => url.searchParams.get('query') === SEARCH_SOURCE_1);
     await ingestionPage.sourcesTab.expectSourceVisible(SEARCH_SOURCE_1);
+  });
+
+  test('sort ingestion sources by last run', async () => {
+    await ingestionPage.sourcesTab.waitForLastRunsIndexed(LAST_RUN_SOURCE_URNS);
+    await ingestionPage.goto();
+    await ingestionPage.sourcesTab.typeSearchQuery(LAST_RUN_SEARCH);
+    // The search refetch replaces the header with a spinner; sort once the filtered rows are back.
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_OLDER_SOURCE);
+
+    await ingestionPage.sourcesTab.sortByLastRun();
+    await ingestionPage.sourcesTab.expectSourceOrder([LAST_RUN_OLDER_SOURCE, LAST_RUN_NEWER_SOURCE]);
+
+    await ingestionPage.sourcesTab.sortByLastRun();
+    await ingestionPage.sourcesTab.expectSourceOrder([LAST_RUN_NEWER_SOURCE, LAST_RUN_OLDER_SOURCE]);
+  });
+
+  test('filter ingestion sources by last run status', async () => {
+    await ingestionPage.sourcesTab.waitForLastRunsIndexed(LAST_RUN_SOURCE_URNS);
+    await ingestionPage.goto();
+    await ingestionPage.sourcesTab.typeSearchQuery(LAST_RUN_SEARCH);
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_OLDER_SOURCE);
+
+    await ingestionPage.sourcesTab.selectResultStatusFilter('FAILURE');
+
+    await ingestionPage.sourcesTab.expectSourceVisible(LAST_RUN_NEWER_SOURCE);
+    await ingestionPage.sourcesTab.expectSourceNotVisible(LAST_RUN_OLDER_SOURCE);
   });
 });

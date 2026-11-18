@@ -19,7 +19,7 @@ import {
     wrapOwnerColumnWithHover,
 } from '@app/ingestV2/source/IngestionSourceTableColumns';
 import { IngestionSourceTableData } from '@app/ingestV2/source/types';
-import { getSourceStatus } from '@app/ingestV2/source/utils';
+import { LAST_RUN_SORT_FIELD, getSourceStatus } from '@app/ingestV2/source/utils';
 import { TabType, tabUrlMap } from '@app/ingestV2/types';
 import filtersToQueryStringParams from '@app/searchV2/utils/filtersToQueryStringParams';
 import { useEntityRegistry } from '@app/useEntityRegistry';
@@ -39,6 +39,7 @@ interface Props {
     onView: (urn: string) => void;
     onDelete: (urn: string) => void;
     onChangeSort: (field: string, order: SorterResult<any>['order']) => void;
+    showLastRunSort?: boolean;
     isLoading?: boolean;
     shouldPreserveParams: React.MutableRefObject<boolean>;
     isLastPage?: boolean;
@@ -56,6 +57,7 @@ function IngestionSourceTable({
     onView,
     onDelete,
     onChangeSort,
+    showLastRunSort,
     isLoading,
     shouldPreserveParams,
     isLastPage,
@@ -77,7 +79,8 @@ function IngestionSourceTable({
         timezone: source.schedule?.timezone,
         execCount: source.executions?.total || 0,
         lastExecUrn: source.executions?.executionRequests?.[0]?.urn,
-        lastExecTime: source.executions?.executionRequests?.[0]?.result?.startTimeMs,
+        // Matches the lastRunRequestedAtMillis sort key, and is set before the executor starts.
+        lastExecTime: source.executions?.executionRequests?.[0]?.input?.requestedAt,
         lastExecStatus: getSourceStatus(source, sourcesToRefetch, executedUrns),
         cliIngestion: source.config?.executorId === CLI_EXECUTOR_ID,
         owners: source.ownership?.owners,
@@ -128,9 +131,10 @@ function IngestionSourceTable({
         },
         {
             title: t('source.colLastRun'),
-            key: 'lastRun',
+            key: LAST_RUN_SORT_FIELD,
             render: (record) => <DateTimeColumn time={record.lastExecTime} showRelative />,
             width: '20%',
+            sorter: !!showLastRunSort,
             onCellClick: (record) => navigateToRunHistory(record),
             cellWrapper: (content, record) => wrapDateTimeColumnWithHover(content, record.lastExecTime),
         },

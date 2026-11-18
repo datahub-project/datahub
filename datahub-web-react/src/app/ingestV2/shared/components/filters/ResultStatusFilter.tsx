@@ -50,6 +50,7 @@ export default function ResultStatusFilter({ values, onUpdate }: Props) {
             showClear={false}
             width="fit-content"
             placeholder={t('filters.resultStatus')}
+            dataTestId="result-status-filter"
         />
     );
 }

@@ -96,6 +96,7 @@ export const ManageIngestionPage = () => {
     const { value: sourceFilter, setValue: setSourceFilter } = useUrlQueryParam('sourceFilter');
     const { value: searchQuery, setValue: setSearchQuery } = useUrlQueryParam('query');
     const { value: sourceTypesParam, setValue: setSourceTypesParam } = useUrlQueryParam('sourceTypes');
+    const { value: lastRunStatus, setValue: setLastRunStatus } = useUrlQueryParam('lastRunStatus');
 
     const sourceTypes = useMemo(
         () => (sourceTypesParam ? sourceTypesParam.split(',').filter(Boolean) : []),
@@ -187,6 +188,8 @@ export const ManageIngestionPage = () => {
                     setSearchQuery={setSearchQuery}
                     sourceTypes={sourceTypes}
                     setSourceTypes={handleSetSourceTypes}
+                    lastRunStatus={lastRunStatus}
+                    setLastRunStatus={setLastRunStatus}
                 />
             ),
             key: TabType.Sources as string,
