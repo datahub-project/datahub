@@ -3266,6 +3266,26 @@ def test_databricks_copy_into_from_non_storage_uri_select() -> None:
     )
 
 
+def test_databricks_copy_into_from_dbfs_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 'dbfs:/mnt/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_dbfs_select.json",
+    )
+
+
+def test_databricks_copy_into_from_file_select() -> None:
+    assert_sql_result(
+        "COPY INTO t FROM (SELECT a FROM 'file:/tmp/p') FILEFORMAT = PARQUET",
+        dialect="databricks",
+        default_db="db",
+        default_schema="schema",
+        expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_file_select.json",
+    )
+
+
 def test_postgres_grant() -> None:
     assert_sql_result(
         "GRANT SELECT ON v TO r",

@@ -1,6 +1,20 @@
+import os
 from typing import Optional, Tuple
 
 import sqlglot
+
+if os.environ.get("DATAHUB_TEST_MODE") == "1":
+    # Patch-based urllib3 unit tests break when the process inherits HTTP(S)_PROXY.
+    for _proxy_env in (
+        "HTTP_PROXY",
+        "HTTPS_PROXY",
+        "http_proxy",
+        "https_proxy",
+        "ALL_PROXY",
+        "all_proxy",
+    ):
+        os.environ.pop(_proxy_env, None)
+    os.environ.setdefault("NO_PROXY", "*")
 
 from datahub.sql_parsing.sql_parsing_common import QueryType, QueryTypeProps
 from datahub.sql_parsing.sqlglot_utils import (
@@ -56,6 +70,15 @@ def is_snowflake_stage_table(table: sqlglot.exp.Table) -> bool:
     return isinstance(table_name, sqlglot.exp.Var) and table_name.name.startswith("@")
 
 
+def _scheme_from_quoted_storage_path(name: str) -> Optional[str]:
+    # Databricks uses scheme:// for object stores and scheme:/ for dbfs and local paths.
+    if "://" in name:
+        return name.split("://", 1)[0].lower()
+    if ":/" in name:
+        return name.split(":/", 1)[0].lower()
+    return None
+
+
 def is_copy_source_uri_table(table: sqlglot.exp.Table) -> bool:
     # A URI parses as Table(this=Literal) in Snowflake COPY, and as a bare
     # Literal in Postgres/Redshift. Inside a COPY source sub-select, Databricks
@@ -64,13 +87,11 @@ def is_copy_source_uri_table(table: sqlglot.exp.Table) -> bool:
     if isinstance(table_name, sqlglot.exp.Literal):
         return True
     if not (
-        isinstance(table_name, sqlglot.exp.Identifier)
-        and table_name.args.get("quoted")
-        and "://" in table_name.name
+        isinstance(table_name, sqlglot.exp.Identifier) and table_name.args.get("quoted")
     ):
         return False
-    scheme = table_name.name.split("://", 1)[0].lower()
-    return scheme in _COPY_SOURCE_URI_SCHEMES
+    scheme = _scheme_from_quoted_storage_path(table_name.name)
+    return scheme is not None and scheme in _COPY_SOURCE_URI_SCHEMES
 
 
 def is_stage_or_uri_table(table: sqlglot.exp.Table) -> bool:
