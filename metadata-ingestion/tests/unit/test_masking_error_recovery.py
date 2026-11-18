@@ -23,6 +23,7 @@ from datahub.masking.bootstrap import (
     shutdown_secret_masking,
 )
 from datahub.masking.masking_filter import (
+    MaskedException,
     SecretMaskingFilter,
     StreamMaskingWrapper,
     _update_existing_handlers,
@@ -134,18 +135,19 @@ class TestMaskingErrorPaths:
             raise ValueError("Test error")
         except ValueError:
             exc_info = sys.exc_info()
+        record = logging.LogRecord("test", logging.ERROR, "", 0, "Error", (), exc_info)
 
         # Mock to cause error during exception processing
         with mock.patch.object(
             masking_filter, "mask_text", side_effect=RuntimeError("Simulated error")
         ):
-            result = masking_filter._mask_exception(exc_info)
+            masking_filter._mask_exception(record)
 
-            # Should return sanitized exception
-            assert result is not None
-            exc_type, exc_value, _ = result
-            assert exc_type is RuntimeError
+            assert record.exc_info is not None
+            exc_type, exc_value, exc_traceback = record.exc_info
+            assert exc_type is MaskedException
             assert "[MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]" in str(exc_value)
+            assert exc_traceback is None
 
     def test_filter_with_masking_error_suppression(self):
         """Test that errors during filter() are suppressed and logged."""
