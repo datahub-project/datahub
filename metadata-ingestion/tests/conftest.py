@@ -63,7 +63,7 @@ def pytest_sessionfinish(session: pytest.Session, exitstatus: int) -> None:
     # longer run, and the process hangs after every test passed. Close it while
     # threads still run.
     try:
-        from datahub.ingestion.source.powerbi.m_query._bridge import _clear_bridge
+        from datahub.ingestion.source.common.m_query._bridge import _clear_bridge
 
         _clear_bridge()
     except ImportError:

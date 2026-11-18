@@ -77,7 +77,7 @@ NATIVE_QUERY_EXPR = (
 @pytest.mark.integration_batch_5
 def test_native_query_false_skips_native_query_expression():
     """With native_query_parsing=False, NativeQuery expressions return empty lineage."""
-    from datahub.ingestion.source.powerbi.m_query.parser import get_upstream_tables
+    from datahub.ingestion.source.common.m_query.parser import get_upstream_tables
 
     ctx, config, platform_instance_resolver, reporter = _get_instances(
         native_query_parsing=False
@@ -96,7 +96,7 @@ def test_native_query_false_skips_native_query_expression():
 @pytest.mark.integration_batch_5
 def test_native_query_false_still_parses_non_native_expression():
     """With native_query_parsing=False, non-NativeQuery expressions still produce lineage."""
-    from datahub.ingestion.source.powerbi.m_query.parser import get_upstream_tables
+    from datahub.ingestion.source.common.m_query.parser import get_upstream_tables
 
     ctx, config, platform_instance_resolver, reporter = _get_instances(
         native_query_parsing=False
@@ -118,7 +118,7 @@ def test_native_query_false_still_parses_non_native_expression():
 @pytest.mark.integration_batch_5
 def test_native_query_true_parses_both():
     """With native_query_parsing=True (default), both expression types are attempted."""
-    from datahub.ingestion.source.powerbi.m_query.parser import get_upstream_tables
+    from datahub.ingestion.source.common.m_query.parser import get_upstream_tables
 
     # Both should be attempted without raising an exception
     for expr in [SNOWFLAKE_EXPR, NATIVE_QUERY_EXPR]:

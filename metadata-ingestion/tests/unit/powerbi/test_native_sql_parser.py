@@ -4,7 +4,7 @@ import pytest
 import sqlglot
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.powerbi.m_query import native_sql_parser
+from datahub.ingestion.source.common.m_query import native_sql_parser
 
 
 @pytest.fixture

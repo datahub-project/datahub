@@ -7,6 +7,7 @@ covered by that module's own empty-column filtering and needs its own guard.
 
 from unittest.mock import MagicMock
 
+from datahub.ingestion.source.common.m_query.data_classes import Lineage
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -14,7 +15,6 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import Lineage
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.sql_parsing.sqlglot_lineage import (
     ColumnLineageInfo,

@@ -15,6 +15,8 @@ import pytest
 import requests
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.m_query import parser as mquery_parser
+from datahub.ingestion.source.common.m_query.data_classes import Lineage
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
@@ -22,8 +24,6 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import parser as mquery_parser
-from datahub.ingestion.source.powerbi.m_query.data_classes import Lineage
 from datahub.ingestion.source.powerbi.powerbi import Mapper
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,

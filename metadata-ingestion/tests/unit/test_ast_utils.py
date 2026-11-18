@@ -7,8 +7,8 @@ fixtures are committed or loaded.
 
 import pytest
 
-from datahub.ingestion.source.powerbi.m_query._bridge import NodeIdMap
-from datahub.ingestion.source.powerbi.m_query.ast_utils import (
+from datahub.ingestion.source.common.m_query._bridge import NodeIdMap
+from datahub.ingestion.source.common.m_query.ast_utils import (
     find_nodes_by_kind,
     get_invoke_callee_name,
     get_literal_value,
@@ -31,7 +31,7 @@ _SNOWFLAKE_M_EXPRESSION = (
 
 @pytest.fixture(scope="module")
 def snowflake_node_map() -> NodeIdMap:
-    from datahub.ingestion.source.powerbi.m_query._bridge import (
+    from datahub.ingestion.source.common.m_query._bridge import (
         _clear_bridge,
         get_bridge,
     )

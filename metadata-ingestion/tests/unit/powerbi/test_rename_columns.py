@@ -1,22 +1,22 @@
 from typing import Dict, List
 
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.m_query import parser as mquery_parser
+from datahub.ingestion.source.common.m_query.data_classes import (
+    ColumnRename,
+    ColumnRenameStep,
+    Lineage,
+)
+from datahub.ingestion.source.common.m_query.pattern_handler import (
+    OdbcLineage,
+    apply_table_rename_columns,
+)
 from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     ResolvePlatformInstanceFromDatasetTypeMapping,
-)
-from datahub.ingestion.source.powerbi.m_query import parser as mquery_parser
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
-    ColumnRename,
-    ColumnRenameStep,
-    Lineage,
-)
-from datahub.ingestion.source.powerbi.m_query.pattern_handler import (
-    OdbcLineage,
-    apply_table_rename_columns,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes import (
     Column,

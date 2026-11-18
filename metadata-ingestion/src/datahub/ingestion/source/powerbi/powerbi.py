@@ -12,7 +12,7 @@ import more_itertools
 from dateutil import parser as date_parser
 
 import datahub.emitter.mce_builder as builder
-import datahub.ingestion.source.powerbi.m_query.data_classes
+import datahub.ingestion.source.common.m_query.data_classes
 import datahub.ingestion.source.powerbi.rest_api_wrapper.data_classes as powerbi_data_classes
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey, gen_containers
@@ -37,6 +37,11 @@ from datahub.ingestion.api.source import (
 )
 from datahub.ingestion.api.source_helpers import auto_workunit
 from datahub.ingestion.api.workunit import MetadataWorkUnit
+from datahub.ingestion.source.common.m_query import native_sql_parser, parser
+from datahub.ingestion.source.common.m_query.config import (
+    PowerBIPlatformDetail,
+    SupportedDataPlatform,
+)
 from datahub.ingestion.source.common.subtypes import (
     BIAssetSubTypes,
     BIContainerSubTypes,
@@ -54,14 +59,11 @@ from datahub.ingestion.source.powerbi.config import (
     PowerBiDashboardSourceConfig,
     PowerBiDashboardSourceReport,
     PowerBiMetadataApiMode,
-    PowerBIPlatformDetail,
-    SupportedDataPlatform,
 )
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     AbstractDataPlatformInstanceResolver,
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query import native_sql_parser, parser
 from datahub.ingestion.source.powerbi.powerbi_selection import (
     WORKSPACE_ID_PATTERN,
     WORKSPACE_NAME_PATTERN,
@@ -282,7 +284,7 @@ class Mapper:
 
     def make_fine_grained_lineage_class(
         self,
-        lineage: datahub.ingestion.source.powerbi.m_query.data_classes.Lineage,
+        lineage: datahub.ingestion.source.common.m_query.data_classes.Lineage,
         dataset_urn: str,
         upstream_urns: Optional[Set[str]] = None,
     ) -> List[FineGrainedLineage]:
@@ -489,7 +491,7 @@ class Mapper:
         )
 
         upstream_lineage: List[
-            datahub.ingestion.source.powerbi.m_query.data_classes.Lineage
+            datahub.ingestion.source.common.m_query.data_classes.Lineage
         ] = parser.get_upstream_tables(
             table=table,
             reporter=self.__reporter,

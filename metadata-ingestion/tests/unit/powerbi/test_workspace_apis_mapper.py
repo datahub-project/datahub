@@ -12,7 +12,7 @@ from datahub.ingestion.source.powerbi.config import (
 from datahub.ingestion.source.powerbi.dataplatform_instance_resolver import (
     create_dataplatform_instance_resolver,
 )
-from datahub.ingestion.source.powerbi.m_query.data_classes import (
+from datahub.ingestion.source.common.m_query.data_classes import (
     DataPlatformTable,
     Lineage,
 )
