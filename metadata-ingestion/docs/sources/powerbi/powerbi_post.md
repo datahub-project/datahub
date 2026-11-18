@@ -172,7 +172,7 @@ Databricks navigation through the constant `SPARK` catalog of the Simba Spark dr
 
 DSN names in `dsn_to_platform_name` and `dsn_to_database_schema` are matched case-insensitively. A recipe may list the same DSN under keys that differ only in case, but they must map to the same target (the same platform, or the same database and schema, compared case-insensitively unless `convert_lineage_urns_to_lowercase` is off); conflicting values fail config validation.
 
-ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation. Oracle queries follow the same `default_database` rule as navigation, so both paths emit the same URN. For Athena both paths drop the leading catalog, keep the server's `platform_instance`, and apply `athena_table_platform_override`.
+ODBC SQL queries (`Odbc.Query`) are parsed as SQL and keep their own URN shapes: the per-platform rules above apply only to hierarchical navigation, with these exceptions. Oracle queries follow the same `default_database` rule as navigation and fall back to `default_schema` for unqualified tables, so both paths emit the same URN. For MySQL, Teradata and Hive, a one-part `dsn_to_database_schema` value fills only unqualified table names, as in navigation. For Athena both paths drop the leading catalog, keep the server's `platform_instance`, and apply `athena_table_platform_override`.
 
 #### Oracle TNS Aliases and Inline Native Queries
 

@@ -436,20 +436,24 @@ class OraclePlatformDetail(PlatformDetail):
         description=(
             "Owner/schema applied to unqualified table references inside "
             '``Oracle.Database(…, Query="…")`` inline native SQL, so they resolve '
-            "to your ingested Oracle datasets. Not used by hierarchical navigation."
+            "to your ingested Oracle datasets. Also used for ODBC SQL queries "
+            "(``Odbc.Query``) when dsn_to_database_schema gives the DSN no schema. "
+            "Not used by hierarchical navigation."
         ),
     )
     default_database: Optional[str] = pydantic.Field(
         default=None,
         description=(
             "Database segment prepended to the table name to opt into 3-part "
-            "``database.schema.table`` Oracle URNs. Used on two paths: (1) native "
+            "``database.schema.table`` Oracle URNs. Used on three paths: (1) native "
             "``Oracle.Database`` SQL when the connection is a bare TNS alias or "
-            "descriptor (which carries no database), and (2) ODBC hierarchical "
-            "navigation when the navigation does not itself supply a database node. "
-            "On that path a navigation database wins, then the database segment of "
-            "a dsn_to_database_schema value (including a one-part value), and only "
-            "then default_database. Set this to match the "
+            "descriptor (which carries no database), (2) ODBC hierarchical "
+            "navigation when the navigation does not itself supply a database node, "
+            "and (3) ODBC SQL queries (``Odbc.Query``). On the ODBC paths a "
+            "navigation database wins, then the database segment of a "
+            "dsn_to_database_schema value (including a one-part value), and only "
+            "then default_database; without default_database, ODBC URNs carry no "
+            "database. Set this to match the "
             "database segment your Oracle ingestion uses, only when that ingestion "
             "emits 3-part ``database.schema.table`` URNs "
             "(``add_database_name_to_urn: true``); leave unset for the default "
@@ -764,15 +768,17 @@ class PowerBiDashboardSourceConfig(
         "For example with an ODBC connection string 'DSN=database' where the database "
         "is 'prod' you would configure the mapping as 'database: prod'. "
         "If the database is 'prod' and the schema is 'data' then mapping would be 'database: prod.data'. "
-        "For Oracle hierarchical navigation, use 'database.schema': a one-part value is "
-        "not used as the schema, and the database segment only appears in the URN when "
-        "default_database is set for the server in server_to_platform_instance. When it "
-        "does, this mapping's database (one-part value included) wins over "
-        "default_database, so a one-part schema name here would become the database. "
-        "These per-platform rules apply to hierarchical navigation only: for ODBC SQL "
-        "queries the value is passed to the SQL parser as the default database and "
-        "schema unchanged, so for Oracle, Hive and two-part platforms such as MySQL a "
-        "two-part value can produce a different URN than navigation does.",
+        "For Oracle, on both hierarchical navigation and ODBC SQL queries, use "
+        "'database.schema': a one-part value is not used as the schema, and the "
+        "database segment only appears in the URN when default_database is set for "
+        "the server in server_to_platform_instance. When it does, this mapping's "
+        "database (one-part value included) wins over default_database, so a one-part "
+        "schema name here would become the database. Oracle ODBC SQL queries fall back "
+        "to default_schema when this mapping gives no schema. For MySQL, Teradata and "
+        "Hive ODBC SQL queries, a one-part value fills only unqualified table names, "
+        "as it does for navigation. The other per-platform rules apply to hierarchical "
+        "navigation only: for other ODBC SQL queries the value is passed to the SQL "
+        "parser as the default database and schema unchanged.",
     )
     # Athena federated table platform override
     athena_table_platform_override: List[AthenaPlatformOverride] = pydantic.Field(
