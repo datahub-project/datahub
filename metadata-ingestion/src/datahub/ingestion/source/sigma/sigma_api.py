@@ -62,6 +62,8 @@ _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD = 3
 # for this token, or only that one workbook is unreadable. 410 alone is
 # unambiguous; the rest latch after the not-found threshold above.
 _WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES = frozenset({403, 404, 410})
+# /dataModels/{id}/spec: the same reading, for the same reasons.
+_DATA_MODEL_SPEC_UNAVAILABLE_STATUSES = _WORKBOOK_SCHEMA_UNAVAILABLE_STATUSES
 
 
 # Sigma error bodies are short; the cap only guards against an HTML error page
@@ -322,6 +324,8 @@ class SigmaAPI:
         self.config = config
         self.report = report
         self.workspaces: Dict[str, Workspace] = {}
+        # A token without /spec access fails every model: log the first only.
+        self._spec_failure_logged = False
         # Two sets, like the file-path walk: a transient failure is not
         # remembered as dead, but its loss is still counted once.
         self._workspace_lookup_failed: Set[str] = set()
@@ -359,6 +363,10 @@ class SigmaAPI:
         self._workbook_schema_succeeded = False
         self._workbook_schema_refused_ids: Set[str] = set()
         self._workbook_schema_unavailable = False
+        # /dataModels/{id}/spec latches off the same way.
+        self._data_model_spec_succeeded = False
+        self._data_model_spec_refused_ids: Set[str] = set()
+        self._data_model_spec_unavailable = False
         self.session = requests.Session()
 
         # raise_on_status=False must stay False: get_data_model_by_url_id
@@ -2626,6 +2634,60 @@ class SigmaAPI:
                 exc=e,
             )
             return None
+
+    def get_data_model_spec(self, data_model_id: str) -> Optional[Dict[str, Any]]:
+        """The Data Model's ``/spec`` document, or None if it cannot be read.
+
+        A failure costs only the lineage /spec adds, so it is counted and
+        reported, never raised.
+        """
+        if self._data_model_spec_unavailable:
+            self.report.data_model_spec_skipped += 1
+            return None
+        url = f"{self.config.api_url}/dataModels/{quote(data_model_id, safe='')}/spec"
+        try:
+            response = self._get_api_call(url)
+            response.raise_for_status()
+            payload = response.json()
+        except Exception as e:
+            self.report.data_model_spec_fetch_failed += 1
+            detail = self._log_http_error(
+                message=f"Unable to fetch /spec for data model {data_model_id!r}. "
+                f"Exception: {e}",
+                report_warning=False,
+            )
+            status = _http_status(e)
+            if (
+                not self._data_model_spec_succeeded
+                and status in _DATA_MODEL_SPEC_UNAVAILABLE_STATUSES
+            ):
+                self._data_model_spec_refused_ids.add(data_model_id)
+                if (
+                    status == 410
+                    or len(self._data_model_spec_refused_ids)
+                    >= _DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD
+                ):
+                    self._data_model_spec_unavailable = True
+            # One title, so the report groups these and keeps a sample of
+            # contexts: a 403 on every model is not hidden behind one 503.
+            self.report.warning(
+                title="Sigma Data Model spec unavailable",
+                message=(
+                    "Could not fetch a Data Model's /spec, so its union elements "
+                    "get no column lineage to their branches; "
+                    "data_model_spec_fetch_failed counts the models. A 429 or 5xx "
+                    "is usually fixed by a re-run. A 410, or a 403/404 from "
+                    f"{_DATASET_SOURCES_NOT_FOUND_WARN_THRESHOLD} models, before "
+                    "any model succeeded stops the call for the rest of the run; "
+                    "data_model_spec_skipped counts the models not asked."
+                ),
+                context=f"data_model={data_model_id}, {detail}",
+                log=not self._spec_failure_logged,
+            )
+            self._spec_failure_logged = True
+            return None
+        self._data_model_spec_succeeded = True
+        return payload
 
     def get_data_model_by_url_id(self, url_id: str) -> Optional[SigmaDataModel]:
         """Fetch a DM by its urlId (not UUID). Used to resolve personal-space
