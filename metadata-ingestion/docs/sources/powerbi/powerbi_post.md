@@ -68,6 +68,8 @@ Consider `SALES_REPORT` PowerBI Dataset has a table `SALES_ANALYSIS` which is ba
 
 You can control table lineage ingestion using `extract_lineage` configuration parameter, by default it is set to `true`.
 
+Column-level lineage keeps the warehouse column's original casing. Set `convert_column_urns_to_lowercase: true` when the upstream source was ingested with `convert_column_urns_to_lowercase`, so the upstream `schemaField` path is lowercased and the edge resolves. PowerBI's own fields stay in their original casing.
+
 PowerBI Source extracts the lineage information by parsing PowerBI M-Query expressions and from dataset data returned by the PowerBI API.
 
 The source will attempt to extract information from ODBC connection strings in M-Query expressions to determine the database type. If the database type matches a supported platform and the source is able to extract enough information to construct a valid Dataset URN, it will extract lineage for that data source.

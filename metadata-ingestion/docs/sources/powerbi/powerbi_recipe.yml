@@ -73,6 +73,10 @@ source:
     # extract powerbi dataset table schema
     extract_dataset_schema: true
 
+    # Lowercase upstream column-level lineage field paths. Leave false unless the
+    # warehouse source was ingested with convert_column_urns_to_lowercase.
+    # convert_column_urns_to_lowercase: true
+
     # Enable PowerBI dataset profiling
     profiling:
       enabled: false
