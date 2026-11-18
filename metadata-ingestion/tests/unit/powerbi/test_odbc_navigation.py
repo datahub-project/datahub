@@ -856,3 +856,50 @@ def test_odbc_query_is_never_treated_as_navigation(
         expected_urns
     )
     assert "ODBC navigation has no table" not in [w.title for w in reporter.warnings]
+
+
+@pytest.mark.parametrize(
+    "driver, sql",
+    [
+        pytest.param(
+            "SQL Server Native Client 11.0",
+            "{call dbo.get_orders(1)}",
+            id="mssql-call-escape",
+        ),
+        pytest.param(
+            "IBM DB2 ODBC DRIVER",
+            "SELECT * FROM sch.orders FETCH FIRST 10 ROWS ONLY WITH UR",
+            id="db2-isolation-clause",
+        ),
+        pytest.param(
+            "Simba Amazon Athena ODBC Driver",
+            "SELEC * FROM sales.orders",
+            id="athena-typo",
+        ),
+    ],
+)
+def test_odbc_query_with_no_parsed_tables_warns(driver: str, sql: str) -> None:
+    """SQL the parser cannot read yields no upstreams; the table must still get
+    a warning rather than silently lose its lineage."""
+    expression = (
+        f'let\n    Source = Odbc.Query("driver={{{driver}}};dsn=my_dsn", '
+        f'"{sql}")\nin\n    Source'
+    )
+    table = powerbi_data_classes.Table(
+        columns=[], measures=[], expression=expression, name="t", full_name="t"
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances()
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert combine_upstreams_from_lineage(lineages) == []
+    assert "No upstream tables found in native SQL" in [
+        w.title for w in reporter.warnings
+    ]

@@ -870,6 +870,7 @@ class AbstractLineage(ABC):
         schema: Optional[str],
         platform_pair: Optional[DataPlatformPair] = None,
         platform_detail: Optional[PlatformDetail] = None,
+        report_empty_result: bool = False,
     ) -> Lineage:
         dataplatform_tables: List[DataPlatformTable] = []
         if not platform_pair:
@@ -967,6 +968,25 @@ class AbstractLineage(ABC):
                 title=Constant.SQL_PARSING_FAILURE,
                 message="Fail to parse native sql present in PowerBI M-Query",
                 context=context,
+            )
+            return Lineage.empty()
+
+        # SQL sqlglot cannot parse as one statement (e.g. ODBC {call ...}
+        # escapes or dialect-only clauses) falls back to a parse that returns no
+        # tables and no table_error, so neither branch above reports it.
+        if (
+            report_empty_result
+            and not parsed_result.in_tables
+            and not external_upstreams
+        ):
+            self.reporter.warning(
+                title="No upstream tables found in native SQL",
+                message=(
+                    "The SQL in this PowerBI M-Query resolved to no upstream "
+                    "tables, so lineage is skipped. The SQL may use syntax the "
+                    "parser does not support."
+                ),
+                context=f"table-name={self.table.full_name}, sql={query}",
             )
             return Lineage.empty()
 
@@ -2411,6 +2431,7 @@ class OdbcLineage(AbstractLineage):
             schema=schema,
             platform_pair=platform_pair,
             platform_detail=platform_detail,
+            report_empty_result=True,
         )
         logger.debug(f"ODBC query lineage generated {len(result.upstreams)} upstreams")
 
