@@ -75,6 +75,7 @@ import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRoute;
 import com.linkedin.search.template.SearchTemplateRouteArray;
+import com.linkedin.search.template.SearchTemplateScope;
 import com.linkedin.search.template.StructuredPropertyClause;
 import com.linkedin.search.template.StructuredPropertyQuery;
 import com.linkedin.structured.StructuredPropertyDefinition;
@@ -91,6 +92,7 @@ import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.ForkJoinPool;
 import java.util.concurrent.atomic.AtomicLong;
+import java.util.function.BiFunction;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 import javax.annotation.Nullable;
@@ -103,6 +105,9 @@ import org.opensearch.search.aggregations.bucket.terms.TermsAggregationBuilder;
 import org.testng.annotations.BeforeMethod;
 
 abstract class SearchTemplateFixture {
+  /** The requested entity types when a test does not partition them. */
+  protected static final List<String> REQUEST = List.of(DATASET_ENTITY_NAME);
+
   protected static final Urn SYSTEM = UrnUtils.getUrn(SYSTEM_ACTOR);
   protected static final Urn USER = UrnUtils.getUrn("urn:li:corpuser:tester");
   protected static final String HOLE_QUERY =
@@ -268,15 +273,35 @@ abstract class SearchTemplateFixture {
       List<SortCriterion> sort,
       Integer size,
       Function<String, SearchResult> pages) {
+    return walk(
+        executor,
+        urn,
+        query,
+        sort,
+        size,
+        REQUEST,
+        (templateUrn, assigned) -> pages.apply(templateUrn));
+  }
+
+  /** Walks a request for {@code entityTypes}; each page sees the types its rung is assigned. */
+  protected SearchTemplateWalk.Served<SearchResult> walk(
+      ExecutorService executor,
+      String urn,
+      String query,
+      List<SortCriterion> sort,
+      Integer size,
+      List<String> entityTypes,
+      BiFunction<String, List<String>, SearchResult> pages) {
     return SearchTemplateWalk.walk(
         opContext,
         loader,
         executor,
         urn,
-        new SearchTemplateWalk.Request(query, null, sort, size, SearchTemplateWalk.identity()),
-        templateUrn -> {
+        new SearchTemplateWalk.Request(
+            query, null, sort, size, entityTypes, SearchTemplateWalk.identity()),
+        (templateUrn, assigned) -> {
           try {
-            SearchResult page = pages.apply(templateUrn);
+            SearchResult page = pages.apply(templateUrn, assigned);
             return SearchTemplateWalk.AttemptResult.ok(
                 page,
                 page.getNumEntities(),
@@ -356,6 +381,15 @@ abstract class SearchTemplateFixture {
         .getSearchContext()
         .getResolvedSearchTemplate()
         .getRouteChain();
+  }
+
+  /** A match-all template scoped to {@code entityTypes}. */
+  protected static SearchTemplateProperties scoped(String name, String... entityTypes) {
+    SearchTemplateProperties properties = body(name, "{ \"match_all\": {} }", null);
+    properties.setApiVersion(2);
+    properties.setScope(
+        new SearchTemplateScope().setEntityTypes(new StringArray(List.of(entityTypes))));
+    return properties;
   }
 
   protected ElasticSearchConfiguration v3Config() {

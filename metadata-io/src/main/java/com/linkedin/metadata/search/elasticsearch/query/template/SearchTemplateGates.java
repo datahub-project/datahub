@@ -65,7 +65,8 @@ public final class SearchTemplateGates {
    * build never binds a shape it cannot run. {@code vectorRetrieval} is {@code combine: vector}
    * only.
    */
-  public static final Set<String> ADVERTISED = Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL);
+  public static final Set<String> ADVERTISED =
+      Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL, ENTITY_PARTITION);
 
   /** Entity types this build runs for each embedding profile class. */
   public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
@@ -240,7 +241,7 @@ public final class SearchTemplateGates {
     SearchTemplateProfiles selection = selection(template);
     Set<String> selected = new LinkedHashSet<>();
     Set<String> covering = new LinkedHashSet<>();
-    for (String entityType : members(template, entityTypes)) {
+    for (String entityType : assigned(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
       if (!countsToward(resolution, entityType)) {
@@ -292,7 +293,7 @@ public final class SearchTemplateGates {
       @Nullable String system) {
     SearchTemplateProfiles selection = selection(template);
     Map<String, String> gates = new LinkedHashMap<>();
-    for (String entityType : members(template, entityTypes)) {
+    for (String entityType : assigned(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
       String reason = joinGate(resolution, entityType);
@@ -312,7 +313,7 @@ public final class SearchTemplateGates {
       @Nullable String system) {
     SearchTemplateProfiles selection = selection(template);
     Set<String> ids = new LinkedHashSet<>();
-    for (String entityType : members(template, entityTypes)) {
+    for (String entityType : assigned(template, entityTypes)) {
       EmbeddingProfileRegistry.Resolution resolution =
           profiles.resolve(selection, entityType, system);
       if (joinGate(resolution, entityType) == null && resolution.failure() == null) {
@@ -458,19 +459,24 @@ public final class SearchTemplateGates {
     return true;
   }
 
+  /**
+   * The entity types a rung is assigned: the requested types in its scope, in request order, each
+   * once. Unset scope assigns the whole request. Each rung is assigned on its own, so overlapping
+   * scopes share a type.
+   */
   @Nonnull
-  private static List<String> members(
+  static List<String> assigned(
       @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
     if (template.getScope() == null || template.getScope().getEntityTypes() == null) {
       return List.copyOf(new LinkedHashSet<>(entityTypes));
     }
-    List<String> members = new ArrayList<>();
+    List<String> assigned = new ArrayList<>();
     for (String entityType : new LinkedHashSet<>(entityTypes)) {
       if (template.getScope().getEntityTypes().contains(entityType)) {
-        members.add(entityType);
+        assigned.add(entityType);
       }
     }
-    return members;
+    return assigned;
   }
 
   @Nonnull

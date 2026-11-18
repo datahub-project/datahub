@@ -256,7 +256,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           gates,
           resolved.getEntityTypes(),
           resolved.getSearchSystem(),
-          documentRerank);
+          documentRerank,
+          scroll);
     } catch (RuntimeException e) {
       SearchTemplateMetrics.renderFailure(opContext, "select");
       throw e;
@@ -305,8 +306,13 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (rejection == null) {
       rejection =
-          gates.bindingRejection(
-              template, entityNames, EmbeddingProfileRegistry.system(engine), documentRerank);
+          SearchTemplateCapabilities.resolvableRejection(
+              template,
+              gates,
+              entityNames,
+              EmbeddingProfileRegistry.system(engine),
+              documentRerank,
+              scroll);
     }
     List<SearchTemplateDryRender.CapabilityDecision> capabilities = new ArrayList<>();
     for (String name : template.getCapabilities()) {

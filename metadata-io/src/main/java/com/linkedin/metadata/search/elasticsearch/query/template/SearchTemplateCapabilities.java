@@ -135,6 +135,11 @@ public final class SearchTemplateCapabilities {
   /** Closed {@code retrieval.onFailure} values. Unset is {@code fail}: the search fails. */
   public static final Set<String> ON_FAILURES = Set.of("fail", ON_FAILURE_NEXT);
 
+  /**
+   * Scroll does not walk a ladder, so it cannot hand a type the scope leaves out to another rung.
+   */
+  public static final String SCOPE_SCROLL = "scopeScroll";
+
   public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
   public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
   public static final String PROFILE_SCORE_WEIGHTED_SUM = "weightedSum";
@@ -218,18 +223,37 @@ public final class SearchTemplateCapabilities {
 
   /**
    * Fails a template whose resolved embedding profiles this build cannot run for the requested
-   * entity types. Checked after {@link #requireSupported}, when the request is known.
+   * entity types, or, on scroll, whose scope leaves out a requested type. Checked after {@link
+   * #requireSupported}, when the request is known.
    */
   public static void requireResolvable(
       @Nonnull MergedSearchTemplate template,
       @Nonnull SearchTemplateGates gates,
       @Nullable Collection<String> entityTypes,
       @Nullable String system,
-      boolean documentRerank) {
-    String code = gates.bindingRejection(template, entityTypes, system, documentRerank);
+      boolean documentRerank,
+      boolean scroll) {
+    String code = resolvableRejection(template, gates, entityTypes, system, documentRerank, scroll);
     if (code != null) {
       throw unsupported(rejectionDetail(template, code));
     }
+  }
+
+  /** Bounded reason {@link #requireResolvable} fails, or null. */
+  @Nullable
+  static String resolvableRejection(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull SearchTemplateGates gates,
+      @Nullable Collection<String> entityTypes,
+      @Nullable String system,
+      boolean documentRerank,
+      boolean scroll) {
+    if (scroll
+        && entityTypes != null
+        && !SearchTemplateGates.assigned(template, entityTypes).containsAll(entityTypes)) {
+      return SCOPE_SCROLL;
+    }
+    return gates.bindingRejection(template, entityTypes, system, documentRerank);
   }
 
   /**
@@ -339,6 +363,7 @@ public final class SearchTemplateCapabilities {
       case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
       case "vectorScroll" -> "vector retrieval on scroll";
+      case SCOPE_SCROLL -> "scope on scroll that leaves out a requested entity type";
       case "retrievalCandidateCap" -> "retrieval candidateCap below 1";
       default ->
           SearchTemplateGates.CAPABILITIES.contains(code)

@@ -110,8 +110,6 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
 
   @Test
   public void testEveryDeferredShapeFailsTheSelectedTemplate() {
-    SearchTemplateProperties scoped = rung(r -> r.setCombine("keywordRerank"));
-    scoped.setScope(new SearchTemplateScope().setEntityTypes(ids("document")));
     SearchTemplateProperties keywordProfiles = body("Keyword", "{ \"match_all\": {} }", null);
     keywordProfiles.setApiVersion(2);
     keywordProfiles.setProfiles(new SearchTemplateProfiles().setReplace(ids("a")));
@@ -125,7 +123,6 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
         Map.of(
             "vectorThenKeyword", rung(r -> r.setCombine("vectorThenKeyword")),
             "vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}")),
-            "scoped", scoped,
             "keywordProfiles", keywordProfiles,
             "keywordScore", keywordScore,
             "placeholders", placeholders);

@@ -68,6 +68,7 @@ import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -494,6 +495,33 @@ public class ESSearchDAOVectorRetrievalTest {
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
     verify(client, never()).searchKnn(any(), any());
     assertNoFallback();
+  }
+
+  @Test
+  public void testAMixedRequestServesOnlyTheTypesThatPassTheGates() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9, 0.8));
+
+    SearchResult result = search(List.of("dataset", "document"), null, 0, 10);
+
+    // Dataset fails the gates: the kNN request does not read it, and no keyword result stands in
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertFalse(knnRequest().indexName().contains("dataset"));
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getEntityTypes(), DOCUMENT);
+    assertEquals(
+        explanation.getExcludedEntityTypes(),
+        List.of("dataset:" + SearchTemplateGates.ENTITY_NOT_ENABLED));
+
+    // A type outside the rung's scope is not assigned to it, so it is not reported as dropped
+    SearchTemplateProperties scoped = vector(r -> {});
+    scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    store(scoped);
+    VectorRetrievalExplanation partitioned =
+        search(List.of("dataset", "document"), null, 0, 10).getMetadata().getVectorRetrieval();
+    assertEquals(partitioned.getEntityTypes(), DOCUMENT);
+    assertTrue(partitioned.getExcludedEntityTypes().isEmpty());
   }
 
   @Test

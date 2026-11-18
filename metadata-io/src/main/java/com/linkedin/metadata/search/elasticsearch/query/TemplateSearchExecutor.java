@@ -94,8 +94,13 @@ final class TemplateSearchExecutor {
               coordinator.ladderExecutor(),
               renderUrn,
               new SearchTemplateWalk.Request(
-                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
-              urn -> {
+                  query,
+                  postFilters,
+                  sortCriteria,
+                  size,
+                  entityNames,
+                  SearchTemplateWalk.identity()),
+              (urn, assigned) -> {
                 // A vector rung has no keyword query to explain, so explain fails closed, as
                 // scroll does, also from a parallel group
                 if (SearchTemplateCapabilities.vectorRetrieval(
@@ -108,7 +113,7 @@ final class TemplateSearchExecutor {
                 return searchAttempt(
                     bound,
                     urn,
-                    entityNames,
+                    assigned,
                     query,
                     normalizeQuery(bound, query),
                     postFilters,
@@ -247,6 +252,7 @@ final class TemplateSearchExecutor {
                 postFilters,
                 sortCriteria,
                 fetchSize,
+                entityNames,
                 (urn, raw) -> {
                   boolean page = pageFetched(coordinator.loader().load(bound, urn), resolved);
                   return componentReorder(
@@ -260,17 +266,18 @@ final class TemplateSearchExecutor {
                       page ? from : fetchFrom,
                       page ? size : fetchSize);
                 }),
-            urn -> {
+            // Each rung searches only the requested types its scope assigns it
+            (urn, assigned) -> {
               MergedSearchTemplate template = coordinator.loader().load(bound, urn);
               if (SearchTemplateCapabilities.vectorRetrieval(template)) {
                 return vectorSearch.attempt(
-                    bound, template, entityNames, input, postFilters, from, size, facets);
+                    bound, template, assigned, input, postFilters, from, size, facets);
               }
               boolean page = pageFetched(template, resolved);
               return searchAttempt(
                   bound,
                   urn,
-                  entityNames,
+                  assigned,
                   input,
                   normalizedQuery,
                   postFilters,

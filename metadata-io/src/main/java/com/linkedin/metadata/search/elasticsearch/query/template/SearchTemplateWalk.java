@@ -22,16 +22,21 @@ import javax.annotation.Nullable;
 /**
  * Walks a template ladder. Selection runs before the query. A shard failure or exception follows
  * {@code next}. The last rung is kept even when its total is zero, and its failure fails the
- * search.
+ * search. Each rung, a parallel member included, is assigned the requested entity types in its
+ * scope and searches only those. An empty assignment skips the rung, as a select miss does.
  */
 public final class SearchTemplateWalk {
   private SearchTemplateWalk() {}
 
+  /**
+   * @param entityTypes the requested entity types each rung's scope is applied to
+   */
   public record Request(
       @Nonnull String query,
       @Nullable Filter filter,
       @Nullable List<SortCriterion> sort,
       @Nullable Integer size,
+      @Nonnull List<String> entityTypes,
       @Nonnull AfterStop afterStop) {}
 
   /** Runs after stop predicates have seen the raw keyword hits. */
@@ -146,8 +151,9 @@ public final class SearchTemplateWalk {
 
   @FunctionalInterface
   public interface Attempt<T> {
+    /** Runs the rung at {@code urn} over the entity types assigned to it, in request order. */
     @Nonnull
-    AttemptResult<T> run(@Nonnull String urn);
+    AttemptResult<T> run(@Nonnull String urn, @Nonnull List<String> entityTypes);
   }
 
   @FunctionalInterface
@@ -229,26 +235,20 @@ public final class SearchTemplateWalk {
       MergedSearchTemplate template = loader.load(opContext, urn);
       requireSupported(opContext, template);
       SearchTemplateLadder ladder = template.getLadder();
+      List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+      if (!selected(ladder, assigned, request)) {
+        return follow(
+            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
+      }
       if (ladder != null
           && ladder.hasParallel()
           && ladder.getParallel() != null
           && !ladder.getParallel().isEmpty()) {
-        if (!SearchTemplateLadderPredicates.selectMatches(
-            ladder, request.query(), request.filter(), request.sort(), request.size())) {
-          return follow(
-              opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
-        }
         return walkParallel(
             opContext, loader, executor, urn, ladder, request, attempt, fuse, path, depth);
       }
-      if (ladder != null
-          && !SearchTemplateLadderPredicates.selectMatches(
-              ladder, request.query(), request.filter(), request.sort(), request.size())) {
-        return follow(
-            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
-      }
       long started = System.nanoTime();
-      AttemptResult<T> result = attempt.run(urn);
+      AttemptResult<T> result = attempt.run(urn, assigned);
       SearchTemplateMetrics.rung(opContext, depth, false, System.nanoTime() - started);
       if (result.error != null || result.shardFailed) {
         if (ladder == null || !ladder.hasNext() || ladder.getNext() == null) {
@@ -285,14 +285,14 @@ public final class SearchTemplateWalk {
       @Nonnull OperationContext opContext,
       @Nonnull SearchTemplateLoader loader,
       @Nonnull ExecutorService executor,
-      @Nonnull SearchTemplateLadder ladder,
+      @Nullable SearchTemplateLadder ladder,
       @Nonnull String urn,
       @Nonnull Request request,
       @Nonnull Attempt<T> attempt,
       @Nonnull Fuse<T> fuse,
       @Nonnull Set<String> path,
       int depth) {
-    if (!ladder.hasNext() || ladder.getNext() == null) {
+    if (ladder == null || !ladder.hasNext() || ladder.getNext() == null) {
       throw new SearchTemplateException(
           "Search template " + urn + " was not selected and has no next");
     }
@@ -459,15 +459,14 @@ public final class SearchTemplateWalk {
       return new Member<>(urn, AttemptResult.failed(e), false);
     }
     SearchTemplateLadder ladder = template.getLadder();
-    if (ladder != null
-        && !SearchTemplateLadderPredicates.selectMatches(
-            ladder, request.query(), request.filter(), request.sort(), request.size())) {
+    List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+    if (!selected(ladder, assigned, request)) {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     AttemptResult<T> result;
     long started = System.nanoTime();
     try {
-      result = attempt.run(urn);
+      result = attempt.run(urn, assigned);
     } catch (SearchTemplateFailClosedException e) {
       throw e;
     } catch (RuntimeException e) {
@@ -490,6 +489,16 @@ public final class SearchTemplateWalk {
     return new Member<>(urn, result, stopped);
   }
 
+  // A rung runs on a non-empty assignment whose select matches
+  private static boolean selected(
+      @Nullable SearchTemplateLadder ladder,
+      @Nonnull List<String> assigned,
+      @Nonnull Request request) {
+    return !assigned.isEmpty()
+        && SearchTemplateLadderPredicates.selectMatches(
+            ladder, request.query(), request.filter(), request.sort(), request.size());
+  }
+
   private static void requireSupported(
       @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
@@ -505,13 +514,15 @@ public final class SearchTemplateWalk {
         resolved != null && resolved.isCapabilityScroll(),
         registry,
         gates);
-    // Every attempted rung, not only the selected root, resolves its profiles for the request.
+    // Every attempted rung, not only the selected root, resolves its profiles for the request. The
+    // walk partitions the request, so a scope narrower than the request does not fail it.
     SearchTemplateCapabilities.requireResolvable(
         template,
         gates,
         resolved == null ? null : resolved.getEntityTypes(),
         resolved == null ? null : resolved.getSearchSystem(),
-        documentRerank);
+        documentRerank,
+        false);
   }
 
   @Nonnull

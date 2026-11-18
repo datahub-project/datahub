@@ -42,6 +42,7 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.CountDownLatch;
@@ -491,8 +492,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 ForkJoinPool.commonPool(),
                 "urn:li:searchTemplate:shardGroup",
                 new SearchTemplateWalk.Request(
-                    "orders", null, null, 10, SearchTemplateWalk.identity()),
-                urn -> {
+                    "orders", null, null, 10, REQUEST, SearchTemplateWalk.identity()),
+                (urn, assigned) -> {
                   SearchResult result = page(0);
                   return SearchTemplateWalk.AttemptResult.ok(
                       result,
@@ -744,6 +745,169 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 item(
                     UrnUtils.getUrn("urn:li:searchTemplate:left"), SYSTEM, ChangeType.UPSERT, left))
             .isEmpty());
+  }
+
+  @Test
+  public void testEachRungSearchesTheRequestedTypesInItsScope() {
+    String scopedUrn = "urn:li:searchTemplate:scoped";
+    String whole = "urn:li:searchTemplate:whole";
+    SearchTemplateProperties scopedBody = scoped("Scoped", "glossaryTerm", "chart", "document");
+    scopedBody.setLadder(stopLadder(1, whole));
+    store(scopedUrn, scopedBody);
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+
+    Map<String, List<String>> assignedTo = new ConcurrentHashMap<>();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            scopedUrn,
+            "orders",
+            null,
+            10,
+            List.of("dataset", "document", "chart", "document"),
+            (urn, assigned) -> {
+              assignedTo.put(urn, assigned);
+              return page(0);
+            });
+
+    // The scoped rung gets the requested types in its scope, in request order. The unscoped rung
+    // its empty result fell through to gets the whole request.
+    assertEquals(assignedTo.get(scopedUrn), List.of("document", "chart"));
+    assertEquals(assignedTo.get(whole), List.of("dataset", "document", "chart"));
+    assertEquals(served.urn(), whole);
+  }
+
+  @Test
+  public void testAnEmptyAssignmentSkipsTheRungAsASelectMissDoes() {
+    String charts = "urn:li:searchTemplate:charts";
+    String whole = "urn:li:searchTemplate:whole";
+    SearchTemplateProperties chartsBody = scoped("Charts", "chart");
+    chartsBody.setLadder(stopLadder(1, whole));
+    store(charts, chartsBody);
+    store(whole, body("Whole", "{ \"match_all\": {} }", null));
+    store("urn:li:searchTemplate:lastCharts", scoped("Last charts", "chart"));
+
+    Set<String> called = ConcurrentHashMap.newKeySet();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            charts,
+            "orders",
+            null,
+            10,
+            List.of("dataset"),
+            (urn, assigned) -> {
+              called.add(urn);
+              return page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)");
+            });
+    assertEquals(served.urn(), whole);
+    assertEquals(called, Set.of(whole));
+    // A skipped rung with no next fails the search
+    assertThrows(
+        SearchTemplateException.class,
+        () ->
+            walk(
+                ForkJoinPool.commonPool(),
+                "urn:li:searchTemplate:lastCharts",
+                "orders",
+                null,
+                10,
+                List.of("dataset"),
+                (urn, assigned) -> page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)")));
+  }
+
+  @Test
+  public void testParallelMembersAreAssignedIndependentlyAndOneMemberIsServed() {
+    String first = "urn:li:searchTemplate:firstDocuments";
+    String second = "urn:li:searchTemplate:secondDocuments";
+    String datasets = "urn:li:searchTemplate:datasets";
+    String charts = "urn:li:searchTemplate:charts";
+    for (String[] member :
+        new String[][] {
+          {first, "document"}, {second, "document"}, {datasets, "dataset"}, {charts, "chart"}
+        }) {
+      SearchTemplateProperties memberBody = scoped("Member", member[1]);
+      memberBody.setLadder(stopLadder(1, null));
+      store(member[0], memberBody);
+    }
+    SearchTemplateProperties group = body("Group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setParallel(
+        new UrnArray(
+            UrnUtils.getUrn(first),
+            UrnUtils.getUrn(second),
+            UrnUtils.getUrn(datasets),
+            UrnUtils.getUrn(charts)));
+    ladder.setJoin("allEmpty");
+    group.setLadder(ladder);
+    store("urn:li:searchTemplate:group", group);
+
+    Map<String, List<String>> assignedTo = new ConcurrentHashMap<>();
+    SearchTemplateWalk.Served<SearchResult> served =
+        walk(
+            ForkJoinPool.commonPool(),
+            "urn:li:searchTemplate:group",
+            "orders",
+            null,
+            10,
+            List.of("dataset", "document"),
+            (urn, assigned) -> {
+              assignedTo.put(urn, assigned);
+              return page(1, hit(urn));
+            });
+
+    // Overlapping scopes each get the type. A member whose scope misses the request is skipped.
+    assertEquals(
+        assignedTo,
+        Map.of(
+            first, List.of("document"),
+            second, List.of("document"),
+            datasets, List.of("dataset")));
+    // The first listed member that stopped is served alone; no other member's hits are merged in
+    assertEquals(served.urn(), first);
+    assertEquals(
+        served.page().getEntities().stream().map(e -> e.getEntity().toString()).toList(),
+        List.of(hit(first)));
+  }
+
+  /** A hit only the rung at {@code urn} returns. */
+  private static String hit(String urn) {
+    return "urn:li:dataset:(urn:li:dataPlatform:hive," + UrnUtils.getUrn(urn).getId() + ",PROD)";
+  }
+
+  @Test
+  public void testScrollFailsAScopeThatLeavesOutARequestedType() {
+    store("urn:li:searchTemplate:documents", scoped("Documents", "document"));
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:documents")));
+    List<String> mixed = List.of("dataset", "document");
+
+    // Scroll does not walk, so it cannot leave Dataset to another rung
+    assertThrows(
+        SearchTemplateException.class, () -> coordinator.bind(pinned, "orders", true, mixed));
+    // A scope that covers the request scrolls, and a search partitions the request instead
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", true, List.of("document"))
+            .getSearchContext()
+            .getResolvedSearchTemplate());
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", false, mixed)
+            .getSearchContext()
+            .getResolvedSearchTemplate());
   }
 
   private static boolean matches(String predicate, String query) {

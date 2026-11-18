@@ -391,7 +391,7 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     SearchTemplateProperties scoped = body("Scoped", "{ \"match_all\": {} }", null);
     scoped.setApiVersion(2);
     scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray(List.of("document"))));
-    assertEquals(rejectionOf("scoped", scoped), "entityPartition");
+    assertNull(rejectionOf("scoped", scoped));
     assertNull(rejectionOf("keywordRerank", rung(r -> r.setCombine("keywordRerank"))));
     // This release skips the rerank and keeps keyword order, so the selection does not block bind.
     SearchTemplateProperties rerankProfiles =
