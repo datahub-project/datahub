@@ -122,7 +122,7 @@ public final class SearchTemplateChecks {
     SearchTemplateGates.legacyProfileId(merged);
     run(
         true,
-        merged.isKnnInherited(),
+        merged.isKnnInherited() && SearchTemplateCapabilities.keywordRerank(merged),
         compose(merged),
         maxLeafClauses,
         maxRoutes,
@@ -511,8 +511,8 @@ public final class SearchTemplateChecks {
           properties.hasRetrieval() ? properties.getRetrieval() : null,
           merged || properties.hasRetrieval());
     }
-    // Only a template that sets knn itself is rejected. One that inherits it and adds a sort keeps
-    // keyword order on a sorted search, so an existing sorted child stays writable.
+    // A template that inherits a keywordRerank knn and adds a sort keeps keyword order on a sorted
+    // search, so an existing sorted child stays writable. Any other knn with a sort is rejected.
     if (renderedKnn != null
         && !knnInherited
         && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {

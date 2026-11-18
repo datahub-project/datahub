@@ -526,6 +526,16 @@ public class SearchTemplateLoader {
       legacy.removeCombine();
       builder.retrieval(emptyRetrieval(legacy) ? null : legacy);
     }
+    // A template whose own retrieval replaces an inherited keywordRerank does not inherit that
+    // combine's field-less blend: it reads as no knn, as it did before the parent gained the blend.
+    if (retrievalLevel >= 0
+        && retrievalLevel < knnLevel
+        && !SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(
+            SearchTemplateCapabilities.combine(mergedRetrieval))
+        && !namesField(ownKnn)) {
+      builder.knn(null);
+      builder.knnInherited(false);
+    }
     builder.capabilities(capabilities == null ? List.of() : capabilities);
     builder.parameters(parameters);
     builder.queryFragments(queryFragments);

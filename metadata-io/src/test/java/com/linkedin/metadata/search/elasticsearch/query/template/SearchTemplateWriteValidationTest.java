@@ -5,6 +5,7 @@ import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_FULLTEXT_URN;
 import static com.linkedin.metadata.Constants.SEARCH_TEMPLATE_LIST_URN;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -111,6 +112,41 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     }
     List<AspectValidationException> fixed = validateBatch(validator, retrieverContext, revert);
     assertTrue(fixed.isEmpty(), String.valueOf(fixed));
+  }
+
+  /**
+   * A child whose own retrieval replaces the combine does not take the shipped blend: the v17
+   * fulltext write is accepted over it, and it stays a plain keyword rung. The sort exemption
+   * covers only an inherited keywordRerank, so a sorted child of a vector parent with a knn is
+   * rejected.
+   */
+  @Test
+  public void testShippedBlendOverOwnRetrievalAndVectorParents() {
+    SearchTemplateValidator validator = templateValidator();
+    RetrieverContext retrieverContext = holeContext();
+    SearchTemplateFixtures.readShipped().forEach(this::store);
+    SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml")
+        .forEach(this::store);
+    SearchTemplateProperties keyword = parentOf("Keyword", SEARCH_TEMPLATE_FULLTEXT_URN);
+    keyword.setRetrieval(new SearchTemplateRetrieval().setMode("keyword"));
+    store("urn:li:searchTemplate:keywordChild", keyword);
+
+    List<AspectValidationException> upgrade =
+        validateBatch(validator, retrieverContext, SearchTemplateFixtures.readShipped());
+    assertTrue(upgrade.isEmpty(), String.valueOf(upgrade));
+    SearchTemplateFixtures.readShipped().forEach(this::store);
+    MergedSearchTemplate child = loader.load(opContext, "urn:li:searchTemplate:keywordChild");
+    assertNull(child.getKnn());
+    assertNull(SearchTemplateCapabilities.effectiveCombine(child));
+
+    SearchTemplateProperties vector = body("Vector", "{ \"match_all\": {} }", null);
+    vector.setApiVersion(2);
+    vector.setRetrieval(new SearchTemplateRetrieval().setCombine("vector"));
+    vector.setKnn("{ \"vectorWeight\": 0.5 }");
+    store("urn:li:searchTemplate:vectorParent", vector);
+    SearchTemplateProperties sorted = parentOf("Sorted", "urn:li:searchTemplate:vectorParent");
+    sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
+    assertFalse(validate(validator, retrieverContext, write("sortedVector", sorted)).isEmpty());
   }
 
   private static ChangeMCP write(String id, SearchTemplateProperties properties) {
