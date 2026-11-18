@@ -85,7 +85,9 @@ public class SiblingGraphServiceTest {
     opContext = TestOperationContexts.systemContextNoSearchAuthorization(entityRegistry);
     _graphService = Mockito.mock(GraphService.class);
     when(_graphService.getGraphServiceConfig()).thenReturn(TEST_GRAPH_SERVICE_CONFIG);
-    _client = new SiblingGraphService(_mockEntityService, _graphService);
+    _client =
+        new SiblingGraphService(
+            _mockEntityService, _graphService, SiblingGraphService.DEFAULT_MAX_GROUP_HOPS);
   }
 
   @BeforeMethod

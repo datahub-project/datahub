@@ -56,11 +56,6 @@ public class SiblingGraphService {
   private final GraphService _graphService;
   private final int _maxGroupHops;
 
-  public SiblingGraphService(
-      @Nonnull EntityService entityService, @Nonnull GraphService graphService) {
-    this(entityService, graphService, DEFAULT_MAX_GROUP_HOPS);
-  }
-
   /**
    * @param maxGroupHops how many sibling links a group walk follows from its starting dataset;
    *     values below 1 fall back to {@link #DEFAULT_MAX_GROUP_HOPS}
