@@ -343,39 +343,45 @@ public final class SearchTemplateWalk {
     List<Member<T>> finished = new ArrayList<>();
     RuntimeException lastError = null;
     boolean shard = false;
-    if (any) {
-      try {
-        for (int i = 0; i < futures.size(); i++) {
-          Member<T> member = join(Objects.requireNonNull(completion).take());
-          if (member.stopped && member.result.page != null) {
-            cancel(futures);
-            return served(opContext, request, member.urn, member.result, depth + 1);
+    // A member that fails the search closed throws out of join, so the siblings are cancelled here
+    // rather than left running on the ladder executor. Cancelling a finished member does nothing.
+    try {
+      if (any) {
+        try {
+          for (int i = 0; i < futures.size(); i++) {
+            Member<T> member = join(Objects.requireNonNull(completion).take());
+            if (member.stopped && member.result.page != null) {
+              cancel(futures);
+              return served(opContext, request, member.urn, member.result, depth + 1);
+            }
+            finished.add(member);
+            if (member.result.error != null) {
+              lastError = member.result.error;
+            }
+            shard = shard || member.result.shardFailed;
           }
+        } catch (InterruptedException e) {
+          Thread.currentThread().interrupt();
+          cancel(futures);
+          throw new SearchTemplateException("Search template ladder was interrupted", e);
+        }
+      } else {
+        for (Future<Member<T>> future : futures) {
+          Member<T> member = join(future);
           finished.add(member);
           if (member.result.error != null) {
             lastError = member.result.error;
           }
           shard = shard || member.result.shardFailed;
-        }
-      } catch (InterruptedException e) {
-        Thread.currentThread().interrupt();
-        cancel(futures);
-        throw new SearchTemplateException("Search template ladder was interrupted", e);
-      }
-    } else {
-      for (Future<Member<T>> future : futures) {
-        Member<T> member = join(future);
-        finished.add(member);
-        if (member.result.error != null) {
-          lastError = member.result.error;
-        }
-        shard = shard || member.result.shardFailed;
-        // A failure will not use a sibling page, so the remaining members do not need to finish.
-        if (lastError != null || shard) {
-          cancel(futures);
-          break;
+          // A failure will not use a sibling page, so the remaining members do not need to finish.
+          if (lastError != null || shard) {
+            cancel(futures);
+            break;
+          }
         }
       }
+    } finally {
+      cancel(futures);
     }
     // A member failure follows next, and fails the search when this group is the last rung. A
     // sibling page, empty or with hits, is not a substitute for that failure.

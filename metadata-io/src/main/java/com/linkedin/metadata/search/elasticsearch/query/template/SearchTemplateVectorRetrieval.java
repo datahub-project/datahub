@@ -54,11 +54,15 @@ public final class SearchTemplateVectorRetrieval {
   /**
    * Neighbors to request: {@code candidateCap}, else the window semantic search fetches for the
    * page, {@code max(size, min(500, ceil((from + size) * 1.2)))}. Either is clamped to {@link
-   * #MAX_K}, and is at least one, so a count-only request still finds the total.
+   * #MAX_K}, and is at least one. A count-only request (size 0) counts every candidate a page could
+   * reach: the cap, else 500.
    */
   public static int window(@Nullable Integer candidateCap, int from, int size) {
     if (candidateCap != null) {
       return Math.max(1, Math.min(candidateCap, MAX_K));
+    }
+    if (size == 0) {
+      return PAGE_WINDOW_MAX;
     }
     int oversampled = (int) Math.ceil(((long) from + size) * PAGE_OVERSAMPLE);
     return Math.max(1, Math.min(MAX_K, Math.max(size, Math.min(PAGE_WINDOW_MAX, oversampled))));

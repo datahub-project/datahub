@@ -21,6 +21,7 @@ import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.data.template.SetMode;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
@@ -70,7 +71,11 @@ import java.time.Duration;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
 import java.util.function.Consumer;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -260,23 +265,7 @@ public class ESSearchDAOVectorRetrievalTest {
                             neighbors.size(),
                             ((KnnSearchRequest) invocation.getArgument(1)).k()))));
     ESSearchDAO dao = dao(null, embedding());
-    EntitySearchService entitySearch = mock(EntitySearchService.class);
-    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
-    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
-        .thenAnswer(
-            invocation ->
-                dao.search(
-                    invocation.getArgument(0),
-                    invocation.getArgument(1),
-                    invocation.getArgument(2),
-                    invocation.getArgument(3),
-                    invocation.getArgument(4),
-                    invocation.getArgument(5),
-                    invocation.getArgument(6),
-                    invocation.getArgument(7)));
-    // One cache across the pages, so a window cached for one page must not serve another
-    CachingEntitySearchService cached =
-        new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+    CachingEntitySearchService cached = cached(dao);
 
     for (int[] page : new int[][] {{0, 10}, {95, 10}, {60, 10}}) {
       store(page[0] == 60 ? vector(r -> r.setCandidateCap(50)) : vector(r -> {}));
@@ -312,22 +301,7 @@ public class ESSearchDAOVectorRetrievalTest {
     store(next);
     when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
     ESSearchDAO dao = dao(null, embedding());
-    EntitySearchService entitySearch = mock(EntitySearchService.class);
-    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
-    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
-        .thenAnswer(
-            invocation ->
-                dao.search(
-                    invocation.getArgument(0),
-                    invocation.getArgument(1),
-                    invocation.getArgument(2),
-                    invocation.getArgument(3),
-                    invocation.getArgument(4),
-                    invocation.getArgument(5),
-                    invocation.getArgument(6),
-                    invocation.getArgument(7)));
-    CachingEntitySearchService cached =
-        new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+    CachingEntitySearchService cached = cached(dao);
 
     for (int attempt = 0; attempt < 2; attempt++) {
       assertEquals(
@@ -638,6 +612,120 @@ public class ESSearchDAOVectorRetrievalTest {
     }
     verify(client, never()).explain(any(), any(), any());
     verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testACountOnlyRequestCountsTheWidestWindow() throws Exception {
+    List<KnnSearchResponse.Hit> neighbors =
+        hits(IntStream.range(0, 600).mapToDouble(i -> 0.99 - i * 0.0005).toArray());
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation ->
+                new KnnSearchResponse(
+                    neighbors.subList(
+                        0,
+                        Math.min(
+                            neighbors.size(),
+                            ((KnnSearchRequest) invocation.getArgument(1)).k()))));
+    ESSearchDAO dao = dao(null, embedding());
+
+    for (Integer cap : java.util.Arrays.asList(null, 50)) {
+      store(vector(r -> r.setCandidateCap(cap, SetMode.IGNORE_NULL)));
+      // A fresh cache: the test store keeps one modification time, so a cached page would carry
+      // over
+      CachingEntitySearchService cached = cached(dao);
+      int widest = cap == null ? 500 : 50;
+      SearchResult direct = search(dao, context(DOCUMENT, f -> {}), null, 0, 0, DOCUMENT);
+      SearchResult throughCache =
+          cached.search(
+              context(DOCUMENT, f -> {}),
+              DOCUMENT,
+              "quarterly revenue",
+              null,
+              null,
+              0,
+              0,
+              List.of());
+      assertEquals(direct.getNumEntities().intValue(), widest, String.valueOf(cap));
+      assertEquals(throughCache.getNumEntities().intValue(), widest, String.valueOf(cap));
+    }
+  }
+
+  @Test
+  public void testAFailClosedMemberCancelsItsParallelSiblings() throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    store(vector(r -> {}));
+    SearchTemplateProperties group = keyword();
+    group.setLadder(
+        new SearchTemplateLadder()
+            .setParallel(new UrnArray(UrnUtils.getUrn(VECTOR_URN), UrnUtils.getUrn(KEYWORD_URN)))
+            .setJoin("any"));
+    harness.store(GROUP_URN, group);
+    // The keyword sibling is running when the vector member fails, and runs until interrupted
+    CountDownLatch started = new CountDownLatch(1);
+    CountDownLatch release = new CountDownLatch(1);
+    CountDownLatch interrupted = new CountDownLatch(1);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenAnswer(
+            invocation -> {
+              started.countDown();
+              try {
+                release.await();
+              } catch (InterruptedException e) {
+                interrupted.countDown();
+                throw e;
+              }
+              return keywordResponse(3);
+            });
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation -> {
+              started.await(5, TimeUnit.SECONDS);
+              throw new IOException("kNN unavailable");
+            });
+    ExecutorService ladder = Executors.newFixedThreadPool(2);
+    try {
+      SearchTemplateCoordinator coordinator =
+          new SearchTemplateCoordinator(
+              elastic,
+              null,
+              harness.loader,
+              ladder,
+              SearchTemplateComponentRegistry.empty(),
+              SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+      assertThrows(
+          SearchTemplateFailClosedException.class,
+          () ->
+              search(
+                  pinned(context(DOCUMENT, f -> {}, coordinator), GROUP_URN),
+                  null,
+                  0,
+                  10,
+                  DOCUMENT));
+      assertTrue(interrupted.await(5, TimeUnit.SECONDS));
+    } finally {
+      release.countDown();
+      ladder.shutdownNow();
+    }
+  }
+
+  private CachingEntitySearchService cached(ESSearchDAO dao) {
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                dao.search(
+                    invocation.getArgument(0),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    // One cache across a test's searches, so a page cached for one search must not serve another
+    return new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
   }
 
   private void store(SearchTemplateProperties template) {
