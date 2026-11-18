@@ -1635,6 +1635,15 @@ def _rename_insert_output_columns(
     if not insert_columns:
         return column_lineage
 
+    # Only a query (a SELECT or a set operation) has output columns to
+    # rename; any other body (e.g. VALUES) keeps the computed lineage.
+    if not isinstance(select_statement, sqlglot.exp.Query):
+        logger.debug(
+            "Skipping INSERT column list mapping: body is a %s, not a query",
+            type(select_statement).__name__,
+        )
+        return column_lineage
+
     # _select_statement_cll iterates the same selects and skips unexpanded
     # stars, so the lineage entries line up positionally with the output
     # columns only when every output column produced an entry. Rename only
