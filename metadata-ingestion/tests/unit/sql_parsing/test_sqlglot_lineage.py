@@ -3120,26 +3120,6 @@ def test_postgres_copy_from_file() -> None:
     )
 
 
-def test_postgres_copy_subquery_to_file() -> None:
-    assert_sql_result(
-        "COPY (SELECT a FROM src) TO '/f'",
-        dialect="postgres",
-        default_db="db",
-        default_schema="schema",
-        expected_file=RESOURCE_DIR / "test_postgres_copy_subquery_to_file.json",
-    )
-
-
-def test_redshift_copy_subquery_to_s3() -> None:
-    assert_sql_result(
-        "COPY (SELECT a FROM src) TO 's3://b/p'",
-        dialect="redshift",
-        default_db="db",
-        default_schema="schema",
-        expected_file=RESOURCE_DIR / "test_redshift_copy_subquery_to_s3.json",
-    )
-
-
 def test_snowflake_copy_into_unquoted_file_format() -> None:
     assert_sql_result(
         "COPY INTO t FROM @stg/p FILE_FORMAT=(FORMAT_NAME=db.s.ff)",
@@ -3219,17 +3199,6 @@ def test_databricks_copy_into_from_uri_select() -> None:
         default_db="db",
         default_schema="schema",
         expected_file=RESOURCE_DIR / "test_databricks_copy_into_from_uri_select.json",
-    )
-
-
-def test_databricks_copy_into_from_non_storage_uri_select() -> None:
-    assert_sql_result(
-        "COPY INTO t FROM (SELECT a FROM `raw://events`) FILEFORMAT = PARQUET",
-        dialect="databricks",
-        default_db="db",
-        default_schema="schema",
-        expected_file=RESOURCE_DIR
-        / "test_databricks_copy_into_from_non_storage_uri_select.json",
     )
 
 

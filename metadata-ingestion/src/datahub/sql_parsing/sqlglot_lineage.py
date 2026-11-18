@@ -70,7 +70,6 @@ from datahub.sql_parsing._legacy_pushdown_projections import (
 )
 from datahub.sql_parsing._models import _FrozenModel, _ParserBaseModel, _TableName
 from datahub.sql_parsing.query_types import (
-    get_copy_load_target,
     get_query_type_of_sql,
     is_copy_load,
     is_copy_source_uri_table,
@@ -964,8 +963,6 @@ def _copy_input_tables(statement: sqlglot.exp.Copy) -> Iterator[sqlglot.exp.Tabl
         target.this, sqlglot.exp.Table
     ):
         yield target.this
-    else:
-        yield from target.find_all(sqlglot.exp.Table)
 
 
 def _table_level_lineage(
@@ -1050,9 +1047,17 @@ def _table_level_lineage(
         )
         | _extract_table_names(
             (
-                target
-                for target in [get_copy_load_target(statement)]
-                if target is not None
+                (
+                    statement.this
+                    if isinstance(statement.this, sqlglot.exp.Table)
+                    else (
+                        statement.this.this
+                        if isinstance(statement.this.this, sqlglot.exp.Table)
+                        else sqlglot.exp.Table(this=statement.this.this)
+                    )
+                )
+                for _ in [None]
+                if is_copy_load(statement)
             ),
             dialect,
         )
