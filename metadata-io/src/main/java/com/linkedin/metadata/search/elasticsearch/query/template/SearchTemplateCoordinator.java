@@ -445,11 +445,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
 
   /**
    * Cache identity includes every reachable rung, the request inputs route conditions read when a
-   * conditional route fired, and the requested types' semantic eligibility when a reachable rung's
-   * select reads it. Capability checks happen when a rung executes, so an unsupported next does not
-   * fail a request that stops before reaching it. The exception is a graph that reaches a vector
-   * rung and a legacy knn rerank: the search cache runs the first once per page, and the second
-   * reranks the first cache batch, so bind fails.
+   * conditional route fired, the requested types' semantic eligibility when a reachable rung's
+   * select reads it, and whether document rerank runs when a legacy knn rung is reachable.
+   * Capability checks happen when a rung executes, so an unsupported next does not fail a request
+   * that stops before reaching it. The exception is a graph that reaches a vector rung and a legacy
+   * knn rerank: the search cache runs the first once per page, and the second reranks the first
+   * cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -501,6 +502,11 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (semanticSelect[0]) {
       identity += "|eligible=" + gates.eligibilityIdentity(resolved.getEntityTypes());
+    }
+    // A legacy knn rung runs only with document rerank, and a parallel member that cannot run hands
+    // the group to its next, so the flag can change which rung serves.
+    if (legacyKnn[0]) {
+      identity += "|dr=" + resolved.isDocumentRerank();
     }
     resolved.setCacheIdentity(identity);
   }

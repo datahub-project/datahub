@@ -22,6 +22,7 @@ import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
@@ -632,6 +633,42 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testAReachableLegacyKnnKeysTheResultCacheOnDocumentRerank() {
+    String knn = "urn:li:searchTemplate:knnMember";
+    String next = "urn:li:searchTemplate:afterCapability";
+    SearchTemplateProperties knnBody = body("Knn", "{ \"match_all\": {} }", null);
+    knnBody.setKnn("{ \"field\": \"embedding\" }");
+    store(knn, knnBody);
+    store(next, body("Next", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties group = body("Capability group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder ladder = new SearchTemplateLadder();
+    ladder.setParallel(new UrnArray(UrnUtils.getUrn(knn)));
+    ladder.setJoin("allEmpty");
+    ladder.setNext(UrnUtils.getUrn(next));
+    group.setLadder(ladder);
+    store("urn:li:searchTemplate:capabilityGroup", group);
+    OperationContext grouped =
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setFulltext(true)
+                    .setSearchTemplate(UrnUtils.getUrn("urn:li:searchTemplate:capabilityGroup")));
+    OperationContext plain =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(next)));
+    List<String> documents = List.of("document");
+
+    // The member runs only with document rerank, and without it the group serves its next
+    assertNotEquals(
+        cacheKey(semanticRead(true), grouped, documents),
+        cacheKey(semanticRead(false), grouped, documents));
+    // With no legacy knn reachable, semantic read stays out of the key
+    assertEquals(
+        cacheKey(semanticRead(true), plain, documents),
+        cacheKey(semanticRead(false), plain, documents));
+  }
+
+  @Test
   public void testScrollOmitsRescoreAndRerankStaysOnSearch() throws Exception {
     SearchTemplateProperties rescored = body("Fulltext", "{ \"match_all\": {} }", null);
     rescored.setRescore(
@@ -976,16 +1013,16 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
 
     // enabledEntities decides which rung serves, so deployments that differ in it share no page
     assertNotEquals(
-        cacheKey(semanticGates("document"), selecting, documents),
-        cacheKey(semanticGates("dataset"), selecting, documents));
+        cacheKey(gated(semanticGates("document")), selecting, documents),
+        cacheKey(gated(semanticGates("dataset")), selecting, documents));
     // A type the request does not name does not split the cache
     assertEquals(
-        cacheKey(semanticGates("document"), selecting, documents),
-        cacheKey(semanticGates("document", "dataset"), selecting, documents));
+        cacheKey(gated(semanticGates("document")), selecting, documents),
+        cacheKey(gated(semanticGates("document", "dataset")), selecting, documents));
     // Without a semantic select, eligibility stays out of the key
     assertEquals(
-        cacheKey(semanticGates("document"), plain, documents),
-        cacheKey(semanticGates("dataset"), plain, documents));
+        cacheKey(gated(semanticGates("document")), plain, documents),
+        cacheKey(gated(semanticGates("dataset")), plain, documents));
   }
 
   @Test
@@ -1091,19 +1128,37 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
     store(urn, rung);
   }
 
-  private String cacheKey(
-      SearchTemplateGates gates, OperationContext context, List<String> entityTypes) {
-    return new SearchTemplateCoordinator(
-            v3Config(),
-            null,
-            loader,
-            ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty(),
-            gates)
+  private static String cacheKey(
+      SearchTemplateCoordinator coordinator, OperationContext context, List<String> entityTypes) {
+    return coordinator
         .bind(context, "orders", false, entityTypes)
         .getSearchContext()
         .getResolvedSearchTemplate()
         .cacheKeyComponent();
+  }
+
+  private SearchTemplateCoordinator gated(SearchTemplateGates gates) {
+    return new SearchTemplateCoordinator(
+        v3Config(),
+        null,
+        loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        gates);
+  }
+
+  private SearchTemplateCoordinator semanticRead(boolean enabled) {
+    ElasticSearchConfiguration elastic = v3Config();
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(enabled);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
+    return new SearchTemplateCoordinator(
+        elastic,
+        null,
+        loader,
+        ForkJoinPool.commonPool(),
+        SearchTemplateComponentRegistry.empty(),
+        SearchTemplateGates.none());
   }
 
   private String servedFor(String urn, List<String> entityTypes) {
