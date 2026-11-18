@@ -23,7 +23,10 @@ public interface VectorStore {
   /** The store finds an entity by URN and returns its query vectors. Similarity needs it. */
   String FIND_BY_ID = "findById";
 
-  /** Neighbors of the request's vector, best first, at most {@code k}, within {@code timeout}. */
+  /**
+   * Neighbors of the request's vector, best first, at most {@code k}, within {@code timeout}. An
+   * entity may appear once per chunk; the service keeps its best cosine.
+   */
   @Nonnull
   List<Hit> search(
       @Nonnull OperationContext opContext, @Nonnull Request request, @Nonnull Duration timeout)

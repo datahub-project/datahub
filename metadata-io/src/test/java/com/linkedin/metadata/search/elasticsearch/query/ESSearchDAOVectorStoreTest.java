@@ -83,6 +83,8 @@ import org.opensearch.action.search.SearchRequest;
 import org.opensearch.action.search.SearchResponse;
 import org.opensearch.client.RequestOptions;
 import org.opensearch.core.common.bytes.BytesArray;
+import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
@@ -177,6 +179,45 @@ public class ESSearchDAOVectorStoreTest {
       assertTrue(query.contains(urn.toString()), query);
     }
     assertTrue(query.contains("\"removed\""), query);
+  }
+
+  @Test
+  public void testAnEntityTheStoreReturnsPerChunkIsOneHitAtItsBestCosine() throws Exception {
+    hydrationReturns(D0, D1);
+    fake.hits =
+        List.of(
+            new VectorStore.Hit(D0, 0.9),
+            new VectorStore.Hit(D1, 0.8),
+            new VectorStore.Hit(D0, 0.7));
+
+    SearchResult result = search(null, f -> {});
+
+    assertEquals(urns(result), List.of(D0, D1));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertEquals(result.getMetadata().getVectorRetrieval().getCandidates().intValue(), 3);
+    // One row per entity in the hydration request, so the facets count d0 once
+    SearchSourceBuilder hydration = hydrationRequest().source();
+    assertEquals(hydration.size(), 2);
+    assertEquals(urnTerms(hydration), List.of(D0.toString(), D1.toString()));
+
+    // The order follows each entity's best cosine, not where the store first returned it
+    fake.hits =
+        List.of(
+            new VectorStore.Hit(D1, 0.8),
+            new VectorStore.Hit(D0, 0.7),
+            new VectorStore.Hit(D0, 0.95));
+    assertEquals(urns(search(null, f -> {})), List.of(D0, D1));
+
+    // The floor sees each entity's best cosine
+    harness.store(VECTOR_URN, vector(r -> r.setMinSimilarity(0.85f)));
+    fake.hits =
+        List.of(
+            new VectorStore.Hit(D0, 0.7),
+            new VectorStore.Hit(D1, 0.8),
+            new VectorStore.Hit(D0, 0.9));
+    SearchResult floored = search(null, f -> {});
+    assertEquals(urns(floored), List.of(D0));
+    assertEquals(floored.getMetadata().getVectorRetrieval().getBelowMinSimilarity().intValue(), 1);
   }
 
   @Test
@@ -570,6 +611,18 @@ public class ESSearchDAOVectorStoreTest {
     verify(client, times(1))
         .search(any(OperationContext.class), request.capture(), eq(RequestOptions.DEFAULT));
     return request.getValue();
+  }
+
+  /** The URNs the request's terms clause on {@code urn} names, in order. */
+  private static List<String> urnTerms(SearchSourceBuilder source) {
+    return ((BoolQueryBuilder) source.query())
+        .filter().stream()
+            .filter(TermsQueryBuilder.class::isInstance)
+            .map(TermsQueryBuilder.class::cast)
+            .filter(terms -> "urn".equals(terms.fieldName()))
+            .flatMap(terms -> terms.values().stream())
+            .map(String::valueOf)
+            .toList();
   }
 
   private static List<Urn> urns(SearchResult result) {

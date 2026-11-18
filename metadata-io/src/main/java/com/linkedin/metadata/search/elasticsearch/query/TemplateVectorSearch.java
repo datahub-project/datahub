@@ -44,7 +44,9 @@ import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.HashMap;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -258,13 +260,17 @@ final class TemplateVectorSearch {
     final VectorStore.Request request =
         new VectorStore.Request(
             embedding.getModelEmbeddingKey(), vector, k, searched, preFilter ? filter : null);
-    final List<Neighbor> hits =
-        store.external()
-            ? call(store, explanation, timeout -> store.store().search(opContext, request, timeout))
-                .stream()
-                .map(Neighbor::external)
-                .toList()
-            : nativeStore.knn(opContext, request, Duration.ofNanos(remainingNanos));
+    final List<Neighbor> hits;
+    final int candidates;
+    if (store.external()) {
+      final List<VectorStore.Hit> returned =
+          call(store, explanation, timeout -> store.store().search(opContext, request, timeout));
+      candidates = returned.size();
+      hits = collapse(returned);
+    } else {
+      hits = nativeStore.knn(opContext, request, Duration.ofNanos(remainingNanos));
+      candidates = hits.size();
+    }
     // A floor the template sets is bound only to a cosine profile. One inherited from configuration
     // is skipped on another metric, where a raw cosine means nothing.
     final Float templateFloor = template.getRetrieval().getMinSimilarity();
@@ -329,7 +335,7 @@ final class TemplateVectorSearch {
         .setStore(store.name(), SetMode.IGNORE_NULL)
         .setEntityTypes(new StringArray(searched))
         .setK(k)
-        .setCandidates(hits.size())
+        .setCandidates(candidates)
         .setMinSimilarity(minSimilarity, SetMode.IGNORE_NULL)
         .setBelowMinSimilarity(belowMinSimilarity)
         .setBelowMinScore(belowMinScore)
@@ -491,6 +497,23 @@ final class TemplateVectorSearch {
     // A vector rung orders by vector score, never by a template sort
     return SearchTemplateWalk.AttemptResult.ok(
         result, survivors.size(), page, List.of(), false, null, null, false);
+  }
+
+  /**
+   * An external store's hits with one row per entity, at its best cosine, best first. A store that
+   * searches chunks can return an entity once per chunk; the DataHub index returns it once.
+   */
+  @Nonnull
+  private static List<Neighbor> collapse(@Nonnull List<VectorStore.Hit> hits) {
+    final Map<Urn, VectorStore.Hit> best = new LinkedHashMap<>();
+    for (VectorStore.Hit hit : hits) {
+      best.merge(
+          hit.urn(), hit, (kept, next) -> next.similarity() > kept.similarity() ? next : kept);
+    }
+    return best.values().stream()
+        .sorted(Comparator.comparingDouble(VectorStore.Hit::similarity).reversed())
+        .map(Neighbor::external)
+        .toList();
   }
 
   @Nonnull
