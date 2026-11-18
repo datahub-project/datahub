@@ -480,6 +480,15 @@ public final class SearchTemplateGates {
   }
 
   /**
+   * Whether the walk can run a rung for these requested types: its scope assigns it at least one.
+   * Unknown types assign every rung.
+   */
+  static boolean assigns(
+      @Nonnull MergedSearchTemplate template, @Nullable Collection<String> entityTypes) {
+    return entityTypes == null || !assigned(template, entityTypes).isEmpty();
+  }
+
+  /**
    * Live semantic eligibility of an entity set, read from {@code semanticSearch.enabledEntities}
    * alone, not the other entity gates: {@code all} when every type is enabled, {@code any} when at
    * least one is. An empty set is neither.

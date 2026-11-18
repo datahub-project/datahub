@@ -23,7 +23,8 @@ import javax.annotation.Nullable;
  * Walks a template ladder. Selection runs before the query. A shard failure or exception follows
  * {@code next}. The last rung is kept even when its total is zero, and its failure fails the
  * search. Each rung, a parallel member included, is assigned the requested entity types in its
- * scope and searches only those. An empty assignment skips the rung, as a select miss does.
+ * scope and searches only those. A rung assigned none of them is skipped, as a select miss is,
+ * before its shape is checked, so a rung that cannot run for the request cannot fail it.
  */
 public final class SearchTemplateWalk {
   private SearchTemplateWalk() {}
@@ -233,9 +234,13 @@ public final class SearchTemplateWalk {
     }
     try {
       MergedSearchTemplate template = loader.load(opContext, urn);
-      requireSupported(opContext, template);
       SearchTemplateLadder ladder = template.getLadder();
       List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+      if (assigned.isEmpty()) {
+        return follow(
+            opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
+      }
+      requireSupported(opContext, template);
       if (!selected(opContext, ladder, assigned, request)) {
         return follow(
             opContext, loader, executor, ladder, urn, request, attempt, fuse, path, depth);
@@ -447,8 +452,13 @@ public final class SearchTemplateWalk {
     }
     path.add(urn);
     MergedSearchTemplate template = null;
+    List<String> assigned;
     try {
       template = loader.load(opContext, urn);
+      assigned = SearchTemplateGates.assigned(template, request.entityTypes());
+      if (assigned.isEmpty()) {
+        return new Member<>(urn, AttemptResult.skipped(), false);
+      }
       requireSupported(opContext, template);
     } catch (RuntimeException e) {
       // Load and capability failures are member results, and the group's next is the fallback. A
@@ -459,7 +469,6 @@ public final class SearchTemplateWalk {
       return new Member<>(urn, AttemptResult.failed(e), false);
     }
     SearchTemplateLadder ladder = template.getLadder();
-    List<String> assigned = SearchTemplateGates.assigned(template, request.entityTypes());
     if (!selected(opContext, ladder, assigned, request)) {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
@@ -489,21 +498,19 @@ public final class SearchTemplateWalk {
     return new Member<>(urn, result, stopped);
   }
 
-  // A rung runs on a non-empty assignment whose select matches. The semantic predicates read the
-  // assignment, not the whole request.
+  // The semantic predicates read the rung's assignment, not the whole request
   private static boolean selected(
       @Nonnull OperationContext opContext,
       @Nullable SearchTemplateLadder ladder,
       @Nonnull List<String> assigned,
       @Nonnull Request request) {
-    return !assigned.isEmpty()
-        && SearchTemplateLadderPredicates.selectMatches(
-            ladder,
-            request.query(),
-            request.filter(),
-            request.sort(),
-            request.size(),
-            gates(opContext).eligibility(assigned));
+    return SearchTemplateLadderPredicates.selectMatches(
+        ladder,
+        request.query(),
+        request.filter(),
+        request.sort(),
+        request.size(),
+        gates(opContext).eligibility(assigned));
   }
 
   @Nonnull

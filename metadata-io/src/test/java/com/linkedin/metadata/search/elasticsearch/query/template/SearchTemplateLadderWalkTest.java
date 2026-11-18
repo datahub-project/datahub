@@ -35,6 +35,7 @@ import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.datahubproject.metadata.context.RetrieverContext;
@@ -819,6 +820,50 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                 10,
                 List.of("dataset"),
                 (urn, assigned) -> page(1, "urn:li:dataset:(urn:li:dataPlatform:hive,t,PROD)")));
+  }
+
+  @Test
+  public void testARungAssignedNoTypeIsSkippedBeforeItsShapeIsChecked() {
+    // This build does not run vectorThenKeyword, so a selected rung that sets it fails closed
+    String documents = "urn:li:searchTemplate:documents";
+    String keyword = "urn:li:searchTemplate:keyword";
+    SearchTemplateProperties unsupported = scoped("Documents", "document");
+    unsupported.setRetrieval(new SearchTemplateRetrieval().setCombine("vectorThenKeyword"));
+    unsupported.setLadder(stopLadder(1, keyword));
+    store(documents, unsupported);
+    store(keyword, body("Keyword", "{ \"match_all\": {} }", null));
+    SearchTemplateProperties group = body("Group", "{ \"match_all\": {} }", null);
+    SearchTemplateLadder groupLadder = new SearchTemplateLadder();
+    groupLadder.setParallel(new UrnArray(UrnUtils.getUrn(documents), UrnUtils.getUrn(keyword)));
+    groupLadder.setJoin("allEmpty");
+    group.setLadder(groupLadder);
+    store("urn:li:searchTemplate:group", group);
+    List<String> datasets = List.of("dataset");
+
+    // A Dataset request assigns the Document rung nothing, so it is skipped, not checked
+    assertEquals(servedFor(documents, datasets), keyword);
+    assertEquals(servedFor("urn:li:searchTemplate:group", datasets), keyword);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
+    OperationContext pinned =
+        opContext.withSearchFlags(
+            flags -> flags.setFulltext(true).setSearchTemplate(UrnUtils.getUrn(documents)));
+    assertNotNull(
+        coordinator
+            .bind(pinned, "orders", false, datasets)
+            .getSearchContext()
+            .getResolvedSearchTemplate());
+    // Assigned a type, the rung is checked and fails the search
+    assertThrows(SearchTemplateException.class, () -> servedFor(documents, List.of("document")));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(pinned, "orders", false, List.of("document")));
   }
 
   @Test

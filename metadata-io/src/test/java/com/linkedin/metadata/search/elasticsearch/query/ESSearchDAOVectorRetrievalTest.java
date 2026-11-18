@@ -648,6 +648,59 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testMembersARequestAssignsNoTypeNeitherConflictNorRunTheCacheOncePerPage()
+      throws Exception {
+    // A Document vector member and a Chart legacy knn member, beside a keyword member
+    SearchTemplateProperties vectorMember = vector(r -> {});
+    vectorMember.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    store(vectorMember);
+    String legacyUrn = "urn:li:searchTemplate:legacy";
+    SearchTemplateProperties legacy = keyword();
+    legacy.setApiVersion(2);
+    legacy.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("chart")));
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store(legacyUrn, legacy);
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties group = keyword();
+    group.setLadder(
+        new SearchTemplateLadder()
+            .setParallel(
+                new UrnArray(
+                    UrnUtils.getUrn(VECTOR_URN),
+                    UrnUtils.getUrn(legacyUrn),
+                    UrnUtils.getUrn(KEYWORD_URN)))
+            .setJoin("allEmpty"));
+    harness.store(GROUP_URN, group);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    List<String> datasets = List.of("dataset");
+    OperationContext searching = pinned(context(datasets, f -> {}, coordinator), GROUP_URN);
+
+    // A Dataset request runs neither member, so the dry render, bind, and the cache all skip them
+    assertTrue(
+        coordinator
+            .preview(
+                searching,
+                "revenue",
+                datasets,
+                false,
+                SearchClientShim.SearchEngineType.OPENSEARCH_3)
+            .capabilities()
+            .stream()
+            .anyMatch(decision -> "sections".equals(decision.name()) && decision.accepted()));
+    assertFalse(
+        coordinator
+            .bind(searching, "revenue", false, datasets)
+            .getSearchContext()
+            .getResolvedSearchTemplate()
+            .isVectorReachable());
+    // A request that runs both members still fails closed
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(searching, "revenue", false, List.of("chart", "document")));
+  }
+
+  @Test
   public void testAKeywordRerankRootWithAVectorNextStillReranksThroughTheCache() throws Exception {
     store(vector(r -> {}));
     SearchTemplateProperties root = keyword();

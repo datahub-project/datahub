@@ -307,7 +307,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         SearchTemplateCapabilities.rejectionCode(
             template, documentRerank, scroll, components, gates);
     List<String> rungs = ladderRungs(bound, resolved.getUrn(), !scroll);
-    if (rejection == null && vectorWithLegacyKnn(bound, rungs)) {
+    if (rejection == null && vectorWithLegacyKnn(bound, resolved.getUrn(), entityNames, !scroll)) {
       rejection = SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN;
     }
     if (rejection == null) {
@@ -345,15 +345,57 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   private boolean vectorWithLegacyKnn(
-      @Nonnull OperationContext opContext, @Nonnull List<String> rungs) {
-    boolean vector = false;
-    boolean legacyKnn = false;
-    for (String urn : rungs) {
-      MergedSearchTemplate rung = loader.load(opContext, urn);
-      vector |= SearchTemplateCapabilities.vectorRetrieval(rung);
-      legacyKnn |= SearchTemplateCapabilities.legacyKnn(rung);
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nullable List<String> entityTypes,
+      boolean followLadder) {
+    boolean[] vector = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
+    reach(opContext, urn, entityTypes, followLadder, new HashSet<>(), 0, vector, legacyKnn);
+    return vector[0] && legacyKnn[0];
+  }
+
+  /**
+   * Marks whether a rung this request can run retrieves by vector, and whether one declares a
+   * legacy knn rerank. The walk skips a rung its scope assigns none of the requested types, and the
+   * members of a group it skips, so those do not count. Bind and the dry render both use this, so
+   * the vector and legacy knn check, and the search cache's once-per-page run, follow one rule.
+   */
+  private void reach(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nullable List<String> entityTypes,
+      boolean followLadder,
+      @Nonnull Set<String> seen,
+      int depth,
+      @Nonnull boolean[] vector,
+      @Nonnull boolean[] legacyKnn) {
+    if (!seen.add(urn) || depth > loader.maxParentDepth()) {
+      return;
     }
-    return vector && legacyKnn;
+    MergedSearchTemplate template = loader.load(opContext, urn);
+    SearchTemplateLadder ladder = followLadder ? template.getLadder() : null;
+    if (SearchTemplateGates.assigns(template, entityTypes)) {
+      vector[0] |= SearchTemplateCapabilities.vectorRetrieval(template);
+      legacyKnn[0] |= SearchTemplateCapabilities.legacyKnn(template);
+      if (ladder != null && ladder.hasParallel() && ladder.getParallel() != null) {
+        for (Urn member : ladder.getParallel()) {
+          reach(
+              opContext, member.toString(), entityTypes, true, seen, depth + 1, vector, legacyKnn);
+        }
+      }
+    }
+    if (ladder != null && ladder.hasNext() && ladder.getNext() != null) {
+      reach(
+          opContext,
+          ladder.getNext().toString(),
+          entityTypes,
+          true,
+          seen,
+          depth + 1,
+          vector,
+          legacyKnn);
+    }
   }
 
   @Nonnull
@@ -405,7 +447,6 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
     boolean[] classpathBridge = new boolean[1];
-    boolean[] legacyKnn = new boolean[1];
     collect(
         opContext,
         resolved.getUrn(),
@@ -417,9 +458,20 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         resolved,
         scroll,
         nameAndValue,
-        classpathBridge,
+        classpathBridge);
+    boolean[] vector = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
+    reach(
+        opContext,
+        resolved.getUrn(),
+        resolved.getEntityTypes(),
+        !scroll,
+        new HashSet<>(),
+        0,
+        vector,
         legacyKnn);
-    if (resolved.isVectorReachable() && legacyKnn[0]) {
+    resolved.setVectorReachable(vector[0]);
+    if (vector[0] && legacyKnn[0]) {
       throw new SearchTemplateException(
           "Search template section is not supported: vector retrieval with a legacy knn rerank");
     }
@@ -447,13 +499,14 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nonnull ResolvedSearchTemplate resolved,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
-      @Nonnull boolean[] classpathBridge,
-      @Nonnull boolean[] legacyKnn) {
+      @Nonnull boolean[] classpathBridge) {
     if (!seen.add(urn) || depth > loader.maxParentDepth()) {
       return;
     }
     MergedSearchTemplate template = loader.load(opContext, urn);
-    if (depth == 0) {
+    // The walk skips a root its scope assigns none of the requested types, so its shape is not
+    // checked. On scroll, requireResolvable fails such a root instead.
+    if (depth == 0 && SearchTemplateGates.assigns(template, resolved.getEntityTypes())) {
       SearchTemplateCapabilities.requireSupported(
           template, resolved.isDocumentRerank(), scroll, components, gates);
     }
@@ -462,12 +515,6 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
-    }
-    if (SearchTemplateCapabilities.vectorRetrieval(template)) {
-      resolved.setVectorReachable(true);
-    }
-    if (SearchTemplateCapabilities.legacyKnn(template)) {
-      legacyKnn[0] = true;
     }
     rungs.add(
         template.getUrn()
@@ -518,8 +565,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             resolved,
             false,
             nameAndValue,
-            classpathBridge,
-            legacyKnn);
+            classpathBridge);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -534,8 +580,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           resolved,
           false,
           nameAndValue,
-          classpathBridge,
-          legacyKnn);
+          classpathBridge);
     }
   }
 
