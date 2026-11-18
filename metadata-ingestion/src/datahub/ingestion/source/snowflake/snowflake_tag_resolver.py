@@ -35,6 +35,10 @@ from datahub.utilities.urns.urn import Urn
 _A = TypeVar("_A", bound=_Aspect)
 
 
+def _tag_object(database: str, schema: str, tag_name: str) -> str:
+    return f"{database}.{schema}.{tag_name}".lower()
+
+
 class _AspectUnreadable(Exception):
     """DataHub's current aspect of an entity could not be read."""
 
@@ -95,6 +99,8 @@ class SnowflakeTagResolver:
         # DataHub URNs that managed records link, and their entity types.
         self._managed_linked_urns: Set[str] = set()
         self._managed_linked_entity_types: Set[str] = set()
+        # Snowflake tag objects (lower-cased db.schema.tag) with a managed record.
+        self._managed_tag_objects: Set[str] = set()
         # DataHub tags carried over into a whole GlobalTags this run, in order.
         self._carried_over_tag_urns: Dict[str, None] = {}
         self._carried_over_emitted: Set[str] = set()
@@ -127,6 +133,23 @@ class SnowflakeTagResolver:
             with_value = self._lookup(tag, with_value=True)
             without_value = self._lookup(tag, with_value=False)
         return not (self._is_managed(with_value) or self._is_managed(without_value))
+
+    def is_datahub_tag_object(self, tag: SnowflakeTag) -> bool:
+        """Whether DataHub owns the Snowflake tag object itself: a managed
+        record exists for it, with any value or none.
+
+        For what belongs to the tag object as a whole, such as its structured
+        property definition; sync-back keys its records by value, so a lookup
+        without a value would miss them. Per asset use `is_native`, where a
+        record for one value does not claim the tag's other values. If the
+        records could not be loaded, every tag object counts as DataHub's.
+        """
+        self._load()
+        if self._load_failed:
+            return True
+        return _tag_object(tag.database, tag.schema, tag.name) in (
+            self._managed_tag_objects
+        )
 
     def global_tags(
         self, entity_urn: str, tags: List[SnowflakeTag]
@@ -386,6 +409,11 @@ class SnowflakeTagResolver:
         records[record.id.to_platform_resource_key().id] = record
         linked = self._valid_linked_urns(resource_urn, record)
         if record.is_managed_by_datahub():
+            self._managed_tag_objects.add(
+                _tag_object(
+                    record.id.database, record.id.schema_name, record.id.tag_name
+                )
+            )
             for urn in linked:
                 self._managed_linked_urns.add(urn.urn())
                 self._managed_linked_entity_types.add(urn.entity_type)

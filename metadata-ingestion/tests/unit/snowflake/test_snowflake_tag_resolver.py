@@ -609,6 +609,27 @@ def test_column_tags_are_kept_from_datahub_when_records_cannot_be_loaded() -> No
     }
 
 
+def test_tag_object_with_any_managed_record_is_datahubs() -> None:
+    # Sync-back keys its records by value, while a structured property
+    # definition belongs to the tag object, which is listed without a value.
+    r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
+    definition = SnowflakeTag(database="test_db", schema="public", name="pii", value="")
+
+    assert r.is_datahub_tag_object(definition)
+    assert not r.is_datahub_tag_object(_TIER)
+    # Per asset, the tag's other values stay native.
+    assert r.is_native(_LOW)
+
+
+def test_tag_object_datahub_wrote_after_the_load_is_datahubs() -> None:
+    repository = fake_tag_repository([])
+    r = resolver(repository=repository)
+    write_meanwhile(repository, tag_record(_TAG, "urn:li:tag:pii"))
+
+    assert not r.is_native(_TAG)
+    assert r.is_datahub_tag_object(_LOW)
+
+
 def test_column_tags_are_resolved_normally_when_records_load() -> None:
     r = resolver([tag_record(_TAG, "urn:li:tag:pii")])
 

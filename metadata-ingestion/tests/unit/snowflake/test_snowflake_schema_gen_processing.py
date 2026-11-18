@@ -456,6 +456,25 @@ def test_managed_structured_property_has_no_template() -> None:
     assert aspects(templates, StructuredPropertyDefinitionClass) == {}
 
 
+def test_tag_datahub_synced_with_a_value_has_no_template() -> None:
+    # Snowflake lists tag definitions without a value; sync-back keys its
+    # records by value, so the definition must match any record of the tag.
+    gen = make_gen(
+        tag_repository=fake_tag_repository([tag_record(_PII, "urn:li:tag:pii")]),
+        extract_tags_as_structured_properties=True,
+    )
+    as_mock(gen.data_dictionary.get_all_tags).return_value = [
+        SnowflakeTag(database=DB, schema=SCHEMA, name="PII", value=""),
+        SnowflakeTag(database=DB, schema=SCHEMA, name="TIER", value=""),
+    ]
+
+    templates = list(gen.tag_extractor.create_structured_property_templates())
+
+    assert list(aspects(templates, StructuredPropertyDefinitionClass)) == [
+        "urn:li:structuredProperty:snowflake.test_db.public.tier"
+    ]
+
+
 def test_native_tags_unchanged_and_record_emitted() -> None:
     gen = make_gen(tag_repository=fake_tag_repository([]))
 

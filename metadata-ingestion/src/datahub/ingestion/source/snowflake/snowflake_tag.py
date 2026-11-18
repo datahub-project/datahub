@@ -146,7 +146,8 @@ class SnowflakeTagExtractor(SnowflakeCommonMixin):
             ):
                 continue
             # DataHub owns the definition of a property it synced to Snowflake.
-            if not self.tag_resolver.is_native(tag):
+            # Tag definitions carry no value, so match any record of the tag.
+            if self.tag_resolver.is_datahub_tag_object(tag):
                 continue
             if self.config.extract_tags_as_structured_properties:
                 self.report.num_structured_property_templates_created += 1
