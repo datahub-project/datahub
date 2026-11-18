@@ -186,15 +186,15 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
     boolean shouldExclude =
         excludedPathProviders.stream().anyMatch(provider -> provider.excludedPaths().contains(path))
             || excludedPathPatterns.stream()
-            .anyMatch(
-                pattern -> {
-                  if (pattern.endsWith("/*")) {
-                    // Handle wildcard patterns
-                    String basePattern = pattern.substring(0, pattern.length() - 2);
-                    return path.startsWith(basePattern);
-                  }
-                  return path.equals(pattern);
-                });
+                .anyMatch(
+                    pattern -> {
+                      if (pattern.endsWith("/*")) {
+                        // Handle wildcard patterns
+                        String basePattern = pattern.substring(0, pattern.length() - 2);
+                        return path.startsWith(basePattern);
+                      }
+                      return path.equals(pattern);
+                    });
 
     if (shouldExclude) {
       log.debug("Skipping authentication for excluded path: {}", path);
