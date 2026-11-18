@@ -56,6 +56,12 @@ from datahub.utilities.str_enum import StrEnum
 
 logger = logging.Logger(__name__)
 
+# Denied in every recipe. Matches the schema both bare and qualified
+# (`DB.INFORMATION_SCHEMA`) but not a schema that merely ends in the name
+# (`DB.MY_INFORMATION_SCHEMA`). `agent.verdicts.container_blind` recognises
+# this shape; keep the two in step.
+SNOWFLAKE_INFORMATION_SCHEMA_DENY = r"^(.*\.)?INFORMATION_SCHEMA$"
+
 # FIVETRAN creates temporary tables in schema named FIVETRAN_xxx_STAGING.
 # Ref - https://support.fivetran.com/hc/en-us/articles/1500003507122-Why-Is-There-an-Empty-Schema-Named-Fivetran-staging-in-the-Destination-
 #
@@ -286,7 +292,7 @@ class SnowflakeFilterConfig(SQLFilterConfig):
     @model_validator(mode="after")
     def validate_legacy_schema_pattern(self) -> "SnowflakeFilterConfig":
         if (
-            self.schema_pattern != AllowDenyPattern.allow_all()
+            not self.schema_pattern.is_allow_all()
             and not self.match_fully_qualified_names
         ):
             logger.warning(
@@ -296,7 +302,9 @@ class SnowflakeFilterConfig(SQLFilterConfig):
             )
 
         # Always exclude reporting metadata for INFORMATION_SCHEMA schema
-        self.schema_pattern = self.schema_pattern.with_deny(r".*INFORMATION_SCHEMA$")
+        self.schema_pattern = self.schema_pattern.with_deny(
+            SNOWFLAKE_INFORMATION_SCHEMA_DENY
+        )
 
         return self
 

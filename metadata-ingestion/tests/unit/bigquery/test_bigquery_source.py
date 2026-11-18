@@ -1796,9 +1796,9 @@ def test_bigquery_config_deprecated_schema_pattern():
         "dataset_pattern": AllowDenyPattern(deny=["temp.*"]),
     }
     config = BigQueryV2Config.model_validate(config_with_dataset_pattern)
-    assert config.dataset_pattern == AllowDenyPattern(
-        deny=["temp.*"]
-    )  # dataset_pattern
+    # dataset_pattern, qualified with "any project": `.*` is a wildcard, not
+    # a project separator
+    assert config.dataset_pattern == AllowDenyPattern(deny=[r".*\.temp.*"])
 
 
 @pytest.mark.parametrize(

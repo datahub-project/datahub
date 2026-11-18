@@ -338,6 +338,107 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
     )
 
 
+# `dataset_pattern` is matched against `<project_id>.<dataset_name>` when
+# `match_fully_qualified_names` is set (the default), so an entry written for
+# the dataset name alone is prefixed with "any project". BigQuery dataset names
+# cannot contain a dot, so a dot that separates two names can only be the
+# project/dataset separator: `\.`, or a bare `.` followed by a name character
+# (`my-project.my_dataset`). Any other `.` is the regex wildcard (`staging_.*`)
+# and says nothing about the project.
+_DATASET_NAME_CHAR = re.compile(r"[A-Za-z0-9_\-]")
+# Entries that begin by matching anything already reach past the project.
+_SPANS_PROJECT_PREFIXES = (".*", "^.*", ".+", "^.+")
+_ANY_PROJECT_PREFIX = r".*\."
+
+
+def _top_level_branches(regex: str) -> List[str]:
+    """`regex` split on the `|` that are outside groups and character classes."""
+    branches: List[str] = []
+    depth = 0
+    in_class = False
+    start = 0
+    i = 0
+    while i < len(regex):
+        char = regex[i]
+        if char == "\\":
+            i += 2
+            continue
+        if in_class:
+            if char == "]":
+                in_class = False
+        elif char == "[":
+            in_class = True
+            # A `]` first in the class (after an optional `^`) is literal.
+            if regex.startswith("^", i + 1):
+                i += 1
+            if regex.startswith("]", i + 1):
+                i += 1
+        elif char == "(":
+            depth += 1
+        elif char == ")":
+            depth -= 1
+        elif char == "|" and depth == 0:
+            branches.append(regex[start:i])
+            start = i + 1
+        i += 1
+    branches.append(regex[start:])
+    return branches
+
+
+def _names_project(regex: str) -> bool:
+    """Whether `regex` has a project/dataset separator dot (see above)."""
+    in_class = False
+    i = 0
+    while i < len(regex):
+        char = regex[i]
+        if char == "\\":
+            if regex.startswith(".", i + 1):
+                return True
+            i += 2
+            continue
+        if in_class:
+            if char == "]":
+                in_class = False
+        elif char == "[":
+            in_class = True
+        elif char == "." and _DATASET_NAME_CHAR.match(regex, i + 1):
+            return True
+        i += 1
+    return False
+
+
+def _qualify_branch(branch: str) -> str:
+    if (
+        not branch
+        or branch.startswith(_SPANS_PROJECT_PREFIXES)
+        or _names_project(branch)
+    ):
+        return branch
+    if branch.startswith("^"):
+        return "^" + _ANY_PROJECT_PREFIX + branch[1:]
+    return _ANY_PROJECT_PREFIX + branch
+
+
+def _qualify_dataset_regex(regex: str) -> str:
+    r"""`regex` made to match `<project_id>.<dataset_name>`, for a
+    `dataset_pattern` entry written against the dataset name alone.
+
+    Each top-level alternation branch is judged on its own, so `a|b` becomes
+    `.*\.a|.*\.b`. A branch that already names the project or starts with a
+    match-anything is kept as written, so the rewrite is idempotent. An entry
+    whose rewrite does not compile (e.g. a leading inline flag) is kept as
+    written.
+    """
+    qualified = "|".join(_qualify_branch(b) for b in _top_level_branches(regex))
+    if qualified == regex:
+        return regex
+    try:
+        re.compile(qualified)
+    except re.error:
+        return regex
+    return qualified
+
+
 class BigQueryFilterConfig(SQLFilterConfig):
     project_ids: Annotated[List[str], Qualifier()] = Field(
         default_factory=list,
@@ -403,33 +504,32 @@ class BigQueryFilterConfig(SQLFilterConfig):
 
     @model_validator(mode="after")
     def backward_compatibility_configs_set(self) -> Any:
-        dataset_pattern = self.dataset_pattern
-        schema_pattern = self.schema_pattern
-
+        # Patterns are replaced, never edited in place: a pattern that was
+        # already used caches its compiled regexes, and would keep matching
+        # the old entries. See AllowDenyPattern._rebuilt.
         if (
-            dataset_pattern == AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
+            self.dataset_pattern.is_allow_all()
+            and not self.schema_pattern.is_allow_all()
         ):
             logging.warning(
                 "dataset_pattern is not set but schema_pattern is set, using schema_pattern as dataset_pattern. "
                 "schema_pattern will be deprecated, please use dataset_pattern instead."
             )
-            self.dataset_pattern = schema_pattern
-            dataset_pattern = schema_pattern
+            self.dataset_pattern = self.schema_pattern._rebuilt()
         elif (
-            dataset_pattern != AllowDenyPattern.allow_all()
-            and schema_pattern != AllowDenyPattern.allow_all()
+            not self.dataset_pattern.is_allow_all()
+            and not self.schema_pattern.is_allow_all()
         ):
             logging.warning(
                 "schema_pattern will be ignored in favour of dataset_pattern. schema_pattern will be deprecated,"
                 " please use dataset_pattern only."
             )
 
+        dataset_pattern = self.dataset_pattern
         match_fully_qualified_names = self.match_fully_qualified_names
 
         if (
-            dataset_pattern is not None
-            and dataset_pattern != AllowDenyPattern.allow_all()
+            not dataset_pattern.is_allow_all()
             and match_fully_qualified_names is not None
             and not match_fully_qualified_names
         ):
@@ -439,17 +539,11 @@ class BigQueryFilterConfig(SQLFilterConfig):
                 "The config option `match_fully_qualified_names` is deprecated and will be "
                 "removed in a future release."
             )
-        elif match_fully_qualified_names and dataset_pattern is not None:
-            adjusted = False
-            for lst in [dataset_pattern.allow, dataset_pattern.deny]:
-                for i, pattern in enumerate(lst):
-                    if "." not in pattern:
-                        if pattern.startswith("^"):
-                            lst[i] = r"^.*\." + pattern[1:]
-                        else:
-                            lst[i] = r".*\." + pattern
-                        adjusted = True
-            if adjusted:
+        elif match_fully_qualified_names:
+            allow = [_qualify_dataset_regex(p) for p in dataset_pattern.allow]
+            deny = [_qualify_dataset_regex(p) for p in dataset_pattern.deny]
+            if allow != dataset_pattern.allow or deny != dataset_pattern.deny:
+                self.dataset_pattern = dataset_pattern._rebuilt(allow=allow, deny=deny)
                 logger.warning(
                     "`dataset_pattern` was adjusted to match against fully qualified schema names,"
                     " of the form `<project_id>.<dataset_name>`."

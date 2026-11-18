@@ -23,6 +23,7 @@ from datahub.ingestion.agent.verdicts import (
     ContainerUnknown,
     Verdict,
     VerdictContext,
+    container_blind,
 )
 from datahub.ingestion.source.common.subtypes import (
     DatasetContainerSubTypes,
@@ -251,8 +252,8 @@ def test_a_pattern_that_filters_nothing_is_not_refused_for_being_spelled_oddly()
 def test_a_deny_the_source_appended_does_not_cost_the_recipe_its_answer() -> None:
     """A deny list filters, and is still blind to the container.
 
-    `validate_legacy_schema_pattern` appends `.*INFORMATION_SCHEMA$` to every
-    Snowflake recipe, including one that sets no filter of its own. Keying the
+    `validate_legacy_schema_pattern` appends `^(.*\\.)?INFORMATION_SCHEMA$` to
+    every Snowflake recipe, including one that sets no filter of its own. Keying the
     carve-out on "filters nothing" therefore refused a recipe the caller never
     filtered, for want of a container that could not have changed its verdict:
     a suffix anchored past a dot cannot reach back across one.
@@ -272,6 +273,20 @@ def test_a_deny_the_source_appended_does_not_cost_the_recipe_its_answer() -> Non
         names=["MY_SCHEMA"],
     )
     assert _rows(result) == [("MY_SCHEMA", "MY_SCHEMA", True, None)]
+
+
+@pytest.mark.parametrize(
+    "deny,blind",
+    [
+        (r".*INFORMATION_SCHEMA$", True),
+        (r"^(.*\.)?INFORMATION_SCHEMA$", True),
+        # The literal must not reach across the dot, in either shape.
+        (r"^(.*\.)?DB\.INFORMATION_SCHEMA$", False),
+        (r"^DB\.(.*\.)?INFORMATION_SCHEMA$", False),
+    ],
+)
+def test_container_blind_suffix_shapes(deny: str, blind: bool) -> None:
+    assert container_blind(AllowDenyPattern(deny=[deny])) is blind
 
 
 def test_an_allow_anchored_past_the_dot_answers_where_a_qualified_one_refuses() -> None:

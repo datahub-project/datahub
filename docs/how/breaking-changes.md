@@ -15,6 +15,22 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### BigQuery `dataset_pattern` entries written as regular expressions
+
+When `match_fully_qualified_names` is on (the default), BigQuery `dataset_pattern` entries that name
+datasets with a regular expression, such as `^staging_.*` or `a|b`, now match those datasets. Before,
+any entry containing a `.` was treated as already naming the project, so `^staging_.*` matched nothing
+and an `allow` entry like that ingested no datasets, while a `deny` entry denied nothing. Only the
+first alternative of an entry like `a|b` was matched. If you added such an entry to `deny` and it seemed
+to do nothing, it now takes effect. Entries that name the project, such as `my-project.my_dataset`,
+`my-project\.prod_.*` or `.*\.my_dataset`, are unchanged.
+
+### Snowflake schemas whose names end in `INFORMATION_SCHEMA`
+
+Snowflake ingestion now skips only the `INFORMATION_SCHEMA` schema itself. A schema such as
+`MY_INFORMATION_SCHEMA` used to be skipped silently and is now ingested like any other schema. To keep
+skipping it, add it to `schema_pattern.deny`.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing

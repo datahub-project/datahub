@@ -21,6 +21,7 @@ from datahub.ingestion.source.snowflake.constants import (
 from datahub.ingestion.source.snowflake.oauth_config import OAuthConfiguration
 from datahub.ingestion.source.snowflake.snowflake_config import (
     DEFAULT_TEMP_TABLES_PATTERNS,
+    SNOWFLAKE_INFORMATION_SCHEMA_DENY,
     SnowflakeIdentifierConfig,
     SnowflakeV2Config,
 )
@@ -1693,7 +1694,9 @@ def _info_schema_config(**extra: Any) -> SnowflakeV2Config:
 def test_snowflake_information_schema_deny_survives_round_trip() -> None:
     cfg = _info_schema_config(schema_pattern={"allow": ["DB\\..*"]})
     round_tripped = SnowflakeV2Config.model_validate(cfg.model_dump())
-    assert round_tripped.schema_pattern.deny.count(r".*INFORMATION_SCHEMA$") == 1
+    assert (
+        round_tripped.schema_pattern.deny.count(SNOWFLAKE_INFORMATION_SCHEMA_DENY) == 1
+    )
     assert not round_tripped.schema_pattern.allowed("DB.INFORMATION_SCHEMA")
 
 
@@ -1712,6 +1715,21 @@ def test_snowflake_information_schema_deny_not_duplicated_on_revalidation() -> N
     assert new_pattern.allowed("DB.INFORMATION_SCHEMA")  # warms _compiled_deny
     validate_pattern_at(cfg, "schema_pattern", new_pattern)
     validate_pattern_at(cfg, "schema_pattern", cfg.schema_pattern)
-    assert cfg.schema_pattern.deny.count(r".*INFORMATION_SCHEMA$") == 1
+    assert cfg.schema_pattern.deny.count(SNOWFLAKE_INFORMATION_SCHEMA_DENY) == 1
     assert not cfg.schema_pattern.allowed("DB.INFORMATION_SCHEMA")
     assert new_pattern.deny == []
+
+
+@pytest.mark.parametrize("match_fully_qualified_names", [True, False])
+def test_snowflake_information_schema_deny_spares_lookalike_schemas(
+    match_fully_qualified_names: bool,
+) -> None:
+    """Only INFORMATION_SCHEMA itself is denied, bare or qualified; a schema
+    that merely ends in the name is a user schema."""
+    cfg = _info_schema_config(match_fully_qualified_names=match_fully_qualified_names)
+    pattern = cfg.schema_pattern
+    assert not pattern.allowed("INFORMATION_SCHEMA")
+    assert not pattern.allowed("DB.INFORMATION_SCHEMA")
+    assert not pattern.allowed("db.information_schema")
+    assert pattern.allowed("MY_INFORMATION_SCHEMA")
+    assert pattern.allowed("DB.MY_INFORMATION_SCHEMA")

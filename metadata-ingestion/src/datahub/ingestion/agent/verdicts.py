@@ -150,12 +150,13 @@ def _listing_command_for(config: object, container_kind: str) -> Optional[str]:
     return listing_command_for_kind(config, provider_cls, container_kind)
 
 
-# An entry of the form `^?.*<literal>$`, where the literal carries no dot or
-# regex syntax, matches `<container>.<name>` exactly when it matches `<name>`:
-# the suffix cannot reach back across the dot. So the question is not whether a
-# pattern filters -- a deny list filters and is still blind to the container --
-# but whether the container could change what it says.
-_CONTAINER_BLIND = re.compile(r"\^?\.\*[A-Za-z0-9_\-]*\$")
+# An entry of the form `^?.*<literal>$` or `^(.*\.)?<literal>$`, where the
+# literal carries no dot or regex syntax, matches `<container>.<name>` exactly
+# when it matches `<name>`: the suffix cannot reach back across the dot. So the
+# question is not whether a pattern filters -- a deny list filters and is still
+# blind to the container -- but whether the container could change what it
+# says.
+_CONTAINER_BLIND = re.compile(r"(?:\^?\.\*|\^\(\.\*\\\.\)\?)[A-Za-z0-9_\-]*\$")
 
 # Allow entries that admit every name, so the container cannot change them.
 _MATCHES_ANYTHING = frozenset({".*", "^.*", ".*$", "^.*$", ".+", "^.+", ".+$", "^.+$"})
@@ -176,7 +177,7 @@ def container_blind(pattern: Optional[AllowDenyPattern]) -> bool:
     False keeps the verdict unasked; True lets it stand on the bare name.
     Testing "filters nothing" instead refused recipes whose verdict no
     container could alter -- every Snowflake recipe, because
-    `validate_legacy_schema_pattern` always appends a `.*INFORMATION_SCHEMA$`
+    `validate_legacy_schema_pattern` always appends an INFORMATION_SCHEMA
     deny, and a `dataset_pattern` denying `.*_staging$` for the same reason.
     """
     if pattern is None:

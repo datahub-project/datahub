@@ -451,6 +451,10 @@ class DataplexConfig(
     @model_validator(mode="after")
     def validate_project_ids(self) -> "DataplexConfig":
         """Ensure at least one means of selecting projects is configured."""
+        # Deliberately structural, not `not is_allow_all()`: a recipe whose only
+        # selector is an allow-all spelled differently (`ignoreCase: false`,
+        # `allow: [".*", "x"]`) is accepted today, and is_allow_all() would
+        # start rejecting it.
         has_non_default_pattern = (
             self.project_id_pattern != AllowDenyPattern.allow_all()
         )

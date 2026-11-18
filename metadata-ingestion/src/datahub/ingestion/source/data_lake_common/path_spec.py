@@ -510,7 +510,7 @@ class PathSpec(ConfigModel):
                 raise ValueError(
                     "path_spec.file_types is not applicable when emit_folders_only is set"
                 )
-            if self.tables_filter_pattern != AllowDenyPattern.allow_all():
+            if not self.tables_filter_pattern.is_allow_all():
                 raise ValueError(
                     "path_spec.tables_filter_pattern is not applicable when "
                     "emit_folders_only is set; use exclude to skip folders"

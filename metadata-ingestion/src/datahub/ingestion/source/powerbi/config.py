@@ -1004,7 +1004,7 @@ class PowerBiDashboardSourceConfig(
                 ("extract_endorsements_to_tags", self.extract_endorsements_to_tags),
                 (
                     "filter_dataset_endorsements",
-                    self.filter_dataset_endorsements != AllowDenyPattern.allow_all(),
+                    not self.filter_dataset_endorsements.is_allow_all(),
                 ),
             )
             if enabled
@@ -1151,10 +1151,7 @@ class PowerBiDashboardSourceConfig(
 
     @model_validator(mode="after")
     def workspace_id_backward_compatibility(self) -> "PowerBiDashboardSourceConfig":
-        if (
-            self.workspace_id_pattern == AllowDenyPattern.allow_all()
-            and self.workspace_id
-        ):
+        if self.workspace_id_pattern.is_allow_all() and self.workspace_id:
             logger.warning(
                 "workspace_id_pattern is not set but workspace_id is set, setting workspace_id as "
                 "workspace_id_pattern. workspace_id will be deprecated, please use workspace_id_pattern instead."
@@ -1162,10 +1159,7 @@ class PowerBiDashboardSourceConfig(
             self.workspace_id_pattern = AllowDenyPattern(
                 allow=[f"^{self.workspace_id}$"]
             )
-        elif (
-            self.workspace_id_pattern != AllowDenyPattern.allow_all()
-            and self.workspace_id
-        ):
+        elif not self.workspace_id_pattern.is_allow_all() and self.workspace_id:
             logger.warning(
                 "workspace_id will be ignored in favour of workspace_id_pattern. workspace_id will be deprecated, "
                 "please use workspace_id_pattern only."
