@@ -17,6 +17,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -698,6 +699,39 @@ public class ESSearchDAOVectorRetrievalTest {
     assertThrows(
         SearchTemplateException.class,
         () -> coordinator.bind(searching, "revenue", false, List.of("chart", "document")));
+  }
+
+  @Test
+  public void testFilterAggregationAndCountFailAScopeThatLeavesOutARequestedType()
+      throws Exception {
+    // They render the bound template once for the caller's types and do not walk a ladder
+    SearchTemplateProperties documents = keyword();
+    documents.setApiVersion(2);
+    documents.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    harness.store(KEYWORD_URN, documents);
+    ESSearchDAO dao = dao(null, embedding());
+    OperationContext searching =
+        pinned(
+            context(
+                DOCUMENT,
+                f -> {},
+                coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false))),
+            KEYWORD_URN);
+
+    assertThrows(
+        SearchTemplateException.class, () -> dao.filter(searching, "dataset", null, null, 0, 10));
+    assertThrows(
+        SearchTemplateException.class,
+        () ->
+            dao.buildAggregateByValue(
+                searching, List.of("dataset", "document"), "platform", null, 10));
+    assertThrows(
+        SearchTemplateException.class, () -> dao.buildDocCountRequest(searching, "dataset", null));
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+    // A scope that covers the request renders as before
+    assertEquals(dao.filter(searching, "document", null, null, 0, 10).getEntities().size(), 3);
+    assertNotNull(dao.buildAggregateByValue(searching, DOCUMENT, "platform", null, 10));
+    assertNotNull(dao.buildDocCountRequest(searching, "document", null));
   }
 
   @Test

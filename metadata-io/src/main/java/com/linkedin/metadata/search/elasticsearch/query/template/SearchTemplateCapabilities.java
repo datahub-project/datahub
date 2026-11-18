@@ -136,9 +136,10 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> ON_FAILURES = Set.of("fail", ON_FAILURE_NEXT);
 
   /**
-   * Scroll does not walk a ladder, so it cannot hand a type the scope leaves out to another rung.
+   * A scope leaves out a requested type on a request that does not walk a ladder, so no other rung
+   * could serve that type: scroll, filter, aggregation, and count.
    */
-  public static final String SCOPE_SCROLL = "scopeScroll";
+  public static final String SCOPE_NOT_WALKED = "scopeNotWalked";
 
   public static final String QUERY_SOURCE_ANCHOR_ENTITY = "anchorEntity";
   public static final Set<String> QUERY_SOURCES = Set.of("text", QUERY_SOURCE_ANCHOR_ENTITY);
@@ -239,6 +240,22 @@ public final class SearchTemplateCapabilities {
     }
   }
 
+  /**
+   * Fails a template whose scope leaves out a requested type, for a filter, aggregation, or count,
+   * which render the bound template once and do not walk a ladder. Scroll is checked at bind.
+   */
+  public static void requireWholeScope(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    if (leavesOut(template, entityTypes)) {
+      throw unsupported(rejectionDetail(template, SCOPE_NOT_WALKED));
+    }
+  }
+
+  private static boolean leavesOut(
+      @Nonnull MergedSearchTemplate template, @Nonnull Collection<String> entityTypes) {
+    return !SearchTemplateGates.assigned(template, entityTypes).containsAll(entityTypes);
+  }
+
   /** Bounded reason {@link #requireResolvable} fails, or null. */
   @Nullable
   static String resolvableRejection(
@@ -248,10 +265,8 @@ public final class SearchTemplateCapabilities {
       @Nullable String system,
       boolean documentRerank,
       boolean scroll) {
-    if (scroll
-        && entityTypes != null
-        && !SearchTemplateGates.assigned(template, entityTypes).containsAll(entityTypes)) {
-      return SCOPE_SCROLL;
+    if (scroll && entityTypes != null && leavesOut(template, entityTypes)) {
+      return SCOPE_NOT_WALKED;
     }
     return gates.bindingRejection(template, entityTypes, system, documentRerank);
   }
@@ -369,7 +384,8 @@ public final class SearchTemplateCapabilities {
       case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
       case "vectorScroll" -> "vector retrieval on scroll";
-      case SCOPE_SCROLL -> "scope on scroll that leaves out a requested entity type";
+      case SCOPE_NOT_WALKED ->
+          "scope that leaves out a requested entity type on a request that does not walk";
       case "retrievalCandidateCap" -> "retrieval candidateCap below 1";
       default ->
           SearchTemplateGates.CAPABILITIES.contains(code)

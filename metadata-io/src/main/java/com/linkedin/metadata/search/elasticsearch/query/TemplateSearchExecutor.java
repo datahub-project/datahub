@@ -578,8 +578,36 @@ final class TemplateSearchExecutor {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     return searchOnceExecution(
-            opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, null)
+            bindWhole(opContext, input, entityNames),
+            entityNames,
+            input,
+            postFilters,
+            sortCriteria,
+            from,
+            size,
+            facets,
+            null)
         .page();
+  }
+
+  /**
+   * Binds a request that renders the bound template once for the caller's entity types and does not
+   * walk a ladder: filter, aggregation, and count. As on scroll, a scope that leaves out a
+   * requested type fails closed instead of rendering the template for that type.
+   */
+  @Nonnull
+  private OperationContext bindWhole(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nonnull List<String> entityNames) {
+    OperationContext bound = bindTemplates(opContext, input, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(bound);
+    if (resolved != null && coordinator != null) {
+      SearchTemplateCapabilities.requireWholeScope(
+          coordinator.load(bound, resolved.getUrn()), entityNames);
+    }
+    return bound;
   }
 
   @Nonnull
@@ -899,7 +927,16 @@ final class TemplateSearchExecutor {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter) {
-    return prepareTemplateSearch(opContext, entityNames, "*", filter, null, 0, 0, List.of(), null)
+    return prepareTemplateSearch(
+            bindWhole(opContext, "*", entityNames),
+            entityNames,
+            "*",
+            filter,
+            null,
+            0,
+            0,
+            List.of(),
+            null)
         .prepared()
         .request()
         .source()
