@@ -1,3 +1,4 @@
+import logging
 import uuid
 from typing import Any, Dict
 
@@ -20,6 +21,8 @@ from tests.e2e.utils import (
 )
 from utilities.domains import Domain
 
+logger = logging.getLogger(__name__)
+
 pytestmark = [pytest.mark.domain(Domain.PLATFORM)]
 
 ACTOR_POLICIES_QUERY = """query actorPolicies($urn: String!) {
@@ -36,10 +39,23 @@ ACTOR_POLICIES_QUERY = """query actorPolicies($urn: String!) {
 }"""
 
 
-def _query_as(session, urn: str) -> Dict[str, Any]:
+GROUP_POLICIES_QUERY = """query groupPolicies($urn: String!) {
+    corpGroup(urn: $urn) {
+        policies {
+            view
+            policies {
+                urn
+                matchedBy { type }
+            }
+        }
+    }
+}"""
+
+
+def _query_as(session, urn: str, query: str = ACTOR_POLICIES_QUERY) -> Dict[str, Any]:
     response = session.post(
         f"{get_frontend_url()}/api/v2/graphql",
-        json={"query": ACTOR_POLICIES_QUERY, "variables": {"urn": urn}},
+        json={"query": query, "variables": {"urn": urn}},
     )
     response.raise_for_status()
     return response.json()
@@ -71,8 +87,8 @@ def _create_group_policy(session, name: str, group_urn: str) -> str:
     return response.json()["data"]["createPolicy"]
 
 
-def _policy_row(result: Dict[str, Any], policy_urn: str):
-    policies = result["data"]["corpUser"]["policies"]["policies"]
+def _policy_row(result: Dict[str, Any], policy_urn: str, entity: str = "corpUser"):
+    policies = result["data"][entity]["policies"]["policies"]
     return next((p for p in policies if p["urn"] == policy_urn), None)
 
 
@@ -122,12 +138,29 @@ def test_actor_policies_for_group_member():
             for p in result["data"]["corpUser"]["policies"]["policies"]
         )
 
+        # A member sees the group's policies too, trimmed, matched through the group itself.
+        result = _query_as(member, group_urn, GROUP_POLICIES_QUERY)
+        assert not result.get("errors"), result
+        assert result["data"]["corpGroup"]["policies"]["view"] == "TRIMMED"
+        row = _policy_row(result, policy_urn, "corpGroup")
+        assert row is not None
+        assert {"type": "DIRECT_GROUP"} in row["matchedBy"]
+
         # ...but cannot read another user's policies.
         denied = _query_as(member, get_root_urn())
         assert denied.get("errors"), denied
     finally:
         if policy_urn:
-            remove_policy(policy_urn, admin)
+            try:
+                remove_policy(policy_urn, admin)
+            except Exception:
+                logger.warning("Failed to remove policy %s", policy_urn, exc_info=True)
         if group_urn:
-            remove_group(admin, group_urn)
-        remove_user(admin, user_urn)
+            try:
+                remove_group(admin, group_urn)
+            except Exception:
+                logger.warning("Failed to remove group %s", group_urn, exc_info=True)
+        try:
+            remove_user(admin, user_urn)
+        except Exception:
+            logger.warning("Failed to remove user %s", user_urn, exc_info=True)
