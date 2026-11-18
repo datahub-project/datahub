@@ -114,7 +114,7 @@ class ConfluenceClient:
         return ((raw.get("body") or {}).get("view") or {}).get("value") or ""
 
     def list_jira_servers(self) -> JiraServerList:
-        response = self.api.get(JIRA_SERVERS_PATH) or []
+        response: Any = self.api.get(JIRA_SERVERS_PATH) or []
         if not isinstance(response, list):
             raise ValueError(f"Expected a list of Jira servers, got {type(response)}")
         raw_servers: List[Any] = response
