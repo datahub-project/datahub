@@ -1603,7 +1603,7 @@ def _match_known_schema_column(
 
 def _insert_column_names(
     statement: sqlglot.exp.Expression,
-) -> Optional[List[str]]:
+) -> Optional[List[sqlglot.exp.Identifier]]:
     # An explicit INSERT column list is a Schema target whose expressions
     # are the target columns, expected to be plain Identifiers; anything
     # else declines the mapping. Other targets can also expose expressions
@@ -1617,18 +1617,19 @@ def _insert_column_names(
         or not statement.this.expressions
     ):
         return None
-    if not all(
-        isinstance(col, sqlglot.exp.Identifier) for col in statement.this.expressions
-    ):
-        return None
-    return [col.name for col in statement.this.expressions]
+    identifiers: List[sqlglot.exp.Identifier] = []
+    for col in statement.this.expressions:
+        if not isinstance(col, sqlglot.exp.Identifier):
+            return None
+        identifiers.append(col)
+    return identifiers
 
 
 def _retarget_column_logic_alias(
     info: _ColumnLineageInfo,
     *,
     output_name: str,
-    downstream_column: str,
+    insert_column: sqlglot.exp.Identifier,
     dialect: sqlglot.Dialect,
 ) -> None:
     # The column logic is rendered with the SELECT output name as its
@@ -1650,8 +1651,12 @@ def _retarget_column_logic_alias(
         return
     if tail_expression.name.lower() != output_name.lower():
         return
+    # The old rewrite let the optimizer normalize the INSERT identifier, so
+    # the rendered alias carries that normalization (e.g. lowercased for
+    # T-SQL), not the schema-resolved casing of the downstream column.
     new_tail = sqlglot.exp.to_identifier(
-        downstream_column, quoted=tail_expression.args.get("quoted", False)
+        dialect.normalize_identifier(insert_column.copy()).name,
+        quoted=tail_expression.args.get("quoted", False),
     ).sql(dialect=dialect)
     info.logic = ColumnTransformation(
         is_direct_copy=info.logic.is_direct_copy,
@@ -1719,12 +1724,12 @@ def _rename_insert_output_columns(
         column_lineage, insert_columns, output_names, strict=True
     ):
         info.downstream.column = column_resolver.schema_aware_fuzzy_column_resolve(
-            info.downstream.table, insert_column
+            info.downstream.table, insert_column.name
         )
         _retarget_column_logic_alias(
             info,
             output_name=output_name,
-            downstream_column=info.downstream.column,
+            insert_column=insert_column,
             dialect=dialect,
         )
     return column_lineage
