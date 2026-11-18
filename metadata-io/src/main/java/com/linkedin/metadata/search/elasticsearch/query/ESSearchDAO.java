@@ -701,10 +701,8 @@ public class ESSearchDAO {
               size,
               hybridFetchSize,
               facets);
-      // A vector rung pages its own window, so it is neither reranked nor sliced again
-      if (searched.vectorServed()) {
-        return searched.result();
-      }
+      // A rung that fetched only the page is not sliced again. A keywordRerank rung still reports
+      // why it kept keyword order.
       return finishTemplateHybrid(
           searched.context(),
           entityNames,
@@ -713,7 +711,7 @@ public class ESSearchDAO {
           searched.result(),
           from,
           size,
-          hybridFetchSize);
+          searched.pageFetched() ? 0 : hybridFetchSize);
     }
 
     // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page

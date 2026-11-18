@@ -8,6 +8,7 @@ import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.atMost;
+import static org.mockito.Mockito.clearInvocations;
 import static org.mockito.Mockito.doReturn;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.never;
@@ -798,6 +799,7 @@ public class ESSearchDAOHybridTest {
           List.of(new SortCriterion().setField("_score").setOrder(SortOrder.DESCENDING));
       SearchResult expected = null;
       // Hybrid read off, then on: the keywordRerank rung serves the keyword-only result both times.
+      // Semantic read is off, so the request cannot rerank, and the rung fetches only the page.
       for (HybridSearchResultReranker hybrid : Arrays.asList(null, reranker)) {
         ESSearchDAO dao =
             new ESSearchDAO(
@@ -813,17 +815,64 @@ public class ESSearchDAOHybridTest {
         if (expected == null) {
           expected = search(dao, searching, keywordOnly, "revenue", byScore);
         }
+        clearInvocations(client);
         SearchResult served = search(dao, searching, keywordRerank, "revenue", byScore);
-        // The mocked engine ignores size. Hybrid read on fetches the window and slices the page.
-        int page = served.getEntities().size();
-        assertEquals(page, hybrid == null ? 100 : 10);
-        assertEquals(rowIds(served), rowIds(expected).subList(0, page));
-        assertEquals(scores(served), scores(expected).subList(0, page));
+        // The engine is asked for the caller's page, not the hybrid window; it ignores size here
+        SearchSourceBuilder fetched = searchedSource();
+        assertEquals(fetched.from(), 0);
+        assertEquals(fetched.size(), 10);
+        assertEquals(rowIds(served), rowIds(expected));
+        assertEquals(scores(served), scores(expected));
         assertEquals(served.getNumEntities(), expected.getNumEntities());
         assertEquals(served.getMetadata(), expected.getMetadata());
       }
       verify(reranker, never())
           .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+
+      // With semantic read on and hybrid read on, a request without Document still cannot rerank:
+      // it fetches the page and reports why. One with Document fetches the window and reranks it.
+      when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
+      ESSearchDAO hybridRead =
+          new ESSearchDAO(
+              false,
+              elastic,
+              null,
+              QueryFilterRewriteChain.EMPTY,
+              false,
+              TEST_SEARCH_SERVICE_CONFIG,
+              new Sha256UrnEntityDocumentIdHasher(),
+              reranker,
+              null);
+      hybridRead.setHybridExecutor(hybridExecutor);
+      OperationContext explained =
+          TestOperationContexts.withFixedSearchClient(harness.opContext, client)
+              .withSearchTemplateRuntime(documentRerankCoordinator(harness))
+              .withSearchFlags(
+                  flags ->
+                      flags
+                          .setFulltext(true)
+                          .setIncludeExplain(true)
+                          .setSearchTemplate(UrnUtils.getUrn(keywordRerank)));
+      clearInvocations(client);
+      SearchResult noDocument =
+          hybridRead.search(
+              explained, List.of("dataset"), "revenue", null, byScore, 0, 10, List.of());
+      SearchSourceBuilder page = searchedSource();
+      assertEquals(page.from(), 0);
+      assertEquals(page.size(), 10);
+      assertEquals(
+          noDocument.getMetadata().getKeywordRerank().getReason(),
+          SearchTemplateKeywordRerank.NO_DOCUMENT);
+      clearInvocations(client);
+      SearchResult withDocument =
+          hybridRead.search(explained, ENTITY_NAMES, "revenue", null, byScore, 0, 10, List.of());
+      SearchSourceBuilder window = searchedSource();
+      assertEquals(window.from(), 0);
+      assertEquals(window.size(), 100);
+      assertEquals(
+          withDocument.getMetadata().getKeywordRerank().getOutcome(),
+          SearchTemplateKeywordRerank.APPLIED);
+      assertEquals(rowIds(withDocument), range(99, 89));
     } finally {
       harness.opContext = harness.opContext.withSearchTemplateRuntime(null);
     }

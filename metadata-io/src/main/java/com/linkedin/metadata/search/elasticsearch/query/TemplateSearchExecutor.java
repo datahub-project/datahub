@@ -176,15 +176,16 @@ final class TemplateSearchExecutor {
       @Nonnull List<EntitySpec> entitySpecs) {}
 
   /**
-   * The context {@code armServed} updated, plus the page that search returned. {@code vectorServed}
-   * is true when a vector rung served it: that page is final, not a window to rerank or slice.
+   * The context {@code armServed} updated, plus the page that search returned. {@code pageFetched}
+   * is true when the served rung fetched only the requested page, not the hybrid window, so the
+   * page is not sliced again. See {@link #pageFetched}.
    */
   record BoundSearch(
-      @Nonnull OperationContext context, @Nonnull SearchResult result, boolean vectorServed) {}
+      @Nonnull OperationContext context, @Nonnull SearchResult result, boolean pageFetched) {}
 
   /**
-   * @param hybridFetchSize the keyword window a hybrid search fetches from offset 0, or 0. A vector
-   *     rung ignores it and pages {@code from} and {@code size} itself.
+   * @param hybridFetchSize the keyword window a hybrid search fetches from offset 0, or 0. A rung
+   *     that {@link #pageFetched fetches only the page} ignores it.
    */
   @Nonnull
   BoundSearch searchWithTemplates(
@@ -235,33 +236,37 @@ final class TemplateSearchExecutor {
                 postFilters,
                 sortCriteria,
                 fetchSize,
-                (urn, raw) ->
-                    componentReorder(
-                        bound,
-                        urn,
-                        raw,
-                        input,
-                        normalizedQuery,
-                        postFilters,
-                        sortCriteria,
-                        fetchFrom,
-                        fetchSize)),
-            urn -> {
-              MergedSearchTemplate template = coordinator.loader().load(bound, urn);
-              return SearchTemplateCapabilities.vectorRetrieval(template)
-                  ? vectorSearch.attempt(
-                      bound, template, entityNames, input, postFilters, from, size, facets)
-                  : searchAttempt(
+                (urn, raw) -> {
+                  boolean page = pageFetched(coordinator.loader().load(bound, urn), resolved);
+                  return componentReorder(
                       bound,
                       urn,
-                      entityNames,
+                      raw,
                       input,
                       normalizedQuery,
                       postFilters,
                       sortCriteria,
-                      fetchFrom,
-                      fetchSize,
-                      facets);
+                      page ? from : fetchFrom,
+                      page ? size : fetchSize);
+                }),
+            urn -> {
+              MergedSearchTemplate template = coordinator.loader().load(bound, urn);
+              if (SearchTemplateCapabilities.vectorRetrieval(template)) {
+                return vectorSearch.attempt(
+                    bound, template, entityNames, input, postFilters, from, size, facets);
+              }
+              boolean page = pageFetched(template, resolved);
+              return searchAttempt(
+                  bound,
+                  urn,
+                  entityNames,
+                  input,
+                  normalizedQuery,
+                  postFilters,
+                  sortCriteria,
+                  page ? from : fetchFrom,
+                  page ? size : fetchSize,
+                  facets);
             },
             (first, entities, total) -> {
               SearchResult copy = new SearchResult();
@@ -284,8 +289,19 @@ final class TemplateSearchExecutor {
         bound,
         served.page(),
         served.urn() != null
-            && SearchTemplateCapabilities.vectorRetrieval(
-                coordinator.loader().load(bound, served.urn())));
+            && pageFetched(coordinator.loader().load(bound, served.urn()), resolved));
+  }
+
+  /**
+   * Whether the rung fetches only the requested page instead of the hybrid window. A vector rung
+   * pages its own window. A keywordRerank rung keeps keyword order when the request cannot run
+   * document rerank (semantic read is off or the request has no Document), so it has no window to
+   * rerank.
+   */
+  private static boolean pageFetched(
+      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+    return SearchTemplateCapabilities.vectorRetrieval(template)
+        || (SearchTemplateCapabilities.keywordRerank(template) && !resolved.isDocumentRerank());
   }
 
   /**
