@@ -39,6 +39,9 @@ from datahub.ingestion.source.powerbi.powerbi_selection import (
     ACTIVE_WORKSPACE_STATE,
     probe_workspace_verdict,
 )
+from datahub.ingestion.source.powerbi.sensitivity import (
+    PowerBiSensitivityLabelConfigMixin,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalSourceReport,
     StatefulStaleMetadataRemovalConfig,
@@ -600,7 +603,10 @@ class PowerBiMetadataApiMode(ConfigEnum):
 
 
 class PowerBiDashboardSourceConfig(
-    StatefulIngestionConfigBase, DatasetSourceConfigMixin, IncrementalLineageConfigMixin
+    StatefulIngestionConfigBase,
+    DatasetSourceConfigMixin,
+    IncrementalLineageConfigMixin,
+    PowerBiSensitivityLabelConfigMixin,
 ):
     platform_name: HiddenFromDocs[str] = pydantic.Field(default=Constant.PLATFORM_NAME)
 

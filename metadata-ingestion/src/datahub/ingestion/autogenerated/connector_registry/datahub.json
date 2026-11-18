@@ -3784,7 +3784,13 @@
         },
         {
           "capability": "TAGS",
-          "description": "Enabled by default",
+          "description": "Endorsements via `extract_endorsements_to_tags`. Optionally enabled via `extract_sensitivity_label`. The sensitivity label id on a dataset, report, or dashboard (`sensitivityLabel.labelId` in the workspace scan) is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description. A dataset label is applied to each of its tables.",
+          "subtype_modifier": null,
+          "supported": true
+        },
+        {
+          "capability": "GLOSSARY_TERMS",
+          "description": "Optionally enabled via `extract_sensitivity_label`. The sensitivity label id on a dataset, report, or dashboard (`sensitivityLabel.labelId` in the workspace scan) is resolved to a name and description with Microsoft Graph. `extract_sensitivity_label.output` chooses a tag or a glossary term, and a glossary term's description is the label description. A dataset label is applied to each of its tables.",
           "subtype_modifier": null,
           "supported": true
         },

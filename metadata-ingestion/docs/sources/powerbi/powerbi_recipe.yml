@@ -37,6 +37,15 @@ source:
     # Enable / Disable ingestion of endorsements.
     # Please notice that this may overwrite any existing tags defined to ingested entities!
     extract_endorsements_to_tags: false
+
+    # Sensitivity label on datasets, reports, and dashboards. The label GUID
+    # comes from sensitivityLabel.labelId in the workspace scan. The name and
+    # description come from Microsoft Graph. output is tag or glossary_term.
+    # A glossary term's description is the label description. A dataset label
+    # is applied to each of its tables.
+    # extract_sensitivity_label:
+    #   enabled: false
+    #   output: tag
     
     # Optional -- This mapping is optional and only required to configure platform-instance for upstream tables
     # A mapping of PowerBI datasource's server i.e host[:port] to data platform instance.

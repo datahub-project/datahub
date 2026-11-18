@@ -79,6 +79,7 @@ from datahub.ingestion.source.powerbi.rest_api_wrapper.tmdl_parser import (
     ParsedTable,
     parse_semantic_model,
 )
+from datahub.ingestion.source.powerbi.sensitivity import SensitivityLabelResolver
 from datahub.utilities.file_backed_collections import (
     ConnectionWrapper,
     FileBackedDict,
@@ -207,6 +208,15 @@ class PowerBiAPI:
 
     def close(self) -> None:
         self._file_backed_conn.close()
+
+    def make_sensitivity_resolver(self) -> SensitivityLabelResolver:
+        """Graph client for resolving scan-result sensitivity label ids."""
+        admin = self.__admin_api_resolver
+        return SensitivityLabelResolver(
+            session=admin.request_session,
+            authorization_header=admin.get_graph_authorization_header,
+            labels_url=admin.graph_sensitivity_labels_url,
+        )
 
     def log_http_error(self, message: str) -> Any:
         logger.warning(message)

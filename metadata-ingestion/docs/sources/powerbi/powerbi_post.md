@@ -2,6 +2,16 @@
 
 Use the **Important Capabilities** table above as the source of truth for supported features and whether additional configuration is required.
 
+### Sensitivity labels
+
+Power BI stores a sensitivity label on datasets, reports, and dashboards. The workspace scan returns the label id (`sensitivityLabel.labelId`). When `extract_sensitivity_label.enabled` is true, ingestion resolves that id through Microsoft Graph and stores the label name and description.
+
+`output: tag` (the default) creates a DataHub tag named after the label. `output: glossary_term` creates a glossary term whose id is the label GUID, whose display name is the label name, and whose description is the label description.
+
+A dataset's label is applied to each of its tables, and to the dataset container when `extract_datasets_to_containers` is enabled. Reports and dashboards use their own labels. The app registration needs the Microsoft Graph application permission `SensitivityLabels.Read.All`, in addition to the Power BI API permission.
+
+Endorsements and a sensitivity tag are written as one set of tags, so enabling both does not drop either.
+
 #### User and Ownership Handling
 
 PowerBI Source supports two modes for handling user ownership:
