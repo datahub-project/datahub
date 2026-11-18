@@ -1297,6 +1297,7 @@ public class PropertiesCollectorConfigurationTest extends AbstractTestNGSpringCo
           // Semantic search configuration
           "elasticsearch.entityIndex.semanticSearch.enabled",
           "elasticsearch.entityIndex.semanticSearch.enabledEntities",
+          "elasticsearch.entityIndex.semanticSearch.minSimilarity",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.vectorDimension",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.knnEngine",
           "elasticsearch.entityIndex.semanticSearch.models.text_embedding_3_large.spaceType",

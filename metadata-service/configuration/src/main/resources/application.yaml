@@ -1067,6 +1067,9 @@ elasticsearch:
     semanticSearch:
       enabled: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENABLED:false}
       enabledEntities: ${ELASTICSEARCH_SEMANTIC_SEARCH_ENTITIES:document}
+      # Raw cosine floor, from -1 to 1, for search template vector rungs that leave
+      # retrieval.minSimilarity unset. Unset means no floor.
+      minSimilarity: ${ELASTICSEARCH_SEMANTIC_SEARCH_MIN_SIMILARITY:}
       # Multi-model configuration: map of model name to embedding config
       # Example with multiple models:
       # models:

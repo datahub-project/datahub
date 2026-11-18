@@ -507,7 +507,10 @@ public final class SearchTemplateChecks {
           merged || properties.hasRetrieval());
     }
     if (renderedKnn != null && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
-      throw new SearchTemplateException("Search template knn cannot be combined with sort");
+      throw new SearchTemplateException(
+          "Search template knn cannot be combined with a sort that renders clauses at write time."
+              + " A sort that renders empty here is accepted: a query it orders keeps that order"
+              + " and is not reranked");
     }
     if (renderedQuery != null) {
       SearchTemplateJson.parseQuery(renderedQuery);
