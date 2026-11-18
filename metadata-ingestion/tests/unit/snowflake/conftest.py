@@ -238,15 +238,14 @@ def fake_tag_repository(
     in_datahub: Optional[Mapping[str, Sequence[_Aspect]]] = None,
     load_error: Optional[Exception] = None,
     read_error: Optional[Exception] = None,
-    written_meanwhile: Sequence[SnowflakeTagPlatformResource] = (),
     malformed: int = 0,
 ) -> SnowflakeTagPlatformResourceRepository:
     """A repository over a fake graph storing ``records``.
 
     The graph's scroll honours the platform-instance filter, as GMS does.
     ``in_datahub`` are the aspects entities hold now, by URN; ``read_error``
-    makes reading them fail. ``written_meanwhile`` exist only for direct reads,
-    as records another writer created after the run started. ``malformed`` adds
+    makes reading them fail. ``write_meanwhile`` stores a record as another
+    writer does after the run started. ``malformed`` adds
     records whose value is not a valid record.
     """
     stored: Dict[str, Tuple[PlatformResourceInfoClass, Optional[str]]] = {}
@@ -271,12 +270,6 @@ def fake_tag_repository(
             None,
         )
     readable = {urn: info for urn, (info, _instance) in stored.items()}
-    for record in written_meanwhile:
-        resource = record.as_platform_resource()
-        assert resource.resource_info is not None
-        readable[str(PlatformResourceUrn(resource.id))] = (
-            resource.resource_info.to_resource_info()
-        )
 
     def scroll_entities(
         *,
@@ -320,6 +313,7 @@ def fake_tag_repository(
         }
 
     graph = create_autospec(DataHubGraph, instance=True)
+    graph.readable_records = readable
     graph.scroll_entities.side_effect = scroll_entities
     graph.get_entities.side_effect = get_entities
 
@@ -333,6 +327,23 @@ def fake_tag_repository(
 
     graph.get_aspect.side_effect = get_aspect
     return SnowflakeTagPlatformResourceRepository(graph)
+
+
+def write_meanwhile(
+    repository: SnowflakeTagPlatformResourceRepository,
+    record: SnowflakeTagPlatformResource,
+) -> None:
+    """Stores ``record`` as another writer (sync-back) does during a run: direct
+    reads see it, the run-start scroll did not."""
+    resource = record.as_platform_resource()
+    assert resource.resource_info is not None
+    readable = cast(
+        Dict[str, PlatformResourceInfoClass],
+        repository.graph.readable_records,  # type: ignore[attr-defined]
+    )
+    readable[str(PlatformResourceUrn(resource.id))] = (
+        resource.resource_info.to_resource_info()
+    )
 
 
 def make_v2_config(**overrides: object) -> SnowflakeV2Config:

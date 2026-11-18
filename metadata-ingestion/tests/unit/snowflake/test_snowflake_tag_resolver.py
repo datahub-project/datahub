@@ -35,6 +35,7 @@ from tests.unit.snowflake.conftest import (
     fake_tag_repository,
     make_v2_config,
     tag_record,
+    write_meanwhile,
 )
 
 _TAG = SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value="HIGH")
@@ -315,13 +316,98 @@ def test_managed_records_are_kept_out_of_stale_entity_removal() -> None:
 
 
 def test_new_record_written_meanwhile_by_another_writer_is_not_overwritten() -> None:
-    repository = fake_tag_repository(
-        [], written_meanwhile=[tag_record(_TAG, "urn:li:tag:pii")]
-    )
+    repository = fake_tag_repository([])
     r = resolver(repository=repository)
 
     assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
+    write_meanwhile(repository, tag_record(_TAG, "urn:li:tag:pii"))
+
     assert emitted_secondary_keys(r) == []
+
+
+def test_tag_datahub_set_after_the_load_is_not_native_and_keeps_its_tag() -> None:
+    # Sync-back wrote its record and set the tag during a long run. Taken as
+    # native, the DataHub tag would be dropped from the whole GlobalTags and a
+    # nested duplicate added, and sync-back would then remove the tag.
+    repository = fake_tag_repository(
+        [],
+        in_datahub={
+            _DATASET: [GlobalTagsClass(tags=[TagAssociationClass("urn:li:tag:pii")])]
+        },
+    )
+    r = resolver(repository=repository)
+    assert r.is_native(_TIER)
+    managed = tag_record(_TAG, "urn:li:tag:pii")
+    write_meanwhile(repository, managed)
+
+    assert _tags(r.global_tags(_DATASET, [_TAG])) == ["urn:li:tag:pii"]
+    assert r.report.num_tags_skipped_datahub_managed == 1
+    workunits = list(r.platform_resource_workunits())
+    assert (_record_urn(managed), False) in [
+        (wu.get_urn(), wu.is_primary_source) for wu in workunits
+    ]
+    assert aspects(workunits, PlatformResourceInfoClass) == {}
+
+
+def test_each_key_without_a_record_is_read_once_per_run() -> None:
+    repository = fake_tag_repository([])
+    r = resolver(repository=repository)
+
+    for tag in [_TAG, _LOW, _TAG, _LOW]:
+        assert r.is_native(tag)
+
+    read = [
+        urn
+        for call in repository.graph.get_entities.call_args_list  # type: ignore[attr-defined]
+        for urn in call.args[1]
+    ]
+    # PII:HIGH, PII:LOW and the value-less PII.
+    assert len(read) == len(set(read)) == 3
+
+
+def test_failed_read_after_the_load_is_reported_once_and_the_tag_stays_native() -> None:
+    repository = fake_tag_repository([])
+    repository.graph.get_entities.side_effect = RuntimeError("timed out")  # type: ignore[attr-defined]
+    r = resolver(repository=repository)
+
+    assert r.is_native(_TAG)
+    assert r.is_native(_TAG)
+    assert r.report.num_tag_platform_resource_lookup_failures == 1
+    assert len(r.report.warnings) == 1
+
+
+def test_record_datahub_took_over_during_the_run_is_not_written_back() -> None:
+    # Re-emitting the run-start copy would flip sync-back's record back to
+    # native; it still gets a non-primary Status against stale-entity removal.
+    native = tag_record(_TAG, _NATIVE_TAG_URN.urn(), managed=False)
+    repository = fake_tag_repository([native])
+    r = resolver(repository=repository)
+    assert r.resolve_tag_urn(_TAG) == _NATIVE_TAG_URN
+    write_meanwhile(repository, tag_record(_TAG, "urn:li:tag:pii"))
+
+    workunits = list(r.platform_resource_workunits())
+
+    assert aspects(workunits, PlatformResourceInfoClass) == {}
+    assert [(wu.get_urn(), wu.is_primary_source) for wu in workunits] == [
+        (_record_urn(native), False)
+    ]
+
+
+def test_records_are_not_written_when_their_state_cannot_be_read() -> None:
+    existing = tag_record(_TAG, _NATIVE_TAG_URN.urn(), managed=False)
+    repository = fake_tag_repository([existing])
+    r = resolver(repository=repository)
+    r.resolve_tag_urn(_TAG)
+    r.resolve_tag_urn(_TIER)
+    repository.graph.get_entities.side_effect = RuntimeError("timed out")  # type: ignore[attr-defined]
+
+    workunits = list(r.platform_resource_workunits())
+
+    assert aspects(workunits, PlatformResourceInfoClass) == {}
+    assert [(wu.get_urn(), wu.is_primary_source) for wu in workunits] == [
+        (_record_urn(existing), False)
+    ]
+    assert r.report.num_tag_platform_resource_lookup_failures == 1
 
 
 def test_record_from_another_platform_instance_is_ignored() -> None:
@@ -379,9 +465,10 @@ def test_new_records_are_checked_for_other_writers_in_one_batch() -> None:
         r.resolve_tag_urn(
             SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=f"V{i}")
         )
+    reads_before = repository.graph.get_entities.call_count  # type: ignore[attr-defined]
 
     assert len(emitted_secondary_keys(r)) == 5
-    assert repository.graph.get_entities.call_count == 1  # type: ignore[attr-defined]
+    assert repository.graph.get_entities.call_count == reads_before + 1  # type: ignore[attr-defined]
 
 
 def test_malformed_record_is_skipped_and_the_rest_are_used() -> None:

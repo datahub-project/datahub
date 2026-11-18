@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from typing import Iterable, List, Optional, Set
+from typing import Dict, Iterable, List, Optional
 
 from datahub.api.entities.external.external_entities import (
     ExternalEntity,
@@ -161,10 +161,13 @@ class SnowflakeTagPlatformResourceRepository(
             if not scroll_id:
                 return
 
-    def existing_key_ids(self, key_ids: Iterable[str]) -> Set[str]:
-        """The subset of `key_ids` stored now, read directly rather than searched."""
+    def read_resource_infos(
+        self, key_ids: Iterable[str]
+    ) -> Dict[str, StoredResourceInfo]:
+        """The records stored now under `key_ids`, by key id, read directly
+        rather than searched so a record written moments ago is seen."""
         ids = list(key_ids)
-        existing: Set[str] = set()
+        stored: Dict[str, StoredResourceInfo] = {}
         for start in range(0, len(ids), _BATCH_GET_SIZE):
             urns = [
                 str(PlatformResourceUrn(key_id))
@@ -175,5 +178,10 @@ class SnowflakeTagPlatformResourceRepository(
                 urns,
                 aspects=[PlatformResourceInfoClass.ASPECT_NAME],
             )
-            existing.update(PlatformResourceUrn.from_string(urn).id for urn in found)
-        return existing
+            for urn, entity_aspects in found.items():
+                info = entity_aspects.get(PlatformResourceInfoClass.ASPECT_NAME)
+                if info is not None and isinstance(info[0], PlatformResourceInfoClass):
+                    stored[PlatformResourceUrn.from_string(urn).id] = (
+                        StoredResourceInfo(urn=urn, info=info[0])
+                    )
+        return stored

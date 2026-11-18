@@ -308,7 +308,7 @@ The Snowflake tag propagation action in `datahub-actions` sets tags the same way
 
 If the records can't be loaded, the run reports a failure and skips Snowflake tags: tags and structured properties on databases, schemas and tables are left unchanged, and column tags are carried over from DataHub.
 
-Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, so a tag DataHub writes to Snowflake during a run is recognised from the next run. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
+Every other Snowflake tag is ingested as before. Records are loaded once at the start of each run, and a Snowflake tag with no record then is looked up again directly, once per run, so a tag DataHub writes to Snowflake during a run is recognised in the same run. Before writing its own records at the end of a run, ingestion reads them again and leaves alone any that DataHub created or took over in the meantime. The records are looked up and written through the DataHub graph, so this needs a DataHub connection (`datahub_api`, or the `datahub-rest` sink). Without one, every Snowflake tag is ingested as a native tag.
 
 Duplicate tags that earlier ingestion runs created from these Snowflake tags (for example `test_db.public.pii:high` next to `pii`) stay on assets until you remove them; ingestion does not clean them up.
 

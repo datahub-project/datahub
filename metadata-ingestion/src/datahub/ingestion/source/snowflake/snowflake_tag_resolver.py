@@ -29,7 +29,7 @@ from datahub.metadata.schema_classes import (
     TagAssociationClass,
     _Aspect,
 )
-from datahub.metadata.urns import StructuredPropertyUrn, TagUrn
+from datahub.metadata.urns import PlatformResourceUrn, StructuredPropertyUrn, TagUrn
 from datahub.utilities.urns.urn import Urn
 
 _A = TypeVar("_A", bound=_Aspect)
@@ -54,10 +54,12 @@ class SnowflakeTagResolver:
     `managed_by_datahub=False`.
 
     All records of this platform instance are loaded with one paged scroll on
-    first use, so lookups cost nothing per tag. DataHub's current aspect is
-    read only for entities about to get a whole aspect, and only when a managed
-    record links a URN of that kind. Without a repository (no DataHub graph)
-    every tag is native; if loading fails, every tag is skipped.
+    first use, so lookups cost nothing per tag. Sync-back may write a record
+    after the load, so the keys of a tag the load found no record for are read
+    directly, once each per run. DataHub's current aspect is read only for
+    entities about to get a whole aspect, and only when a managed record links
+    a URN of that kind. Without a repository (no DataHub graph) every tag is
+    native; if loading fails, every tag is skipped.
 
     What DataHub owns stays out of this pipeline's stale-entity state: managed
     records and the DataHub tags carried over into a whole `GlobalTags` are
@@ -84,6 +86,8 @@ class SnowflakeTagResolver:
         self._lock = threading.RLock()
         self._records: Optional[Dict[str, SnowflakeTagPlatformResource]] = None
         self._new_keys: Set[str] = set()
+        # Keys the load had no record for that were read from DataHub since.
+        self._read_since_load: Set[str] = set()
         self._queued: Dict[str, SnowflakeTagPlatformResource] = {}
         self._emitted: Set[str] = set()
         # Filled by the load and emptied once their Status is emitted.
@@ -112,10 +116,17 @@ class SnowflakeTagResolver:
         self._load()
         if self._load_failed:
             return False
-        return not (
-            self._is_managed(self._lookup(tag, with_value=True))
-            or self._is_managed(self._lookup(tag, with_value=False))
-        )
+        with_value = self._lookup(tag, with_value=True)
+        without_value = self._lookup(tag, with_value=False)
+        if with_value is None and without_value is None:
+            # Sync-back writes its record before it sets the tag, so a tag it
+            # set during this run has a record the load did not see.
+            self._read_since_load_once(
+                [self._key(tag, with_value=True), self._key(tag, with_value=False)]
+            )
+            with_value = self._lookup(tag, with_value=True)
+            without_value = self._lookup(tag, with_value=False)
+        return not (self._is_managed(with_value) or self._is_managed(without_value))
 
     def global_tags(
         self, entity_urn: str, tags: List[SnowflakeTag]
@@ -201,8 +212,11 @@ class SnowflakeTagResolver:
         """Records of native tags used since the last call, each once per run.
 
         Existing records are emitted again so stale-entity removal keeps them.
-        A new record is re-read first and dropped if another writer (sync-back)
-        created it since the run started, so it is never overwritten.
+        Every record is re-read first so another writer's (sync-back's) is
+        never overwritten: a new record is dropped if it was created since the
+        run started, and an existing one if sync-back has taken it over (made
+        it managed) since; that one, like any existing record whose state
+        could not be read, gets only a non-primary `Status`.
 
         What DataHub owns goes out as non-primary, which keeps it out of this
         pipeline's stale-entity state and on its skip list: managed records get
@@ -234,11 +248,17 @@ class SnowflakeTagResolver:
             yield MetadataChangeProposalWrapper(
                 entityUrn=urn, aspect=TagUrn.from_string(urn).to_key_aspect()
             ).as_workunit(is_primary_source=False)
-        written_meanwhile = self._written_meanwhile(
-            [key for key, _ in queued if key in self._new_keys]
-        )
+        stored = self._stored_now([key for key, _ in queued])
         for key, record in queued:
-            if key in written_meanwhile:
+            if key in self._new_keys:
+                # Unknown is treated as written: skipping a record only delays it.
+                if stored is None or key in stored:
+                    continue
+            elif stored is None or self._taken_over(stored.get(key)):
+                yield MetadataChangeProposalWrapper(
+                    entityUrn=str(PlatformResourceUrn(key)),
+                    aspect=StatusClass(removed=False),
+                ).as_workunit(is_primary_source=False)
                 continue
             for mcp in record.as_platform_resource().to_mcps():
                 yield mcp.as_workunit()
@@ -341,18 +361,95 @@ class SnowflakeTagResolver:
                     self.repository = None
                     stored = []
                 for resource in stored:
-                    record = self._parse(resource)
-                    if record is None or not self._is_this_instance(record):
-                        continue
-                    records[record.id.to_platform_resource_key().id] = record
-                    linked = self._valid_linked_urns(resource.urn, record)
-                    if record.is_managed_by_datahub():
-                        self._managed_record_urns.append(resource.urn)
-                        for urn in linked:
-                            self._managed_linked_urns.add(urn.urn())
-                            self._managed_linked_entity_types.add(urn.entity_type)
+                    self._add_record(records, resource)
             self._records = records
             return records
+
+    def _add_record(
+        self,
+        records: Dict[str, SnowflakeTagPlatformResource],
+        resource: StoredResourceInfo,
+    ) -> None:
+        record = self._parse(resource)
+        if record is None or not self._is_this_instance(record):
+            return
+        self._register(records, resource.urn, record)
+        if record.is_managed_by_datahub():
+            self._managed_record_urns.append(resource.urn)
+
+    def _register(
+        self,
+        records: Dict[str, SnowflakeTagPlatformResource],
+        resource_urn: str,
+        record: SnowflakeTagPlatformResource,
+    ) -> None:
+        records[record.id.to_platform_resource_key().id] = record
+        linked = self._valid_linked_urns(resource_urn, record)
+        if record.is_managed_by_datahub():
+            for urn in linked:
+                self._managed_linked_urns.add(urn.urn())
+                self._managed_linked_entity_types.add(urn.entity_type)
+
+    def _read_since_load_once(self, keys: List[str]) -> None:
+        """Reads the records stored now for `keys` the load had none for, each
+        key at most once per run, and adds those found."""
+        with self._lock:
+            records = self._load()
+            missing = [
+                key
+                for key in dict.fromkeys(keys)
+                if key not in records and key not in self._read_since_load
+            ]
+            if not missing or self.repository is None:
+                return
+            self._read_since_load.update(missing)
+            # Read under the lock so no thread sees the key as checked before
+            # its record is added. Each key is read once per run.
+            try:
+                stored = self.repository.read_resource_infos(missing)
+            except Exception as e:
+                self.report.num_tag_platform_resource_lookup_failures += 1
+                self.report.warning(
+                    title="Failed to read Snowflake tag platform resources",
+                    message="The Snowflake tag is resolved from the records "
+                    "loaded at the start of the run.",
+                    context=", ".join(missing),
+                    exc=e,
+                )
+                return
+            for resource in stored.values():
+                self._add_record(records, resource)
+
+    def _stored_now(self, keys: List[str]) -> Optional[Dict[str, StoredResourceInfo]]:
+        """The records stored now for `keys`, or None if they could not be read."""
+        if not keys:
+            return {}
+        assert self.repository is not None
+        try:
+            return self.repository.read_resource_infos(keys)
+        except Exception as e:
+            self.report.num_tag_platform_resource_lookup_failures += 1
+            self.report.warning(
+                title="Failed to read Snowflake tag platform resources",
+                message="Records of native Snowflake tags are not written this "
+                "run, so none written meanwhile by DataHub is overwritten.",
+                exc=e,
+            )
+            return None
+
+    def _taken_over(self, stored: Optional[StoredResourceInfo]) -> bool:
+        """Whether an existing native record is no longer ingestion's to write."""
+        if stored is None:
+            return False
+        record = self._parse(stored)
+        if record is None:
+            # Rewritten by another writer in a form ingestion can't read.
+            return True
+        if not record.is_managed_by_datahub():
+            return False
+        with self._lock:
+            self._register(self._load(), stored.urn, record)
+        return True
 
     def _parse(
         self, resource: StoredResourceInfo
@@ -450,13 +547,3 @@ class SnowflakeTagResolver:
                     # The record already links a different entity type.
                     return
             self._queued[key] = record
-
-    def _written_meanwhile(self, new_keys: List[str]) -> Set[str]:
-        if not new_keys:
-            return set()
-        assert self.repository is not None
-        try:
-            return self.repository.existing_key_ids(new_keys)
-        except Exception:
-            # Unknown is treated as written: skipping a record only delays it.
-            return set(new_keys)
