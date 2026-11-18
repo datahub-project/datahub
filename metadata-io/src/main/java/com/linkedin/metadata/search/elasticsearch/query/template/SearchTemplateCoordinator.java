@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -22,9 +23,11 @@ import io.datahubproject.metadata.context.SearchTemplateRuntime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -296,6 +299,10 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     String rejection =
         SearchTemplateCapabilities.rejectionCode(
             template, documentRerank, scroll, components, gates);
+    List<String> rungs = ladderRungs(bound, resolved.getUrn(), !scroll);
+    if (rejection == null && vectorWithLegacyKnn(bound, rungs)) {
+      rejection = SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN;
+    }
     if (rejection == null) {
       rejection =
           gates.bindingRejection(
@@ -322,7 +329,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         SearchTemplateJson.countLeaves(dsl),
         rendered.estimatedClauses(),
         capabilities,
-        ladderRungs(bound, resolved.getUrn(), !scroll));
+        rungs);
+  }
+
+  private boolean vectorWithLegacyKnn(
+      @Nonnull OperationContext opContext, @Nonnull List<String> rungs) {
+    boolean vector = false;
+    boolean legacyKnn = false;
+    for (String urn : rungs) {
+      MergedSearchTemplate rung = loader.load(opContext, urn);
+      vector |= SearchTemplateCapabilities.vectorRetrieval(rung);
+      legacyKnn |= SearchTemplateCapabilities.legacyKnn(rung);
+    }
+    return vector && legacyKnn;
   }
 
   @Nonnull
@@ -361,7 +380,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
 
   /**
    * Cache identity includes every reachable rung. Capability checks happen when a rung executes, so
-   * an unsupported next does not fail a request that stops before reaching it.
+   * an unsupported next does not fail a request that stops before reaching it. The exception is a
+   * graph that reaches a vector rung and a legacy knn rerank: the search cache runs the first once
+   * per page, and the second reranks the first cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -371,6 +392,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
     boolean[] classpathBridge = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
     collect(
         opContext,
         resolved.getUrn(),
@@ -382,7 +404,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         resolved,
         scroll,
         nameAndValue,
-        classpathBridge);
+        classpathBridge,
+        legacyKnn);
+    if (resolved.isVectorReachable() && legacyKnn[0]) {
+      throw new SearchTemplateException(
+          "Search template section is not supported: vector retrieval with a legacy knn rerank");
+    }
     String identity = String.join("+", rungs);
     if (!classpathBridge[0] && SearchTemplateViewer.references(bodies.toString())) {
       identity += SearchTemplateViewer.identity(opContext, bodies.toString());
@@ -404,7 +431,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nonnull ResolvedSearchTemplate resolved,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
-      @Nonnull boolean[] classpathBridge) {
+      @Nonnull boolean[] classpathBridge,
+      @Nonnull boolean[] legacyKnn) {
     if (!seen.add(urn) || depth > loader.maxParentDepth()) {
       return;
     }
@@ -419,12 +447,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
     }
+    if (SearchTemplateCapabilities.vectorRetrieval(template)) {
+      resolved.setVectorReachable(true);
+    }
+    if (SearchTemplateCapabilities.legacyKnn(template)) {
+      legacyKnn[0] = true;
+    }
     rungs.add(
         template.getUrn()
             + "@"
             + template.getLastModified()
             + SearchTemplateComponents.cacheSuffix(template.getComponent())
-            + rerankIdentity(template, resolved));
+            + rerankIdentity(template, resolved)
+            + vectorIdentity(template, resolved));
     append(bodies, template.getQuery());
     template.getQueryFragments().values().forEach(value -> append(bodies, value));
     append(bodies, template.getClauses());
@@ -467,7 +502,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             resolved,
             false,
             nameAndValue,
-            classpathBridge);
+            classpathBridge,
+            legacyKnn);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -482,7 +518,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           resolved,
           false,
           nameAndValue,
-          classpathBridge);
+          classpathBridge,
+          legacyKnn);
     }
   }
 
@@ -508,6 +545,41 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         + resolved.isDocumentRerank()
         + ":"
         + gates.hybridRead();
+  }
+
+  // A vector rung's hits also depend on this build's execution, the profile it resolves on the
+  // engine serving the search, and a floor inherited from configuration. The rung's lastModified
+  // covers its own floor and cap, and the search key covers the filter, flags, page, and caller.
+  @Nonnull
+  private String vectorIdentity(
+      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+    if (!SearchTemplateCapabilities.vectorRetrieval(template)) {
+      return "";
+    }
+    Set<String> profiles =
+        resolved.getEntityTypes() == null
+            ? Set.of()
+            : gates.joinedProfileIds(
+                template, resolved.getEntityTypes(), resolved.getSearchSystem());
+    return "~vr"
+        + SearchTemplateVectorRetrieval.EXECUTION_VERSION
+        + ":"
+        + profiles.stream().map(this::profileIdentity).collect(Collectors.joining(","))
+        + ":"
+        + resolved.getSearchSystem()
+        + ":"
+        + gates.minSimilarity(template);
+  }
+
+  // The metric decides whether an inherited floor applies and what an engine score means, so the
+  // same profile id on another metric does not share a cached page. Provider tuning that changes
+  // the query vector under the same profile id, such as a query instruction, is a configuration
+  // rollout: as with any other configuration change, a page cached before it is served until it
+  // expires. Changing how stored vectors are made needs a new profile id.
+  @Nonnull
+  private String profileIdentity(@Nonnull String id) {
+    EmbeddingProfile profile = gates.profiles().profile(id);
+    return profile == null ? id : id + "/" + profile.metric().trim().toLowerCase(Locale.ROOT);
   }
 
   private static void append(@Nonnull StringBuilder bodies, @Nullable String section) {

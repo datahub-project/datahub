@@ -62,6 +62,18 @@ public class ResolvedSearchTemplate {
    */
   @Nullable private String cacheIdentity;
 
+  /**
+   * A rung this search may reach retrieves by vector, so the search cache runs it once for the
+   * caller's page instead of in batches. Set at bind.
+   */
+  private boolean vectorReachable;
+
+  /**
+   * A vector rung failed and the ladder served its next rung, so the result is not cached and the
+   * next search tries the vector rung again. Not part of the cache identity.
+   */
+  private boolean skipResultCache;
+
   public ResolvedSearchTemplate(
       @Nonnull String urn, long lastModified, @Nullable String intent, @Nullable String subIntent) {
     this.urn = urn;
@@ -112,6 +124,14 @@ public class ResolvedSearchTemplate {
 
   public void setCacheIdentity(@Nonnull String cacheIdentity) {
     this.cacheIdentity = cacheIdentity;
+  }
+
+  public void setVectorReachable(boolean vectorReachable) {
+    this.vectorReachable = vectorReachable;
+  }
+
+  public void setSkipResultCache(boolean skipResultCache) {
+    this.skipResultCache = skipResultCache;
   }
 
   /**

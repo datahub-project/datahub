@@ -442,6 +442,14 @@ public final class SearchTemplatePolicyChecks {
     String combine = SearchTemplateCapabilities.combine(retrieval);
     boolean keywordRung = combine == null;
     boolean vector = SearchTemplateCapabilities.COMBINE_VECTOR.equals(combine);
+    if (retrieval.getCandidateCap() != null && retrieval.getCandidateCap() < 1) {
+      throw new SearchTemplateException(
+          "Search template retrieval candidateCap must be at least 1");
+    }
+    String onFailure = text(retrieval.getOnFailure());
+    if (onFailure != null) {
+      requireClosed("retrieval onFailure", onFailure, SearchTemplateCapabilities.ON_FAILURES);
+    }
     String querySource = text(retrieval.getQuerySource());
     if (querySource != null) {
       requireClosed("retrieval querySource", querySource, SearchTemplateCapabilities.QUERY_SOURCES);

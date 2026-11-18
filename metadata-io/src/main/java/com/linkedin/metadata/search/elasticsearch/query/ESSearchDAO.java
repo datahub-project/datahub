@@ -71,6 +71,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
+import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridRerankPlan;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
@@ -203,13 +204,19 @@ public class ESSearchDAO {
   @Nonnull private final EntityDocumentIdHasher entityDocumentIdHasher;
   @Nullable private final HybridSearchResultReranker hybridSearchResultReranker;
 
+  /**
+   * Embeds the query of a search template vector rung. Null when this process cannot run one, which
+   * fails that rung closed.
+   */
+  @Nullable final HybridQueryEmbeddingService vectorQueryEmbedding;
+
   private final TemplateSearchExecutor templateSearch = new TemplateSearchExecutor(this);
 
   private final AtomicInteger hybridFailures = new AtomicInteger();
   private final AtomicLong hybridPausedUntilNanos = new AtomicLong(System.nanoTime());
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
-  private volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
+  volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
   private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
@@ -261,6 +268,7 @@ public class ESSearchDAO {
         testLoggingEnabled,
         searchServiceConfig,
         entityDocumentIdHasher,
+        null,
         null);
   }
 
@@ -682,8 +690,6 @@ public class ESSearchDAO {
     if (templateSearch.templateReads(opContext)) {
       final int hybridFetchSize =
           hybridFetchSize(opContext, entityNames, input, sortCriteria, from, size);
-      final int requestFrom = hybridFetchSize > 0 ? 0 : from;
-      final Integer requestSize = hybridFetchSize > 0 ? hybridFetchSize : size;
       final TemplateSearchExecutor.BoundSearch searched =
           templateSearch.searchWithTemplates(
               opContext,
@@ -691,9 +697,12 @@ public class ESSearchDAO {
               input,
               postFilters,
               sortCriteria,
-              requestFrom,
-              requestSize,
+              from,
+              size,
+              hybridFetchSize,
               facets);
+      // A rung that fetched only the page is not sliced again. A keywordRerank rung still reports
+      // why it kept keyword order.
       return finishTemplateHybrid(
           searched.context(),
           entityNames,
@@ -702,7 +711,7 @@ public class ESSearchDAO {
           searched.result(),
           from,
           size,
-          hybridFetchSize);
+          searched.pageFetched() ? 0 : hybridFetchSize);
     }
 
     // A hybrid search fetches the keyword rows from the top to rerank them, then slices the page

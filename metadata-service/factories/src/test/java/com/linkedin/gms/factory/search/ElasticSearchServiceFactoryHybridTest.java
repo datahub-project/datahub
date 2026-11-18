@@ -80,7 +80,24 @@ public class ElasticSearchServiceFactoryHybridTest {
         IllegalStateException.class,
         () ->
             ElasticSearchServiceFactory.hybridSearchResultReranker(
-                entityIndex(v3 -> {}), () -> provider, () -> openSearch34));
+                entityIndex(v3 -> {}), () -> provider, () -> openSearch34, null));
+  }
+
+  @Test
+  public void testVectorRungsNeedSemanticReadAndARealProviderButNotHybridRead() {
+    assertNotNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.hybridReadEnabled(false)), () -> provider));
+    // Semantic read is semantic search with keyword reads on V3
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.keywordReadEnabled(false)), () -> provider));
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> {}), NoOpEmbeddingProvider::new));
+    EntityIndexConfiguration otherModel = entityIndex(v3 -> {});
+    otherModel.getSemanticSearch().setModels(Map.of("other_model", new ModelEmbeddingConfig()));
+    assertNull(ElasticSearchServiceFactory.vectorQueryEmbedding(otherModel, () -> provider));
   }
 
   private static HybridSearchResultReranker build(
@@ -88,7 +105,7 @@ public class ElasticSearchServiceFactoryHybridTest {
     SearchClientShim<?> elasticsearch = mock(SearchClientShim.class);
     when(elasticsearch.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
     return ElasticSearchServiceFactory.hybridSearchResultReranker(
-        entityIndex, () -> provider, () -> elasticsearch);
+        entityIndex, () -> provider, () -> elasticsearch, null);
   }
 
   /** V3 with keyword, semantic and hybrid reads on, then {@code v3} adjusts the V3 settings. */
@@ -113,7 +130,8 @@ public class ElasticSearchServiceFactoryHybridTest {
                 true,
                 Set.of("document"),
                 new HashMap<>(Map.of("text_embedding_3_small", model)),
-                providerConfiguration))
+                providerConfiguration,
+                null))
         .build();
   }
 }
