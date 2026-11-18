@@ -140,6 +140,14 @@ _ODBC_ORACLE_QUERY_SCHEMA_TABLE = (
     "in\n    Source"
 )
 
+# Oracle Odbc.Query with an unqualified table: the schema must come from config
+# (dsn_to_database_schema or default_schema), as for native Oracle SQL.
+_ODBC_ORACLE_QUERY_UNQUALIFIED_TABLE = (
+    'let\n    Source = Odbc.Query("driver={Oracle in OraClient19Home1};'
+    'dsn=oracle_prod", "select * from ORDERS")\n'
+    "in\n    Source"
+)
+
 # Oracle (two-tier) ODBC navigation that surfaces a Kind=Database pseudo-catalog
 # and the leaf table but omits Schema. With no dsn_to_database_schema mapping the
 # schema cannot be resolved, so lineage must warn and skip rather than emit a
@@ -393,6 +401,18 @@ _ODBC_NAV_SUCCESS_CASES = [
         id="oracle-query-mapped-database-wins-over-default-database",
     ),
     pytest.param(
+        _ODBC_ORACLE_QUERY_UNQUALIFIED_TABLE,
+        "ORDERS",
+        "SALES.ORDERS",
+        {
+            "server_to_platform_instance": {
+                "oracle_prod": {"default_database": "MYDB", "default_schema": "SALES"}
+            }
+        },
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,mydb.sales.orders,PROD)",
+        id="oracle-query-unqualified-falls-back-to-default-schema",
+    ),
+    pytest.param(
         _ODBC_MYSQL_NAV_DATABASE_TABLE,
         "employees",
         "employees.employees",
@@ -631,6 +651,37 @@ def test_odbc_navigation_warns_and_skips(
     assert expected_warning_title in warning_titles, (
         f"Expected warning '{expected_warning_title}'; got: {warning_titles}"
     )
+
+
+def test_odbc_oracle_query_unqualified_without_schema_warns():
+    """A DSN mapped to a database only gives Oracle no schema, so an unqualified
+    Odbc.Query keeps its table-only URN and warns so the user can map the DSN."""
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=_ODBC_ORACLE_QUERY_UNQUALIFIED_TABLE,
+        name="ORDERS",
+        full_name="SALES.ORDERS",
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {"oracle_prod": "SALES"}}
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert [t.urn for t in combine_upstreams_from_lineage(lineages)] == [
+        "urn:li:dataset:(urn:li:dataPlatform:oracle,orders,PROD)"
+    ]
+    assert "Oracle ODBC query lineage missing schema" in [
+        entry.title for entry in reporter.warnings
+    ]
 
 
 @pytest.mark.parametrize(

@@ -559,6 +559,32 @@ class AbstractLineage(ABC):
             )
         )
 
+    def _sql_has_unqualified_tables(self, query: str) -> bool:
+        """True if the SQL contains any table reference without a schema/owner prefix."""
+        try:
+            cleaned = native_sql_parser.remove_special_characters(query)
+            cleaned = native_sql_parser.remove_drop_statement(cleaned)
+            for statement in sqlglot.parse(cleaned, dialect="oracle"):
+                if statement is None:
+                    continue
+                for table in statement.find_all(exp.Table):
+                    if not table.db:
+                        return True
+        except (sqlglot.errors.SqlglotError, ValueError, AttributeError) as e:
+            # Conservative: parse failure is reported as "unqualified" so the user
+            # gets the missing-default_schema warning instead of silent zero-lineage.
+            # Logged at WARNING so a dialect regression is visible, not hidden by
+            # a perpetual default_schema warning.
+            logger.warning(
+                "Could not parse Oracle inline SQL for table %s to detect unqualified "
+                "tables; assuming unqualified. Error type=%s: %s",
+                self.table.full_name,
+                type(e).__name__,
+                e,
+            )
+            return True
+        return False
+
     @staticmethod
     def get_db_detail_from_argument(
         arg_list: dict,
@@ -1426,32 +1452,6 @@ class OracleLineage(AbstractLineage):
             schema=default_schema,
             platform_detail=platform_detail,
         )
-
-    def _sql_has_unqualified_tables(self, query: str) -> bool:
-        """True if the SQL contains any table reference without a schema/owner prefix."""
-        try:
-            cleaned = native_sql_parser.remove_special_characters(query)
-            cleaned = native_sql_parser.remove_drop_statement(cleaned)
-            for statement in sqlglot.parse(cleaned, dialect="oracle"):
-                if statement is None:
-                    continue
-                for table in statement.find_all(exp.Table):
-                    if not table.db:
-                        return True
-        except (sqlglot.errors.SqlglotError, ValueError, AttributeError) as e:
-            # Conservative: parse failure is reported as "unqualified" so the user
-            # gets the missing-default_schema warning instead of silent zero-lineage.
-            # Logged at WARNING so a dialect regression is visible, not hidden by
-            # a perpetual default_schema warning.
-            logger.warning(
-                "Could not parse Oracle inline SQL for table %s to detect unqualified "
-                "tables; assuming unqualified. Error type=%s: %s",
-                self.table.full_name,
-                type(e).__name__,
-                e,
-            )
-            return True
-        return False
 
 
 # Databricks navigation chains are ordered catalog -> schema -> table, so a step
@@ -2363,27 +2363,44 @@ class OdbcLineage(AbstractLineage):
 
         dsn_levels = self._resolve_dsn_database_schema(dsn)
         database = dsn_levels.database
+        schema = dsn_levels.schema
         if platform_pair.datahub_data_platform_name == ORACLE_PLATFORM:
             # Same rule as navigation: Oracle URNs carry a database only when
             # default_database opts into database.schema.table, and then the
-            # per-DSN mapping wins over default_database.
-            oracle_default_database = (
-                platform_detail.default_database
+            # per-DSN mapping wins over default_database. The schema falls back
+            # to default_schema, as native Oracle SQL does.
+            oracle_detail = (
+                platform_detail
                 if isinstance(platform_detail, OraclePlatformDetail)
                 else None
+            )
+            oracle_default_database = (
+                oracle_detail.default_database if oracle_detail else None
             )
             database = (
                 (database or oracle_default_database)
                 if oracle_default_database
                 else None
             )
+            schema = schema or (oracle_detail.default_schema if oracle_detail else None)
+            if schema is None and self._sql_has_unqualified_tables(query):
+                self.reporter.warning(
+                    title="Oracle ODBC query lineage missing schema",
+                    message=(
+                        "Odbc.Query references unqualified tables but no schema is "
+                        "configured for this DSN. Add 'dsn_to_database_schema: "
+                        "{<dsn>: <database>.<schema>}' or 'default_schema' under "
+                        "server_to_platform_instance in your PowerBI recipe."
+                    ),
+                    context=f"table-name={self.table.full_name}, dsn={dsn}",
+                )
 
         logger.debug(f"ODBC query processing: dsn={dsn} mapped to {dsn_levels}")
         result = self.parse_custom_sql(
             query=query,
             server=server_name,
             database=database,
-            schema=dsn_levels.schema,
+            schema=schema,
             platform_pair=platform_pair,
             platform_detail=platform_detail,
         )
