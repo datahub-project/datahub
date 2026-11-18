@@ -36,13 +36,14 @@ type Props = {
 export const ContractAction = ({
     assertion,
     contract,
-    canEdit,
+    canEdit: canEditProp,
     refetch,
     isExpandedView = false,
     onActionTriggered,
 }: Props) => {
     const { t } = useTranslation('entity.profile.validations');
-    const { urn: entityUrn } = useEntityData();
+    const { urn: entityUrn, entityData } = useEntityData();
+    const canEdit = canEditProp && !!entityData?.privileges?.canEditDataContract;
     const [upsertDataContractMutation] = useUpsertDataContractMutation();
     const contractsEnabled = useIsContractsEnabled();
 

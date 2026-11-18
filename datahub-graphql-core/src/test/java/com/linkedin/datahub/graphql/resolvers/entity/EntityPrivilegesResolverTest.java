@@ -185,6 +185,7 @@ public class EntityPrivilegesResolverTest {
     assertTrue(result.getCanEditQueries());
     assertTrue(result.getCanEditLineage());
     assertTrue(result.getCanDeleteEntity());
+    assertTrue(result.getCanEditDataContract());
   }
 
   @Test
@@ -201,6 +202,7 @@ public class EntityPrivilegesResolverTest {
     assertFalse(result.getCanEditQueries());
     assertFalse(result.getCanEditLineage());
     assertFalse(result.getCanDeleteEntity());
+    assertFalse(result.getCanEditDataContract());
   }
 
   @Test
