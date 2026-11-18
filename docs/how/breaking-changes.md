@@ -51,6 +51,35 @@ When a validator rejects a Rest.li request that was previously answered with HTT
 deleting an entity, the response is now 422, 403 for authorization failures or 412 for failed
 preconditions, matching OpenAPI. Clients that retried these 500s will now get the error straight away.
 
+### Shipped search templates rerank keyword search and add a semantic template
+
+System update now writes version 17 of the shipped search templates. `urn:li:searchTemplate:fulltext`
+sets `retrieval.combine: keywordRerank`, and `urn:li:searchTemplate:light` inherits it. With hybrid
+read on (`ELASTICSEARCH_ENTITY_INDEX_V3_HYBRID_READ_ENABLED=true`), keyword search reranks the Document
+rows in its ranking window through the template, with the same blend the hybrid reranker used, and
+other rows keep their places. With hybrid read off, keyword results do not change. A custom template
+whose parent is `fulltext` inherits the rerank. The new `urn:li:searchTemplate:semantic` retrieves
+by vector. A search uses it only when it names it in the `searchTemplate` search flag; semantic
+search (`semanticSearchAcrossEntities`) does not change.
+
+**Before rolling back** to a release without the semantic search template contract
+([#21359](https://github.com/datahub-project/datahub/pull/21359)), restore the previous templates.
+That release rejects `apiVersion: 2`, so keyword search would fail on the new `fulltext`. While this
+release is still deployed:
+
+1. Run system update once with
+   `DATAHUB_SEARCH_TEMPLATES_REVISION='{"version":"v17-revert","mcps_location":"bootstrap_mcps/search-templates-revert.yaml"}'`.
+2. Remove the variable, then roll back.
+
+For the same reason, an upgrade straight from such a release can fail keyword searches on its GMS
+pods from the time system update writes these templates until those pods are replaced.
+
+The `semantic` template stays stored, and the earlier release does not use it. If you later upgrade
+to this release again, system update keeps the restored templates, because version 17 already ran.
+To write the shipped templates again, run system update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then remove the variable. A rollback to a
+release that has the contract needs none of these steps.
+
 <!--
 
 ## <version number>
