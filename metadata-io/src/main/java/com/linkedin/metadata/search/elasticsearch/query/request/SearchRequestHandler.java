@@ -541,21 +541,22 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   @Nonnull
@@ -589,22 +590,23 @@ public class SearchRequestHandler extends BaseRequestHandler {
     applyTemplateSearchType(searchRequest, queryPlan.template());
     searchSourceBuilder.query(
         QueryBuilders.boolQuery().must(queryPlan.query()).filter(filterQuery));
-    templateRequests.apply(
-        opContext,
-        searchSourceBuilder,
-        searchFlags,
-        sortCriteria,
-        facets,
-        queryPlan.template(),
-        scroll,
-        size,
-        input);
+    boolean templateSort =
+        templateRequests.apply(
+            opContext,
+            searchSourceBuilder,
+            searchFlags,
+            sortCriteria,
+            facets,
+            queryPlan.template(),
+            scroll,
+            size,
+            input);
     if (Boolean.TRUE.equals(searchFlags.isIncludeExplain())) {
       searchSourceBuilder.explain(true);
     }
     searchRequest.source(searchSourceBuilder);
     searchRequest.indicesOptions(null);
-    return new PreparedSearchRequest(searchRequest, queryPlan.template());
+    return new PreparedSearchRequest(searchRequest, queryPlan.template(), templateSort);
   }
 
   private static boolean templatesActive(@Nonnull OperationContext opContext) {
@@ -706,32 +708,19 @@ public class SearchRequestHandler extends BaseRequestHandler {
     // Value counts are a zero-hit Java aggregation. A template may replace the lexical query
     // later; it does not supply this aggregation, highlighting, rescore, or suggestions.
     searchSourceBuilder.size(0);
-    Optional<String> unlabeledSource =
-        v3SearchFieldResolver == null
-            ? Optional.empty()
-            : v3SearchFieldResolver.unlabeledHasValuesSource(field);
-    if (unlabeledSource.isPresent()) {
-      // The boolean is not mapped. Count existence on the source field, including a URN's _urn.
-      searchSourceBuilder.aggregation(
-          AggregationQueryBuilder.unlabeledHasValuesAggregation(
-              field,
-              v3SearchFieldResolver.exactPath(
-                  unlabeledSource.get(), SearchFieldResolver.Intent.FILTER)));
-    } else {
-      String aggregationField =
-          v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
-              ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
-              : ESUtils.toKeywordField(
-                  opContext,
-                  field,
-                  false,
-                  opContext.getAspectRetriever(),
-                  v3SearchFieldResolver != null);
-      searchSourceBuilder.aggregation(
-          AggregationBuilders.terms(field)
-              .field(aggregationField)
-              .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
-    }
+    String aggregationField =
+        v3SearchFieldResolver != null && v3SearchFieldResolver.contains(field)
+            ? v3SearchFieldResolver.exactPath(field, SearchFieldResolver.Intent.FACET)
+            : ESUtils.toKeywordField(
+                opContext,
+                field,
+                false,
+                opContext.getAspectRetriever(),
+                v3SearchFieldResolver != null);
+    searchSourceBuilder.aggregation(
+        AggregationBuilders.terms(field)
+            .field(aggregationField)
+            .size(ConfigUtils.applyLimit(searchServiceConfig, limit)));
     searchRequest.source(searchSourceBuilder);
 
     return searchRequest;

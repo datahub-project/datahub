@@ -30,7 +30,11 @@ trap 'rm -rf "$WORK"' EXIT
 
 step "start --local (cold)"
 # The UI checks boot their own stack after this script's nuke.
-"$DEV" start --local --fresh --no-frontend
+START_ARGS=(start --local --fresh --no-frontend)
+if [[ -n "${LOCAL_STACK_OPENSEARCH:-}" ]]; then
+    START_ARGS+=(--opensearch "$LOCAL_STACK_OPENSEARCH")
+fi
+"$DEV" "${START_ARGS[@]}"
 end_step
 
 step "status"
@@ -39,6 +43,8 @@ echo "$STATUS"
 [[ "$(json_field mode <<<"$STATUS")" == "local" ]] || fail "status mode is not local"
 [[ "$(json_field ready <<<"$STATUS")" == "True" ]] || fail "stack is not ready"
 [[ "$(json_field services.gms-0.healthy <<<"$STATUS")" == "True" ]] || fail "GMS is not healthy"
+MAJOR="$(json_field opensearch.major <<<"$STATUS")"
+[[ -z "${LOCAL_STACK_OPENSEARCH:-}" || "$MAJOR" == "$LOCAL_STACK_OPENSEARCH" ]] || fail "wrong OpenSearch major"
 PROFILE="$(json_field profile <<<"$STATUS")"
 DATA_DIR="$(json_field data_dir <<<"$STATUS")"
 PROFILE_FILE="$HOME/.datahub/profiles/$PROFILE/.datahubenv"
@@ -60,7 +66,7 @@ printf '{"description": "%s"}\n' "$DESCRIPTION" >"$WORK/properties.json"
 "$DATAHUB" put aspect --urn "$URN" --aspect datasetProperties --aspect-data "$WORK/properties.json"
 "$DATAHUB" get --urn "$URN" --aspect datasetProperties | grep -q "$DESCRIPTION" || fail "get did not return the written aspect"
 for _ in $(seq 1 30); do
-    if "$DATAHUB" search "$DESCRIPTION" --format json 2>/dev/null | grep -q "local_stack_e2e.events"; then
+    if "$DATAHUB" search "local_stack_e2e.events" --format json 2>/dev/null | grep -q "local_stack_e2e.events"; then
         FOUND=1
         break
     fi
@@ -75,6 +81,8 @@ TOKEN_BEFORE="$(cksum <"$PROFILE_FILE")"
 [[ -f "$PROFILE_FILE" ]] || fail "stop removed the profile"
 sleep 1 # token issue time has one-second resolution
 "$DEV" start --local
+RESTARTED_STATUS="$("$DEV" status)"
+[[ "$(json_field opensearch.major <<<"$RESTARTED_STATUS")" == "$MAJOR" ]] || fail "warm start changed OpenSearch major"
 [[ "$(cksum <"$PROFILE_FILE")" != "$TOKEN_BEFORE" ]] || fail "warm start did not refresh the profile token"
 "$DATAHUB" get --urn "$URN" --aspect datasetProperties | grep -q "$DESCRIPTION" || fail "data did not survive the warm restart"
 end_step

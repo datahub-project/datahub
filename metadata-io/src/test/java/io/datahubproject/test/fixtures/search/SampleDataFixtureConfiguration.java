@@ -173,7 +173,12 @@ public class SampleDataFixtureConfiguration {
             .build();
 
     return new ESIndexBuilder(
-        _searchClient, testConfig, TEST_ES_STRUCT_PROPS_DISABLED, Map.of(), gitVersion);
+        _searchClient,
+        testConfig,
+        TEST_ES_STRUCT_PROPS_DISABLED,
+        Map.of(),
+        gitVersion,
+        _searchClient);
   }
 
   protected ElasticSearchService entitySearchServiceHelper(

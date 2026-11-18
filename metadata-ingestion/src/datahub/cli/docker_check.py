@@ -1,4 +1,5 @@
 import enum
+import logging
 import os
 import pathlib
 from contextlib import contextmanager
@@ -18,6 +19,7 @@ MIN_MEMORY_NEEDED = 4.3  # GB
 MIN_DISK_SPACE_NEEDED = 13  # GB
 
 DOCKER_COMPOSE_PROJECT_NAME = get_compose_project_name()
+logger = logging.getLogger(__name__)
 DATAHUB_COMPOSE_PROJECT_FILTER = {
     "label": f"com.docker.compose.project={DOCKER_COMPOSE_PROJECT_NAME}"
 }
@@ -30,6 +32,13 @@ DATAHUB_COMPOSE_LEGACY_VOLUME_FILTERS = [
     {"name": "datahub_cassandradata"},
     {"name": "datahub_broker"},
 ]
+
+OPENSEARCH2_VOLUME = "datahub_osdata"
+OPENSEARCH3_VOLUME = "datahub_os3data"
+# Throwaway image for listing a volume and checking free disk. Docker Desktop keeps volume
+# mountpoints inside the VM, so the host cannot read them. Pin the tag so both probes pull the
+# same image.
+PROBE_IMAGE = "alpine:3.24"
 
 
 class DockerNotRunningError(Exception):
@@ -95,6 +104,57 @@ def get_docker_client() -> Iterator[docker.DockerClient]:
         client.close()
 
 
+def volume_exists(client: docker.DockerClient, name: str) -> Optional[bool]:
+    """``True`` or ``False`` when Docker answers, ``None`` when the lookup itself fails."""
+    try:
+        client.volumes.get(name)
+        return True
+    except docker.errors.NotFound:
+        return False
+    except docker.errors.DockerException as error:
+        logger.warning("Could not look up volume %s (%s).", name, error)
+        return None
+
+
+def volume_has_named_entry(
+    client: docker.DockerClient, name: str, entry: str
+) -> Optional[bool]:
+    """Whether ``name`` exists and its root contains ``entry``.
+
+    ``True`` when the entry is there, ``False`` when the volume is missing or the entry is
+    absent, and ``None`` when Docker could not look up or list the volume. ``None`` is not
+    the same as empty: Compose creates every declared volume on ``up``, including one no
+    service mounts, and a failed lookup or listing must not be read as "no OpenSearch data."
+    OpenSearch writes a ``nodes`` directory only after it starts.
+    """
+    exists = volume_exists(client, name)
+    if exists is None:
+        return None
+    if not exists:
+        return False
+    try:
+        result = client.containers.run(
+            PROBE_IMAGE,
+            ["ls", "-A", "/volume"],
+            volumes={name: {"bind": "/volume", "mode": "ro"}},
+            remove=True,
+            stdout=True,
+            stderr=True,
+            log_config=docker.types.LogConfig(type=docker.types.LogConfig.types.JSON),
+        )
+    except docker.errors.DockerException as error:
+        logger.warning(
+            "Could not list %s to check for %s (%s).",
+            name,
+            entry,
+            error,
+        )
+        return None
+    if not result:
+        return False
+    return entry in result.decode("utf-8").split()
+
+
 def memory_in_gb(mem_bytes: int) -> float:
     return mem_bytes / (1024 * 1024 * 1000)
 
@@ -115,7 +175,7 @@ def run_quickstart_preflight_checks(client: docker.DockerClient) -> None:
     # driver, so pin json-file for this throwaway container rather than depend
     # on the daemon's default. See docker/docker-py#3455.
     result = client.containers.run(
-        "alpine:latest",
+        PROBE_IMAGE,
         "sh -c \"df -B1 -P / | awk 'NR==2{print $2, $4}'\"",  # total, available
         remove=True,
         stdout=True,

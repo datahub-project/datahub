@@ -12,6 +12,15 @@
         }
       }
     }, {
+      "prefix" : {
+        "email" : {
+          "boost" : 10.0,
+          "case_insensitive" : true,
+          "rewrite" : "top_terms_50",
+          "value" : "ord"
+        }
+      }
+    }, {
       "match_phrase_prefix" : {
         "name.text" : {
           "analyzer" : "partial",

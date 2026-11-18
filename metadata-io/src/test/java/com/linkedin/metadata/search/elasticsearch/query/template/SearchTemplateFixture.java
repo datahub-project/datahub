@@ -284,7 +284,8 @@ abstract class SearchTemplateFixture {
                 List.of(),
                 false,
                 null,
-                null);
+                null,
+                false);
           } catch (RuntimeException e) {
             return SearchTemplateWalk.AttemptResult.failed(e);
           }

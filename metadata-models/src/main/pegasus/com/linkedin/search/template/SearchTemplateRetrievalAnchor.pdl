@@ -1,0 +1,17 @@
+namespace com.linkedin.search.template
+
+/**
+ * The entity whose stored vectors are the query for {@code querySource: anchorEntity}.
+ */
+record SearchTemplateRetrievalAnchor {
+  /**
+   * How the anchor URN is read from the request. {@code raw} reads the whole trimmed query as the
+   * URN.
+   */
+  urnParameter: optional string
+
+  /**
+   * Leaves the anchor entity out of its own neighbors.
+   */
+  excludeSelf: optional boolean
+}
