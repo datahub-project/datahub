@@ -38,6 +38,10 @@ def _source() -> SigmaSource:
     return source
 
 
+# A warehouse source whose /files lookup misses (_source() returns None).
+_WH_INODE = "inode-whUrlId000000000000001"
+
+
 def _urn(name: str) -> str:
     return f"urn:li:dataset:(urn:li:dataPlatform:sigma,{name},PROD)"
 
@@ -465,7 +469,8 @@ def test_self_reference_is_warehouse_passthrough_deferred() -> None:
     element = _element(
         "elem-data-csv",
         "data.csv",
-        [_column("c1", "city", "[data.csv/city]")],
+        [_column(f"{_WH_INODE}/CITY", "city", "[data.csv/city]")],
+        source_ids=[_WH_INODE],
     )
 
     lineages = _build(
@@ -558,6 +563,37 @@ def test_cross_dm_ref_resolves_via_source_scoped_index() -> None:
     assert source.reporter.data_model_element_fgl_cross_dm_deferred == 0
     # Cross-DM FGL does not tick the intra-DM emit counter.
     assert source.reporter.data_model_element_fgl_emitted == 0
+
+
+def test_cross_dm_ref_resolves_when_column_id_names_a_foreign_inode() -> None:
+    """An inode- columnId that names none of the element's own sources must
+    not short-circuit the cross-DM lookup."""
+    source = _source()
+    dm_url_id = "other-dm"
+    other_urn = _urn("other-dm-element")
+    downstream_urn = _urn("elem-downstream")
+    element = _element(
+        "elem-downstream",
+        "Downstream",
+        [_column("inode-notOwnSource/CITY", "city", "[other_dm_element/city]")],
+        source_ids=[f"{dm_url_id}/some-suffix"],
+    )
+    source.dm_element_urn_by_name = {dm_url_id: {"other_dm_element": [other_urn]}}
+    source.dm_element_urn_to_cols = {other_urn: {"city": "city"}}
+
+    lineages = _build(
+        source,
+        element,
+        element_dataset_urn=downstream_urn,
+        element_name_to_eids={"downstream": ["elem-downstream"]},
+        elementId_to_dataset_urn={"elem-downstream": downstream_urn},
+        entity_level_upstream_urns={other_urn},
+    )
+
+    assert len(lineages) == 1
+    assert lineages[0].upstreams == [builder.make_schema_field_urn(other_urn, "city")]
+    assert source.reporter.data_model_element_fgl_cross_dm_resolved == 1
+    assert source.reporter.data_model_element_fgl_warehouse_passthrough_deferred == 0
 
 
 def test_cross_dm_ref_not_in_source_dm_increments_deferred() -> None:
@@ -787,8 +823,8 @@ def test_self_named_warehouse_element_unaffected_without_cross_dm_sources() -> N
     element = _element(
         "elem-customers",
         "CUSTOMERS",
-        [_column("c1", "id", "[CUSTOMERS/id]")],
-        # source_ids=[] — no cross-DM refs, warehouse-only element
+        [_column(f"{_WH_INODE}/ID", "id", "[CUSTOMERS/id]")],
+        source_ids=[_WH_INODE],  # no cross-DM refs, warehouse-only element
     )
 
     lineages = _build(
@@ -951,8 +987,9 @@ def test_self_named_intra_dm_source_ids_not_treated_as_cross_dm() -> None:
     consumer = _element(
         "consumer-eid",
         "Orders",
-        [_column("c1", "x", "[Orders/x]")],
-        source_ids=["some-intra-dm-eid"],  # bare ID, no "/" — not cross-DM shaped
+        [_column(f"{_WH_INODE}/X", "x", "[Orders/x]")],
+        # bare ID, no "/" — not cross-DM shaped
+        source_ids=["some-intra-dm-eid", _WH_INODE],
     )
 
     lineages = _build(
