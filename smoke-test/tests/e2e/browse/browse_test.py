@@ -1,11 +1,12 @@
 import logging
-from typing import Any, Dict
+from typing import Any, Dict, List
 
 import pytest
 
 from tests.e2e.conftest import _ingest_cleanup_data_impl
 from tests.e2e.utils import (
     execute_graphql,
+    reads_search_v3,
     wait_for_browse_path_entities,
     wait_for_browse_path_entity,
 )
@@ -19,6 +20,15 @@ TEST_DATASET_1_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-1,PR
 TEST_DATASET_2_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-2,PROD)"
 TEST_DATASET_3_URN = "urn:li:dataset:(urn:li:dataPlatform:kafka,test-browse-3,PROD)"
 
+_BROWSE_QUERY = """query browse($input: BrowseInput!) {
+  browse(input: $input) {
+    total
+    entities { urn }
+    groups { name count }
+    metadata { path totalNumEntities }
+  }
+}"""
+
 
 @pytest.fixture(scope="module", autouse=False)
 def ingest_cleanup_data(auth_session, graph_client):
@@ -27,26 +37,17 @@ def ingest_cleanup_data(auth_session, graph_client):
     )
 
 
-def test_get_browse_paths(auth_session, ingest_cleanup_data):
-    # Iterate through each browse path, starting with the root
+def _browse(auth_session, path: List[str], count: int, sync: bool) -> Dict[str, Any]:
+    res_data = execute_graphql(
+        auth_session,
+        _BROWSE_QUERY,
+        {"input": {"type": "DATASET", "path": path, "start": 0, "count": count}},
+        no_sync_wait=not sync,
+    )
+    return res_data["data"]["browse"]
 
-    query = """query browse($input: BrowseInput!) {\n
-                                 browse(input: $input) {\n
-                                   total\n
-                                   entities {\n
-                                     urn\n
-                                   }\n
-                                   groups {\n
-                                     name\n
-                                     count\n
-                                   }\n
-                                   metadata {\n
-                                     path\n
-                                     totalNumEntities\n
-                                   }\n
-                                 }\n
-                               }"""
 
+def _assert_legacy_browse_paths(auth_session) -> None:
     # /prod -- There should be one entity
     # These are all read-only browse queries with no writes in between, so the
     # first two skip the sync wait -- only the final query's response needs one.
@@ -63,29 +64,11 @@ def test_get_browse_paths(auth_session, ingest_cleanup_data):
         entity_type="DATASET",
     )
 
-    variables: Dict[str, Any] = {
-        "input": {"type": "DATASET", "path": ["prod"], "start": 0, "count": 100}
-    }
-
-    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
-
-    browse = res_data["data"]["browse"]
+    browse = _browse(auth_session, ["prod"], count=100, sync=False)
     logger.info(browse)
     assert browse["entities"] == [{"urn": TEST_DATASET_3_URN}]
 
-    # /prod/kafka1
-    variables = {
-        "input": {
-            "type": "DATASET",
-            "path": ["prod", "kafka1"],
-            "start": 0,
-            "count": 10,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, query, variables, no_sync_wait=True)
-
-    browse = res_data["data"]["browse"]
+    browse = _browse(auth_session, ["prod", "kafka1"], count=10, sync=False)
     assert browse == {
         "total": 3,
         "entities": [
@@ -97,22 +80,18 @@ def test_get_browse_paths(auth_session, ingest_cleanup_data):
         "metadata": {"path": ["prod", "kafka1"], "totalNumEntities": 0},
     }
 
-    # /prod/kafka2
-    variables = {
-        "input": {
-            "type": "DATASET",
-            "path": ["prod", "kafka2"],
-            "start": 0,
-            "count": 10,
-        }
-    }
-
-    res_data = execute_graphql(auth_session, query, variables)
-
-    browse = res_data["data"]["browse"]
+    browse = _browse(auth_session, ["prod", "kafka2"], count=10, sync=True)
     assert browse == {
         "total": 2,
         "entities": [{"urn": TEST_DATASET_1_URN}, {"urn": TEST_DATASET_2_URN}],
         "groups": [],
         "metadata": {"path": ["prod", "kafka2"], "totalNumEntities": 0},
     }
+
+
+def test_get_browse_paths(auth_session, ingest_cleanup_data):
+    if reads_search_v3(auth_session):
+        pytest.skip(
+            "Legacy browse returns no entities once reads use Search V3; use browseV2"
+        )
+    _assert_legacy_browse_paths(auth_session)

@@ -1,0 +1,5 @@
+// Caps a filter menu to the space below its trigger (set by useFilterMenuOverlay), so antd keeps it
+// below the trigger and the list scrolls, instead of flipping it up over the trigger and off-screen.
+.filter-menu-overlay .ant-dropdown-menu.ant-dropdown-menu-root {
+    max-height: var(--filter-menu-max-height, 80vh);
+}

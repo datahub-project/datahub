@@ -31,8 +31,10 @@ import org.testng.annotations.Test;
     classes = {ConfigServletTestContext.class, ConfigSearchExportTest.QueryFilterConfig.class},
     properties = {
       "spring.main.allow-bean-definition-overriding=true",
+      // Locks V3 keyword read and template ranking for this export.
       "elasticsearch.entityIndex.v3.enabled=true",
-      "elasticsearch.entityIndex.v3.keywordReadEnabled=true"
+      "elasticsearch.entityIndex.v3.keywordReadEnabled=true",
+      "elasticsearch.search.v3.templates.enabled=true"
     })
 public class ConfigSearchExportTest extends AbstractTestNGSpringContextTests {
 

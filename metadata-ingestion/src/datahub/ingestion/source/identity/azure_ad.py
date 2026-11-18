@@ -4,10 +4,11 @@ import re
 import urllib
 from collections import defaultdict
 from dataclasses import dataclass, field
-from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence
+from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set
 
 import click
 import requests
+from pydantic import field_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
@@ -56,6 +57,28 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.lossy_collections import LossyList
 
 logger = logging.getLogger(__name__)
+
+# Graph user properties read when mapping users, requested with $select on
+# /users and /groups/{id}/members. $select replaces Graph's default property
+# set, so every property the mapping reads must be listed; accountEnabled and
+# usageLocation are only returned when selected (see
+# https://learn.microsoft.com/en-us/graph/api/resources/user). Nested groups
+# among group members only need `id`.
+_USER_SELECT_PROPERTIES = (
+    "id",
+    "userPrincipalName",
+    "displayName",
+    "givenName",
+    "surname",
+    "mail",
+    "jobTitle",
+    "accountEnabled",
+    "usageLocation",
+    "department",
+    "companyName",
+)
+# Selected properties stored as custom properties rather than CorpUserInfo fields.
+_USER_CUSTOM_PROPERTIES = ("companyName",)
 
 
 class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -149,6 +172,35 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
     )
 
+    user_select_attributes: List[str] = Field(
+        default=[],
+        description="Additional Azure AD user properties to request from Microsoft Graph, for example "
+        "`country` or `userType`. They are stored as custom properties on the DataHub user. "
+        "`department` and `companyName` are always requested.",
+    )
+
+    @field_validator("user_select_attributes")
+    @classmethod
+    def _validate_user_select_attributes(cls, attributes: List[str]) -> List[str]:
+        names = [attr.strip() for attr in attributes]
+        # The names go into the $select query string unescaped.
+        invalid = [n for n in names if not re.fullmatch(r"[A-Za-z0-9_]+", n)]
+        if invalid:
+            raise ValueError(
+                f"user_select_attributes must be Microsoft Graph property names; got {invalid}"
+            )
+        mapped = [
+            n
+            for n in names
+            if n in _USER_SELECT_PROPERTIES and n not in _USER_CUSTOM_PROPERTIES
+        ]
+        if mapped:
+            logger.warning(
+                f"Ignoring user_select_attributes {mapped}: they are already mapped "
+                "to DataHub user fields."
+            )
+        return [n for n in dict.fromkeys(names) if n not in mapped]
+
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
         default=None, description="Azure AD Stateful Ingestion Config."
@@ -158,6 +210,7 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
 @dataclass
 class AzureADSourceReport(StaleEntityRemovalSourceReport):
     filtered: LossyList[str] = field(default_factory=LossyList)
+    users_missing_account_enabled: int = 0
 
     def report_filtered(self, name: str) -> None:
         self.filtered.append(name)
@@ -232,6 +285,8 @@ class AzureADSource(StatefulIngestionSourceBase):
         self.token = self.get_token()
         self.selected_azure_ad_groups: list = []
         self.azure_ad_groups_users: list = []
+        # A set, because a user in several groups is mapped once per membership.
+        self.urns_missing_account_enabled: Set[str] = set()
 
     def get_token(self):
         token_response = requests.post(self.config.token_url, data=self.token_data)
@@ -328,6 +383,17 @@ class AzureADSource(StatefulIngestionSourceBase):
                     self._map_azure_ad_users(azure_ad_users),
                     datahub_corp_user_urn_to_group_membership,
                 )
+
+        if self.report.users_missing_account_enabled:
+            # Without accountEnabled every user maps to ACTIVE, so disabled
+            # accounts would silently keep DataHub access.
+            self.report.warning(
+                message="Azure AD did not return accountEnabled, so these users are treated as active",
+                context=(
+                    f"{self.report.users_missing_account_enabled} user(s). Grant the app "
+                    "registration the User.Read.All application permission."
+                ),
+            )
 
     def _add_group_members_to_group_membership(
         self,
@@ -435,12 +501,22 @@ class AzureADSource(StatefulIngestionSourceBase):
     def _get_azure_ad_groups(self) -> Iterable[List]:
         yield from self._get_azure_ad_data(kind="/groups")
 
+    def _user_select_query(self) -> str:
+        properties = dict.fromkeys(
+            [
+                *_USER_SELECT_PROPERTIES,
+                self.config.azure_ad_response_to_username_attr,
+                *self.config.user_select_attributes,
+            ]
+        )
+        return "$select=" + ",".join(properties)
+
     def _get_azure_ad_users(self) -> Iterable[List]:
-        yield from self._get_azure_ad_data(kind="/users")
+        yield from self._get_azure_ad_data(kind=f"/users?{self._user_select_query()}")
 
     def _get_azure_ad_group_members(self, azure_ad_group: dict) -> Iterable[List]:
         group_id = azure_ad_group.get("id")
-        kind = f"/groups/{group_id}/members"
+        kind = f"/groups/{group_id}/members?{self._user_select_query()}"
         yield from self._get_azure_ad_data(kind=kind)
 
     def _get_azure_ad_data(self, kind: str) -> Iterable[List]:
@@ -467,11 +543,31 @@ class AzureADSource(StatefulIngestionSourceBase):
                 )
                 logger.debug(f"URL = {url}")
                 logger.error(error_str)
+                hint = ""
+                # Graph answers an unknown $select property with 400; 401/403
+                # are permission problems and must not point at this setting.
+                if response.status_code == 400 and "$select=" in str(url):
+                    hint = (
+                        " If Graph rejected a selected property, check that "
+                        "azure_ad_response_to_username_attr "
+                        f"({self.config.azure_ad_response_to_username_attr!r})"
+                    )
+                    if self.config.user_select_attributes:
+                        hint += (
+                            " and user_select_attributes "
+                            f"({self.config.user_select_attributes!r}) are"
+                        )
+                    else:
+                        hint += " is"
+                    hint += " Microsoft Graph user properties."
                 self.report.failure(
                     message="Failed to get data from Azure AD Graph API",
-                    context=error_str,
+                    context=error_str + hint,
                 )
-                raise Exception(f"Unable to get {url}, error {response.status_code}")
+                raise Exception(
+                    f"Unable to get {url}, error {response.status_code}: "
+                    f"{response.text}{hint}"
+                )
 
     def _map_identity_to_urn(self, func, id_to_extract, mapping_identifier, id_type):
         result, error_str = None, None
@@ -587,6 +683,11 @@ class AzureADSource(StatefulIngestionSourceBase):
             if not self.config.users_pattern.allowed(corp_user_urn):
                 self.report.report_filtered(f"{corp_user_urn}.*")
                 continue
+            if user.get("accountEnabled") is None:
+                self.urns_missing_account_enabled.add(corp_user_urn)
+                self.report.users_missing_account_enabled = len(
+                    self.urns_missing_account_enabled
+                )
             yield AzureADUserAspects(
                 urn=corp_user_urn,
                 info=self._map_azure_ad_user_to_corp_user(user),
@@ -609,7 +710,9 @@ class AzureADSource(StatefulIngestionSourceBase):
             return None
         return make_user_urn(user_name)
 
-    def _map_azure_ad_user_to_corp_user(self, azure_ad_user):
+    def _map_azure_ad_user_to_corp_user(
+        self, azure_ad_user: Dict[str, Any]
+    ) -> CorpUserInfoClass:
         full_name = (
             str(azure_ad_user.get("givenName", ""))
             + " "
@@ -619,13 +722,33 @@ class AzureADSource(StatefulIngestionSourceBase):
         return CorpUserInfoClass(
             active=corp_user_info_active_from_status(user_status),
             displayName=azure_ad_user.get("displayName", full_name),
-            firstName=azure_ad_user.get("givenName", None),
-            lastName=azure_ad_user.get("surname", None),
+            firstName=azure_ad_user.get("givenName"),
+            lastName=azure_ad_user.get("surname"),
             fullName=full_name,
             email=azure_ad_user.get("mail"),
-            title=azure_ad_user.get("jobTitle", None),
-            countryCode=azure_ad_user.get("mobilePhone", None),
+            title=azure_ad_user.get("jobTitle"),
+            countryCode=azure_ad_user.get("usageLocation"),
+            departmentName=azure_ad_user.get("department"),
+            customProperties=self._map_azure_ad_user_custom_properties(azure_ad_user),
         )
+
+    def _map_azure_ad_user_custom_properties(
+        self, azure_ad_user: dict
+    ) -> Dict[str, str]:
+        props: Dict[str, str] = {}
+        for key in dict.fromkeys(
+            [*_USER_CUSTOM_PROPERTIES, *self.config.user_select_attributes]
+        ):
+            value = azure_ad_user.get(key)
+            if value in (None, "", [], {}):
+                continue
+            # Graph returns lists, booleans and objects too; store them as JSON.
+            props[key] = (
+                value
+                if isinstance(value, str)
+                else json.dumps(value, sort_keys=True, ensure_ascii=False)
+            )
+        return props
 
     def _extract_regex_match_from_dict_value(
         self, str_dict: Dict[str, str], key: str, pattern: str

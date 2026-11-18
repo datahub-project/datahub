@@ -9,6 +9,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.search.template.SearchTemplateDefaultRoute;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import java.util.Collection;
 import java.util.LinkedHashMap;
 import java.util.List;
@@ -117,6 +118,50 @@ public final class SearchTemplateChecks {
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
+    run(
+        true,
+        compose(merged),
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  /**
+   * The rules over sections a child inherits separately, on one merged template: the {@code knn}
+   * shape by the effective combine, similarity with {@code knn} or {@code next}, the native
+   * embedding placeholders, {@code profiles} on a keyword rung, ranking beside a {@code knn} that
+   * is not keywordRerank, and deprecated {@code model} and {@code field} names that disagree. A
+   * parent write runs them on each inheriting child.
+   */
+  public static void checkInheritedSections(@Nonnull MergedSearchTemplate merged) {
+    SearchTemplateCapabilities.requireSemanticApiVersion(merged);
+    SearchTemplateGates.legacyProfileId(merged);
+    SearchTemplateProperties composed = compose(merged);
+    if (merged.getProfiles() != null) {
+      SearchTemplateProfilesPolicy.check(merged.getProfiles());
+    }
+    SearchTemplatePolicyChecks.rejectRouterBody(composed);
+    SearchTemplatePolicyChecks.checkMergedSections(composed);
+    SearchTemplatePolicyChecks.requireKeywordForRanking(composed);
+    String knn = merged.getKnn();
+    if (knn != null && SearchTemplateDialect.ELASTICSEARCH.name().equals(merged.getDialect())) {
+      String rendered = render(knn, SearchTemplateMustache.validationContext(knn));
+      if (rendered != null) {
+        checkKnn(rendered, merged.getRetrieval(), true);
+      }
+    }
+  }
+
+  @Nonnull
+  private static SearchTemplateProperties compose(@Nonnull MergedSearchTemplate merged) {
     SearchTemplateProperties composed = new SearchTemplateProperties();
     composed.setName("merged");
     composed.setDialect(SearchTemplateDialect.valueOf(merged.getDialect()));
@@ -147,6 +192,12 @@ public final class SearchTemplateChecks {
     }
     if (merged.getRetrieval() != null) {
       composed.setRetrieval(merged.getRetrieval());
+    }
+    if (merged.getProfiles() != null) {
+      composed.setProfiles(merged.getProfiles());
+    }
+    if (merged.getScope() != null) {
+      composed.setScope(merged.getScope());
     }
     if (merged.getLadder() != null) {
       composed.setLadder(merged.getLadder());
@@ -206,17 +257,7 @@ public final class SearchTemplateChecks {
     if (!merged.getParameters().isEmpty()) {
       composed.setParameters(new StringMap(merged.getParameters()));
     }
-    check(
-        composed,
-        maxLeafClauses,
-        maxRoutes,
-        maxRoutePatternLength,
-        maxRankingSignals,
-        maxRankingWindow,
-        context,
-        retriever,
-        entitySpecs,
-        registry);
+    return composed;
   }
 
   public static void check(@Nonnull SearchTemplateProperties properties, int maxLeafClauses) {
@@ -308,8 +349,39 @@ public final class SearchTemplateChecks {
       @Nullable AspectRetriever retriever,
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
+    run(
+        false,
+        properties,
+        maxLeafClauses,
+        maxRoutes,
+        maxRoutePatternLength,
+        maxRankingSignals,
+        maxRankingWindow,
+        context,
+        retriever,
+        entitySpecs,
+        registry);
+  }
+
+  /**
+   * {@code merged} is true for the parent chain merged into one template. Rules that span sections
+   * a child can inherit separately run only then.
+   */
+  private static void run(
+      boolean merged,
+      @Nonnull SearchTemplateProperties properties,
+      int maxLeafClauses,
+      int maxRoutes,
+      int maxRoutePatternLength,
+      int maxRankingSignals,
+      int maxRankingWindow,
+      @Nullable OperationFingerprint context,
+      @Nullable AspectRetriever retriever,
+      @Nullable Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     try {
       checkProperties(
+          merged,
           properties,
           maxLeafClauses,
           maxRoutes,
@@ -328,6 +400,7 @@ public final class SearchTemplateChecks {
   }
 
   private static void checkProperties(
+      boolean merged,
       @Nonnull SearchTemplateProperties properties,
       int maxLeafClauses,
       int maxRoutes,
@@ -339,6 +412,7 @@ public final class SearchTemplateChecks {
       @Nullable Collection<EntitySpec> entitySpecs,
       @Nonnull SearchTemplateComponentRegistry registry) {
     SearchTemplatePolicyChecks.check(
+        merged,
         properties,
         maxRoutes,
         maxRoutePatternLength,
@@ -386,7 +460,11 @@ public final class SearchTemplateChecks {
             nullToEmpty(sort),
             String.join("\n", fragments.values()));
     rejectUnescaped(query, clauses, functionScore, rescore, knn, aggregations, sort, fragments);
-    Map<String, Object> mustache = SearchTemplateMustache.validationContext(source);
+    Map<String, Object> mustache =
+        new LinkedHashMap<>(SearchTemplateMustache.validationContext(source));
+    // Sample values so a stored native mixed query renders to valid JSON at write time.
+    mustache.put(SearchTemplateHoles.EMBEDDING_CLAUSES_JSON, "{ \"match_all\": {} }");
+    mustache.put("embeddingField", "embeddings.vector");
     Map<String, Object> spliced = new LinkedHashMap<>(mustache);
     for (Map.Entry<String, String> entry : fragments.entrySet()) {
       String rendered = render(entry.getValue(), mustache);
@@ -423,7 +501,10 @@ public final class SearchTemplateChecks {
       throw new SearchTemplateException("Search template rescore cannot be combined with sort");
     }
     if (renderedKnn != null) {
-      SearchTemplateJson.parseKnn(renderedKnn);
+      checkKnn(
+          renderedKnn,
+          properties.hasRetrieval() ? properties.getRetrieval() : null,
+          merged || properties.hasRetrieval());
     }
     if (renderedKnn != null && SearchTemplateJson.sortClauseCount(renderedSort) > 0) {
       throw new SearchTemplateException("Search template knn cannot be combined with sort");
@@ -442,6 +523,30 @@ public final class SearchTemplateChecks {
     if (leaves > maxLeafClauses) {
       throw new SearchTemplateException(
           "Search template has " + leaves + " leaf clauses and the limit is " + maxLeafClauses);
+    }
+  }
+
+  /**
+   * The effective combine picks one parser. keywordRerank reads the blend shape, and a rung with no
+   * combine keeps the earlier shape, which requires {@code field}. One aspect that sets no
+   * retrieval may inherit its combine, so it is only checked as JSON here, and the merged check
+   * applies the parser.
+   */
+  public static void checkKnn(
+      @Nonnull String renderedKnn,
+      @Nullable SearchTemplateRetrieval retrieval,
+      boolean combineKnown) {
+    if (!combineKnown) {
+      SearchTemplateJson.requireObject(renderedKnn, "knn");
+      return;
+    }
+    String combine = SearchTemplateCapabilities.combine(retrieval);
+    if (combine == null) {
+      SearchTemplateJson.parseKnn(renderedKnn);
+    } else if (SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(combine)) {
+      SearchTemplateJson.parseRerankKnn(renderedKnn);
+    } else {
+      SearchTemplateJson.requireObject(renderedKnn, "knn");
     }
   }
 

@@ -320,7 +320,8 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertThrows(
         SearchTemplateException.class, () -> coordinator.bind(opContext, "customer orders"));
     OperationContext scrolled = coordinator.bind(opContext, "customer orders", true);

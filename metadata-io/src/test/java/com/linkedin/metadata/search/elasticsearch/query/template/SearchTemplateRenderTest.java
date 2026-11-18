@@ -103,7 +103,8 @@ public class SearchTemplateRenderTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
   }
 
   @Test
@@ -315,7 +316,8 @@ public class SearchTemplateRenderTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext scrolled = coordinator.bind(harness.opContext, "customer orders", true);
     assertNotNull(scrolled.getSearchContext().getResolvedSearchTemplate());
     assertFalse(scrolled.getSearchContext().getResolvedSearchTemplate().isKnnApplied());
@@ -340,7 +342,8 @@ public class SearchTemplateRenderTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty());
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     OperationContext bound = coordinator.bind(harness.opContext, "customer orders");
     assertNotNull(bound.getSearchContext().getResolvedSearchTemplate());
     assertTrue(

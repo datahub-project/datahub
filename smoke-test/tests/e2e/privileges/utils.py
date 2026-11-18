@@ -8,9 +8,21 @@ from utilities.consistency_utils import wait_for_writes_to_sync
 
 logger = logging.getLogger(__name__)
 
-# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=10; allow scheduled refresh
+# Smoke quickstart sets POLICY_CACHE_REFRESH_INTERVAL_SECONDS=2; allow scheduled refresh
 # plus async invalidate/rebuild under full-suite CI load.
 DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS = 60
+
+
+def _post_without_sync_wait(session, url: str, **kwargs: Any):
+    """POST without TestSessionWrapper's automatic sync wait.
+
+    Every write helper below waits explicitly after its POST. On a
+    TestSessionWrapper the plain ``post`` would wait a second time.
+    """
+    raw_post = getattr(session, "raw_post", None)
+    if raw_post is not None:
+        return raw_post(url, **kwargs)
+    return session.post(url, **kwargs)
 
 
 def is_graphql_auth_denied(res: dict[str, Any]) -> bool:
@@ -38,6 +50,36 @@ def wait_until_graphql_auth_denied(
     while time.time() < deadline:
         last_res = request_fn()
         if is_graphql_auth_denied(last_res):
+            return last_res
+        logger.info(
+            "Waiting for policy cache to reflect %s (%.0fs remaining)",
+            description,
+            max(0.0, deadline - time.time()),
+        )
+        time.sleep(poll_interval_seconds)
+    raise AssertionError(
+        f"Timed out after {timeout_seconds}s waiting for {description}; "
+        f"last response: {last_res}"
+    )
+
+
+def wait_until_graphql_authorized(
+    request_fn: Callable[[], dict[str, Any]],
+    *,
+    timeout_seconds: float = DEFAULT_POLICY_CACHE_AUTH_WAIT_SECONDS,
+    poll_interval_seconds: float = 1.0,
+    description: str = "authorization grant",
+) -> dict[str, Any]:
+    """Poll until request_fn stops returning a GraphQL authorization error.
+
+    Counterpart of wait_until_graphql_auth_denied for a new or widened policy. Only
+    pass an idempotent request: it is re-sent until GMS's policy cache allows it.
+    """
+    deadline = time.time() + timeout_seconds
+    last_res: dict[str, Any] = {}
+    while time.time() < deadline:
+        last_res = request_fn()
+        if not is_graphql_auth_denied(last_res):
             return last_res
         logger.info(
             "Waiting for policy cache to reflect %s (%.0fs remaining)",
@@ -264,12 +306,16 @@ def set_view_entity_profile_privileges_policy_status(status, session):
     _set_policy_status(VIEW_ENTITY_PAGE_POLICY_URN, status, session)
 
 
-def create_user(session, email, password):
-    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled."""
-    # Remove user if exists
-    res_data = remove_user(session, f"urn:li:corpuser:{email}")
-    assert res_data
-    assert "error" not in res_data
+def create_user(session, email, password, *, remove_existing: bool = True):
+    """Create a native user via /signUp; ``email`` must be valid if enforceValidEmail is enabled.
+
+    Pass ``remove_existing=False`` when the email is unique to this call, so the
+    pre-delete of a user that cannot exist yet is skipped.
+    """
+    if remove_existing:
+        res_data = remove_user(session, f"urn:li:corpuser:{email}")
+        assert res_data
+        assert "error" not in res_data
 
     # Get the invite token
     get_invite_token_json = {
@@ -318,7 +364,9 @@ def create_user(session, email, password):
         "title": "Data Engineer",
         "inviteToken": invite_token,
     }
-    sign_up_response = session.post(f"{get_frontend_url()}/signUp", json=sign_up_json)
+    sign_up_response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/signUp", json=sign_up_json
+    )
     sign_up_response.raise_for_status()
     assert sign_up_response
     assert "error" not in sign_up_response
@@ -337,7 +385,9 @@ def remove_user(session, urn):
         }""",
         "variables": {"urn": urn},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     wait_for_writes_to_sync(mae_only=True)
     return response.json()
@@ -350,7 +400,9 @@ def create_group(session, name):
         }""",
         "variables": {"input": {"name": name}},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -367,7 +419,9 @@ def remove_group(session, urn):
         }""",
         "variables": {"urn": urn},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -384,7 +438,9 @@ def assign_user_to_group(session, group_urn, user_urns):
         }""",
         "variables": {"groupUrn": group_urn, "userUrns": user_urns},
     }
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -402,7 +458,9 @@ def assign_role(session, role_urn, actor_urns):
         "variables": {"input": {"roleUrn": role_urn, "actors": actor_urns}},
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=json)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=json
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data
@@ -462,7 +520,9 @@ def create_metadata_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
@@ -522,7 +582,9 @@ def create_domain_scoped_metadata_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
     assert res_data.get("data") and res_data["data"].get("createPolicy"), (
@@ -562,7 +624,9 @@ def create_user_policy(
         },
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=policy)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=policy
+    )
     response.raise_for_status()
     res_data = response.json()
 
@@ -581,8 +645,8 @@ def remove_policy(urn, session):
         "variables": {"urn": urn},
     }
 
-    response = session.post(
-        f"{get_frontend_url()}/api/v2/graphql", json=remove_policy_json
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=remove_policy_json
     )
     response.raise_for_status()
     res_data = response.json()
@@ -743,6 +807,8 @@ def remove_secret(session, urn):
         "variables": {"urn": urn},
     }
 
-    response = session.post(f"{get_frontend_url()}/api/v2/graphql", json=remove_secret)
+    response = _post_without_sync_wait(
+        session, f"{get_frontend_url()}/api/v2/graphql", json=remove_secret
+    )
     response.raise_for_status()
     wait_for_writes_to_sync(mae_only=True)

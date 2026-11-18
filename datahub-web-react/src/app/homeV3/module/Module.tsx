@@ -52,7 +52,11 @@ const MetricSqlModule = lazyProfileComponent(
     largeModuleChunkOptions,
 );
 
-function Module(props: ModuleProps) {
+type Props = ModuleProps & {
+    onHiddenChange?: (isHidden: boolean) => void;
+};
+
+function Module({ onHiddenChange, ...props }: Props) {
     const { module } = props;
 
     // Memoize component selection to prevent re-evaluation on every render
@@ -89,7 +93,7 @@ function Module(props: ModuleProps) {
 
     return (
         <ModuleErrorBoundary {...props}>
-            <ModuleProvider {...props}>
+            <ModuleProvider {...props} onHiddenChange={onHiddenChange}>
                 <Component {...props} />
             </ModuleProvider>
         </ModuleErrorBoundary>

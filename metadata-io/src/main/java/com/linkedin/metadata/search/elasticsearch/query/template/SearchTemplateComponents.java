@@ -210,7 +210,8 @@ public final class SearchTemplateComponents {
         raw.highlights(),
         raw.shardFailed,
         raw.renderedQuery(),
-        raw.candidates());
+        raw.candidates(),
+        raw.templateSort);
   }
 
   @Nonnull
