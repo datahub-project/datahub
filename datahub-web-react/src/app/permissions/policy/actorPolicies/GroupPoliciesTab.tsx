@@ -1,7 +1,11 @@
 import React, { useMemo } from 'react';
 
 import ActorPoliciesTable from '@app/permissions/policy/actorPolicies/ActorPoliciesTable';
-import { buildActorPolicyRows, listPoliciesByField } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
+import {
+    buildActorPolicyRows,
+    isTruncated,
+    listPoliciesByField,
+} from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
 
 import { useGetGroupRoleUrnsQuery } from '@graphql/actorPolicies.generated';
 import { useListPoliciesQuery } from '@graphql/policy.generated';
@@ -42,6 +46,7 @@ export default function GroupPoliciesTab({ urn }: { urn: string }) {
             rows={rows}
             loading={roles.loading || results.some((result) => result.loading)}
             error={!!roles.error || results.some((result) => !!result.error)}
+            truncated={isTruncated(results.map((result) => result.data?.listPolicies))}
         />
     );
 }

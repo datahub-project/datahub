@@ -12,7 +12,7 @@ import {
     PolicyReason,
     PolicyStateFilter,
 } from '@app/permissions/policy/actorPolicies/actorPolicies.types';
-import { filterRowsByState } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
+import { ACTOR_POLICIES_PAGE_SIZE, filterRowsByState } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
 import getPolicyPrivilegeNames from '@app/permissions/policy/getPolicyPrivilegeNames';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
@@ -59,6 +59,8 @@ type Props = {
     rows: ActorPolicyRow[];
     loading: boolean;
     error?: boolean;
+    /** Some policies were left out because a query returned only its first page. */
+    truncated?: boolean;
     /** Shown under the table, e.g. to say what the list can't include. */
     note?: string;
 };
@@ -97,7 +99,7 @@ function ReasonPill({ reason, policy }: { reason: PolicyReason; policy: ListedPo
 }
 
 /** Read-only list of the policies that apply to a user or group, styled like Settings > Policies. */
-export default function ActorPoliciesTable({ rows, loading, error, note }: Props) {
+export default function ActorPoliciesTable({ rows, loading, error, truncated, note }: Props) {
     const { t } = useTranslation('settings.permissions');
     const [status, setStatus] = useState<PolicyStateFilter>('ACTIVE');
     const [focusPolicy, setFocusPolicy] = useState<ListedPolicy | undefined>(undefined);
@@ -165,10 +167,15 @@ export default function ActorPoliciesTable({ rows, loading, error, note }: Props
                 <ManageLink to={PageRoutes.SETTINGS_POLICIES}>{t('actorPolicies.managePolicies')}</ManageLink>
             </Toolbar>
             {error && <Alert variant="error" title={t('loadError')} />}
+            {truncated && (
+                <Alert variant="warning" title={t('actorPolicies.truncated', { count: ACTOR_POLICIES_PAGE_SIZE })} />
+            )}
             {!loading && visibleRows.length === 0 ? (
-                <EmptyContainer>
-                    <Text size="md">{t('emptyPolicies')}</Text>
-                </EmptyContainer>
+                !error && (
+                    <EmptyContainer>
+                        <Text size="md">{t('emptyPolicies')}</Text>
+                    </EmptyContainer>
+                )
             ) : (
                 <Table
                     columns={columns}

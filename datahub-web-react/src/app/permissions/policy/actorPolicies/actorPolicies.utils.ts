@@ -15,6 +15,11 @@ export function listPoliciesByField(field: string, values: string[]) {
     return { input: { start: 0, count: ACTOR_POLICIES_PAGE_SIZE, orFilters: [{ and: [{ field, values }] }] } };
 }
 
+/** True when any listPolicies result holds fewer policies than its total, i.e. the page cut the list off. */
+export function isTruncated(results: Array<{ total: number; policies: unknown[] } | null | undefined>): boolean {
+    return results.some((result) => !!result && result.total > result.policies.length);
+}
+
 export type ActorPolicyContext = {
     actorType: 'user' | 'group';
     actorUrn: string;

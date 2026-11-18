@@ -2,7 +2,11 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 
 import ActorPoliciesTable from '@app/permissions/policy/actorPolicies/ActorPoliciesTable';
-import { buildActorPolicyRows, listPoliciesByField } from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
+import {
+    buildActorPolicyRows,
+    isTruncated,
+    listPoliciesByField,
+} from '@app/permissions/policy/actorPolicies/actorPolicies.utils';
 
 import { useGetUserPolicyAccessQuery } from '@graphql/actorPolicies.generated';
 import { useListPoliciesQuery } from '@graphql/policy.generated';
@@ -35,6 +39,7 @@ export default function UserPoliciesTab({ urn }: { urn: string }) {
             rows={rows}
             loading={access.loading || policies.loading}
             error={!!access.error || !!policies.error}
+            truncated={isTruncated([policies.data?.listPolicies])}
             note={t('actorPolicies.userGapNote')}
         />
     );

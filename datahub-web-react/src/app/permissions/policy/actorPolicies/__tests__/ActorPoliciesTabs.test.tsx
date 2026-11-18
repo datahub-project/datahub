@@ -43,14 +43,33 @@ function policy(name: string, actors: Partial<ListedPolicy['actors']>, state = P
     };
 }
 
-function listPoliciesMock(field: string, values: string[], policies: ListedPolicy[]): MockedResponse {
+function listPoliciesMock(
+    field: string,
+    values: string[],
+    policies: ListedPolicy[],
+    total = policies.length,
+): MockedResponse {
     return {
         request: { query: ListPoliciesDocument, variables: listPoliciesByField(field, values) },
         result: {
-            data: { listPolicies: { start: 0, count: policies.length, total: policies.length, policies } },
+            data: { listPolicies: { start: 0, count: policies.length, total, policies } },
         },
     };
 }
+
+function groupRolesMock(roleUrns: string[]): MockedResponse {
+    return {
+        request: { query: GetGroupRoleUrnsDocument, variables: { urn: GROUP } },
+        result: {
+            data: {
+                corpGroup: { urn: GROUP, roles: { relationships: roleUrns.map((urn) => ({ entity: { urn } })) } },
+            },
+        },
+    };
+}
+
+const TRUNCATION_WARNING = /Only the first/;
+const LOAD_ERROR = 'Failed to load policies! An unexpected error occurred.';
 
 function renderWithMocks(mocks: MockedResponse[], ui: React.ReactElement) {
     return render(
@@ -92,6 +111,33 @@ describe('GroupPoliciesTab', () => {
         expect(screen.getByText('Role: Editor')).toBeInTheDocument();
         expect(screen.getByText('3 policies')).toBeInTheDocument();
         expect(screen.queryByText(/asset owners/)).not.toBeInTheDocument();
+        expect(screen.queryByText(TRUNCATION_WARNING)).not.toBeInTheDocument();
+    });
+
+    it('skips the roles query for a group with no roles', async () => {
+        const mocks = [
+            groupRolesMock([]),
+            listPoliciesMock('groups', [GROUP], [policy('Named group', { groups: [GROUP] })]),
+            listPoliciesMock('allGroups', ['true'], []),
+        ];
+        renderWithMocks(mocks, <GroupPoliciesTab urn={GROUP} />);
+
+        expect(await screen.findByText('Named group')).toBeInTheDocument();
+        expect(screen.getByText('1 policy')).toBeInTheDocument();
+        // An unskipped roles query would have no matching mock and surface as a load error.
+        expect(screen.queryByText(LOAD_ERROR)).not.toBeInTheDocument();
+    });
+
+    it('warns when a query returns fewer policies than its total', async () => {
+        const mocks = [
+            groupRolesMock([]),
+            listPoliciesMock('groups', [GROUP], [policy('Named group', { groups: [GROUP] })], 1500),
+            listPoliciesMock('allGroups', ['true'], []),
+        ];
+        renderWithMocks(mocks, <GroupPoliciesTab urn={GROUP} />);
+
+        expect(await screen.findByText('Named group')).toBeInTheDocument();
+        expect(screen.getByText(TRUNCATION_WARNING)).toBeInTheDocument();
     });
 });
 
@@ -125,6 +171,36 @@ describe('UserPoliciesTab', () => {
         expect(screen.queryByText('Direct inactive')).not.toBeInTheDocument();
         expect(screen.queryByText('All groups only')).not.toBeInTheDocument();
         expect(screen.getByText('2 policies')).toBeInTheDocument();
-        expect(screen.getByText(/Policies granted to asset owners aren't listed/)).toBeInTheDocument();
+        expect(
+            screen.getByText(/Policies granted to asset owners and built-in default policies aren't listed/),
+        ).toBeInTheDocument();
+        expect(screen.queryByText(TRUNCATION_WARNING)).not.toBeInTheDocument();
+    });
+
+    it('warns when the policy details are truncated', async () => {
+        const mocks = [
+            {
+                request: { query: GetUserPolicyAccessDocument, variables: { urn: USER } },
+                result: { data: { debugAccess: { policies: [policies[0].urn], groups: [], allRoles: [] } } },
+            },
+            listPoliciesMock('urn', [policies[0].urn], [policies[0]], 2),
+        ];
+        renderWithMocks(mocks, <UserPoliciesTab urn={USER} />);
+
+        expect(await screen.findByText('Direct active')).toBeInTheDocument();
+        expect(screen.getByText(TRUNCATION_WARNING)).toBeInTheDocument();
+    });
+
+    it('shows the load error without the empty state when debugAccess fails', async () => {
+        const mocks = [
+            {
+                request: { query: GetUserPolicyAccessDocument, variables: { urn: USER } },
+                error: new Error('unauthorized'),
+            },
+        ];
+        renderWithMocks(mocks, <UserPoliciesTab urn={USER} />);
+
+        expect(await screen.findByText(LOAD_ERROR)).toBeInTheDocument();
+        expect(screen.queryByText('No Policies!')).not.toBeInTheDocument();
     });
 });
