@@ -451,7 +451,7 @@ export function useRemoveRelationship(entityType: EntityType) {
     }
     if (pageEntityType === EntityType.Application) {
         return {
-            removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn)),
+            removeRelationship: () => (onRemove ? onRemove() : removeApplication(previewData?.urn, entityData.urn)),
             // A child Application is listed through its own parentApplication, not the applications
             // aspect that removeApplication unsets, so it can't be removed from here.
             removeButtonText:

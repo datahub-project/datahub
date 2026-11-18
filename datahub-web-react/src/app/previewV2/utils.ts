@@ -10,7 +10,7 @@ import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
 import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 import { useBatchSetDataProductMutation } from '@src/graphql/dataProduct.generated';
 
-import { useBatchSetApplicationMutation } from '@graphql/application.generated';
+import { useBatchUnsetApplicationMutation } from '@graphql/application.generated';
 import { useRemoveTermMutation, useUnsetDomainMutation } from '@graphql/mutations.generated';
 import { BrowsePathV2, DataHubPageModuleType, EntityType, GlobalTags, Owner } from '@types';
 
@@ -206,11 +206,11 @@ export function useRemoveDataProductAssets(setShouldRefetchEmbeddedListSearch) {
 }
 
 export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
-    const [batchSetApplicationMutation] = useBatchSetApplicationMutation();
-    const [urnToRemove, setUrnToRemove] = useState<string | null>(null);
+    const [batchUnsetApplicationMutation] = useBatchUnsetApplicationMutation();
+    const [pendingRemoval, setPendingRemoval] = useState<{ urn: string; applicationUrn: string } | null>(null);
 
-    function handleApplication(urn) {
-        batchSetApplicationMutation({ variables: { input: { resourceUrns: [urn] } } })
+    function handleApplication(urn: string, applicationUrn: string) {
+        batchUnsetApplicationMutation({ variables: { input: { applicationUrn, resourceUrns: [urn] } } })
             .then(() => {
                 setTimeout(() => {
                     setShouldRefetchEmbeddedListSearch(true);
@@ -227,18 +227,20 @@ export function useRemoveApplicationAssets(setShouldRefetchEmbeddedListSearch) {
             });
     }
 
-    const removeApplication = (urn) => {
-        setUrnToRemove(urn);
+    const removeApplication = (urn: string | undefined, applicationUrn: string) => {
+        if (urn) {
+            setPendingRemoval({ urn, applicationUrn });
+        }
     };
 
     const confirmState: RemoveConfirmState = {
-        isOpen: !!urnToRemove,
-        handleClose: () => setUrnToRemove(null),
+        isOpen: !!pendingRemoval,
+        handleClose: () => setPendingRemoval(null),
         handleConfirm: () => {
-            if (urnToRemove) {
-                handleApplication(urnToRemove);
+            if (pendingRemoval) {
+                handleApplication(pendingRemoval.urn, pendingRemoval.applicationUrn);
             }
-            setUrnToRemove(null);
+            setPendingRemoval(null);
         },
         modalTitle: i18next.t('entity.preview:application.removeConfirmTitle'),
         modalText: i18next.t('entity.preview:application.removeConfirmContent'),
