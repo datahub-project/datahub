@@ -16,6 +16,7 @@ import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
 import com.linkedin.datahub.graphql.types.entitytype.EntityTypeMapper;
 import com.linkedin.entity.client.EntityClient;
 import com.linkedin.metadata.config.SearchQuickFiltersConfiguration;
+import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.FilterValue;
@@ -29,8 +30,10 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.Comparator;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
+import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
@@ -106,6 +109,10 @@ public class GetQuickFiltersResolver
           try {
             final SearchResult searchResult =
                 getSearchResults(context.getOperationContext(), input);
+            if (searchResult == null) {
+              result.setQuickFilters(quickFilters);
+              return result;
+            }
             final AggregationMetadataArray aggregations =
                 searchResult.getMetadata().getAggregations();
 
@@ -124,9 +131,14 @@ public class GetQuickFiltersResolver
   }
 
   /**
-   * Do a star search with view filter applied to get info about all data in this instance. Include
-   * aggregations.
+   * Do a star search with view filter applied to get info about all data in this instance. Only the
+   * platform and entity type aggregations are requested, with enough buckets that every searched
+   * entity type and the top platforms are returned, and never fewer than the search flag default.
+   * The search layer still caps buckets at elasticsearch.search.maxTermBucketSize. Returns null
+   * when there are no entity types to search, matching searchAcrossEntities, since an empty list
+   * would search every index.
    */
+  @Nullable
   private SearchResult getSearchResults(
       @Nonnull final OperationContext opContext, @Nonnull final GetQuickFiltersInput input)
       throws Exception {
@@ -134,21 +146,34 @@ public class GetQuickFiltersResolver
         (input.getViewUrn() != null)
             ? resolveView(opContext, _viewService, UrnUtils.getUrn(input.getViewUrn()))
             : null;
-    final List<String> entityNames = getSearchEntityNames(opContext);
-
-    return _entityClient.searchAcrossEntities(
-        opContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
+    final List<String> defaultEntityNames = getSearchEntityNames(opContext);
+    final List<String> entityNames =
         maybeResolvedView != null
             ? SearchUtils.intersectEntityTypes(
-                entityNames, maybeResolvedView.getDefinition().getEntityTypes())
-            : entityNames,
+                defaultEntityNames, maybeResolvedView.getDefinition().getEntityTypes())
+            : defaultEntityNames;
+    if (entityNames.isEmpty()) {
+      return null;
+    }
+    final int maxAggValues =
+        Math.max(new SearchFlags().getMaxAggValues(), Math.max(entityNames.size(), _platformCount));
+
+    return _entityClient.searchAcrossEntities(
+        opContext.withSearchFlags(
+            flags ->
+                flags
+                    .setSkipAggregates(false)
+                    .setIncludeDefaultFacets(false)
+                    .setMaxAggValues(maxAggValues)),
+        entityNames,
         "*",
         maybeResolvedView != null
             ? FilterUtils.combineFilters(null, maybeResolvedView.getDefinition().getFilter())
             : null,
         0,
         0,
-        Collections.emptyList());
+        Collections.emptyList(),
+        List.of(PLATFORM, ENTITY_FILTER_NAME));
   }
 
   /**
@@ -181,7 +206,8 @@ public class GetQuickFiltersResolver
 
   /**
    * Gets entity type quick filters from search aggregations. First, get source entity type quick
-   * filters from a prioritized list. Do the same for datathub entity types.
+   * filters from a prioritized list. Do the same for datathub entity types, skipping any type
+   * already added as a source entity type.
    */
   private List<QuickFilter> getEntityTypeQuickFilters(
       @Nullable QueryContext context, @Nonnull final AggregationMetadataArray aggregations) {
@@ -190,13 +216,15 @@ public class GetQuickFiltersResolver
         aggregations.stream().filter(agg -> agg.getName().equals(ENTITY_FILTER_NAME)).findFirst();
 
     if (entityAggregations.isPresent()) {
+      final Set<String> addedEntityTypes = new HashSet<>();
       final List<QuickFilter> sourceEntityTypeFilters =
           getQuickFiltersFromList(
               context,
               SearchUtils.getPrioritizedSourceEntityTypes(
                   context != null ? context.getOperationContext() : null),
               _sourceEntityCount,
-              entityAggregations.get());
+              entityAggregations.get(),
+              addedEntityTypes);
       entityTypes.addAll(sourceEntityTypeFilters);
 
       final List<QuickFilter> dataHubEntityTypeFilters =
@@ -205,7 +233,8 @@ public class GetQuickFiltersResolver
               SearchUtils.getPrioritizedDatahubEntityTypes(
                   context != null ? context.getOperationContext() : null),
               _datahubEntityCount,
-              entityAggregations.get());
+              entityAggregations.get(),
+              addedEntityTypes);
       entityTypes.addAll(dataHubEntityTypeFilters);
     }
     return entityTypes;
@@ -213,13 +242,15 @@ public class GetQuickFiltersResolver
 
   /**
    * Create a quick filters list by looping over prioritized list and adding filters that exist
-   * until we reach the maxListSize defined
+   * until we reach the maxListSize defined. Types in addedEntityTypes are skipped, and the types
+   * added here are recorded in it.
    */
   private List<QuickFilter> getQuickFiltersFromList(
       @Nullable QueryContext context,
       @Nonnull final List<String> prioritizedList,
       final int maxListSize,
-      @Nonnull final AggregationMetadata entityAggregations) {
+      @Nonnull final AggregationMetadata entityAggregations,
+      @Nonnull final Set<String> addedEntityTypes) {
     final List<QuickFilter> entityTypes = new ArrayList<>();
     prioritizedList.forEach(
         entityType -> {
@@ -228,7 +259,9 @@ public class GetQuickFiltersResolver
                 entityAggregations.getFilterValues().stream()
                     .filter(val -> val.getValue().equalsIgnoreCase(entityType))
                     .findFirst();
-            if (entityFilter.isPresent() && entityFilter.get().getFacetCount() > 0) {
+            if (entityFilter.isPresent()
+                && entityFilter.get().getFacetCount() > 0
+                && addedEntityTypes.add(entityFilter.get().getValue())) {
               entityTypes.add(mapQuickFilter(context, ENTITY_FILTER_NAME, entityFilter.get()));
             }
           }
