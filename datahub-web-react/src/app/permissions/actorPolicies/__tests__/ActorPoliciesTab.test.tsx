@@ -141,12 +141,16 @@ describe('ActorPoliciesTab', () => {
     });
 
     it('describes the resource scope of each policy', async () => {
-        const criterion = (field: string, values: unknown[]) => ({
+        const criterion = (field: string, values: unknown[], condition = 'EQUALS') => ({
             field,
             values,
-            condition: 'EQUALS',
+            condition,
             structuredPropertyValues: null,
         });
+        const finance = {
+            value: 'urn:li:domain:d',
+            entity: { __typename: 'Domain', urn: 'urn:li:domain:d', type: EntityType.Domain, name: 'Finance' },
+        };
         renderTab([
             policiesMock(ActorPoliciesView.Trimmed, [
                 policy({
@@ -175,6 +179,11 @@ describe('ActorPoliciesTab', () => {
                         },
                     },
                 }),
+                policy({
+                    urn: 'urn:li:dataHubPolicy:n',
+                    name: 'Excluded',
+                    resources: { filter: { criteria: [criterion('DOMAIN', [finance], 'NOT_EQUALS')] } },
+                }),
                 policy({ urn: 'urn:li:dataHubPolicy:a', name: 'Everything', resources: { filter: { criteria: [] } } }),
                 policy({
                     urn: 'urn:li:dataHubPolicy:p',
@@ -189,6 +198,8 @@ describe('ActorPoliciesTab', () => {
         const rowOf = (name: string) => screen.getByText(name).closest('tr') as HTMLElement;
         expect(within(rowOf('Typed')).getByText('Dataset')).toBeInTheDocument();
         expect(within(rowOf('Scoped')).getByText('Finance')).toBeInTheDocument();
+        expect(within(rowOf('Excluded')).getByText('Not Equals Finance')).toBeInTheDocument();
+        expect(within(rowOf('Excluded')).queryByText('Finance')).not.toBeInTheDocument();
         expect(within(rowOf('Everything')).getByText('All')).toBeInTheDocument();
         expect(within(rowOf('Platform')).getByText('—')).toBeInTheDocument();
         expect(within(rowOf('Platform')).queryByText('All')).not.toBeInTheDocument();
@@ -214,7 +225,16 @@ describe('ActorPoliciesTab', () => {
             ),
         ]);
         expect(await screen.findByText('Applies to assets you own')).toBeInTheDocument();
-        expect(screen.getByText('Owner Policy')).toBeInTheDocument();
+        expect(screen.getByText('Owner Policy')).not.toBeVisible();
+        await userEvent.click(screen.getByTestId('actor-owner-policies-header'));
+        expect(screen.getByText('Owner Policy')).toBeVisible();
+    });
+
+    it('shows a loading state until policies arrive', async () => {
+        renderTab([{ ...policiesMock(ActorPoliciesView.Full, [policy()]), delay: 50 }]);
+        expect(screen.getByText('Loading data...')).toBeInTheDocument();
+        expect(await screen.findByText('Edit Policy')).toBeInTheDocument();
+        expect(screen.queryByText('Loading data...')).not.toBeInTheDocument();
     });
 
     it('unauthorized renders empty state', async () => {
@@ -229,11 +249,48 @@ describe('ActorPoliciesTab', () => {
 });
 
 describe('ActorPolicyReasonPills', () => {
+    const roleReasons = [
+        {
+            type: PolicyMatchReasonType.Group,
+            group: { urn: 'urn:li:corpGroup:g', type: EntityType.CorpGroup, name: 'Eng' },
+            role: null,
+        },
+        {
+            type: PolicyMatchReasonType.Role,
+            group: null,
+            role: { urn: 'urn:li:dataHubRole:r', type: EntityType.DatahubRole, name: 'Editor' },
+        },
+    ];
+
+    it('links role pills to the roles settings page only when asked', () => {
+        const { unmount } = render(
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <ActorPolicyReasonPills reasons={roleReasons} linkRoles />
+                </BrowserRouter>
+            </ThemeProvider>,
+        );
+        expect(screen.getByText('Role: Editor').closest('a')).toHaveAttribute(
+            'href',
+            '/settings/permissions/roles?query=Editor',
+        );
+        unmount();
+        render(
+            <ThemeProvider theme={themeV2}>
+                <BrowserRouter>
+                    <ActorPolicyReasonPills reasons={roleReasons} linkRoles={false} />
+                </BrowserRouter>
+            </ThemeProvider>,
+        );
+        expect(screen.getByText('Role: Editor').closest('a')).toBeNull();
+    });
+
     it('reason pills render group link and role name', () => {
         render(
             <ThemeProvider theme={themeV2}>
                 <BrowserRouter>
                     <ActorPolicyReasonPills
+                        linkRoles={false}
                         reasons={[
                             {
                                 type: PolicyMatchReasonType.Group,

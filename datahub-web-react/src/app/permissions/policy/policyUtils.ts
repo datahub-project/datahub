@@ -1,4 +1,5 @@
 import { Maybe } from 'graphql/jsutils/Maybe';
+import { TFunction } from 'i18next';
 
 import { ListPoliciesDocument, ListPoliciesQuery } from '@graphql/policy.generated';
 import {
@@ -145,6 +146,20 @@ export const getFieldCondition = (
         filter?.criteria?.find((criterion) => criterion.field === alternateResourceFieldType)?.condition ||
         null
     );
+};
+
+/** Label for a criterion condition; `t` must be bound to the settings.permissions namespace. */
+export const getConditionLabel = (condition: PolicyMatchCondition, t: TFunction) => {
+    switch (condition) {
+        case PolicyMatchCondition.Equals:
+            return t('policyForm.condition.equals');
+        case PolicyMatchCondition.NotEquals:
+            return t('policyForm.condition.notEquals');
+        case PolicyMatchCondition.StartsWith:
+            return t('policyForm.condition.startsWith');
+        default:
+            return condition;
+    }
 };
 
 export const getFieldValuesOfTags = (filter: Maybe<PolicyMatchFilter> | undefined, resourceFieldType: string) => {

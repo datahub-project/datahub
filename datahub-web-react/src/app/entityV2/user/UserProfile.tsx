@@ -119,7 +119,7 @@ export default function UserProfile({ urn }: Props) {
     const { groupUrns } = useGetUserGroupUrns(urn);
 
     const { data: userOwnedAsset } = useGetUserOwnedAssetsQuery({ variables: { urns: [urn, ...groupUrns] } });
-    const showPoliciesTab = useShowActorPoliciesTab({ profileUrn: urn, isGroup: false, isMember: false });
+    const showPoliciesTab = useShowActorPoliciesTab({ profileUrn: urn, isGroup: false });
     // Routed Tabs Constants
     const getTabs = () => {
         return [

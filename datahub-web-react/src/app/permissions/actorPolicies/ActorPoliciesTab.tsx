@@ -1,4 +1,4 @@
-import { Pill, SearchBar, SimpleSelect, Table, Text, toast } from '@components';
+import { CollapsiblePanel, Pill, SearchBar, SimpleSelect, Table, Text, toast } from '@components';
 import React, { useEffect, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import { Link } from 'react-router-dom';
@@ -57,14 +57,6 @@ const Empty = styled.div`
     padding: 40px;
 `;
 
-const OwnerSection = styled.details`
-    summary {
-        cursor: pointer;
-        font-weight: 700;
-        margin-bottom: 8px;
-    }
-`;
-
 enum StatusFilter {
     ACTIVE = 'ACTIVE',
     INACTIVE = 'INACTIVE',
@@ -95,14 +87,16 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
 
     const isFull = result?.view === ActorPoliciesView.Full;
 
-    const filterRows = (rows: ActorPolicyFieldsFragment[] = []) =>
-        rows.filter(
-            (p) =>
-                p.name.toLowerCase().includes(query.trim().toLowerCase()) &&
-                (status !== StatusFilter.INACTIVE || p.state === PolicyState.Inactive),
-        );
-    const policies = useMemo(() => filterRows(result?.policies), [result, query, status]); // eslint-disable-line react-hooks/exhaustive-deps
-    const ownerPolicies = useMemo(() => filterRows(result?.ownerPolicies), [result, query, status]); // eslint-disable-line react-hooks/exhaustive-deps
+    const { policies, ownerPolicies } = useMemo(() => {
+        const needle = query.trim().toLowerCase();
+        const filterRows = (rows: ActorPolicyFieldsFragment[] = []) =>
+            rows.filter(
+                (p) =>
+                    p.name.toLowerCase().includes(needle) &&
+                    (status !== StatusFilter.INACTIVE || p.state === PolicyState.Inactive),
+            );
+        return { policies: filterRows(result?.policies), ownerPolicies: filterRows(result?.ownerPolicies) };
+    }, [result, query, status]);
 
     const pill = (key: string, label: string) => (
         <Pill key={key} label={label} variant="outline" color="gray" size="sm" clickable={false} />
@@ -119,8 +113,11 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
     );
 
     const resources = (p: ActorPolicyFieldsFragment) => {
-        const labels = resourceScopeLabels(p, privilegesConfig?.resourcePrivileges ?? [], (entity) =>
-            entityRegistry.getDisplayName(entity.type, entity),
+        const labels = resourceScopeLabels(
+            p,
+            privilegesConfig?.resourcePrivileges ?? [],
+            (entity) => entityRegistry.getDisplayName(entity.type, entity),
+            t,
         );
         if (labels === null) return '—';
         if (labels.length === 0) return t('actorPolicies.allResources');
@@ -130,7 +127,7 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
     const reasons = {
         title: t('actorPolicies.column.appliesBecause'),
         key: 'reasons',
-        render: (p: ActorPolicyFieldsFragment) => <ActorPolicyReasonPills reasons={p.matchedBy} />,
+        render: (p: ActorPolicyFieldsFragment) => <ActorPolicyReasonPills reasons={p.matchedBy} linkRoles={isFull} />,
     };
 
     const columns = isFull
@@ -178,10 +175,11 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
               { title: t('actorPolicies.column.on'), key: 'resources', render: resources },
           ];
 
-    const table = (rows: ActorPolicyFieldsFragment[]) => (
+    const table = (rows: ActorPolicyFieldsFragment[], isLoading = false) => (
         <Table
             columns={columns}
             data={rows}
+            isLoading={isLoading}
             rowKey={(p: ActorPolicyFieldsFragment) => p.urn ?? p.name}
             onRowClick={isFull ? (p: ActorPolicyFieldsFragment) => !p.builtIn && setFocused(p) : undefined}
             style={{ tableLayout: 'fixed' }}
@@ -231,6 +229,7 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
                     <ManageLink to={PageRoutes.SETTINGS_POLICIES}>{t('actorPolicies.managePolicies')}</ManageLink>
                 )}
             </Toolbar>
+            {loading && !result && table([], true)}
             {message ? (
                 <Empty>
                     <Text
@@ -245,12 +244,16 @@ export const ActorPoliciesTab = ({ urn, entityType }: Props) => {
                 <>
                     {policies.length > 0 && table(policies)}
                     {ownerPolicies.length > 0 && (
-                        <OwnerSection>
-                            <summary>
-                                {t(isUser ? 'actorPolicies.ownerSectionUser' : 'actorPolicies.ownerSectionGroup')}
-                            </summary>
+                        <CollapsiblePanel
+                            header={
+                                <Text weight="bold">
+                                    {t(isUser ? 'actorPolicies.ownerSectionUser' : 'actorPolicies.ownerSectionGroup')}
+                                </Text>
+                            }
+                            dataTestId="actor-owner-policies"
+                        >
                             {table(ownerPolicies)}
-                        </OwnerSection>
+                        </CollapsiblePanel>
                     )}
                 </>
             )}
