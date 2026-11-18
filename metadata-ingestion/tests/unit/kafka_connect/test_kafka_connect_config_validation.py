@@ -311,6 +311,88 @@ class TestConfigurationValidation:
         assert config.schema_resolver_finegrained_lineage is True
 
 
+class TestConfluentCloudIdReconciliation:
+    """The environment/cluster ids are the single source of Confluent Cloud identity."""
+
+    CLOUD_URI = (
+        "https://api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456"
+    )
+
+    def test_cloud_uri_backfills_ids(self) -> None:
+        config = KafkaConnectSourceConfig(connect_uri=self.CLOUD_URI)
+
+        assert config.confluent_cloud_environment_id == "env-123"
+        assert config.confluent_cloud_cluster_id == "lkc-456"
+        assert config.is_confluent_cloud() is True
+
+    def test_ids_with_default_uri_are_kept(self) -> None:
+        config = KafkaConnectSourceConfig(
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+
+        assert config.confluent_cloud_environment_id == "env-123"
+        assert config.confluent_cloud_cluster_id == "lkc-456"
+        assert config.connect_uri == self.CLOUD_URI
+
+    def test_ids_matching_uri_path_on_another_host_are_accepted(self) -> None:
+        """Only the ids in the path are compared, never the host.
+
+        A proxy or mock can serve the Confluent Cloud API path from another host;
+        the Confluent Cloud integration recipes run against exactly such a mock on
+        localhost. Tightening this to full-URI equality would reject them.
+        """
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://localhost:8888/connect/v1/environments/env-123/clusters/lkc-456",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+
+        assert config.is_confluent_cloud() is True
+
+    @pytest.mark.parametrize(
+        "env_id, cluster_id",
+        [("env-other", "lkc-456"), ("env-123", "lkc-other")],
+        ids=["environment-differs", "cluster-differs"],
+    )
+    def test_ids_diverging_from_uri_raise(self, env_id: str, cluster_id: str) -> None:
+        with pytest.raises(ValueError, match="connect_uri"):
+            KafkaConnectSourceConfig(
+                connect_uri=self.CLOUD_URI,
+                confluent_cloud_environment_id=env_id,
+                confluent_cloud_cluster_id=cluster_id,
+            )
+
+    def test_ids_with_uri_naming_no_cluster_are_accepted(self) -> None:
+        """A proxy at a custom path names no environment or cluster to contradict
+        the ids, so the ids are used as given."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="https://connect-proxy.example/v1",
+            confluent_cloud_environment_id="env-123",
+            confluent_cloud_cluster_id="lkc-456",
+        )
+
+        assert config.confluent_cloud_cluster_id == "lkc-456"
+        assert config.is_confluent_cloud() is True
+
+    def test_cloud_shaped_path_on_non_cloud_host_is_not_backfilled(self) -> None:
+        """Without ids, only a Confluent Cloud host makes a deployment Cloud."""
+        config = KafkaConnectSourceConfig(
+            connect_uri="http://localhost:8888/connect/v1/environments/env-123/clusters/lkc-456",
+        )
+
+        assert config.confluent_cloud_environment_id is None
+        assert config.is_confluent_cloud() is False
+
+    def test_uri_credentials_never_reach_the_ids(self) -> None:
+        config = KafkaConnectSourceConfig(
+            connect_uri="https://user:hunter2@api.confluent.cloud/connect/v1/environments/env-123/clusters/lkc-456",
+        )
+
+        assert config.confluent_cloud_environment_id == "env-123"
+        assert config.confluent_cloud_cluster_id == "lkc-456"
+
+
 class TestSchemaResolverAutoEnable:
     """Tests for automatic schema_resolver enabling for Confluent Cloud."""
 

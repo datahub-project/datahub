@@ -24,6 +24,17 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Kafka Connect: conflicting Confluent Cloud settings now fail
+
+A Kafka Connect recipe whose `connect_uri` names a different Confluent Cloud environment or
+cluster than `confluent_cloud_environment_id` and `confluent_cloud_cluster_id` now fails
+validation ([PR #19154](https://github.com/datahub-project/datahub/pull/19154)). Previously
+this only logged a warning and the ids were ignored. DataHub now uses the ids to link each
+connector to its page in the Confluent Cloud console, so a mismatch would produce links to
+the wrong cluster. To fix the recipe, make the ids match `connect_uri`, or remove
+`connect_uri` and let DataHub build it from the ids. A `connect_uri` that does not name an
+environment and cluster, such as a proxy address, is still accepted alongside the ids.
+
 <!--
 
 ## <version number>
