@@ -697,7 +697,7 @@ class VertexAIPipelineExtractor:
 
         dataflow = DataFlow(
             platform=self.platform,
-            name=pipeline.urn.flow_id,
+            name=pipeline.display_name,
             display_name=pipeline.display_name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,

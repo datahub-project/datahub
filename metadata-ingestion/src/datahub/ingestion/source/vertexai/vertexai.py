@@ -18,6 +18,7 @@ from google.cloud.resourcemanager_v3 import ProjectsClient
 from google.oauth2 import service_account
 
 from datahub.configuration.env_vars import get_vertexai_disable_parallelism
+from datahub.emitter.mce_builder import make_dataplatform_instance_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ProjectIdKey, gen_containers
 from datahub.ingestion.api.common import PipelineContext
@@ -332,7 +333,11 @@ class VertexAISource(StatefulIngestionSourceBase):
                 entityUrn=entity_urn,
                 aspect=DataPlatformInstanceClass(
                     platform=DataPlatformUrn(self.platform).urn(),
-                    instance=self.config.platform_instance,
+                    instance=make_dataplatform_instance_urn(
+                        self.platform, self.config.platform_instance
+                    )
+                    if self.config.platform_instance
+                    else None,
                 ),
             ).as_workunit()
 
