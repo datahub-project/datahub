@@ -193,7 +193,8 @@ final class TemplateVectorSearch {
             dao.queryFilterRewriteChain,
             dao.searchServiceConfig);
     final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
-    // ponytail: one deadline and no circuit breaker; a breaker per store comes with external stores
+    // One deadline covers the embedding and the kNN call. There is no circuit breaker yet: the
+    // corpus index is the only store, and a breaker per store can come with external stores.
     final long deadlineNanos =
         System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(dao.hybridTimeoutMillis);
     final float[] vector = embedding.embed(input, deadlineNanos).vector();
