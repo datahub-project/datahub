@@ -3,10 +3,12 @@ package com.linkedin.metadata.recommendation.candidatesource;
 import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
 
 import com.linkedin.common.urn.CorpuserUrn;
 import com.linkedin.common.urn.DataPlatformUrn;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.recommendation.RecommendationContent;
@@ -21,6 +23,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -117,5 +120,71 @@ public class TopPlatformsSourceTest {
             });
 
     assertEquals(recommendedPlatforms(), List.of(platform(0), platform(2), platform(4)));
+  }
+
+  @Test
+  public void testOnlyCountsTypesReturnedByDefaultSearch() {
+    // A platform tile opens a search with just a platform filter, so only types in the default
+    // search list may be counted. Agent registry types are counted once they are searchable.
+    withDefaultSearchEntityNames(
+        List.of(
+            Constants.DATASET_ENTITY_NAME,
+            Constants.REPOSITORY_ENTITY_NAME,
+            Constants.AI_AGENT_ENTITY_NAME,
+            Constants.GLOSSARY_TERM_ENTITY_NAME));
+
+    assertEquals(
+        aggregatedEntityNames(),
+        List.of(
+            Constants.DATASET_ENTITY_NAME,
+            Constants.REPOSITORY_ENTITY_NAME,
+            Constants.AI_AGENT_ENTITY_NAME));
+  }
+
+  @Test
+  public void testCountsPlatformBearingAgentRegistryTypesWhenSearchable() {
+    List<String> agentRegistryTypes =
+        List.of(
+            Constants.REPOSITORY_ENTITY_NAME,
+            Constants.SERVICE_ENTITY_NAME,
+            Constants.API_ENTITY_NAME,
+            Constants.AGENT_SKILL_ENTITY_NAME,
+            Constants.AI_AGENT_ENTITY_NAME);
+    withDefaultSearchEntityNames(agentRegistryTypes);
+
+    assertEquals(aggregatedEntityNames(), agentRegistryTypes);
+  }
+
+  @Test
+  public void testUnresolvedDefaultSearchListCountsAllPlatformBearingTypes() {
+    withDefaultSearchEntityNames(null);
+
+    List<String> entityNames = aggregatedEntityNames();
+    assertTrue(entityNames.contains(Constants.DATASET_ENTITY_NAME));
+    assertTrue(entityNames.contains(Constants.REPOSITORY_ENTITY_NAME));
+    assertTrue(entityNames.contains(Constants.AI_AGENT_ENTITY_NAME));
+  }
+
+  private void withDefaultSearchEntityNames(List<String> defaultSearchEntityNames) {
+    opContext =
+        opContext.toBuilder()
+            .searchContext(
+                opContext.getSearchContext().toBuilder()
+                    .defaultSearchEntityNames(defaultSearchEntityNames)
+                    .build())
+            .build(opContext.getSessionActorContext(), false);
+  }
+
+  /** Runs the source and returns the entity types it aggregated platforms over. */
+  private List<String> aggregatedEntityNames() {
+    stubAggregation(1);
+    recommendedPlatforms();
+
+    @SuppressWarnings("unchecked")
+    ArgumentCaptor<List<String>> entityNames = ArgumentCaptor.forClass(List.class);
+    verify(entitySearchService)
+        .aggregateByValue(
+            any(OperationContext.class), entityNames.capture(), eq("platform"), any(), anyInt());
+    return entityNames.getValue();
   }
 }
