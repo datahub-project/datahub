@@ -378,6 +378,8 @@ public class SearchTemplateLoader {
     int knnLevel = -1;
     String ownKnn = null;
     int retrievalLevel = -1;
+    // Chain index of the template that set retrieval at all, an explicit empty reset included
+    int retrievalOwner = -1;
     SearchTemplateRetrieval mergedRetrieval = null;
     // Root first so the child replaces sections it sets.
     for (int i = chain.size() - 1; i >= 0; i--) {
@@ -410,6 +412,7 @@ public class SearchTemplateLoader {
       }
       if (props.hasRetrieval()) {
         retrievalLevel = emptyRetrieval(props.getRetrieval()) ? -1 : i;
+        retrievalOwner = i;
         mergedRetrieval = retrievalLevel < 0 ? null : props.getRetrieval();
       }
       if (props.getProfiles() != null) {
@@ -526,10 +529,11 @@ public class SearchTemplateLoader {
       legacy.removeCombine();
       builder.retrieval(emptyRetrieval(legacy) ? null : legacy);
     }
-    // A template whose own retrieval replaces an inherited keywordRerank does not inherit that
-    // combine's field-less blend: it reads as no knn, as it did before the parent gained the blend.
-    if (retrievalLevel >= 0
-        && retrievalLevel < knnLevel
+    // A template whose own retrieval, or explicit empty retrieval, replaces an inherited
+    // keywordRerank does not inherit that combine's field-less blend: it reads as no knn, as it did
+    // before the parent gained the blend.
+    if (retrievalOwner >= 0
+        && retrievalOwner < knnLevel
         && !SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK.equals(
             SearchTemplateCapabilities.combine(mergedRetrieval))
         && !namesField(ownKnn)) {

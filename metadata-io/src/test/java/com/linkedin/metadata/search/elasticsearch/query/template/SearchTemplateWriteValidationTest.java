@@ -130,6 +130,9 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     SearchTemplateProperties keyword = parentOf("Keyword", SEARCH_TEMPLATE_FULLTEXT_URN);
     keyword.setRetrieval(new SearchTemplateRetrieval().setMode("keyword"));
     store("urn:li:searchTemplate:keywordChild", keyword);
+    SearchTemplateProperties reset = parentOf("Reset", SEARCH_TEMPLATE_FULLTEXT_URN);
+    reset.setRetrieval(new SearchTemplateRetrieval());
+    store("urn:li:searchTemplate:resetChild", reset);
 
     List<AspectValidationException> upgrade =
         validateBatch(validator, retrieverContext, SearchTemplateFixtures.readShipped());
@@ -138,6 +141,7 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     MergedSearchTemplate child = loader.load(opContext, "urn:li:searchTemplate:keywordChild");
     assertNull(child.getKnn());
     assertNull(SearchTemplateCapabilities.effectiveCombine(child));
+    assertNull(loader.load(opContext, "urn:li:searchTemplate:resetChild").getKnn());
 
     SearchTemplateProperties vector = body("Vector", "{ \"match_all\": {} }", null);
     vector.setApiVersion(2);
