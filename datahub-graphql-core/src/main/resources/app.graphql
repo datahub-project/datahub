@@ -769,6 +769,11 @@ type FeatureFlagsConfig {
   showManageStructuredProperties: Boolean!
 
   """
+  Whether non-admin users can see the policies that apply to them and to their groups
+  """
+  actorPoliciesSelfServiceEnabled: Boolean!
+
+  """
   If turned on, hides DBT Sources from lineage by:
   i) Hiding the source in the lineage graph, if it has no downstreams
   ii) Swapping to the source's sibling urn on V2 lineage graph

@@ -2189,6 +2189,7 @@ featureFlags:
   schemaFieldLineageIgnoreStatus: ${SCHEMA_FIELD_LINEAGE_IGNORE_STATUS:true} # If turned on, schema field lineage will always fetch ghost entities
   showSeparateSiblings: ${SHOW_SEPARATE_SIBLINGS:false} # If turned on, all siblings will be separated with no way to get to a "combined" sibling view
   editableDatasetNameEnabled: ${EDITABLE_DATASET_NAME_ENABLED:false} # Enables the ability to edit the dataset name in the UI
+  actorPoliciesSelfServiceEnabled: ${ACTOR_POLICIES_SELF_SERVICE_ENABLED:true} # Lets users see the policies that apply to them and to their groups (trimmed view). Admins always see them.
   showManageStructuredProperties: ${SHOW_MANAGE_STRUCTURED_PROPERTIES:true} # If turned on, show the manage structured properties button on the govern dropdown
   hideLineageInSearchCards: ${HIDE_LINEAGE_IN_SEARCH_CARDS:false} # If turned on, hides lineage information in search result cards
   dataProductLineageEnabled: ${DATA_PRODUCT_LINEAGE_ENABLED:true} # If turned on, enables the Lineage tab on the Data Product entity page
