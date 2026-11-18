@@ -20,6 +20,7 @@ import java.util.Random;
 import java.util.Set;
 import java.util.concurrent.ThreadLocalRandom;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 import org.springframework.util.StringUtils;
@@ -48,12 +49,14 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
 
   @Autowired private ConfigurationProvider configurationProvider;
 
+  @Autowired private ObjectProvider<AuthenticationExcludedPathProvider> excludedPathProviderBeans;
+
   /**
-   * Asked on every request, never copied at startup: a provider's set may only be known once the
-   * application has started. Its paths match exactly, never as wildcards.
+   * Resolved once at startup, but each one's paths are asked on every request, never copied: a
+   * provider's set may only be known once the application has started. Its paths match exactly,
+   * never as wildcards.
    */
-  @Autowired(required = false)
-  private List<AuthenticationExcludedPathProvider> excludedPathProviders = List.of();
+  private List<AuthenticationExcludedPathProvider> excludedPathProviders;
 
   private Set<String> excludedPathPatterns;
 
@@ -81,6 +84,7 @@ public class AuthenticationEnforcementFilter extends OncePerRequestFilter {
               .filter(path -> !path.isBlank())
               .toList());
     }
+    excludedPathProviders = excludedPathProviderBeans.orderedStream().toList();
     log.info("Auth exclusion path providers found: {}", excludedPathProviders.size());
   }
 

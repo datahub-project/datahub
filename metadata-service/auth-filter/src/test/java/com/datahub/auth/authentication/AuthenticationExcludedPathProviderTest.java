@@ -14,6 +14,7 @@ import jakarta.servlet.http.HttpServletRequest;
 import java.util.List;
 import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.Test;
 
@@ -31,7 +32,15 @@ public class AuthenticationExcludedPathProviderTest {
 
     final AuthenticationEnforcementFilter filter = new AuthenticationEnforcementFilter();
     ReflectionTestUtils.setField(filter, "configurationProvider", configurationProvider);
-    ReflectionTestUtils.setField(filter, "excludedPathProviders", providers);
+    // As Spring resolves them: the provider beans in the context, none when the feature is off.
+    final StaticListableBeanFactory beans = new StaticListableBeanFactory();
+    for (int i = 0; i < providers.size(); i++) {
+      beans.addBean("provider" + i, providers.get(i));
+    }
+    ReflectionTestUtils.setField(
+        filter,
+        "excludedPathProviderBeans",
+        beans.getBeanProvider(AuthenticationExcludedPathProvider.class));
     filter.init();
     return filter;
   }
