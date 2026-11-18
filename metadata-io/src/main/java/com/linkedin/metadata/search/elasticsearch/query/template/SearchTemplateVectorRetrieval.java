@@ -2,9 +2,12 @@ package com.linkedin.metadata.search.elasticsearch.query.template;
 
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
+import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import java.util.Collection;
+import java.util.HashMap;
 import java.util.Map;
+import java.util.Set;
 import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -55,6 +58,9 @@ public final class SearchTemplateVectorRetrieval {
   /** The floor inherited from configuration was skipped: the profile's metric is not cosine. */
   public static final String PROFILE_NOT_COSINE = "profileNotCosine";
 
+  private static final Set<String> ENGINES =
+      Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH);
+
   public static final String MIN_SCORE_DEPRECATION =
       "SearchFlags.minScore is deprecated as a vector leg floor; use retrieval.minSimilarity";
 
@@ -100,13 +106,19 @@ public final class SearchTemplateVectorRetrieval {
     return engine;
   }
 
-  /** The external vector stores semantic search configures, by name. */
+  /**
+   * The external vector stores semantic search configures, by name. A store named elasticsearch or
+   * opensearch is ignored: those names always mean the DataHub index.
+   */
   @Nonnull
   public static Map<String, VectorStoreConfiguration> stores(
       @Nullable SemanticSearchConfiguration semanticSearch) {
-    return semanticSearch == null || semanticSearch.getStores() == null
-        ? Map.of()
-        : semanticSearch.getStores();
+    if (semanticSearch == null || semanticSearch.getStores() == null) {
+      return Map.of();
+    }
+    final Map<String, VectorStoreConfiguration> stores = new HashMap<>(semanticSearch.getStores());
+    stores.keySet().removeAll(ENGINES);
+    return stores;
   }
 
   /**

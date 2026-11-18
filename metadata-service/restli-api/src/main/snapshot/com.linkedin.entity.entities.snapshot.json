@@ -8502,7 +8502,7 @@
             }, {
               "name" : "removedByHydration",
               "type" : "int",
-              "doc" : "Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden, or\noutside the filter there.",
+              "doc" : "Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,\noutside the filter there, or not viewable by the caller.",
               "default" : 0
             }, {
               "name" : "entityTypes",

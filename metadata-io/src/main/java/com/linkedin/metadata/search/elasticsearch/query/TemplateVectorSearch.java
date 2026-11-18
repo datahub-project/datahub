@@ -1,14 +1,19 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.datahub.util.exception.ESQueryException;
 import com.google.common.util.concurrent.UncheckedTimeoutException;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.template.SetMode;
 import com.linkedin.data.template.StringArray;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.config.ConfigUtils;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.query.SearchFlags;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadataArray;
 import com.linkedin.metadata.search.SearchEntity;
@@ -17,6 +22,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.search.VectorRetrievalExplanation;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
+import com.linkedin.metadata.search.elasticsearch.query.NativeVectorStore.Neighbor;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
@@ -30,10 +36,12 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
+import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
 import com.linkedin.metadata.search.utils.ESAccessControlUtil;
 import com.linkedin.metadata.search.utils.SearchResultUtils;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
+import io.opentelemetry.context.Context;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.ArrayList;
@@ -42,7 +50,10 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.concurrent.ConcurrentHashMap;
+import java.util.concurrent.ExecutionException;
+import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -248,10 +259,13 @@ final class TemplateVectorSearch {
     final VectorStore.Request request =
         new VectorStore.Request(
             embedding.getModelEmbeddingKey(), vector, k, searched, preFilter ? filter : null);
-    final List<VectorStore.Hit> hits =
+    final List<Neighbor> hits =
         store.external()
             ? call(store, explanation, timeout -> store.store().search(opContext, request, timeout))
-            : nativeStore.search(opContext, request, Duration.ofNanos(remainingNanos));
+                .stream()
+                .map(Neighbor::external)
+                .toList()
+            : nativeStore.knn(opContext, request, Duration.ofNanos(remainingNanos));
     // A floor the template sets is bound only to a cosine profile. One inherited from configuration
     // is skipped on another metric, where a raw cosine means nothing.
     final Float templateFloor = template.getRetrieval().getMinSimilarity();
@@ -264,10 +278,10 @@ final class TemplateVectorSearch {
       explanation.setMinSimilaritySkipped(SearchTemplateVectorRetrieval.PROFILE_NOT_COSINE);
     }
     final Float minScore = flags.hasMinScore() ? flags.getMinScore() : null;
-    final List<VectorStore.Hit> kept = new ArrayList<>();
+    final List<Neighbor> kept = new ArrayList<>();
     int belowMinSimilarity = 0;
     int belowMinScore = 0;
-    for (VectorStore.Hit hit : hits) {
+    for (Neighbor hit : hits) {
       // Compared as floats, so a hit at the floor is kept
       final boolean underSimilarity =
           minSimilarity != null && (float) hit.similarity() < minSimilarity;
@@ -281,8 +295,11 @@ final class TemplateVectorSearch {
     final List<SearchEntity> survivors;
     final AggregationMetadataArray aggregations;
     if (store.external()) {
+      // An external hit the caller cannot view never reaches a facet, the total, or the page
+      final List<Neighbor> viewable =
+          kept.stream().filter(hit -> !unauthorized(opContext, hit.urn())).toList();
       final Hydration hydration =
-          hydrate(opContext, handler, searched, filter, kept, facets, flags);
+          hydrate(opContext, handler, searched, filter, viewable, facets, flags);
       survivors = hydration.survivors();
       aggregations = hydration.aggregations();
       explanation.setRemovedByHydration(kept.size() - survivors.size());
@@ -356,7 +373,7 @@ final class TemplateVectorSearch {
       @Nonnull SearchRequestHandler handler,
       @Nonnull List<String> searched,
       @Nullable Filter filter,
-      @Nonnull List<VectorStore.Hit> kept,
+      @Nonnull List<Neighbor> kept,
       @Nonnull List<String> facets,
       @Nonnull SearchFlags flags)
       throws IOException {
@@ -388,7 +405,7 @@ final class TemplateVectorSearch {
       }
     }
     final List<SearchEntity> survivors = new ArrayList<>();
-    for (VectorStore.Hit hit : kept) {
+    for (Neighbor hit : kept) {
       final Map<String, Object> source = sources.get(hit.urn().toString());
       if (source != null) {
         survivors.add(entity(opContext, hit, source));
@@ -480,7 +497,7 @@ final class TemplateVectorSearch {
   @Nonnull
   private static SearchEntity entity(
       @Nonnull OperationContext opContext,
-      @Nonnull VectorStore.Hit hit,
+      @Nonnull Neighbor hit,
       @Nonnull Map<String, Object> source) {
     return new SearchEntity()
         .setEntity(hit.urn())
@@ -490,7 +507,8 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * One call to an external store under its deadline and breaker. A store whose calls fail {@link
+   * One call to an external store, on the hybrid read executor, waited on for the store's deadline.
+   * A failed or timed-out call counts toward the store's breaker. A store whose calls fail {@link
    * #FAILURES_BEFORE_PAUSE} times in a row is paused, and its calls fail without reaching it.
    */
   private <T> T call(
@@ -504,37 +522,55 @@ final class TemplateVectorSearch {
     }
     final Duration timeout = Duration.ofMillis(store.config().getTimeoutMillis());
     final long startNanos = System.nanoTime();
+    // A rejected call never reached the store, so it does not count toward the pause
+    final Future<T> future =
+        dao.hybridExecutor.submit(Context.current().wrap(() -> call.run(timeout)));
     try {
-      final T result = call.run(timeout);
-      final long elapsedNanos = System.nanoTime() - startNanos;
+      final T result = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
       if (explanation != null) {
-        explanation.setAdapterLatencyMillis(TimeUnit.NANOSECONDS.toMillis(elapsedNanos));
-      }
-      // The call is not preempted: the adapter is given the timeout, and a late answer fails. An
-      // adapter that cannot bound its own I/O needs its calls run on an executor.
-      if (elapsedNanos > timeout.toNanos()) {
-        throw new UncheckedTimeoutException(
-            "Vector store " + store.name() + " answered after its " + timeout.toMillis() + " ms");
+        explanation.setAdapterLatencyMillis(
+            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
       }
       breaker.succeeded();
       return result;
-    } catch (IOException | RuntimeException e) {
+    } catch (TimeoutException e) {
+      // The interrupt ends a call blocked in an interruptible wait, and a queued call does not
+      // start
+      future.cancel(true);
       breaker.failed();
-      throw e;
+      throw new UncheckedTimeoutException(
+          "Vector store " + store.name() + " did not answer within " + timeout.toMillis() + " ms");
+    } catch (ExecutionException e) {
+      breaker.failed();
+      if (e.getCause() instanceof IOException failure) {
+        throw failure;
+      }
+      if (e.getCause() instanceof RuntimeException failure) {
+        throw failure;
+      }
+      throw new IOException("Vector store " + store.name() + " failed", e.getCause());
+    } catch (InterruptedException e) {
+      // The search itself was interrupted, which says nothing about the store
+      future.cancel(true);
+      Thread.currentThread().interrupt();
+      throw new IOException("Interrupted waiting for vector store " + store.name(), e);
     }
   }
 
   /**
-   * The store serving {@code system}: an external store with an adapter in this process, else the
-   * DataHub index. Null for an external store with no adapter.
+   * The store serving {@code system}: an external store named in {@code semanticSearch.stores},
+   * with its adapter in this process, else the DataHub index. Null for an external store with no
+   * adapter. {@code stores} never holds an engine name, so the engine always means the DataHub
+   * index.
    */
   @Nullable
   private Store store(
       @Nullable String system, @Nonnull Map<String, VectorStoreConfiguration> stores) {
-    final VectorStoreConfiguration config = system == null ? null : stores.get(system);
-    if (config == null) {
+    final boolean external = system != null && stores.containsKey(system);
+    if (!external) {
       return new Store(system, nativeStore, NativeVectorStore.CAPABILITIES, null);
     }
+    final VectorStoreConfiguration config = stores.get(system);
     final VectorStore adapter = dao.vectorStores.get(system);
     return adapter == null
         ? null
@@ -552,16 +588,41 @@ final class TemplateVectorSearch {
   }
 
   /**
-   * True when the caller's filter has a criterion. The system filters come from the search flags,
-   * so they never count. The published-document default the GraphQL resolvers add is inside the
-   * caller's filter, so it does.
+   * True when the caller's filter has a criterion of its own. The system filters come from the
+   * search flags, and the published-document default the GraphQL resolvers merge into the filter is
+   * recognized by {@link DocumentDefaultFilter#isDefault}, so neither counts.
    */
   private static boolean hasCallerFilter(@Nullable Filter filter) {
-    return filter != null
-        && ((filter.hasOr()
-                && filter.getOr().stream()
-                    .anyMatch(clause -> clause.hasAnd() && !clause.getAnd().isEmpty()))
-            || (filter.hasCriteria() && !filter.getCriteria().isEmpty()));
+    if (filter == null) {
+      return false;
+    }
+    if (filter.hasOr()) {
+      for (ConjunctiveCriterion clause : filter.getOr()) {
+        if (clause.hasAnd() && hasCallerCriterion(clause.getAnd())) {
+          return true;
+        }
+      }
+    }
+    return filter.hasCriteria() && hasCallerCriterion(filter.getCriteria());
+  }
+
+  private static boolean hasCallerCriterion(@Nonnull CriterionArray criteria) {
+    return criteria.stream().anyMatch(criterion -> !DocumentDefaultFilter.isDefault(criterion));
+  }
+
+  /**
+   * The keyword leg's view-authorization test for one hit: view authorization is on, the caller is
+   * not the system, and the caller cannot view this view-restricted entity. False with
+   * includeRestricted, where the page masks such a hit as the keyword leg does.
+   */
+  private static boolean unauthorized(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    final ViewAuthorizationConfiguration config =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    return config.isEnabled()
+        && !opContext.isSystemAuth()
+        && !opContext.getSearchContext().isRestrictedSearch()
+        && AuthUtil.isViewRestrictedEntityType(config, urn.getEntityType())
+        && !EntityAuthorizationUtils.canViewEntity(opContext, urn);
   }
 
   /** A store serving a rung. {@code config} is null on the DataHub index. */

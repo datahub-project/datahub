@@ -35,7 +35,7 @@ public class SemanticSearchConfiguration {
   /**
    * External vector stores by name. An embedding profile whose systems list one of these names is
    * served by that store's adapter. One that lists elasticsearch or opensearch is served by the
-   * DataHub index.
+   * DataHub index, and a store given either of those names is ignored.
    */
   private Map<String, VectorStoreConfiguration> stores;
 }

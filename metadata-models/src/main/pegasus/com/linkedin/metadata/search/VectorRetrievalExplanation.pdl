@@ -28,8 +28,8 @@ record VectorRetrievalExplanation {
   adapterLatencyMillis: optional long
 
   /**
-   * Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden, or
-   * outside the filter there.
+   * Hits an external store returned that hydration on the DataHub index dropped: deleted, hidden,
+   * outside the filter there, or not viewable by the caller.
    */
   removedByHydration: int = 0
 

@@ -19,6 +19,7 @@ import java.net.URISyntaxException;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -32,6 +33,22 @@ import lombok.extern.slf4j.Slf4j;
 final class NativeVectorStore implements VectorStore {
   static final Set<String> CAPABILITIES = Set.of(PRE_FILTER);
 
+  /**
+   * A neighbor as the vector rung pages it: its URN, raw cosine, result score, and DataHub document
+   * fields. A native hit keeps the engine score and the fields its kNN request fetched.
+   */
+  record Neighbor(
+      @Nonnull Urn urn, double similarity, double score, @Nonnull Map<String, Object> source) {
+    /**
+     * An external store's hit. The service sets its score to {@code (1 + similarity) / 2}, the
+     * score a cosine kNN on the DataHub index reports, and hydration reads its fields.
+     */
+    @Nonnull
+    static Neighbor external(@Nonnull Hit hit) {
+      return new Neighbor(hit.urn(), hit.similarity(), (1d + hit.similarity()) / 2d, Map.of());
+    }
+  }
+
   private final ESSearchDAO dao;
 
   NativeVectorStore(@Nonnull ESSearchDAO dao) {
@@ -41,6 +58,16 @@ final class NativeVectorStore implements VectorStore {
   @Nonnull
   @Override
   public List<Hit> search(
+      @Nonnull OperationContext opContext, @Nonnull Request request, @Nonnull Duration timeout)
+      throws IOException {
+    return knn(opContext, request, timeout).stream()
+        .map(neighbor -> new Hit(neighbor.urn(), neighbor.similarity()))
+        .toList();
+  }
+
+  /** The kNN hits with the engine score and the fields the request fetched. */
+  @Nonnull
+  List<Neighbor> knn(
       @Nonnull OperationContext opContext, @Nonnull Request request, @Nonnull Duration timeout)
       throws IOException {
     final List<EntitySpec> entitySpecs =
@@ -82,16 +109,16 @@ final class NativeVectorStore implements VectorStore {
     if (response.partial()) {
       throw new IOException("The kNN response reported a timed-out or failed shard");
     }
-    final List<Hit> hits = new ArrayList<>();
+    final List<Neighbor> neighbors = new ArrayList<>();
     for (KnnSearchResponse.Hit hit : response.hits()) {
       final Urn urn = urn(hit);
       if (urn != null) {
-        hits.add(
-            new Hit(
+        neighbors.add(
+            new Neighbor(
                 urn, SearchTemplateVectorRetrieval.cosine(hit.score()), hit.score(), hit.source()));
       }
     }
-    return hits;
+    return neighbors;
   }
 
   @Nonnull

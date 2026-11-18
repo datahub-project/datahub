@@ -224,7 +224,7 @@ public class ESSearchDAO {
   private final AtomicLong hybridLastFailureNanos = new AtomicLong(System.nanoTime());
   private volatile long hybridPauseNanos = TimeUnit.MILLISECONDS.toNanos(HYBRID_PAUSE_MILLIS);
   volatile long hybridTimeoutMillis = HYBRID_TIMEOUT_MILLIS;
-  private volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
+  volatile ExecutorService hybridExecutor = HYBRID_EXECUTOR;
 
   public ESSearchDAO(
       boolean pointInTimeCreationEnabled,

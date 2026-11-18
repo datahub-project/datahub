@@ -6,7 +6,6 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.io.IOException;
 import java.time.Duration;
 import java.util.List;
-import java.util.Map;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -58,18 +57,8 @@ public interface VectorStore {
       @Nullable Filter filter) {}
 
   /**
-   * A neighbor. {@code similarity} is the raw cosine, from -1 to 1. {@code score} is the result
-   * score. {@code source} holds the DataHub document fields only the native store returns.
+   * A neighbor: its URN and raw cosine, from -1 to 1. The service derives the result score from the
+   * cosine, so a store cannot raise a hit past a score floor.
    */
-  record Hit(
-      @Nonnull Urn urn, double similarity, double score, @Nonnull Map<String, Object> source) {
-    /**
-     * An external store's hit. Its score is {@code (1 + similarity) / 2}, the score a cosine kNN on
-     * the DataHub index reports, so {@code SearchFlags.minScore} means the same on either store.
-     */
-    @Nonnull
-    public static Hit of(@Nonnull Urn urn, double similarity) {
-      return new Hit(urn, similarity, (1d + similarity) / 2d, Map.of());
-    }
-  }
+  record Hit(@Nonnull Urn urn, double similarity) {}
 }

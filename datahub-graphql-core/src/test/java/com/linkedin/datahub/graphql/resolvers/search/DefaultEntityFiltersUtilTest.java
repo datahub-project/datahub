@@ -8,7 +8,9 @@ import com.google.common.collect.ImmutableList;
 import com.linkedin.data.template.LongMap;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
+import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.Criterion;
+import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.AggregationMetadata;
 import com.linkedin.metadata.search.AggregationMetadataArray;
@@ -16,6 +18,8 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
+import com.linkedin.metadata.utils.CriterionUtils;
 import java.util.List;
 import org.testng.annotations.Test;
 
@@ -162,6 +166,36 @@ public class DefaultEntityFiltersUtilTest {
     ConjunctiveCriterion legacyClause = result.getOr().get(1);
     assertTrue(hasFieldWithCondition(legacyClause, "lifecycleStage", Condition.IS_NULL));
     assertNull(findNegatedCriterion(legacyClause, "state"));
+  }
+
+  @Test
+  public void testTheDocumentDefaultIsNotTheCallersFilter() {
+    // A vector store that cannot filter fails closed on a caller filter, so the criteria this util
+    // adds must be recognizable as defaults wherever the merged filter is consumed
+    for (boolean canManageDocuments : new boolean[] {false, true}) {
+      Filter defaults =
+          DefaultEntityFiltersUtil.addDefaultEntityFilters(
+              null, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, canManageDocuments);
+      for (ConjunctiveCriterion clause : defaults.getOr()) {
+        clause.getAnd().forEach(c -> assertTrue(DocumentDefaultFilter.isDefault(c), c.toString()));
+      }
+    }
+
+    Filter caller =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                CriterionUtils.buildCriterion(
+                                    "domains", Condition.EQUAL, "urn:li:domain:sales")))));
+    Filter merged =
+        DefaultEntityFiltersUtil.addDefaultEntityFilters(
+            caller, ImmutableList.of(DOCUMENT_ENTITY_NAME), true, false);
+    for (ConjunctiveCriterion clause : merged.getOr()) {
+      assertTrue(clause.getAnd().stream().anyMatch(c -> !DocumentDefaultFilter.isDefault(c)));
+    }
   }
 
   private static boolean hasField(ConjunctiveCriterion clause, String field) {

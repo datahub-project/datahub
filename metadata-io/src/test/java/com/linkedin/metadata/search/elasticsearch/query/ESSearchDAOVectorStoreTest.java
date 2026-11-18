@@ -49,8 +49,11 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.embedding.VectorStore;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
+import com.linkedin.metadata.search.utils.DocumentDefaultFilter;
 import com.linkedin.metadata.utils.CriterionUtils;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
@@ -61,12 +64,16 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
+import java.io.InterruptedIOException;
 import java.time.Duration;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.CopyOnWriteArrayList;
+import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ForkJoinPool;
+import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Consumer;
 import org.apache.lucene.search.TotalHits;
 import org.mockito.ArgumentCaptor;
@@ -91,6 +98,7 @@ public class ESSearchDAOVectorStoreTest {
   private static final Urn D0 = UrnUtils.getUrn("urn:li:document:d0");
   private static final Urn D1 = UrnUtils.getUrn("urn:li:document:d1");
   private static final Urn D2 = UrnUtils.getUrn("urn:li:document:d2");
+  private static final Urn MASKED = UrnUtils.getUrn("urn:li:restricted:masked");
 
   private SearchClientShim<?> client;
   private EmbeddingProvider provider;
@@ -100,6 +108,8 @@ public class ESSearchDAOVectorStoreTest {
   private VectorStoreConfiguration storeConfig;
   private FakeVectorStore fake;
   private ESSearchDAO dao;
+  // The system the document profile lists
+  private String profileSystem;
 
   @BeforeMethod
   public void setUp() throws IOException {
@@ -120,7 +130,13 @@ public class ESSearchDAOVectorStoreTest {
     elastic = harness.elastic();
     elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     harness.store(VECTOR_URN, vector(r -> {}));
+    profileSystem = STORE;
     fake = new FakeVectorStore();
+    fake.hits =
+        List.of(
+            new VectorStore.Hit(D0, 0.9),
+            new VectorStore.Hit(D1, 0.8),
+            new VectorStore.Hit(D2, 0.7));
     dao =
         new ESSearchDAO(
             false,
@@ -133,9 +149,6 @@ public class ESSearchDAOVectorStoreTest {
             null,
             new HybridQueryEmbeddingService(provider, "text-embedding-3-small", MODEL_KEY, 0));
     dao.setVectorStores(Map.of(STORE, fake));
-    fake.hits =
-        List.of(
-            VectorStore.Hit.of(D0, 0.9), VectorStore.Hit.of(D1, 0.8), VectorStore.Hit.of(D2, 0.7));
   }
 
   @Test
@@ -166,34 +179,33 @@ public class ESSearchDAOVectorStoreTest {
   }
 
   @Test
-  public void testHydrationMasksHitsTheViewerCannotSee() throws Exception {
+  public void testHydrationRemovesHitsTheViewerCannotSee() throws Exception {
+    // The DataHub index holds all three, so only authorization can remove the denied one
     hydrationReturns(D0, D1, D2);
-    RestrictedService restricted = mock(RestrictedService.class);
-    Urn masked = UrnUtils.getUrn("urn:li:restricted:masked");
-    when(restricted.encryptRestrictedUrn(any())).thenReturn(masked);
-    OperationContext base = harness.opContext;
-    OperationContext viewer =
-        base.toBuilder()
-            .operationContextConfig(
-                base.getOperationContextConfig().toBuilder()
-                    .allowSystemAuthentication(false)
-                    .viewAuthorizationConfiguration(
-                        ViewAuthorizationConfiguration.builder()
-                            .enabled(true)
-                            .effectiveUnrestrictedEntityTypes(Set.of())
-                            .build())
-                    .build())
-            .servicesRegistryContext(
-                ServicesRegistryContext.builder().restrictedService(restricted).build())
-            .build(base.getSessionActorContext(), false);
 
-    try (MockedStatic<EntityAuthorizationUtils> auth = mockStatic(EntityAuthorizationUtils.class)) {
-      auth.when(() -> EntityAuthorizationUtils.canViewEntity(any(OperationContext.class), any()))
-          .thenAnswer(invocation -> !D1.equals(invocation.getArgument(1)));
+    try (MockedStatic<EntityAuthorizationUtils> auth = denying(D1)) {
+      SearchResult result = search(viewer(), null, f -> {});
 
-      SearchResult result = search(viewer, null, f -> f.setIncludeRestricted(true));
+      assertEquals(urns(result), List.of(D0, D2));
+      assertEquals(result.getNumEntities().intValue(), 2);
+      assertEquals(result.getMetadata().getVectorRetrieval().getRemovedByHydration().intValue(), 1);
+      // The hydration request, which also counts the facets, never sees the denied entity
+      String query = hydrationRequest().source().query().toString();
+      assertTrue(query.contains(D0.toString()), query);
+      assertFalse(query.contains(D1.toString()), query);
+    }
+  }
 
-      assertEquals(urns(result), List.of(D0, masked, D2));
+  @Test
+  public void testIncludeRestrictedMasksAHitTheViewerCannotSee() throws Exception {
+    hydrationReturns(D0, D1, D2);
+
+    try (MockedStatic<EntityAuthorizationUtils> auth = denying(D1)) {
+      // As on the keyword leg, includeRestricted keeps the row and masks the entity
+      SearchResult result = search(viewer(), null, f -> f.setIncludeRestricted(true));
+
+      assertEquals(urns(result), List.of(D0, MASKED, D2));
+      assertEquals(result.getNumEntities().intValue(), 3);
     }
   }
 
@@ -203,10 +215,9 @@ public class ESSearchDAOVectorStoreTest {
     hydrationReturns(D0, D1, D2);
     // onFailure next does not apply: the store cannot run this request at all
     harness.store(VECTOR_URN, vector(r -> r.setOnFailure("next")));
+    Filter caller = filter("domains", "urn:li:domain:sales");
 
-    assertThrows(
-        SearchTemplateFailClosedException.class,
-        () -> search(filter("domains", "urn:li:domain:sales"), f -> {}));
+    assertThrows(SearchTemplateFailClosedException.class, () -> search(caller, f -> {}));
     assertTrue(fake.requests.isEmpty());
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
     verify(metrics)
@@ -216,16 +227,53 @@ public class ESSearchDAOVectorStoreTest {
             "outcome",
             SearchTemplateVectorRetrieval.NO_PRE_FILTER);
 
-    // No caller filter: the system defaults are applied by hydration, not sent to the store
+    // No caller filter: hydration applies the system defaults; the store is sent no filter
     SearchResult unfiltered = search(null, f -> {});
     assertEquals(unfiltered.getNumEntities().intValue(), 3);
     assertNull(fake.requests.get(0).filter());
 
+    // The published-document default the GraphQL resolvers merge in is a system default too
+    Filter documentDefault = DocumentDefaultFilter.build(true, false);
+    search(documentDefault, f -> {});
+    assertNull(fake.requests.get(1).filter());
+    // ... and the caller's own criterion beside it still is a caller filter
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> search(FilterUtils.combineFilters(caller, documentDefault), f -> {}));
+    assertEquals(fake.requests.size(), 2);
+
     // A store with preFilter retrieves inside the caller's filter
     storeConfig.setCapabilities(Set.of(VectorStore.PRE_FILTER));
-    SearchResult filtered = search(filter("domains", "urn:li:domain:sales"), f -> {});
-    assertTrue(fake.requests.get(1).filter().toString().contains("urn:li:domain:sales"));
+    SearchResult filtered = search(caller, f -> {});
+    assertTrue(fake.requests.get(2).filter().toString().contains("urn:li:domain:sales"));
     assertTrue(filtered.getMetadata().getVectorRetrieval().isFilterInVectorSearch());
+  }
+
+  @Test
+  public void testAStoreNamedLikeTheEngineDoesNotShadowTheDataHubIndex() throws Exception {
+    hydrationReturns(D0);
+    elastic
+        .getEntityIndex()
+        .getSemanticSearch()
+        .setStores(
+            Map.of(
+                EmbeddingProfileRegistry.OPENSEARCH,
+                new VectorStoreConfiguration(),
+                STORE,
+                storeConfig));
+    profileSystem = EmbeddingProfileRegistry.OPENSEARCH;
+    when(client.searchKnn(any(), any()))
+        .thenReturn(
+            new KnnSearchResponse(
+                List.of(new KnnSearchResponse.Hit("d0", 0.9, Map.of("urn", D0.toString())))));
+
+    SearchResult result = search(null, f -> {});
+
+    assertEquals(urns(result), List.of(D0));
+    assertEquals(
+        result.getMetadata().getVectorRetrieval().getStore(), EmbeddingProfileRegistry.OPENSEARCH);
+    verify(client, times(1)).searchKnn(any(), any());
+    assertTrue(fake.requests.isEmpty());
   }
 
   @Test
@@ -237,7 +285,7 @@ public class ESSearchDAOVectorStoreTest {
     assertThrows(
         SearchTemplateFailClosedException.class,
         () -> vectorSearch.anchorVectors(opContext, STORE, MODEL_KEY, D0));
-    assertEquals(fake.findByIdCalls, 0);
+    assertEquals(fake.findByIdCalls.get(), 0);
     // The DataHub index store does not find by id either
     assertThrows(
         SearchTemplateFailClosedException.class,
@@ -265,16 +313,38 @@ public class ESSearchDAOVectorStoreTest {
   }
 
   @Test
-  public void testAnAnswerPastTheStoreDeadlineFails() throws Exception {
-    hydrationReturns(D0, D1, D2);
-    storeConfig.setTimeoutMillis(20);
-    fake.delayMillis = 60;
+  public void testABlockingStoreFailsTheRungAtItsDeadline() throws Exception {
+    storeConfig.setTimeoutMillis(50);
+    fake.block = true;
 
+    long startNanos = System.nanoTime();
     assertThrows(SearchTemplateFailClosedException.class, () -> search(null, f -> {}));
 
-    assertEquals(fake.timeouts, List.of(Duration.ofMillis(20)));
+    // The adapter blocks for 20 s; the rung fails at the deadline and cancels the call
+    assertTrue(TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos) < 10_000);
+    assertTrue(fake.interrupted.await(10, TimeUnit.SECONDS));
+    assertEquals(fake.timeouts.get(0), Duration.ofMillis(50));
     verify(client, never())
         .search(any(OperationContext.class), any(SearchRequest.class), eq(RequestOptions.DEFAULT));
+
+    // A timeout counts toward the breaker: after three, the store is not called
+    for (int i = 0; i < 3; i++) {
+      assertThrows(SearchTemplateFailClosedException.class, () -> search(null, f -> {}));
+    }
+    assertEquals(fake.requests.size(), 3);
+  }
+
+  @Test
+  public void testAStoreCannotRaiseAHitPastMinScore() throws Exception {
+    hydrationReturns(D0, D1, D2);
+    // The service scores a hit (1 + cosine) / 2 from the cosine the store returns
+    fake.hits = List.of(new VectorStore.Hit(D0, 0.2), new VectorStore.Hit(D1, 0.9));
+
+    SearchResult result = search(null, f -> f.setMinScore(0.9f));
+
+    assertEquals(urns(result), List.of(D1));
+    assertEquals(result.getEntities().get(0).getScore(), 0.95, 1e-9);
+    assertEquals(result.getMetadata().getVectorRetrieval().getBelowMinScore().intValue(), 1);
   }
 
   @Test
@@ -295,15 +365,19 @@ public class ESSearchDAOVectorStoreTest {
     assertEquals(fake.requests.size(), 3);
   }
 
-  /** Records every call; returns the configured hits, anchor vector, or failure. */
+  /**
+   * Records every call; returns the configured hits or anchor vector, throws the configured
+   * failure, or blocks until the call is cancelled. Calls run on the hybrid read executor.
+   */
   private static final class FakeVectorStore implements VectorStore {
-    List<Hit> hits = List.of();
-    float[] anchor;
-    IOException failure;
-    long delayMillis;
-    final List<Request> requests = new ArrayList<>();
-    final List<Duration> timeouts = new ArrayList<>();
-    int findByIdCalls;
+    volatile List<Hit> hits = List.of();
+    volatile float[] anchor;
+    volatile IOException failure;
+    volatile boolean block;
+    final CountDownLatch interrupted = new CountDownLatch(1);
+    final List<Request> requests = new CopyOnWriteArrayList<>();
+    final List<Duration> timeouts = new CopyOnWriteArrayList<>();
+    final AtomicInteger findByIdCalls = new AtomicInteger();
 
     @Override
     public List<Hit> search(OperationContext opContext, Request request, Duration timeout)
@@ -313,11 +387,13 @@ public class ESSearchDAOVectorStoreTest {
       if (failure != null) {
         throw failure;
       }
-      if (delayMillis > 0) {
+      if (block) {
         try {
-          Thread.sleep(delayMillis);
+          Thread.sleep(20_000);
         } catch (InterruptedException e) {
+          interrupted.countDown();
           Thread.currentThread().interrupt();
+          throw new InterruptedIOException("cancelled");
         }
       }
       return hits;
@@ -326,7 +402,7 @@ public class ESSearchDAOVectorStoreTest {
     @Override
     public List<float[]> findById(
         OperationContext opContext, String collection, Urn urn, Duration timeout) {
-      findByIdCalls++;
+      findByIdCalls.incrementAndGet();
       return List.of(anchor);
     }
   }
@@ -369,7 +445,35 @@ public class ESSearchDAOVectorStoreTest {
             });
   }
 
-  /** The document profile, available only on the fake store. */
+  /** A caller who is not the system, with view authorization on for every entity type. */
+  private OperationContext viewer() {
+    RestrictedService restricted = mock(RestrictedService.class);
+    when(restricted.encryptRestrictedUrn(any())).thenReturn(MASKED);
+    OperationContext base = harness.opContext;
+    return base.toBuilder()
+        .operationContextConfig(
+            base.getOperationContextConfig().toBuilder()
+                .allowSystemAuthentication(false)
+                .viewAuthorizationConfiguration(
+                    ViewAuthorizationConfiguration.builder()
+                        .enabled(true)
+                        .effectiveUnrestrictedEntityTypes(Set.of())
+                        .build())
+                .build())
+        .servicesRegistryContext(
+            ServicesRegistryContext.builder().restrictedService(restricted).build())
+        .build(base.getSessionActorContext(), false);
+  }
+
+  /** The viewer can see every entity but {@code denied}. Close it after the search. */
+  private static MockedStatic<EntityAuthorizationUtils> denying(Urn denied) {
+    MockedStatic<EntityAuthorizationUtils> auth = mockStatic(EntityAuthorizationUtils.class);
+    auth.when(() -> EntityAuthorizationUtils.canViewEntity(any(OperationContext.class), any()))
+        .thenAnswer(invocation -> !denied.equals(invocation.getArgument(1)));
+    return auth;
+  }
+
+  /** The document profile, listed on {@link #profileSystem}. */
   private SearchTemplateGates gates() {
     EmbeddingProfile profile =
         new EmbeddingProfile(
@@ -378,7 +482,7 @@ public class ESSearchDAOVectorStoreTest {
             "text-embedding-3-small",
             "cosine",
             Set.of("document"),
-            Set.of(STORE));
+            Set.of(profileSystem));
     return SearchTemplateGates.of(
         new EmbeddingProfileRegistry(List.of(profile), Map.of("document", MODEL_KEY)),
         elastic.getEntityIndex().getSemanticSearch(),

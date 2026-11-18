@@ -18,7 +18,7 @@ public class VectorStoreConfiguration {
    */
   private Set<String> capabilities = Set.of();
 
-  /** Deadline for one adapter call. */
+  /** Deadline for one adapter call. The service stops waiting then and cancels the call. */
   private long timeoutMillis = 1_000;
 
   /** Most neighbors one search requests. */
