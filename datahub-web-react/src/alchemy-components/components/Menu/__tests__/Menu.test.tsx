@@ -2,7 +2,7 @@ import { Menu } from '@components';
 import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 import { ThemeProvider } from 'styled-components';
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 
 import { ItemType } from '@components/components/Menu/types';
 
@@ -44,5 +44,22 @@ describe('Menu', () => {
         rerender(renderMenu(true));
 
         expect(isSubmenuOpen()).toBe(false);
+    });
+
+    it('stays open when an item is clicked, leaving closing to the owner', () => {
+        const onOpenChange = vi.fn();
+        const onClick = vi.fn();
+        render(
+            <ThemeProvider theme={themeV2}>
+                <Menu items={[{ type: 'item', key: 'item', title: 'Item', onClick }]} open onOpenChange={onOpenChange}>
+                    <button type="button">trigger</button>
+                </Menu>
+            </ThemeProvider>,
+        );
+
+        fireEvent.click(screen.getByText('Item'));
+
+        expect(onClick).toHaveBeenCalled();
+        expect(onOpenChange).not.toHaveBeenCalledWith(false, expect.anything());
     });
 });

@@ -298,7 +298,7 @@ const GlobalThemeStyles = createGlobalStyle<{ theme: Theme }>`
     .ant-input-affix-wrapper .ant-input-clear-icon {
         color: ${(props) => props.theme.colors.icon};
     }
-    .ant-input-clear-icon:hover {
+    .ant-input-affix-wrapper .ant-input-clear-icon:hover {
         color: ${(props) => props.theme.colors.iconHover};
     }
     .ant-input-status-error:not(.ant-input-disabled) {

@@ -8,3 +8,8 @@ export const DropdownWrapper = styled.div`
         background: ${({ theme }) => theme.colors.scrollbarTrack} !important;
     }
 `;
+
+// Holds the capture-phase key handler without adding a box around the select
+export const KeyCaptureWrapper = styled.div`
+    display: contents;
+`;

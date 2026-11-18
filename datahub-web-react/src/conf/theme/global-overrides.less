@@ -96,6 +96,11 @@ body {
     line-height: 22px;
 }
 
+// antd 4 drew vertical dividers in a fixed 6% black in both modes; antd 5 uses colorSplit, which dark mode sets
+.ant-divider.ant-divider-vertical {
+    border-inline-start-color: rgba(0, 0, 0, 0.06);
+}
+
 // antd 5 fixes single selects at the control height; selects that render their own input (AutoComplete
 // search bars) need to grow with it as they did in antd 4
 .ant-select-single.ant-select-customize-input {

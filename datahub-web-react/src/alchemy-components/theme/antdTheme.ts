@@ -89,7 +89,6 @@ export const antdTheme: ThemeConfig = {
 function getThemedComponents(colors: Theme['colors']): ThemeConfig['components'] {
     return {
         Checkbox: { colorBorder: colors.borderCheckbox },
-        Divider: { colorSplit: colors.border },
         Form: { labelColor: colors.text },
         Progress: { defaultColor: colors.buttonFillBrand, remainingColor: colors.bgSurfaceDisabled },
         Tabs: { itemColor: colors.textSecondary },

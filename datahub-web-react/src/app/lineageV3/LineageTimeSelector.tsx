@@ -136,9 +136,10 @@ export default function LineageTimeSelector({ onChange, startTimeMillis, endTime
                             </ConfirmButtonWrapper>
                         )}
                         format="ll"
-                        ranges={Object.fromEntries(
-                            ranges.map(([start, end]) => [getTimeRangeDescription(start, end), [start, end]]),
-                        )}
+                        presets={ranges.map(([start, end]) => ({
+                            label: getTimeRangeDescription(start, end),
+                            value: [start, end],
+                        }))}
                         onChange={handleRangeChange}
                         onOpenChange={handleOpenChange}
                         onCalendarChange={() => handleOpenChange(true)}

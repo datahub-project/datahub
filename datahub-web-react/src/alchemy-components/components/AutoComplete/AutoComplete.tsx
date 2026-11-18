@@ -2,7 +2,7 @@ import { AutoComplete as AntdAutoComplete } from 'antd';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 
 import { OptionWrapper } from '@components/components/AutoComplete/OptionWrapper';
-import { DropdownWrapper } from '@components/components/AutoComplete/components';
+import { DropdownWrapper, KeyCaptureWrapper } from '@components/components/AutoComplete/components';
 import {
     AUTOCOMPLETE_WRAPPER_CLASS_CSS_SELECTOR,
     AUTOCOMPLETE_WRAPPER_CLASS_NAME,
@@ -52,12 +52,20 @@ export default function AutoComplete({
                     onClear?.();
                 }
             }
-            // antd 5's select handles Tab like Enter and blocks the focus move, so the onBlur close never runs
-            if (event.key === TAB_KEY && internalOpen) {
-                setInternalOpen(false);
-            }
         },
         [internalOpen, onClear],
+    );
+
+    // rc-select treats Tab like Enter while open (selects the active option and keeps focus) before onKeyDown
+    // runs; stopping Tab in the capture phase closes the list and lets focus move on, as in antd 4
+    const onKeyDownCaptureHandler = useCallback(
+        (event: React.KeyboardEvent) => {
+            if (event.key === TAB_KEY && internalOpen) {
+                setInternalOpen(false);
+                event.stopPropagation();
+            }
+        },
+        [internalOpen],
     );
 
     const onBlur = (event: React.FocusEvent) => {
@@ -105,32 +113,34 @@ export default function AutoComplete({
             onClickOutside={() => setInternalOpen(false)}
             width={clickOutsideWidth}
         >
-            <AntdAutoComplete
-                open={internalOpen}
-                value={value}
-                options={processedOptions}
-                {...props}
-                listHeight={dropdownContentHeight}
-                data-testid={dataTestId}
-                onClick={() => setInternalOpen(true)}
-                onBlur={onBlur}
-                onClear={onClear}
-                onKeyDown={onKeyDownHandler}
-                onChange={onChangeHandler}
-                dropdownRender={(menu) => {
-                    return (
-                        // Pass overlay class name to children to add possibility not to close autocomplete by clicking on child's portals
-                        // as ClickOutside will ignore them
-                        <OverlayClassProvider overlayClassName={AUTOCOMPLETE_WRAPPER_CLASS_NAME}>
-                            <DropdownWrapper className={AUTOCOMPLETE_WRAPPER_CLASS_NAME}>
-                                {props?.dropdownRender?.(menu) ?? menu}
-                            </DropdownWrapper>
-                        </OverlayClassProvider>
-                    );
-                }}
-            >
-                {children}
-            </AntdAutoComplete>
+            <KeyCaptureWrapper onKeyDownCapture={onKeyDownCaptureHandler}>
+                <AntdAutoComplete
+                    open={internalOpen}
+                    value={value}
+                    options={processedOptions}
+                    {...props}
+                    listHeight={dropdownContentHeight}
+                    data-testid={dataTestId}
+                    onClick={() => setInternalOpen(true)}
+                    onBlur={onBlur}
+                    onClear={onClear}
+                    onKeyDown={onKeyDownHandler}
+                    onChange={onChangeHandler}
+                    dropdownRender={(menu) => {
+                        return (
+                            // Pass overlay class name to children to add possibility not to close autocomplete by clicking on child's portals
+                            // as ClickOutside will ignore them
+                            <OverlayClassProvider overlayClassName={AUTOCOMPLETE_WRAPPER_CLASS_NAME}>
+                                <DropdownWrapper className={AUTOCOMPLETE_WRAPPER_CLASS_NAME}>
+                                    {props?.dropdownRender?.(menu) ?? menu}
+                                </DropdownWrapper>
+                            </OverlayClassProvider>
+                        );
+                    }}
+                >
+                    {children}
+                </AntdAutoComplete>
+            </KeyCaptureWrapper>
         </ClickOutside>
     );
 }
