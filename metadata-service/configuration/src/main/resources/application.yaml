@@ -339,7 +339,9 @@ datahub:
           hysteresisPercent: 5
         hazelcast:
           evictionPolicy: MAX_SIZE
-          maxSizePerNode: 32
+          # Hazelcast uses 271 partitions. A PER_NODE cap below that is clamped to about one entry
+          # per partition, so two components in one partition evict each other.
+          maxSizePerNode: ${ENTITY_GRAPH_CACHE_HAZELCAST_MAX_SIZE_PER_NODE:542}
           maxSizePolicy: PER_NODE
           heapMaxSizePercent: 0
           ttlSeconds: 0
