@@ -43,22 +43,25 @@ public final class SearchTemplateVectorRetrieval {
   /** This process cannot run a vector rung: semantic read is off or no embedding provider. */
   public static final String UNAVAILABLE = "unavailable";
 
+  /** The floor inherited from configuration was skipped: the profile's metric is not cosine. */
+  public static final String PROFILE_NOT_COSINE = "profileNotCosine";
+
   public static final String MIN_SCORE_DEPRECATION =
       "SearchFlags.minScore is deprecated as a vector leg floor; use retrieval.minSimilarity";
 
   private SearchTemplateVectorRetrieval() {}
 
   /**
-   * Neighbors to request: {@code candidateCap} clamped to {@link #MAX_K}, else the window semantic
-   * search fetches for the page, {@code max(size, min(500, ceil((from + size) * 1.2)))}. At least
-   * one, so a count-only request still finds the total.
+   * Neighbors to request: {@code candidateCap}, else the window semantic search fetches for the
+   * page, {@code max(size, min(500, ceil((from + size) * 1.2)))}. Either is clamped to {@link
+   * #MAX_K}, and is at least one, so a count-only request still finds the total.
    */
   public static int window(@Nullable Integer candidateCap, int from, int size) {
     if (candidateCap != null) {
       return Math.max(1, Math.min(candidateCap, MAX_K));
     }
     int oversampled = (int) Math.ceil(((long) from + size) * PAGE_OVERSAMPLE);
-    return Math.max(1, Math.max(size, Math.min(PAGE_WINDOW_MAX, oversampled)));
+    return Math.max(1, Math.min(MAX_K, Math.max(size, Math.min(PAGE_WINDOW_MAX, oversampled))));
   }
 
   /**

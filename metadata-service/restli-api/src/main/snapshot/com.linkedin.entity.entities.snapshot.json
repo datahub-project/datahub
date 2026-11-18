@@ -8526,6 +8526,11 @@
               "doc" : "The raw cosine floor in effect: retrieval.minSimilarity, else semanticSearch.minSimilarity.",
               "optional" : true
             }, {
+              "name" : "minSimilaritySkipped",
+              "type" : "string",
+              "doc" : "Why the floor inherited from semanticSearch.minSimilarity was not applied: profileNotCosine,\nwhen the profile's metric is not cosine and a raw cosine floor means nothing.",
+              "optional" : true
+            }, {
               "name" : "belowMinSimilarity",
               "type" : "int",
               "doc" : "Hits below minSimilarity. They are dropped and the window is not refilled.",

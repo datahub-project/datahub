@@ -21,12 +21,13 @@ import com.linkedin.metadata.search.elasticsearch.SearchClients;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
-import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateVectorRetrieval;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateWalk;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
@@ -118,23 +119,35 @@ final class TemplateVectorSearch {
     if (embedding == null) {
       // The template asks for something this process cannot run, so it fails closed
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
-      throw new SearchTemplateException(
+      throw new SearchTemplateFailClosedException(
           "Search template "
               + template.getUrn()
               + " retrieves by vector, which needs Search V3 semantic read and an embedding"
               + " provider");
     }
+    // A profile this deployment cannot embed is not a failed call, so onFailure does not apply
+    final Set<String> profiles = gates.joinedProfileIds(template, joined, system);
+    if (!profiles.equals(Set.of(embedding.getModelEmbeddingKey()))) {
+      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
+      throw new SearchTemplateFailClosedException(
+          "Search template "
+              + template.getUrn()
+              + " selects embedding profiles "
+              + profiles
+              + ", and this deployment embeds queries for "
+              + embedding.getModelEmbeddingKey());
+    }
+    // Run in batches through the search cache, the rung sizes and judges its window from the page
+    // the caller asked for, so every batch reads the same window
+    final int requestedFrom =
+        resolved != null && resolved.getRequestedFrom() != null
+            ? resolved.getRequestedFrom()
+            : from;
+    final int requestedSize =
+        resolved != null && resolved.getRequestedSize() != null
+            ? resolved.getRequestedSize()
+            : pageSize;
     try {
-      final Set<String> profiles = gates.joinedProfileIds(template, joined, system);
-      if (!profiles.equals(Set.of(embedding.getModelEmbeddingKey()))) {
-        throw new SearchTemplateException(
-            "Search template "
-                + template.getUrn()
-                + " selects embedding profiles "
-                + profiles
-                + ", and this deployment embeds queries for "
-                + embedding.getModelEmbeddingKey());
-      }
       return retrieve(
           opContext,
           template,
@@ -146,6 +159,8 @@ final class TemplateVectorSearch {
           postFilters,
           from,
           pageSize,
+          requestedFrom,
+          requestedSize,
           facets,
           explanation);
     } catch (RuntimeException | IOException e) {
@@ -156,9 +171,14 @@ final class TemplateVectorSearch {
               : new ESQueryException("Vector retrieval failed", e);
       if (SearchTemplateCapabilities.ON_FAILURE_NEXT.equals(
           template.getRetrieval().getOnFailure())) {
+        // The next rung's page must not be cached, or the next search skips this rung
+        if (resolved != null) {
+          resolved.setSkipResultCache(true);
+        }
         return SearchTemplateWalk.AttemptResult.failed(failure);
       }
-      throw failure;
+      throw new SearchTemplateFailClosedException(
+          "Search template " + template.getUrn() + " failed to retrieve by vector", failure);
     }
   }
 
@@ -174,11 +194,13 @@ final class TemplateVectorSearch {
       @Nullable Filter postFilters,
       int from,
       int pageSize,
+      int requestedFrom,
+      int requestedSize,
       @Nonnull List<String> facets,
       @Nonnull VectorRetrievalExplanation explanation)
       throws IOException {
     final Integer cap = template.getRetrieval().getCandidateCap();
-    final int k = SearchTemplateVectorRetrieval.window(cap, from, pageSize);
+    final int k = SearchTemplateVectorRetrieval.window(cap, requestedFrom, requestedSize);
     final Filter filter =
         dao.transformFilter(
             opContext, searched, postFilters, opContext.getSearchContext().getIndexConvention());
@@ -225,7 +247,17 @@ final class TemplateVectorSearch {
     if (response.partial()) {
       throw new IOException("The kNN response reported a timed-out or failed shard");
     }
-    final Float minSimilarity = gates.minSimilarity(template);
+    // A floor the template sets is bound only to a cosine profile. One inherited from configuration
+    // is skipped on another metric, where a raw cosine means nothing.
+    final Float templateFloor = template.getRetrieval().getMinSimilarity();
+    final Float inheritedFloor = templateFloor == null ? gates.minSimilarity(template) : null;
+    final EmbeddingProfile profile = gates.profiles().profile(embedding.getModelEmbeddingKey());
+    final boolean cosine = profile != null && profile.cosine();
+    final Float minSimilarity =
+        templateFloor != null ? templateFloor : cosine ? inheritedFloor : null;
+    if (inheritedFloor != null && !cosine) {
+      explanation.setMinSimilaritySkipped(SearchTemplateVectorRetrieval.PROFILE_NOT_COSINE);
+    }
     final Float minScore = flags.hasMinScore() ? flags.getMinScore() : null;
     final List<SearchEntity> survivors = new ArrayList<>();
     int belowMinSimilarity = 0;
@@ -239,7 +271,7 @@ final class TemplateVectorSearch {
       final boolean underSimilarity =
           minSimilarity != null
               && (float) SearchTemplateVectorRetrieval.cosine(hit.score()) < minSimilarity;
-      final boolean underScore = minScore != null && hit.score() < minScore;
+      final boolean underScore = minScore != null && (float) hit.score() < minScore;
       belowMinSimilarity += underSimilarity ? 1 : 0;
       belowMinScore += underScore ? 1 : 0;
       if (!underSimilarity && !underScore) {
@@ -267,7 +299,7 @@ final class TemplateVectorSearch {
         .setOutcome(
             survivors.isEmpty()
                 ? SearchTemplateVectorRetrieval.EMPTY
-                : from >= survivors.size()
+                : requestedFrom >= survivors.size()
                     ? SearchTemplateVectorRetrieval.PAST_WINDOW
                     : SearchTemplateVectorRetrieval.SERVED)
         .setProfile(embedding.getModelEmbeddingKey())

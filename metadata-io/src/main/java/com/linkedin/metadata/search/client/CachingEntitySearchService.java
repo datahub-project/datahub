@@ -183,6 +183,11 @@ public class CachingEntitySearchService {
       @Nonnull List<String> facets) {
     size = ConfigUtils.applyLimit(entitySearchService.getSearchServiceConfig(), size);
     OperationContext bound = SearchTemplateRuntimes.bind(opContext, query, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    if (resolved != null) {
+      // A vector rung sizes one window from this page, not from each batch
+      resolved.setRequestedPage(from, size);
+    }
     return new CacheableSearcher<>(
             cacheManager.getCache(ENTITY_SEARCH_SERVICE_SEARCH_CACHE_NAME),
             batchSize,
@@ -206,7 +211,7 @@ public class CachingEntitySearchService {
                     cacheKeyList(facets),
                     querySize),
             enableCache)
-        .getSearchResults(opContext, from, size);
+        .getSearchResults(bound, from, size);
   }
 
   /** Returns cached auto-complete results. */

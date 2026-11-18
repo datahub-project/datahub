@@ -166,6 +166,7 @@ public class UrnSearchResultsMapperTest {
                 .setClampedCandidateCap(5000)
                 .setCandidates(12)
                 .setMinSimilarity(0.8f)
+                .setMinSimilaritySkipped("profileNotCosine")
                 .setBelowMinSimilarity(3)
                 .setBelowMinScore(1)
                 .setFilterInVectorSearch(true)
@@ -182,6 +183,7 @@ public class UrnSearchResultsMapperTest {
     assertEquals(mapped.getClampedCandidateCap().intValue(), 5000);
     assertEquals(mapped.getCandidates().intValue(), 12);
     assertEquals(mapped.getMinSimilarity(), 0.8f);
+    assertEquals(mapped.getMinSimilaritySkipped(), "profileNotCosine");
     assertEquals(mapped.getBelowMinSimilarity(), 3);
     assertEquals(mapped.getBelowMinScore(), 1);
     assertTrue(mapped.getFilterInVectorSearch());

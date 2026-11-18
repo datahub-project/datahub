@@ -9,6 +9,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.api.trace.Span;
 import java.io.Serializable;
 import java.util.ArrayList;
@@ -112,6 +113,18 @@ public class CacheableSearcher<K> {
     return new QueryPagination(batchId * batchSize, batchSize);
   }
 
+  /**
+   * A page a vector rung handed to the ladder's next after it failed is not cached, so the next
+   * search tries the vector rung again.
+   */
+  private void putUnlessFallback(
+      @Nonnull OperationContext opContext, @Nonnull K cacheKey, @Nonnull SearchResult result) {
+    ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
+    if (resolved == null || !resolved.isSkipResultCache()) {
+      cache.put(cacheKey, toJsonString(result));
+    }
+  }
+
   private SearchResult getBatch(@Nonnull OperationContext opContext, int batchId) {
 
     return opContext.withSpan(
@@ -130,7 +143,7 @@ public class CacheableSearcher<K> {
               if (result == null) {
                 Span.current().setAttribute(CACHE_HIT_ATTR, false);
                 result = searcher.apply(batch);
-                cache.put(cacheKey, toJsonString(result));
+                putUnlessFallback(opContext, cacheKey, result);
                 opContext
                     .getMetricUtils()
                     .ifPresent(
@@ -143,7 +156,7 @@ public class CacheableSearcher<K> {
             } else {
               Span.current().setAttribute(CACHE_HIT_ATTR, false);
               result = searcher.apply(batch);
-              cache.put(cacheKey, toJsonString(result));
+              putUnlessFallback(opContext, cacheKey, result);
             }
           } else {
             Span.current().setAttribute(CACHE_HIT_ATTR, false);

@@ -223,10 +223,10 @@ public final class SearchTemplateGates {
   /**
    * Template failure that depends on the requested entity types, or null. Over the entities that
    * join the vector leg (enabled, and run by this build for their profile class): the selection
-   * names more than one profile, even when one of them is unavailable here, or the floor from
-   * {@link #minSimilarity} meets a covering profile that is not cosine. Only a vector leg this
-   * build runs for this request is checked. An entity that fails coverage is reported by {@link
-   * #entityGates}.
+   * names more than one profile, even when one of them is unavailable here, or the template's own
+   * {@code minSimilarity} meets a covering profile that is not cosine. A floor inherited from
+   * configuration is skipped on such a profile instead. Only a vector leg this build runs for this
+   * request is checked. An entity that fails coverage is reported by {@link #entityGates}.
    */
   @Nullable
   public String bindingRejection(
@@ -254,7 +254,8 @@ public final class SearchTemplateGates {
     if (selected.size() > 1 && !advertises(SEVERAL_PROFILES)) {
       return SEVERAL_PROFILES;
     }
-    if (minSimilarity(template) != null) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null && retrieval.hasMinSimilarity()) {
       for (String id : covering) {
         EmbeddingProfile profile = profiles.profile(id);
         if (profile != null && !profile.cosine()) {

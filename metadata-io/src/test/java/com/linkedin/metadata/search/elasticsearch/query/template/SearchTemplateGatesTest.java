@@ -233,10 +233,8 @@ public class SearchTemplateGatesTest {
             Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
     MergedSearchTemplate vector = merged(retrieval("vector")).build();
     assertEquals(gates.minSimilarity(vector), 0.5f);
-    // An L2 profile cannot take the inherited cosine floor either
-    assertEquals(
-        gates.bindingRejection(vector, List.of("dataset"), OPENSEARCH, true),
-        SearchTemplateGates.MIN_SIMILARITY);
+    // An inherited floor does not fail bind on an L2 profile; the rung skips it there
+    assertNull(gates.bindingRejection(vector, List.of("dataset"), OPENSEARCH, true));
     assertNull(gates.bindingRejection(vector, List.of("document"), OPENSEARCH, true));
     // A template floor replaces it, and keywordRerank drops nothing
     assertEquals(

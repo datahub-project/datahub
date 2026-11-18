@@ -1853,6 +1853,12 @@ type VectorRetrievalExplanation {
   minSimilarity: Float
 
   """
+  Why the floor inherited from semanticSearch.minSimilarity was not applied, such as
+  profileNotCosine
+  """
+  minSimilaritySkipped: String
+
+  """
   Hits below minSimilarity. They are dropped and the window is not refilled
   """
   belowMinSimilarity: Int!

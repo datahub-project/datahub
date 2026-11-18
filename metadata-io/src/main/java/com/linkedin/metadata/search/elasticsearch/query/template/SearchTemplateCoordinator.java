@@ -419,6 +419,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
     }
+    if (SearchTemplateCapabilities.vectorRetrieval(template)) {
+      resolved.setVectorReachable(true);
+    }
     rungs.add(
         template.getUrn()
             + "@"

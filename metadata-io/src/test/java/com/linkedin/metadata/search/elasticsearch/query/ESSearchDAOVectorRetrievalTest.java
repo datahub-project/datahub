@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.query;
 import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_CONFIG;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
+import static org.mockito.ArgumentMatchers.anyInt;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -18,6 +19,7 @@ import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
@@ -27,15 +29,18 @@ import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
+import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.VectorRetrievalExplanation;
+import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDryRender;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
@@ -81,6 +86,7 @@ import org.opensearch.index.query.TermsQueryBuilder;
 import org.opensearch.search.SearchHit;
 import org.opensearch.search.SearchHits;
 import org.opensearch.search.builder.SearchSourceBuilder;
+import org.springframework.cache.concurrent.ConcurrentMapCacheManager;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
 
@@ -88,6 +94,7 @@ import org.testng.annotations.Test;
 public class ESSearchDAOVectorRetrievalTest {
   private static final String VECTOR_URN = "urn:li:searchTemplate:vector";
   private static final String KEYWORD_URN = "urn:li:searchTemplate:keyword";
+  private static final String GROUP_URN = "urn:li:searchTemplate:group";
   private static final String MODEL_KEY = "text_embedding_3_small";
   private static final List<String> DOCUMENT = List.of("document");
 
@@ -150,6 +157,196 @@ public class ESSearchDAOVectorRetrievalTest {
 
     // max(size, min(500, ceil((from + size) * 1.2)))
     assertEquals(knnRequest().k(), 24);
+    // Clamped to the store's maximum, as a cap is
+    assertEquals(
+        SearchTemplateVectorRetrieval.window(null, 0, 2_000), SearchTemplateVectorRetrieval.MAX_K);
+  }
+
+  @Test
+  public void testAHitAtMinScoreIsKept() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.85, 0.8));
+
+    SearchResult result =
+        search(context(DOCUMENT, flags -> flags.setMinScore(0.85f)), null, 0, 10, DOCUMENT);
+
+    assertEquals(urns(result), List.of("urn:li:document:d0"));
+  }
+
+  @Test
+  public void testAnInheritedFloorIsSkippedOnAProfileThatIsNotCosine() throws Exception {
+    semanticSearch.setMinSimilarity(0.9f);
+    store(vector(r -> {}));
+    knnReturns(hits(0.99, 0.6));
+    EmbeddingProfile l2 =
+        new EmbeddingProfile(
+            MODEL_KEY,
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "l2",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(l2), semanticSearch, false));
+
+    SearchResult result = search(context(DOCUMENT, f -> {}, coordinator), null, 0, 10, DOCUMENT);
+
+    assertEquals(result.getNumEntities().intValue(), 2);
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertFalse(explanation.hasMinSimilarity());
+    assertEquals(
+        explanation.getMinSimilaritySkipped(), SearchTemplateVectorRetrieval.PROFILE_NOT_COSINE);
+  }
+
+  @Test
+  public void testAProfileThisDeploymentCannotEmbedFailsClosed() throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    EmbeddingProfile other =
+        new EmbeddingProfile(
+            "other_profile",
+            EmbeddingProfile.TEXT_CHUNKS,
+            null,
+            "cosine",
+            Set.of("document"),
+            Set.of(EmbeddingProfileRegistry.OPENSEARCH));
+    SearchTemplateCoordinator coordinator =
+        coordinator(
+            SearchTemplateGates.of(
+                new EmbeddingProfileRegistry(List.of(other), Map.of("document", other.id())),
+                semanticSearch,
+                false));
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> search(context(DOCUMENT, f -> {}, coordinator), null, 0, 10, DOCUMENT));
+    verify(client, never()).searchKnn(any(), any());
+    assertNoFallback();
+  }
+
+  @Test
+  public void testAParallelVectorMemberThatFailsClosedFailsTheSearch() throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    store(vector(r -> {}));
+    SearchTemplateProperties group = keyword();
+    group.setLadder(
+        new SearchTemplateLadder()
+            .setParallel(new UrnArray(UrnUtils.getUrn(VECTOR_URN)))
+            .setJoin("any")
+            .setNext(UrnUtils.getUrn(KEYWORD_URN)));
+    harness.store(GROUP_URN, group);
+    when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
+
+    assertThrows(
+        SearchTemplateFailClosedException.class,
+        () -> search(pinned(context(DOCUMENT, f -> {}), GROUP_URN), null, 0, 10, DOCUMENT));
+    assertNoFallback();
+  }
+
+  @Test
+  public void testTheSearchCacheServesTheSameVectorPageAsTheDao() throws Exception {
+    // The store answers with the k nearest of 300 neighbors, so a window's size shows in its total
+    List<KnnSearchResponse.Hit> neighbors =
+        hits(IntStream.range(0, 300).mapToDouble(i -> 0.99 - i * 0.001).toArray());
+    when(client.searchKnn(any(), any()))
+        .thenAnswer(
+            invocation ->
+                new KnnSearchResponse(
+                    neighbors.subList(
+                        0,
+                        Math.min(
+                            neighbors.size(),
+                            ((KnnSearchRequest) invocation.getArgument(1)).k()))));
+    ESSearchDAO dao = dao(null, embedding());
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                dao.search(
+                    invocation.getArgument(0),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    // One cache across the pages, so a window cached for one page must not serve another
+    CachingEntitySearchService cached =
+        new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+
+    for (int[] page : new int[][] {{0, 10}, {95, 10}, {60, 10}}) {
+      store(page[0] == 60 ? vector(r -> r.setCandidateCap(50)) : vector(r -> {}));
+      SearchResult direct =
+          search(dao, context(DOCUMENT, f -> {}), null, page[0], page[1], DOCUMENT);
+      SearchResult throughCache =
+          cached.search(
+              context(DOCUMENT, f -> {}),
+              DOCUMENT,
+              "quarterly revenue",
+              null,
+              null,
+              page[0],
+              page[1],
+              List.of());
+      assertEquals(urns(throughCache), urns(direct), page[0] + "");
+      assertEquals(throughCache.getNumEntities(), direct.getNumEntities(), page[0] + "");
+      assertEquals(throughCache.getMetadata(), direct.getMetadata(), page[0] + "");
+    }
+    assertEquals(
+        search(dao, context(DOCUMENT, f -> {}), null, 60, 10, DOCUMENT)
+            .getMetadata()
+            .getVectorRetrieval()
+            .getOutcome(),
+        SearchTemplateVectorRetrieval.PAST_WINDOW);
+  }
+
+  @Test
+  public void testAPageServedAfterAVectorFailureIsNotCached() throws Exception {
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties next = vector(r -> r.setOnFailure("next"));
+    next.setLadder(nextOnMiss());
+    store(next);
+    when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
+    ESSearchDAO dao = dao(null, embedding());
+    EntitySearchService entitySearch = mock(EntitySearchService.class);
+    when(entitySearch.getSearchServiceConfig()).thenReturn(TEST_SEARCH_SERVICE_CONFIG);
+    when(entitySearch.search(any(), any(), any(), any(), any(), anyInt(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                dao.search(
+                    invocation.getArgument(0),
+                    invocation.getArgument(1),
+                    invocation.getArgument(2),
+                    invocation.getArgument(3),
+                    invocation.getArgument(4),
+                    invocation.getArgument(5),
+                    invocation.getArgument(6),
+                    invocation.getArgument(7)));
+    CachingEntitySearchService cached =
+        new CachingEntitySearchService(new ConcurrentMapCacheManager(), entitySearch, 100, true);
+
+    for (int attempt = 0; attempt < 2; attempt++) {
+      assertEquals(
+          cached
+              .search(
+                  context(DOCUMENT, f -> {}),
+                  DOCUMENT,
+                  "quarterly revenue",
+                  null,
+                  null,
+                  0,
+                  10,
+                  List.of())
+              .getEntities()
+              .size(),
+          3);
+    }
+    // The second search tried the vector rung again
+    verify(client, times(2)).searchKnn(any(), any());
   }
 
   @Test

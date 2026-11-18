@@ -48,6 +48,12 @@ record VectorRetrievalExplanation {
   minSimilarity: optional float
 
   /**
+   * Why the floor inherited from semanticSearch.minSimilarity was not applied: profileNotCosine,
+   * when the profile's metric is not cosine and a raw cosine floor means nothing.
+   */
+  minSimilaritySkipped: optional string
+
+  /**
    * Hits below minSimilarity. They are dropped and the window is not refilled.
    */
   belowMinSimilarity: int = 0

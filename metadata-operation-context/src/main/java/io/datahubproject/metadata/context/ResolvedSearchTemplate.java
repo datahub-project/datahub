@@ -62,6 +62,23 @@ public class ResolvedSearchTemplate {
    */
   @Nullable private String cacheIdentity;
 
+  /** A rung this search may reach retrieves by vector. Set at bind. */
+  private boolean vectorReachable;
+
+  /**
+   * The page the caller asked for, when the search runs in batches. A vector rung sizes and judges
+   * its window from it, so it is part of the cache identity when a vector rung is reachable.
+   */
+  @Nullable private Integer requestedFrom;
+
+  @Nullable private Integer requestedSize;
+
+  /**
+   * A vector rung failed and the ladder served its next rung, so the result is not cached and the
+   * next search tries the vector rung again. Not part of the cache identity.
+   */
+  private boolean skipResultCache;
+
   public ResolvedSearchTemplate(
       @Nonnull String urn, long lastModified, @Nullable String intent, @Nullable String subIntent) {
     this.urn = urn;
@@ -114,12 +131,28 @@ public class ResolvedSearchTemplate {
     this.cacheIdentity = cacheIdentity;
   }
 
+  public void setVectorReachable(boolean vectorReachable) {
+    this.vectorReachable = vectorReachable;
+  }
+
+  public void setRequestedPage(int from, int size) {
+    this.requestedFrom = from;
+    this.requestedSize = size;
+  }
+
+  public void setSkipResultCache(boolean skipResultCache) {
+    this.skipResultCache = skipResultCache;
+  }
+
   /**
    * Every reachable rung, and the viewer when a body references one. Rerank is armed after the
    * first batch, so it stays off this key.
    */
   @Nonnull
   public String cacheKeyComponent() {
-    return cacheIdentity == null ? urn + "@" + lastModified : cacheIdentity;
+    String identity = cacheIdentity == null ? urn + "@" + lastModified : cacheIdentity;
+    return vectorReachable && requestedFrom != null
+        ? identity + "|page=" + requestedFrom + ":" + requestedSize
+        : identity;
   }
 }

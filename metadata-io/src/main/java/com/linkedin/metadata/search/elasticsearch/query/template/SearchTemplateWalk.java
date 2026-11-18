@@ -440,12 +440,16 @@ public final class SearchTemplateWalk {
       return new Member<>(urn, AttemptResult.skipped(), false);
     }
     path.add(urn);
-    final MergedSearchTemplate template;
+    MergedSearchTemplate template = null;
     try {
       template = loader.load(opContext, urn);
       requireSupported(opContext, template);
     } catch (RuntimeException e) {
-      // Load and capability failures are member results. The group's next is the fallback.
+      // Load and capability failures are member results, and the group's next is the fallback. A
+      // vector member that cannot run fails the search closed instead.
+      if (template != null && SearchTemplateCapabilities.admitsVectorHits(template)) {
+        throw e;
+      }
       return new Member<>(urn, AttemptResult.failed(e), false);
     }
     SearchTemplateLadder ladder = template.getLadder();
@@ -458,6 +462,8 @@ public final class SearchTemplateWalk {
     long started = System.nanoTime();
     try {
       result = attempt.run(urn);
+    } catch (SearchTemplateFailClosedException e) {
+      throw e;
     } catch (RuntimeException e) {
       result = AttemptResult.failed(e);
     } finally {
