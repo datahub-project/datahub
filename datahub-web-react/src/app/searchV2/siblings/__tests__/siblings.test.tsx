@@ -214,6 +214,22 @@ describe('SearchResultSiblings', () => {
         expect(screen.queryByText(/more/)).toBeNull();
     });
 
+    it('renders nothing when every member in the group failed to load', () => {
+        const { container } = render(
+            <MockedProvider mocks={[]} addTypename>
+                <TestPageContainer>
+                    <SearchResultSiblings
+                        urn={RESULT_URN}
+                        resultName="orders"
+                        group={fixtureGroup([], 2, RESULT_URN, 2)}
+                    />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+        expect(screen.queryByTestId(`siblings-${RESULT_URN}`)).toBeNull();
+        expect(container.querySelector('[role="list"]')).toBeNull();
+    });
+
     it('lists the first five with labels, the primary marked, then "+ N more"', () => {
         renderSiblings();
         expect(screen.getAllByTestId('sibling-row')).toHaveLength(5);
