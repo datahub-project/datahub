@@ -1089,7 +1089,9 @@ class TestSnowflakeAdapter:
         # how much of the table survived.
         assert context.applied.sample_percentage == pytest.approx(0.01)
 
-    def test_sampled_temp_table_block_fallback_to_bernoulli(self, adapter, config):
+    def test_sampled_temp_table_block_fallback_to_bernoulli(
+        self, adapter, config, report
+    ):
         """When BLOCK sampling fails (views), falls back to BERNOULLI-only."""
         config.sample_size = 10000
         adapter.config = config
@@ -1116,6 +1118,9 @@ class TestSnowflakeAdapter:
         fallback_sql = str(mock_conn.execute.call_args_list[1][0][0])
         assert "TABLESAMPLE BERNOULLI" in fallback_sql
         assert "BLOCK" not in fallback_sql
+        # The degraded attempt has to reach the report, not just the log: a
+        # silent fallback hides that the cheap pre-sample was unavailable.
+        assert any("bernoulli" in w.title.lower() for w in report.warnings)
 
     def test_sampled_temp_table_bernoulli_failure_raises(self, adapter, config):
         """When BERNOULLI-only sampling fails, the error propagates."""

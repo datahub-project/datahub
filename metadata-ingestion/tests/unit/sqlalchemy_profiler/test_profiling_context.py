@@ -106,3 +106,38 @@ class TestAppliedProfile:
 
     def test_a_bound_is_not_a_sample(self):
         assert not AppliedProfile(limit=100, offset=25).sampled
+
+    def test_rejects_a_percentage_out_of_range_on_assignment(self):
+        # Adapters report by assigning, never by constructing, so the check has
+        # to hold on that path -- at construction every field is still None.
+        applied = AppliedProfile()
+        with pytest.raises(ValueError, match=r"sample_percentage must be in"):
+            applied.sample_percentage = 101
+
+    def test_rejects_both_kinds_of_sample_at_once(self):
+        # Two spellings of one reduction. `sampled` collapses them, so a
+        # disagreement between the two could never surface anywhere.
+        with pytest.raises(ValueError, match="either by fraction or by fixed"):
+            AppliedProfile(sample_percentage=1.5, sample_rows=10_000)
+
+    @pytest.mark.parametrize("limit", [0, -1])
+    def test_rejects_a_limit_that_bounds_nothing(self, limit):
+        # Mirrors ProfilingConfig.limit's PositiveInt on the applied side.
+        with pytest.raises(ValueError, match="limit must be > 0"):
+            AppliedProfile(limit=limit)
+
+    def test_rejects_an_offset_reported_without_a_limit(self):
+        # Alone it would render a spec claiming a bound, while the central
+        # warning -- which compares per field -- would count it honoured.
+        with pytest.raises(ValueError, match="bounds nothing on its own"):
+            AppliedProfile(offset=25)
+
+    def test_an_adapter_reports_a_limit_before_its_offset(self):
+        # The order both adapters already use, and the only one the invariant
+        # allows.
+        applied = AppliedProfile()
+        applied.limit = 100
+        applied.offset = 25
+
+        assert (applied.limit, applied.offset) == (100, 25)
+        assert not applied.sampled

@@ -34,12 +34,50 @@ class AppliedProfile:
     limit: Optional[int] = None
     offset: Optional[int] = None
 
+    _FIELDS = ("sample_percentage", "sample_rows", "limit", "offset")
+
     def __post_init__(self) -> None:
+        self._check()
+
+    def __setattr__(self, name: str, value: object) -> None:
+        # Adapters report by assigning to a field, never by replacing the
+        # object, so validating only in __post_init__ would leave every
+        # production write unchecked -- at construction all four fields are
+        # still None. Re-check after each assignment instead.
+        object.__setattr__(self, name, value)
+        if name in self._FIELDS:
+            self._check()
+
+    def _check(self) -> None:
         if self.sample_percentage is not None and not (
             0 <= self.sample_percentage <= 100
         ):
             raise ValueError(
                 f"sample_percentage must be in [0, 100], got {self.sample_percentage}"
+            )
+        if self.sample_percentage is not None and self.sample_rows is not None:
+            # Two spellings of one reduction. `sampled` collapses them, so a
+            # disagreement between the two could never surface anywhere.
+            raise ValueError(
+                "a sample is drawn either by fraction or by fixed row count, "
+                f"not both: sample_percentage={self.sample_percentage}, "
+                f"sample_rows={self.sample_rows}"
+            )
+        if self.sample_rows is not None and self.sample_rows < 0:
+            raise ValueError(f"sample_rows must be >= 0, got {self.sample_rows}")
+        if self.limit is not None and self.limit <= 0:
+            # Mirrors ProfilingConfig.limit's PositiveInt: a limit of 0 profiles
+            # nothing, which is never what an adapter means to report.
+            raise ValueError(f"limit must be > 0, got {self.limit}")
+        if self.offset is not None and self.offset < 0:
+            raise ValueError(f"offset must be >= 0, got {self.offset}")
+        if self.offset is not None and self.limit is None:
+            # Reported alone, an offset would render a partitionSpec claiming a
+            # bound, while _warn_unapplied_bounds -- which compares per field --
+            # would count it honoured and stay silent. Set `limit` first.
+            raise ValueError(
+                f"offset={self.offset} reported without a limit: an offset "
+                "bounds nothing on its own, so it is not a bound to report"
             )
 
     @property
