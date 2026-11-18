@@ -685,6 +685,78 @@ def test_odbc_oracle_query_unqualified_without_schema_warns():
 
 
 @pytest.mark.parametrize(
+    "driver, dsn, sql, expected_urn",
+    [
+        pytest.param(
+            "MySQL ODBC 9.2 Unicode Driver",
+            "testdb01",
+            "SELECT * FROM bank.transactions",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,bank.transactions,PROD)",
+            id="mysql-qualified-sql-keeps-its-database",
+        ),
+        pytest.param(
+            "MySQL ODBC 9.2 Unicode Driver",
+            "testdb01",
+            "SELECT * FROM transactions",
+            "urn:li:dataset:(urn:li:dataPlatform:mysql,employees.transactions,PROD)",
+            id="mysql-unqualified-sql-takes-mapped-database",
+        ),
+        pytest.param(
+            "Teradata Database ODBC Driver 17.20",
+            "testdb01",
+            "SELECT * FROM bank.transactions",
+            "urn:li:dataset:(urn:li:dataPlatform:teradata,bank.transactions,PROD)",
+            id="teradata-qualified-sql-keeps-its-database",
+        ),
+        pytest.param(
+            "Cloudera ODBC Driver for Apache Hive",
+            "testdb01",
+            "SELECT * FROM bank.transactions",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,bank.transactions,PROD)",
+            id="hive-qualified-sql-keeps-its-database",
+        ),
+        pytest.param(
+            "Cloudera ODBC Driver for Apache Hive",
+            "testdb01",
+            "SELECT * FROM transactions",
+            "urn:li:dataset:(urn:li:dataPlatform:hive,employees.transactions,PROD)",
+            id="hive-unqualified-sql-takes-mapped-database",
+        ),
+    ],
+)
+def test_odbc_query_database_table_platform_maps_one_part_value_to_database(
+    driver: str, dsn: str, sql: str, expected_urn: str
+) -> None:
+    """For database.table platforms a one-part dsn_to_database_schema value only
+    fills unqualified SQL; it must not prefix SQL that already names a database.
+    The upper-case key also pins the case-insensitive DSN lookup."""
+    table = powerbi_data_classes.Table(
+        columns=[],
+        measures=[],
+        expression=(
+            f'let\n    Source = Odbc.Query("driver={{{driver}}};dsn={dsn}", '
+            f'"{sql}")\nin\n    Source'
+        ),
+        name="transactions",
+        full_name="bank.transactions",
+    )
+    reporter = PowerBiDashboardSourceReport()
+    ctx, config, platform_instance_resolver = get_default_instances(
+        {"dsn_to_database_schema": {dsn.upper(): "employees"}}
+    )
+
+    lineages = parser.get_upstream_tables(
+        table,
+        reporter,
+        ctx=ctx,
+        config=config,
+        platform_instance_resolver=platform_instance_resolver,
+    )
+
+    assert [t.urn for t in combine_upstreams_from_lineage(lineages)] == [expected_urn]
+
+
+@pytest.mark.parametrize(
     "sql, metastore, expected_name",
     [
         pytest.param(

@@ -2394,6 +2394,14 @@ class OdbcLineage(AbstractLineage):
                     ),
                     context=f"table-name={self.table.full_name}, dsn={dsn}",
                 )
+        elif platform_pair.datahub_data_platform_name in (
+            ODBC_DATABASE_TABLE_PLATFORMS | {HIVE_PLATFORM}
+        ):
+            # These platforms name tables database.table, which sqlglot reads as
+            # schema.table, so a one-part mapping value is the default schema. As
+            # the default database it would also prefix database-qualified SQL.
+            if schema is None:
+                database, schema = None, database
 
         logger.debug(f"ODBC query processing: dsn={dsn} mapped to {dsn_levels}")
         result = self.parse_custom_sql(
