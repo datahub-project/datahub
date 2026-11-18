@@ -23,6 +23,18 @@ public class ResolvedSearchTemplate {
   /** True when this request will run the template's kNN leg. Part of the result-cache identity. */
   private boolean knnApplied;
 
+  /**
+   * URN of the served rung when it declares {@code keywordRerank}, else null. That rung owns the
+   * rerank of its keyword window, so the default entity hybrid reranker does not also run on it.
+   */
+  @Nullable private String templateRerank;
+
+  /**
+   * True when the served rung's own sort ordered the request, so its window is not in relevance
+   * order. Not part of the result-cache identity.
+   */
+  private boolean templateSortApplied;
+
   /** Templates visited by the route walk. Not part of the result-cache identity. */
   @Nonnull private final List<String> routeChain = new ArrayList<>();
 
@@ -38,6 +50,12 @@ public class ResolvedSearchTemplate {
   private int knnK = 100;
   private boolean capabilityScroll;
   private boolean documentRerank;
+
+  /** Requested entity types, for the per-rung embedding profile checks. */
+  @Nullable private List<String> entityTypes;
+
+  /** Registry name of the engine serving this search, or null when it is not known. */
+  @Nullable private String searchSystem;
 
   /**
    * Reachable rungs and, when a body references them, the viewer. Rerank is appended separately.
@@ -73,9 +91,23 @@ public class ResolvedSearchTemplate {
     this.knnK = knnK;
   }
 
-  public void setExecutionCapabilities(boolean capabilityScroll, boolean documentRerank) {
+  public void setTemplateRerank(@Nullable String servedUrn) {
+    this.templateRerank = servedUrn;
+  }
+
+  public void setTemplateSortApplied(boolean applied) {
+    this.templateSortApplied = applied;
+  }
+
+  public void setExecutionCapabilities(
+      boolean capabilityScroll,
+      boolean documentRerank,
+      @Nullable List<String> entityTypes,
+      @Nullable String searchSystem) {
     this.capabilityScroll = capabilityScroll;
     this.documentRerank = documentRerank;
+    this.entityTypes = entityTypes == null ? null : List.copyOf(entityTypes);
+    this.searchSystem = searchSystem;
   }
 
   public void setCacheIdentity(@Nonnull String cacheIdentity) {

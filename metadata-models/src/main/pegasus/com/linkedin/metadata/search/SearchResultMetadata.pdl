@@ -22,4 +22,10 @@ record SearchResultMetadata {
    */
   routeChain: optional array[string]
 
+  /**
+   * How the served template's keywordRerank ordered this result. Set when the caller asks for an
+   * explanation and the served rung declares keywordRerank.
+   */
+  keywordRerank: optional KeywordRerankExplanation
+
 }

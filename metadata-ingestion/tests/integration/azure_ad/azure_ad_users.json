@@ -13,7 +13,9 @@
         "officeLocation": null,
         "preferredLanguage": null,
         "accountEnabled": true,
-        "usageLocation": "GB"
+        "usageLocation": "GB",
+        "department": "Data Engineering",
+        "companyName": "Example Corp"
     },
     {
         "@odata.type": "#microsoft.graph.user",

@@ -16,6 +16,7 @@ public final class SearchTemplateMetrics {
   public static final String ROUTE_DEPTH = "search.template.route.depth";
   public static final String LADDER_DEPTH = "search.template.ladder.depth";
   public static final String FALLBACK = "search.template.fallback";
+  public static final String KEYWORD_RERANK_KEPT = "search.template.keywordRerank.kept";
   public static final String RUNG = "search.template.rung";
   public static final String CLAUSE_BUDGET = "search.template.clause.budget.reduction";
   public static final String CACHE_AGE = "search.template.cache.age";
@@ -71,6 +72,15 @@ public final class SearchTemplateMetrics {
 
   public static void fallback(@Nonnull OperationContext opContext, @Nonnull String kind) {
     counter(opContext, FALLBACK, "kind", kind);
+  }
+
+  /**
+   * A keywordRerank rung kept keyword order, by reason. Not a template fallback: hybrid read off or
+   * a request without Document rows keeps keyword order by design.
+   */
+  public static void keywordRerankKept(
+      @Nonnull OperationContext opContext, @Nonnull String reason) {
+    counter(opContext, KEYWORD_RERANK_KEPT, "reason", reason);
   }
 
   public static void rung(

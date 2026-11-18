@@ -4,7 +4,9 @@ import com.linkedin.datahub.upgrade.config.OpenTelemetryConfig;
 import com.linkedin.datahub.upgrade.shared.NoOpKafkaEventProducerConfig;
 import com.linkedin.gms.factory.entity.RetentionBufferFactory;
 import com.linkedin.gms.factory.entity.RetentionBufferSchedulingConfig;
+import com.linkedin.gms.factory.search.SearchV3IndexRebuild;
 import org.springframework.boot.micrometer.metrics.autoconfigure.MetricsAutoConfiguration;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.FilterType;
@@ -44,4 +46,14 @@ import org.springframework.context.annotation.Import;
           type = FilterType.ASSIGNABLE_TYPE,
           classes = {RetentionBufferFactory.class, RetentionBufferSchedulingConfig.class})
     })
-public class LoadIndicesUpgradeConfig {}
+public class LoadIndicesUpgradeConfig {
+
+  /**
+   * LoadIndices builds indices and serves no reads, so a missing V3 index after the cutover does
+   * not stop it.
+   */
+  @Bean
+  public SearchV3IndexRebuild searchV3IndexRebuild() {
+    return new SearchV3IndexRebuild();
+  }
+}

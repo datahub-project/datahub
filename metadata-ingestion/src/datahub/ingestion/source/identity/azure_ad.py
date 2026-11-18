@@ -8,6 +8,7 @@ from typing import Any, Dict, Generator, Iterable, List, Optional, Sequence, Set
 
 import click
 import requests
+from pydantic import field_validator
 from pydantic.fields import Field
 from requests.adapters import HTTPAdapter, Retry
 
@@ -73,7 +74,11 @@ _USER_SELECT_PROPERTIES = (
     "jobTitle",
     "accountEnabled",
     "usageLocation",
+    "department",
+    "companyName",
 )
+# Selected properties stored as custom properties rather than CorpUserInfo fields.
+_USER_CUSTOM_PROPERTIES = ("companyName",)
 
 
 class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
@@ -166,6 +171,35 @@ class AzureADConfig(StatefulIngestionConfigBase, DatasetSourceConfigMixin):
         True,
         description="Whether workunit ID's for users should be masked to avoid leaking sensitive information.",
     )
+
+    user_select_attributes: List[str] = Field(
+        default=[],
+        description="Additional Azure AD user properties to request from Microsoft Graph, for example "
+        "`country` or `userType`. They are stored as custom properties on the DataHub user. "
+        "`department` and `companyName` are always requested.",
+    )
+
+    @field_validator("user_select_attributes")
+    @classmethod
+    def _validate_user_select_attributes(cls, attributes: List[str]) -> List[str]:
+        names = [attr.strip() for attr in attributes]
+        # The names go into the $select query string unescaped.
+        invalid = [n for n in names if not re.fullmatch(r"[A-Za-z0-9_]+", n)]
+        if invalid:
+            raise ValueError(
+                f"user_select_attributes must be Microsoft Graph property names; got {invalid}"
+            )
+        mapped = [
+            n
+            for n in names
+            if n in _USER_SELECT_PROPERTIES and n not in _USER_CUSTOM_PROPERTIES
+        ]
+        if mapped:
+            logger.warning(
+                f"Ignoring user_select_attributes {mapped}: they are already mapped "
+                "to DataHub user fields."
+            )
+        return [n for n in dict.fromkeys(names) if n not in mapped]
 
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = Field(
@@ -472,6 +506,7 @@ class AzureADSource(StatefulIngestionSourceBase):
             [
                 *_USER_SELECT_PROPERTIES,
                 self.config.azure_ad_response_to_username_attr,
+                *self.config.user_select_attributes,
             ]
         )
         return "$select=" + ",".join(properties)
@@ -515,9 +550,16 @@ class AzureADSource(StatefulIngestionSourceBase):
                     hint = (
                         " If Graph rejected a selected property, check that "
                         "azure_ad_response_to_username_attr "
-                        f"({self.config.azure_ad_response_to_username_attr!r}) "
-                        "is a Microsoft Graph user property."
+                        f"({self.config.azure_ad_response_to_username_attr!r})"
                     )
+                    if self.config.user_select_attributes:
+                        hint += (
+                            " and user_select_attributes "
+                            f"({self.config.user_select_attributes!r}) are"
+                        )
+                    else:
+                        hint += " is"
+                    hint += " Microsoft Graph user properties."
                 self.report.failure(
                     message="Failed to get data from Azure AD Graph API",
                     context=error_str + hint,
@@ -686,7 +728,27 @@ class AzureADSource(StatefulIngestionSourceBase):
             email=azure_ad_user.get("mail"),
             title=azure_ad_user.get("jobTitle"),
             countryCode=azure_ad_user.get("usageLocation"),
+            departmentName=azure_ad_user.get("department"),
+            customProperties=self._map_azure_ad_user_custom_properties(azure_ad_user),
         )
+
+    def _map_azure_ad_user_custom_properties(
+        self, azure_ad_user: dict
+    ) -> Dict[str, str]:
+        props: Dict[str, str] = {}
+        for key in dict.fromkeys(
+            [*_USER_CUSTOM_PROPERTIES, *self.config.user_select_attributes]
+        ):
+            value = azure_ad_user.get(key)
+            if value in (None, "", [], {}):
+                continue
+            # Graph returns lists, booleans and objects too; store them as JSON.
+            props[key] = (
+                value
+                if isinstance(value, str)
+                else json.dumps(value, sort_keys=True, ensure_ascii=False)
+            )
+        return props
 
     def _extract_regex_match_from_dict_value(
         self, str_dict: Dict[str, str], key: str, pattern: str
