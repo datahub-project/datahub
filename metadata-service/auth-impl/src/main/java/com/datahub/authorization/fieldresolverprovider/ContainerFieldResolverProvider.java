@@ -37,11 +37,27 @@ public class ContainerFieldResolverProvider implements EntityFieldResolverProvid
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
     return FieldResolver.getResolverFromFunction(
-        entitySpec, spec -> getContainers(opContext, spec));
+        entitySpec, spec -> getContainers(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(CONTAINER_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getContainers(opContext, spec, prefetched));
   }
 
   private FieldResolver.FieldValue getContainers(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
 
     try {
       if (entitySpec.getEntity().isEmpty()) {
@@ -58,7 +74,7 @@ public class ContainerFieldResolverProvider implements EntityFieldResolverProvid
                 HierarchyBindings.containerSpec(opContext),
                 Collections.singleton(entityUrn));
       } else {
-        Urn directParent = readDirectContainerParent(opContext, entityUrn);
+        Urn directParent = readDirectContainerParent(opContext, entityUrn, prefetched);
         if (directParent == null) {
           return FieldResolver.emptyFieldValue();
         }
@@ -80,14 +96,18 @@ public class ContainerFieldResolverProvider implements EntityFieldResolverProvid
 
   @Nullable
   private Urn readDirectContainerParent(
-      @Nonnull OperationContext opContext, @Nonnull Urn entityUrn) {
+      @Nonnull OperationContext opContext,
+      @Nonnull Urn entityUrn,
+      @Nullable EntityResponse prefetched) {
     try {
       EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(CONTAINER_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityUrn.getEntityType(),
+                  entityUrn,
+                  Collections.singleton(CONTAINER_ASPECT_NAME));
       if (response == null || !response.getAspects().containsKey(CONTAINER_ASPECT_NAME)) {
         return null;
       }

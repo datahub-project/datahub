@@ -55,6 +55,7 @@ import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException
 import com.linkedin.metadata.aspect.plugins.validation.ValidationExceptionCollection;
 import com.linkedin.metadata.aspect.utils.DefaultAspectsUtil;
 import com.linkedin.metadata.aspect.validation.ConditionalWriteValidator;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.config.EntityServiceConfiguration;
 import com.linkedin.metadata.config.PreProcessHooks;
 import com.linkedin.metadata.dao.throttle.APIThrottle;
@@ -762,6 +763,10 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
     log.debug(
         "Invoked getAspect with urn: {}, aspectName: {}, version: {}", urn, aspectName, version);
 
+    if (!unviewable(opContext, List.of(urn)).isEmpty()) {
+      // A urn with no rows has max version -1, so a negative version resolves to itself.
+      return Pair.of(null, version);
+    }
     version = calculateVersionNumber(opContext, urn, aspectName, version);
     final EntityAspectIdentifier primaryKey =
         new EntityAspectIdentifier(urn.toString(), aspectName, version);
@@ -3821,6 +3826,19 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
         removedAspects, rowsDeletedFromEntityDeletion.get(), removedAspectResults);
   }
 
+  /**
+   * The urns among {@code urns} whose stored rows reads leave out, so that they read as entities
+   * that don't exist: none unless the request hides entities the caller can't view.
+   */
+  private static Set<Urn> unviewable(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
+    if (opContext.getRequestContext() == null
+        || !opContext.getRequestContext().hidesUnviewableEntities()) {
+      return Set.of();
+    }
+    return EntityAuthorizationUtils.unviewableUrns(opContext.withoutHidingUnviewable(), urns);
+  }
+
   /** False, counted and logged, for a urn of an entity type the registry doesn't know. */
   private static boolean admitRead(@Nonnull OperationContext opContext, @Nonnull final Urn urn) {
     return handling()
@@ -3998,10 +4016,14 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
       @Nullable String aspectName,
       boolean includeSoftDeleted,
       boolean forUpdate) {
+    final Set<Urn> hidden = forUpdate ? Set.of() : unviewable(opContext, urns);
     // After a rollback, urns of entity types this build does not know (e.g. graph edges written by
     // a newer build) are reported as non-existent instead of failing the whole lookup.
     final List<Urn> knownUrns =
-        urns.stream().filter(urn -> admitRead(opContext, urn)).collect(Collectors.toList());
+        urns.stream()
+            .filter(urn -> admitRead(opContext, urn))
+            .filter(urn -> !hidden.contains(urn))
+            .collect(Collectors.toList());
     if (knownUrns.isEmpty() && handling().toleratesUnknownEntityAspect()) {
       return new HashSet<>();
     }
@@ -4729,9 +4751,12 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     log.debug("Invoked getLatestAspects with urns: {}, aspectNames: {}", urns, aspectNames);
 
+    final Set<Urn> hidden = forUpdate ? Set.of() : unviewable(opContext, urns);
+
     // Create DB keys
     final Set<EntityAspectIdentifier> dbKeys =
         urns.stream()
+            .filter(urn -> !hidden.contains(urn))
             .map(
                 urn -> {
                   final Set<String> aspectsToFetch =
@@ -4773,8 +4798,20 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
   private Map<EntityAspectIdentifier, EnvelopedAspect> getEnvelopedAspects(
       @Nonnull OperationContext opContext, final Set<EntityAspectIdentifier> dbKeys) {
+    final Set<Urn> hidden =
+        unviewable(
+            opContext,
+            dbKeys.stream()
+                .map(dbKey -> UrnUtils.getUrn(dbKey.getUrn()))
+                .collect(Collectors.toSet()));
+    final Set<EntityAspectIdentifier> visibleDbKeys =
+        hidden.isEmpty()
+            ? dbKeys
+            : dbKeys.stream()
+                .filter(dbKey -> !hidden.contains(UrnUtils.getUrn(dbKey.getUrn())))
+                .collect(Collectors.toSet());
     final Map<EntityAspectIdentifier, EntityAspect> dbEntries =
-        aspectDao.batchGet(opContext, dbKeys, false);
+        aspectDao.batchGet(opContext, visibleDbKeys, false);
 
     List<SystemAspect> envelopedAspects =
         EntityUtils.toSystemAspects(opContext, opContext.getRetrieverContext(), dbEntries.values());

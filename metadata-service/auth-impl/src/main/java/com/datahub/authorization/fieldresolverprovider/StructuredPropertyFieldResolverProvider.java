@@ -13,8 +13,10 @@ import com.linkedin.structured.StructuredProperties;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -34,11 +36,27 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
     return FieldResolver.getResolverFromFunction(
-        entitySpec, spec -> getStructuredProperties(opContext, spec));
+        entitySpec, spec -> getStructuredProperties(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getStructuredProperties(opContext, spec, prefetched));
   }
 
   private FieldResolver.FieldValue getStructuredProperties(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
 
     EnvelopedAspect structuredPropertiesAspect;
     try {
@@ -49,11 +67,13 @@ public class StructuredPropertyFieldResolverProvider implements EntityFieldResol
       Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
       EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityUrn.getEntityType(),
+                  entityUrn,
+                  Collections.singleton(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME));
       if (response == null
           || !response.getAspects().containsKey(Constants.STRUCTURED_PROPERTIES_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();

@@ -172,6 +172,26 @@ public class AuthorizerChain
   }
 
   @Override
+  public void prefetchResourceSpecs(
+      @Nonnull final Collection<EntitySpec> resourceSpecs,
+      @Nonnull final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull final OperationContext opContext) {
+    for (final Authorizer authorizer : this.authorizers) {
+      if (authorizer instanceof OperationContextAuthorizer) {
+        try {
+          ((OperationContextAuthorizer) authorizer)
+              .prefetchResourceSpecs(resourceSpecs, resourceSpecCache, opContext);
+        } catch (Exception e) {
+          log.warn(
+              "Failed to prefetch resource specs with Authorizer {}",
+              authorizer.getClass().getCanonicalName(),
+              e);
+        }
+      }
+    }
+  }
+
+  @Override
   public AuthorizedActors authorizedActors(String privilege, Optional<EntitySpec> resourceSpec) {
     if (this.authorizers.isEmpty()) {
       return null;

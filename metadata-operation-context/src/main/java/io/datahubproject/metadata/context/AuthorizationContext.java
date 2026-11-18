@@ -122,7 +122,7 @@ public class AuthorizationContext implements ContextInterface {
       return identity.resolveAllRoles(
           groups ->
               Optional.ofNullable(opContext.getServicesRegistryContext())
-                  .map(ctx -> ctx.fetchRolesViaGroups(opContext, groups))
+                  .map(ctx -> ctx.fetchRolesViaGroups(opContext.withoutHidingUnviewable(), groups))
                   .orElse(Collections.emptySet()));
     }
     return Set.copyOf(sessionActor.getDirectRoleMembership());
@@ -133,7 +133,7 @@ public class AuthorizationContext implements ContextInterface {
       @Nonnull final OperationContext opContext, @Nonnull final Urn actorUrn) {
     if (authorizer instanceof OperationContextAuthorizer) {
       return ((OperationContextAuthorizer) authorizer)
-          .resolveSessionActorIdentity(actorUrn, opContext);
+          .resolveSessionActorIdentity(actorUrn, opContext.withoutHidingUnviewable());
     }
     return authorizer.resolveSessionActorIdentity(actorUrn);
   }
@@ -150,14 +150,15 @@ public class AuthorizationContext implements ContextInterface {
               sessionActorIdentity,
               sessionActorIdentity.getGroups(),
               sessionActorIdentity.getDirectRoles(),
-              opContext);
+              opContext.withoutHidingUnviewable());
     }
     return authorizer.getActorPolicies(
         actorUrn, sessionActorIdentity.getGroups(), sessionActorIdentity.getDirectRoles());
   }
 
   /**
-   * Run authorization through the actor's session cache
+   * Run authorization through the actor's session cache. The authorizer's own reads, such as the
+   * actor's groups and roles, never hide entities the actor can't view.
    *
    * @param actorContext the actor context
    * @param privilege privilege
@@ -208,6 +209,16 @@ public class AuthorizationContext implements ContextInterface {
     return result;
   }
 
+  /** Resolves the given resources ahead of authorizing each of them, in one batch. */
+  public void prefetchResourceSpecs(
+      @Nonnull OperationContext opContext, @Nonnull final Collection<EntitySpec> resourceSpecs) {
+    if (authorizer instanceof OperationContextAuthorizer && !resourceSpecs.isEmpty()) {
+      ((OperationContextAuthorizer) authorizer)
+          .prefetchResourceSpecs(
+              resourceSpecs, sessionResourceSpecCache, opContext.withoutHidingUnviewable());
+    }
+  }
+
   @Nonnull
   private AuthorizationRequest buildAuthorizationRequest(
       @Nonnull final ActorContext actorContext,
@@ -236,7 +247,7 @@ public class AuthorizationContext implements ContextInterface {
     if (authorizer instanceof OperationContextAuthorizer) {
       final AuthorizationResult result =
           ((OperationContextAuthorizer) authorizer)
-              .authorize(request, sessionResourceSpecCache, opContext);
+              .authorize(request, sessionResourceSpecCache, opContext.withoutHidingUnviewable());
       if (result != null) {
         return result;
       }

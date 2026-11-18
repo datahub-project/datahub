@@ -881,8 +881,14 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Integer size,
       @Nullable String input) {
     handleShardFailures(opContext, searchResponse);
-    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    Collection<SearchEntity> resultList = getRestrictedResults(opContext, searchResponse, input);
+    List<SearchEntity> hits =
+        getSearchEntities(opContext, searchResponse, matchedFieldsOf(opContext, input));
+    Collection<SearchEntity> resultList = ESAccessControlUtil.restrictSearchResult(opContext, hits);
+    int totalCount =
+        Math.max(
+            0,
+            (int) searchResponse.getHits().getTotalHits().value
+                - (hits.size() - resultList.size()));
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
 
@@ -903,10 +909,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
       @Nullable Integer size,
       @Nullable RenderedSearchTemplate template) {
     handleShardFailures(opContext, searchResponse);
-    int totalCount = (int) searchResponse.getHits().getTotalHits().value;
-    Collection<SearchEntity> resultList =
-        getRestrictedResults(
+    List<SearchEntity> hits =
+        getSearchEntities(
             opContext, searchResponse, templateRequests.matchedFieldsOf(opContext, template));
+    Collection<SearchEntity> resultList = ESAccessControlUtil.restrictSearchResult(opContext, hits);
+    int totalCount =
+        Math.max(
+            0,
+            (int) searchResponse.getHits().getTotalHits().value
+                - (hits.size() - resultList.size()));
     SearchResultMetadata searchResultMetadata =
         extractSearchResultMetadata(opContext, searchResponse, filter);
     return new SearchResult()
@@ -1039,7 +1050,7 @@ public class SearchRequestHandler extends BaseRequestHandler {
             .setEntities(new SearchEntityArray(resultList))
             .setMetadata(searchResultMetadata)
             .setPageSize(Math.min(size, totalCount))
-            .setNumEntities(totalCount);
+            .setNumEntities(Math.max(0, totalCount - (results.size() - resultList.size())));
 
     if (nextScrollId != null) {
       scrollResult.setScrollId(nextScrollId);
@@ -1378,28 +1389,15 @@ public class SearchRequestHandler extends BaseRequestHandler {
    * Gets list of entities returned in the search response, skipping any hits with missing or
    * invalid URN fields (e.g. documents created by older bootstrap code) instead of crashing the
    * entire search operation.
-   *
-   * @param searchResponse the raw search response from search engine
-   * @return List of search entities
    */
   @Nonnull
-  private Collection<SearchEntity> getRestrictedResults(
-      @Nonnull OperationContext opContext,
-      @Nonnull SearchResponse searchResponse,
-      @Nullable String input) {
-    return getRestrictedResults(opContext, searchResponse, matchedFieldsOf(opContext, input));
-  }
-
-  @Nonnull
-  private Collection<SearchEntity> getRestrictedResults(
+  private List<SearchEntity> getSearchEntities(
       @Nonnull OperationContext opContext,
       @Nonnull SearchResponse searchResponse,
       @Nonnull Function<SearchHit, SearchHitMatches> matchedFields) {
-    List<SearchEntity> results =
-        Arrays.stream(searchResponse.getHits().getHits())
-            .flatMap(hit -> getResultSafely(opContext, hit, matchedFields).stream())
-            .collect(Collectors.toList());
-    return ESAccessControlUtil.restrictSearchResult(opContext, results);
+    return Arrays.stream(searchResponse.getHits().getHits())
+        .flatMap(hit -> getResultSafely(opContext, hit, matchedFields).stream())
+        .collect(Collectors.toList());
   }
 
   @Nonnull

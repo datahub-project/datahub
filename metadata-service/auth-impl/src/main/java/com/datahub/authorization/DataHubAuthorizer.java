@@ -203,6 +203,26 @@ public class DataHubAuthorizer
     return new AuthorizationResult(request, AuthorizationResult.Type.DENY, null);
   }
 
+  @Override
+  public void prefetchResourceSpecs(
+      @Nonnull final Collection<EntitySpec> resourceSpecs,
+      @Nonnull final Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull final OperationContext opContext) {
+    if (!(entitySpecResolver instanceof ContextualEntitySpecResolver contextualResolver)) {
+      return;
+    }
+    final List<EntitySpec> unresolved =
+        resourceSpecs.stream()
+            .filter(spec -> !resourceSpecCache.containsKey(spec))
+            .distinct()
+            .collect(Collectors.toList());
+    if (!unresolved.isEmpty()) {
+      contextualResolver
+          .resolveAll(unresolved, systemOpContext)
+          .forEach(resourceSpecCache::putIfAbsent);
+    }
+  }
+
   /**
    * Resolve a spec, sharing the result through the request-scoped cache when present so the same
    * resource is resolved (and its domain/container/owner hierarchy walked) at most once per

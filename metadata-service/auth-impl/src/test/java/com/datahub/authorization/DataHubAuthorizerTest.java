@@ -1467,6 +1467,7 @@ public class DataHubAuthorizerTest {
             .build();
     OperationContext sessionOpContext = mock(OperationContext.class);
     when(sessionOpContext.getAuthorizationContext()).thenReturn(authorizationContext);
+    when(sessionOpContext.withoutHidingUnviewable()).thenReturn(sessionOpContext);
     ActorContext actorContext =
         ActorContext.builder()
             .authentication(

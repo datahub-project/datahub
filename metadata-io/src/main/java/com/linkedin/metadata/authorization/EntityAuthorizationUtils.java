@@ -18,6 +18,8 @@ import static com.linkedin.metadata.authorization.ApiOperation.READ;
 import static com.linkedin.metadata.authorization.ApiOperation.UPDATE;
 
 import com.datahub.authorization.AuthUtil;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.DataMap;
@@ -93,6 +95,9 @@ public final class EntityAuthorizationUtils {
 
   private static final Set<ApiOperation> ASSERTION_WRITE_OPERATIONS =
       EnumSet.of(CREATE, UPDATE, DELETE);
+
+  private static final Set<String> PER_URN_VIEW_ENTITY_TYPES =
+      Set.of(QUERY_ENTITY_NAME, DOCUMENT_ENTITY_NAME, SCHEMA_FIELD_ENTITY_NAME);
 
   private EntityAuthorizationUtils() {}
 
@@ -822,6 +827,66 @@ public final class EntityAuthorizationUtils {
     stats.data().remove("topSqlQueries");
     envelopedAspect.setAspect(
         com.linkedin.metadata.utils.GenericRecordUtils.serializeAspect(stats));
+  }
+
+  /**
+   * Whether View Authorization applies to entities of {@code entityType} for this caller: it is
+   * enabled, the caller is not the system, and the type is not unrestricted.
+   */
+  public static boolean isViewRestricted(
+      @Nonnull OperationContext opContext, @Nonnull String entityType) {
+    final ViewAuthorizationConfiguration config =
+        opContext.getOperationContextConfig().getViewAuthorizationConfiguration();
+    return config != null
+        && config.isEnabled()
+        && !opContext.isSystemAuth()
+        && AuthUtil.isViewRestrictedEntityType(config, entityType);
+  }
+
+  /**
+   * View Authorization's answer for one urn: false only when it is active and the caller can't view
+   * the entity. See {@link #unviewableUrns}.
+   */
+  public static boolean canView(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
+    return !unviewableUrns(opContext, List.of(urn)).contains(urn);
+  }
+
+  /**
+   * The urns among {@code urns} that View Authorization hides from the caller. Empty when View
+   * Authorization is off. Restricted placeholders and urns of entity types the registry doesn't
+   * know are never hidden. The policy fields of all other urns are read in one batch per entity
+   * type before each is checked.
+   */
+  @Nonnull
+  public static Set<Urn> unviewableUrns(
+      @Nonnull OperationContext opContext, @Nonnull Collection<Urn> urns) {
+    if (urns.isEmpty()) {
+      return Set.of();
+    }
+    final List<Urn> candidates =
+        urns.stream()
+            .distinct()
+            .filter(urn -> !RESTRICTED_ENTITY_NAME.equals(urn.getEntityType()))
+            .filter(urn -> isViewRestricted(opContext, urn.getEntityType()))
+            .filter(
+                urn ->
+                    opContext.getEntityRegistry().findEntitySpec(urn.getEntityType()).isPresent())
+            .toList();
+    if (candidates.isEmpty()) {
+      return Set.of();
+    }
+    final OperationContext authContext = opContext.withoutHidingUnviewable();
+    authContext
+        .getAuthorizationContext()
+        .prefetchResourceSpecs(
+            authContext,
+            candidates.stream()
+                .filter(urn -> !PER_URN_VIEW_ENTITY_TYPES.contains(urn.getEntityType()))
+                .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+                .toList());
+    return candidates.stream()
+        .filter(urn -> !canViewEntity(authContext, urn))
+        .collect(Collectors.toSet());
   }
 
   /**

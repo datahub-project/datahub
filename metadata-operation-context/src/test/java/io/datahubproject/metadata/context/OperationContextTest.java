@@ -11,7 +11,10 @@ import static org.mockito.Mockito.verifyNoInteractions;
 import static org.mockito.Mockito.verifyNoMoreInteractions;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotEquals;
 import static org.testng.Assert.assertNull;
+import static org.testng.Assert.assertSame;
 import static org.testng.Assert.assertTrue;
 
 import com.datahub.authentication.Actor;
@@ -26,6 +29,7 @@ import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.CachingAspectRetriever;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.mxe.SystemMetadata;
+import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
 import io.datahubproject.metadata.exception.ActorAccessException;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -450,5 +454,29 @@ public class OperationContextTest {
     return TestOperationContexts.systemContextTraceNoSearchAuthorization(
         () -> ObjectMapperContext.builder().objectMapper(mockObjectMapper).build(),
         traceContextSupplier == null ? () -> mockSystemTelemetryContext : traceContextSupplier);
+  }
+
+  @Test
+  public void testWithoutHidingUnviewable() {
+    OperationContext systemOpContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Authentication userAuth = new Authentication(new Actor(ActorType.USER, "USER"), "");
+    OperationContext query =
+        systemOpContext.asSession(
+            RequestContext.TEST.build().toBuilder()
+                .graphqlOperationKind(GraphQLOperationKind.QUERY),
+            Authorizer.EMPTY,
+            userAuth);
+    assertTrue(query.getRequestContext().hidesUnviewableEntities());
+
+    OperationContext withoutHiding = query.withoutHidingUnviewable();
+
+    assertFalse(withoutHiding.getRequestContext().hidesUnviewableEntities());
+    assertEquals(withoutHiding.getSessionActorContext(), query.getSessionActorContext());
+    assertSame(withoutHiding.getAuthorizationContext(), query.getAuthorizationContext());
+    assertSame(withoutHiding.withoutHidingUnviewable(), withoutHiding);
+    assertSame(systemOpContext.withoutHidingUnviewable(), systemOpContext);
+    // Cached entity and search reads must not be shared between the two.
+    assertNotEquals(withoutHiding.getEntityContextId(), query.getEntityContextId());
+    assertNotEquals(withoutHiding.getSearchContextId(), query.getSearchContextId());
   }
 }

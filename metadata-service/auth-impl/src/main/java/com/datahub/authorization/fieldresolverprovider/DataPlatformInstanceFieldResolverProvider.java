@@ -15,7 +15,9 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
+import java.util.Set;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -35,11 +37,27 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
     return FieldResolver.getResolverFromFunction(
-        entitySpec, spec -> getDataPlatformInstance(opContext, spec));
+        entitySpec, spec -> getDataPlatformInstance(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getDataPlatformInstance(opContext, spec, prefetched));
   }
 
   private FieldResolver.FieldValue getDataPlatformInstance(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
 
     EnvelopedAspect dataPlatformInstanceAspect;
     try {
@@ -57,11 +75,13 @@ public class DataPlatformInstanceFieldResolverProvider implements EntityFieldRes
       }
 
       EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityUrn.getEntityType(),
+                  entityUrn,
+                  Collections.singleton(DATA_PLATFORM_INSTANCE_ASPECT_NAME));
       if (response == null
           || !response.getAspects().containsKey(DATA_PLATFORM_INSTANCE_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();

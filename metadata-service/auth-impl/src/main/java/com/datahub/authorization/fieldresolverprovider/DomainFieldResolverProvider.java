@@ -20,6 +20,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
 
 /** Provides field resolver for domain given entitySpec */
@@ -40,11 +41,28 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
   @Override
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromFunction(entitySpec, spec -> getDomains(opContext, spec));
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getDomains(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(DOMAINS_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getDomains(opContext, spec, prefetched));
   }
 
   private FieldResolver.FieldValue getDomains(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
 
     try {
       if (entitySpec.getEntity().isEmpty()) {
@@ -65,11 +83,13 @@ public class DomainFieldResolverProvider implements EntityFieldResolverProvider 
       }
 
       EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(DOMAINS_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityUrn.getEntityType(),
+                  entityUrn,
+                  Collections.singleton(DOMAINS_ASPECT_NAME));
       if (response == null || !response.getAspects().containsKey(DOMAINS_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }

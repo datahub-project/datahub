@@ -38,4 +38,13 @@ public interface OperationContextAuthorizer {
       @Nullable Collection<Urn> preloadedGroups,
       @Nullable Set<Urn> preloadedDirectRoles,
       @Nonnull OperationContext opContext);
+
+  /**
+   * Resolves the specs not yet in {@code resourceSpecCache} in as few reads as possible and adds
+   * them to it, so that authorizing each of them afterwards reads nothing more.
+   */
+  default void prefetchResourceSpecs(
+      @Nonnull Collection<EntitySpec> resourceSpecs,
+      @Nonnull Map<EntitySpec, ResolvedEntitySpec> resourceSpecCache,
+      @Nonnull OperationContext opContext) {}
 }

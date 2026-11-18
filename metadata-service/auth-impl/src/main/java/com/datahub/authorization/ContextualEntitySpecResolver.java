@@ -1,6 +1,9 @@
 package com.datahub.authorization;
 
 import io.datahubproject.metadata.context.OperationContext;
+import java.util.Collection;
+import java.util.HashMap;
+import java.util.Map;
 import javax.annotation.Nonnull;
 
 /**
@@ -13,4 +16,13 @@ public interface ContextualEntitySpecResolver extends EntitySpecResolver {
   /** Resolve a {@link EntitySpec} using the provided operation context for field resolvers. */
   @Nonnull
   ResolvedEntitySpec resolve(@Nonnull EntitySpec entitySpec, @Nonnull OperationContext opContext);
+
+  /** {@link #resolve(EntitySpec, OperationContext)} for many specs at once. */
+  @Nonnull
+  default Map<EntitySpec, ResolvedEntitySpec> resolveAll(
+      @Nonnull Collection<EntitySpec> entitySpecs, @Nonnull OperationContext opContext) {
+    final Map<EntitySpec, ResolvedEntitySpec> resolved = new HashMap<>();
+    entitySpecs.forEach(spec -> resolved.put(spec, resolve(spec, opContext)));
+    return resolved;
+  }
 }

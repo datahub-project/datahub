@@ -9,6 +9,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.mockito.Mockito.withSettings;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertTrue;
 
@@ -30,6 +31,7 @@ import com.linkedin.data.template.StringArray;
 import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.policy.DataHubActorFilter;
 import com.linkedin.policy.DataHubPolicyInfo;
+import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.Collections;
@@ -463,6 +465,41 @@ public class AuthorizationContextTest {
       AtomicInteger fetchCount, SessionActorIdentity identity) {
     fetchCount.incrementAndGet();
     return identity;
+  }
+
+  @Test
+  public void authorizerReadsNeverHideUnviewableEntities() {
+    Authorizer authorizer =
+        mock(Authorizer.class, withSettings().extraInterfaces(OperationContextAuthorizer.class));
+    OperationContextAuthorizer operationContextAuthorizer = (OperationContextAuthorizer) authorizer;
+    ArgumentCaptor<OperationContext> authorizeContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    when(operationContextAuthorizer.authorize(any(), any(), authorizeContext.capture()))
+        .thenAnswer(
+            invocation ->
+                new AuthorizationResult(
+                    invocation.getArgument(0), AuthorizationResult.Type.ALLOW, null));
+    AuthorizationContext authorizationContext =
+        AuthorizationContext.builder().authorizer(authorizer).build();
+    OperationContext query =
+        TestOperationContexts.systemContextNoValidate()
+            .asSession(
+                RequestContext.TEST.build().toBuilder()
+                    .graphqlOperationKind(GraphQLOperationKind.QUERY),
+                Authorizer.EMPTY,
+                new Authentication(new Actor(ActorType.USER, "testuser"), ""));
+    EntitySpec resource = new EntitySpec("dataset", "urn:li:dataset:test");
+
+    authorizationContext.authorize(query, sessionActor(Map.of()), "VIEW", resource);
+    authorizationContext.prefetchResourceSpecs(query, List.of(resource));
+
+    assertTrue(query.getRequestContext().hidesUnviewableEntities());
+    assertFalse(authorizeContext.getValue().getRequestContext().hidesUnviewableEntities());
+    ArgumentCaptor<OperationContext> prefetchContext =
+        ArgumentCaptor.forClass(OperationContext.class);
+    verify(operationContextAuthorizer)
+        .prefetchResourceSpecs(eq(List.of(resource)), any(), prefetchContext.capture());
+    assertFalse(prefetchContext.getValue().getRequestContext().hidesUnviewableEntities());
   }
 
   private static ActorContext sessionActor(
