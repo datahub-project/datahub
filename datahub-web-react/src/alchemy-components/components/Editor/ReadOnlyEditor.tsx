@@ -30,8 +30,9 @@ const ReadOnlyRoot = styled.div<{
     }
 
     /* :where() keeps these defaults below caller overrides that target the same
-       content class (summary padding, compact paragraph margin and line limit). */
-    :where(.${EDITOR_CONTENT_CLASS}) {
+       content class (summary padding, compact paragraph margin and line limit).
+       Without "& ", styled-components attaches :where() to this root, not the content div. */
+    & :where(.${EDITOR_CONTENT_CLASS}) {
         ${editorContentCss}
         ${readOnlyMarkdownCss}
     }

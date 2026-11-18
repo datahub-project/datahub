@@ -84,6 +84,12 @@ describe('read-only editor', () => {
         expect(screen.getByTitle('report.pdf')).toHaveAttribute('src', '/openapi/v1/files/report.pdf');
     });
 
+    it('applies the content styles to the rendered markdown', () => {
+        renderEditor({ content: '| Column | Type |\n| --- | --- |\n| order_id | string |' });
+
+        expect(screen.getByRole('cell', { name: 'string' })).toHaveStyle({ padding: '16px', minWidth: '120px' });
+    });
+
     function documentFor(markdown: string): Document {
         return new DOMParser().parseFromString(toReadOnlyHtml(markdown), 'text/html');
     }
