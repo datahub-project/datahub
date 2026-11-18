@@ -1912,6 +1912,21 @@ class TestPartitionSpecRendering:
                 PartitionTypeClass.PARTITION,
                 "20230906 SAMPLE",
             ),
+            # Scope and reduction are independent axes, so a bound applied
+            # within a partition is reported too. The partition id still leads,
+            # so the UI classifies the profile the same way.
+            (
+                "20230906",
+                AppliedProfile(limit=100),
+                PartitionTypeClass.PARTITION,
+                "20230906 LIMIT 100",
+            ),
+            (
+                "20230906",
+                AppliedProfile(limit=100, offset=25),
+                PartitionTypeClass.PARTITION,
+                "20230906 LIMIT 100 OFFSET 25",
+            ),
         ],
     )
     def test_renders(

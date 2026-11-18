@@ -105,9 +105,15 @@ def _partition_spec_for(
     aspect, so a size would change the profile of an unchanged table.
     """
     if partition is not None:
+        # The partition id has to lead, so the UI still classifies this as a
+        # partition; the reduction follows as a suffix. No adapter pairs a
+        # partition with a bound today -- BigQuery, the only source that sets
+        # `partition`, always routes it through custom_sql and so never applies
+        # one there -- but the two axes are independent, and dropping a bound
+        # the adapter did apply is exactly what this contract forbids.
         return PartitionSpecClass(
             type=PartitionTypeClass.PARTITION,
-            partition=f"{partition} SAMPLE" if applied.sampled else partition,
+            partition=partition + _reduction_suffix(applied),
         )
     if applied.sampled:
         return PartitionSpecClass(type=PartitionTypeClass.QUERY, partition="SAMPLE")
@@ -119,6 +125,18 @@ def _partition_spec_for(
     return PartitionSpecClass(
         type=PartitionTypeClass.FULL_TABLE, partition="FULL_TABLE_SNAPSHOT"
     )
+
+
+def _reduction_suffix(applied: AppliedProfile) -> str:
+    """How a partition's label states the reduction applied within it, if any."""
+    if applied.sampled:
+        return " SAMPLE"
+    bounds = " ".join(
+        f"{name} {value}"
+        for name, value in (("LIMIT", applied.limit), ("OFFSET", applied.offset))
+        if value is not None
+    )
+    return f" {bounds}" if bounds else ""
 
 
 def _get_columns_to_ignore_sampling(
