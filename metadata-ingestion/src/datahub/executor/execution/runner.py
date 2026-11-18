@@ -467,6 +467,16 @@ class SubprocessRunner:
                     await self._process.wait()
 
 
+def _warn_extras_not_installed(
+    venv_config: VenvConfig, runner: SubprocessRunner
+) -> None:
+    if venv_config.extra_pip_requirements or venv_config.extra_pip_plugins:
+        runner._logs.append(
+            "WARNING: extra_pip_requirements and extra_pip_plugins are not "
+            "installed when a bundled venv is used.\n"
+        )
+
+
 # I had to change this from the base file because we needed to introduce
 # support for handling bundled venvs.
 async def setup_venv(
@@ -536,6 +546,7 @@ async def setup_venv(
                 f"INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false: using the bundled "
                 f"venv instead of the requested version '{venv_config.version}'.\n"
             )
+        _warn_extras_not_installed(venv_config, runner)
         runner._logs.append(f"Using existing bundled startup venv: {venv_loc}\n")
         return VenvReference(
             venv_loc=venv_loc,

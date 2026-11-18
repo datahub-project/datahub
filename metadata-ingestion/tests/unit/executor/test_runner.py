@@ -758,6 +758,27 @@ class TestSetupVenv:
             )
         mock_runner.execute.assert_not_called()
 
+    @pytest.mark.parametrize("version", [VENV_VERSION_BUNDLED, "0.12.1"])
+    async def test_setup_venv_bundled_warns_extras_are_not_installed(
+        self, mock_runner, temp_dir, monkeypatch, version
+    ):
+        monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
+        config = VenvConfig(
+            version=version,
+            main_plugin="snowflake",
+            extra_pip_requirements=["my-package==1.0"],
+        )
+
+        bundled_path = temp_dir / "bundled_venvs"
+        bundled_venv = bundled_path / "snowflake-bundled"
+        (bundled_venv / "bin").mkdir(parents=True)
+        (bundled_venv / "bin" / "python").touch()
+
+        await setup_venv(config, mock_runner, temp_dir, bundled_venv_path=bundled_path)
+
+        assert "extra_pip_requirements" in mock_runner.logs.get_logs()
+        mock_runner.execute.assert_not_called()
+
     async def test_setup_venv_resolution_disabled_keeps_native(
         self, mock_runner, temp_dir, monkeypatch
     ):
