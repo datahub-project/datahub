@@ -6,6 +6,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -94,6 +95,12 @@ public class EntityHealthResolver implements DataFetcher<CompletableFuture<List<
   public CompletableFuture<List<Health>> get(final DataFetchingEnvironment environment)
       throws Exception {
     final Entity parent = environment.getSource();
+    if (AuthorizationUtils.hidesFromCaller(environment.getContext(), parent.getUrn())) {
+      return CompletableFuture.completedFuture(
+          _config.getIncidentsEnabled()
+              ? List.of(HealthComputationUtils.buildIncidentHealth(0, null, null))
+              : List.of());
+    }
 
     if (_featureFlags != null && _featureFlags.isEntityHealthBatchLoadEnabled()) {
       final EntityHealthBatchLoader.HealthQueryKey key =

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.notebook.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.BrowsePathsV2;
@@ -106,7 +105,7 @@ public class NotebookMapper implements ModelMapper<EntityResponse, Notebook> {
         (notebook, dataMap) ->
             notebook.setBrowsePathV2(BrowsePathsV2Mapper.map(context, new BrowsePathsV2(dataMap))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), Notebook.class);
     } else {
       return mappingHelper.getResult();

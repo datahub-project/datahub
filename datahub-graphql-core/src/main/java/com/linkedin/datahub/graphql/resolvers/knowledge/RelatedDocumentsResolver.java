@@ -5,6 +5,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -136,13 +137,15 @@ public class RelatedDocumentsResolver
             final SearchResult gmsResult;
             try {
               gmsResult =
-                  _documentService.searchDocuments(
-                      context.getOperationContext(),
-                      DEFAULT_QUERY,
-                      filter,
-                      sortCriterion,
-                      start,
-                      count);
+                  AuthorizationUtils.hidesFromCaller(context, parentEntityUrn)
+                      ? MissingEntityResults.searchResult(start, count)
+                      : _documentService.searchDocuments(
+                          context.getOperationContext(),
+                          DEFAULT_QUERY,
+                          filter,
+                          sortCriterion,
+                          start,
+                          count);
             } catch (Exception e) {
               throw new RuntimeException("Failed to search context documents", e);
             }

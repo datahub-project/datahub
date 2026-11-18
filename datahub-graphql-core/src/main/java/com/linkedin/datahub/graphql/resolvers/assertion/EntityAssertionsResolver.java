@@ -5,6 +5,8 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -58,13 +60,15 @@ public class EntityAssertionsResolver
             // Step 1: Fetch set of assertions associated with the target entity from the Graph
             // Store
             final EntityRelationships relationships =
-                _graphClient.getRelatedEntities(
-                    entityUrn,
-                    ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
-                    RelationshipDirection.INCOMING,
-                    start,
-                    count,
-                    context.getActorUrn());
+                AuthorizationUtils.hidesFromCaller(context, entityUrn)
+                    ? MissingEntityResults.relationships(start)
+                    : _graphClient.getRelatedEntities(
+                        entityUrn,
+                        ImmutableSet.of(ASSERTS_RELATIONSHIP_NAME),
+                        RelationshipDirection.INCOMING,
+                        start,
+                        count,
+                        context.getActorUrn());
 
             final List<Urn> assertionUrns =
                 relationships.getRelationships().stream()

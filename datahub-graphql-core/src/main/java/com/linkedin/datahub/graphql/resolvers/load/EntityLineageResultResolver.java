@@ -1,9 +1,9 @@
 package com.linkedin.datahub.graphql.resolvers.load;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
-import static com.linkedin.datahub.graphql.types.mappers.MapperUtils.*;
+import static com.linkedin.metadata.Constants.RESTRICTED_ENTITY_NAME;
 
-import com.datahub.authorization.AuthorizationConfiguration;
+import com.linkedin.common.UrnArray;
 import com.linkedin.common.UrnArrayArray;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -14,6 +14,7 @@ import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityLineageResult;
+import com.linkedin.datahub.graphql.generated.EntityPath;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.LineageDirection;
 import com.linkedin.datahub.graphql.generated.LineageInput;
@@ -21,6 +22,7 @@ import com.linkedin.datahub.graphql.generated.LineageRelationship;
 import com.linkedin.datahub.graphql.generated.Restricted;
 import com.linkedin.datahub.graphql.resolvers.ResolverUtils;
 import com.linkedin.datahub.graphql.types.common.mappers.UrnToEntityMapper;
+import com.linkedin.metadata.authorization.EntityAuthorizationUtils;
 import com.linkedin.metadata.graph.SiblingGraphService;
 import graphql.execution.MergedField;
 import graphql.language.Field;
@@ -33,11 +35,15 @@ import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.services.RestrictedService;
+import java.util.HashMap;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
+import java.util.function.Predicate;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -56,24 +62,21 @@ public class EntityLineageResultResolver
 
   private final SiblingGraphService _siblingGraphService;
   private final RestrictedService _restrictedService;
-  private final AuthorizationConfiguration _authorizationConfiguration;
   private final FeatureFlags _featureFlags;
 
   public EntityLineageResultResolver(
       final SiblingGraphService siblingGraphService,
       final RestrictedService restrictedService,
-      final AuthorizationConfiguration authorizationConfiguration,
       final FeatureFlags featureFlags) {
     _siblingGraphService = siblingGraphService;
     _restrictedService = restrictedService;
-    _authorizationConfiguration = authorizationConfiguration;
     _featureFlags = featureFlags;
   }
 
   @Override
   public CompletableFuture<EntityLineageResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = environment.getContext();
-    Urn urn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
     final LineageInput input = bindArgument(environment.getArgument("input"), LineageInput.class);
 
     final LineageDirection lineageDirection = input.getDirection();
@@ -89,6 +92,22 @@ public class EntityLineageResultResolver
     final Boolean includeGhostEntities =
         Optional.ofNullable(input.getIncludeGhostEntities()).orElse(false);
 
+    // A Restricted node stands for an entity the caller was shown lineage through, so its lineage
+    // continues even though the caller can't view the entity itself.
+    final boolean isRestrictedNode = RESTRICTED_ENTITY_NAME.equals(sourceUrn.getEntityType());
+    final Urn urn;
+    if (isRestrictedNode) {
+      try {
+        urn = _restrictedService.decryptRestrictedUrn(sourceUrn);
+      } catch (RuntimeException e) {
+        return CompletableFuture.completedFuture(emptyLineageResult(start != null ? start : 0));
+      }
+    } else if (!AuthorizationUtils.canView(context.getOperationContext(), sourceUrn)) {
+      return CompletableFuture.completedFuture(emptyLineageResult(start != null ? start : 0));
+    } else {
+      urn = sourceUrn;
+    }
+
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
 
@@ -103,9 +122,11 @@ public class EntityLineageResultResolver
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {
+            // The walk must see hidden neighbours to show them as Restricted below.
             final OperationContext lineageOpContext =
                 context
                     .getOperationContext()
+                    .withoutHidingUnviewable()
                     .withSearchFlags(
                         searchFlags -> searchFlags.setIncludeSoftDeleted(includeGhostEntities))
                     .withLineageFlags(
@@ -126,7 +147,7 @@ public class EntityLineageResultResolver
                       count != null ? count : 100,
                       resolvedSeparateSiblings,
                       includeGhostEntities),
-                  Set.of());
+                  null);
             }
 
             com.linkedin.metadata.graph.EntityLineageResult entityLineageResult =
@@ -141,23 +162,12 @@ public class EntityLineageResultResolver
                     includeGhostEntities,
                     new HashSet<>());
 
-            Set<Urn> restrictedUrns = new HashSet<>();
-            entityLineageResult
-                .getRelationships()
-                .forEach(
-                    rel -> {
-                      if (_authorizationConfiguration.getView().isEnabled()
-                          && !AuthorizationUtils.canViewRelationship(
-                              context.getOperationContext(), rel.getEntity(), urn)) {
-                        restrictedUrns.add(rel.getEntity());
-                      }
-                    });
-
-            return mapEntityRelationships(context, entityLineageResult, restrictedUrns);
+            return mapEntityRelationships(
+                context, entityLineageResult, isRestrictedNode ? urn : null);
           } catch (Exception e) {
-            log.error("Failed to fetch lineage for {}", finalUrn);
+            log.error("Failed to fetch lineage for {}", sourceUrn);
             throw new RuntimeException(
-                String.format("Failed to fetch lineage for %s", finalUrn), e);
+                String.format("Failed to fetch lineage for %s", sourceUrn), e);
           }
         },
         this.getClass().getSimpleName(),
@@ -219,10 +229,33 @@ public class EntityLineageResultResolver
     return false;
   }
 
+  private static EntityLineageResult emptyLineageResult(final int start) {
+    final EntityLineageResult result = new EntityLineageResult();
+    result.setStart(start);
+    result.setCount(0);
+    result.setTotal(0);
+    result.setFiltered(0);
+    result.setRelationships(List.of());
+    return result;
+  }
+
   private EntityLineageResult mapEntityRelationships(
       @Nullable final QueryContext context,
       final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult,
-      final Set<Urn> restrictedUrns) {
+      @Nullable final Urn restrictedSourceUrn) {
+    final Set<Urn> hiddenUrns = new HashSet<>();
+    if (restrictedSourceUrn != null) {
+      hiddenUrns.add(restrictedSourceUrn);
+    }
+    if (context != null) {
+      hiddenUrns.addAll(
+          EntityAuthorizationUtils.unviewableUrns(
+              context.getOperationContext(), referencedUrns(entityLineageResult)));
+    }
+    final Map<Urn, Restricted> restrictedByUrn = new HashMap<>();
+    final Predicate<Urn> hidden = hiddenUrns::contains;
+    final Function<Urn, Restricted> restricted =
+        urn -> restrictedByUrn.computeIfAbsent(urn, this::restricted);
     final EntityLineageResult result = new EntityLineageResult();
     result.setStart(entityLineageResult.getStart());
     result.setCount(entityLineageResult.getCount());
@@ -230,7 +263,7 @@ public class EntityLineageResultResolver
     result.setFiltered(entityLineageResult.getFiltered());
     result.setRelationships(
         entityLineageResult.getRelationships().stream()
-            .map(r -> mapEntityRelationship(context, r, restrictedUrns))
+            .map(r -> mapEntityRelationship(context, r, hidden, restricted))
             .collect(Collectors.toList()));
     return result;
   }
@@ -238,16 +271,11 @@ public class EntityLineageResultResolver
   private LineageRelationship mapEntityRelationship(
       @Nullable final QueryContext context,
       final com.linkedin.metadata.graph.LineageRelationship lineageRelationship,
-      final Set<Urn> restrictedUrns) {
+      final Predicate<Urn> hidden,
+      final Function<Urn, Restricted> restricted) {
     final LineageRelationship result = new LineageRelationship();
-    if (restrictedUrns.contains(lineageRelationship.getEntity())) {
-      final Restricted restrictedEntity = new Restricted();
-      restrictedEntity.setType(EntityType.RESTRICTED);
-      String restrictedUrnString =
-          _restrictedService.encryptRestrictedUrn(lineageRelationship.getEntity()).toString();
-
-      restrictedEntity.setUrn(restrictedUrnString);
-      result.setEntity(restrictedEntity);
+    if (hidden.test(lineageRelationship.getEntity())) {
+      result.setEntity(restricted.apply(lineageRelationship.getEntity()));
     } else {
       final Entity partialEntity = UrnToEntityMapper.map(context, lineageRelationship.getEntity());
       if (partialEntity != null) {
@@ -260,23 +288,73 @@ public class EntityLineageResultResolver
       result.setCreatedOn(lineageRelationship.getCreatedOn());
     }
     if (lineageRelationship.hasCreatedActor()) {
-      final Urn createdActor = lineageRelationship.getCreatedActor();
-      result.setCreatedActor(UrnToEntityMapper.map(context, createdActor));
+      result.setCreatedActor(
+          mapUrn(context, lineageRelationship.getCreatedActor(), hidden, restricted));
     }
     if (lineageRelationship.hasUpdatedOn()) {
       result.setUpdatedOn(lineageRelationship.getUpdatedOn());
     }
     if (lineageRelationship.hasUpdatedActor()) {
-      final Urn updatedActor = lineageRelationship.getUpdatedActor();
-      result.setUpdatedActor(UrnToEntityMapper.map(context, updatedActor));
+      result.setUpdatedActor(
+          mapUrn(context, lineageRelationship.getUpdatedActor(), hidden, restricted));
     }
     result.setIsManual(lineageRelationship.hasIsManual() && lineageRelationship.isIsManual());
     if (lineageRelationship.getPaths() != null) {
       UrnArrayArray paths = lineageRelationship.getPaths();
       result.setPaths(
-          paths.stream().map(path -> mapPath(context, path)).collect(Collectors.toList()));
+          paths.stream()
+              .map(path -> mapPath(context, path, hidden, restricted))
+              .collect(Collectors.toList()));
     }
 
     return result;
+  }
+
+  private static EntityPath mapPath(
+      @Nullable final QueryContext context,
+      final UrnArray path,
+      final Predicate<Urn> hidden,
+      final Function<Urn, Restricted> restricted) {
+    final EntityPath entityPath = new EntityPath();
+    entityPath.setPath(
+        path.stream()
+            .map(urn -> mapUrn(context, urn, hidden, restricted))
+            .collect(Collectors.toList()));
+    return entityPath;
+  }
+
+  private static Entity mapUrn(
+      @Nullable final QueryContext context,
+      final Urn urn,
+      final Predicate<Urn> hidden,
+      final Function<Urn, Restricted> restricted) {
+    return hidden.test(urn) ? restricted.apply(urn) : UrnToEntityMapper.map(context, urn);
+  }
+
+  /** Every urn the result names: neighbours, the urns on their paths, and edge actors. */
+  private static Set<Urn> referencedUrns(
+      final com.linkedin.metadata.graph.EntityLineageResult entityLineageResult) {
+    final Set<Urn> urns = new HashSet<>();
+    for (com.linkedin.metadata.graph.LineageRelationship relationship :
+        entityLineageResult.getRelationships()) {
+      urns.add(relationship.getEntity());
+      if (relationship.hasCreatedActor()) {
+        urns.add(relationship.getCreatedActor());
+      }
+      if (relationship.hasUpdatedActor()) {
+        urns.add(relationship.getUpdatedActor());
+      }
+      if (relationship.getPaths() != null) {
+        relationship.getPaths().forEach(urns::addAll);
+      }
+    }
+    return urns;
+  }
+
+  private Restricted restricted(final Urn urn) {
+    final Restricted restricted = new Restricted();
+    restricted.setType(EntityType.RESTRICTED);
+    restricted.setUrn(_restrictedService.encryptRestrictedUrn(urn).toString());
+    return restricted;
   }
 }

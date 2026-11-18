@@ -1,10 +1,9 @@
 package com.linkedin.datahub.graphql.types.metric;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -91,7 +90,7 @@ public class MetricType implements SearchableEntityType<Metric, String> {
               context.getOperationContext(),
               Constants.METRIC_ENTITY_NAME,
               metricUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .filter(urn -> !AuthorizationUtils.withholdsEntity(context, urn))
                   .collect(Collectors.toSet()),
               aspectsToResolve,
               true);

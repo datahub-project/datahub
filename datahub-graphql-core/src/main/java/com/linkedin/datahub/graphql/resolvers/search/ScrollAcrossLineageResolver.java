@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.*;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -100,7 +101,7 @@ public class ScrollAcrossLineageResolver
                 scrollId,
                 count);
 
-            if (entityNames.isEmpty()) {
+            if (entityNames.isEmpty() || AuthorizationUtils.hidesFromCaller(context, urn)) {
               log.debug(
                   "scrollAcrossLineage: empty entity-type list; returning no results "
                       + "(not searching all indices)");

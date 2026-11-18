@@ -5,6 +5,8 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryConte
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.ScrollAcrossEntitiesInput;
@@ -45,6 +47,9 @@ public class SemanticModelMetricsResolver implements DataFetcher<CompletableFutu
   public CompletableFuture<ScrollResults> get(DataFetchingEnvironment environment) {
     final Entity entity = environment.getSource();
     final QueryContext context = getQueryContext(environment);
+    if (AuthorizationUtils.hidesFromCaller(context, entity.getUrn())) {
+      return CompletableFuture.completedFuture(MissingEntityResults.scrollResults());
+    }
     final ScrollAcrossEntitiesInput input =
         bindArgument(environment.getArgument("input"), ScrollAcrossEntitiesInput.class);
 

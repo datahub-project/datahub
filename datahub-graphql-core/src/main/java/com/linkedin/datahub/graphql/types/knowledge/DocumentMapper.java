@@ -240,6 +240,7 @@ public class DocumentMapper {
     // They will be resolved lazily when accessed through the GraphQL query
 
     if (context != null
+        && !AuthorizationUtils.readsUnviewableAsMissing(context)
         && !AuthorizationUtils.canViewDocument(
             context.getOperationContext(), entityUrn, docInfo, subTypes)) {
       return AuthorizationUtils.restrictEntity(result, Document.class);

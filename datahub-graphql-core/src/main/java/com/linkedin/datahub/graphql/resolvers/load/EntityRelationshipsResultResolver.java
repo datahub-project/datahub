@@ -18,6 +18,7 @@ import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityRelationshipsResult;
@@ -104,6 +105,11 @@ public class EntityRelationshipsResultResolver
         input.getDirection();
     final Integer start = input.getStart();
     final Integer count = input.getCount();
+    if (AuthorizationUtils.hidesFromCaller(context, urn)) {
+      final EntityRelationshipsResult result = emptyEntityRelationshipsResult();
+      result.setStart(start != null ? start : 0);
+      return CompletableFuture.completedFuture(result);
+    }
     final RelationshipDirection resolvedDirection =
         RelationshipDirection.valueOf(relationshipDirection.toString());
     final boolean includeSoftDelete = input.getIncludeSoftDelete();

@@ -1,10 +1,9 @@
 package com.linkedin.datahub.graphql.types.knowledge;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.AutoCompleteResults;
 import com.linkedin.datahub.graphql.generated.Document;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -91,7 +90,7 @@ public class DocumentType
               context.getOperationContext(),
               Constants.DOCUMENT_ENTITY_NAME,
               documentUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .filter(urn -> !AuthorizationUtils.withholdsEntity(context, urn))
                   .collect(Collectors.toSet()),
               aspectsToResolve);
 

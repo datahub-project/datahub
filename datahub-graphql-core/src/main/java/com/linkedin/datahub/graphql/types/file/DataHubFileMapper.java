@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.file;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.DATAHUB_FILE_INFO_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -53,7 +52,7 @@ public class DataHubFileMapper implements ModelMapper<EntityResponse, DataHubFil
     mappingHelper.mapToResult(
         DATAHUB_FILE_INFO_ASPECT_NAME, (file, dataMap) -> mapFileInfo(file, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataHubFile.class);
     } else {
       return result;

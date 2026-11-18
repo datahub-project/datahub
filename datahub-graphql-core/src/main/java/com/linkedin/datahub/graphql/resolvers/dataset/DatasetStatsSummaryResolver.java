@@ -55,6 +55,9 @@ public class DatasetStatsSummaryResolver
       throws Exception {
     final QueryContext context = environment.getContext();
     final Urn resourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (AuthorizationUtils.hidesFromCaller(context, resourceUrn)) {
+      return CompletableFuture.completedFuture(null);
+    }
 
     if (featureFlags != null && featureFlags.isDatasetStatsSummaryBatchLoadEnabled()) {
       // Authorization is enforced per-URN inside the batch loader, where the checks run in

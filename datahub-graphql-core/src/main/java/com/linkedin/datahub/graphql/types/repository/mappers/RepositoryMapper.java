@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.repository.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.GlobalTags;
 import com.linkedin.common.GlossaryTerms;
@@ -169,7 +167,7 @@ public class RepositoryMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, Repository.class);
     }
     return result;

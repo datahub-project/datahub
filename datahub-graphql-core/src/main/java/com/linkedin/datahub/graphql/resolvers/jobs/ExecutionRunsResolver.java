@@ -5,6 +5,8 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 import com.google.common.collect.ImmutableList;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.*;
 import com.linkedin.datahub.graphql.types.dataprocessinst.mappers.DataProcessInstanceMapper;
@@ -67,13 +69,15 @@ public class ExecutionRunsResolver
             final Filter filter = buildTaskRunsEntityFilter(entityUrn);
             final List<SortCriterion> sortCriteria = buildTaskRunsSortCriteria();
             final SearchResult gmsResult =
-                _entityClient.filter(
-                    context.getOperationContext(),
-                    Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
-                    filter,
-                    sortCriteria,
-                    start,
-                    count);
+                AuthorizationUtils.hidesFromCaller(context, entityUrn)
+                    ? MissingEntityResults.searchResult(start, count)
+                    : _entityClient.filter(
+                        context.getOperationContext(),
+                        Constants.DATA_PROCESS_INSTANCE_ENTITY_NAME,
+                        filter,
+                        sortCriteria,
+                        start,
+                        count);
             final List<Urn> dataProcessInstanceUrns =
                 gmsResult.getEntities().stream()
                     .map(SearchEntity::getEntity)

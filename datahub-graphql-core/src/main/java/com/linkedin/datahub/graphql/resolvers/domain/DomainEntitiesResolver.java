@@ -7,6 +7,8 @@ import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Domain;
 import com.linkedin.datahub.graphql.generated.DomainEntitiesInput;
@@ -75,6 +77,9 @@ public class DomainEntitiesResolver implements DataFetcher<CompletableFuture<Sea
     final String query = input.getQuery() != null ? input.getQuery() : DEFAULT_QUERY;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    if (AuthorizationUtils.hidesFromCaller(context, urn)) {
+      return CompletableFuture.completedFuture(MissingEntityResults.searchResults(start));
+    }
     final DataHubViewInfo maybeResolvedView = getViewInfo(environment);
 
     // Fast path: the common count-only selections (Domain.entities/dataProducts/

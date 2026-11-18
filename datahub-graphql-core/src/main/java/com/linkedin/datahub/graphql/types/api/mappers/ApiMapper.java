@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.api.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.API_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.API_SIGNATURE_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
@@ -130,7 +129,7 @@ public class ApiMapper implements ModelMapper<EntityResponse, Api> {
             api.setDataPlatformInstance(
                 DataPlatformInstanceAspectMapper.map(context, new DataPlatformInstance(dataMap))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, Api.class);
     }
     return result;

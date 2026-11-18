@@ -2,6 +2,7 @@ package com.linkedin.datahub.graphql.resolvers.browse;
 
 import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.bindArgument;
 
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.BrowsePath;
 import com.linkedin.datahub.graphql.generated.BrowsePathsInput;
@@ -35,6 +36,9 @@ public class BrowsePathsResolver implements DataFetcher<CompletableFuture<List<B
   public CompletableFuture<List<BrowsePath>> get(DataFetchingEnvironment environment) {
     final BrowsePathsInput input =
         bindArgument(environment.getArgument("input"), BrowsePathsInput.class);
+    if (AuthorizationUtils.hidesFromCaller(environment.getContext(), input.getUrn())) {
+      return CompletableFuture.completedFuture(Collections.emptyList());
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.getQueryConte
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.featureflags.FeatureFlags;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -49,6 +50,12 @@ public class ParentNodesResolver implements DataFetcher<CompletableFuture<Parent
   public CompletableFuture<ParentNodesResult> get(DataFetchingEnvironment environment) {
     final QueryContext context = getQueryContext(environment);
     final Urn sourceUrn = UrnUtils.getUrn(((Entity) environment.getSource()).getUrn());
+    if (AuthorizationUtils.hidesFromCaller(context, sourceUrn)) {
+      final ParentNodesResult result = new ParentNodesResult();
+      result.setCount(0);
+      result.setNodes(List.of());
+      return CompletableFuture.completedFuture(result);
+    }
 
     if (_featureFlags != null && _featureFlags.isParentNodesBatchLoadEnabled()) {
       final DataLoader<Urn, ParentNodesResult> loader =

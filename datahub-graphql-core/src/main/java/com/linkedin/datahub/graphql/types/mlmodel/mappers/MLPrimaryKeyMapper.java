@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.common.DataPlatformInstance;
@@ -117,7 +116,7 @@ public class MLPrimaryKeyMapper implements ModelMapper<EntityResponse, MLPrimary
         FORMS_ASPECT_NAME,
         ((entity, dataMap) ->
             entity.setForms(FormsMapper.map(new Forms(dataMap), entityUrn.toString()))));
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLPrimaryKey.class);
     } else {
       return mappingHelper.getResult();
