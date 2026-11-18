@@ -52,7 +52,7 @@ const AndMoreWrapper = styled.div`
     }
 `;
 
-export const SidebarSiblingsSection = () => {
+const SiblingsSectionForEntity = () => {
     const { t } = useTranslation('entity.shared.containers');
     const { entityData, urn, entityType } = useEntityData();
     const entityRegistry = useEntityRegistry();
@@ -81,8 +81,6 @@ export const SidebarSiblingsSection = () => {
         skip: !groupQueried,
         variables: { input: { urns: [urn], start: 0, count: SIBLINGS_SHOWN_INLINE } },
     });
-    // Only this dataset's group: when moving between datasets, the previous one's data can still be
-    // returned while the new request is in flight.
     const rawGroup = groupData?.siblingGroups?.find((candidate) => candidate.urn === urn);
     const group = rawGroup ? withLoadedMembers(rawGroup) : undefined;
 
@@ -97,11 +95,9 @@ export const SidebarSiblingsSection = () => {
     }
 
     // Render nothing until this dataset's group arrives, rather than the fallback list first and then
-    // a different list, count and link. Moving between datasets, Apollo can keep returning the
-    // previous dataset's group with loading already false, so that counts as still waiting too. Only
-    // a failed request, or an answer with no group at all, falls back to the one-link list.
-    const groupIsForAnotherDataset = !!groupData?.siblingGroups?.length && !rawGroup;
-    if (groupQueried && !group && !groupError && (groupLoading || !groupData || groupIsForAnotherDataset)) {
+    // a different list, count and link. Only a failed request, or an answer with no group at all,
+    // falls back to the one-link list.
+    if (groupQueried && !group && !groupError && (groupLoading || !groupData)) {
         return <></>;
     }
 
@@ -216,4 +212,13 @@ export const SidebarSiblingsSection = () => {
             )}
         </>
     );
+};
+
+/**
+ * Keyed by urn so moving between datasets mounts a fresh section: the group query then starts from
+ * this dataset's state, never the previous dataset's data or error.
+ */
+export const SidebarSiblingsSection = () => {
+    const { urn } = useEntityData();
+    return <SiblingsSectionForEntity key={urn} />;
 };

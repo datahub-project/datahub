@@ -1,5 +1,5 @@
 import { MockedProvider, MockedResponse } from '@apollo/client/testing';
-import { act, fireEvent, render, screen, waitFor } from '@testing-library/react';
+import { fireEvent, render, screen, waitFor } from '@testing-library/react';
 import React from 'react';
 
 import { EntityContext } from '@app/entityV2/shared/EntityContext';
@@ -93,13 +93,13 @@ const dataNotCombinedWithSiblings = {
     },
 };
 
-function renderSection(entityData: unknown, mocks: MockedResponse[] = []) {
-    return render(
+function sectionTree(entityData: unknown, mocks: MockedResponse[], urn = DATASET_URN) {
+    return (
         <MockedProvider mocks={mocks} addTypename={false}>
-            <TestPageContainer initialEntries={[`/dataset/${DATASET_URN}`]}>
+            <TestPageContainer initialEntries={[`/dataset/${urn}`]}>
                 <EntityContext.Provider
                     value={{
-                        urn: DATASET_URN,
+                        urn,
                         entityType: EntityType.Dataset,
                         // @ts-expect-error entityData is loose-typed across sidebar sections
                         entityData,
@@ -114,8 +114,12 @@ function renderSection(entityData: unknown, mocks: MockedResponse[] = []) {
                     <SidebarSiblingsSection />
                 </EntityContext.Provider>
             </TestPageContainer>
-        </MockedProvider>,
+        </MockedProvider>
     );
+}
+
+function renderSection(entityData: unknown, mocks: MockedResponse[] = []) {
+    return render(sectionTree(entityData, mocks));
 }
 
 describe('SidebarSiblingsSection', () => {
@@ -243,28 +247,35 @@ describe('SidebarSiblingsSection', () => {
             await waitFor(() => expect(container.firstChild).toBeNull());
         });
 
-        it("never shows another dataset's group, and waits instead of showing the fallback list", async () => {
-            // Moving between datasets, the previous dataset's data can be returned with loading
-            // already false. The section must neither show that group nor swap in the one-link list.
+        it('moving to another dataset after a failed request waits for the new group, not the fallback list', async () => {
+            // After a failed request, opening another dataset waits for that dataset's group instead of
+            // showing the one-link list first. (The mocked client already resets query state on new
+            // variables; the per-dataset remount is what guarantees it with a real client.)
             const otherUrn = 'urn:li:dataset:(urn:li:dataPlatform:glue,db.other,PROD)';
-            const { container } = renderSection(entityDataWithSiblings, [
+            const otherRequest = {
+                query: GetSiblingGroupsDocument,
+                variables: { input: { urns: [otherUrn], start: 0, count: 5 } },
+            };
+            const mocks: MockedResponse[] = [
+                { ...groupMock([], 0), error: new Error('boom') },
                 {
-                    ...groupMock(fiveMembers, 120),
+                    request: otherRequest,
+                    delay: 50,
                     result: {
                         data: {
-                            siblingGroups: [{ urn: otherUrn, total: 120, truncated: false, members: fiveMembers }],
+                            siblingGroups: [
+                                { urn: otherUrn, total: 2, truncated: false, members: fiveMembers.slice(0, 2) },
+                            ],
                         },
                     },
                 },
-            ]);
-            // Let the mocked response arrive.
-            await act(async () => {
-                await new Promise((resolve) => {
-                    setTimeout(resolve, 50);
-                });
-            });
+            ];
+            const { container, rerender } = render(sectionTree(entityDataWithSiblings, mocks));
+            await waitFor(() => expect(screen.getByText('Composed of')).toBeInTheDocument());
+
+            rerender(sectionTree({ ...entityDataWithSiblings, urn: otherUrn }, mocks, otherUrn));
             expect(container.firstChild).toBeNull();
-            expect(screen.queryByTestId(`compact-entity-link-${fiveMembers[0].entity.urn}`)).toBeNull();
+            expect(await screen.findByTestId(`compact-entity-link-${fiveMembers[0].entity.urn}`)).toBeInTheDocument();
             expect(screen.queryByTestId(`compact-entity-link-${SIBLING_URN}`)).toBeNull();
         });
 
