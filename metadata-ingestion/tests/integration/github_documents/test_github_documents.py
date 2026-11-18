@@ -58,6 +58,7 @@ def test_github_documents_ingest(pytestconfig: pytest.Config, tmp_path: Path) ->
                     "config": {
                         "repository": "example-org/analytics",
                         "github_token": "fixture-token",
+                        "enable_okf": True,
                     },
                 },
                 "sink": {"type": "file", "config": {"filename": str(output)}},

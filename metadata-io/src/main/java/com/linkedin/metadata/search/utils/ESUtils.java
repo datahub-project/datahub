@@ -10,8 +10,6 @@ import static com.linkedin.metadata.search.elasticsearch.index.entity.v2.V2Mappi
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.KEYWORD_FIELDS;
 import static com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig.PATH_HIERARCHY_FIELDS;
 import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
-import static com.linkedin.metadata.utils.SearchUtil.AGGREGATION_SEPARATOR_CHAR;
-import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
 import static org.opensearch.core.rest.RestStatus.TOO_MANY_REQUESTS;
 
 import com.datahub.context.OperationFingerprint;
@@ -21,7 +19,6 @@ import com.linkedin.data.schema.MapDataSchema;
 import com.linkedin.data.schema.PathSpec;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
-import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.dao.throttle.APIThrottleException;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.LogicalValueType;
@@ -39,6 +36,7 @@ import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.SearchFieldResolver.Intent;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.StructuredPropertyUrnIdentity;
@@ -127,35 +125,8 @@ public class ESUtils {
   public static final String HEADER_VALUE_DELIMITER = "|";
   public static final String REMOVED = "removed";
   public static final String LIFECYCLE_STAGE = "lifecycleStage";
-  public static final String SIBLINGS = "siblings";
-  public static final String HAS_SIBLINGS = "hasSiblings";
-  public static final String SIBLINGS_PRIMARY = "siblingsPrimary";
-  private static final String DATASET_URN_PREFIX = "urn:li:" + DATASET_ENTITY_NAME + ":";
-
-  /**
-   * Filter fields that every member of a sibling group matches alike, so non-primary siblings can
-   * still be hidden. Any other filter field turns hiding off.
-   *
-   * <p>{@code state}, {@code lifecycleStage} and {@code showInGlobalContext} are the document
-   * visibility defaults that GraphQL search adds to every request that includes documents (see
-   * DefaultEntityFiltersUtil in datahub-graphql-core). They are stripped from aggregations, so they
-   * never come from a user-selected facet, and datasets pass them alike.
-   */
-  private static final Set<String> SIBLING_HIDING_NEUTRAL_FIELDS =
-      Set.of(
-          INDEX_VIRTUAL_FIELD, "entity", REMOVED, "state", LIFECYCLE_STAGE, "showInGlobalContext");
-
-  /** A filter on any of these is a question about the sibling group itself; it is not narrowed. */
-  private static final Set<String> SIBLING_FIELDS =
-      Set.of(SIBLINGS, HAS_SIBLINGS, SIBLINGS_PRIMARY);
-
-  /** Presence checks select even when negated, so they never keep sibling hiding on. */
-  private static final Set<Condition> SIBLING_PRESENCE_CONDITIONS =
-      Set.of(Condition.IS_NULL, Condition.EXISTS);
-
-  private static final String ENTITY_SUB_TYPE_FILTER_FIELD =
-      INDEX_VIRTUAL_FIELD + AGGREGATION_SEPARATOR_CHAR + "typeNames";
-
+  public static final String ORIGIN_FIELD = "origin";
+  public static final String ENV_FIELD = "env";
   public static final String ALIAS_FIELD_TYPE = "alias";
   public static final String TYPE = "type";
   public static final String KEYWORD = "keyword";
@@ -264,8 +235,8 @@ public class ESUtils {
           put(
               "businessAttribute",
               ImmutableList.of("businessAttributeRef", "businessAttributeRef.urn"));
-          put("origin", ImmutableList.of("origin", "env"));
-          put("env", ImmutableList.of("env", "origin"));
+          put(ORIGIN_FIELD, ImmutableList.of(ORIGIN_FIELD, ENV_FIELD));
+          put(ENV_FIELD, ImmutableList.of(ENV_FIELD, ORIGIN_FIELD));
         }
       };
 
@@ -718,19 +689,19 @@ public class ESUtils {
       @Nonnull OperationContext opContext,
       @Nonnull QueryFilterRewriteChain queryFilterRewriteChain,
       @Nullable SearchFieldResolver v3FieldResolver) {
-    if (v3FieldResolver != null
-        && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)) {
-      Optional<String> unlabeledSource =
-          v3FieldResolver.unlabeledHasValuesSource(criterion.getField());
-      if (unlabeledSource.isPresent()) {
-        return unlabeledHasValuesQuery(v3FieldResolver, criterion, unlabeledSource.get());
-      }
-    }
     final boolean resolvedForV3 =
         v3FieldResolver != null
             && !criterion.getField().startsWith(STRUCTURED_PROPERTY_MAPPING_FIELD_PREFIX)
             && v3FieldResolver.contains(criterion.getField());
     final Criterion effectiveCriterion;
+    if (resolvedForV3
+        && criterion.getCondition() == Condition.CONTAIN
+        && !v3FieldResolver.supports(criterion.getField(), Intent.CONTAIN)) {
+      log.debug(
+          "Omitting Search V3 contains filter on {}: the field has no text to match",
+          criterion.getField());
+      return null;
+    }
     if (resolvedForV3 && criterion.getCondition() == Condition.CONTAIN) {
       SearchFieldResolver.Field containField =
           v3FieldResolver.resolve(criterion.getField(), Intent.CONTAIN);
@@ -857,59 +828,6 @@ public class ESUtils {
         criterion.getCondition(),
         criterion.getField());
     return null;
-  }
-
-  /**
-   * A {@code has*} name with no {@code searchLabel} is not mapped. True and {@code EXISTS} match
-   * documents where the source field exists. False and {@code IS_NULL} match documents where it is
-   * missing. A contains, range, or any other condition is not a boolean check and is left out.
-   */
-  @Nullable
-  private static QueryBuilder unlabeledHasValuesQuery(
-      @Nonnull SearchFieldResolver resolver,
-      @Nonnull Criterion criterion,
-      @Nonnull String sourceField) {
-    Optional<Boolean> missing = unlabeledHasValuesMissing(criterion);
-    if (missing.isEmpty()) {
-      log.debug(
-          "Omitting Search V3 {} filter on {}: a removed has-field only answers presence",
-          criterion.getCondition(),
-          criterion.getField());
-      return null;
-    }
-    String path = resolver.exactPath(sourceField, Intent.FILTER);
-    boolean isMissing = missing.get();
-    if (criterion.isNegated()) {
-      isMissing = !isMissing;
-    }
-    QueryBuilder exists = QueryBuilders.existsQuery(path);
-    if (isMissing) {
-      return QueryBuilders.boolQuery().mustNot(exists).queryName(criterion.getField());
-    }
-    return QueryBuilders.boolQuery().must(exists).queryName(criterion.getField());
-  }
-
-  /** Empty when the condition is not a true/false presence check. */
-  private static Optional<Boolean> unlabeledHasValuesMissing(@Nonnull Criterion criterion) {
-    Condition condition = criterion.getCondition();
-    if (condition == Condition.IS_NULL) {
-      return Optional.of(true);
-    }
-    if (condition == Condition.EXISTS) {
-      return Optional.of(false);
-    }
-    if ((condition == Condition.EQUAL || condition == Condition.IEQUAL)
-        && criterion.hasValues()
-        && criterion.getValues().size() == 1) {
-      String value = criterion.getValues().get(0);
-      if ("true".equalsIgnoreCase(value)) {
-        return Optional.of(false);
-      }
-      if ("false".equalsIgnoreCase(value)) {
-        return Optional.of(true);
-      }
-    }
-    return Optional.empty();
   }
 
   /** Opted-in keyword. Contains, prefix, and suffix read the folded subfield. */
@@ -1064,17 +982,11 @@ public class ESUtils {
     } else {
       sortCriteria = sortCriteria != null ? sortCriteria : Collections.emptyList();
       for (SortCriterion sortCriterion : sortCriteria) {
-        final String requestedField =
-            v3FieldResolver == null
-                ? sortCriterion.getField()
-                : v3FieldResolver
-                    .unlabeledHasValuesSource(sortCriterion.getField())
-                    .orElse(sortCriterion.getField());
-        // urn is a synthetic keyword root on every entity index, not an annotated entity field.
+        final String requestedField = sortCriterion.getField();
+        // urn and the root _system object are written on every entity index, not annotated on an
+        // entity spec.
         Optional<SearchableAnnotation.FieldType> fieldTypeForDefault =
-            DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(requestedField)
-                ? Optional.of(SearchableAnnotation.FieldType.KEYWORD)
-                : Optional.empty();
+            indexRootFieldType(requestedField);
         for (EntitySpec entitySpec : entitySpecs) {
           if (fieldTypeForDefault.isPresent()) {
             break;
@@ -1136,6 +1048,25 @@ public class ESUtils {
       searchSourceBuilder.sort(
           new FieldSortBuilder(DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD).order(SortOrder.ASC));
     }
+  }
+
+  /**
+   * Type of a field the index mapping writes on every entity, rather than a searchable annotation.
+   * Empty when the name is an entity field the spec loop has to resolve. An unknown name under
+   * {@code _system} stays empty so the caller still warns.
+   */
+  private static Optional<SearchableAnnotation.FieldType> indexRootFieldType(
+      @Nonnull String field) {
+    if (DEFAULT_SEARCH_RESULTS_SORT_BY_FIELD.equals(field)
+        || MappingConstants.SYSTEM_CREATED_ACTOR_FIELD.equals(field)
+        || MappingConstants.SYSTEM_MODIFIED_ACTOR_FIELD.equals(field)) {
+      return Optional.of(SearchableAnnotation.FieldType.KEYWORD);
+    }
+    if (MappingConstants.SYSTEM_CREATED_TIME_FIELD.equals(field)
+        || MappingConstants.SYSTEM_MODIFIED_TIME_FIELD.equals(field)) {
+      return Optional.of(SearchableAnnotation.FieldType.DATETIME);
+    }
+    return Optional.empty();
   }
 
   /**
@@ -2037,109 +1968,6 @@ public class ESUtils {
         entityIndexConfiguration);
     EntityFilter.applyEntityTypeFilter(filterQuery, entityNames, entityIndexConfiguration);
     return filterQuery;
-  }
-
-  /**
-   * Hides non-primary members of dataset sibling groups so a group surfaces as one result. A no-op
-   * unless {@link SearchConfiguration#isHideNonPrimarySiblings()} is on.
-   *
-   * <p>Hiding applies only when no filter criterion selects: every criterion is on entity type
-   * (without a sub-type), the soft-delete flag or the document visibility defaults that search adds
-   * to every request, or is negated. Any selecting criterion turns it off, because the sibling that
-   * matches it may be the hidden one. For example, {@code platform=snowflake} matches only the
-   * Snowflake table, while its dbt primary is a different platform, so hiding the table would
-   * return nothing. Sub-types differ between members too (dbt "Model" vs "Table"). A negated
-   * criterion ("tag is not deprecated") only removes documents, so it keeps hiding on. It can still
-   * drop a group: when it excludes the primary but not another member, that member is hidden too. A
-   * negated presence check counts as selecting: a negated IS_NULL means "has a value" and a negated
-   * EXISTS means "does not exist", and siblings often differ on which fields they have. Filters
-   * from a view are merged into the request filter and follow the same rule. A filter on a siblings
-   * field (the sibling list on an entity page, the "has siblings" facet) is a question about the
-   * group itself and is likewise left alone. Because the hiding clause also applies to
-   * aggregations, the "has siblings" facet counts only primary members, while selecting it lists
-   * every member.
-   *
-   * <p>Only documents that carry {@code siblingsPrimary=false} are hidden, so documents indexed
-   * before the field existed stay visible. Each document carries only its own flag, so two cases
-   * hide a whole group:
-   *
-   * <ul>
-   *   <li>No member of the group is marked primary.
-   *   <li>The primary member is soft-deleted or hard-deleted. Its siblings keep {@code
-   *       siblingsPrimary=false}, so they are hidden while the primary no longer appears either.
-   * </ul>
-   *
-   * Groups must have exactly one live primary member for this to be safe.
-   */
-  @Nonnull
-  public static BoolQueryBuilder filterNonPrimarySiblings(
-      @Nullable final Filter filter,
-      @Nonnull final BoolQueryBuilder filterQuery,
-      @Nullable final SearchConfiguration searchConfiguration) {
-    if (searchConfiguration == null || !searchConfiguration.isHideNonPrimarySiblings()) {
-      return filterQuery;
-    }
-    if (filter != null && !allCriteriaAreNeutral(filter)) {
-      return filterQuery;
-    }
-    filterQuery.mustNot(
-        QueryBuilders.boolQuery()
-            .filter(QueryBuilders.prefixQuery("urn", DATASET_URN_PREFIX))
-            .filter(QueryBuilders.termQuery(HAS_SIBLINGS, true))
-            .filter(QueryBuilders.termQuery(SIBLINGS_PRIMARY, false)));
-    return filterQuery;
-  }
-
-  private static boolean allCriteriaAreNeutral(@Nonnull final Filter filter) {
-    if (filter.getOr() != null) {
-      for (ConjunctiveCriterion or : filter.getOr()) {
-        for (Criterion criterion : or.getAnd()) {
-          if (!isNeutralForSiblingHiding(criterion)) {
-            return false;
-          }
-        }
-      }
-    }
-    if (filter.getCriteria() != null) {
-      for (Criterion criterion : filter.getCriteria()) {
-        if (!isNeutralForSiblingHiding(criterion)) {
-          return false;
-        }
-      }
-    }
-    return true;
-  }
-
-  /**
-   * True when hiding non-primary siblings cannot leave a hidden member as the group's only match: a
-   * criterion every member matches alike, or one that only excludes documents.
-   */
-  private static boolean isNeutralForSiblingHiding(@Nonnull final Criterion criterion) {
-    String field = criterion.getField();
-    if (field.endsWith(KEYWORD_SUFFIX)) {
-      field = field.substring(0, field.length() - KEYWORD_SUFFIX.length());
-    }
-    if (SIBLING_FIELDS.contains(field)) {
-      return false;
-    }
-    if (SIBLING_HIDING_NEUTRAL_FIELDS.contains(field)) {
-      return true;
-    }
-    // A negated criterion only removes documents, so it cannot make a hidden member the only
-    // match. Negated presence checks are the exception: a negated IS_NULL means "has a value"
-    // and a negated EXISTS means "does not exist". Both select, and siblings often differ on
-    // presence (a dbt model has a description, its warehouse table does not).
-    if (criterion.isNegated() && !SIBLING_PRESENCE_CONDITIONS.contains(criterion.getCondition())) {
-      return true;
-    }
-    if (ENTITY_SUB_TYPE_FILTER_FIELD.equals(field)) {
-      // The composite facet carries "dataset" or "dataset<sep>Table"; only the bare entity type is
-      // shared by all members.
-      return criterion.getValues() == null
-          || criterion.getValues().stream()
-              .noneMatch(value -> value.contains(AGGREGATION_SEPARATOR_CHAR));
-    }
-    return false;
   }
 
   /**

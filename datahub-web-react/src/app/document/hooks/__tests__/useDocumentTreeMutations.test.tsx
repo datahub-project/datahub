@@ -1,7 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { toast } from '@components';
-import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
+import { act, waitFor } from '@testing-library/react';
 import { GraphQLError } from 'graphql';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -15,6 +14,7 @@ import {
     useUpdateDocumentTitleMutation,
 } from '@app/document/hooks/useDocumentTreeMutations';
 import { ErrorCodes } from '@app/sharedV2/constants';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import {
     CreateDocumentDocument,
@@ -370,7 +370,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
 
@@ -425,7 +425,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.updateMutation.updateTitle(mockUrn, newTitle);
 
@@ -516,7 +516,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
 
@@ -575,7 +575,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, null);
 
@@ -623,7 +623,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
 
@@ -680,7 +680,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.moveMutation.moveDocument(mockUrn, newParentUrn);
 
@@ -742,7 +742,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
@@ -816,7 +816,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 
@@ -864,7 +864,7 @@ describe('useDocumentTreeMutations', () => {
                 hasChildren: false,
                 children: [],
             };
-            result.current.tree.addNode(initialNode);
+            act(() => result.current.tree.addNode(initialNode));
 
             const success = await result.current.deleteMutation.deleteDocument(mockUrn);
 

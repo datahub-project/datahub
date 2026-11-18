@@ -771,7 +771,8 @@ public class ESSearchDAO {
     ResolvedSearchTemplate resolved = opContext.getSearchContext().getResolvedSearchTemplate();
     // An explicit template kNN section is reranked by CachingEntitySearchService. It takes
     // precedence over the default entity hybrid reranker, but still receives the requested page.
-    return resolved != null && resolved.isKnnApplied()
+    // A keywordRerank rung owns its rerank the same way, so the default reranker stays off.
+    return resolved != null && (resolved.isKnnApplied() || resolved.isTemplateRerank())
         ? sliceHybridWindow(result, from, size)
         : rerankHybrid(opContext, entityNames, input, result, from, size);
   }
@@ -1419,12 +1420,18 @@ public class ESSearchDAO {
         SearchTemplateContextVariables.PREFIX_FIELD, autocompletePrefixField(entitySpec, field));
     // The whole-name prefix reads the default name only, and only when the entity's name opted
     // into v3.lowercase. A caller-chosen field keeps the analyzed prefix alone, since the
-    // lowercase subfield exists only on the name.
+    // lowercase subfield exists only on the name. The default field, and an explicit email
+    // field, also prefix the email keyword. Email has no lowercase subfield, so the template
+    // matches it case-insensitively.
     if (isDefaultAutocompleteField(field)
         && new SearchFieldResolver(List.of(entitySpec)).hasLowercaseSubfield("name")) {
       context.put(
           SearchTemplateContextVariables.PREFIX_KEYWORD,
           SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
+    if (isDefaultAutocompleteField(field) || isEmailAutocompleteField(field)) {
+      context.put(
+          SearchTemplateContextVariables.EMAIL_KEYWORD, SearchTemplateFields.keywordPath("email"));
     }
     context.put(
         SearchTemplateContextVariables.NORMALIZED_KEYWORD, ESUtils.keywordNormalize(query.strip()));
@@ -1477,6 +1484,10 @@ public class ESSearchDAO {
   /** GraphQL sends {@code name} for the default autocomplete field, so it is not a custom pick. */
   private static boolean isDefaultAutocompleteField(@Nullable String field) {
     return field == null || field.isBlank() || "name".equals(field.strip());
+  }
+
+  private static boolean isEmailAutocompleteField(@Nullable String field) {
+    return field != null && "email".equalsIgnoreCase(field.strip());
   }
 
   @Nonnull
@@ -2173,18 +2184,14 @@ public class ESSearchDAO {
     } else {
       templateSearch.shadowTemplates(opContext, List.of(entityName), "*", false);
       EntitySpec entitySpec = opContext.getEntityRegistry().getEntitySpec(entityName);
-      // Same sibling hiding as search, browse and autocomplete, so counts match the lists.
       query =
-          ESUtils.filterNonPrimarySiblings(
+          SearchRequestHandler.getFilterQuery(
+              opContext,
+              List.of(entityName),
               filter,
-              SearchRequestHandler.getFilterQuery(
-                  opContext,
-                  List.of(entityName),
-                  filter,
-                  entitySpec.getSearchableFieldTypes(),
-                  queryFilterRewriteChain,
-                  searchConfiguration.getEntityIndex()),
-              searchConfiguration.getSearch());
+              entitySpec.getSearchableFieldTypes(),
+              queryFilterRewriteChain,
+              searchConfiguration.getEntityIndex());
     }
     return new CountRequest(entityIndexName(opContext, entityName)).query(query);
   }

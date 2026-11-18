@@ -1,6 +1,6 @@
 import { LegendItem, LegendLabel, LegendOrdinal } from '@visx/legend';
 import { Col, Row } from 'antd';
-import { ScaleOrdinal } from 'd3-scale/src/ordinal';
+import type { ScaleOrdinal } from 'd3-scale';
 import React from 'react';
 import styled from 'styled-components';
 

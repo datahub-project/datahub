@@ -1,11 +1,7 @@
 apply plugin: 'com.github.node-gradle.node'
 
 node {
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
-  } else {
-    download = true
-  }
+  download = !rootProject.ext.useSystemNode
 
   version = rootProject.ext.nodeVersion
   yarnVersion = rootProject.ext.yarnVersion

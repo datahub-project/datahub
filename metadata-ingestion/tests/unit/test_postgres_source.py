@@ -1,7 +1,9 @@
+from io import StringIO
 from types import SimpleNamespace
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterator, List
 from unittest import mock
 from unittest.mock import MagicMock, patch
+from urllib.parse import quote
 
 import pytest
 from pydantic import ValidationError
@@ -14,6 +16,7 @@ from sqlalchemy.dialects.postgresql import (
     base as pg_base,
 )
 from sqlalchemy.dialects.postgresql.base import PGDialect
+from sqlalchemy.exc import OperationalError
 
 from datahub.emitter.mce_builder import make_dataset_urn
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
@@ -40,6 +43,7 @@ from datahub.ingestion.source.sql.postgres.source import (
 )
 from datahub.ingestion.source.sql.sql_common import get_column_type
 from datahub.ingestion.source.sql.sql_report import SQLSourceReport
+from datahub.masking.constants import REDACTED_PREFIX
 from datahub.metadata.schema_classes import (
     ArrayTypeClass,
     BytesTypeClass,
@@ -52,6 +56,7 @@ from datahub.metadata.schema_classes import (
 from datahub.utilities.sqlalchemy_type_converter import (
     get_native_data_type_for_sqlalchemy_type,
 )
+from tests.test_helpers.masking_state_helpers import capture_masked_log
 from tests.unit.conftest import as_mock, log_contexts, single_aspect
 from tests.unit.sql_test_helpers import FakeConnection, FakeResult
 
@@ -99,6 +104,51 @@ def tests_get_inspectors_with_database_provided(create_engine_mock):
     _ = list(source.get_inspectors())
     assert create_engine_mock.call_count == 1
     assert create_engine_mock.call_args_list[0][0][0].endswith("custom_db")
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_single_database_disposes_engine_after_consumer(
+    create_engine_mock: MagicMock,
+) -> None:
+    engine = create_engine_mock.return_value
+    config = PostgresConfig.model_validate({**_base_config(), "database": "custom_db"})
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    # The consumer still holds the inspector: connection and engine stay up.
+    assert not engine.connect.return_value.__exit__.called
+    assert not engine.dispose.called
+
+    assert list(inspectors) == []
+    assert engine.connect.return_value.__exit__.called
+    assert engine.dispose.called
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_releases_listing_connection_before_first_database(
+    create_engine_mock: MagicMock,
+) -> None:
+    """The connection that lists the databases is only needed for the listing;
+    it must not stay checked out while the consumer works on each database."""
+    listing_conn = MagicMock()
+    listing_conn.__enter__.return_value = FakeConnection(
+        {"pg_database": [{"datname": "db1"}]}
+    )
+    engines = [MagicMock(), MagicMock()]
+    engines[0].connect.return_value = listing_conn
+    create_engine_mock.side_effect = engines
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "db0"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    inspectors = iter(source.get_inspectors())
+    next(inspectors)
+    assert listing_conn.__exit__.called
+
+    assert list(inspectors) == []
+    assert engines[0].dispose.called
 
 
 @patch("datahub.ingestion.source.sql.postgres.source.create_engine")
@@ -653,6 +703,68 @@ def test_get_inspectors_skips_databases_denied_by_pattern(
     assert create_engine_mock.call_args_list[1][0][0].endswith("keep_me")
 
 
+def _engines_with_one_unreachable_database(
+    engines: Dict[str, List[MagicMock]],
+    connection_db: Dict[FakeConnection, str],
+) -> Any:
+    """A create_engine stand-in for a server listing my_db_a, my_db_denied and
+    my_db_b, where connecting to my_db_denied fails."""
+
+    def make_engine(url: Any, **kwargs: Any) -> MagicMock:
+        db_name = str(url).rsplit("/", 1)[-1]
+        engine = MagicMock()
+        engines.setdefault(db_name, []).append(engine)
+        if db_name == "my_db_denied":
+            engine.connect.side_effect = OperationalError(
+                "connect", {}, Exception("permission denied")
+            )
+        else:
+            conn = FakeConnection(
+                {
+                    "pg_database": [
+                        {"datname": name}
+                        for name in ["my_db_a", "my_db_denied", "my_db_b"]
+                    ]
+                }
+            )
+            connection_db[conn] = db_name
+            engine.connect.return_value = conn
+        return engine
+
+    return make_engine
+
+
+@patch("datahub.ingestion.source.sql.postgres.source.inspect")
+@patch("datahub.ingestion.source.sql.postgres.source.create_engine")
+def test_get_inspectors_skips_unreachable_database_and_reports_it(
+    create_engine_mock: MagicMock, inspect_mock: MagicMock
+) -> None:
+    engines: Dict[str, List[MagicMock]] = {}
+    connection_db: Dict[FakeConnection, str] = {}
+    create_engine_mock.side_effect = _engines_with_one_unreachable_database(
+        engines, connection_db
+    )
+    inspect_mock.side_effect = lambda conn: connection_db[conn]
+    config = PostgresConfig.model_validate(
+        {**_base_config(), "initial_database": "postgres"}
+    )
+    source = PostgresSource(config, PipelineContext(run_id="test"))
+
+    # The databases around the unreachable one are still ingested.
+    assert list(source.get_inspectors()) == ["my_db_a", "my_db_b"]
+
+    # The skipped database is reported as a failure, which also stops stateful
+    # ingestion from soft-deleting its previously ingested entities.
+    failures = list(source.get_report().failures)
+    assert log_contexts(failures) == {"my_db_denied"}
+    assert len(failures[0].context) == 1
+
+    # Every engine, including the one that listed the databases, is disposed
+    # rather than holding a pooled connection open for the whole run.
+    for db_name in ["postgres", "my_db_a", "my_db_denied", "my_db_b"]:
+        assert all(e.dispose.called for e in engines[db_name])
+
+
 # --- view lineage fallback for views sqlglot could not parse ---
 
 
@@ -865,3 +977,96 @@ def test_add_profile_metadata_survives_permission_errors():
     source.add_profile_metadata(inspector)
 
     assert source.profile_metadata_info.dataset_name_to_storage_bytes == {}
+
+
+_SOURCE_LOGGER = "datahub.ingestion.source.sql.postgres.source"
+
+
+@pytest.fixture
+def masked_source_log() -> Iterator[StringIO]:
+    with capture_masked_log(_SOURCE_LOGGER) as stream:
+        yield stream
+
+
+def _log_connection_url(config_dict: Dict[str, Any]) -> None:
+    config = PostgresConfig.model_validate(config_dict)
+    with patch(
+        "datahub.ingestion.source.sql.postgres.source.create_engine"
+    ) as create_engine_mock:
+        execute_mock = create_engine_mock.return_value.connect.return_value.__enter__.return_value.execute
+        execute_mock.return_value = []
+        source = PostgresSource(config, PipelineContext(run_id="test"))
+        list(source.get_inspectors())
+
+
+def _assert_passwords_masked(output: str, *passwords: str) -> None:
+    assert "sql_alchemy_url=" in output, output
+    # Masked by the registry, not left out of the line some other way.
+    assert REDACTED_PREFIX in output, output
+    for password in passwords:
+        assert password not in output, output
+        assert quote(password, safe=" +") not in output, output
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        pytest.param("alphanumericpassword123", id="alphanumeric"),
+        pytest.param("Str0ng!Pass#2024", id="special_characters"),
+    ],
+)
+def test_debug_connection_url_log_hides_password(
+    masked_source_log: StringIO, password: str
+) -> None:
+    _log_connection_url(
+        {
+            "username": "my_user",
+            "password": password,
+            "host_port": "my-host:5432",
+            "database": "my_db",
+        }
+    )
+    _assert_passwords_masked(masked_source_log.getvalue(), password)
+
+
+@pytest.mark.parametrize(
+    "sqlalchemy_uri, passwords",
+    [
+        pytest.param(
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db",
+            ["placeholder-uri-secret-42"],
+            id="userinfo",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:Str0ng%21Uri%23Secret@my-host:5432/my_db",
+            ["Str0ng!Uri#Secret"],
+            id="userinfo_percent_encoded",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:Str0ng%21Uri#Secret@my-host:5432/my_db",
+            ["Str0ng%21Uri#Secret"],
+            id="userinfo_mixed_encoding",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:pa%2fss%3Aword@my-host:5432/my_db",
+            ["pa%2fss%3Aword"],
+            id="userinfo_mixed_hex_case",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user@my-host:5432/my_db?password=placeholder-query-secret-42",
+            ["placeholder-query-secret-42"],
+            id="query_parameter",
+        ),
+        pytest.param(
+            "postgresql+psycopg2://my_user:placeholder-uri-secret-42@my-host:5432/my_db"
+            "?password=placeholder-query-secret-42",
+            ["placeholder-uri-secret-42", "placeholder-query-secret-42"],
+            id="userinfo_and_query_parameter",
+        ),
+    ],
+)
+def test_debug_connection_url_log_hides_password_in_sqlalchemy_uri(
+    masked_source_log: StringIO, sqlalchemy_uri: str, passwords: List[str]
+) -> None:
+    _log_connection_url({"sqlalchemy_uri": sqlalchemy_uri, "host_port": "my-host:5432"})
+    _assert_passwords_masked(masked_source_log.getvalue(), *passwords)

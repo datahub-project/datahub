@@ -68,6 +68,9 @@ x-elasticsearch-profiles: &elasticsearch-profiles
 x-opensearch3-profiles: &opensearch3-profiles
   - debug-opensearch3
   - quickstart-opensearch3
+x-opensearch2-profiles: &opensearch2-profiles
+  - debug-opensearch2
+  - quickstart-opensearch2
 
 x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart
@@ -81,7 +84,6 @@ x-opensearch-profiles-quickstart: &opensearch-profiles-quickstart
   - quickstart-postgres-cdc
   - quickstart-consumers
   - quickstart-consumers-cdc
-  - quickstart-opensearch2
 x-opensearch-profiles: &opensearch-profiles
   - quickstart
   - quickstart-backend
@@ -108,8 +110,6 @@ x-opensearch-profiles: &opensearch-profiles
   - debug-neo4j
   - debug-backend-aws
   - debug-aws
-  - debug-opensearch2
-  - quickstart-opensearch2
 
 # Kafka: same as OpenSearch except pgQueue-only Postgres stacks (no broker for non-CDC Postgres).
 x-kafka-broker-profiles: &kafka-broker-profiles
@@ -359,10 +359,34 @@ services:
       timeout: 5s
     volumes:
       - esdata:/usr/share/elasticsearch/data
+  # Unversioned profiles follow the current default engine, OpenSearch 3.x. An install that already
+  # has 2.x data keeps it by setting DATAHUB_SEARCH_TAG=2.19.3, DATAHUB_SEARCH_VOLUME=osdata, and
+  # ELASTICSEARCH_INDEX_DOC_IDS_SCHEMA_FIELD_HASH_ID_ENABLED=false. `datahub docker quickstart`
+  # does this when a DataHub search container is still on OpenSearch 2, or when datahub_osdata
+  # contains a nodes directory and datahub_os3data is confirmed missing or has no nodes directory.
+  # A failed volume listing does not pin. The pin is skipped when one of those variables is set.
   opensearch:
     profiles: *opensearch-profiles
     hostname: search
-    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-2.19.3}
+    image: ${DATAHUB_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_SEARCH_TAG:-3.7.0}
+    ports:
+      - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
+    env_file: elasticsearch/env/docker.env
+    environment:
+      - discovery.type=single-node
+      - DISABLE_SECURITY_PLUGIN=true
+    healthcheck:
+      test: curl -sS --fail "http://search:$${DATAHUB_ELASTIC_PORT:-9200}/_cluster/health?wait_for_status=yellow&timeout=0s"
+      start_period: 60s
+      interval: 5s
+      retries: 10
+      timeout: 15s
+    volumes:
+      - ${DATAHUB_SEARCH_VOLUME:-os3data}:/usr/share/opensearch/data
+  opensearch2:
+    profiles: *opensearch2-profiles
+    hostname: search
+    image: ${DATAHUB_OS2_SEARCH_IMAGE:-opensearchproject/opensearch}:${DATAHUB_OS2_SEARCH_TAG:-2.19.3}
     ports:
       - ${DATAHUB_MAPPED_ELASTIC_PORT:-9200}:9200
     env_file: elasticsearch/env/docker.env

@@ -12,12 +12,9 @@ import { Pill } from '@components/components/Pills';
 import { getIncidentStageLabel } from '@app/sharedV2/incidentStagePill/constant';
 import { IncidentStage } from '@src/types.generated';
 
-export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
+const useIncidentStageConfig = () => {
     const theme = useTheme();
-    const { t } = useTranslation('entity.profile.incident');
-    const { t: tc } = useTranslation('common.labels');
-
-    const stageConfig = useMemo(
+    return useMemo(
         () => ({
             [IncidentStage.Triage]: {
                 bgColor: theme.colors.bgSurfaceBrand,
@@ -27,26 +24,38 @@ export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string;
             [IncidentStage.Investigation]: {
                 bgColor: theme.colors.bgSurfaceWarning,
                 color: theme.colors.textWarning,
-                icon: <Circle size={16} fill={theme.colors.textWarning} />,
+                icon: <Circle size={16} fill={theme.colors.iconWarning} />,
             },
             [IncidentStage.WorkInProgress]: {
                 bgColor: theme.colors.bgSurfaceInfo,
                 color: theme.colors.textInformation,
-                icon: <CircleHalf size={16} fill={theme.colors.textInformation} />,
+                icon: <CircleHalf size={16} fill={theme.colors.iconInformation} />,
             },
             [IncidentStage.Fixed]: {
                 bgColor: theme.colors.bgSurfaceSuccess,
                 color: theme.colors.textSuccess,
-                icon: <CheckCircle size={16} fill={theme.colors.textSuccess} />,
+                icon: <CheckCircle size={16} fill={theme.colors.iconSuccess} />,
             },
             [IncidentStage.NoActionRequired]: {
                 bgColor: theme.colors.bgSurface,
                 color: theme.colors.textSecondary,
-                icon: <CircleDashed size={16} fill={theme.colors.textSecondary} />,
+                icon: <CircleDashed size={16} fill={theme.colors.icon} />,
             },
         }),
         [theme],
     );
+};
+
+/** The stage's icon alone, for places that render their own label (e.g. table group headers). */
+export const IncidentStageIcon = ({ stage }: { stage: string }) => {
+    const stageConfig = useIncidentStageConfig();
+    return stageConfig[stage]?.icon ?? null;
+};
+
+export const IncidentStagePill = ({ stage, showLabel = false }: { stage: string; showLabel?: boolean }) => {
+    const { t } = useTranslation('entity.profile.incident');
+    const { t: tc } = useTranslation('common.labels');
+    const stageConfig = useIncidentStageConfig();
 
     if (!stage) return <Pill label={tc('none')} size="md" />;
 

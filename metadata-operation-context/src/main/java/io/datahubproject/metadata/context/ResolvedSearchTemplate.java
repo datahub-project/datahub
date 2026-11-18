@@ -23,6 +23,12 @@ public class ResolvedSearchTemplate {
   /** True when this request will run the template's kNN leg. Part of the result-cache identity. */
   private boolean knnApplied;
 
+  /**
+   * True when the served rung declares {@code keywordRerank}. That rung owns the rerank of its
+   * keyword window, so the default entity hybrid reranker does not also run on it.
+   */
+  private boolean templateRerank;
+
   /** Templates visited by the route walk. Not part of the result-cache identity. */
   @Nonnull private final List<String> routeChain = new ArrayList<>();
 
@@ -71,6 +77,10 @@ public class ResolvedSearchTemplate {
     this.keywordWeight = keywordWeight;
     this.vectorWeight = vectorWeight;
     this.knnK = knnK;
+  }
+
+  public void setTemplateRerank(boolean templateRerank) {
+    this.templateRerank = templateRerank;
   }
 
   public void setExecutionCapabilities(boolean capabilityScroll, boolean documentRerank) {

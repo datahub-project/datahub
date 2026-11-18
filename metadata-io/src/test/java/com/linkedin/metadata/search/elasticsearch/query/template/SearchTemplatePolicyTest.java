@@ -113,6 +113,30 @@ public class SearchTemplatePolicyTest {
   }
 
   @Test
+  public void testExplicitNonDefaultPropertySurvivesAnEmptyFieldList() {
+    harness.definitions.clear();
+    harness.properties.clear();
+    SearchTemplateFixtures.Property hidden =
+        SearchTemplateFixtures.readProperties().stream()
+            .filter(property -> property.qualifiedName().equals("hidden.label"))
+            .findFirst()
+            .orElseThrow();
+    harness.properties.add(hidden);
+    harness.definitions.put(UrnUtils.getUrn(hidden.urn()), hidden.definition());
+    harness.installShippedTemplates();
+
+    String alone =
+        render("urn:li:searchTemplate:structured", "structuredProperties.hidden_label:gold");
+    assertHiddenLabelQuery(alone);
+
+    String required =
+        render(
+            "urn:li:searchTemplate:structured",
+            "name:orders AND structuredProperties.hidden_label:gold");
+    assertHiddenLabelQuery(required);
+  }
+
+  @Test
   public void testStructuredQueryFollowsTheBodyNotTheUrn() {
     SearchTemplateProperties copied =
         body(
@@ -271,6 +295,19 @@ public class SearchTemplatePolicyTest {
     properties.setEditable(true);
     properties.setQuery(query);
     return properties;
+  }
+
+  private static void assertHiddenLabelQuery(String rendered) {
+    List<JsonNode> clauses =
+        queryStrings(rendered).stream()
+            .filter(
+                clause ->
+                    clause
+                        .path("query")
+                        .asText()
+                        .contains("structuredProperties.hidden_label:gold"))
+            .toList();
+    assertEquals(clauses.size(), 1, rendered);
   }
 
   private static List<JsonNode> queryStrings(String json) {

@@ -317,6 +317,13 @@ class UnityCatalogSourceConfig(
         )
     )
 
+    volume_pattern: Annotated[
+        AllowDenyPattern, Filters(DatasetContainerSubTypes.DATABRICKS_VOLUME)
+    ] = Field(
+        default=AllowDenyPattern.allow_all(),
+        description="Regex patterns for volumes to filter in ingestion. Specify regex to match the entire volume name in `catalog.schema.volume` format. e.g. to match all volumes starting with landing in the Customer catalog and public schema, use the regex `Customer\\.public\\.landing.*`.",
+    )
+
     # view_pattern and include_views are inherited from SQLCommonConfig and applied
     # in process_tables; not redeclared here to avoid drift from the base defaults.
 
@@ -380,6 +387,15 @@ class UnityCatalogSourceConfig(
             default=False,
             description="Ingest notebooks, represented as DataHub datasets.",
         )
+    )
+
+    include_volumes: Annotated[
+        bool, Enables(DatasetContainerSubTypes.DATABRICKS_VOLUME)
+    ] = pydantic.Field(
+        default=False,
+        description="Ingest Unity Catalog volumes, represented as DataHub containers "
+        "with the `Volume` subtype inside their schema container. Only volume-level "
+        "metadata is ingested, not the files or folders inside.",
     )
 
     include_ownership: bool = pydantic.Field(
@@ -767,7 +783,12 @@ class UnityCatalogSourceConfig(
         return ancestors_in(
             (DatasetContainerSubTypes.CATALOG, DatasetContainerSubTypes.SCHEMA),
             kind,
-            (DatasetSubTypes.TABLE, DatasetSubTypes.VIEW, DatasetSubTypes.METRIC_VIEW),
+            (
+                DatasetSubTypes.TABLE,
+                DatasetSubTypes.VIEW,
+                DatasetSubTypes.METRIC_VIEW,
+                DatasetContainerSubTypes.DATABRICKS_VOLUME,
+            ),
         )
 
     def pinned_catalogs(self) -> Optional[List[str]]:
@@ -1010,13 +1031,7 @@ class UnityCatalogSourceConfig(
     def schema_pattern_should__always_deny_information_schema(
         cls, v: AllowDenyPattern
     ) -> AllowDenyPattern:
-        if INFORMATION_SCHEMA_DENY in v.deny:
-            return v
-        # Rebuilt rather than mutated: a caller-supplied pattern object passes
-        # through by identity, and model_copy would keep its compiled-regex caches.
-        return type(v).model_validate(
-            {**v.model_dump(), "deny": [*v.deny, INFORMATION_SCHEMA_DENY]}
-        )
+        return v.with_deny(INFORMATION_SCHEMA_DENY)
 
     @field_validator("profiling", mode="before")
     @classmethod

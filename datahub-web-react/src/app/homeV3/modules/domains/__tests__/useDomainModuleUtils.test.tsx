@@ -1,5 +1,4 @@
-import { render } from '@testing-library/react';
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act, render } from '@testing-library/react';
 import { createMemoryHistory } from 'history';
 import React from 'react';
 import { Router } from 'react-router-dom';
@@ -7,6 +6,7 @@ import { describe, expect, it, vi } from 'vitest';
 
 import useDomainModuleUtils from '@app/homeV3/modules/domains/useDomainModuleUtils';
 import { PageRoutes } from '@conf/Global';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { Domain, Entity, EntityType } from '@types';
 

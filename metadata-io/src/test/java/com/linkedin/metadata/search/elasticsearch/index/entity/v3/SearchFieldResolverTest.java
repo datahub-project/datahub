@@ -80,7 +80,7 @@ public class SearchFieldResolverTest {
   }
 
   @Test
-  public void testFieldWithoutSearchLabelDropsHasValues() {
+  public void testFieldWithoutSearchLabelOwnsDirectHasValues() {
     SearchFieldResolver resolver =
         resolver(
             field(
@@ -94,12 +94,64 @@ public class SearchFieldResolverTest {
                 List.of(FieldMapping.root(FieldMapping.Type.KEYWORD, false, false)),
                 "hasDescription"));
 
-    assertFalse(resolver.contains("hasRowCount"));
-    assertEquals(resolver.unlabeledHasValuesSource("hasRowCount"), Optional.of("rowCount"));
+    // Direct: one writer stores true and false on the root boolean, as in V2.
+    assertTrue(resolver.contains("hasRowCount"));
+    assertEquals(resolver.exactPath("hasRowCount", Intent.FILTER), "hasRowCount");
+    assertTrue(resolver.supports("hasRowCount", Intent.FACET));
+    assertTrue(resolver.supports("hasRowCount", Intent.SORT));
+    assertFalse(resolver.falseIsMissing("hasRowCount"));
     assertEquals(resolver.hasValuesFieldName("rowCount"), Optional.empty());
     assertTrue(resolver.supports("rowCount", Intent.FILTER));
+    // Shared: copy_to stores only true, so false is the field being missing.
     assertTrue(resolver.contains("hasDescription"));
-    assertEquals(resolver.unlabeledHasValuesSource("hasDescription"), Optional.empty());
+    assertTrue(resolver.falseIsMissing("hasDescription"));
+  }
+
+  @Test
+  public void testDirectHasValuesNeedsOneSource() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            resolver(
+                field(
+                    "rowCount",
+                    null,
+                    List.of(FieldMapping.root(FieldMapping.Type.COUNT)),
+                    "hasRowCount"),
+                field(
+                    "columnCount",
+                    null,
+                    List.of(FieldMapping.root(FieldMapping.Type.COUNT)),
+                    "hasRowCount")));
+  }
+
+  @Test
+  public void testHasValuesCannotBeDirectAndShared() {
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            resolver(
+                field(
+                    "rowCount",
+                    null,
+                    List.of(FieldMapping.root(FieldMapping.Type.COUNT)),
+                    "hasDescription"),
+                field(
+                    "description",
+                    "description",
+                    List.of(FieldMapping.root(FieldMapping.Type.KEYWORD, false, false)),
+                    "hasDescription")));
+  }
+
+  @Test
+  public void testRegistryDirectAndSharedHasValues() {
+    EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    SearchFieldResolver resolver =
+        new SearchFieldResolver(List.of(registry.getEntitySpec("dataset")));
+
+    assertEquals(resolver.exactPath("hasSiblings", Intent.FILTER), "hasSiblings");
+    assertFalse(resolver.falseIsMissing("hasSiblings"));
+    assertEquals(resolver.exactPath("hasDescription", Intent.FILTER), "hasDescription");
     assertTrue(resolver.falseIsMissing("hasDescription"));
   }
 
@@ -254,7 +306,6 @@ public class SearchFieldResolverTest {
     assertEquals(resolver.exactPath("assignees", Intent.FILTER), "owners_urn");
     assertEquals(resolver.exactPath("hasParentDataProduct", Intent.FILTER), "hasParentDataProduct");
     assertTrue(resolver.falseIsMissing("hasParentDataProduct"));
-    assertEquals(resolver.unlabeledHasValuesSource("hasParentDataProduct"), Optional.empty());
   }
 
   @Test

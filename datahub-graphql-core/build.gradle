@@ -80,5 +80,13 @@ clean {
     delete 'src/mainGeneratedGraphQL'
 }
 
+// ListEntityIncidentsQueryTest reads this file from another module; without the input the
+// cached test result survives edits to it.
+test {
+    inputs.file("${rootDir}/datahub-agent-context/src/datahub_agent_context/mcp_tools/gql/list_entity_incidents.gql")
+        .withPathSensitivity(PathSensitivity.RELATIVE)
+        .withPropertyName("listEntityIncidentsQuery")
+}
+
 compileJava.dependsOn 'graphqlCodegen'
 sourceSets.main.java.srcDir "$projectDir/src/mainGeneratedGraphQL/java"

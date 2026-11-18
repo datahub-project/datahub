@@ -5,9 +5,10 @@ import { afterEach, describe, expect, it, vi } from 'vitest';
 import type { EditorProps } from '@components/components/Editor/types';
 
 import { Editor } from '@app/sharedV2/editor/Editor';
+import { MentionEntitiesContext } from '@app/sharedV2/editor/mentions/MentionEntitiesContext';
 import { useIsDocumentationFileUploadV1Enabled } from '@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled';
 
-const mentionsUi = vi.hoisted(() => ({ fails: false, failedPicker: false, failedNodeView: false }));
+const mentionsUi = vi.hoisted(() => ({ fails: false, failedPicker: false, failedMentionView: false }));
 
 vi.mock('@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled', () => ({
     useIsDocumentationFileUploadV1Enabled: vi.fn(),
@@ -15,14 +16,13 @@ vi.mock('@app/sharedV2/hooks/useIsDocumentationFileUploadV1Enabled', () => ({
 
 // Renders what the wrapper plugs in, so the test sees it without loading Remirror.
 vi.mock('@components/components/Editor', () => ({
-    Editor: ({ mentionsPicker: Picker, mentionNodeView: NodeView, imageUploadEnabled, content }: EditorProps) => {
-        const node = { attrs: { urn: 'urn:li:corpuser:alice', name: 'Alice' } };
+    Editor: ({ mentionsPicker: Picker, mentionView: MentionView, imageUploadEnabled, content }: EditorProps) => {
         return (
             <>
                 <div data-testid="content">{content}</div>
                 <div data-testid="image-upload">{String(imageUploadEnabled)}</div>
                 {Picker && <Picker renderOutsideEditor />}
-                {NodeView && <NodeView {...({ node } as unknown as React.ComponentProps<typeof NodeView>)} />}
+                {MentionView && <MentionView urn="urn:li:corpuser:alice" name="Alice" />}
             </>
         );
     },
@@ -38,20 +38,20 @@ vi.mock('@app/sharedV2/editor/mentions/MentionsComponent', () => ({
     },
 }));
 
-vi.mock('@app/sharedV2/editor/mentions/MentionsNodeView', () => ({
-    MentionsNodeView: ({ node }: { node: { attrs: { urn: string } } }) => {
+vi.mock('@app/sharedV2/editor/mentions/MentionView', () => ({
+    MentionView: ({ urn }: { urn: string }) => {
         if (mentionsUi.fails) {
-            mentionsUi.failedNodeView = true;
+            mentionsUi.failedMentionView = true;
             throw new Error('chunk failed to load');
         }
-        return <span data-testid="mention-node-view">{node.attrs.urn}</span>;
+        return <span data-testid="mention-view">{urn}</span>;
     },
 }));
 
 function renderEditor(flag: boolean, { mentionsUiFails = false } = {}) {
     mentionsUi.fails = mentionsUiFails;
     mentionsUi.failedPicker = false;
-    mentionsUi.failedNodeView = false;
+    mentionsUi.failedMentionView = false;
     vi.mocked(useIsDocumentationFileUploadV1Enabled).mockReturnValue(flag);
     return render(<Editor content="Hello" />);
 }
@@ -67,11 +67,11 @@ describe('Editor', () => {
         expect(screen.getByTestId('content')).toHaveTextContent('Hello');
     });
 
-    it('plugs in the DataHub mentions picker and node view', async () => {
+    it('plugs in the DataHub mentions picker and mention view', async () => {
         renderEditor(false);
 
         expect(await screen.findByTestId('mentions-picker')).toHaveAttribute('data-outside', 'true');
-        expect(await screen.findByTestId('mention-node-view')).toHaveTextContent('urn:li:corpuser:alice');
+        expect(await screen.findByTestId('mention-view')).toHaveTextContent('urn:li:corpuser:alice');
     });
 
     it('keeps the page up and shows the mention name when the mentions UI fails', async () => {
@@ -82,10 +82,24 @@ describe('Editor', () => {
         renderEditor(false, { mentionsUiFails: true });
 
         // The Suspense placeholder shows the same name, so wait until the lazy components threw.
-        await waitFor(() => expect(mentionsUi.failedPicker && mentionsUi.failedNodeView).toBe(true));
+        await waitFor(() => expect(mentionsUi.failedPicker && mentionsUi.failedMentionView).toBe(true));
         expect(screen.getByText('Alice')).toBeInTheDocument();
         expect(screen.queryByTestId('mentions-picker')).not.toBeInTheDocument();
         expect(screen.getByTestId('content')).toBeInTheDocument();
+    });
+
+    it('shows the mention name, not the chip, until read-only mentions are ready', async () => {
+        vi.mocked(useIsDocumentationFileUploadV1Enabled).mockReturnValue(false);
+        const observe = vi.fn(() => () => {});
+        render(
+            <MentionEntitiesContext.Provider value={{ ready: false, observe, batch: null }}>
+                <Editor content="Hello" />
+            </MentionEntitiesContext.Provider>,
+        );
+
+        expect(screen.getByText('Alice')).toBeInTheDocument();
+        expect(observe).toHaveBeenCalledWith(screen.getByText('Alice'));
+        await expect(screen.findByTestId('mention-view', {}, { timeout: 100 })).rejects.toThrow();
     });
 
     it.each([true, false])('passes the documentation file upload flag (%s) as imageUploadEnabled', (flag) => {

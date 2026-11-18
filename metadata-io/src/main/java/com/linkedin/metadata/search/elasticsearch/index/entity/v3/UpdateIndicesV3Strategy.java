@@ -103,11 +103,16 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   // The MAE search client shares two pooled connections between the bulk processor and these
   // puts. One put at a time leaves bulk writes a connection, and the attempts fit well inside
   // the Kafka max.poll.interval.ms default of five minutes.
-  private static final int PUT_MAPPING_MAX_ATTEMPTS = 2;
-  private static final int PUT_MAPPING_SOCKET_TIMEOUT_MILLIS = 60_000;
-  private static final int PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS = 10_000;
-  private static final long PUT_MAPPING_RETRY_BACKOFF_MILLIS = 1_000L;
-  private static final long PUT_MAPPING_BUDGET_MILLIS = 150_000L;
+  private static final int PUT_MAPPING_MAX_ATTEMPTS =
+      StructuredPropertyMappingPutTiming.MAX_ATTEMPTS;
+  private static final int PUT_MAPPING_SOCKET_TIMEOUT_MILLIS =
+      StructuredPropertyMappingPutTiming.SOCKET_TIMEOUT_MILLIS;
+  private static final int PUT_MAPPING_DEFAULT_CONNECTION_REQUEST_TIMEOUT_MILLIS =
+      StructuredPropertyMappingPutTiming.CONNECTION_REQUEST_TIMEOUT_MILLIS;
+  private static final long PUT_MAPPING_RETRY_BACKOFF_MILLIS =
+      StructuredPropertyMappingPutTiming.RETRY_BACKOFF_MILLIS;
+  private static final long PUT_MAPPING_BUDGET_MILLIS =
+      StructuredPropertyMappingPutTiming.BUDGET_MILLIS;
 
   /**
    * Structured-property field ids each V3 index has acknowledged in this JVM. Filled only by
@@ -620,9 +625,10 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
 
   /**
    * One put naming every index in {@code indexNames}. A transport failure, 429 or 5xx is tried once
-   * more while the budget allows, then left unrecorded for the next batch. Any other failure, such
-   * as a 4xx mapping rejection, can come from one bad index failing the whole request, so each
-   * index is then applied on its own.
+   * more while the budget allows. If it still has not landed, the offset is not committed: the MAE
+   * transport redelivers a {@link RetryableIndexingException}. A 4xx mapping rejection cannot
+   * succeed on redelivery, so each index is applied on its own and a rejection there is left for a
+   * later batch without holding the partition.
    */
   private void putStructuredPropertyMappings(
       @Nonnull final OperationContext opContext,
@@ -663,14 +669,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
             System.currentTimeMillis() + PUT_MAPPING_RETRY_BACKOFF_MILLIS + attemptMillis
                 > deadline;
         if (attempt >= PUT_MAPPING_MAX_ATTEMPTS || outOfBudget) {
-          log.error(
-              "V3 structured property mapping update failed after {} attempt(s) for {} definitions"
-                  + " on indices {}; the next batch with these definitions sends it again",
-              attempt,
-              definitionCount,
-              indexNames,
+          throw new RetryableIndexingException(
+              String.format(
+                  "V3 structured property mapping update failed after %d attempt(s) for %d"
+                      + " definitions. The fields stay unrecorded.",
+                  attempt, definitionCount),
               e);
-          return;
         }
         log.warn(
             "V3 structured property mapping update attempt {} failed; retrying in {}ms",
@@ -681,7 +685,12 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
           Thread.sleep(PUT_MAPPING_RETRY_BACKOFF_MILLIS);
         } catch (InterruptedException interrupted) {
           Thread.currentThread().interrupt();
-          return;
+          throw new RetryableIndexingException(
+              String.format(
+                  "Interrupted while applying V3 structured property mappings for %d definitions."
+                      + " The fields stay unrecorded.",
+                  definitionCount),
+              interrupted);
         }
       }
     }
@@ -816,12 +825,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
   /**
    * One {@code applyMappings} per index of the same body the combined request would have sent. A
    * failure on one index does not stop the others, and only the indices that succeed are recorded.
+   * A retryable failure that leaves an index without the fields withholds the offset so the MAE
+   * transport redelivers. A 4xx rejection stays non-retryable.
    */
   private void applyStructuredPropertyMappingsPerIndex(
       @Nonnull final OperationContext opContext,
       @Nonnull final List<String> indexNames,
       @Nonnull final Map<String, Object> mappingBody,
       @Nonnull final Set<String> fieldIds) {
+    Exception retryableFailure = null;
     for (String indexName : indexNames) {
       try {
         final Map<String, Object> currentMappings = currentIndexMappings(opContext, indexName);
@@ -836,7 +848,15 @@ public class UpdateIndicesV3Strategy implements UpdateIndicesStrategy {
         recordAppliedFields(List.of(indexName), fieldIds);
       } catch (Exception e) {
         log.error("Failed to apply V3 structured property mappings to index {}", indexName, e);
+        if (retryableFailure == null && isRetryablePutMappingFailure(e)) {
+          retryableFailure = e;
+        }
       }
+    }
+    if (retryableFailure != null) {
+      throw new RetryableIndexingException(
+          "V3 structured property mapping update left indices without the fields.",
+          retryableFailure);
     }
   }
 
