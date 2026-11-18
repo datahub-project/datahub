@@ -132,6 +132,31 @@ public class UpsertStructuredPropertiesResolverTest {
     assertEquals(stringValue(byUrn.get(PROPERTY_URN_2)), "test2");
   }
 
+  /**
+   * An attribution without a source keys the assignment like an unattributed one, so the manual
+   * value overwrites it in place. The resolver only removes assignments that have a source.
+   */
+  @Test
+  public void testManualValueReplacesAttributionWithoutSource() throws Exception {
+    StructuredPropertyValueAssignment noSource =
+        assignment(PROPERTY_URN_1, "hello")
+            .setAttribution(
+                new MetadataAttribution()
+                    .setTime(1234567890L)
+                    .setActor(UrnUtils.getUrn("urn:li:corpuser:testuser")));
+    StructuredProperties existing = properties(noSource);
+    EntityClient mockEntityClient = initMockEntityClient(true, existing, null);
+
+    executeResolver(mockEntityClient, getMockAllowContext());
+
+    StructuredProperties stored = applyPatch(captureProposal(mockEntityClient), existing);
+    assertEquals(stored.getProperties().size(), 2);
+    Map<String, StructuredPropertyValueAssignment> byUrn = byProperty(stored);
+    assertEquals(stringValue(byUrn.get(PROPERTY_URN_1)), "test1");
+    assertFalse(byUrn.get(PROPERTY_URN_1).hasAttribution());
+    assertEquals(stringValue(byUrn.get(PROPERTY_URN_2)), "test2");
+  }
+
   @Test
   public void testReturnsThePropertiesReadAfterTheWrite() throws Exception {
     StructuredProperties storedAfterWrite =
