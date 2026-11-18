@@ -1,10 +1,10 @@
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import {
     getSearchCsvDownloadHeader,
     transformGenericEntityPropertiesToCsvRow,
     transformResultsToCsvRow,
 } from '@app/entityV2/shared/components/styled/search/downloadAsCsvUtil';
 import { SearchResultInterface } from '@app/entityV2/shared/components/styled/search/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 
 import { EntityType } from '@types';
 

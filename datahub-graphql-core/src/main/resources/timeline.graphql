@@ -96,6 +96,11 @@ enum ChangeCategoryType {
   and glossary terms.
   """
   LIFECYCLE
+
+  """
+  When an entity is marked deprecated or no longer deprecated
+  """
+  DEPRECATION
 }
 
 """

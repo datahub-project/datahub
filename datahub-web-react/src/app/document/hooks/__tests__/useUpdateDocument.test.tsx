@@ -1,7 +1,6 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { toast } from '@components';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -12,6 +11,7 @@ import {
     UpdateDocumentSubTypeInput,
     useUpdateDocument,
 } from '@app/document/hooks/useUpdateDocument';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import {
     UpdateDocumentContentsDocument,

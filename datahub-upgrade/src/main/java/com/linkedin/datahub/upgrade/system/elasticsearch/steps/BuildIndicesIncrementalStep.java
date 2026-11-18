@@ -13,15 +13,20 @@ import com.linkedin.metadata.boot.BootstrapStep;
 import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.entity.upgrade.DataHubUpgradeResultConditionalPersist;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.CassandraSearchLimitations;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder.IncrementalReindexResult;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IncrementalReindexState;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.IndexMigrationStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.ReindexConfig;
+import com.linkedin.metadata.search.elasticsearch.indexbuilder.SearchV3CutoverStamp;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.V3DocumentIdScheme;
 import com.linkedin.metadata.service.UpdateIndicesService;
 import com.linkedin.metadata.shared.ElasticSearchIndexed;
 import com.linkedin.metadata.utils.elasticsearch.EntityIndexVersion;
+import com.linkedin.metadata.utils.elasticsearch.IndexConvention;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import com.linkedin.upgrade.DataHubUpgradeResult;
 import com.linkedin.upgrade.DataHubUpgradeState;
@@ -117,6 +122,12 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
   @Override
   public Function<UpgradeContext, UpgradeStepResult> executable() {
     return (context) -> {
+      if (!entityIndexFillAvailable) {
+        // Warn even when this run plans no fill, so the limit shows before a fill is needed.
+        log.warn(
+            "Incremental reindex is on without an aspect loader. {}",
+            CassandraSearchLimitations.ALL);
+      }
       try {
         List<ReindexConfig> allConfigs =
             getAllReindexConfigs(context.opContext(), indexedServices, structuredProperties);
@@ -171,9 +182,11 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           Optional<IncrementalReindexState.Status> existingStatus =
               IncrementalReindexState.getStatus(upgradeState, config.name());
 
-          // Skip indices that already completed or were swapped in a previous run, and indices
-          // whose fill the non-blocking phase owns: the fill resumes from its own checkpoint.
-          if (ownedByThisDeploy(upgradeState, config.name())) {
+          // Skip a row this deploy already owns only while its index is still present: a finished
+          // row, or a fill the non-blocking phase resumes from its own checkpoint. A replaced
+          // cluster (new OpenSearch volume, upgrade history kept in primary storage) has the row
+          // and not the index, so the missing index is created again.
+          if (config.exists() && ownedByThisDeploy(upgradeState, config.name())) {
             log.info(
                 "Index {} already {} in previous run, skipping",
                 config.name(),
@@ -405,7 +418,13 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             allConfigs.stream()
                 .filter(c -> !c.requiresReindex())
                 .filter(c -> !incrementallyBuiltIndices.contains(c.name()))
-                .filter(c -> c.requiresApplyMappings() || c.requiresApplySettings())
+                // buildIndex also adds the fields of definitions an otherwise unchanged index
+                // lacks.
+                .filter(
+                    c ->
+                        c.requiresApplyMappings()
+                            || c.requiresApplySettings()
+                            || c.hasNewStructuredProperty())
                 .collect(Collectors.toList());
 
         for (ReindexConfig config : configsNoReindex) {
@@ -600,9 +619,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     IN_PLACE,
     /**
      * The index exists with documents from another id scheme, holds no documents and differs from
-     * the target mappings or settings, or holds a partial corpus from a fill that a later deploy
-     * can no longer see: create a next physical index for the fill to write into; the alias moves
-     * to it once the fill completes.
+     * the target mappings or settings, holds a partial corpus from a fill that a later deploy can
+     * no longer see, or holds documents and no migration mark while a paired V2 index still exists:
+     * create a next physical index for the fill to write into; the alias moves to it once the fill
+     * completes.
      */
     REBUILD_INTO_NEXT
   }
@@ -648,7 +668,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         }
         // Empty is the steady state of an entity type nobody has ingested. Filled where it
         // stands, the index would receive documents under a mapping Phase 1 still has to change,
-        // and the in-place apply pass below never reaches an index with a fill row.
+        // and the in-place apply pass below never reaches an index with a fill row. Unmapped
+        // structured property fields do not count against matchesTarget; startFill adds them
+        // before a fill in place.
         fills.put(config.name(), matchesTarget(config) ? Fill.IN_PLACE : Fill.REBUILD_INTO_NEXT);
       } else if (IndexMigrationStamp.incomplete(config.currentMappings())) {
         // The alias holds documents written by a migration whose rows belong to an earlier deploy,
@@ -664,6 +686,23 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
         log.warn(
             "Index {}: an earlier deploy left its migration unfinished; rebuilding into a fresh"
                 + " index",
+            config.name());
+        fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
+      } else if (IndexMigrationStamp.read(config.currentMappings()).isEmpty()
+          && pairedV2IndexExists(config.name(), allConfigs)) {
+        // Created on the legacy path, before incremental reindex was on: the index has documents
+        // from live writes and no mark, so nothing else plans a fill and the read hold never
+        // lifts. A V3 index with no paired V2 index is a fresh install and is left alone.
+        if (ownedByThisDeploy(upgradeState, config.name())) {
+          log.info(
+              "Index {}: unmarked, with a V2 index still present, but this deploy already owns"
+                  + " the row",
+              config.name());
+          continue;
+        }
+        log.warn(
+            "Index {}: documents and no migration mark, while a paired V2 index still exists;"
+                + " rebuilding from primary storage",
             config.name());
         fills.put(config.name(), Fill.REBUILD_INTO_NEXT);
       }
@@ -733,6 +772,52 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     return false;
   }
 
+  /**
+   * Whether any entity type stored in {@code v3IndexName} still has a V2 index that has not been
+   * stamped retired. That index is what shows the V3 index was created for an upgrade rather than a
+   * fresh install or a cutover that already happened. The config list only contains indices this
+   * run builds, so a V2 index left on the cluster while V2 is off is looked up on the V2 cluster. A
+   * listing or mapping-read failure does not count: an unreadable stamp must not rebuild the live
+   * corpus.
+   */
+  private boolean pairedV2IndexExists(String v3IndexName, List<ReindexConfig> allConfigs) {
+    IndexConvention convention = opContext.getSearchContext().getIndexConvention();
+    Optional<String> indexKey = convention.getEntityIndexKeyV3(opContext, v3IndexName);
+    if (indexKey.isEmpty()) {
+      return false;
+    }
+    Map<String, ReindexConfig> existing =
+        allConfigs.stream()
+            .filter(ReindexConfig::exists)
+            .collect(
+                Collectors.toMap(ReindexConfig::name, config -> config, (left, right) -> left));
+    ESIndexBuilder v3Builder = requireIndexBuilder(v3IndexName);
+    for (EntitySpec spec :
+        V3IndexKeys.entitySpecsForKey(opContext.getEntityRegistry(), indexKey.get())) {
+      String v2Index = convention.getEntityIndexName(opContext, spec.getName());
+      ReindexConfig v2Config = existing.get(v2Index);
+      if (v2Config != null) {
+        if (!SearchV3CutoverStamp.retired(v2Config.currentMappings())) {
+          return true;
+        }
+        continue;
+      }
+      try {
+        if (v3Builder.indexExistsOnV2Cluster(opContext, v2Index)
+            && !v3Builder.v2CutoverRetired(opContext, v2Index)) {
+          return true;
+        }
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: cannot read paired V2 index {}; not treating it as an unfinished upgrade",
+            v3IndexName,
+            v2Index,
+            e);
+      }
+    }
+    return false;
+  }
+
   /** Whether an existing index already carries the target mappings and settings. */
   private static boolean matchesTarget(ReindexConfig config) {
     return !config.requiresReindex()
@@ -758,12 +843,29 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
     String oldBackingIndexName = null;
     boolean oldIdSchemeStale = false;
     boolean abandonedMigration = false;
+
+    // The index is created or changed below, before BACKFILL_PENDING is checkpointed. Checkpoint
+    // FAILED first: if the process dies in between, a leftover COMPLETED row would make the next
+    // run skip the index as owned, and it would never be filled. FAILED is replanned from the
+    // index's live state.
+    Map<String, String> failedState = new HashMap<>(upgradeState);
+    failedState.put(
+        IncrementalReindexState.key(config.name(), IncrementalReindexState.STATUS),
+        IncrementalReindexState.Status.FAILED.name());
+    checkpoint(context, failedState, DataHubUpgradeState.IN_PROGRESS);
+    upgradeState = failedState;
+
     switch (fill) {
       case CREATE_ALIASED -> {
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
-        indexBuilder.createAliasedIndex(opContext, config.name(), physicalIndex, config);
-        indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
+        // The stamp and the alias go out in one create. A failed stamp leaves no alias.
+        indexBuilder.createAliasedIndex(
+            opContext,
+            config.name(),
+            physicalIndex,
+            config,
+            IndexMigrationStamp.stamped(config.targetMappings(), IndexMigrationStamp.INCOMPLETE));
         fillTarget = config.name();
       }
       case REBUILD_INTO_NEXT -> {
@@ -777,6 +879,9 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
             oldBackingIndices.size() == 1 ? oldBackingIndices.iterator().next() : null;
         physicalIndex =
             ESIndexBuilder.getIncrementalNextIndexName(config.name(), upgradeVersion, startTime);
+        // No fallback to the live structured property fields, unlike a _reindex destination: the
+        // fill writes every value from primary storage, so fields left out would leave values
+        // unsearchable. A rejection fails the step and leaves writes open.
         indexBuilder.createIndex(opContext, physicalIndex, config);
         indexBuilder.markMigrationIncomplete(opContext, physicalIndex);
         fillTarget = physicalIndex;
@@ -784,6 +889,10 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
       case IN_PLACE -> {
         physicalIndex = config.name();
         fillTarget = config.name();
+        // The index matches its target apart from structured property fields it may lack. They go
+        // in before the fill writes their values, and a rejected put fails the step, as creating
+        // an index with them does for the other fills.
+        indexBuilder.addUnmappedStructuredPropertyFields(opContext, config);
         indexBuilder.markMigrationIncomplete(opContext, config.name());
       }
       default -> throw new IllegalStateException("Unhandled fill " + fill);
@@ -825,8 +934,36 @@ public class BuildIndicesIncrementalStep implements UpgradeStep {
           IncrementalReindexState.setOldBackingIndexIncompleteMigration(
               upgradeState, config.name());
     }
+    // Catch-up runs only after this fill's row is COMPLETED, so it never observes the in-progress
+    // row that would drop a verdict. A terminal verdict from the previous fill would skip the new
+    // window, and the incomplete mark would stay until a later version.
+    clearCatchUpVerdict(context, config.name());
     checkpoint(context, upgradeState, DataHubUpgradeState.IN_PROGRESS);
     return upgradeState;
+  }
+
+  /**
+   * Drops this index's catch-up verdict and resume cursor when a new fill replaces one that already
+   * finished. No catch-up result is written when this index has neither.
+   */
+  private void clearCatchUpVerdict(UpgradeContext context, String indexName) {
+    Urn catchUpUrn =
+        BootstrapStep.getUpgradeUrn(
+            IncrementalReindexState.CATCH_UP_UPGRADE_ID_PREFIX + "_" + upgradeVersion);
+    Optional<DataHubUpgradeResult> previous =
+        context.upgrade().getUpgradeResult(opContext, catchUpUrn, entityService);
+    if (previous.isEmpty() || previous.get().getResult() == null) {
+      return;
+    }
+    Map<String, String> existing = previous.get().getResult();
+    Map<String, String> cleared = IncrementalReindexState.clearCatchUpStatus(existing, indexName);
+    if (cleared.equals(existing)) {
+      return;
+    }
+    context
+        .upgrade()
+        .setUpgradeResult(
+            opContext, catchUpUrn, entityService, DataHubUpgradeState.IN_PROGRESS, cleared);
   }
 
   private EntityIndexVersion indexVersionOf(String indexName) {

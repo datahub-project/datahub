@@ -1,0 +1,788 @@
+# Smart Testing — smoke-test pytest tags
+#
+# Maps test modules (paths relative to smoke-test/) to tags from
+# .github/smart-testing/taxonomy.yaml. conftest applies them as markers
+# (feature_user, feature_dev, compound, technical_layer, entity_scope) when
+# SMOKE_SMART_TESTING is shadow or active. An exact path beats a glob; among
+# globs the longest wins. Untagged modules are always selected.
+
+version: 1
+
+# Always selected, whatever the PR touches.
+always_run:
+  - tests/e2e/read_only/test_services_up.py
+  - tests/e2e/search/test_search_projection.py
+  - tests/e2e/authorization/test_self_entity_auth.py
+
+# Also selected when the PR changes the shared pytest harness (change-type:
+# pytest-plumbing; see taxonomy.yaml for the paths). One short module per
+# common fixture and API surface, about 4 minutes of test time, so a harness
+# bug fails here instead of only after merge. change-type tags never go on
+# the entries under `tests:` below; they describe PRs, not tests.
+plumbing_sample:
+  - tests/e2e/restli/test_restli_batch_ingestion.py # ingest_cleanup_data, Rest.li
+  - tests/e2e/schema_fields/test_schemafields.py # ingest_cleanup_data
+  - tests/e2e/entity_versioning/test_versioning_ingest.py # ingest_cleanup_data
+  - tests/e2e/openapi/v3/test_scroll_entities.py # OpenAPI v3
+  - tests/e2e/patch/test_domain_patches.py # openapi_graph_client, patches
+  - tests/e2e/domains/domain_entities_batching_test.py # GraphQL
+  - tests/e2e/glossary/glossary_children_count_test.py # GraphQL
+  - tests/e2e/lineage/test_lineage_sdk.py # SDK, wait_for_writes_to_sync
+  - tests/e2e/delete/delete_test.py # soft and hard delete
+  - tests/e2e/cli/user_groups_cmd/test_user_cmd.py # datahub CLI
+
+tests:
+
+  # ── actions/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/actions/doc_propagation/test_propagation.py"
+    tags:
+      feature-user: [documentation]
+      feature-dev: [executor]
+      compound: [propagation:docs, propagation:lineage-path]
+      technical-layer: [kafka-events]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/actions/test_actions_shutdown.py"
+    tags:
+      feature-dev: [executor]
+      technical-layer: [kafka-events]
+
+  - path: "tests/e2e/actions/term_propagation/test_term_propagation.py"
+    tags:
+      feature-user: [glossary]
+      compound: [propagation:terms]
+      technical-layer: [kafka-events]
+      entity-scope: [dataset]
+
+  # ── analytics/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/analytics/test_analytics.py"
+    tags:
+      feature-user: [analytics]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/analytics/test_highlights.py"
+    tags:
+      feature-user: [analytics]
+      technical-layer: [graphql]
+
+  # ── aspect_generators/ ──────────────────────────────────────
+
+  - path: "tests/e2e/aspect_generators/timeseries/dataset_profile_gen.py"
+    tags:
+      feature-dev: [timeseries-aspects]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── assertions/ ─────────────────────────────────────────────
+
+  - path: "tests/e2e/assertions/assertions_test.py"
+    tags:
+      feature-user: [assertions]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/assertions/custom_assertions_test.py"
+    tags:
+      feature-user: [assertions]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/assertions/dbt_test_results_test.py"
+    tags:
+      feature-user: [assertions, ingestion]
+      compound: [ingestion:connector]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── audit_events/ ───────────────────────────────────────────
+
+  - path: "tests/e2e/audit_events/audit_events_test.py"
+    tags:
+      feature-dev: [mce-mcl-pipeline]
+      technical-layer: [kafka-events]
+
+  # ── authorization/ ──────────────────────────────────────────
+
+  - path: "tests/e2e/authorization/*.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/authorization/test_container_view_auth.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+      entity-scope: [container]
+
+  - path: "tests/e2e/authorization/test_domain_scoped_create_entity_auth.py"
+    tags:
+      feature-user: [authorization, domains]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql, openapi, restli]
+      entity-scope: [dataset, container]
+
+  - path: "tests/e2e/authorization/test_aspect_write_auth.py"
+    tags:
+      feature-user: [authorization, data-products]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/authorization/test_privilege_grant_auth.py"
+    tags:
+      feature-user: [authorization]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── browse/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/browse/browse_test.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [search-indexing]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  # ── certification/ ──────────────────────────────────────────
+
+  # Besides `certification`, tagged by what it drives: CERTIFY_ENTITY denial at
+  # the resolver (authorization) and the certification / hasCertification /
+  # certifiedBy filters (search + search-indexing). Ingest-time validator
+  # rejections live in certification_openapi_test.py.
+
+  # ── cli/ ────────────────────────────────────────────────────
+
+  - path: "tests/e2e/cli/datahub_cli.py"
+    tags:
+      technical-layer: [cli]
+
+  - path: "tests/e2e/cli/dataset_cmd/test_dataset_command.py"
+    tags:
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/cli/delete_cmd/test_timeseries_delete.py"
+    tags:
+      feature-dev: [timeseries-aspects]
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/cli/graphql_cmd/test_graphql_cli_smoke.py"
+    tags:
+      technical-layer: [cli, graphql]
+
+  - path: "tests/e2e/cli/ingest_cmd/test_timeseries_rollback.py"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: [timeseries-aspects]
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/cli/migrate_cmd/*.py"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: [entity-registry]
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/cli/search_cmd/test_search_cmd.py"
+    tags:
+      feature-user: [search]
+      technical-layer: [cli]
+
+  - path: "tests/e2e/cli/user_cmd/test_user_add.py"
+    tags:
+      technical-layer: [cli]
+      entity-scope: [corpuser-corpgroup]
+
+  - path: "tests/e2e/cli/user_groups_cmd/*.py"
+    tags:
+      technical-layer: [cli]
+      entity-scope: [corpuser-corpgroup]
+
+  # ── containers/ ─────────────────────────────────────────────
+
+  - path: "tests/e2e/containers/container_entities_batching_test.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [container]
+
+  - path: "tests/e2e/containers/containers_test.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [container]
+
+  # ── data_process_instance/ ──────────────────────────────────
+
+  - path: "tests/e2e/data_process_instance/test_data_process_instance.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [dataflow-datajob]
+
+  # ── database/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/database/test_database.py"
+    tags:
+      technical-layer: [ebean-mysql, ebean-mysql]
+
+  # ── datapack/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/datapack/test_datapack_smoke.py"
+    tags:
+      feature-dev: [bootstrap]
+      technical-layer: [openapi]
+
+  # ── dataproduct/ ────────────────────────────────────────────
+
+  - path: "tests/e2e/dataproduct/test_dataproduct.py"
+    tags:
+      feature-user: [data-products]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── delete/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/delete/delete_test.py"
+    tags:
+      feature-dev: [mce-mcl-pipeline]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/delete/entity_exists_batching_test.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── deprecation/ ────────────────────────────────────────────
+
+  - path: "tests/e2e/deprecation/deprecation_test.py"
+    tags:
+      feature-user: [deprecation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── dev_tooling/ ────────────────────────────────────────────
+
+  - path: "tests/e2e/dev_tooling/test_dev_tooling.py"
+    tags:
+      feature-dev: [feature-flags]
+      technical-layer: [openapi]
+
+  # ── domains/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/domains/domain_entities_batching_test.py"
+    tags:
+      feature-user: [domains]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/domains/domains_test.py"
+    tags:
+      feature-user: [domains]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── entity_graph_cache/ ─────────────────────────────────────
+
+  - path: "tests/e2e/entity_graph_cache/*.py"
+    tags:
+      feature-dev: [graph-index]
+      technical-layer: [elasticsearch]
+      entity-scope: [dataset]
+
+  # ── entity_versioning/ ──────────────────────────────────────
+
+  - path: "tests/e2e/entity_versioning/test_effective_latest_versioning.py"
+    tags:
+      feature-dev: [entity-versioning]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/entity_versioning/test_glossary_versioning.py"
+    tags:
+      feature-user: [glossary]
+      feature-dev: [entity-versioning]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/entity_versioning/test_glossary_term_new_version.py"
+    tags:
+      feature-user: [glossary]
+      feature-dev: [entity-versioning]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/entity_versioning/test_versioning_ingest.py"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: [entity-versioning]
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/entity_versioning/test_versioning_timeline.py"
+    tags:
+      feature-user: [change-history]
+      feature-dev: [entity-versioning]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/entity_versioning/test_versioning.py"
+    tags:
+      feature-dev: [entity-versioning]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── forms/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/forms/*.py"
+    tags:
+      feature-user: [forms]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── glossary/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/glossary/*.py"
+    tags:
+      feature-user: [glossary]
+      technical-layer: [graphql]
+
+  # ── graph/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/graph/*.py"
+    tags:
+      feature-dev: [graph-index]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  # ── identity/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/identity/*.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [corpuser-corpgroup]
+
+  # ── incidents/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/incidents/health_batch_test.py"
+    tags:
+      feature-user: [incidents]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/incidents/incidents_test.py"
+    tags:
+      feature-user: [incidents]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── institutional_memory/ ───────────────────────────────────
+
+  - path: "tests/e2e/institutional_memory/institutional_memory_test.py"
+    tags:
+      feature-user: [documentation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── knowledge/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/knowledge/*.py"
+    tags:
+      feature-user: [documentation]
+      technical-layer: [graphql]
+
+  # ── library_examples/ ───────────────────────────────────────
+
+  - path: "tests/e2e/library_examples/*.py"
+    tags:
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  # ── setup/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/setup/lineage/*.py"
+    tags:
+      feature-user: [lineage]
+      technical-layer: [cli]
+      entity-scope: [dataset, dataflow-datajob]
+
+  # ── lineage/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/lineage/*.py"
+    tags:
+      feature-user: [lineage]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── managed_ingestion/ ──────────────────────────────────────
+
+  - path: "tests/e2e/managed_ingestion/managed_ingestion_test.py"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: [executor]
+      technical-layer: [graphql]
+
+  # ── metrics/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/metrics/*.py"
+    tags:
+      feature-dev: [billing-metrics]
+      technical-layer: [openapi]
+
+  # ── ml_models/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/ml_models/test_ml_models.py"
+    tags:
+      technical-layer: [graphql]
+      entity-scope: [ml-entities]
+
+  # ── object_storage/ ─────────────────────────────────────────
+
+  - path: "tests/e2e/object_storage/test_object_storage.py"
+    tags:
+      feature-dev: [billing-metrics]
+      technical-layer: [openapi]
+
+  # ── odcs/ ───────────────────────────────────────────────────
+
+  - path: "tests/e2e/odcs/test_odcs_ingestion.py"
+    tags:
+      feature-user: [data-contracts, ingestion, schema-metadata]
+      compound: [ingestion:connector]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── openapi/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/openapi/test_openapi.py"
+    tags:
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/openapi/v1/test_tracking.py"
+    tags:
+      feature-dev: [system-metadata]
+      technical-layer: [openapi]
+
+  - path: "tests/e2e/openapi/v2/test_timeseries_scroll.py"
+    tags:
+      feature-dev: [timeseries-aspects]
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/openapi/v3/test_scroll_entities.py"
+    tags:
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/openapi/v3/test_scroll_lineage.py"
+    tags:
+      feature-user: [lineage]
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/openapi/v3/test_scroll_relationships.py"
+    tags:
+      feature-dev: [graph-index]
+      technical-layer: [openapi]
+
+  # ── patch/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/patch/common_patch_tests.py"
+    tags:
+      feature-dev: [patch-semantics]
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/patch/test_datajob_patches.py"
+    tags:
+      feature-dev: [patch-semantics]
+      technical-layer: [openapi]
+      entity-scope: [dataflow-datajob]
+
+  - path: "tests/e2e/patch/test_dataset_patches.py"
+    tags:
+      feature-dev: [patch-semantics]
+      technical-layer: [openapi]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/patch/test_domain_patches.py"
+    tags:
+      feature-user: [domains]
+      feature-dev: [patch-semantics]
+      technical-layer: [openapi]
+
+  # ── pgqueue/ ────────────────────────────────────────────────
+
+  - path: "tests/e2e/pgqueue/test_messaging_operations.py"
+    tags:
+      feature-dev: [mce-mcl-pipeline]
+      technical-layer: [ebean-mysql]
+
+  # ── platform_resources/ ─────────────────────────────────────
+
+  - path: "tests/e2e/platform_resources/test_platform_resource.py"
+    tags:
+      feature-dev: [system-metadata]
+      technical-layer: [openapi]
+
+  # ── policies/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/policies/*.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+
+  # ── privileges/ ─────────────────────────────────────────────
+
+  - path: "tests/e2e/privileges/test_privileges.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/privileges/utils.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+
+  # ── query_projection/ ───────────────────────────────────────
+
+  - path: "tests/e2e/query_projection/test_query_projection_smoke.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [search-indexing]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  # ── read_only/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/read_only/test_analytics.py"
+    tags:
+      feature-user: [analytics]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/read_only/test_dataproduct.py"
+    tags:
+      feature-user: [data-products]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/read_only/test_ingestion_list.py"
+    tags:
+      feature-user: [ingestion]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/read_only/test_lineage_apis.py"
+    tags:
+      feature-user: [lineage]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/read_only/test_policies.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/read_only/test_search.py"
+    tags:
+      feature-user: [search]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/read_only/test_services_up.py"
+    tags:
+      feature-dev: [feature-flags]
+      technical-layer: [openapi]
+
+  # ── restli/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/restli/*.py"
+    tags:
+      feature-dev: [entity-registry]
+      technical-layer: [restli]
+      entity-scope: [dataset]
+
+  # ── schema_fields/ ──────────────────────────────────────────
+
+  - path: "tests/e2e/schema_fields/*.py"
+    tags:
+      feature-user: [schema-metadata]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── search/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/search/test_lineage_search_index_fields.py"
+    tags:
+      feature-user: [search, lineage]
+      feature-dev: [search-indexing]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/search/test_search_projection.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [search-indexing]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  # ── semantic/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/semantic/*.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [semantic-search]
+      technical-layer: [elasticsearch]
+
+  - path: "tests/e2e/semantic/test_stateful_ingestion.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [semantic-search, stateful-ingestion]
+      technical-layer: [elasticsearch, cli]
+
+  # ── service_accounts/ ───────────────────────────────────────
+
+  - path: "tests/e2e/service_accounts/test_service_accounts.py"
+    tags:
+      feature-dev: [authentication]
+      technical-layer: [graphql]
+      entity-scope: [corpuser-corpgroup]
+
+  # ── siblings/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/siblings/siblings_search_batching_test.py"
+    tags:
+      feature-user: [search]
+      feature-dev: [siblings]
+      technical-layer: [graphql, elasticsearch]
+      entity-scope: [dataset]
+
+  # ── status/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/status/test_glossary_lifecycle_stages.py"
+    tags:
+      feature-user: [glossary, deprecation]
+      technical-layer: [graphql]
+
+  - path: "tests/e2e/status/test_lifecycle_state.py"
+    tags:
+      feature-user: [deprecation, glossary, proposals]
+      feature-dev: [system-metadata]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── structured_properties/ ──────────────────────────────────
+
+  - path: "tests/e2e/structured_properties/*.py"
+    tags:
+      feature-user: [structured-properties]
+      feature-dev: [aspect-validation]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── tags_and_terms/ ─────────────────────────────────────────
+
+  - path: "tests/e2e/tags_and_terms/tags_and_terms_test.py"
+    tags:
+      feature-user: [tags, glossary]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── telemetry/ ──────────────────────────────────────────────
+
+  - path: "tests/e2e/telemetry/telemetry_test.py"
+    tags:
+      feature-dev: [system-metadata]
+      technical-layer: [openapi]
+
+  # ── (top level) ─────────────────────────────────────────────
+
+  - path: "tests/e2e/test_kafka_default_sink.py"
+    tags:
+      feature-dev: [mce-mcl-pipeline]
+      technical-layer: [kafka-events]
+
+  - path: "tests/e2e/test_authentication_e2e.py"
+    tags:
+      feature-user: [authorization]
+      feature-dev: [authentication]
+      technical-layer: [graphql, openapi, restli]
+
+  - path: "tests/e2e/test_e2e.py"
+    tags:
+      feature-user: [search, home-page]
+      feature-dev: [authentication, search-indexing, system-metadata]
+      technical-layer: [graphql, restli]
+      entity-scope: [dataset, corpuser-corpgroup]
+
+  - path: "tests/e2e/test_rapid.py"
+    tags:
+      feature-dev: [mce-mcl-pipeline]
+      technical-layer: [restli, graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/test_system_info.py"
+    tags:
+      feature-user: [authorization]
+      technical-layer: [openapi, spring-config]
+
+  - path: "tests/e2e/test_result_msg.py"
+    tags:
+      feature-user: [assertions]
+
+  - path: "tests/e2e/test_stateful_ingestion.py"
+    tags:
+      feature-user: [ingestion]
+      feature-dev: [stateful-ingestion]
+      technical-layer: [cli]
+      entity-scope: [dataset]
+
+  # ── timeline/ ───────────────────────────────────────────────
+
+  - path: "tests/e2e/timeline/*.py"
+    tags:
+      feature-user: [change-history]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  - path: "tests/e2e/timeline/timeline_change_history_auth_test.py"
+    tags:
+      feature-user: [change-history, authorization]
+      technical-layer: [graphql]
+      entity-scope: [dataset]
+
+  # ── timeseries/ ─────────────────────────────────────────────
+
+  - path: "tests/e2e/timeseries/*.py"
+    tags:
+      feature-dev: [timeseries-aspects]
+      technical-layer: [graphql]
+      entity-scope: [dataset, dashboard-chart]
+
+  # ── tokens/ ─────────────────────────────────────────────────
+
+  - path: "tests/e2e/tokens/*.py"
+    tags:
+      feature-dev: [authentication]
+      technical-layer: [graphql]
+      entity-scope: [corpuser-corpgroup]
+
+  # ── trace/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/trace/test_api_trace.py"
+    tags:
+      feature-dev: [system-metadata]
+      technical-layer: [openapi]
+
+  # ── (top level) ─────────────────────────────────────────────
+
+  - path: "tests/e2e/utils.py"
+    tags: {}
+
+  # ── views/ ──────────────────────────────────────────────────
+
+  - path: "tests/e2e/views/views_test.py"
+    tags:
+      feature-user: [views]
+      technical-layer: [graphql]

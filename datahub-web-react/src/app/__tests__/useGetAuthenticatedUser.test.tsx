@@ -1,10 +1,10 @@
-import { renderHook } from '@testing-library/react-hooks';
 import Cookies from 'js-cookie';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { useUserContext } from '@app/context/useUserContext';
 import { useGetAuthenticatedUser, useGetAuthenticatedUserUrn } from '@app/useGetAuthenticatedUser';
 import { CLIENT_AUTH_COOKIE } from '@conf/Global';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 vi.mock('@app/context/useUserContext', () => ({
     useUserContext: vi.fn(),
@@ -122,8 +122,6 @@ describe('useGetAuthenticatedUserUrn', () => {
     it('throws when the auth cookie is missing', () => {
         mockCookiesGet.mockReturnValue(undefined as any);
 
-        const { result } = renderHook(() => useGetAuthenticatedUserUrn());
-
-        expect(result.error).toEqual(new Error('Could not find logged in user.'));
+        expect(() => renderHook(() => useGetAuthenticatedUserUrn())).toThrow('Could not find logged in user.');
     });
 });

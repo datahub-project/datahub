@@ -1,8 +1,8 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import { loadFromLocalStorage, useFeatureFlag } from '@app/sharedV2/hooks/useFeatureFlag';
 import { useAppConfig } from '@app/useAppConfig';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mocks
 const localStorageMock = (() => {

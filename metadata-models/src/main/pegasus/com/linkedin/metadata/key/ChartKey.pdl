@@ -4,7 +4,8 @@ namespace com.linkedin.metadata.key
  * Key for a Chart
  */
 @Aspect = {
-  "name": "chartKey"
+  "name": "chartKey",
+  "schemaVersion": 2
 }
 record ChartKey {
   /**
@@ -12,7 +13,9 @@ record ChartKey {
   */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": false,
+      "searchLabel": "tool",
+      "boostScore": 1.0
     },
     "fieldName": "tool",
     "fieldType": "TEXT_PARTIAL",
@@ -23,5 +26,20 @@ record ChartKey {
   /**
   * Unique id for the chart. This id should be globally unique for a dashboarding tool even when there are multiple deployments of it. As an example, chart URL could be used here for Looker such as 'looker.linkedin.com/looks/1234'
   */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": false,
+    "v3": {
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   chartId: string
 }

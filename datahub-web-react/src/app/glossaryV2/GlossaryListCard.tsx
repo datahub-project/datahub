@@ -4,8 +4,8 @@ import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import LifecycleStageBadge from '@app/entityV2/shared/containers/profile/header/LifecycleStageBadge';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { VersionPill } from '@app/entityV2/shared/versioning/common';
 import GlossaryColoredIcon from '@app/glossaryV2/GlossaryColoredIcon';
 import { resolveGlossaryEntityColor, useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';

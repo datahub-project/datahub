@@ -1,7 +1,7 @@
 import { useEffect, useMemo } from 'react';
 import { useTranslation } from 'react-i18next';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { getAndFilters } from '@app/entityV2/shared/tabs/Dataset/Queries/utils/filterQueries';
 import { getV1FieldPathFromSchemaFieldUrn } from '@app/lineageV3/utils/lineageUtils';
 import { getSourceUrnFromSchemaFieldUrn } from '@src/app/entityV2/schemaField/utils';

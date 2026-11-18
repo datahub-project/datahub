@@ -25,6 +25,29 @@ When **building** custom images from the DataHub Dockerfiles, you can steer inst
 
 Non-locked images may still expose package managers at runtime; **locked** images aim to avoid relying on runtime installers altogether. Operational controls (mirror, egress, RBAC) remain **defense in depth** and should not replace reviewing trust boundaries above.
 
+## Restricting `extra_pip_requirements`
+
+A recipe's **`extra_pip_requirements`** (the "Extra Pip Requirements" field under **Advanced** in the UI) installs additional packages into the run's virtual environment on non-locked images. Installing a package runs its build scripts, so a typosquatted or malicious package is code execution on the executor. The executor always rejects entries that are not a single package specification: requirements-file options such as **`--index-url`**, **`--extra-index-url`**, **`--find-links`**, **`-r`**, **`-e`** or **`--hash`**, and entries containing a line break. A recipe's extra environment variables are never applied to the install step; they reach only the ingestion run itself. The package index, uv's configuration file (found through **`HOME`** / **`XDG_CONFIG_HOME`**) and TLS trust (**`SSL_CERT_FILE`**) therefore always come from the executor's own environment, and names starting with **`UV_`** or **`PIP_`** are rejected in a recipe outright. To route installs through a private index, set **`UV_INDEX_URL`** / **`UV_EXTRA_INDEX_URL`** in the executor's environment rather than in a recipe.
+
+Two environment variables on the executor (the **`datahub-actions`** container, or the Remote Executor) restrict the feature further:
+
+| Variable                                     | Default | Effect                                                                                                                                           |
+| -------------------------------------------- | ------- | ------------------------------------------------------------------------------------------------------------------------------------------------ |
+| `INGESTION_EXTRA_PIP_REQUIREMENTS_ENABLED`   | `true`  | `false` fails any run whose recipe sets a non-empty `extra_pip_requirements`. Use this with images that already bundle every connector you need. |
+| `INGESTION_EXTRA_PIP_REQUIREMENTS_ALLOWLIST` | unset   | When set, every `extra_pip_requirements` entry must match one of the listed entries; runs with any other entry fail.                             |
+
+The allowlist is a comma-separated list, or a JSON array when an entry itself contains a comma. Each entry is matched after any `${VAR}` references in the recipe have been expanded:
+
+- A bare package name (`pandas`) allows any version and any extras of that package, but not a direct reference such as `pandas @ https://...`.
+- A name with a version specifier (`requests==2.32.5`, `pkg>=1,<2`) allows only that exact specifier.
+- A direct reference or local path (`my-plugin @ https://pypi.example.com/my_plugin-1.0-py3-none-any.whl`, `my-plugin@/opt/plugins/my-plugin`, `/opt/plugins/my-plugin`) allows only that same URL or path.
+
+```bash
+INGESTION_EXTRA_PIP_REQUIREMENTS_ALLOWLIST='["pandas", "requests==2.32.5", "pkg>=1,<2"]'
+```
+
+A rejected entry fails the run before anything is installed, and the run's logs name the entry. Package names are compared case-insensitively, as pip does.
+
 ## Related documentation
 
 - [Bundled ingestion virtual environments](/docs/docker/bundled-ingestion-venvs.md)

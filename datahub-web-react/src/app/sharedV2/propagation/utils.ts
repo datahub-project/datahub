@@ -1,4 +1,4 @@
-import { isExternal, isPropagated } from '@app/entity/shared/propagation/utils';
+import { isExternal, isPropagated } from '@app/entityV2/shared/propagation/utils';
 import { AttributionDetails } from '@app/sharedV2/propagation/types';
 import { PropagationContext } from '@app/sharedV2/tags/usePropagationContextEntities';
 

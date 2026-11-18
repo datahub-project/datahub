@@ -12,13 +12,8 @@ ext.venv_activate_command = "set +x && source ${venv_name}/bin/activate && set -
 
 node {
 
-  // If true, it will download node using above parameters.
-  // If false, it will try to use globally installed node.
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
-    download = false
-  } else {
-    download = true
-  }
+  // Download Node unless the root build says to use the one on PATH (the default in CI).
+  download = !rootProject.ext.useSystemNode
 
   // Version of node to use.
   version = rootProject.ext.nodeVersion
@@ -168,7 +163,7 @@ task yarnBuild(type: YarnTask, dependsOn: [yarnInstall, yarnGenerate]) {
   // See https://stackoverflow.com/questions/53230823/fatal-error-ineffective-mark-compacts-near-heap-limit-allocation-failed-java
   // and https://github.com/facebook/docusaurus/issues/8329.
   // TODO: As suggested in https://github.com/facebook/docusaurus/issues/4765, try switching to swc-loader or esbuild minification.
-  if (project.hasProperty('useSystemNode') && project.getProperty('useSystemNode').toBoolean()) {
+  if (rootProject.ext.useSystemNode) {
     environment = ['NODE_OPTIONS': '--max-old-space-size=10240']
   } else {
     environment = ['NODE_OPTIONS': '--max-old-space-size=10240 --openssl-legacy-provider']

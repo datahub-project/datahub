@@ -188,10 +188,9 @@ _EXEC_TARGET_TOKENS: Final = {
     # single IDENTIFIER rather than a bracket token.
     TokenType.IDENTIFIER,
     # `EXEC @rc = proc`, `EXEC(@sql)`, `EXECUTE AS <principal>` and `EXEC #tmp_proc`.
-    # None of the four yields an edge -- `@rc =` cannot be parsed by sqlglot 30.12, the
-    # rest name no callee the run can resolve -- but each still has to open a
-    # statement, or the statement before it is absorbed into the fragment and loses
-    # its own lineage.
+    # Only the first names a callee the run can resolve and yields an edge, but each
+    # still has to open a statement, or the statement before it is absorbed into the
+    # fragment and loses its own lineage.
     TokenType.PARAMETER,
     TokenType.L_PAREN,
     TokenType.ALIAS,
@@ -454,6 +453,14 @@ class _TokenSplitter:
             nxt2 = self.tokens[i + 2].text.upper() if i + 2 < len(self.tokens) else ""
             if nxt == "EXISTS" or (nxt == "NOT" and nxt2 == "EXISTS"):
                 is_control_flow = False  # DDL: IF [NOT] EXISTS
+        # Oracle tokenizes the START of `START WITH` as BEGIN; it opens no block.
+        if (
+            tt == TokenType.BEGIN
+            and text_upper == "START"
+            and i + 1 < len(self.tokens)
+            and self.tokens[i + 1].token_type == TokenType.WITH
+        ):
+            is_control_flow = False
         # A control-flow keyword after a continuation token is an identifier, not a boundary.
         if is_control_flow and self._prev_is_continuation():
             is_control_flow = False
@@ -496,6 +503,15 @@ class _TokenSplitter:
         cte_main: bool,
     ) -> bool:
         """Return True if this token starts a new statement; update continuation flags."""
+        # `START WITH` (CONNECT BY, CREATE SEQUENCE) arrives as two tokens since sqlglot
+        # 30.22; before, it was one START_WITH token whose WITH never opened anything.
+        # `... AS start` followed by a CTE query is a real boundary, so not after AS.
+        if (
+            tt == TokenType.WITH
+            and self.prev_text == "START"
+            and not (i >= 2 and self.tokens[i - 2].token_type == _AS)
+        ):
+            return False
         # T-SQL separates `EXEC <proc> @a, @b` calls by newline, not `;`. `ELSE EXEC p`
         # and `CREATE PROCEDURE ... AS EXEC p` must split even though ELSE/AS are
         # continuations; a privilege list must not. `DENY EXECUTE TO y` has no ON to

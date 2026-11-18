@@ -1,5 +1,6 @@
 package com.linkedin.metadata.aspect.consistency.check.assertion;
 
+import static com.linkedin.metadata.Constants.ASSERTION_INFO_ASPECT_NAME;
 import static com.linkedin.metadata.aspect.utils.AssertionUtils.ASSERTION_TYPE_SUB_PROPERTY_CHECKS;
 import static com.linkedin.metadata.aspect.utils.AssertionUtils.getExpectedPropertyName;
 
@@ -81,6 +82,11 @@ public class AssertionTypeMismatchCheck extends AbstractAssertionCheck {
 
     // Check if the corresponding sub-property is valid (present and non-empty)
     if (!checker.apply(assertionInfo)) {
+      // A sub-property whose required entity urn is of an entity type this registry doesn't know
+      // is dropped on read; the stored assertion has it, so don't delete it.
+      if (isStoredByNewerVersion(ctx, assertionUrn, ASSERTION_INFO_ASPECT_NAME)) {
+        return Collections.emptyList();
+      }
       String expectedProperty = getExpectedPropertyName(type);
       return List.of(
           createIssueBuilder(assertionUrn, ConsistencyFixType.HARD_DELETE)

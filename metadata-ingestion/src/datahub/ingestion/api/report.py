@@ -367,7 +367,7 @@ class ExamplesReport(Report, Closeable):
         has_fine_grained_lineage = self._has_fine_grained_lineage(mcp)
 
         sub_type = "unknown"
-        if isinstance(mcp.aspect, SubTypesClass):
+        if isinstance(mcp.aspect, SubTypesClass) and mcp.aspect.typeNames:
             sub_type = mcp.aspect.typeNames[0]
 
         assert self._file_based_dict is not None

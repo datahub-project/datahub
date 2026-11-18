@@ -17,7 +17,15 @@ record GlossaryTermInfo includes CustomProperties {
    */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchLabel": "id",
+      "boostScore": 2.0,
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "TEXT_PARTIAL",
   }
@@ -34,6 +42,7 @@ record GlossaryTermInfo includes CustomProperties {
     "v3": {
       "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },

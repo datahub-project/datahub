@@ -169,6 +169,14 @@ class UnitySchemaKey(CatalogKey):
     unity_schema: str
 
 
+class UnityVolumeKey(UnitySchemaKey):
+    volume: str
+
+
+class UnityVolumeKeyWithMetastore(UnitySchemaKeyWithMetastore):
+    volume: str
+
+
 class BigQueryDatasetKey(ProjectIdKey):
     dataset_id: str
 
@@ -179,6 +187,10 @@ class FolderKey(ContainerKey):
 
 class BucketKey(ContainerKey):
     bucket_name: str
+
+
+class AwsAccountKey(ContainerKey):
+    account_id: str
 
 
 class NotebookKey(DatahubKey):

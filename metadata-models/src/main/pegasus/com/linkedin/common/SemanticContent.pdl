@@ -29,7 +29,8 @@ record SemanticContent {
    * embed this entity, so consumers can distinguish never-embeddable entities from indexing
    * lag or failures. Values written today: EMPTY_TEXT (no resolved text),
    * BELOW_MIN_TEXT_LENGTH (resolved text shorter than the recipe's min_text_length),
-   * NO_INDEXABLE_CONTENT (text partitioned to no indexable elements). Overwritten with real
+   * NO_INDEXABLE_CONTENT (text partitioned to no indexable elements), PARTITION_TIMEOUT
+   * (partitioning exceeded the recipe's partition_timeout_seconds). Overwritten with real
    * embeddings when the entity later becomes embeddable and is processed.
    */
   skipReason: optional string

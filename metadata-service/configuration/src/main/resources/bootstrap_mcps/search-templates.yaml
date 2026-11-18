@@ -60,42 +60,81 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: true
     query: |
       {{=<% %>=}}
       {
         "dis_max": {
           "tie_breaker": 0.01,
           "queries": [
+            {{#hasDefaultFieldsWithoutIdentity}}
             {
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "fuzzy_max_expansions": {{fuzzyMaxExpansions}},
                 "fuzzy_prefix_length": 0,
                 "fuzzy_transpositions": true
               }
             }
+            {{/hasDefaultFieldsWithoutIdentity}}
+            {{^hasDefaultFieldsWithoutIdentity}}
+            { "match_none": {} }
+            {{/hasDefaultFieldsWithoutIdentity}}
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&nameFieldsJson}}
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
               "simple_query_string": {
                 "query": "{{fuzzy}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&qualifiedNameFieldsJson}}
               }
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{fuzzy}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&idFieldsJson}}
+              }
+            }
+            {{/idFields}}
             {{#synonyms}}
+            {{#hasDefaultFieldsWithoutIdentity}}
             ,{
               "simple_query_string": {
                 "query": "{{synonym}}",
                 "default_operator": "AND",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{/hasDefaultFieldsWithoutIdentity}}
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{synonym}}",
+                "default_operator": "AND",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
@@ -110,26 +149,62 @@
             {{/qualifiedNameFields}}
             {{/synonyms}}
             {{#flags.alphanumericSplit}}
+            {{#hasDefaultFieldsWithoutIdentity}}
             ,{
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
-                "fields": {{&defaultFieldsWithoutQualifiedNameJson}},
+                "fields": {{&defaultFieldsWithoutIdentityJson}},
                 "boost": 1.5
               }
             }
+            {{/hasDefaultFieldsWithoutIdentity}}
+            {{#nameFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&nameFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/nameFields}}
             {{#qualifiedNameFields}}
             {{^spacelessDotted}}
             ,{
               "simple_query_string": {
                 "query": "{{broadQuery}}",
                 "default_operator": "OR",
+                "minimum_should_match": "2<50%",
                 "fields": {{&qualifiedNameFieldsJson}},
                 "boost": 1.5
               }
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": {{&idFieldsJson}},
+                "boost": 1.5
+              }
+            }
+            {{/idFields}}
+            {{#emailFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{broadQuery}}",
+                "default_operator": "OR",
+                "minimum_should_match": "2<50%",
+                "fields": ["{{emailText}}^2.0"],
+                "boost": 1.5
+              }
+            }
+            {{/emailFields}}
             {{/flags.alphanumericSplit}}
             {{#prefixFields}}
             ,{
@@ -147,7 +222,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -157,7 +233,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{synonym}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -168,11 +245,36 @@
                 "{{qualifiedNameKeyword}}": {
                   "value": "{{normalizedKeyword}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
                 }
               }
             }
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
+            {{#emailFields}}
+            ,{
+              "term": {
+                "{{emailKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:email"
+                }
+              }
+            }
+            {{/emailFields}}
             {{#wildcardTerm}}
             {{#wildcardFields}}
             ,{
@@ -206,13 +308,33 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "default_operator": "AND",
+                "fields": {{&idFieldsJson}},
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
             {{/multiWord}}
             {{#dotted}}
             ,{
               "term": {
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
-                  "case_insensitive": true
+                  "case_insensitive": true,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            ,{
+              "term": {
+                "{{emailKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "_name": "matchedField:email"
                 }
               }
             }
@@ -475,6 +597,8 @@
           "tie_breaker": 0.01,
           "queries": [
             {{^flags.exactNameLetterDigit}}
+            {{^nameOnly}}
+            {{#hasLightFields}}
             {
               "multi_match": {
                 "query": "{{shortened}}",
@@ -483,13 +607,58 @@
                 "operator": "{{lightOperator}}"
               }
             },
+            {{/hasLightFields}}
+            {{/nameOnly}}
+            {{#nameFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
+            {{#idFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": {{&idFieldsJson}},
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/idFields}}
+            {{#emailFields}}
+            {
+              "multi_match": {
+                "query": "{{shortened}}",
+                "type": "best_fields",
+                "fields": ["{{emailText}}^2.0"],
+                "operator": "{{lightOperator}}"
+              }
+            },
+            {{/emailFields}}
             {{/flags.exactNameLetterDigit}}
             {
               "term": {
                 "{{nameKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -499,12 +668,39 @@
                 "{{qualifiedNameKeyword}}": {
                   "value": "{{normalizedKeyword}}",
                   "case_insensitive": true,
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:qualifiedName"
                 }
               }
             }
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "term": {
+                "{{idKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:id"
+                }
+              }
+            }
+            {{/idFields}}
+            {{#emailFields}}
+            ,{
+              "term": {
+                "{{emailKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "boost": 100.0,
+                  "_name": "matchedField:email"
+                }
+              }
+            }
+            {{/emailFields}}
             {{#synonyms}}
+            {{^nameOnly}}
+            {{#hasLightFields}}
             ,{
               "multi_match": {
                 "query": "{{synonym}}",
@@ -513,6 +709,30 @@
                 "operator": "AND"
               }
             }
+            {{/hasLightFields}}
+            {{/nameOnly}}
+            {{#nameFields}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&nameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/nameFields}}
+            {{#qualifiedNameFields}}
+            {{^spacelessDotted}}
+            ,{
+              "multi_match": {
+                "query": "{{synonym}}",
+                "type": "best_fields",
+                "fields": {{&qualifiedNameFieldsJson}},
+                "operator": "AND"
+              }
+            }
+            {{/spacelessDotted}}
+            {{/qualifiedNameFields}}
             {{/synonyms}}
             {{#wholeIdentifier}}
             {{^spacelessDotted}}
@@ -677,6 +897,16 @@
             }
             {{/spacelessDotted}}
             {{/qualifiedNameFields}}
+            {{#idFields}}
+            ,{
+              "simple_query_string": {
+                "query": "{{alphanumericSplit}}",
+                "fields": {{&idFieldsJson}},
+                "default_operator": "AND",
+                "boost": 3.0
+              }
+            }
+            {{/idFields}}
             {{/multiWord}}
             {{#spacelessDotted}}
             {{#qualifiedNameFields}}
@@ -867,6 +1097,8 @@
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
+    searchType: QUERY_THEN_FETCH
     query: '{ "match_all": {} }'
     functionScore: |
       {
@@ -884,7 +1116,7 @@
             "weight": 1.4
           },
           {
-            "filter": { "term": { "hasActiveIncidents": { "value": true } } },
+            "filter": { "exists": { "field": "activeIncidents_urn" } },
             "weight": 6.0
           },
           {
@@ -908,11 +1140,11 @@
             "weight": 1.15
           },
           {
-            "filter": { "term": { "hasRowCount": { "value": true } } },
+            "filter": { "exists": { "field": "rowCount" } },
             "weight": 1.05
           },
           {
-            "filter": { "term": { "hasColumnCount": { "value": true } } },
+            "filter": { "exists": { "field": "columnCount" } },
             "weight": 1.05
           },
           {
@@ -951,6 +1183,7 @@
     apiVersion: 1
     editable: false
     parent: urn:li:searchTemplate:list
+    searchType: QUERY_THEN_FETCH
     functionScore: ""
     boosts: []
     sort: '[ { "urn": { "order": "asc" } } ]'
@@ -982,7 +1215,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -991,7 +1225,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1000,7 +1234,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -1099,7 +1333,8 @@
                 "{{entityNameField}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": {{exactFactor}}
+                  "boost": {{exactFactor}},
+                  "_name": "matchedField:name"
                 }
               }
             },
@@ -1108,7 +1343,7 @@
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
                   "boost": {{exactFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1117,7 +1352,7 @@
                 "{{urnExactField}}": {
                   "value": "{{unquoted}}",
                   "boost": {{caseSensitivityFactor}},
-                  "_name": "urn"
+                  "_name": "matchedField:urn"
                 }
               }
             }
@@ -1213,7 +1448,8 @@
               "term": {
                 "{{urnKeyword}}": {
                   "value": "{{unquoted}}",
-                  "boost": 100.0
+                  "boost": 100.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1221,7 +1457,8 @@
               "term": {
                 "{{urnFoldedField}}": {
                   "value": "{{normalizedKeyword}}",
-                  "boost": 50.0
+                  "boost": 50.0,
+                  "_name": "matchedField:urn"
                 }
               }
             },
@@ -1246,7 +1483,8 @@
                 "{{nameKeyword}}": {
                   "value": "{{lastSegment}}",
                   "case_insensitive": true,
-                  "boost": 20.0
+                  "boost": 20.0,
+                  "_name": "matchedField:name"
                 }
               }
             }
@@ -1255,10 +1493,22 @@
                 "{{idKeyword}}": {
                   "value": "{{unquoted}}",
                   "case_insensitive": true,
-                  "boost": 10.0
+                  "boost": 10.0,
+                  "_name": "matchedField:id"
                 }
               }
             }
+            ,{
+              "term": {
+                "{{emailKeyword}}": {
+                  "value": "{{unquoted}}",
+                  "case_insensitive": true,
+                  "boost": 10.0,
+                  "_name": "matchedField:email"
+                }
+              }
+            }
+            {{#hasDefaultQueryFields}}
             ,{
               "simple_query_string": {
                 "query": "{{escaped}}",
@@ -1266,6 +1516,7 @@
                 "default_operator": "AND"
               }
             }
+            {{/hasDefaultQueryFields}}
           ],
           "minimum_should_match": 1
         }
@@ -1327,19 +1578,50 @@
   changeType: UPSERT
   aspect:
     name: Autocomplete
-    description: "Typeahead prefix on one field. A one- or two-character prefix is kept, and expansions are capped. Java sets the field, the limit, the filters, and skips the total-hit count."
+    description: "Typeahead prefix. The lowercase keyword of the name matches a prefix of the whole name, so a one- or two-character prefix still finds it, and the email keyword matches a prefix of the address. The analyzed text matches a later word. Expansions are capped. Java sets the field, the keyword field when the field has one, the email keyword for the default field, the limit, the filters, and skips the total-hit count."
     dialect: ELASTICSEARCH
     apiVersion: 1
     editable: false
+    matchedFields: false
     query: |
       {{=<% %>=}}
       {
-        "match_phrase_prefix": {
-          "{{prefixField}}": {
-            "query": "{{unquoted}}",
-            "analyzer": "partial",
-            "max_expansions": {{prefixMaxExpansions}}
-          }
+        "bool": {
+          "should": [
+            {{#prefixKeyword}}
+            {
+              "prefix": {
+                "{{prefixKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "rewrite": "top_terms_{{prefixMaxExpansions}}",
+                  "boost": 10.0
+                }
+              }
+            },
+            {{/prefixKeyword}}
+            {{#emailKeyword}}
+            {
+              "prefix": {
+                "{{emailKeyword}}": {
+                  "value": "{{normalizedKeyword}}",
+                  "case_insensitive": true,
+                  "rewrite": "top_terms_{{prefixMaxExpansions}}",
+                  "boost": 10.0
+                }
+              }
+            },
+            {{/emailKeyword}}
+            {
+              "match_phrase_prefix": {
+                "{{prefixField}}": {
+                  "query": "{{unquoted}}",
+                  "analyzer": "partial",
+                  "max_expansions": {{prefixMaxExpansions}}
+                }
+              }
+            }
+          ],
+          "minimum_should_match": 1
         }
       }
       <%={{ }}=%>

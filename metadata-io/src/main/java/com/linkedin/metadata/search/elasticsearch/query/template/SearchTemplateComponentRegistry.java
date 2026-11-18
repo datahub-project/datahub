@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.linkedin.search.template.SearchTemplateComponentMode;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
@@ -40,6 +41,23 @@ public final class SearchTemplateComponentRegistry {
             () ->
                 new SearchTemplateException(
                     "Search template component is not registered: " + name + ":" + version));
+  }
+
+  /** Fails closed when the registered class does not implement the mode's contract. */
+  @Nonnull
+  public SearchTemplateComponent require(
+      @Nonnull String name, int version, @Nonnull SearchTemplateComponentMode mode) {
+    SearchTemplateComponent component = require(name, version);
+    if (mode == SearchTemplateComponentMode.POST_PROCESS
+        && !(component instanceof PostProcessComponent)) {
+      throw new SearchTemplateException(
+          "Search template component " + name + ":" + version + " is not a post-process component");
+    }
+    if (mode == SearchTemplateComponentMode.OWN_RUNG && !(component instanceof OwnRungComponent)) {
+      throw new SearchTemplateException(
+          "Search template component " + name + ":" + version + " is not an own-rung component");
+    }
+    return component;
   }
 
   private record Key(@Nonnull String name, int version) {}

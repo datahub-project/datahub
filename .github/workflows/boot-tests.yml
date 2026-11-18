@@ -1,0 +1,110 @@
+name: process boot tests
+# Starts the real Spring context of every OSS process (GMS with its servlet configs, MAE consumer,
+# MCE consumer, system-update) under the kafka and pgqueue transports and checks each process's
+# required/forbidden bean contract. See gradle/testing/boot-test.gradle.
+#
+# Runs on PRs that touch wiring (factories, configuration, *Application, servlet configs,
+# application yaml, build files) and nightly for everything else.
+on:
+  pull_request:
+    branches:
+      - "**"
+    paths:
+      # Spring wiring in Java sources
+      - "**/src/main/java/**/*Application.java"
+      - "**/src/main/java/**/*Config.java"
+      - "**/src/main/java/**/*Configuration.java"
+      - "**/src/main/java/**/*Factory.java"
+      - "**/src/main/java/**/*Condition.java"
+      - "**/src/main/java/**/factory/**"
+      - "**/src/main/java/**/factories/**"
+      - "**/src/main/java/**/config/**"
+      - "metadata-service/war/src/main/**"
+      # All of factories: every package in it is component-scanned by some process
+      - "metadata-service/factories/src/main/**"
+      # Servlets, controllers and filters mounted by GMS (route mappings, servlet registration)
+      - "metadata-service/*servlet*/src/main/**"
+      - "metadata-service/iceberg-catalog/src/main/**"
+      - "metadata-service/auth-filter/src/main/**"
+      # Schema-registry API spec and the generated route interfaces schema-registry-servlet implements
+      - "metadata-service/schema-registry-api/src/main/**"
+      - "metadata-service/schema-registry-api/generated/**"
+      # Rest.li API (IDL, snapshots, pegasus request/response models) served by the Rest.li servlet
+      - "metadata-service/restli-api/src/main/**"
+      # Consumer applications and the listener/hook/poller modules they scan
+      - "metadata-jobs/*/src/main/**"
+      # system-update entry point and its upgrade components
+      - "datahub-upgrade/src/main/**"
+      # Application yaml and configuration POJOs
+      - "metadata-service/configuration/**"
+      - "**/src/main/resources/application*.yaml"
+      - "**/src/main/resources/application*.yml"
+      # Classpath changes (a new dependency can add or remove auto-configuration)
+      - "build.gradle"
+      - "gradle/**"
+      - "metadata-*/**/build.gradle"
+      - "metadata-*/**/gradle.lockfile"
+      - "datahub-upgrade/build.gradle"
+      - "datahub-upgrade/gradle.lockfile"
+      - "datahub-graphql-core/build.gradle"
+      - "datahub-graphql-core/gradle.lockfile"
+      - "entity-registry/build.gradle"
+      - "entity-registry/gradle.lockfile"
+      - "ingestion-scheduler/build.gradle"
+      - "ingestion-scheduler/gradle.lockfile"
+      - "settings.gradle"
+      - "gradle.properties"
+      - "buildSrc/**"
+      # The suite itself
+      - "**/src/bootTest/**"
+      - "metadata-service/factories/src/testFixtures/**"
+      - ".github/workflows/boot-tests.yml"
+  schedule:
+    - cron: "30 2 * * *" # nightly, 02:30 UTC
+  workflow_dispatch:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.run_id }}
+  cancel-in-progress: true
+
+env:
+  DEPOT_PROJECT_ID: "${{ vars.DEPOT_PROJECT_ID }}"
+  DEPOT_TOKEN: "${{ secrets.DEPOT_TOKEN }}"
+
+jobs:
+  boot-tests:
+    runs-on: ${{ vars.DEPOT_PROJECT_ID != '' && 'depot-ubuntu-24.04' || 'ubuntu-24.04' }}
+    timeout-minutes: 30
+    steps:
+      - uses: acryldata/sane-checkout-action@186e92cc5948a9c3e1cc7a96eaff9f776f3fc8e3 # v7
+      - name: Free up disk space
+        uses: ./.github/actions/free-disk-space
+        with:
+          aggressive: "false"
+      - name: Set up JDK 25
+        uses: actions/setup-java@be666c2fcd27ec809703dec50e508c2fdc7f6654 # v5
+        with:
+          distribution: "temurin"
+          java-version: 25
+      - uses: gradle/actions/setup-gradle@0723195856401067f7a2779048b490ace7a47d7c # v5.0.2
+        with:
+          cache-read-only: ${{ github.event_name == 'pull_request' }}
+      - name: Boot every process (kafka + pgqueue)
+        # No external services: the entity store is in-memory H2, Elasticsearch/OpenSearch and
+        # Kafka clients are stubbed at the client boundary.
+        run: ./gradlew bootTests -PskipCoverage --build-cache --continue
+      - name: Report test results
+        if: (!cancelled())
+        uses: ./.github/actions/report-test-results
+        with:
+          artifact-name: Test Results (process boot tests)
+          test-results-paths: |
+            **/build/reports/tests/bootTest/**
+            **/build/test-results/bootTest/**
+            !**/binary/**
+          junit-file-globs: |
+            **/build/test-results/bootTest/**/*.xml
+      - name: Annotate nightly failure
+        if: failure() && github.event_name == 'schedule'
+        run: |
+          echo "::error::Nightly process boot tests failed on ${GITHUB_SHA}. A process no longer boots or its bean contract changed; see the test summary."

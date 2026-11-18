@@ -4,7 +4,7 @@ import { Trans, useTranslation } from 'react-i18next';
 import { useHistory, useLocation } from 'react-router';
 import styled from 'styled-components';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
 import { AcrylAssertionList } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/AcrylAssertionList';
 import { AcrylAssertionSummaryTab } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/Summary/AcrylAssertionSummaryTab';

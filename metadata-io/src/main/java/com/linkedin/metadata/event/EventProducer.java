@@ -97,10 +97,16 @@ public abstract class EventProducer {
       @Nonnull MetadataChangeProposal metadataChangeProposal) {
     UsageMetadataChangeProposalEnricher.enrich(opContext, metadataChangeProposal);
     // The MCE consumer writes queued proposals with system credentials; this is the last point
-    // where the authenticated caller is known. Overwrites any client-supplied value.
+    // where the authenticated caller is known. Overwrites any client-supplied value. A non-system
+    // caller with no session actor must not keep a client-supplied header. System auth keeps an
+    // existing header so the original caller survives the queue.
     Authentication session = opContext.getSessionAuthentication();
-    if (!opContext.isSystemAuth() && session != null && session.getActor() != null) {
-      AttributedActorHeaders.stamp(metadataChangeProposal, session.getActor().toUrnStr());
+    if (!opContext.isSystemAuth()) {
+      if (session != null && session.getActor() != null) {
+        AttributedActorHeaders.stamp(metadataChangeProposal, session.getActor().toUrnStr());
+      } else {
+        AttributedActorHeaders.strip(metadataChangeProposal);
+      }
     }
     return doProduceMetadataChangeProposal(opContext, urn, metadataChangeProposal);
   }

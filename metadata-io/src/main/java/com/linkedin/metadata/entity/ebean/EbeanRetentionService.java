@@ -557,7 +557,10 @@ public class EbeanRetentionService<U extends ChangeMCP> extends RetentionService
     if (aspectName != null) {
       sql.append(" AND aspect = :aspectName");
     }
-    sql.append(" AND (urn > :lastUrn OR (urn = :lastUrn AND aspect > :lastAspect))");
+    // urn >= :lastUrn is redundant but gives PostgreSQL a start bound on the primary key. A row
+    // value (urn, aspect) > (...) would too, but MySQL/MariaDB then do a full index scan.
+    sql.append(
+        " AND urn >= :lastUrn AND (urn > :lastUrn OR (urn = :lastUrn AND aspect > :lastAspect))");
     sql.append(" GROUP BY urn, aspect");
     if (minVersionCount != null) {
       sql.append(" HAVING COUNT(version) > :minVersionCount");

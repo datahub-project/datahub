@@ -11,7 +11,7 @@
     "link.linkUrl": "Linkin URL-osoite",
     "link.text": "Teksti",
     "link.title": "Lisää linkki",
-    "mentions.failedToFindEntity": "Entiteettiä ei löytynyt",
+    "mentions.notFound": "Kohdetta ei löytynyt",
     "table.deleteColumn": "Poista sarake",
     "table.deleteRow": "Poista rivi",
     "table.deleteTable": "Poista taulukko",

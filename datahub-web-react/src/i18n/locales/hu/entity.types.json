@@ -1,9 +1,13 @@
 {
     "api.name": "API",
     "api.namePlural": "API-k",
+    "api.signature.definedByDataset_one": "Adathalmaz által definiálva",
+    "api.signature.definedByDataset_other": "Adathalmazok által definiálva",
+    "api.signature.inputDatasetsTitle": "Bemeneti séma",
     "api.signature.inputTitle": "Bemeneti paraméterek",
     "api.signature.noInput": "Nincsenek bemeneti paraméterek",
     "api.signature.noOutput": "Nincs deklarált kimenet",
+    "api.signature.outputDatasetsTitle": "Kimeneti séma",
     "api.signature.outputTitle": "Kimenet",
     "api.signature.returns": "Visszatérési érték",
     "api.signature.tableDescription": "Leírás",

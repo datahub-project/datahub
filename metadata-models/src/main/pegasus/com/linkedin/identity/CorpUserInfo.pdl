@@ -35,6 +35,7 @@ record CorpUserInfo includes CustomProperties {
     "v3": {
       "queryByDefault": true,
       "searchLabel": "name",
+      "lowercase": true,
       "mappings": [
         { "type": "KEYWORD" },
         { "subfield": "text", "type": "TEXT" },
@@ -48,11 +49,18 @@ record CorpUserInfo includes CustomProperties {
    * email address of this user
    */
   @Searchable = {
-    "v3": {
-      "queryByDefault": true
-    },
     "fieldType": "KEYWORD",
-    "queryByDefault": true
+    "queryByDefault": true,
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "email",
+      "copyToOther": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
   }
   email: optional EmailAddress
 
@@ -107,7 +115,14 @@ record CorpUserInfo includes CustomProperties {
    */
   @Searchable = {
     "v3": {
-      "queryByDefault": true
+      "queryByDefault": true,
+      "searchLabel": "name",
+      "lowercase": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
     },
     "fieldType": "WORD_GRAM",
     "queryByDefault": true,

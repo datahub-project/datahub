@@ -1,5 +1,6 @@
 plugins {
   id 'java-library'
+  id 'java-test-fixtures'
   id 'pegasus'
 }
 
@@ -41,6 +42,8 @@ dependencies {
   implementation 'com.google.cloud:google-cloud-storage:2.46.0'
 
   annotationProcessor externalDependency.lombok
+
+  testFixturesImplementation externalDependency.testng
 
   testImplementation project(':test-models')
   testImplementation project(path: ':test-models', configuration: 'testDataTemplate')

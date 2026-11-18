@@ -9,7 +9,7 @@ FROZEN_TIME = "2020-04-14 07:00:00"
 @time_machine.travel(FROZEN_TIME, tick=False)
 def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
     test_resources_dir = pytestconfig.rootpath / "tests/integration/feast"
-    output_path = tmp_path / "feast_repository_mces.json"
+    output_path = tmp_path / "feast_repository.json"
 
     pipeline = Pipeline.create(
         {
@@ -45,5 +45,6 @@ def test_feast_repository_ingest(pytestconfig, tmp_path, mock_time):
     mce_helpers.check_golden_file(
         pytestconfig,
         output_path=output_path,
-        golden_path=test_resources_dir / "feast_repository_mces_golden.json",
+        golden_path=test_resources_dir / "feast_repository_golden.json",
+        fail_on_output_mces=True,
     )

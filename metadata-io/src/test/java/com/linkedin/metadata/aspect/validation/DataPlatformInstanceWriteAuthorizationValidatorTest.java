@@ -1,0 +1,432 @@
+package com.linkedin.metadata.aspect.validation;
+
+import static com.linkedin.metadata.Constants.DATA_PLATFORM_INSTANCE_ASPECT_NAME;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.mock;
+import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertTrue;
+
+import com.datahub.authorization.AuthorizationRequest;
+import com.datahub.authorization.AuthorizationResult;
+import com.datahub.authorization.AuthorizationSession;
+import com.datahub.authorization.EntityFieldType;
+import com.datahub.authorization.EntitySpec;
+import com.datahub.authorization.FieldResolver;
+import com.datahub.plugins.auth.authorization.Authorizer;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.linkedin.common.DataPlatformInstance;
+import com.linkedin.common.urn.Urn;
+import com.linkedin.common.urn.UrnUtils;
+import com.linkedin.entity.Aspect;
+import com.linkedin.events.metadata.ChangeType;
+import com.linkedin.metadata.aspect.AspectRetriever;
+import com.linkedin.metadata.aspect.RetrieverContext;
+import com.linkedin.metadata.aspect.batch.BatchItem;
+import com.linkedin.metadata.aspect.batch.ChangeMCP;
+import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
+import com.linkedin.metadata.entity.ebean.batch.PatchItemImpl;
+import com.linkedin.metadata.models.AspectSpec;
+import com.linkedin.metadata.utils.AuditStampUtils;
+import com.linkedin.metadata.utils.GenericRecordUtils;
+import com.linkedin.mxe.MetadataChangeProposal;
+import com.linkedin.test.metadata.aspect.TestEntityRegistry;
+import com.linkedin.test.metadata.aspect.batch.TestMCP;
+import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.List;
+import java.util.Map;
+import java.util.Set;
+import java.util.concurrent.atomic.AtomicReference;
+import java.util.stream.Collectors;
+import javax.annotation.Nullable;
+import org.testng.annotations.BeforeMethod;
+import org.testng.annotations.Test;
+
+/**
+ * Runs the validator against a real session {@link OperationContext}, so the request-scoped
+ * authorization result cache and field overrides are exercised, not mocked.
+ */
+public class DataPlatformInstanceWriteAuthorizationValidatorTest {
+
+  private static final Urn PLATFORM = UrnUtils.getUrn("urn:li:dataPlatform:mysql");
+  private static final Urn OWN_INSTANCE =
+      UrnUtils.getUrn("urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,team_a)");
+  private static final Urn OWN_OTHER_INSTANCE =
+      UrnUtils.getUrn("urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,team_a_2)");
+  private static final Urn FOREIGN_INSTANCE =
+      UrnUtils.getUrn("urn:li:dataPlatformInstance:(urn:li:dataPlatform:mysql,team_b)");
+  private static final Urn DATASET_URN =
+      UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:mysql,db.table,PROD)");
+  private static final Urn WRITER = UrnUtils.getUrn("urn:li:corpuser:instanceScopedWriter");
+  private static final TestEntityRegistry TEST_REGISTRY = new TestEntityRegistry();
+
+  private AspectRetriever aspectRetriever;
+  private RetrieverContext retrieverContext;
+  private OperationContext session;
+  private DataPlatformInstanceWriteAuthorizationValidator validator;
+  private AspectSpec aspectSpec;
+
+  /**
+   * Stands in for a policy: the granted privileges on any entity whose platform instance is one of
+   * the writer's own instances. Reads the stored instance unless the request overrides it.
+   */
+  private final Authorizer instanceScopedAuthorizer =
+      new Authorizer() {
+        @Override
+        public AuthorizationResult authorize(AuthorizationRequest request) {
+          EntitySpec resource = request.getResourceSpec().orElse(null);
+          String instance = resolveInstance(resource);
+          boolean allowed =
+              grantedPrivileges.contains(request.getPrivilege())
+                  && (OWN_INSTANCE.toString().equals(instance)
+                      || OWN_OTHER_INSTANCE.toString().equals(instance));
+          return new AuthorizationResult(
+              request,
+              allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+              null);
+        }
+      };
+
+  private final AtomicReference<OperationContext> sessionRef = new AtomicReference<>();
+  private Urn storedInstance;
+  private boolean entityExists;
+  private Set<String> grantedPrivileges;
+
+  @BeforeMethod
+  public void setUp() {
+    storedInstance = null;
+    entityExists = true;
+    grantedPrivileges = Set.of("EDIT_ENTITY");
+    aspectRetriever = mock(AspectRetriever.class);
+    when(aspectRetriever.getEntityRegistry()).thenReturn(TEST_REGISTRY);
+    when(aspectRetriever.entityExists(any(), any()))
+        .thenAnswer(invocation -> Map.of(DATASET_URN, entityExists));
+    when(aspectRetriever.getLatestAspectObjects(any(), any(), any()))
+        .thenAnswer(
+            invocation ->
+                storedInstance == null
+                    ? Map.of()
+                    : Map.of(
+                        DATASET_URN,
+                        Map.of(
+                            DATA_PLATFORM_INSTANCE_ASPECT_NAME,
+                            new Aspect(dpi(storedInstance).data()))));
+    retrieverContext = mock(RetrieverContext.class);
+    when(retrieverContext.getAspectRetriever()).thenReturn(aspectRetriever);
+
+    session =
+        TestOperationContexts.userContextNoSearchAuthorization(instanceScopedAuthorizer, WRITER);
+    sessionRef.set(session);
+
+    aspectSpec = mock(AspectSpec.class);
+    when(aspectSpec.getName()).thenReturn(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+
+    validator =
+        new DataPlatformInstanceWriteAuthorizationValidator()
+            .setConfig(
+                AspectPluginConfig.builder()
+                    .className(DataPlatformInstanceWriteAuthorizationValidator.class.getName())
+                    .enabled(true)
+                    .supportedOperations(List.of("UPSERT", "CREATE", "PATCH"))
+                    .supportedEntityAspectNames(
+                        List.of(
+                            AspectPluginConfig.EntityAspectName.builder()
+                                .entityName("*")
+                                .aspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+                                .build()))
+                    .build());
+  }
+
+  @Test
+  public void testMoveToForeignInstanceDenied() {
+    storedInstance = OWN_INSTANCE;
+    // The URN-level ingest check runs first in the same request and caches ALLOW.
+    assertTrue(entityEditAllowed());
+
+    List<AspectValidationException> failures = validate(upsert(FOREIGN_INSTANCE));
+
+    assertEquals(failures.size(), 1);
+  }
+
+  @Test
+  public void testMoveBetweenOwnInstancesAllowed() {
+    storedInstance = OWN_INSTANCE;
+    assertTrue(entityEditAllowed());
+
+    assertEquals(validate(upsert(OWN_OTHER_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testUnchangedInstanceAllowedWithoutAuthorizationCalls() {
+    storedInstance = OWN_INSTANCE;
+    OperationContext denyAll =
+        TestOperationContexts.userContextNoSearchAuthorization(Authorizer.EMPTY, WRITER);
+
+    assertEquals(
+        validator
+            .validateProposedAspectsWithAuth(
+                denyAll, List.of(upsert(OWN_INSTANCE)), retrieverContext, denyAll)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testFirstInstanceOnOwnInstanceAllowed() {
+    assertEquals(validate(upsert(OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testFirstInstanceOnForeignInstanceDenied() {
+    assertEquals(validate(upsert(FOREIGN_INSTANCE)).size(), 1);
+  }
+
+  @Test
+  public void testCreateWithOwnInstanceAllowedWithCreateOnlyGrant() {
+    entityExists = false;
+    grantedPrivileges = Set.of("CREATE_ENTITY");
+
+    assertEquals(validate(upsert(OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testCreateWithForeignInstanceDenied() {
+    entityExists = false;
+    grantedPrivileges = Set.of("CREATE_ENTITY", "EDIT_ENTITY");
+
+    assertEquals(validate(upsert(FOREIGN_INSTANCE)).size(), 1);
+  }
+
+  @Test
+  public void testRemoveThenSetForeignInstanceInOneBatchDenied() {
+    storedInstance = OWN_INSTANCE;
+    assertTrue(entityEditAllowed());
+
+    List<AspectValidationException> failures =
+        validator
+            .validateProposedAspectsWithAuth(
+                session, List.of(upsert(null), upsert(FOREIGN_INSTANCE)), retrieverContext, session)
+            .collect(Collectors.toList());
+
+    assertEquals(failures.size(), 1);
+  }
+
+  @Test
+  public void testPatchMoveToForeignInstanceDenied() {
+    storedInstance = OWN_INSTANCE;
+    assertTrue(entityEditAllowed());
+
+    assertEquals(validate(patch("add", "/instance", FOREIGN_INSTANCE.toString())).size(), 1);
+  }
+
+  @Test
+  public void testPatchMoveBetweenOwnInstancesAllowed() {
+    storedInstance = OWN_INSTANCE;
+
+    assertEquals(validate(patch("add", "/instance", OWN_OTHER_INSTANCE.toString())).size(), 0);
+  }
+
+  @Test
+  public void testPatchThatCannotBeAppliedDenied() {
+    storedInstance = OWN_INSTANCE;
+
+    assertEquals(validate(patch("replace", "/missing/field", "x")).size(), 1);
+  }
+
+  @Test
+  public void testNonOperationContextSessionDeniedOnlyWhenInstanceChanges() {
+    storedInstance = OWN_INSTANCE;
+    AuthorizationSession plainSession = mock(AuthorizationSession.class);
+    // Would allow everything; the validator must still fail closed without a request context.
+    AuthorizationResult allow = new AuthorizationResult(null, AuthorizationResult.Type.ALLOW, null);
+    when(plainSession.authorize(any(), any())).thenReturn(allow);
+    when(plainSession.authorize(any(), any(), any())).thenReturn(allow);
+
+    assertEquals(
+        validator
+            .validateProposedAspectsWithAuth(
+                session, List.of(upsert(OWN_OTHER_INSTANCE)), retrieverContext, plainSession)
+            .count(),
+        1);
+    assertEquals(
+        validator
+            .validateProposedAspectsWithAuth(
+                session, List.of(upsert(OWN_INSTANCE)), retrieverContext, plainSession)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testRemovingInstanceAllowedForWriterOnCurrentInstance() {
+    storedInstance = OWN_INSTANCE;
+
+    assertEquals(validate(upsert(null)).size(), 0);
+  }
+
+  @Test
+  public void testRemovingInstanceDeniedWithoutRightsOnCurrentInstance() {
+    storedInstance = FOREIGN_INSTANCE;
+
+    assertEquals(validate(upsert(null)).size(), 1);
+  }
+
+  @Test
+  public void testPreCommitDeniesWhenStoredInstanceChangedConcurrently() {
+    // Proposal time saw OWN (unchanged, no check); another write stored FOREIGN before the lock.
+    assertEquals(preCommit(session, changeMcp(FOREIGN_INSTANCE, OWN_INSTANCE)).size(), 1);
+  }
+
+  @Test
+  public void testPreCommitAllowsUnchangedInstanceWithoutAuthorizationCalls() {
+    OperationContext denyAll =
+        TestOperationContexts.userContextNoSearchAuthorization(Authorizer.EMPTY, WRITER);
+
+    assertEquals(preCommit(denyAll, changeMcp(OWN_INSTANCE, OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testPreCommitAllowsMoveBetweenOwnInstances() {
+    assertEquals(preCommit(session, changeMcp(OWN_INSTANCE, OWN_OTHER_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testPreCommitSkipsSystemActor() {
+    OperationContext system = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    assertEquals(preCommit(system, changeMcp(FOREIGN_INSTANCE, OWN_INSTANCE)).size(), 0);
+  }
+
+  @Test
+  public void testSystemActorExempt() {
+    storedInstance = OWN_INSTANCE;
+    OperationContext system = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    assertEquals(
+        validator
+            .validateProposedAspectsWithAuth(
+                system, List.of(upsert(FOREIGN_INSTANCE)), retrieverContext, system)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testNoReadsWhenAspectNotWritten() {
+    TestMCP other =
+        TestMCP.builder()
+            .urn(DATASET_URN)
+            .entitySpec(mock(com.linkedin.metadata.models.EntitySpec.class))
+            .aspectSpec(mock(AspectSpec.class))
+            .recordTemplate(dpi(FOREIGN_INSTANCE))
+            .changeType(ChangeType.UPSERT)
+            .build();
+
+    assertEquals(
+        validator
+            .validateProposedAspectsWithAuth(session, List.of(other), retrieverContext, session)
+            .count(),
+        0);
+    verify(aspectRetriever, never()).getLatestAspectObjects(any(), any(), any());
+  }
+
+  @Test
+  public void testOverrideIsRemovedAfterCheck() {
+    storedInstance = OWN_INSTANCE;
+    validate(upsert(FOREIGN_INSTANCE));
+
+    assertTrue(session.getAuthorizationContext().getSessionResourceFieldOverrides().isEmpty());
+    assertTrue(entityEditAllowed());
+  }
+
+  private boolean entityEditAllowed() {
+    return session
+            .authorize("EDIT_ENTITY", new EntitySpec("dataset", DATASET_URN.toString()))
+            .getType()
+        == AuthorizationResult.Type.ALLOW;
+  }
+
+  @Nullable
+  private String resolveInstance(@Nullable EntitySpec resource) {
+    if (resource == null) {
+      return null;
+    }
+    Map<EntityFieldType, FieldResolver> overrides =
+        sessionRef.get().getAuthorizationContext().getSessionResourceFieldOverrides().get(resource);
+    if (overrides != null && overrides.containsKey(EntityFieldType.DATA_PLATFORM_INSTANCE)) {
+      Set<String> values =
+          overrides
+              .get(EntityFieldType.DATA_PLATFORM_INSTANCE)
+              .getFieldValuesFuture()
+              .join()
+              .getValues();
+      return values.stream().findFirst().orElse(null);
+    }
+    return storedInstance == null ? null : storedInstance.toString();
+  }
+
+  private List<AspectValidationException> validate(BatchItem item) {
+    return validator
+        .validateProposedAspectsWithAuth(session, List.of(item), retrieverContext, session)
+        .collect(Collectors.toList());
+  }
+
+  private List<AspectValidationException> preCommit(OperationContext actor, ChangeMCP change) {
+    return validator
+        .validatePreCommitAspectsWithAuth(actor, List.of(change), retrieverContext, actor)
+        .collect(Collectors.toList());
+  }
+
+  private ChangeMCP changeMcp(@Nullable Urn previous, @Nullable Urn proposed) {
+    ChangeMCP change = mock(ChangeMCP.class);
+    when(change.getUrn()).thenReturn(DATASET_URN);
+    when(change.getAspectName()).thenReturn(DATA_PLATFORM_INSTANCE_ASPECT_NAME);
+    when(change.getChangeType()).thenReturn(ChangeType.UPSERT);
+    when(change.getPreviousAspect(DataPlatformInstance.class))
+        .thenReturn(previous == null ? null : dpi(previous));
+    when(change.getAspect(DataPlatformInstance.class)).thenReturn(dpi(proposed));
+    return change;
+  }
+
+  private TestMCP upsert(@Nullable Urn instance) {
+    return TestMCP.builder()
+        .urn(DATASET_URN)
+        .entitySpec(mock(com.linkedin.metadata.models.EntitySpec.class))
+        .aspectSpec(aspectSpec)
+        .recordTemplate(dpi(instance))
+        .changeType(ChangeType.UPSERT)
+        .build();
+  }
+
+  private static BatchItem patch(String op, String path, Object value) {
+    GenericJsonPatch.PatchOp patchOp = new GenericJsonPatch.PatchOp();
+    patchOp.setOp(op);
+    patchOp.setPath(path);
+    patchOp.setValue(value);
+    MetadataChangeProposal mcp =
+        new MetadataChangeProposal()
+            .setEntityUrn(DATASET_URN)
+            .setEntityType(DATASET_URN.getEntityType())
+            .setAspectName(DATA_PLATFORM_INSTANCE_ASPECT_NAME)
+            .setChangeType(ChangeType.PATCH)
+            .setAspect(
+                GenericRecordUtils.serializePatch(
+                    GenericJsonPatch.builder()
+                        .patch(List.of(patchOp))
+                        .forceGenericPatch(true)
+                        .build(),
+                    new ObjectMapper()));
+    return PatchItemImpl.builder()
+        .build(mcp, AuditStampUtils.createDefaultAuditStamp(), TEST_REGISTRY);
+  }
+
+  private static DataPlatformInstance dpi(@Nullable Urn instance) {
+    DataPlatformInstance dpi = new DataPlatformInstance().setPlatform(PLATFORM);
+    if (instance != null) {
+      dpi.setInstance(instance);
+    }
+    return dpi;
+  }
+}

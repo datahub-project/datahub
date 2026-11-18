@@ -1,13 +1,14 @@
 from enum import Enum, auto
 from typing import Dict, List, Optional
 
-from pydantic import ConfigDict, model_validator
+from pydantic import ConfigDict, field_validator, model_validator
 
 from datahub.configuration.common import ConfigModel
 from datahub.configuration.env_vars import (
     get_datahub_component,
     get_rest_sink_default_tcp_keepalive,
 )
+from datahub.configuration.gms_url import fixup_gms_url
 from datahub.emitter.emit_mode import EmitMode
 from datahub.ingestion.auth.registry import AuthConfig
 
@@ -55,6 +56,18 @@ class DatahubClientConfig(ConfigModel):
     # Default emit mode for emit calls that don't pass one. None falls back to the
     # emitter's global default. Not used by the `datahub-rest` sink (it has `mode`).
     default_emit_mode: Optional[EmitMode] = None
+
+    # Normalise the server URL once, here, so that every holder of a client
+    # config sees the GMS URL rather than whatever the user typed. The REST
+    # emitter has applied fixup_gms_url to its own copy since #10316, but CLI
+    # commands that build Rest.li URLs by hand (`datahub ingest list-runs`,
+    # `rollback`, `get`, `put`, `delete`, `timeline`, ...) read
+    # `client.config.server` and so, on DataHub Cloud, reached the frontend at
+    # the bare hostname and got a 404 unless the user had typed `/gms`.
+    @field_validator("server", mode="after")
+    @classmethod
+    def _normalize_server(cls, server: str) -> str:
+        return fixup_gms_url(server)
 
     @model_validator(mode="after")
     def _validate_auth_exclusive(self) -> "DatahubClientConfig":

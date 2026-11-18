@@ -49,9 +49,6 @@ source:
 #      call_analyze: true
 
 #    catalogs: ["my_catalog"]
-#    schema_pattern:
-#      deny:
-#        - information_schema
 #    table_pattern:
 #      allow:
 #        - my_catalog.my_schema.my_table

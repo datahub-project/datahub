@@ -86,6 +86,12 @@ def test_write_record_async_mce_calls_emit_batch(sink: DatahubPgQueueSink) -> No
     mcps = mock_emitter.emit_batch.call_args[0][0]
     assert len(mcps) >= 1
 
+    delivery_callback = mock_emitter.emit_batch.call_args.kwargs["callback"]
+    for _ in mcps:
+        delivery_callback(None, "msg")
+    callback.on_success.assert_called_once()
+    callback.on_failure.assert_not_called()
+
 
 def test_write_record_async_mce_zero_aspects(sink: DatahubPgQueueSink) -> None:
     snapshot = DatasetSnapshotClass(

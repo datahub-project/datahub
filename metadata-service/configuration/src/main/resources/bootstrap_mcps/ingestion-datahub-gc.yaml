@@ -12,9 +12,7 @@
       timezone: '{{schedule.timezone}}{{^schedule.timezone}}UTC{{/schedule.timezone}}'
       interval: '{{schedule.interval}}{{^schedule.interval}}0 1 * * *{{/schedule.interval}}'
     config:
-{{#ingestion.version}}
-      version: '{{{.}}}'
-{{/ingestion.version}}
+      version: '{{&ingestion.version}}{{^ingestion.version}}bundled{{/ingestion.version}}'
       recipe:
         source:
           type: 'datahub-gc'

@@ -15,7 +15,7 @@ javac --version
 # for reuse.
 
 yum groupinstall "Development Tools" -y
-yum install openssl openssl-devel libffi-devel bzip2-devel wget nodejs -y
+yum install openssl openssl-devel libffi-devel bzip2-devel wget nodejs22 -y
 
 wget https://www.python.org/ftp/python/3.11.13/Python-3.11.13.tgz
 tar -xf Python-3.11.13.tgz

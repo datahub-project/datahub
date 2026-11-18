@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useDebounce } from 'react-use';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 
 import {

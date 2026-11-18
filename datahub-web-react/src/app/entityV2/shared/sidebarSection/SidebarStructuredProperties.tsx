@@ -13,8 +13,8 @@ import { PropertyRow } from '@app/entityV2/shared/tabs/Properties/types';
 import { useReloadableQuery } from '@app/sharedV2/reloadableContext/hooks/useReloadableQuery';
 import { ReloadableKeyTypeNamespace } from '@app/sharedV2/reloadableContext/types';
 import { getReloadableKeyType } from '@app/sharedV2/reloadableContext/utils';
-import { useEntityData } from '@src/app/entity/shared/EntityContext';
-import EditStructuredPropertyModal from '@src/app/entity/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
+import { useEntityData } from '@src/app/entityV2/shared/EntityContext';
+import EditStructuredPropertyModal from '@src/app/entityV2/shared/tabs/Properties/Edit/EditStructuredPropertyModal';
 import {
     getDisplayName,
     getPropertyRowFromSearchResult,

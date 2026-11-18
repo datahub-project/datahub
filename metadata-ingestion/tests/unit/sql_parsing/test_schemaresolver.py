@@ -1,3 +1,6 @@
+import json
+import pathlib
+from typing import List
 from unittest.mock import MagicMock
 
 import pytest
@@ -5,9 +8,11 @@ import sqlglot
 from sqlglot import parse_one
 from sqlglot.expressions import Table
 
+from datahub.ingestion.extractor.schema_util import avro_schema_to_mce_fields
 from datahub.ingestion.graph.client import DataHubGraph
 from datahub.metadata.schema_classes import SchemaFieldClass, SchemaMetadataClass
 from datahub.sql_parsing.schema_resolver import (
+    GraphQLSchemaMetadata,
     SchemaInfo,
     SchemaResolver,
     _SchemaResolverWithExtras,
@@ -15,6 +20,8 @@ from datahub.sql_parsing.schema_resolver import (
     match_columns_to_schema,
 )
 from datahub.sql_parsing.sqlglot_lineage import _table_name_from_sqlglot_table
+from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
+from datahub.utilities.urns.field_paths import get_simple_field_path_from_v2_field_path
 
 
 def create_default_schema_resolver(urn: str) -> SchemaResolver:
@@ -228,6 +235,27 @@ class TestResolveTableBatching:
         urns_tried = mock_graph.get_entities.call_args[1]["urns"]
         assert len(urns_tried) >= 2
         assert len(urns_tried) == len(set(urns_tried))
+
+    def test_batch_fetch_keeps_original_field_paths(self, schema_resolver, mock_graph):
+        urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
+        mock_graph.get_entities.return_value = {
+            urn: {
+                "schemaMetadata": (
+                    create_mock_schema([("[version=2.0].[type=long].col_a", "int")]),
+                    {},
+                )
+            }
+        }
+
+        resolved_urn, schema_info = schema_resolver.resolve_table(
+            _TableName(database="DB", db_schema="SCHEMA", table="TABLE")
+        )
+
+        assert resolved_urn == urn
+        assert schema_info == {"col_a": "int"}
+        assert schema_resolver.get_original_field_paths(urn) == {
+            "col_a": "[version=2.0].[type=long].col_a"
+        }
 
     def test_uses_cache_first(self, schema_resolver, mock_graph):
         urn = "urn:li:dataset:(urn:li:dataPlatform:snowflake,prod.db.schema.table,PROD)"
@@ -603,3 +631,237 @@ def test_closed_reflects_the_underlying_cache():
 
     assert resolver.closed
     assert resolver._schema_cache.closed
+
+
+_V2_URN = "urn:li:dataset:(urn:li:dataPlatform:glue,my_db.my_table,PROD)"
+_V2_FIELDS = [
+    ("[version=2.0].[type=long].col_a", "bigint"),
+    ("[version=2.0].[type=string].Col_B", "string"),
+    # Nested fields are dropped from the schema info, so they get no mapping either.
+    ("[version=2.0].[type=struct].col_c.[type=string].inner", "string"),
+]
+
+
+def _v2_graphql_schema() -> GraphQLSchemaMetadata:
+    return {
+        "fields": [
+            {"fieldPath": path, "nativeDataType": native_type}
+            for path, native_type in _V2_FIELDS
+        ]
+    }
+
+
+@pytest.mark.parametrize(
+    "add_schema",
+    [
+        pytest.param(
+            lambda r: r.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS)),
+            id="add_schema_metadata",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(
+                _V2_URN, create_mock_schema(_V2_FIELDS)
+            ),
+            id="add_schema_metadata_from_fetch",
+        ),
+        pytest.param(
+            lambda r: r.add_graphql_schema_metadata(_V2_URN, _v2_graphql_schema()),
+            id="add_graphql_schema_metadata",
+        ),
+    ],
+)
+def test_original_field_paths_kept_for_v2_schemas(add_schema):
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    add_schema(resolver)
+
+    # resolve_urn keeps returning the simplified paths the SQL parser matches on.
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }
+
+
+def test_original_field_paths_kept_when_fetched_from_graph():
+    graph = MagicMock(spec=DataHubGraph)
+    graph.get_aspect.return_value = create_mock_schema(_V2_FIELDS)
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=graph)
+
+    resolver.resolve_urn(_V2_URN)
+
+    assert resolver.get_original_field_paths(_V2_URN)["col_a"] == (
+        "[version=2.0].[type=long].col_a"
+    )
+
+
+def test_original_field_paths_empty_for_v1_and_unknown_schemas():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema([("col_a", "bigint")]))
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
+    assert resolver.get_original_field_paths("urn:li:dataset:unknown") == {}
+
+
+@pytest.mark.parametrize(
+    "replace",
+    [
+        pytest.param(
+            lambda r: r.add_raw_schema_info(_V2_URN, {"col_a": "bigint"}), id="raw"
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata(
+                _V2_URN, create_mock_schema([("col_a", "bigint")])
+            ),
+            id="v1_schema",
+        ),
+        pytest.param(
+            lambda r: r.add_schema_metadata_from_fetch(_V2_URN, None), id="fetch_miss"
+        ),
+    ],
+)
+def test_original_field_paths_cleared_when_schema_replaced(replace):
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    replace(resolver)
+
+    assert resolver.get_original_field_paths(_V2_URN) == {}
+
+
+def test_original_field_paths_for_mixed_v1_and_v2_schema():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [("col_a", "bigint"), ("[version=2.0].[type=string].col_b", "string")]
+        ),
+    )
+
+    assert resolver.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "col_b": "string"}
+    assert resolver.get_original_field_paths(_V2_URN) == {
+        "col_b": "[version=2.0].[type=string].col_b"
+    }
+
+
+def _hive_paths(name: str, hive_type: str) -> List[str]:
+    return [f.fieldPath for f in get_schema_fields_for_hive_column(name, hive_type)]
+
+
+def _avro_paths(avro_type: object) -> List[str]:
+    record = {
+        "type": "record",
+        "name": "R",
+        "fields": [{"name": "u", "type": avro_type}],
+    }
+    return [f.fieldPath for f in avro_schema_to_mce_fields(json.dumps(record))]
+
+
+@pytest.mark.parametrize(
+    "paths, expected",
+    [
+        # Real converter output; the column root is what a schemaField URN targets.
+        (
+            _hive_paths("s", "struct<a:int,b:string>"),
+            "[version=2.0].[type=struct].[type=struct].s",
+        ),
+        (
+            _hive_paths("arr", "array<int>"),
+            "[version=2.0].[type=struct].[type=array].[type=int].arr",
+        ),
+        (
+            _hive_paths("m", "map<string,int>"),
+            "[version=2.0].[type=struct].[type=map].[type=int].m",
+        ),
+        (
+            _hive_paths("u", "uniontype<int,string>"),
+            "[version=2.0].[type=struct].[type=union].u",
+        ),
+        # A nullable Avro union collapses to the member type: there is no wrapper.
+        (_avro_paths(["null", "long"]), "[version=2.0].[type=R].[type=long].u"),
+        (
+            _avro_paths(["null", "long", "string"]),
+            "[version=2.0].[type=R].[type=union].u",
+        ),
+    ],
+    ids=[
+        "struct",
+        "array",
+        "map",
+        "hive_union",
+        "avro_nullable_union",
+        "avro_multi_union",
+    ],
+)
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_is_the_column_root(paths, expected, order):
+    # Union members simplify to the same path as their column. The column must win
+    # whatever the field order: some sources sort fields by fieldPath, which puts
+    # members before the column.
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN, create_mock_schema([(p, "t") for p in order(paths)])
+    )
+
+    simple = get_simple_field_path_from_v2_field_path(expected)
+    assert resolver.get_original_field_paths(_V2_URN) == {simple: expected}
+
+
+@pytest.mark.parametrize(
+    "order",
+    [list, sorted, lambda p: list(reversed(p))],
+    ids=["emitted", "sorted", "reversed"],
+)
+def test_original_field_path_tie_break_is_order_independent(order):
+    # A Kafka-style key and value field share a name and a [type=...] count; the
+    # value field wins regardless of field order.
+    value_path = "[version=2.0].[type=V].[type=long].id"
+    key_path = "[version=2.0].[key=True].[type=K].[type=long].id"
+    other_value_path = "[version=2.0].[type=W].[type=long].id"
+    resolver = SchemaResolver(platform="kafka", env="PROD", graph=None)
+    resolver.add_schema_metadata(
+        _V2_URN,
+        create_mock_schema(
+            [(p, "t") for p in order([key_path, value_path, other_value_path])]
+        ),
+    )
+
+    # Ties between value fields fall back to lexicographic order.
+    assert resolver.get_original_field_paths(_V2_URN) == {"id": value_path}
+
+
+def test_close_releases_the_shared_connection():
+    resolver = SchemaResolver(platform="glue", env="PROD", graph=None)
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    temp_directory = resolver._conn._temp_directory
+    assert temp_directory is not None and pathlib.Path(temp_directory).exists()
+
+    resolver.close()
+
+    assert resolver.closed
+    assert resolver._original_field_paths.closed
+    assert not pathlib.Path(temp_directory).exists()
+
+
+def test_reopened_cache_file_restores_schemas_and_original_field_paths(tmp_path):
+    cache_file = tmp_path / "schema_cache.db"
+    resolver = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+    resolver.add_schema_metadata(_V2_URN, create_mock_schema(_V2_FIELDS))
+    # Indexes on the schema cache's extra column are created lazily by queries.
+    assert resolver.schema_count() == 1
+    resolver.close()
+
+    reopened = SchemaResolver(
+        platform="glue", env="PROD", graph=None, _cache_filename=cache_file
+    )
+
+    assert reopened.schema_count() == 1
+    assert reopened.resolve_urn(_V2_URN)[1] == {"col_a": "bigint", "Col_B": "string"}
+    assert reopened.get_original_field_paths(_V2_URN) == {
+        "col_a": "[version=2.0].[type=long].col_a",
+        "Col_B": "[version=2.0].[type=string].Col_B",
+    }

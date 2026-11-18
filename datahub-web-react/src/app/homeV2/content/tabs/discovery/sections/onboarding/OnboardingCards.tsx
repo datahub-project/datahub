@@ -27,9 +27,9 @@ export const OnboardingCards = () => {
         return null;
     }
 
-    // We use manage policies here because this determines whether users can invite other users
-    // with particular roles.
-    const canManageUsers = platformPrivileges?.managePolicies;
+    // Inviting requires Manage User Credentials. The modal hides the role picker unless the
+    // caller can also manage policies.
+    const canManageUsers = platformPrivileges?.manageUserCredentials;
     // Determines if the user has privileges to create a domain
     const canCreateDomains = platformPrivileges?.createDomains;
     // Determines if the user has privileges to create an ingestion source

@@ -1,4 +1,4 @@
-import { extractTypeFromUrn } from '@app/entity/shared/utils';
+import { extractTypeFromUrn } from '@app/entityV2/shared/utils';
 
 import { EntityType, LineageDirection } from '@types';
 

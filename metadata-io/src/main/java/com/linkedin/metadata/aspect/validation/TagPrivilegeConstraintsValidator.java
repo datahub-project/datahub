@@ -141,7 +141,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
       if (!AuthUtil.isAPIAuthorizedForTagModification(
           session, item.getUrn(), tagDifference, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE)) {
         return List.of(
-            AspectValidationException.forItem(
+            AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
       }
     }
@@ -210,7 +210,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
           tagDifference,
           AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
         return List.of(
-            AspectValidationException.forItem(
+            AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
       }
     }
@@ -258,7 +258,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
           tagDifference,
           AuthUtil.tagModificationPrivilege(item.getUrn(), true))) {
         return List.of(
-            AspectValidationException.forItem(
+            AspectValidationException.forAuth(
                 item, "Unauthorized to modify one or more tag Urns: " + tagDifference));
       }
     }

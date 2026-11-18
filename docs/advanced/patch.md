@@ -116,6 +116,22 @@ To add & remove structured properties for a dataset:
 
 </Tabs>
 
+A patch sets the whole value list of a structured property, so `add_structured_property` replaces
+the values a property already has. To append values to a multi-valued property and keep the existing
+ones, use `DataHubGraph.add_structured_property_values`:
+
+```python
+{{ inline /metadata-ingestion/examples/library/dataset_append_structured_property_values.py show_path_as_comment }}
+```
+
+It reads the property's current values and writes the merged list back as a patch of that one property.
+The write only succeeds if the entity's structured properties have not changed since the read; if they
+have, it reads and merges again, so parallel appends keep each other's values.
+
+Two limits are worth knowing. The read-and-merge is retried at most eight times, after which the call
+raises `OperationalError` rather than writing. And servers that ignore conditional headers on patches
+apply the write unconditionally, so against those a parallel append can still drop values.
+
 ### Add & Remove Upstream Lineage for Dataset
 
 To add & remove a lineage edge connecting a dataset to it's upstream or input at both the dataset and schema field level:
