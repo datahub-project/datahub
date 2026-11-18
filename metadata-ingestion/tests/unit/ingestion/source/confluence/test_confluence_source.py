@@ -5,20 +5,26 @@ from unittest.mock import MagicMock, patch
 import pytest
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.confluence.confluence_config import (
+from datahub.ingestion.source.confluence.config import (
     ConfluenceSourceConfig,
 )
-from datahub.ingestion.source.confluence.confluence_source import (
+from datahub.ingestion.source.confluence.constants import (
     EXTRACTION_ALGO_VERSION,
-    ConfluenceSource,
 )
+from datahub.ingestion.source.confluence.models import (
+    ConfluencePage,
+    ConfluenceSpaceRef,
+)
+from datahub.ingestion.source.confluence.source import ConfluenceSource
 from tests.unit.ingestion.source.confluence.confluence_test_fixtures import (
     create_mock_confluence_client,
 )
 from tests.unit.ingestion.source.confluence.conftest import (
+    crawl_tree,
     document_infos,
     make_page,
     make_source,
+    page_workunits,
     serve_space,
 )
 
@@ -27,7 +33,7 @@ def test_source_initialization_cloud(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test successful source initialization with Cloud config."""
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
         assert source.platform == "confluence"
         assert source.config == cloud_config
@@ -39,7 +45,7 @@ def test_source_initialization_datacenter(
     datacenter_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test successful source initialization with Data Center config."""
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(datacenter_config, pipeline_context)
         assert source.platform == "confluence"
         assert source.config == datacenter_config
@@ -61,14 +67,14 @@ def test_get_spaces_auto_discover(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_all_spaces.return_value = mock_spaces_response
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         assert spaces == ["TEAM", "DOCS", "ENG"]
         mock_client.get_all_spaces.assert_called_once()
@@ -82,13 +88,13 @@ def test_get_spaces_with_space_allow(
     cloud_config._parsed_space_allow = ["TEAM", "DOCS"]
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # Should return exactly the spaces in space_allow
         assert spaces == ["TEAM", "DOCS"]
@@ -112,14 +118,14 @@ def test_get_spaces_with_space_deny(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_all_spaces.return_value = mock_spaces_response
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        spaces = source._get_spaces()
+        spaces = source.crawler.space_keys()
 
         # ENG should be filtered out by space_deny
         assert "ENG" not in spaces
@@ -138,7 +144,7 @@ def test_page_allow_is_seed_not_emission_filter(
     """
     cloud_config._parsed_page_allow = ["123456", "789012"]
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
 
         # Seed pages are not denied.
@@ -156,7 +162,7 @@ def test_is_page_denied_with_page_deny(
     """Test page_deny filtering."""
     cloud_config._parsed_page_deny = ["999999", "888888"]
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
 
         # Pages in deny list should be denied
@@ -173,9 +179,9 @@ def test_build_page_urn(
     """Test page URN generation with hash-based instance ID."""
     import hashlib
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
-        urn = source._build_page_urn("12345")
+        urn = source.documents.page_urn("12345")
 
         # URN should include platform, hash-based instance ID, and page ID
         assert urn.startswith("urn:li:document:confluence-")
@@ -200,9 +206,9 @@ def test_extract_text_from_page(
         },
     }
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
-        text = source._extract_text_from_page(page)
+        text = source._page_text(ConfluencePage.model_validate(page))
 
         assert "Test Page" in text
         assert "## Section" in text
@@ -226,9 +232,11 @@ def test_extract_parent_urn_with_parent(
     }
     ingested_ids = {"11111", "12345", "22222"}
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
-        parent_urn = source._extract_parent_urn(page, ingested_ids)
+        parent_urn = source.documents._parent_urn(
+            ConfluencePage.model_validate(page).parent_id, ingested_ids
+        )
 
         # Parent URN should include instance ID
         instance_id = hashlib.sha256(cloud_config.url.encode()).hexdigest()[:8]
@@ -242,9 +250,11 @@ def test_extract_parent_urn_no_parent(
     page = {"id": "12345", "ancestors": []}
     ingested_ids = {"12345"}
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
-        parent_urn = source._extract_parent_urn(page, ingested_ids)
+        parent_urn = source.documents._parent_urn(
+            ConfluencePage.model_validate(page).parent_id, ingested_ids
+        )
 
         assert parent_urn is None
 
@@ -261,9 +271,11 @@ def test_extract_parent_urn_parent_not_ingested(
     }
     ingested_ids = {"12345"}
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
-        parent_urn = source._extract_parent_urn(page, ingested_ids)
+        parent_urn = source.documents._parent_urn(
+            ConfluencePage.model_validate(page).parent_id, ingested_ids
+        )
 
         # Should return None when parent not in ingestion scope
         assert parent_urn is None
@@ -280,7 +292,7 @@ def test_connection_successful() -> None:
     mock_spaces_response = {"results": [{"key": "TEAM"}]}
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_all_spaces.return_value = mock_spaces_response
@@ -301,7 +313,7 @@ def test_connection_failed() -> None:
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.side_effect = Exception("Authentication failed")
 
@@ -316,7 +328,7 @@ def test_get_report(
     cloud_config: ConfluenceSourceConfig, pipeline_context: PipelineContext
 ) -> None:
     """Test report retrieval."""
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(cloud_config, pipeline_context)
         report = source.get_report()
 
@@ -347,7 +359,7 @@ def test_get_pages_recursively(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
 
@@ -357,19 +369,20 @@ def test_get_pages_recursively(
 
         mock_client.get_page_by_id.side_effect = get_page_side_effect
 
-        # Mock get_child_pages
-        def get_child_pages_side_effect(page_id):
+        def get_children_side_effect(page_id, type="page", expand=None):
             return mock_children.get(page_id, [])
 
-        mock_client.get_child_pages.side_effect = get_child_pages_side_effect
+        mock_client.get_page_child_by_type.side_effect = get_children_side_effect
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        pages = list(source._get_pages_recursively("12345"))
+        pages = list(crawl_tree(source, "12345"))
 
         # Should get parent + 2 children + 1 grandchild = 4 total
         assert len(pages) == 4
-        page_ids = [str(p["id"]) for p in pages]
+        page_ids = [p.id for p in pages]
+        # Parents come before their children.
+        assert page_ids.index("34567") < page_ids.index("45678")
         assert "12345" in page_ids
         assert "23456" in page_ids
         assert "34567" in page_ids
@@ -385,18 +398,18 @@ def test_get_pages_recursively_non_recursive(
     mock_page = {"id": "12345", "title": "Single Page"}
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_page_by_id.return_value = mock_page
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        pages = list(source._get_pages_recursively("12345"))
+        pages = list(crawl_tree(source, "12345"))
 
         # Should only get the single page (no children)
         assert len(pages) == 1
-        assert pages[0]["id"] == "12345"
+        assert pages[0].id == "12345"
 
 
 def test_cycle_detection_prevents_infinite_loop(
@@ -419,23 +432,25 @@ def test_cycle_detection_prevents_infinite_loop(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_page_by_id.side_effect = lambda page_id, expand=None: (
             mock_pages.get(page_id)
         )
-        mock_client.get_child_pages.side_effect = lambda page_id: iter(
-            mock_children.get(page_id, [])
+        mock_client.get_page_child_by_type.side_effect = (
+            lambda page_id, type="page", expand=None: iter(
+                mock_children.get(page_id, [])
+            )
         )
         mock_confluence.return_value = mock_client
 
         source = ConfluenceSource(cloud_config, pipeline_context)
-        pages = list(source._get_pages_recursively("A"))
+        pages = list(crawl_tree(source, "A"))
 
         # Should get each page exactly once (no infinite loop)
         assert len(pages) == 3
-        page_ids = [p["id"] for p in pages]
+        page_ids = [p.id for p in pages]
         assert page_ids.count("A") == 1
         assert page_ids.count("B") == 1
         assert page_ids.count("C") == 1
@@ -458,16 +473,16 @@ def test_hash_based_instance_id(pipeline_context: PipelineContext) -> None:
         }
     )
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(config, pipeline_context)
-        instance_id = source._get_instance_id()
+        instance_id = source.documents.instance_id
 
         # Should be first 8 chars of SHA256 hash
         expected_hash = hashlib.sha256(config.url.encode()).hexdigest()[:8]
         assert instance_id == expected_hash
 
         # URN includes hash
-        urn = source._build_page_urn("123456")
+        urn = source.documents.page_urn("123456")
         assert f"confluence-{expected_hash}-123456" in urn
 
 
@@ -488,18 +503,18 @@ def test_multi_instance_urn_uniqueness(pipeline_context: PipelineContext) -> Non
         }
     )
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source_a = ConfluenceSource(config_a, pipeline_context)
         source_b = ConfluenceSource(config_b, pipeline_context)
 
         # Different URLs produce different hashes
-        instance_a = source_a._get_instance_id()
-        instance_b = source_b._get_instance_id()
+        instance_a = source_a.documents.instance_id
+        instance_b = source_b.documents.instance_id
         assert instance_a != instance_b
 
         # Same page ID in different instances has different URNs
-        urn_a = source_a._build_page_urn("123456")
-        urn_b = source_b._build_page_urn("123456")
+        urn_a = source_a.documents.page_urn("123456")
+        urn_b = source_b.documents.page_urn("123456")
         assert urn_a != urn_b
 
 
@@ -515,15 +530,15 @@ def test_data_center_hash_uniqueness(pipeline_context: PipelineContext) -> None:
         }
     )
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(config, pipeline_context)
 
         # Hash-based instance ID
         expected_hash = hashlib.sha256(config.url.encode()).hexdigest()[:8]
-        assert source._get_instance_id() == expected_hash
+        assert source.documents.instance_id == expected_hash
 
         # URN uses hash
-        urn = source._build_page_urn("123456")
+        urn = source.documents.page_urn("123456")
         assert f"confluence-{expected_hash}-123456" in urn
 
 
@@ -538,14 +553,14 @@ def test_explicit_platform_instance(pipeline_context: PipelineContext) -> None:
         }
     )
 
-    with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+    with patch("datahub.ingestion.source.confluence.client.Confluence"):
         source = ConfluenceSource(config, pipeline_context)
 
         # Should use explicit value instead of hash
-        assert source._get_instance_id() == "mycompany-prod"
+        assert source.documents.instance_id == "mycompany-prod"
 
         # URN uses explicit value
-        urn = source._build_page_urn("123456")
+        urn = source.documents.page_urn("123456")
         assert urn == "urn:li:document:confluence-mycompany-prod-123456"
 
 
@@ -557,7 +572,7 @@ def test_browse_path_emitted_for_root_page(
     from datahub.metadata.schema_classes import BrowsePathsV2Class
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client("default")
 
@@ -595,7 +610,7 @@ def test_browse_path_emitted_for_nested_page(
     from datahub.metadata.schema_classes import BrowsePathsV2Class
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client("default")
 
@@ -645,7 +660,7 @@ def test_browse_path_deep_hierarchy(
     from datahub.metadata.schema_classes import BrowsePathsV2Class
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client("default")
 
@@ -702,7 +717,7 @@ def test_browse_path_ancestor_not_ingested(
     config = ConfluenceSourceConfig.model_validate(config_dict)
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = create_mock_confluence_client("default")
 
@@ -759,7 +774,7 @@ def test_max_documents_default(
 ) -> None:
     """Test that max_documents defaults to 10000."""
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = MagicMock()
         source = ConfluenceSource(cloud_config, pipeline_context)
@@ -795,7 +810,7 @@ def test_max_documents_limit_raises_error(
         }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_confluence.return_value = mock_client
@@ -814,20 +829,14 @@ def test_max_documents_limit_raises_error(
             return_value=dummy_chunk,
         ):
             # Process first page - should succeed
-            list(
-                source._create_document_entity(
-                    make_page("11111"), ingested_ids, parent_ids
-                )
-            )
+            list(page_workunits(source, make_page("11111"), ingested_ids, parent_ids))
             assert source.report.pages_processed == 1
             assert source.report.num_documents_limit_reached is False
 
             # Process second page - should hit the limit and raise
             with pytest.raises(RuntimeError, match="Document limit of 2 reached"):
                 list(
-                    source._create_document_entity(
-                        make_page("22222"), ingested_ids, parent_ids
-                    )
+                    page_workunits(source, make_page("22222"), ingested_ids, parent_ids)
                 )
 
     assert source.report.num_documents_limit_reached is True
@@ -861,7 +870,7 @@ def test_max_documents_limit_reached_flag(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_confluence.return_value = mock_client
@@ -880,7 +889,7 @@ def test_max_documents_limit_reached_flag(
             ),
             pytest.raises(RuntimeError),
         ):
-            list(source._create_document_entity(page, {"12345"}, set()))
+            list(page_workunits(source, page, {"12345"}, set()))
 
     assert source.report.num_documents_limit_reached is True
 
@@ -917,7 +926,7 @@ def test_created_time_read_from_history(
     )
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = MagicMock()
         source = ConfluenceSource(cloud_config, pipeline_context)
@@ -930,7 +939,7 @@ def test_created_time_read_from_history(
                 {"text": "Content here for testing.", "type": "NarrativeText"}
             ],
         ):
-            wus = list(source._create_document_entity(page, {"12345"}, set()))
+            wus = list(page_workunits(source, page, {"12345"}, set()))
 
     doc_info = next(
         (
@@ -981,7 +990,7 @@ def test_missing_history_does_not_crash(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = MagicMock()
         source = ConfluenceSource(cloud_config, pipeline_context)
@@ -994,7 +1003,7 @@ def test_missing_history_does_not_crash(
                 {"text": "Content here for testing.", "type": "NarrativeText"}
             ],
         ):
-            wus = list(source._create_document_entity(page, {"12345"}, set()))
+            wus = list(page_workunits(source, page, {"12345"}, set()))
 
     assert any(
         isinstance(wu.metadata, MetadataChangeProposalWrapper)
@@ -1034,7 +1043,7 @@ def test_content_hash_in_custom_properties(
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_confluence.return_value = MagicMock()
         source = ConfluenceSource(cloud_config, pipeline_context)
@@ -1045,7 +1054,7 @@ def test_content_hash_in_custom_properties(
             "_chunk_elements",
             return_value=[{"text": "Some content here.", "type": "NarrativeText"}],
         ):
-            wus = list(source._create_document_entity(page, {"99999"}, set()))
+            wus = list(page_workunits(source, page, {"99999"}, set()))
 
     # Find the DocumentInfo aspect (carries custom_properties)
     props_aspect = None
@@ -1092,7 +1101,7 @@ def test_folder_entity_emits_folder_subtype_document(
     """A folder ancestor is emitted as a Folder-subtyped document with no text."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
     from datahub.ingestion.source.common.subtypes import DocumentSubTypes
-    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.ingestion.source.confluence.hierarchy import FolderNode
     from datahub.metadata.schema_classes import (
         DocumentInfoClass,
         SubTypesClass,
@@ -1103,13 +1112,11 @@ def test_folder_entity_emits_folder_subtype_document(
         id="900",
         title="Engineering",
         parent_id=None,
-        space_name="Team Space",
-        space_key="TEAM",
+        space=ConfluenceSpaceRef(name="Team Space", key="TEAM"),
     )
 
-    workunits = list(source._create_folder_entity(folder, ingested_page_ids={"900"}))
+    workunits = list(source.documents.folder_document(folder, {"900"}).as_workunits())
 
-    assert source.report.folders_ingested == 1
     assert workunits, "Folder should produce at least one workunit"
 
     subtype = None
@@ -1134,21 +1141,20 @@ def test_folder_entity_links_to_ingested_parent(
 ) -> None:
     """When a folder's parent is also ingested, the folder links to it."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
-    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.ingestion.source.confluence.hierarchy import FolderNode
     from datahub.metadata.schema_classes import DocumentInfoClass
 
     source = make_source(cloud_config, ctx=pipeline_context)
-    instance_id = source._get_instance_id()
+    instance_id = source.documents.instance_id
     folder = FolderNode(
         id="900",
         title="Sub Folder",
         parent_id="100",
-        space_name="Team Space",
-        space_key="TEAM",
+        space=ConfluenceSpaceRef(name="Team Space", key="TEAM"),
     )
 
     workunits = list(
-        source._create_folder_entity(folder, ingested_page_ids={"100", "900"})
+        source.documents.folder_document(folder, {"100", "900"}).as_workunits()
     )
 
     parent = None
@@ -1166,7 +1172,7 @@ def test_folder_entity_omits_parent_when_not_ingested(
 ) -> None:
     """A folder whose parent is outside the ingestion scope is a root document."""
     from datahub.emitter.mcp import MetadataChangeProposalWrapper
-    from datahub.ingestion.source.confluence.confluence_hierarchy import FolderNode
+    from datahub.ingestion.source.confluence.hierarchy import FolderNode
     from datahub.metadata.schema_classes import DocumentInfoClass
 
     source = make_source(cloud_config, ctx=pipeline_context)
@@ -1174,11 +1180,10 @@ def test_folder_entity_omits_parent_when_not_ingested(
         id="900",
         title="Orphan Folder",
         parent_id="100",  # parent not in ingested_page_ids
-        space_name="Team Space",
-        space_key="TEAM",
+        space=ConfluenceSpaceRef(name="Team Space", key="TEAM"),
     )
 
-    workunits = list(source._create_folder_entity(folder, ingested_page_ids={"900"}))
+    workunits = list(source.documents.folder_document(folder, {"900"}).as_workunits())
 
     for wu in workunits:
         if isinstance(wu.metadata, MetadataChangeProposalWrapper) and isinstance(
@@ -1197,7 +1202,7 @@ def test_connection_reports_inaccessible_configured_space() -> None:
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
@@ -1224,7 +1229,7 @@ def test_connection_validates_accessible_configured_space() -> None:
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         mock_client.get_all_spaces.return_value = {"results": [{"key": "TEAM"}]}
@@ -1247,7 +1252,7 @@ def test_connection_auto_discovery_reports_no_spaces() -> None:
     }
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.Confluence"
+        "datahub.ingestion.source.confluence.client.Confluence"
     ) as mock_confluence:
         mock_client = MagicMock()
         # First call (basic connectivity) succeeds; the discovery call returns empty.
@@ -1270,23 +1275,19 @@ class _PastSkipGate(Exception):
 
 
 def _run_filter(source, text, page_id="p1", parents=None):
-    """Drive _create_document_entity for one page with a controlled extracted
+    """Drive _page_workunits for one page with a controlled extracted
     text, isolating the empty/length skip decision. Returns (skip_mock,
     passed_gate); passed_gate is True iff execution reached the post-skip build
     (i.e. the page was not dropped)."""
     parents = parents if parents is not None else set()
     passed_gate = False
-    with patch.object(source, "_extract_text_from_page", return_value=text):
+    with patch.object(source, "_page_text", return_value=text):
         with patch.object(source.report, "report_page_skipped") as skip_mock:
-            with patch(
-                "datahub.ingestion.source.confluence.confluence_source."
-                "ConfluenceHierarchyExtractor.extract_page_title",
-                side_effect=_PastSkipGate,
+            with patch.object(
+                source.documents, "page_document", side_effect=_PastSkipGate
             ):
                 try:
-                    list(
-                        source._create_document_entity({"id": page_id}, set(), parents)
-                    )
+                    list(page_workunits(source, {"id": page_id}, set(), parents))
                 except _PastSkipGate:
                     passed_gate = True
     return skip_mock, passed_gate
@@ -1299,7 +1300,7 @@ class TestConfluenceEmptyAndLengthFilter:
     def _source(
         self, config: ConfluenceSourceConfig, ctx: PipelineContext
     ) -> ConfluenceSource:
-        with patch("datahub.ingestion.source.confluence.confluence_source.Confluence"):
+        with patch("datahub.ingestion.source.confluence.client.Confluence"):
             return ConfluenceSource(config, ctx)
 
     def test_short_page_embeds_by_default(
@@ -1368,10 +1369,10 @@ def test_failed_conversion_falls_back_to_plain_text_and_warns() -> None:
     page = make_page("100", body="<p>Hello <b>world</b></p>")
 
     with patch(
-        "datahub.ingestion.source.confluence.confluence_source.storage_to_markdown",
+        "datahub.ingestion.source.confluence.source.storage_to_markdown",
         side_effect=RuntimeError("conversion failed"),
     ):
-        text = source._extract_text_from_page(page)
+        text = source._page_text(ConfluencePage.model_validate(page))
 
     assert text == "Page 100\n\nHello world"
     assert len(source.report.warnings) == 1

@@ -1,6 +1,6 @@
 """Unit tests for ConfluenceSourceReport metric tracking."""
 
-from datahub.ingestion.source.confluence.confluence_report import (
+from datahub.ingestion.source.confluence.report import (
     ConfluenceSourceReport,
 )
 
