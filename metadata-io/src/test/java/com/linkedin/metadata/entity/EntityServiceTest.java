@@ -56,6 +56,7 @@ import com.linkedin.metadata.aspect.CorpUserAspect;
 import com.linkedin.metadata.aspect.CorpUserAspectArray;
 import com.linkedin.metadata.aspect.EntityAspect;
 import com.linkedin.metadata.aspect.VersionedAspect;
+import com.linkedin.metadata.aspect.batch.BatchItem;
 import com.linkedin.metadata.aspect.batch.MCPItem;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.PatchOperationType;
@@ -3352,6 +3353,85 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
             .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet()),
         Set.of(tag1),
         "Expected all tags");
+  }
+
+  @Test
+  public void testIfEntityExistsDropsWriteToMissingEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMissing,PROD)");
+
+    _entityServiceImpl.ingestAspects(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), false, true);
+
+    assertFalse(_entityServiceImpl.exists(opContext, entityUrn, true));
+  }
+
+  @Test
+  public void testIfEntityExistsAppliesWriteToExistingEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn(
+            "urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsExisting,PROD)");
+    _entityServiceImpl.ingestAspects(opContext, batchOf(statusUpsert(entityUrn)), false, true);
+
+    _entityServiceImpl.ingestAspects(
+        opContext, batchOf(ifEntityExistsTagPatch(entityUrn)), false, true);
+
+    assertEquals(latestTags(entityUrn), Set.of(TagUrn.createFromString("urn:li:tag:tag1")));
+  }
+
+  @Test
+  public void testIfEntityExistsDoesNotBlockOtherWritesCreatingEntity() throws Exception {
+    Urn entityUrn =
+        UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:snowflake,ifEntityExistsMixed,PROD)");
+
+    _entityServiceImpl.ingestAspects(
+        opContext,
+        batchOf(ifEntityExistsTagPatch(entityUrn), statusUpsert(entityUrn)),
+        false,
+        true);
+
+    assertTrue(_entityServiceImpl.exists(opContext, entityUrn, true));
+    assertNull(
+        _entityServiceImpl.getLatestEnvelopedAspect(
+            opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME));
+  }
+
+  private AspectsBatchImpl batchOf(BatchItem... items) {
+    return AspectsBatchImpl.builder()
+        .retrieverContext(opContext.getRetrieverContext())
+        .items(List.of(items))
+        .build(opContext);
+  }
+
+  private PatchItemImpl ifEntityExistsTagPatch(Urn entityUrn) throws Exception {
+    MetadataChangeProposal proposal =
+        new GlobalTagsPatchBuilder()
+            .urn(entityUrn)
+            .addTag(TagUrn.createFromString("urn:li:tag:tag1"), null)
+            .build()
+            .setHeaders(new StringMap(Map.of(IF_ENTITY_EXISTS_HEADER_NAME, "true")));
+    return PatchItemImpl.builder().build(proposal, TEST_AUDIT_STAMP, opContext.getEntityRegistry());
+  }
+
+  private ChangeItemImpl statusUpsert(Urn entityUrn) {
+    return ChangeItemImpl.builder()
+        .urn(entityUrn)
+        .aspectName(STATUS_ASPECT_NAME)
+        .recordTemplate(new Status().setRemoved(false))
+        .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+        .auditStamp(TEST_AUDIT_STAMP)
+        .build(opContext.getAspectRetriever());
+  }
+
+  private Set<TagUrn> latestTags(Urn entityUrn) throws Exception {
+    return new GlobalTags(
+            _entityServiceImpl
+                .getLatestEnvelopedAspect(
+                    opContext, DATASET_ENTITY_NAME, entityUrn, GLOBAL_TAGS_ASPECT_NAME)
+                .getValue()
+                .data())
+        .getTags().stream().map(TagAssociation::getTag).collect(Collectors.toSet());
   }
 
   @Test
