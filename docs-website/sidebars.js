@@ -501,11 +501,6 @@ module.exports = {
               id: "docs/managed-datahub/observe/data-health-dashboard",
               className: "saasOnly",
             },
-            {
-              label: "Data Contracts",
-              type: "doc",
-              id: "docs/managed-datahub/observe/data-contract",
-            },
           ],
         },
         {
@@ -1571,7 +1566,6 @@ module.exports = {
         "docs/api/tutorials/sdk/bulk-assertions-sdk",
         "docs/api/tutorials/incidents",
         "docs/api/tutorials/operations",
-        "docs/api/tutorials/data-contracts",
         "docs/api/tutorials/domains",
         "docs/api/tutorials/forms",
         "docs/api/tutorials/lineage",
