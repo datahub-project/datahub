@@ -58,7 +58,7 @@ class LineageMixin(SqlmeshSourceBase):
         effective: _EffectiveProjectConfig,
         sqlmesh_ctx: "SqlmeshContextType",
         count_undeclared: bool = True,
-    ) -> str:
+    ) -> Optional[str]:
         """
         Map a dependency name to the correct DataHub URN using 3-category logic.
 
@@ -66,6 +66,11 @@ class LineageMixin(SqlmeshSourceBase):
         Category 2 — declared external (EXTERNAL kind): sqlmesh URN by default,
                       warehouse URN when skip_external_models_in_lineage=True
         Category 3 — undeclared implicit (get_model returns None): warehouse URN
+
+        When the dep's warehouse platform can't be resolved, a warehouse URN would
+        name a dataset no connector emits: a skipped external model keeps its
+        sqlmesh URN instead, and undeclared or kind-filtered deps return None so
+        callers drop the edge.
 
         For multi-gateway projects: the dep's OWN gateway determines its
         warehouse URN, not the caller's gateway. If the dep is in our model
@@ -80,6 +85,7 @@ class LineageMixin(SqlmeshSourceBase):
         dep_model = sqlmesh_ctx.get_model(dep_name)
         dep_effective = self._dep_effective(dep_name, effective, sqlmesh_ctx)
         dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
+        platform_resolved = self._has_resolved_platform(dep_effective)
 
         if dep_model is None:
             logger.debug(
@@ -88,18 +94,26 @@ class LineageMixin(SqlmeshSourceBase):
             )
             if count_undeclared:
                 self.report.num_undeclared_upstream_refs += 1
+            if not platform_resolved:
+                return None
             return self._make_warehouse_urn(dep_fqn, dep_effective, managed=False)
 
         kind = getattr(dep_model, "kind", None)
         is_external = (
             str(getattr(kind, "model_kind_name", "")).upper() == MODEL_KIND_EXTERNAL
         )
-        if is_external and self.config.skip_external_models_in_lineage:
+        if (
+            is_external
+            and self.config.skip_external_models_in_lineage
+            and platform_resolved
+        ):
             return self._make_warehouse_urn(dep_fqn, dep_effective, managed=False)
         if self._is_filtered_by_kind(dep_model):
             # Excluded from ingestion by model_kind_filter, so no sqlmesh entity
             # was emitted for it. Point at the warehouse table instead of a
             # sqlmesh URN that would dangle.
+            if not platform_resolved:
+                return None
             return self._make_warehouse_urn(
                 dep_fqn, dep_effective, managed=not is_external
             )
@@ -131,11 +145,11 @@ class LineageMixin(SqlmeshSourceBase):
             dep_fqn = self._build_logical_fqn(dep_name, dep_effective)
             if not self.config.model_name_pattern.allowed(dep_fqn):
                 continue
+            dep_urn = self._resolve_dep_urn(dep_name, effective, sqlmesh_ctx)
+            if dep_urn is None:
+                continue
             upstreams.append(
-                UpstreamClass(
-                    dataset=self._resolve_dep_urn(dep_name, effective, sqlmesh_ctx),
-                    type=DatasetLineageTypeClass.TRANSFORMED,
-                )
+                UpstreamClass(dataset=dep_urn, type=DatasetLineageTypeClass.TRANSFORMED)
             )
 
         return UpstreamLineageClass(upstreams=upstreams) if upstreams else None
@@ -226,6 +240,8 @@ class LineageMixin(SqlmeshSourceBase):
                     # count.
                     count_undeclared=False,
                 )
+                if upstream_dataset_urn is None:
+                    continue
                 # upstream_cols is a set; sort for deterministic URN ordering.
                 for upstream_col in sorted(upstream_cols):
                     up_col = self._normalize_column_name(upstream_col, dep_effective)

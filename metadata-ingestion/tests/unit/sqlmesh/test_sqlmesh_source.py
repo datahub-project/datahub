@@ -2804,6 +2804,65 @@ class TestUnresolvedTargetPlatform:
         assert not any("dataPlatform:unknown" in wu.get_urn() for wu in workunits)
         assert source.report.warnings
 
+    def test_unknown_platform_drops_warehouse_upstreams(
+        self, monkeypatch: pytest.MonkeyPatch
+    ) -> None:
+        """Deps that would resolve to a warehouse table (undeclared, kind-filtered,
+        or external with skip_external_models_in_lineage) get no unknown-platform
+        upstream; a skipped external model falls back to its sqlmesh entity."""
+        _install_fake_column_dependencies(
+            monkeypatch,
+            {
+                "id": {
+                    "raw.customers": {"id"},
+                    "raw.undeclared": {"id"},
+                    "seeds.countries": {"id"},
+                }
+            },
+        )
+        source = _make_source(
+            {
+                "target_platform": None,
+                "skip_external_models_in_lineage": True,
+                "model_kind_filter": ["FULL", "EXTERNAL"],
+            }
+        )
+        external = _make_mock_model("raw.customers", kind_name="EXTERNAL")
+        seed = _make_mock_model("seeds.countries", kind_name="SEED")
+        managed = _make_mock_model(
+            "star.dim_developer",
+            depends_on={"raw.customers", "raw.undeclared", "seeds.countries"},
+        )
+
+        workunits = _run_project(
+            source,
+            {
+                "raw.customers": external,
+                "seeds.countries": seed,
+                "star.dim_developer": managed,
+            },
+            {},
+            connection_type=None,  # type: ignore[arg-type]
+        )
+
+        lineage = [
+            aspect
+            for wu in workunits
+            if wu.get_urn()
+            == "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,star.dim_developer,PROD)"
+            for aspect in [getattr(wu.metadata, "aspect", None)]
+            if isinstance(aspect, UpstreamLineageClass)
+        ]
+        assert len(lineage) == 1
+        external_urn = "urn:li:dataset:(urn:li:dataPlatform:sqlmesh,raw.customers,PROD)"
+        assert [u.dataset for u in lineage[0].upstreams] == [external_urn]
+        assert [
+            upstream
+            for fgl in lineage[0].fineGrainedLineages or []
+            for upstream in fgl.upstreams or []
+        ] == [make_schema_field_urn(external_urn, "id")]
+        assert not any("dataPlatform:unknown" in str(wu.metadata) for wu in workunits)
+
 
 @pytest.mark.parametrize(
     "raw, platform",

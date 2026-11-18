@@ -25,10 +25,11 @@ lineage runs through SQLMesh from table to table:
 - If the warehouse platform can't be resolved (no `target_platform`, and none detected
   from the gateway), the warehouse links are skipped and the run reports a warning.
 
-The warehouse source plugin must also keep the SQLMesh edge. Snowflake and BigQuery
-default to `incremental_lineage: false`, which rewrites the table's lineage on every run
-and drops the `model → warehouse table` edge until SQLMesh is ingested again. Set
-`incremental_lineage: true` on the warehouse recipe, as for dbt.
+The warehouse source plugin must also keep the SQLMesh edge. Most warehouse sources
+(Snowflake, BigQuery, Redshift and others) default to `incremental_lineage: false`,
+which rewrites the table's lineage on every run and drops the `model → warehouse table`
+edge until SQLMesh is ingested again. Set `incremental_lineage: true` on the warehouse
+recipe, as for dbt.
 
 Column field paths use the same casing as column lineage: lowercased when
 `convert_urns_to_lowercase` is in effect, unless `convert_column_urns_to_lowercase: false`.
