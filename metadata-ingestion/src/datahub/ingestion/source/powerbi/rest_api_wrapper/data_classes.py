@@ -2,7 +2,7 @@ import dataclasses
 import logging
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, List, Literal, Optional, Union
+from typing import Any, Dict, List, Literal, Mapping, Optional, Union
 
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.source.common.subtypes import BIAssetSubTypes
@@ -230,6 +230,9 @@ class PowerBIDataset:
     # DirectLake support: artifact ID this dataset depends on (Lakehouse/Warehouse)
     # From relations[].dependentOnArtifactId
     dependent_on_artifact_id: Optional[str] = None
+    # sensitivityLabel.labelId from the workspace scan. The name and
+    # description are resolved from Microsoft Graph.
+    sensitivity_label_id: Optional[str] = None
 
     def get_urn_part(self):
         return f"datasets.{self.id}"
@@ -377,6 +380,8 @@ class Report:
     tags: List[str]
     # Only populated for paginated reports without a shared dataset_id.
     datasources: List["ReportDatasource"] = field(default_factory=list)
+    # sensitivityLabel.labelId from the workspace scan.
+    sensitivity_label_id: Optional[str] = None
 
     def get_urn_part(self):
         return Report.get_urn_part_by_id(self.id)
@@ -423,6 +428,8 @@ class Dashboard:
     users: List["User"]
     tags: List[str]
     webUrl: Optional[str]
+    # sensitivityLabel.labelId from the workspace scan.
+    sensitivity_label_id: Optional[str] = None
 
     def get_urn_part(self):
         return Dashboard.get_urn_part_by_id(self.id)
@@ -441,6 +448,22 @@ class Dashboard:
 
     def __hash__(self):
         return hash(self.__members())
+
+
+def sensitivity_label_id(item: Mapping[str, Any]) -> Optional[str]:
+    """Return the sensitivity label GUID when the payload includes one.
+
+    The workspace scan returns ``sensitivityLabel.labelId``. Some item payloads
+    use ``id``. The name and description are resolved separately from Microsoft
+    Graph.
+    """
+    label = item.get("sensitivityLabel") or {}
+    if not isinstance(label, dict):
+        return None
+    label_id = label.get("labelId") or label.get("id")
+    if isinstance(label_id, str) and label_id:
+        return label_id
+    return None
 
 
 def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIDataset:
@@ -475,6 +498,7 @@ def new_powerbi_dataset(workspace: Workspace, raw_instance: dict) -> PowerBIData
         tags=[],
         configuredBy=raw_instance.get("configuredBy"),
         dependent_on_artifact_id=dependent_on_artifact_id,
+        sensitivity_label_id=sensitivity_label_id(raw_instance),
     )
 
 
@@ -515,6 +539,7 @@ def new_powerbi_dashboards(
                 if (user := new_powerbi_user(user_instance)) is not None
             ],
             tags=[],  # filled from workspace.dashboard_endorsements in fill_regular_metadata_detail()
+            sensitivity_label_id=sensitivity_label_id(raw_instance),
         )
 
     return [
@@ -621,6 +646,7 @@ def new_powerbi_reports(
             ],
             tags=[],  # filled by fill_tags() in get_reports() from workspace.report_endorsements
             dataset=None,  # It will come from dataset_registry defined in powerbi_api.py
+            sensitivity_label_id=sensitivity_label_id(raw_instance),
         )
 
     return [

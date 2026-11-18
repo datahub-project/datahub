@@ -68,6 +68,10 @@ from datahub.ingestion.source.powerbi.powerbi_selection import (
     workspace_verdict,
 )
 from datahub.ingestion.source.powerbi.rest_api_wrapper.powerbi_api import PowerBiAPI
+from datahub.ingestion.source.powerbi.sensitivity import (
+    SENSITIVITY_LABEL_CAPABILITY,
+    SensitivityLabelEmitter,
+)
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StaleEntityRemovalHandler,
     auto_stale_entity_removal,
@@ -100,7 +104,6 @@ from datahub.metadata.schema_classes import (
     DatasetProfileClass,
     DatasetPropertiesClass,
     EdgeClass,
-    GlobalTagsClass,
     OtherSchemaClass,
     OwnerClass,
     OwnershipClass,
@@ -110,7 +113,6 @@ from datahub.metadata.schema_classes import (
     SchemaMetadataClass,
     StatusClass,
     SubTypesClass,
-    TagAssociationClass,
     UpstreamClass,
     UpstreamLineageClass,
     ViewPropertiesClass,
@@ -136,11 +138,13 @@ class Mapper:
         config: PowerBiDashboardSourceConfig,
         reporter: PowerBiDashboardSourceReport,
         dataplatform_instance_resolver: AbstractDataPlatformInstanceResolver,
+        labels: Optional[SensitivityLabelEmitter] = None,
     ):
         self.__ctx = ctx
         self.__config = config
         self.__reporter = reporter
         self.__dataplatform_instance_resolver = dataplatform_instance_resolver
+        self._labels = labels or SensitivityLabelEmitter.disabled()
         self.workspace_key: Optional[ContainerKey] = None
 
     @staticmethod
@@ -524,6 +528,13 @@ class Mapper:
 
         if self.__config.extract_datasets_to_containers:
             dataset_mcps.extend(self.generate_container_for_dataset(dataset))
+            self.append_tag_mcp(
+                dataset_mcps,
+                self.make_container_urn_for_dataset(dataset),
+                Constant.DATASET,
+                [],
+                sensitivity_label_id=dataset.sensitivity_label_id,
+            )
 
         for table in dataset.tables:
             # Create a URN for dataset
@@ -651,6 +662,7 @@ class Mapper:
                 ds_urn,
                 Constant.DATASET,
                 dataset.tags,
+                sensitivity_label_id=dataset.sensitivity_label_id,
             )
             self.extract_profile(dataset_mcps, workspace, dataset, table, ds_urn)
 
@@ -777,15 +789,6 @@ class Mapper:
             aspect=profile,
         )
         dataset_mcps.append(mcp)
-
-    @staticmethod
-    def transform_tags(tags: List[str]) -> GlobalTagsClass:
-        return GlobalTagsClass(
-            tags=[
-                TagAssociationClass(builder.make_tag_urn(tag_to_add))
-                for tag_to_add in tags
-            ]
-        )
 
     def to_datahub_chart_mcp(
         self,
@@ -1038,6 +1041,7 @@ class Mapper:
             dashboard_urn,
             Constant.DASHBOARD,
             dashboard.tags,
+            sensitivity_label_id=dashboard.sensitivity_label_id,
         )
 
         return list_of_mcps
@@ -1110,13 +1114,16 @@ class Mapper:
         entity_urn: str,
         entity_type: str,
         tags: List[str],
+        sensitivity_label_id: Optional[str] = None,
     ) -> None:
-        if self.__config.extract_endorsements_to_tags and tags:
-            tags_mcp = MetadataChangeProposalWrapper(
-                entityUrn=entity_urn,
-                aspect=self.transform_tags(tags),
-            )
-            list_of_mcps.append(tags_mcp)
+        # Endorsements and a sensitivity tag share one GlobalTags aspect.
+        # Emitting them separately would let the later aspect replace the earlier.
+        endorsements = (
+            tags if self.__config.extract_endorsements_to_tags and tags else []
+        )
+        list_of_mcps.extend(
+            self._labels.contributions(entity_urn, sensitivity_label_id, endorsements)
+        )
 
     def _make_user_urn(self, user: powerbi_data_classes.User) -> str:
         """
@@ -1568,6 +1575,7 @@ class Mapper:
             dashboard_urn,
             Constant.DASHBOARD,
             report.tags,
+            sensitivity_label_id=report.sensitivity_label_id,
         )
 
         return list_of_mcps
@@ -1686,7 +1694,11 @@ class Mapper:
 @capability(SourceCapability.OWNERSHIP, "Enabled by default")
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.SCHEMA_METADATA, "Enabled by default")
-@capability(SourceCapability.TAGS, "Enabled by default")
+@capability(
+    SourceCapability.TAGS,
+    "Endorsements via `extract_endorsements_to_tags`. " + SENSITIVITY_LABEL_CAPABILITY,
+)
+@capability(SourceCapability.GLOSSARY_TERMS, SENSITIVITY_LABEL_CAPABILITY)
 @capability(
     SourceCapability.OWNERSHIP,
     "Disabled by default, configured using `extract_ownership`",
@@ -1741,8 +1753,19 @@ class PowerBiDashboardSource(StatefulIngestionSourceBase, TestableSource):
             )  # Exit pipeline as we are not able to connect to PowerBI API Service. This exit will avoid raising
             # unwanted stacktrace on console
 
+        labels = SensitivityLabelEmitter.disabled()
+        if config.extract_sensitivity_label.enabled:
+            labels = SensitivityLabelEmitter(
+                enabled=True,
+                output=config.extract_sensitivity_label.output,
+                resolver=self.powerbi_client.make_sensitivity_resolver(),
+            )
         self.mapper = Mapper(
-            ctx, config, self.reporter, self.dataplatform_instance_resolver
+            ctx,
+            config,
+            self.reporter,
+            self.dataplatform_instance_resolver,
+            labels=labels,
         )
 
         # Log info if user has opted-in to user creation (may overwrite LDAP/Okta users)

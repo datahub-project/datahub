@@ -78,12 +78,22 @@ class DataResolverBase(ABC):
         "SCOPE": "https://analysis.windows.net/powerbi/api/.default",
         "MY_ORG_URL": "https://api.powerbi.com/v1.0/myorg",
         "AUTHORITY": "https://login.microsoftonline.com/",
+        "GRAPH_SCOPE": "https://graph.microsoft.com/.default",
+        "GRAPH_LABELS_URL": (
+            "https://graph.microsoft.com/v1.0/security/"
+            "dataSecurityAndGovernance/sensitivityLabels"
+        ),
     }
 
     GOVERNMENT_URLS = {
         "SCOPE": "https://analysis.usgovcloudapi.net/powerbi/api/.default",
         "MY_ORG_URL": "https://api.powerbigov.us/v1.0/myorg",
         "AUTHORITY": "https://login.microsoftonline.com/",
+        "GRAPH_SCOPE": "https://graph.microsoft.us/.default",
+        "GRAPH_LABELS_URL": (
+            "https://graph.microsoft.us/v1.0/security/"
+            "dataSecurityAndGovernance/sensitivityLabels"
+        ),
     }
 
     TOP: int = 1000
@@ -107,6 +117,11 @@ class DataResolverBase(ABC):
 
         self._access_token: Optional[str] = None
         self._access_token_expiry_time: Optional[datetime] = None
+        # Graph is a different resource from the Power BI API, so it keeps its
+        # own token. Acquired only when sensitivity labels are resolved.
+        self._graph_access_token: Optional[str] = None
+        self._graph_access_token_expiry_time: Optional[datetime] = None
+        self._graph_token_error: Optional[Exception] = None
 
         self._tenant_id = tenant_id
         # Test connection by generating access token
@@ -213,6 +228,59 @@ class DataResolverBase(ABC):
 
     def get_authorization_header(self):
         return {Constant.Authorization: self.get_access_token()}
+
+    @property
+    def graph_sensitivity_labels_url(self) -> str:
+        return self.urls_for(self._environment)["GRAPH_LABELS_URL"]
+
+    def get_graph_authorization_header(self) -> Dict[str, str]:
+        return {Constant.Authorization: self.get_graph_access_token()}
+
+    def get_graph_access_token(self) -> str:
+        """Token for Microsoft Graph, used to resolve sensitivity label names.
+
+        A failed acquisition is remembered so later labels do not each request
+        a new token. The Power BI token is left untouched.
+        """
+        if self._graph_token_error is not None:
+            raise self._graph_token_error
+        if (
+            self._graph_access_token is not None
+            and not self._is_graph_access_token_expired()
+        ):
+            return self._graph_access_token
+
+        scope = self.urls_for(self._environment)["GRAPH_SCOPE"]
+        logger.info("Generating Microsoft Graph access token for sensitivity labels")
+        try:
+            auth_response = self._msal_client.acquire_token_for_client(scopes=[scope])
+        except Exception as exc:
+            self._graph_token_error = exc
+            raise
+
+        if not auth_response.get(Constant.ACCESS_TOKEN):
+            token_error = ConfigurationError(
+                "Failed to retrieve a Microsoft Graph token for sensitivity labels. "
+                "The app registration needs permission to read sensitivity labels."
+            )
+            self._graph_token_error = token_error
+            raise token_error
+
+        self._graph_access_token = "Bearer {}".format(
+            auth_response.get(Constant.ACCESS_TOKEN)
+        )
+        safety_gap = 300
+        self._graph_access_token_expiry_time = datetime.now() + timedelta(
+            seconds=(
+                max(auth_response.get(Constant.ACCESS_TOKEN_EXPIRY, 0) - safety_gap, 0)
+            )
+        )
+        return self._graph_access_token
+
+    def _is_graph_access_token_expired(self) -> bool:
+        if not self._graph_access_token_expiry_time:
+            return True
+        return self._graph_access_token_expiry_time < datetime.now()
 
     def get_access_token(self) -> str:
         if self._access_token is not None and not self._is_access_token_expired():
