@@ -24,6 +24,14 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Filtering policies with more than one filter group
+
+The `listPolicies` GraphQL query now treats each entry in `orFilters` as an alternative, the same
+way search does: a policy is returned when it matches any one entry. Previously the conditions of
+all entries were combined, so a policy had to match every entry. A request with a single entry,
+including the Policies page in the UI, returns the same results as before. If a script sends several
+entries and expects a policy to match all of them, put those conditions into one entry's `and` list.
+
 ### Search templates with a `knn` section that names `model` and `field`
 
 A stored search template whose `knn` section names both `model` and `field`, with no
