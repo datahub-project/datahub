@@ -15,7 +15,7 @@ import { SIBLINGS_SHOWN_INLINE, withLoadedMembers } from '@app/searchV2/siblings
 import { UnionType } from '@app/searchV2/utils/constants';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 import { PageRoutes } from '@conf/Global';
-import { useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
+import { useIsAppConfigContextLoaded, useIsShowSeparateSiblingsEnabled } from '@src/app/useAppConfig';
 
 import { GetDatasetQuery } from '@graphql/dataset.generated';
 import { useGetSiblingGroupsQuery } from '@graphql/siblings.generated';
@@ -62,6 +62,8 @@ export const SidebarSiblingsSection = () => {
     const showSeparateSiblings = useIsShowSeparateSiblingsEnabled();
     // Same rule as the search toggle: separate siblings and the server's siblingGroups query on.
     const siblingGroupsAvailable = useIsShowSiblingsAvailable();
+    // The server's siblingGroups limit comes from app config, which reads as 0 until it loads.
+    const appConfigLoaded = useIsAppConfigContextLoaded();
     const isHideSiblingMode = useIsSeparateSiblingsMode();
 
     const [showAllSiblings, setShowAllSiblings] = useState(false);
@@ -85,6 +87,12 @@ export const SidebarSiblingsSection = () => {
     const group = rawGroup ? withLoadedMembers(rawGroup) : undefined;
 
     if (!entityData) {
+        return <></>;
+    }
+
+    // Until app config loads we can't tell whether this dataset gets the whole group or the one-link
+    // list, so render nothing rather than the fallback list first and then swap it out.
+    if (showSeparateSiblings && entityType === EntityType.Dataset && !appConfigLoaded) {
         return <></>;
     }
 

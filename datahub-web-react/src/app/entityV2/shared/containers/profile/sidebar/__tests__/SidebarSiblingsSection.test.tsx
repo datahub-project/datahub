@@ -29,6 +29,7 @@ vi.hoisted(() => {
 
 const mockShowSeparateSiblings = vi.fn(() => false);
 const mockMaxSiblingGroupUrns = vi.fn(() => 30);
+const mockAppConfigLoaded = vi.fn(() => true);
 const modalPropsMock = vi.fn();
 
 vi.mock('@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal', () => ({
@@ -44,6 +45,7 @@ vi.mock('@src/app/useAppConfig', async (importOriginal) => {
         ...actual,
         useIsShowSeparateSiblingsEnabled: () => mockShowSeparateSiblings(),
         useMaxSiblingGroupUrns: () => mockMaxSiblingGroupUrns(),
+        useIsAppConfigContextLoaded: () => mockAppConfigLoaded(),
     };
 });
 
@@ -119,6 +121,7 @@ function renderSection(entityData: unknown, mocks: MockedResponse[] = []) {
 describe('SidebarSiblingsSection', () => {
     beforeEach(() => {
         mockShowSeparateSiblings.mockReturnValue(false);
+        mockAppConfigLoaded.mockReturnValue(true);
     });
 
     it('renders "Composed of" when siblings exist and showSeparateSiblings is false', () => {
@@ -136,6 +139,15 @@ describe('SidebarSiblingsSection', () => {
         mockShowSeparateSiblings.mockReturnValue(true);
         renderSection(entityDataWithSiblings);
         expect(await screen.findByText('Composed of')).toBeInTheDocument();
+    });
+
+    it('renders nothing with separate siblings on until app config has loaded', () => {
+        // The siblingGroups limit reads as 0 before config loads, which would show the one-link
+        // list first and then swap it for the group.
+        mockShowSeparateSiblings.mockReturnValue(true);
+        mockAppConfigLoaded.mockReturnValue(false);
+        const { container } = renderSection(entityDataWithSiblings);
+        expect(container.firstChild).toBeNull();
     });
 
     it('renders nothing when there are no siblings', () => {
