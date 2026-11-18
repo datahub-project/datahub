@@ -296,6 +296,10 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     String rejection =
         SearchTemplateCapabilities.rejectionCode(
             template, documentRerank, scroll, components, gates);
+    List<String> rungs = ladderRungs(bound, resolved.getUrn(), !scroll);
+    if (rejection == null && vectorWithLegacyKnn(bound, rungs)) {
+      rejection = SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN;
+    }
     if (rejection == null) {
       rejection =
           gates.bindingRejection(
@@ -322,7 +326,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         SearchTemplateJson.countLeaves(dsl),
         rendered.estimatedClauses(),
         capabilities,
-        ladderRungs(bound, resolved.getUrn(), !scroll));
+        rungs);
+  }
+
+  private boolean vectorWithLegacyKnn(
+      @Nonnull OperationContext opContext, @Nonnull List<String> rungs) {
+    boolean vector = false;
+    boolean legacyKnn = false;
+    for (String urn : rungs) {
+      MergedSearchTemplate rung = loader.load(opContext, urn);
+      vector |= SearchTemplateCapabilities.vectorRetrieval(rung);
+      legacyKnn |= SearchTemplateCapabilities.legacyKnn(rung);
+    }
+    return vector && legacyKnn;
   }
 
   @Nonnull
@@ -361,7 +377,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
 
   /**
    * Cache identity includes every reachable rung. Capability checks happen when a rung executes, so
-   * an unsupported next does not fail a request that stops before reaching it.
+   * an unsupported next does not fail a request that stops before reaching it. The exception is a
+   * graph that reaches a vector rung and a legacy knn rerank: the search cache runs the first once
+   * per page, and the second reranks the first cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -371,6 +389,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
     boolean[] classpathBridge = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
     collect(
         opContext,
         resolved.getUrn(),
@@ -382,7 +401,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         resolved,
         scroll,
         nameAndValue,
-        classpathBridge);
+        classpathBridge,
+        legacyKnn);
+    if (resolved.isVectorReachable() && legacyKnn[0]) {
+      throw new SearchTemplateException(
+          "Search template section is not supported: vector retrieval with a legacy knn rerank");
+    }
     String identity = String.join("+", rungs);
     if (!classpathBridge[0] && SearchTemplateViewer.references(bodies.toString())) {
       identity += SearchTemplateViewer.identity(opContext, bodies.toString());
@@ -404,7 +428,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       @Nonnull ResolvedSearchTemplate resolved,
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
-      @Nonnull boolean[] classpathBridge) {
+      @Nonnull boolean[] classpathBridge,
+      @Nonnull boolean[] legacyKnn) {
     if (!seen.add(urn) || depth > loader.maxParentDepth()) {
       return;
     }
@@ -421,6 +446,9 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (SearchTemplateCapabilities.vectorRetrieval(template)) {
       resolved.setVectorReachable(true);
+    }
+    if (SearchTemplateCapabilities.legacyKnn(template)) {
+      legacyKnn[0] = true;
     }
     rungs.add(
         template.getUrn()
@@ -471,7 +499,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             resolved,
             false,
             nameAndValue,
-            classpathBridge);
+            classpathBridge,
+            legacyKnn);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -486,7 +515,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           resolved,
           false,
           nameAndValue,
-          classpathBridge);
+          classpathBridge,
+          legacyKnn);
     }
   }
 

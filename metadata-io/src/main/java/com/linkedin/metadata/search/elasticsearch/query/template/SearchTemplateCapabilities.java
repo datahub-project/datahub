@@ -123,6 +123,12 @@ public final class SearchTemplateCapabilities {
   public static final Set<String> COMBINES =
       Set.of(COMBINE_VECTOR, COMBINE_KEYWORD_RERANK, "vectorThenKeyword", "vectorFilter");
 
+  /**
+   * A template reaches a vector rung and a {@link #legacyKnn} rung. The search cache runs the first
+   * once per page, and the second reranks the first cache batch, so bind rejects the template.
+   */
+  public static final String VECTOR_WITH_LEGACY_KNN = "vectorWithLegacyKnn";
+
   /** A failed vector rung follows the ladder's {@code next}. */
   public static final String ON_FAILURE_NEXT = "next";
 
@@ -445,6 +451,11 @@ public final class SearchTemplateCapabilities {
 
   public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
     return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
+  }
+
+  /** A knn section that no combine reads, such as a field-only knn: the legacy document rerank. */
+  public static boolean legacyKnn(@Nonnull MergedSearchTemplate template) {
+    return template.getKnn() != null && effectiveCombine(template) == null;
   }
 
   /** The rung retrieves by corpus kNN: {@code combine: vector}, or the legacy vector mode. */

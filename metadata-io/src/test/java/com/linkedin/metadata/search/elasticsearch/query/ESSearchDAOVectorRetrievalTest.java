@@ -4,6 +4,7 @@ import static io.datahubproject.test.search.SearchTestUtils.TEST_SEARCH_SERVICE_
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.ArgumentMatchers.argThat;
@@ -33,11 +34,13 @@ import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.EntitySearchService;
 import com.linkedin.metadata.search.SearchEntity;
+import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.VectorRetrievalExplanation;
 import com.linkedin.metadata.search.client.CachingEntitySearchService;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.Sha256UrnEntityDocumentIdHasher;
 import com.linkedin.metadata.search.elasticsearch.query.filter.QueryFilterRewriteChain;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDryRender;
@@ -52,6 +55,7 @@ import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.embedding.EmbeddingProvider;
 import com.linkedin.metadata.search.hybrid.HybridQueryEmbeddingService;
 import com.linkedin.metadata.search.hybrid.HybridSearchResultReranker;
+import com.linkedin.metadata.search.semantic.SemanticEntitySearch;
 import com.linkedin.metadata.search.utils.ESUtils;
 import com.linkedin.metadata.utils.CriterionUtils;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -69,8 +73,11 @@ import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.io.IOException;
 import java.time.Duration;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
@@ -580,15 +587,122 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testALegacyKnnBesideAVectorRungFailsAtBindBeforeAnyCall() throws Exception {
+    store(vector(r -> {}));
+    // A keyword root whose field-only knn reranks the first cache batch, and a vector next
+    SearchTemplateProperties root = keyword();
+    root.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    root.setLadder(onMissNext(VECTOR_URN));
+    harness.store(KEYWORD_URN, root);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    OperationContext searching = pinned(context(DOCUMENT, f -> {}, coordinator), KEYWORD_URN);
+
+    SearchTemplateDryRender preview =
+        coordinator.preview(
+            searching, "revenue", DOCUMENT, false, SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertTrue(
+        preview.capabilities().stream()
+            .anyMatch(
+                decision ->
+                    "sections".equals(decision.name())
+                        && !decision.accepted()
+                        && SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN.equals(
+                            decision.detail())));
+    assertThrows(
+        SearchTemplateException.class,
+        () ->
+            cached(dao(null, embedding()))
+                .search(searching, DOCUMENT, "revenue", null, null, 0, 10, List.of()));
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+    verify(client, never()).searchKnn(any(), any());
+    verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  @Test
+  public void testAKeywordRerankRootWithAVectorNextStillReranksThroughTheCache() throws Exception {
+    store(vector(r -> {}));
+    SearchTemplateProperties root = keyword();
+    root.setApiVersion(2);
+    root.setRetrieval(new SearchTemplateRetrieval().setCombine("keywordRerank"));
+    root.setKnn("{ \"others\": \"keepKeywordPlaces\" }");
+    root.setLadder(onMissNext(VECTOR_URN));
+    harness.store(KEYWORD_URN, root);
+    HybridSearchResultReranker reranker = mock(HybridSearchResultReranker.class);
+    // Reverses the window it is given, so reranked rows are told from keyword ones
+    when(reranker.rerank(
+            any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any()))
+        .thenAnswer(
+            invocation -> {
+              List<SearchEntity> rows = new ArrayList<>(invocation.getArgument(3));
+              Collections.reverse(rows);
+              return Optional.of(rows);
+            });
+    when(reranker.vectorEntityNames(any(OperationContext.class), any()))
+        .thenReturn(Set.of("document"));
+    when(reranker.providerSucceededSince(anyLong())).thenReturn(true);
+    when(reranker.modelEmbeddingKey()).thenReturn(MODEL_KEY);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, true));
+
+    SearchResult page =
+        cached(dao(reranker, embedding()))
+            .search(
+                pinned(context(DOCUMENT, f -> {}, coordinator), KEYWORD_URN),
+                DOCUMENT,
+                "quarterly revenue",
+                null,
+                null,
+                0,
+                10,
+                List.of());
+
+    // The root's three rows stop the ladder, and the search reranks them before the cache
+    assertEquals(
+        urns(page), List.of("urn:li:document:k2", "urn:li:document:k1", "urn:li:document:k0"));
+    verify(reranker, times(1))
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+    verify(client, never()).searchKnn(any(), any());
+  }
+
+  @Test
+  public void testALegacyKnnWithoutAVectorRungKeepsTheBatchedRerank() throws Exception {
+    SearchTemplateProperties root = keyword();
+    root.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store(KEYWORD_URN, root);
+    SearchResponse batch = keywordResponse(100);
+    when(client.search(any(OperationContext.class), any(), eq(RequestOptions.DEFAULT)))
+        .thenReturn(batch);
+    SemanticEntitySearch semantic = mock(SemanticEntitySearch.class);
+    when(semantic.search(any(), any(), any(), any(), any(), anyInt(), any()))
+        .thenReturn(new SearchResult().setEntities(new SearchEntityArray()).setNumEntities(0));
+    CachingEntitySearchService cache = cached(dao(null, embedding()));
+    cache.setSemanticEntitySearch(semantic);
+
+    SearchResult page =
+        cache.search(
+            pinned(context(DOCUMENT, f -> {}), KEYWORD_URN),
+            DOCUMENT,
+            "quarterly revenue",
+            null,
+            null,
+            10,
+            10,
+            List.of());
+
+    // A page past the first rows is still served from the first batch, whose 100 document rows
+    // the knn reranks
+    assertEquals(
+        urns(page), IntStream.range(10, 20).mapToObj(i -> "urn:li:document:k" + i).toList());
+    verify(semantic, times(1)).search(any(), eq(DOCUMENT), any(), any(), any(), eq(0), eq(100));
+  }
+
+  @Test
   public void testDocumentExplainFailsClosedOnAVectorRung() throws Exception {
     store(vector(r -> {}));
     // A keyword root that finds nothing hands the search to the vector rung
     SearchTemplateProperties root = keyword();
-    root.setLadder(
-        new SearchTemplateLadder()
-            .setStop(
-                new SearchTemplateLadderStopArray(new SearchTemplateLadderStop().setMinHits(1)))
-            .setNext(UrnUtils.getUrn(VECTOR_URN)));
+    root.setLadder(onMissNext(VECTOR_URN));
     harness.store(KEYWORD_URN, root);
     // A parallel group with the vector member, whose next is a plain keyword rung
     String plain = "urn:li:searchTemplate:plain";
@@ -944,10 +1058,14 @@ public class ESSearchDAOVectorRetrievalTest {
     return template;
   }
 
-  private static SearchTemplateLadder nextOnMiss() {
+  private static SearchTemplateLadder onMissNext(String urn) {
     return new SearchTemplateLadder()
         .setStop(new SearchTemplateLadderStopArray(new SearchTemplateLadderStop().setMinHits(1)))
-        .setNext(UrnUtils.getUrn(KEYWORD_URN));
+        .setNext(UrnUtils.getUrn(urn));
+  }
+
+  private static SearchTemplateLadder nextOnMiss() {
+    return onMissNext(KEYWORD_URN);
   }
 
   private static Filter filter(String field, String value) {
