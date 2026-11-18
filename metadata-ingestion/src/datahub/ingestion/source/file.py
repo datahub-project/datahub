@@ -15,6 +15,7 @@ from datahub.configuration.common import ConfigEnum
 from datahub.configuration.validate_field_deprecation import pydantic_field_deprecated
 from datahub.configuration.validate_field_rename import pydantic_renamed_field
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
+from datahub.emitter.mcp_builder import mcps_from_mce
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.api.decorators import (
     SourceCapability,
@@ -269,7 +270,12 @@ class GenericFileSource(StatefulIngestionSourceBase, TestableSource):
                             "Rewrite the file as MCPs.",
                             context=f.path,
                         )
-                    yield from MetadataWorkUnit(id, mce=obj).decompose_mce_into_mcps()
+                    for mcp in mcps_from_mce(obj):
+                        if (
+                            self.config.aspect is None
+                            or mcp.aspectName == self.config.aspect
+                        ):
+                            yield MetadataWorkUnit(id, mcp=mcp)
             self.report.total_num_files += 1
             self.report.append_total_bytes_on_disk(f.size)
 
