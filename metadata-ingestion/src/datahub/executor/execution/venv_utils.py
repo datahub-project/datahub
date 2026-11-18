@@ -8,6 +8,8 @@ performing any actual venv creation or management.
 import hashlib
 from typing import Union
 
+from datahub.executor.common.env_config import get_dependency_resolution_enabled
+
 # Version constants
 VENV_VERSION_LATEST = "latest"
 VENV_VERSION_BUNDLED = "bundled"
@@ -20,8 +22,16 @@ def is_bundled_version(version: str) -> bool:
 
 
 def should_use_bundled_venv(version: str) -> bool:
-    """Determine if bundled venv should be used based on version."""
-    return is_bundled_version(version)
+    """Whether a run with this requested version uses a pre-built bundled venv.
+
+    A run uses one when it asks for it, or when the executor cannot install packages
+    at run time (INGESTION_DEPENDENCY_RESOLUTION_ENABLED=false): the bundled venv is
+    then the only environment available, whatever version was requested. "native"
+    runs in the executor's own environment and needs no venv either way.
+    """
+    if version == VENV_VERSION_NATIVE:
+        return False
+    return is_bundled_version(version) or not get_dependency_resolution_enabled()
 
 
 def get_venv_name(
@@ -31,7 +41,7 @@ def get_venv_name(
     extra_pip_plugins: Union[list[str], None] = None,
 ) -> str:
     """Generate a venv name based on plugin and configuration."""
-    if version == VENV_VERSION_BUNDLED:
+    if should_use_bundled_venv(version):
         return f"{plugin}-bundled"
     # For other versions, use a hash
     suffix = hashlib.sha256()
