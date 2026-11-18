@@ -2939,6 +2939,52 @@ def test_cll_upstream_column_casing_preserved_when_lowercasing_lineage():
     ]
 
 
+def test_cll_upstream_column_lowercased_when_configured():
+    """convert_column_urns_to_lowercase lowercases only the upstream field path,
+    for a warehouse ingested with that flag. The PowerBI field stays as-is."""
+    ctx, config, platform_instance_resolver = get_default_instances(
+        override_config={
+            "convert_lineage_urns_to_lowercase": True,
+            "convert_column_urns_to_lowercase": True,
+            "extract_column_level_lineage": True,
+            "native_query_parsing": True,
+            "enable_advance_lineage_sql_construct": True,
+            "extract_lineage": True,
+            "extract_dataset_schema": True,
+        }
+    )
+    mapper = Mapper(
+        ctx=ctx,
+        config=config,
+        reporter=PowerBiDashboardSourceReport(),
+        dataplatform_instance_resolver=platform_instance_resolver,
+    )
+    upstream_dataset_urn = (
+        "urn:li:dataset:(urn:li:dataPlatform:mssql,Sales.dbo.Orders,PROD)"
+    )
+    lineage = Lineage(
+        upstreams=[],
+        column_lineage=[
+            ColumnLineageInfo(
+                downstream=DownstreamColumnRef(table=None, column="CustomerId"),
+                upstreams=[ColumnRef(table=upstream_dataset_urn, column="CustomerId")],
+            )
+        ],
+    )
+    downstream_urn = "urn:li:dataset:(urn:li:dataPlatform:powerbi,pbi.dataset,PROD)"
+    fine_grained = mapper.make_fine_grained_lineage_class(lineage, downstream_urn)
+
+    assert fine_grained[0].upstreams == [
+        make_schema_field_urn(
+            "urn:li:dataset:(urn:li:dataPlatform:mssql,sales.dbo.orders,PROD)",
+            "customerid",
+        )
+    ]
+    assert fine_grained[0].downstreams == [
+        make_schema_field_urn(downstream_urn, "CustomerId")
+    ]
+
+
 def test_direct_table_cll_preserves_upstream_column_casing():
     """The direct-table 1:1 column lineage path must preserve the source column
     casing so it can match the warehouse's schemaField URN."""

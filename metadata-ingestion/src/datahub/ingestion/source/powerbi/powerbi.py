@@ -168,6 +168,11 @@ class Mapper:
             value, self.__config.convert_lineage_urns_to_lowercase
         )
 
+    def lineage_column_to_lowercase(self, column: str) -> str:
+        if self.__config.convert_column_urns_to_lowercase:
+            return column.lower()
+        return column
+
     def assets_urn_to_lowercase(self, value):
         return Mapper.urn_to_lowercase(value, self.__config.convert_urns_to_lowercase)
 
@@ -315,12 +320,11 @@ class Mapper:
             upstreams = [
                 builder.make_schema_field_urn(
                     # convert_lineage_urns_to_lowercase lowercases only the dataset
-                    # portion of the upstream schemaField URN — matching sources'
-                    # lowercase_dataset_urns, which never touches the field path.
-                    # Lowercasing the column too would drop the column-level edge
-                    # against warehouses that store columns in their original casing.
+                    # portion. The column stays in its original casing unless
+                    # convert_column_urns_to_lowercase is set, for a warehouse that
+                    # was ingested with that flag and stores lowercased schema fields.
                     self.lineage_urn_to_lowercase(column_ref.table),
-                    column_ref.column,
+                    self.lineage_column_to_lowercase(column_ref.column),
                 )
                 for column_ref in cll_info.upstreams
                 if column_ref.column

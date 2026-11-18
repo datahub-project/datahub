@@ -822,6 +822,17 @@ class PowerBiDashboardSourceConfig(
         default=True,
         description="Whether to convert the urns of ingested lineage dataset to lowercase",
     )
+    convert_column_urns_to_lowercase: bool = pydantic.Field(
+        default=False,
+        description=(
+            "Lowercase the column name in upstream column-level lineage schemaField "
+            "URNs. Off by default, so the column casing matches a warehouse that keeps "
+            "its original column names. Turn this on when that warehouse was ingested "
+            "with convert_column_urns_to_lowercase, so the column-level edge resolves "
+            "against its lowercased schema fields. PowerBI's own dataset fields keep "
+            "their original casing."
+        ),
+    )
     # Configuration for stateful ingestion
     stateful_ingestion: Optional[StatefulStaleMetadataRemovalConfig] = pydantic.Field(
         default=None, description="PowerBI Stateful Ingestion Config."
