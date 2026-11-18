@@ -525,6 +525,47 @@ class TestLookMLSourceProjects:
         assert isinstance(props, DatasetPropertiesClass)
         assert props.customProperties["looker.file.path"] == "views/regions.view.lkml"
 
+    def test_views_of_a_project_mapped_elsewhere_are_not_emitted(
+        self, tmp_path: pathlib.Path
+    ) -> None:
+        root = make_project(tmp_path / "repo")
+        write_lkml(
+            root / "manifest.lkml",
+            MANIFEST + '\nlocal_dependency: {\n  project: "dep_project"\n}\n',
+        )
+        dep = tmp_path / "dep"
+        write_lkml(
+            dep / "views" / "regions.view.lkml",
+            "view: regions { sql_table_name: analytics.regions ;; dimension: id { type: number sql: ${TABLE}.id ;; } }",
+        )
+        write_lkml(dep / "manifest.lkml", 'project_name: "dep_project"')
+        write_lkml(
+            root / "models" / "geo.model.lkml",
+            'connection: "my_connection"\ninclude: "//dep_project/views/regions.view.lkml"\nexplore: regions {}',
+        )
+
+        run = run_source(
+            base_config(
+                root,
+                project_dependencies={"dep_project": str(dep)},
+                project_to_platform_instance={
+                    "dep_project": {"platform_instance": "lookml_dep"}
+                },
+            )
+        )
+
+        # dep_project is ingested by the lookml_dep recipe, so this run leaves
+        # its views and project container alone.
+        assert run.urns_with(ViewPropertiesClass) == [
+            dataset_urn("my_project.view.customers"),
+            dataset_urn("my_project.view.order_facts"),
+            dataset_urn("my_project.view.orders"),
+        ]
+        assert run.source.processed_projects == ["my_project"]
+        assert list(run.source.reporter.views_owned_elsewhere) == [
+            "urn:li:dataset:(urn:li:dataPlatform:looker,lookml_dep.dep_project.view.regions,PROD)"
+        ]
+
     def test_manifest_project_name_mismatch_is_logged(
         self, project: pathlib.Path, caplog: pytest.LogCaptureFixture
     ) -> None:

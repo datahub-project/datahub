@@ -103,6 +103,12 @@ describe('ColumnStatsTable Utils', () => {
             });
         });
 
+        it('keeps isPartOfKey so a field-level source key still wins over an edited key', () => {
+            const result = mapToSchemaField({ fieldPath: 'id', isPartOfKey: true });
+
+            expect(result.isPartOfKey).toBe(true);
+        });
+
         it('should handle missing optional properties', () => {
             const fieldData = {
                 fieldPath: 'test_field',

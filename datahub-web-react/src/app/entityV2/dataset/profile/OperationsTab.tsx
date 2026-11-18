@@ -16,7 +16,7 @@ import {
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { formatDuration } from '@app/sharedV2/formatDuration';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
-import { safeUrl } from '@app/sharedV2/urlUtils';
+import { safeUrl } from '@utils/urlUtils';
 
 import { GetDatasetRunsQuery, useGetDatasetRunsQuery } from '@graphql/dataset.generated';
 import {

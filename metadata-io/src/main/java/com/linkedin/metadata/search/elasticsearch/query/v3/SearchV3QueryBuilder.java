@@ -26,7 +26,11 @@ import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredPro
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.StructuredQueryRouting;
 import com.linkedin.metadata.search.elasticsearch.query.request.v3.V3SearchQueryBuilder;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
+import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponents;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateContextVariables;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateDialects;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFieldPruner;
@@ -39,6 +43,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateM
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMustache;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateNormalizationPolicy;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateQueryShape;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSynonyms;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateViewer;
 import com.linkedin.metadata.search.elasticsearch.query.template.StructuredPropertyClauses;
@@ -66,6 +71,7 @@ import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.index.query.BoolQueryBuilder;
+import org.opensearch.index.query.MatchNoneQueryBuilder;
 import org.opensearch.index.query.Operator;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
@@ -177,22 +183,35 @@ public class SearchV3QueryBuilder {
     context.putAll(renderFragments(template, context, opContext));
     String body = rewrite(template.getQuery(), opContext, template);
     String renderedQuery = body == null ? null : SearchTemplateMustache.render(body, context);
-    SearchTemplateJson.rejectForbidden(renderedQuery, "query");
-    QueryBuilder built =
-        renderedQuery == null || renderedQuery.isBlank()
-            ? QueryBuilders.matchAllQuery()
-            : SearchTemplateJson.parseQuery(renderedQuery);
+    Set<String> removed = removedFields(base, queried);
+    QueryBuilder built;
+    if (renderedQuery == null || renderedQuery.isBlank()) {
+      built = QueryBuilders.matchAllQuery();
+    } else {
+      // A body whose every clause targeted an empty or removed field searches nothing. Matching
+      // everything instead would return the whole index for any text.
+      String prunedQuery = SearchTemplateFieldPruner.pruneRendered(renderedQuery, removed);
+      SearchTemplateJson.rejectForbidden(prunedQuery, "query");
+      built =
+          prunedQuery == null
+              ? new MatchNoneQueryBuilder()
+              : SearchTemplateJson.parseQuery(prunedQuery);
+    }
     built =
         propertyClauses(
             built, queried, properties, query, template.getStructuredPropertyQuery(), bridge);
     if (template.getClauses() != null) {
       String renderedClauses =
-          SearchTemplateMustache.render(
-              rewrite(template.getClauses(), opContext, template), context);
+          SearchTemplateFieldPruner.pruneRenderedClauses(
+              SearchTemplateMustache.render(
+                  rewrite(template.getClauses(), opContext, template), context),
+              removed);
       SearchTemplateJson.rejectForbidden(renderedClauses, "clauses");
-      built = SearchTemplateJson.mergeClauses(built, renderedClauses);
+      if (renderedClauses != null && !renderedClauses.isBlank()) {
+        built = SearchTemplateJson.mergeClauses(built, renderedClauses);
+      }
     }
-    built = SearchTemplateFieldPruner.prune(built, removedFields(base, queried));
+    built = SearchTemplateFieldPruner.prune(built, removed);
     String functionScore =
         template.getFunctionScore() == null
             ? null
@@ -243,7 +262,9 @@ public class SearchV3QueryBuilder {
       SearchTemplateJson.rejectForbidden(renderedSort, "sort");
       sorts = SearchTemplateJson.parseSort(renderedSort);
     }
-    if (template.getKnn() != null) {
+    // A keywordRerank blend never reaches the engine. Its rerank reads it later and keeps keyword
+    // order when it cannot, so an unreadable blend does not fail the search here.
+    if (template.getKnn() != null && !SearchTemplateCapabilities.keywordRerank(template)) {
       SearchTemplateJson.rejectForbidden(
           SearchTemplateMustache.render(rewrite(template.getKnn(), opContext, template), context),
           "knn");
@@ -252,6 +273,13 @@ public class SearchV3QueryBuilder {
     Map<String, RenderedSearchTemplate.NamedClause> named =
         SearchTemplateMatchReport.namedClauses(built, properties);
     built = TemplateConfiguredScores.apply(opContext, template, entitySpecs, built);
+    // Scroll drops ranking and twiddlers, so it keeps the urn-only fetch.
+    PostProcessComponent post = scroll ? null : postProcess(opContext, template);
+    List<String> sourceFields = post == null ? List.of() : List.copyOf(post.sourceFields(template));
+    List<String> matchTierFields =
+        post == null || SearchTemplateComponents.empty(template.getComponent())
+            ? List.of()
+            : post.matchTierSourceFields(SearchTemplateComponents.config(template.getComponent()));
     List<String> queriedRoots = RenderedQueryFields.roots(built);
     return new RenderedSearchTemplate(
         built,
@@ -264,6 +292,8 @@ public class SearchV3QueryBuilder {
         query,
         named,
         estimatedClauses,
+        sourceFields,
+        matchTierFields,
         queriedFieldSources(opContext, queriedRoots),
         template.getSearchType());
   }
@@ -385,7 +415,8 @@ public class SearchV3QueryBuilder {
     List<String> analyzed = defaultQueryFields(queried);
     List<String> identityFields = SearchTemplateFields.identityAnalyzedFields(queriedFields);
     List<String> defaultWithoutIdentity =
-        SearchTemplateFields.withoutLabels(analyzed, Set.of("name", "qualifiedName", "id"));
+        SearchTemplateFields.withoutLabels(
+            analyzed, Set.of("name", "qualifiedName", "id", "email"));
     List<String> lightFields = shape.nameOnly ? List.of() : defaultWithoutIdentity;
     // A spaceless path scores qualifiedName only through the bounded clause. Leaving it in this
     // best_fields list lets one earlier token on a shorter name outrank that segment match.
@@ -398,6 +429,7 @@ public class SearchV3QueryBuilder {
     List<String> qualifiedNameFields =
         SearchTemplateFields.labelAnalyzedFields(queriedFields, "qualifiedName");
     List<String> idFields = SearchTemplateFields.labelAnalyzedFields(queriedFields, "id");
+    List<String> emailFields = keywordQueryBuilder.labelAnalyzedQueryFields(opContext, "email");
     SearchFieldResolver fieldResolver =
         V3SearchFieldModel.forSearchableEntities(opContext.getEntityRegistry()).resolver();
     Map<String, Object> context = new LinkedHashMap<>();
@@ -428,7 +460,22 @@ public class SearchV3QueryBuilder {
       context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
     }
     context.put(
+        SearchTemplateContextVariables.EMAIL_FIELDS_JSON, SearchTemplateMustache.json(emailFields));
+    if (!emailFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.EMAIL_FIELDS, Boolean.TRUE);
+    }
+    context.put(
         SearchTemplateContextVariables.LIGHT_FIELDS_JSON, SearchTemplateMustache.json(lightFields));
+    // An empty fields list makes OpenSearch search every field, so templates guard those clauses.
+    if (!analyzed.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_DEFAULT_QUERY_FIELDS, Boolean.TRUE);
+    }
+    if (!defaultWithoutIdentity.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY, Boolean.TRUE);
+    }
+    if (!lightFields.isEmpty()) {
+      context.put(SearchTemplateContextVariables.HAS_LIGHT_FIELDS, Boolean.TRUE);
+    }
     context.put(
         SearchTemplateContextVariables.LIGHT_OPERATOR,
         shape.fullyQualifiedName || shape.longExactName ? "AND" : "OR");
@@ -461,6 +508,15 @@ public class SearchV3QueryBuilder {
         exactPath(fieldResolver, "name", SearchFieldResolver.Intent.EXACT, "name"));
     context.put(SearchTemplateContextVariables.NAME_TEXT, analyzedPath(fieldResolver, "name"));
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, analyzedPath(fieldResolver, "name"));
+    // The whole-name prefix reads name.lowercase, which a field opts into. The field resolver above
+    // is the registry, so it reports the subfield whenever any entity has it. This check is the
+    // entities being queried: one name without the subfield drops the clause, and the analyzed
+    // prefix stays.
+    if (queriedNamesUseLowercase(entitySpecs)) {
+      context.put(
+          SearchTemplateContextVariables.PREFIX_KEYWORD,
+          SearchTemplateFields.lowercaseKeywordPath("name"));
+    }
     context.put(
         SearchTemplateContextVariables.QUALIFIED_NAME_KEYWORD,
         exactPath(
@@ -477,6 +533,10 @@ public class SearchV3QueryBuilder {
     context.put(
         SearchTemplateContextVariables.ID_KEYWORD,
         exactPath(fieldResolver, "id", SearchFieldResolver.Intent.EXACT, "id"));
+    context.put(
+        SearchTemplateContextVariables.EMAIL_KEYWORD,
+        exactPath(fieldResolver, "email", SearchFieldResolver.Intent.EXACT, "email"));
+    context.put(SearchTemplateContextVariables.EMAIL_TEXT, analyzedPath(fieldResolver, "email"));
     context.put(SearchTemplateContextVariables.URN_KEYWORD, urnExact);
     context.put(SearchTemplateContextVariables.ENTITY_TYPES, entityTypeNames(entitySpecs));
     putScoreFunctions(context, entitySpecs);
@@ -730,7 +790,8 @@ public class SearchV3QueryBuilder {
   /**
    * Every Mustache-rendered section of the template, joined. A variable only has to be produced
    * when some section references it. The section text is the signal: the template URN is not,
-   * because a copy or a child keeps the hole and changes the URN.
+   * because a copy or a child keeps the hole and changes the URN, and the shipped sets name the
+   * same template differently.
    */
   @Nonnull
   private static String templateBlob(@Nonnull MergedSearchTemplate template) {
@@ -852,6 +913,29 @@ public class SearchV3QueryBuilder {
   }
 
   @Nonnull
+  /**
+   * Whether every queried entity that has a name field opted into {@code v3.lowercase}. An entity
+   * with no name field does not count. One name without the subfield means the shared clause would
+   * name a field that index does not have.
+   */
+  private static boolean queriedNamesUseLowercase(@Nonnull List<EntitySpec> entitySpecs) {
+    boolean sawName = false;
+    for (EntitySpec spec : entitySpecs) {
+      SearchFieldResolver resolver = new SearchFieldResolver(List.of(spec));
+      boolean hasName =
+          resolver.supports("name", SearchFieldResolver.Intent.EXACT)
+              || resolver.supports("name", SearchFieldResolver.Intent.FULL_TEXT);
+      if (!hasName) {
+        continue;
+      }
+      sawName = true;
+      if (!resolver.hasLowercaseSubfield("name")) {
+        return false;
+      }
+    }
+    return sawName;
+  }
+
   private static List<String> entityTypeNames(@Nonnull List<EntitySpec> entitySpecs) {
     List<String> names = new ArrayList<>();
     for (EntitySpec spec : entitySpecs) {
@@ -1180,6 +1264,30 @@ public class SearchV3QueryBuilder {
       }
     }
     return null;
+  }
+
+  @Nullable
+  private static PostProcessComponent postProcess(
+      @Nonnull OperationContext opContext, @Nonnull MergedSearchTemplate template) {
+    com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
+    if (spec == null
+        || SearchTemplateComponents.empty(spec)
+        || spec.getMode() != com.linkedin.search.template.SearchTemplateComponentMode.POST_PROCESS
+        || !spec.hasName()
+        || !spec.hasVersion()
+        || spec.getVersion() == null) {
+      return null;
+    }
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+    if (coordinator == null) {
+      return null;
+    }
+    return coordinator
+        .components()
+        .find(spec.getName(), spec.getVersion())
+        .filter(PostProcessComponent.class::isInstance)
+        .map(PostProcessComponent.class::cast)
+        .orElse(null);
   }
 
   @Nonnull

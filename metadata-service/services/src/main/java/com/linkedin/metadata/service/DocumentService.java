@@ -76,9 +76,19 @@ public class DocumentService {
   private static final String PARENT_DOCUMENT_FIELD = "parentDocument";
 
   private final SystemEntityClient entityClient;
+  private final String createdAtField;
 
   public DocumentService(@Nonnull SystemEntityClient entityClient) {
+    this(entityClient, CREATED_AT_FIELD);
+  }
+
+  /**
+   * @param createdAtField the sort field for a browse with no explicit sort. Search V3 does not
+   *     index {@code createdAt}; that index uses {@code _system.created.time}.
+   */
+  public DocumentService(@Nonnull SystemEntityClient entityClient, @Nonnull String createdAtField) {
     this.entityClient = entityClient;
+    this.createdAtField = createdAtField;
   }
 
   /**
@@ -1213,7 +1223,7 @@ public class DocumentService {
     } else if (isWildcardQuery(query)) {
       sortCriteria =
           Collections.singletonList(
-              new SortCriterion().setField(CREATED_AT_FIELD).setOrder(SortOrder.DESCENDING));
+              new SortCriterion().setField(createdAtField).setOrder(SortOrder.DESCENDING));
     } else {
       sortCriteria = Collections.emptyList();
     }

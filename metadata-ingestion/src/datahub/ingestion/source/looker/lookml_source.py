@@ -743,12 +743,15 @@ class LookMLSource(StatefulIngestionSourceBase):
             looker_view
         )
 
+        platform_detail = self.source_config.view_platform_detail(
+            looker_view.id.project_name
+        )
         yield Dataset(
             platform=self.source_config.platform_name,
             name=looker_view.id.get_view_dataset_name(self.source_config),
             display_name=looker_view.id.view_name,
-            platform_instance=self.source_config.platform_instance,
-            env=self.source_config.env,
+            platform_instance=platform_detail.platform_instance,
+            env=platform_detail.env,
             subtype=DatasetSubTypes.VIEW,
             parent_container=looker_view.id.get_view_dataset_parent_container(
                 self.source_config
@@ -1265,6 +1268,12 @@ class LookMLSource(StatefulIngestionSourceBase):
                                 view_urn = maybe_looker_view.id.get_urn(
                                     self.source_config
                                 )
+                                if self._is_owned_by_another_recipe(
+                                    maybe_looker_view.id.project_name
+                                ):
+                                    self.reporter.report_view_owned_elsewhere(view_urn)
+                                    processed_view_files.add(include.include)
+                                    continue
 
                                 view_connection_mapping = view_connection_map.get(
                                     view_urn
@@ -1325,6 +1334,17 @@ class LookMLSource(StatefulIngestionSourceBase):
         ):
             # Emit tag definitions for measures and dimensions if we produced any metadata:
             yield from LookerUtil.gen_tag_workunits()
+
+    def _is_owned_by_another_recipe(self, project_name: str) -> bool:
+        # A project mapped to another platform instance or env is ingested by
+        # that instance's own recipe. Emitting its views here would write onto
+        # entities this recipe doesn't own (and stale-entity removal could then
+        # soft-delete them), so they are only referenced through lineage.
+        platform_detail = self.source_config.view_platform_detail(project_name)
+        return (
+            platform_detail.platform_instance != self.source_config.platform_instance
+            or platform_detail.env != self.source_config.env
+        )
 
     def gen_project_containers(self, project_name: str) -> Iterable[Container]:
         project_key = gen_project_key(

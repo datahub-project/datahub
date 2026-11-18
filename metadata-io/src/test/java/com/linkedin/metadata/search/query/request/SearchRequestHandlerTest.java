@@ -808,6 +808,56 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
   }
 
   /**
+   * IN is a terms query on the index's keyword path whether or not a Search V3 template is
+   * selected. V2 keeps {@code .keyword}. V3 uses the resolved root. This request is built by the
+   * Java query builder: the operation has no template coordinator.
+   */
+  @Test
+  public void testInFilterKeepsV2KeywordAndV3RootWithoutATemplate() {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion(
+                                    "platform",
+                                    Condition.IN,
+                                    "urn:li:dataPlatform:hive",
+                                    "urn:li:dataPlatform:kafka")))));
+    OperationContext flags =
+        operationContext.withSearchFlags(flag -> flag.setFulltext(true).setSkipAggregates(true));
+
+    String v2 = datasetSearch(flags, testQueryConfig, filter).source().query().toString();
+    assertTrue(compact(v2).contains("\"terms\":{\"platform.keyword\":["), v2);
+    assertFalse(v2.contains("platform_urn"), v2);
+
+    String v3 = datasetSearch(flags, V3_READ_CONFIG, filter).source().query().toString();
+    assertTrue(compact(v3).contains("\"terms\":{\"platform_urn\":["), v3);
+    assertFalse(v3.contains("platform_urn.keyword"), v3);
+    assertFalse(v3.contains("platform.keyword"), v3);
+    // The Java builder's dis_max, rather than the list template's match_all.
+    assertTrue(v3.contains("dis_max"), v3);
+  }
+
+  private SearchRequest datasetSearch(
+      OperationContext context, ElasticSearchConfiguration config, Filter filter) {
+    return SearchRequestHandler.getBuilder(
+            operationContext,
+            operationContext.getEntityRegistry().getEntitySpec(DATASET_ENTITY_NAME),
+            config,
+            null,
+            QueryFilterRewriteChain.EMPTY,
+            TEST_SEARCH_SERVICE_CONFIG)
+        .getSearchRequest(context, "*", filter, null, 0, 10, List.of());
+  }
+
+  private static String compact(String query) {
+    return query.replaceAll("\\s+", "");
+  }
+
+  /**
    * V3 strips caller-supplied legacy subfields and resolves from the registry; entity type enum
    * names, as the UI sends them, still match the V3 _entityType field.
    */
@@ -1033,6 +1083,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
     assertTrue(description.contains("\"description.text\""), description);
     assertTrue(description.contains("\"description.stemmed\""), description);
     assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
     assertFalse(description.contains("wildcard"), description);
 
     String fieldDescriptions =
@@ -1056,6 +1107,34 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
         editedFieldDescriptions.contains("\"editedFieldDescriptions.text\""),
         editedFieldDescriptions);
     assertFalse(editedFieldDescriptions.contains("wildcard"), editedFieldDescriptions);
+  }
+
+  /**
+   * A stacked identifier matches its preserved original token, so {@code fct_users_deleted} does
+   * not match {@code fct_users_created}. Its parts are also required together, so {@code fct_users}
+   * matches a description that contains {@code fct_users_deleted}.
+   */
+  @Test
+  public void testV3ContainOnStackedTokenMatchesOriginalOrAllParts() {
+    String description =
+        v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users_deleted"));
+    assertTrue(description.contains("\"description.text\""), description);
+    assertTrue(description.contains("\"query\" : \"fct_users_deleted\""), description);
+    assertTrue(description.contains("\"query\" : \"fct\""), description);
+    assertTrue(description.contains("\"query\" : \"users\""), description);
+    assertTrue(description.contains("\"query\" : \"deleted\""), description);
+    assertTrue(description.contains("\"analyzer\" : \"standard\""), description);
+    assertTrue(description.contains("\"must\""), description);
+    assertTrue(description.contains("\"operator\" : \"AND\""), description);
+    assertFalse(description.contains("wildcard"), description);
+
+    String prefix = v3Filter(buildCriterion("description", Condition.CONTAIN, "fct_users"));
+    assertTrue(prefix.contains("\"query\" : \"fct_users\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"fct\""), prefix);
+    assertTrue(prefix.contains("\"query\" : \"users\""), prefix);
+    assertTrue(prefix.contains("\"analyzer\" : \"standard\""), prefix);
+    assertTrue(prefix.contains("\"must\""), prefix);
+    assertFalse(prefix.contains("\"query\" : \"deleted\""), prefix);
   }
 
   @Test
@@ -1177,10 +1256,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 V3_READ_CONFIG.getEntityIndex(),
                 cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
-    assertTrue(unlabeledFalse.contains("must_not"), unlabeledFalse);
-    assertTrue(unlabeledFalse.contains("exists"), unlabeledFalse);
-    assertTrue(unlabeledFalse.contains("\"field\" : \"rowCount\""), unlabeledFalse);
-    assertFalse(unlabeledFalse.contains("\"field\" : \"hasRowCount\""), unlabeledFalse);
+    // A direct has-field stores false, so false is a term, not a missing field.
+    assertTrue(unlabeledFalse.contains("\"hasRowCount\" :"), unlabeledFalse);
+    assertFalse(unlabeledFalse.contains("\"field\" : \"rowCount\""), unlabeledFalse);
 
     String unlabeledTrue =
         SearchRequestHandler.getFilterQuery(
@@ -1198,9 +1276,8 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 V3_READ_CONFIG.getEntityIndex(),
                 cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()))
             .toString();
-    assertTrue(unlabeledTrue.contains("exists"), unlabeledTrue);
-    assertTrue(unlabeledTrue.contains("\"field\" : \"rowCount\""), unlabeledTrue);
-    assertFalse(unlabeledTrue.contains("\"field\" : \"hasRowCount\""), unlabeledTrue);
+    assertTrue(unlabeledTrue.contains("\"hasRowCount\" :"), unlabeledTrue);
+    assertFalse(unlabeledTrue.contains("\"field\" : \"rowCount\""), unlabeledTrue);
 
     String unlabeledContain =
         SearchRequestHandler.getFilterQuery(
@@ -1235,9 +1312,24 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .getAggregationRequest(operationContext, "hasActiveIncidents", null, 10)
             .source()
             .toString();
-    assertTrue(incidentCounts.contains("activeIncidents_urn"), incidentCounts);
-    assertTrue(incidentCounts.contains("exists"), incidentCounts);
-    assertFalse(incidentCounts.contains("\"field\" : \"hasActiveIncidents\""), incidentCounts);
+    // A direct has-field stores true and false, so its value counts are a terms aggregation.
+    assertTrue(
+        incidentCounts.contains("\"terms\":{\"field\":\"hasActiveIncidents\""), incidentCounts);
+    assertFalse(
+        incidentCounts.contains("\"exists\":{\"field\":\"hasActiveIncidents\""), incidentCounts);
+    String siblingsFacet =
+        handler
+            .getSearchRequest(
+                operationContext.withSearchFlags(flags -> flags.setSkipAggregates(false)),
+                "*",
+                null,
+                null,
+                0,
+                10,
+                List.of("hasSiblings"))
+            .source()
+            .toString();
+    assertTrue(siblingsFacet.contains("\"terms\":{\"field\":\"hasSiblings\""), siblingsFacet);
     assertThrows(
         IllegalArgumentException.class,
         () -> handler.getAggregationRequest(operationContext, "description", null, 10));
@@ -1263,7 +1355,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 0,
                 10,
                 List.of()));
-    String sortedByRemovedBoolean =
+    String sortedByDirectBoolean =
         handler
             .getSearchRequest(
                 operationContext.withSearchFlags(flags -> flags.setSkipAggregates(true)),
@@ -1275,8 +1367,7 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                 List.of())
             .source()
             .toString();
-    assertTrue(sortedByRemovedBoolean.contains("\"rowCount\""), sortedByRemovedBoolean);
-    assertFalse(sortedByRemovedBoolean.contains("hasRowCount"), sortedByRemovedBoolean);
+    assertTrue(sortedByDirectBoolean.contains("\"hasRowCount\""), sortedByDirectBoolean);
     String sortedByLabel =
         handler
             .getSearchRequest(
@@ -1291,6 +1382,62 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
             .source()
             .toString();
     assertTrue(sortedByLabel.contains("\"hasDescription\""), sortedByLabel);
+  }
+
+  /**
+   * A direct has-field is a term on its own boolean. The conjunctive builder negates a negated
+   * criterion once, so NOT hasRowCount = true excludes only the rows whose boolean is true.
+   */
+  @Test
+  public void testV3DirectHasValuesIsATermNegatedOnce() {
+    assertEquals(directHasValuesTerms(false, "true"), List.of("filter:true"));
+    assertEquals(directHasValuesTerms(false, "false"), List.of("filter:false"));
+    assertEquals(directHasValuesTerms(true, "true"), List.of("must_not:true"));
+    assertEquals(directHasValuesTerms(true, "false"), List.of("must_not:false"));
+  }
+
+  /**
+   * Each term on hasRowCount as {@code filter:<value>} or, under an odd must_not, {@code
+   * must_not:<value>}.
+   */
+  private List<String> directHasValuesTerms(boolean negated, String value) {
+    Filter filter =
+        new Filter()
+            .setOr(
+                new ConjunctiveCriterionArray(
+                    new ConjunctiveCriterion()
+                        .setAnd(
+                            new CriterionArray(
+                                buildCriterion("hasRowCount", Condition.EQUAL, negated, value)))));
+    QueryBuilder query =
+        SearchRequestHandler.getFilterQuery(
+            operationContext,
+            List.of("dataset"),
+            filter,
+            new HashMap<>(),
+            QueryFilterRewriteChain.EMPTY,
+            V3_READ_CONFIG.getEntityIndex(),
+            cachedV3Resolver(V3_READ_CONFIG.getEntityIndex()));
+    List<String> found = new ArrayList<>();
+    collectTerms(query, "hasRowCount", false, found);
+    return found;
+  }
+
+  private static void collectTerms(
+      QueryBuilder query, String field, boolean negated, List<String> found) {
+    String prefix = negated ? "must_not:" : "filter:";
+    if (query instanceof TermQueryBuilder term && field.equals(term.fieldName())) {
+      found.add(prefix + term.value());
+    } else if (query instanceof TermsQueryBuilder terms && field.equals(terms.fieldName())) {
+      terms.values().forEach(v -> found.add(prefix + v));
+    } else if (query instanceof ExistsQueryBuilder exists && field.equals(exists.fieldName())) {
+      found.add(prefix + "exists");
+    } else if (query instanceof BoolQueryBuilder bool) {
+      bool.must().forEach(q -> collectTerms(q, field, negated, found));
+      bool.filter().forEach(q -> collectTerms(q, field, negated, found));
+      bool.should().forEach(q -> collectTerms(q, field, negated, found));
+      bool.mustNot().forEach(q -> collectTerms(q, field, !negated, found));
+    }
   }
 
   private String v3Filter(Criterion... criteria) {
@@ -1846,6 +1993,9 @@ public class SearchRequestHandlerTest extends AbstractTestNGSpringContextTests {
                         Stream.of(
                             "skills", "teams", "ldap", "fullName", "email", "slackDisplayName"))
                     .collect(Collectors.toSet()))
+            .put(
+                EntityType.CORP_GROUP,
+                Stream.concat(COMMON.stream(), Stream.of("email")).collect(Collectors.toSet()))
             .put(
                 EntityType.DOMAIN,
                 Stream.concat(COMMON.stream(), Stream.of("parentDomain"))

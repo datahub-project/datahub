@@ -58,6 +58,7 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
     views_dropped_unreachable: LossyList[str] = dataclass_field(
         default_factory=LossyList
     )
+    views_owned_elsewhere: LossyList[str] = dataclass_field(default_factory=LossyList)
     query_parse_attempts: int = 0
     query_parse_failures: int = 0
     query_parse_failure_views: LossyList[str] = dataclass_field(
@@ -79,6 +80,9 @@ class LookMLSourceReport(StaleEntityRemovalSourceReport):
 
     def report_unreachable_view_dropped(self, view: str) -> None:
         self.views_dropped_unreachable.append(view)
+
+    def report_view_owned_elsewhere(self, view: str) -> None:
+        self.views_owned_elsewhere.append(view)
 
     def compute_stats(self) -> None:
         if self._looker_api:

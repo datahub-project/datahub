@@ -72,6 +72,20 @@
                 "zero_terms_query" : "NONE"
               }
             }, {
+              "multi_match" : {
+                "auto_generate_synonyms_phrase_query" : true,
+                "boost" : 1.0,
+                "fields" : [ "email.text^2.0" ],
+                "fuzzy_transpositions" : true,
+                "max_expansions" : 50,
+                "operator" : "OR",
+                "prefix_length" : 0,
+                "query" : "orders",
+                "slop" : 0,
+                "type" : "best_fields",
+                "zero_terms_query" : "NONE"
+              }
+            }, {
               "term" : {
                 "name" : {
                   "_name" : "matchedField:name",
@@ -93,6 +107,15 @@
               "term" : {
                 "id" : {
                   "_name" : "matchedField:id",
+                  "boost" : 100.0,
+                  "case_insensitive" : true,
+                  "value" : "orders"
+                }
+              }
+            }, {
+              "term" : {
+                "email" : {
+                  "_name" : "matchedField:email",
                   "boost" : 100.0,
                   "case_insensitive" : true,
                   "value" : "orders"

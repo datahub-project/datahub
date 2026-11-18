@@ -1256,6 +1256,27 @@ public class ReindexConfigTest {
   }
 
   @Test
+  void testTargetWithoutStructuredPropertiesContainerRemovesNoProperty() {
+    // LoadIndices builds configs from empty targets only to manage index settings.
+    ReindexConfig config =
+        ReindexConfig.builder()
+            .name(TEST_INDEX_NAME)
+            .exists(true)
+            .currentMappings(
+                createMappingsWithStructuredProperties(
+                    ImmutableMap.of("prop1", ImmutableMap.of("type", "text"))))
+            .targetMappings(new HashMap<>())
+            .currentSettings(Settings.EMPTY)
+            .targetSettings(new HashMap<>())
+            .enableIndexMappingsReindex(true)
+            .enableStructuredPropertiesReindex(true)
+            .build();
+
+    Assert.assertFalse(config.hasRemovedStructuredProperty());
+    Assert.assertFalse(config.requiresReindex());
+  }
+
+  @Test
   void testStructuredPropertyNumberTypeMismatchFloatVsDoubleRequiresReindex() {
     // Dynamic mapping can lock NUMBER fields as float; definition-driven target is double.
     Map<String, Object> currentMappings =

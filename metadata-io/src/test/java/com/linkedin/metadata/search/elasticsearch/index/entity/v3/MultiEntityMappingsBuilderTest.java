@@ -324,7 +324,10 @@ public class MultiEntityMappingsBuilderTest {
                       assertTrue(aspectFields.containsKey(name), where + name);
                     } else {
                       assertFalse(aspectFields.containsKey(name), where + name);
-                      assertFalse(root.containsKey(name), entitySpec.getName() + " root " + name);
+                      assertEquals(
+                          root.get(name),
+                          Map.of("type", "boolean"),
+                          entitySpec.getName() + " root " + name);
                     }
                   });
           annotation
@@ -820,10 +823,11 @@ public class MultiEntityMappingsBuilderTest {
         ((Map<String, Object>) datasetProperties.get("verifiedForms_urn")).get("type"), "keyword");
     assertNull(getAspectFieldMapping(datasetProperties, "forms", "verifiedForms__urn_name"));
     assertNull(getAspectFieldMapping(datasetProperties, "datasetProfile", "hasSizeInBytes"));
-    assertFalse(datasetProperties.containsKey("hasSizeInBytes"));
-    assertFalse(datasetProperties.containsKey("hasRowCount"));
-    assertFalse(datasetProperties.containsKey("hasColumnCount"));
-    assertFalse(datasetProperties.containsKey("hasActiveIncidents"));
+    // Direct has-fields: one source writes a root boolean, with no aspect copy.
+    for (String direct :
+        List.of("hasSizeInBytes", "hasRowCount", "hasColumnCount", "hasActiveIncidents")) {
+      assertEquals(datasetProperties.get(direct), Map.of("type", "boolean"), direct);
+    }
     Map<String, Object> aspectTagName =
         getAspectFieldMapping(datasetProperties, "globalTags", "tags__urn_name");
     assertEquals(aspectTagName.get("copy_to"), List.of("tags"));
@@ -918,7 +922,8 @@ public class MultiEntityMappingsBuilderTest {
     for (IndexMapping v2Mapping :
         new V2MappingsBuilder(
                 TEST_ES_SEARCH_CONFIG.getEntityIndex(),
-                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG)
+                OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+                ESUtils.KEYWORD_MAXLENGTH)
             .getIndexMappings(registryContext)) {
       String v3Index = v2Mapping.getIndexName().replace("index_v2", "index_v3");
       Map<String, Object> v3Properties = v3PropertiesByIndex.get(v3Index);
@@ -1727,6 +1732,61 @@ public class MultiEntityMappingsBuilderTest {
     assertEquals(entityType.get("type"), "keyword");
   }
 
+  /**
+   * Query subjects and incidents both store URNs under {@code entities}, and neither is a shared
+   * search label. The parsed name is not a root, so the shared mapping must not keep the complete
+   * URN on an {@code ignore_above} keyword named {@code entities}. It belongs on {@code
+   * entities_urn}, which is what an {@code entities} filter reads. A KEYWORD annotation on either
+   * contributor drops that sibling, and incident health then aggregates a field the index does not
+   * map.
+   */
+  @Test
+  @SuppressWarnings("unchecked")
+  public void testSharedEntitiesFieldKeepsTheFullUrnSibling() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+
+    Map<String, Object> properties =
+        getProperties(
+            new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+                .getIndexMappings(registryContext)
+                .iterator()
+                .next()
+                .getMappings());
+
+    assertFalse(
+        properties.containsKey("entities"),
+        "complete URNs stay on entities_urn: " + properties.get("entities"));
+
+    Map<String, Object> entitiesUrn = (Map<String, Object>) properties.get("entities_urn");
+    assertNotNull(entitiesUrn, properties.keySet().toString());
+    assertEquals(entitiesUrn.get("type"), "keyword", entitiesUrn.toString());
+    assertFalse(entitiesUrn.containsKey("ignore_above"), entitiesUrn.toString());
+    Map<String, Object> lowercase =
+        (Map<String, Object>) ((Map<String, Object>) entitiesUrn.get("fields")).get("lowercase");
+    assertEquals(lowercase.get("type"), "keyword", lowercase.toString());
+    assertEquals(lowercase.get("normalizer"), "keyword_normalizer", lowercase.toString());
+
+    for (String aspectName : List.of("incidentInfo", "querySubjects")) {
+      Map<String, Object> source = getAspectFieldMapping(properties, aspectName, "entities");
+      assertEquals(source.get("copy_to"), List.of("entities_urn"), aspectName + " " + source);
+    }
+
+    List<EntitySpec> searchable =
+        V3SearchFields.searchableEntitySpecs(registryContext.getEntityRegistry());
+    SearchFieldResolver allEntities = new SearchFieldResolver(searchable);
+    assertEquals(
+        allEntities.exactPath("entities", SearchFieldResolver.Intent.FILTER), "entities_urn");
+    SearchFieldResolver incidentsOnly =
+        new SearchFieldResolver(
+            List.of(registryContext.getEntityRegistry().getEntitySpec(INCIDENT_ENTITY_NAME)));
+    assertEquals(
+        incidentsOnly.exactPath("entities", SearchFieldResolver.Intent.FILTER), "entities_urn");
+    assertEquals(
+        incidentsOnly.exactPath("entities.keyword", SearchFieldResolver.Intent.FILTER),
+        "entities_urn");
+  }
+
   @Test
   @SuppressWarnings("unchecked")
   public void testStructuredPropertyFullTextFieldIsMappedWithoutProperties() {
@@ -1901,6 +1961,40 @@ public class MultiEntityMappingsBuilderTest {
 
   @Test
   @SuppressWarnings("unchecked")
+  public void testDirectHasValuesIsARootBooleanWithoutCopyTo() throws IOException {
+    when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
+    OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
+    Map<String, Object> datasetProperties = null;
+    for (IndexMapping mapping :
+        new MultiEntityMappingsBuilder(mockConfig, null, ESUtils.KEYWORD_MAXLENGTH, List.of())
+            .getIndexMappings(registryContext)) {
+      Map<String, Object> properties = getProperties(mapping.getMappings());
+      Map<String, Object> aspects = (Map<String, Object>) properties.get("_aspects");
+      if (aspects != null
+          && ((Map<String, Object>) aspects.get("properties")).containsKey("siblings")) {
+        datasetProperties = properties;
+      }
+    }
+
+    assertNotNull(datasetProperties);
+    Map<String, Object> hasSiblings = (Map<String, Object>) datasetProperties.get("hasSiblings");
+    assertEquals(hasSiblings, Map.of("type", "boolean"));
+    Map<String, Object> siblingsAspect =
+        (Map<String, Object>)
+            ((Map<String, Object>)
+                    ((Map<String, Object>) datasetProperties.get("_aspects")).get("properties"))
+                .get("siblings");
+    assertFalse(
+        ((Map<String, Object>) siblingsAspect.get("properties")).containsKey("hasSiblings"),
+        siblingsAspect.toString());
+    // The shared boolean keeps its aspect copy and copy_to.
+    assertEquals(
+        aspectBooleanCopyTo(datasetProperties, "datasetProperties", "hasDescription"),
+        List.of("hasDescription"));
+  }
+
+  @Test
+  @SuppressWarnings("unchecked")
   public void testParentHasValuesCopiesToTheSpecificAndSharedBooleans() throws IOException {
     when(mockV3Config.getMappingConfig()).thenReturn("search_entity_mapping_config.yaml");
     OperationContext registryContext = TestOperationContexts.systemContextNoSearchAuthorization();
@@ -1975,7 +2069,6 @@ public class MultiEntityMappingsBuilderTest {
         resolver.exactPath("hasParentDataProduct", SearchFieldResolver.Intent.FILTER),
         "hasParentDataProduct");
     assertTrue(resolver.falseIsMissing("hasParentDataProduct"));
-    assertEquals(resolver.unlabeledHasValuesSource("hasParentDataProduct"), Optional.empty());
     assertEquals(resolver.hasValuesFieldName("parent"), Optional.of("hasParent"));
   }
 

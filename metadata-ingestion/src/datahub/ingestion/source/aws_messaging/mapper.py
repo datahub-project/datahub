@@ -6,6 +6,7 @@ from urllib.parse import quote
 
 from datahub.configuration.common import AllowDenyPattern
 from datahub.emitter.mce_builder import make_domain_urn, make_tag_urn
+from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.emitter.mcp_builder import ContainerKey
 from datahub.ingestion.api.workunit import MetadataWorkUnit
 from datahub.ingestion.source.aws_messaging.arn import (
@@ -26,6 +27,7 @@ from datahub.ingestion.source.aws_messaging.models import (
 )
 from datahub.metadata.schema_classes import (
     GlossaryTermAssociationClass,
+    StatusClass,
     TagAssociationClass,
 )
 from datahub.specific.dataset import DatasetPatchBuilder
@@ -93,6 +95,15 @@ def secondary(workunits: Iterable[MetadataWorkUnit]) -> Iterable[MetadataWorkUni
     for workunit in workunits:
         workunit.is_primary_source = False
         yield workunit
+
+
+def shared_status(urn: str) -> MetadataWorkUnit:
+    """Status for an entity both sources may emit. The status processor skips
+    non-primary workunits, so it's written explicitly; both sources only ever
+    write removed=False, and stale removal stays off for these entities."""
+    return MetadataChangeProposalWrapper(
+        entityUrn=urn, aspect=StatusClass(removed=False)
+    ).as_workunit(is_primary_source=False)
 
 
 def non_empty(props: Dict[str, Optional[str]]) -> Dict[str, str]:

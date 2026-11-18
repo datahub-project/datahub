@@ -6,6 +6,7 @@ import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuA
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import { EntitySidebarTab, TabContextType, TabRenderType } from '@app/entityV2/shared/types';
+import CompactContext from '@app/sharedV2/CompactContext';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import { PAGE_GAP_PX } from '@app/sharedV2/layouts/constants';
 import SidebarResizer from '@app/sharedV2/sidebar/HierarchicalBrowseSidebar/SidebarResizer';
@@ -153,6 +154,7 @@ export default function EntityProfileSidebar({
     className,
 }: Props) {
     const { isClosed, setWidth } = useContext(EntitySidebarContext);
+    const isCompact = useContext(CompactContext);
     const [isResizing, setIsResizing] = useState(false);
     const containerRef = useRef<HTMLDivElement>(null);
     const isShowNavBarRedesign = useShowNavBarRedesign();
@@ -165,9 +167,11 @@ export default function EntityProfileSidebar({
     const hideCollapse = contextType === TabContextType.CHROME_SIDEBAR;
     // Any host that provides a width setter (entity page, search, lineage, ...) gets a drag handle.
     const canResize = !hideCollapse && !isClosed;
-    // Only on the entity page is the sidebar's parent the page row; elsewhere the parent is the
-    // sidebar's own wrapper, so capping to its share would halve the panel.
-    const capsToRowShare = canResize && contextType === TabContextType.PROFILE_SIDEBAR;
+    // Only on the entity page is the sidebar's parent the page row. Compact hosts (search, lineage,
+    // task center, ...) wrap the sidebar in their own shrink-to-fit container, where a percentage
+    // max-width is cyclic: the wrapper grows to the sidebar's no-wrap content and crowds out the page
+    // while the visible panel stays capped. Only cap when this really is the entity page.
+    const capsToRowShare = canResize && !isCompact && contextType === TabContextType.PROFILE_SIDEBAR;
 
     return (
         <StyledEntitySidebarContainer

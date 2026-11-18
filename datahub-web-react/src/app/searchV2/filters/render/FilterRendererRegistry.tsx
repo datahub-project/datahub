@@ -1,5 +1,6 @@
 import { FilterRenderer } from '@app/searchV2/filters/render/FilterRenderer';
 import { FilterRenderProps } from '@app/searchV2/filters/render/types';
+import { AppConfigWithoutPolicyPrivileges } from '@src/appConfigContext';
 
 function validatedGet<K, V>(key: K, map: Map<K, V>): V {
     if (map.has(key)) {
@@ -19,6 +20,16 @@ export default class FilterRendererRegistry {
     register(renderer: FilterRenderer) {
         this.renderers.push(renderer);
         this.fieldNameToRenderer.set(renderer.field, renderer);
+    }
+
+    canBeRendered(field: string, config?: AppConfigWithoutPolicyPrivileges) {
+        const renderer = validatedGet(field, this.fieldNameToRenderer);
+        return renderer.canBeRendered ? renderer.canBeRendered(config) : true;
+    }
+
+    getName(field: string): string | undefined {
+        const renderer = validatedGet(field, this.fieldNameToRenderer);
+        return renderer.name;
     }
 
     hasRenderer(field: string): boolean {

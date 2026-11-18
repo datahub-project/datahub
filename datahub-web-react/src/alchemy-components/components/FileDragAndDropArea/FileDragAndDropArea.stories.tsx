@@ -1,5 +1,6 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
 import type { Meta, StoryObj } from '@storybook/react';
+import { fn } from '@storybook/test';
 import React from 'react';
 
 import { FileDragAndDropArea } from '.';
@@ -26,7 +27,6 @@ const meta = {
             table: {
                 defaultValue: { summary: 'undefined' },
             },
-            action: 'filesUploaded',
         },
         className: {
             description: 'Additional CSS class name(s) to apply to the component',
@@ -36,11 +36,7 @@ const meta = {
 
     // Define defaults
     args: {
-        onFilesUpload: (files: File[]) => {
-            console.log('Files uploaded:', Array.from(files));
-            // Simulate async operation
-            return Promise.resolve();
-        },
+        onFilesUpload: fn(() => Promise.resolve()),
     },
 } satisfies Meta<typeof FileDragAndDropArea>;
 

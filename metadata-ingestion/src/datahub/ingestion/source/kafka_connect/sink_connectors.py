@@ -18,6 +18,7 @@ from datahub.ingestion.source.kafka_connect.common import (
     validate_jdbc_url,
 )
 from datahub.ingestion.source.kafka_connect.config_constants import (
+    S3_SENSITIVE_CONFIG_KEYS,
     ConnectorConfigKeys,
     parse_comma_separated_list,
     parse_topic_to_table_map,
@@ -84,19 +85,11 @@ class ConfluentS3SinkConnector(BaseConnector):
         return self._get_topics_from_sink_config()
 
     def extract_flow_property_bag(self) -> Dict[str, str]:
-        # Mask/Remove properties that may reveal credentials
-        flow_property_bag: Dict[str, str] = {
+        return {
             k: v
             for k, v in self.connector_manifest.config.items()
-            if k
-            not in [
-                "aws.access.key.id",
-                "aws.secret.access.key",
-                "s3.sse.customer.key",
-                "s3.proxy.password",
-            ]
+            if k not in S3_SENSITIVE_CONFIG_KEYS
         }
-        return flow_property_bag
 
     def extract_lineages(self) -> List[KafkaConnectLineage]:
         try:

@@ -1,4 +1,5 @@
 import json
+import re
 from typing import Any, Dict, List, Optional, cast
 from unittest.mock import patch
 
@@ -506,6 +507,13 @@ def register_mock_api(request_mock: Any, override_data: Optional[dict] = None) -
 
     api_vs_response.update(override_data)
 
+    # Registered first so an exact /schema URL in override_data wins.
+    request_mock.register_uri(
+        "GET",
+        re.compile(r"https://aws-api\.sigmacomputing\.com/v2/workbooks/[^/]+/schema$"),
+        json={"sheets": {}, "elements": {}},
+        status_code=200,
+    )
     for url in api_vs_response:
         request_mock.register_uri(
             api_vs_response[url]["method"],
@@ -1142,6 +1150,18 @@ def get_mock_data_model_api() -> Dict[str, Dict]:
                 "nextPage": None,
             },
         },
+        **_files_not_found("dmWarehouseTableX"),
+    }
+
+
+def _files_not_found(url_id: str) -> Dict[str, Dict]:
+    """A /files/{urlId} lookup answered 404 (table deleted or not visible)."""
+    return {
+        f"https://aws-api.sigmacomputing.com/v2/files/{url_id}": {
+            "method": "GET",
+            "status_code": 404,
+            "json": {},
+        }
     }
 
 
@@ -1498,7 +1518,8 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
       - sourceElem   : table, upstream of downstream elements (warehouse table lineage)
       - warehouseElem: table, column "[FIVETRAN_LOG__SAMPLE/some_col]" -> warehouse URN
       - downstreamElem: table, column "[T Source/col]" -> sourceElem chart URN
-      - noFormulaElem : table, columns have no formula -> zero InputFields entries
+      - noFormulaElem : table, columns have no formula; col_a's upstreams come
+                        from /schema by id, col_b's only ref is a warehouse one
       - paramSiblingElem: columns "[P_param]" + "[bare_col]" -> zero entries (param + sibling)
     """
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
@@ -1573,32 +1594,139 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
                 "entries": [
                     {
                         "elementId": "sourceElem01",
+                        "columnId": "srcColId01",
                         "name": "col",
                         "formula": None,
                     },
                     {
                         "elementId": "downstreamElem01",
+                        "columnId": "dstColId01",
                         "name": "col",
                         "formula": "[T Source/col]",
                     },
                     {
                         "elementId": "warehouseElem01",
+                        "columnId": "whColId001",
                         "name": "some_col",
                         "formula": "[FIVETRAN_LOG__SAMPLE/some_col]",
                     },
                     {
+                        "elementId": "noFormulaElem01",
+                        "columnId": "nfColIdA01",
+                        "name": "col_a",
+                        "formula": None,
+                    },
+                    {
+                        "elementId": "noFormulaElem01",
+                        "columnId": "nfColIdB01",
+                        "name": "col_b",
+                        "formula": None,
+                    },
+                    {
                         "elementId": "paramSiblingElem01",
+                        "columnId": "psColIdM01",
                         "name": "monthly_target",
                         "formula": "[P_Monthly_Spend_Target]",
                     },
                     {
                         "elementId": "paramSiblingElem01",
+                        "columnId": "psColIdD01",
                         "name": "derived",
                         "formula": "[monthly_target]",
                     },
                 ],
-                "total": 5,
+                "total": 7,
                 "nextPage": None,
+            },
+        },
+        # Shaped like the dev-tenant payload: refs are nameRef leaves nested in
+        # the formula tree, [sheetId, columnId] for another element's column,
+        # [inode-<urlId>, NATIVE] for a warehouse one, [columnId] for a sibling.
+        "https://aws-api.sigmacomputing.com/v2/workbooks/9bbbe3b0-c0c8-4fac-b6f1-8dfebfe74f8b/schema": {
+            "method": "GET",
+            "status_code": 200,
+            "json": {
+                "sheets": {
+                    "sheetSource01": {
+                        "columns": {
+                            "srcColId01": {
+                                "formula": {
+                                    "type": "nameRef",
+                                    "path": ["inode-warehouseA", "COL"],
+                                }
+                            }
+                        }
+                    },
+                    "sheetDownstream": {
+                        "columns": {
+                            "dstColId01": {
+                                "formula": {
+                                    "type": "nameRef",
+                                    "path": ["sheetSource01", "srcColId01"],
+                                }
+                            }
+                        }
+                    },
+                    "sheetWarehouse": {
+                        "columns": {
+                            "whColId001": {
+                                "formula": {
+                                    "type": "nameRef",
+                                    "path": ["inode-fivetran", "SOME_COL"],
+                                }
+                            }
+                        }
+                    },
+                    "sheetNoFormula": {
+                        "columns": {
+                            "nfColIdA01": {
+                                "formula": {
+                                    "type": "binOp",
+                                    "op": "+",
+                                    "args": [
+                                        {
+                                            "type": "nameRef",
+                                            "path": ["sheetSource01", "srcColId01"],
+                                        },
+                                        {
+                                            "type": "callOp",
+                                            "name": "Coalesce",
+                                            "args": [
+                                                {
+                                                    "type": "nameRef",
+                                                    "path": [
+                                                        "sheetWarehouse",
+                                                        "whColId001",
+                                                    ],
+                                                }
+                                            ],
+                                        },
+                                    ],
+                                }
+                            },
+                            "nfColIdB01": {
+                                "formula": {
+                                    "type": "nameRef",
+                                    "path": ["inode-fivetran", "COL_B"],
+                                }
+                            },
+                        }
+                    },
+                    "sheetParamSibling": {
+                        "columns": {
+                            "psColIdD01": {
+                                "formula": {"type": "nameRef", "path": ["psColIdM01"]}
+                            }
+                        }
+                    },
+                },
+                "elements": {
+                    "sourceElem01": {"viz": {"sheetId": "sheetSource01"}},
+                    "downstreamElem01": {"viz": {"sheetId": "sheetDownstream"}},
+                    "warehouseElem01": {"viz": {"sheetId": "sheetWarehouse"}},
+                    "noFormulaElem01": {"viz": {"sheetId": "sheetNoFormula"}},
+                    "paramSiblingElem01": {"viz": {"sheetId": "sheetParamSibling"}},
+                },
             },
         },
         # sourceElem01: warehouse table upstream only (no sheet upstreams to resolve).
@@ -1785,9 +1913,11 @@ def test_sigma_chart_input_fields(pytestconfig, tmp_path, requests_mock):
     )
 
     report = _sigma_report(pipeline)
-    assert report.chart_input_fields_resolved == 2
-    # 3 self-ref fallbacks: sourceElem01.col (formula=None), noFormulaElem01.col_a, .col_b
-    assert report.chart_input_fields_self_ref_fallback == 3
+    assert report.chart_input_fields_resolved == 3
+    assert report.chart_input_fields_recovered_from_schema == 1
+    assert report.workbook_schema_fetched == 1
+    # sourceElem01.col (formula=None) and noFormulaElem01.col_b
+    assert report.chart_input_fields_self_ref_fallback == 2
     assert report.chart_input_fields_skipped_parameter == 1
     assert report.chart_input_fields_skipped_sibling == 1
 
@@ -2210,6 +2340,7 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
             "nextPage": None,
         },
     }
+    override_data.update(_files_not_found("unregDs000000001"))
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -2280,6 +2411,9 @@ def test_sigma_ingest_data_models_external_dataset_not_ingested(
         f"fixture has no cross-DM or unknown-shape source_ids; got "
         f"_unknown_shape={report.data_model_element_upstreams_unknown_shape}"
     )
+    # The urlId lookup's 404 is counted quietly, not as an inodeId failure.
+    assert report.dm_element_warehouse_url_id_unresolvable == 1
+    assert report.dm_element_warehouse_url_id_lookup_failed == 0
 
 
 @pytest.mark.integration
@@ -2330,6 +2464,7 @@ def test_sigma_ingest_data_models_unresolved_counters_dedup_duplicate_source_id(
             "nextPage": None,
         },
     }
+    override_data.update(_files_not_found("unregDs000000001"))
 
     register_mock_api(request_mock=requests_mock, override_data=override_data)
 
@@ -6863,6 +6998,64 @@ def test_sigma_ingest_data_models_warehouse_upstream(
         pytestconfig,
         output_path=output_path,
         golden_path=f"{test_resources_dir}/golden_test_sigma_dm_warehouse_upstream.json",
+    )
+
+
+@pytest.mark.integration
+def test_sigma_ingest_data_models_table_missing_from_lineage(
+    pytestconfig, tmp_path, requests_mock
+):
+    """A table the Data Model's /lineage omits is found via /files/{urlId}.
+
+    Same fixture as the warehouse-upstream test, minus the type=table lineage
+    entry, so the only record of the table is the element's sourceId and the
+    column's columnId. /connections/paths/{inodeId} supplies its connection.
+    """
+    test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
+
+    override_data = _get_warehouse_dm_overrides()
+    lineage = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/lineage"
+    ]["json"]
+    lineage["entries"] = [e for e in lineage["entries"] if e["type"] != "table"]
+    files = override_data.pop(
+        f"https://aws-api.sigmacomputing.com/v2/files/{_WH_INODE_ID}"
+    )
+    override_data[f"https://aws-api.sigmacomputing.com/v2/files/{_WH_URL_ID}"] = files
+    columns = override_data[
+        f"https://aws-api.sigmacomputing.com/v2/dataModels/{_WH_DM_ID}/columns"
+    ]["json"]
+    columns["entries"][0]["columnId"] = f"inode-{_WH_URL_ID}/CUSTOMER_ID"
+    columns["entries"][0]["formula"] = "[CUSTOMERS/Customer Id]"
+    override_data[
+        f"https://aws-api.sigmacomputing.com/v2/connections/paths/{_WH_INODE_ID}"
+    ] = {
+        "method": "GET",
+        "status_code": 200,
+        "json": {
+            "connectionId": _WH_CONN_ID,
+            "path": ["WAREHOUSE_COFFEE_COMPANY", "PUBLIC", "CUSTOMERS"],
+        },
+    }
+    register_mock_api(request_mock=requests_mock, override_data=override_data)
+
+    output_path = f"{tmp_path}/sigma_dm_table_missing_from_lineage_mces.json"
+    pipeline = Pipeline.create(
+        _minimal_sigma_pipeline_config(output_path, ingest_data_models=True)
+    )
+    pipeline.run()
+    pipeline.raise_from_status()
+
+    report = _sigma_report(pipeline)
+    assert report.dm_element_warehouse_resolved_by_url_id == 1
+    assert report.dm_element_warehouse_upstream_emitted == 1
+    assert report.data_model_element_upstreams_unresolved == 0
+    assert report.data_model_element_fgl_warehouse_resolved == 1
+
+    mce_helpers.check_golden_file(
+        pytestconfig,
+        output_path=output_path,
+        golden_path=f"{test_resources_dir}/golden_test_sigma_dm_table_missing_from_lineage.json",
     )
 
 

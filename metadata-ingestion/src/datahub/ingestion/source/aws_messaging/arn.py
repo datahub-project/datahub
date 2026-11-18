@@ -6,8 +6,15 @@ from datahub.emitter import mce_builder
 from datahub.emitter.mce_builder import make_dataset_urn_with_platform_instance
 from datahub.ingestion.source.aws_messaging.constants import (
     ARN_PATTERN,
+    EVENTBRIDGE_PLATFORM,
+    GOVCLOUD_REGION_PREFIX,
+    LEGACY_GLOBAL_QUEUE_REGION,
+    QUEUE_URL_HOST_PATTERN,
+    QUEUE_URL_PATTERN,
     SNS_PLATFORM,
     SQS_PLATFORM,
+    AwsPartition,
+    AwsService,
 )
 from datahub.ingestion.source.aws_messaging.models import Arn, RedrivePolicy
 
@@ -24,6 +31,36 @@ def parse_arn(value: Optional[str]) -> Optional[Arn]:
         region=match.group("region"),
         account=match.group("account") or "",
         resource=match.group("resource"),
+    )
+
+
+def parse_queue_url(url: str) -> Optional[Arn]:
+    """The ARN for an SQS queue URL, or None when the host doesn't name a region
+    (a VPC endpoint or custom domain): the region can't be guessed safely."""
+    try:
+        parts = urlsplit(url)
+    except ValueError:  # e.g. an unbalanced bracket in the host
+        return None
+    path = QUEUE_URL_PATTERN.search(parts.path or "")
+    host = QUEUE_URL_HOST_PATTERN.match(parts.hostname or "")
+    if path is None or host is None:
+        return None
+    region = host.group("region") or host.group("legacy_region")
+    if host.group("global"):
+        region = LEGACY_GLOBAL_QUEUE_REGION
+    assert region is not None
+    if host.group("china"):
+        partition = AwsPartition.CHINA
+    elif region.startswith(GOVCLOUD_REGION_PREFIX):
+        partition = AwsPartition.GOVCLOUD
+    else:
+        partition = AwsPartition.AWS
+    return Arn(
+        partition=partition.value,
+        service=AwsService.SQS.value,
+        region=region,
+        account=path.group("account"),
+        resource=path.group("name"),
     )
 
 
@@ -87,6 +124,18 @@ class UrnBuilder:
         return make_dataset_urn_with_platform_instance(
             platform=platform,
             name=self.resource_id(arn),
+            platform_instance=self.instance_for(arn.account),
+            env=self.env,
+        )
+
+    def event_bus_id(self, arn: Arn) -> str:
+        name = f"{arn.region}.{arn.event_bus_name}"
+        return name.lower() if mce_builder.DATASET_URN_TO_LOWER else name
+
+    def event_bus_urn(self, arn: Arn) -> str:
+        return make_dataset_urn_with_platform_instance(
+            platform=EVENTBRIDGE_PLATFORM,
+            name=self.event_bus_id(arn),
             platform_instance=self.instance_for(arn.account),
             env=self.env,
         )

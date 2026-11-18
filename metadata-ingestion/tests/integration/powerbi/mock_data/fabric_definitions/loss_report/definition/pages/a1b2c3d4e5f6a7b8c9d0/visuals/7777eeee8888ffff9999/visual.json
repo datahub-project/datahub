@@ -1,0 +1,48 @@
+{
+  "$schema": "https://developer.microsoft.com/json-schemas/fabric/item/report/definition/visualContainer/2.0.0/schema.json",
+  "name": "7777eeee8888ffff9999",
+  "position": {
+    "x": 20,
+    "y": 20,
+    "z": 0,
+    "height": 120,
+    "width": 300
+  },
+  "visual": {
+    "visualType": "tableEx",
+    "query": {
+      "queryState": {
+        "Values": {
+          "projections": [
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "Policies"
+                    }
+                  },
+                  "Property": "State"
+                }
+              },
+              "queryRef": "Policies.State"
+            },
+            {
+              "field": {
+                "Column": {
+                  "Expression": {
+                    "SourceRef": {
+                      "Entity": "NotInModel"
+                    }
+                  },
+                  "Property": "Ghost"
+                }
+              },
+              "queryRef": "NotInModel.Ghost"
+            }
+          ]
+        }
+      }
+    }
+  }
+}

@@ -25,6 +25,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
@@ -100,13 +101,27 @@ public class IndexUtils {
       List<ElasticSearchIndexed> elasticSearchIndexedList,
       Collection<Pair<Urn, StructuredPropertyDefinition>> structuredProperties)
       throws IOException {
+    return getAllReindexConfigs(opContext, elasticSearchIndexedList, () -> structuredProperties);
+  }
+
+  /**
+   * As {@link #getAllReindexConfigs(OperationContext, List, Collection)}, reading the structured
+   * property definitions only when no earlier step has cached the configs. On Cassandra each read
+   * is a filtering scan of the aspect table, and cached configs were already built from them.
+   */
+  public static List<ReindexConfig> getAllReindexConfigs(
+      OperationContext opContext,
+      List<ElasticSearchIndexed> elasticSearchIndexedList,
+      Supplier<? extends Collection<Pair<Urn, StructuredPropertyDefinition>>> structuredProperties)
+      throws IOException {
     // Avoid locking & reprocessing
     List<ReindexConfig> reindexConfigs = new ArrayList<>(_reindexConfigs);
     if (reindexConfigs.isEmpty()) {
+      Collection<Pair<Urn, StructuredPropertyDefinition>> definitions = structuredProperties.get();
       Map<String, ESIndexBuilder> builders = new HashMap<>();
       for (ElasticSearchIndexed elasticSearchIndexed : elasticSearchIndexedList) {
         List<ReindexConfig> serviceConfigs =
-            elasticSearchIndexed.buildReindexConfigs(opContext, structuredProperties);
+            elasticSearchIndexed.buildReindexConfigs(opContext, definitions);
         reindexConfigs.addAll(serviceConfigs);
         for (ReindexConfig config : serviceConfigs) {
           builders.put(config.name(), elasticSearchIndexed.getIndexBuilder(config.name()));

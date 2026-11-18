@@ -20,13 +20,14 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.ElasticSearchService;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
-import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchDocumentProjector;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.UpdateIndicesV3Strategy;
 import com.linkedin.metadata.search.elasticsearch.update.BulkTransferException;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.search.elasticsearch.update.ESWriteDAO;
 import com.linkedin.metadata.systemmetadata.SystemMetadataService;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.UnknownDataGuard;
+import com.linkedin.metadata.utils.elasticsearch.BulkProcessorFlushResult;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
 import com.linkedin.mxe.SystemMetadata;
@@ -49,7 +50,6 @@ import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
-import org.opensearch.index.query.QueryBuilders;
 
 @Slf4j
 public class UpdateIndicesService implements SearchIndicesService {
@@ -115,50 +115,87 @@ public class UpdateIndicesService implements SearchIndicesService {
     final GroupedEvents grouped = groupForStrategies(opContext, events);
     LinkedHashMap<Urn, List<MCLItem>> groupedEvents = grouped.byUrn();
 
+    RuntimeException strategyFailure = null;
     for (UpdateIndicesStrategy strategy : updateStrategies) {
       if (strategy.isEnabled()) {
-        strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
+        try {
+          strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
+        } catch (RuntimeException e) {
+          log.error("Update indices strategy failed; continuing required side effects", e);
+          strategyFailure = accumulateStrategyFailure(strategyFailure, e);
+        }
       }
     }
 
-    // Record throttle writes after all strategies have processed, so no strategy's
-    // recordWrite can race with another strategy's shouldThrottle on the same event.
-    recordThrottleWrites(groupedEvents);
+    // A failed strategy may not have written its target index. Only advance shared throttle state
+    // when every strategy accepted the batch.
+    if (strategyFailure == null) {
+      recordThrottleWrites(groupedEvents);
+    }
 
-    // Process each group of events for the same URN together
-    for (List<MCLItem> urnEvents : groupedEvents.values()) {
-      // Process update events
-      List<MCLItem> updateEvents =
-          urnEvents.stream()
-              .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
-              .collect(Collectors.toList());
+    // Graph and system-metadata writes are required side effects of the same unit of work. A
+    // synchronous failure here must not propagate straight out and bypass the deferred
+    // strategyFailure rethrow below, which would clobber a saved RetryableIndexingException — the
+    // MAE transports detect retryability by walking the thrown exception's cause chain, so losing a
+    // retryable would commit the offset past an unwritten V3 document. Accumulate instead, keeping
+    // any retryable failure as the primary cause.
+    try {
+      // Process each group of events for the same URN together
+      for (List<MCLItem> urnEvents : groupedEvents.values()) {
+        // Process update events
+        List<MCLItem> updateEvents =
+            urnEvents.stream()
+                .filter(e -> UPDATE_CHANGE_TYPES.contains(e.getMetadataChangeLog().getChangeType()))
+                .collect(Collectors.toList());
 
-      if (!updateEvents.isEmpty()) {
-        // Update graph indices for each event individually for now
-        for (MCLItem event : updateEvents) {
-          updateGraph(opContext, event, grouped);
+        if (!updateEvents.isEmpty()) {
+          // Update graph indices for each event individually for now
+          for (MCLItem event : updateEvents) {
+            updateGraph(opContext, event, grouped);
+          }
+
+          handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
         }
 
-        handleSystemMetadataUpdateChangeEvents(opContext, updateEvents);
+        // Process delete events
+        List<MCLItem> deleteEvents =
+            urnEvents.stream()
+                .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
+                .collect(Collectors.toList());
+
+        for (MCLItem deleteEvent : deleteEvents) {
+          Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
+          boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
+
+          // graph update first
+          updateGraph(opContext, deleteEvent, grouped);
+
+          // system metadata is last for tracing
+          handleSystemMetadataDeleteChangeEvent(
+              opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
+        }
       }
+    } catch (RuntimeException sideEffectFailure) {
+      strategyFailure = accumulateStrategyFailure(strategyFailure, sideEffectFailure);
+    }
 
-      // Process delete events
-      List<MCLItem> deleteEvents =
-          urnEvents.stream()
-              .filter(e -> e.getMetadataChangeLog().getChangeType() == ChangeType.DELETE)
-              .collect(Collectors.toList());
+    if (strategyFailure != null) {
+      throw strategyFailure;
+    }
+  }
 
-      for (MCLItem deleteEvent : deleteEvents) {
-        Pair<EntitySpec, AspectSpec> specPair = UpdateIndicesUtil.extractSpecPair(deleteEvent);
-        boolean isDeletingKey = UpdateIndicesUtil.isDeletingKey(specPair);
-
-        // graph update first
-        updateGraph(opContext, deleteEvent, grouped);
-
-        // system metadata is last for tracing
-        handleSystemMetadataDeleteChangeEvent(
-            opContext, deleteEvent.getUrn(), specPair, isDeletingKey);
-      }
+  /**
+   * Removes temporary V3 fill guards after the corresponding catch-up window has converged. A
+   * cleanup that does not finish throws, so catch-up stays incomplete and the next run retries.
+   */
+  public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
+    ESWriteDAO.DeleteByQueryResult result =
+        elasticSearchService.deleteV3Tombstones(opContext, indexName);
+    if (!result.isSuccess()) {
+      throw new IllegalStateException(
+          String.format(
+              "Removing V3 tombstones from %s did not finish (%d remaining): %s",
+              indexName, result.getRemainingDocuments(), result.getFailureReason()));
     }
   }
 
@@ -175,27 +212,6 @@ public class UpdateIndicesService implements SearchIndicesService {
       if (strategy.isEnabled() && strategy.fillsNewIndicesFromPrimaryStorage()) {
         strategy.processBatch(opContext, groupedEvents, structuredPropertiesHookEnabled);
       }
-    }
-  }
-
-  /**
-   * Removes temporary V3 fill guards after the corresponding catch-up window has converged. A
-   * cleanup that does not finish throws, so catch-up stays incomplete and the next run retries.
-   */
-  public void deleteV3Tombstones(@Nonnull OperationContext opContext, @Nonnull String indexName) {
-    ESWriteDAO.DeleteByQueryResult result =
-        elasticSearchService
-            .getEsWriteDAO()
-            .deleteByQuerySync(
-                opContext,
-                indexName,
-                QueryBuilders.termQuery(V3SearchDocumentProjector.TOMBSTONE_FIELD, true),
-                null);
-    if (!result.isSuccess()) {
-      throw new IllegalStateException(
-          String.format(
-              "Removing V3 tombstones from %s did not finish (%d remaining): %s",
-              indexName, result.getRemainingDocuments(), result.getFailureReason()));
     }
   }
 
@@ -370,6 +386,20 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
+  private static RuntimeException accumulateStrategyFailure(
+      @Nullable RuntimeException currentFailure, @Nonnull RuntimeException newFailure) {
+    if (currentFailure == null) {
+      return newFailure;
+    }
+    if (newFailure instanceof RetryableIndexingException
+        && !(currentFailure instanceof RetryableIndexingException)) {
+      newFailure.addSuppressed(currentFailure);
+      return newFailure;
+    }
+    currentFailure.addSuppressed(newFailure);
+    return currentFailure;
+  }
+
   /**
    * Handles system metadata updates for a collection of update change events. This method processes
    * system metadata separately for tracing purposes.
@@ -512,6 +542,33 @@ public class UpdateIndicesService implements SearchIndicesService {
   }
 
   /**
+   * Flushes pending operations on every cluster's bulk processor and waits for every operation
+   * captured by the flush boundaries to receive a response or failure callback.
+   */
+  @Nonnull
+  public BulkProcessorFlushResult flushAndAwait() {
+    try {
+      BulkProcessorFlushResult result = BulkProcessorFlushResult.empty();
+      for (ESBulkProcessor bulkProcessor : elasticSearchService.getEsWriteDAO().bulkProcessors()) {
+        result = result.plus(bulkProcessor.flushAndAwait());
+      }
+      log.info("Bulk processor drain completed: {}", result);
+      return result;
+    } catch (Exception e) {
+      log.error("Failed to flush and await bulk processors", e);
+      throw new RuntimeException("Failed to flush and await bulk processors", e);
+    }
+  }
+
+  /** Drain every cluster's bulk processor. Load-indices checkpoints only after this returns. */
+  public void flushAndWait() {
+    BulkProcessorFlushResult result = flushAndAwait();
+    if (result.hasFailures()) {
+      throw new IllegalStateException("Bulk processor drain completed with failures: " + result);
+    }
+  }
+
+  /**
    * When {@code ES_BULK_ACK_AFTER_TRANSFER} is enabled, flush and wait for bulk transfer on every
    * cluster before the caller (MAE) acknowledges Kafka/pgQueue offsets. No-op when the flag is
    * false or when the write path is unavailable (e.g. unit tests with a mocked search service).
@@ -540,18 +597,9 @@ public class UpdateIndicesService implements SearchIndicesService {
     }
   }
 
-  /**
-   * Flushes pending operations on every cluster's bulk processor and waits for each to reach a
-   * terminal outcome, whatever the ack-after-transfer setting. Fails when any tracked item ended in
-   * an unrecovered failure, so a caller that checkpoints what it has written can trust the
-   * checkpoint.
-   */
-  public void flushAndWait() {
-    ESWriteDAO writeDAO = elasticSearchService.getEsWriteDAO();
-    if (writeDAO == null) {
-      return;
-    }
-    writeDAO.flushAndWait();
+  /** Whether a V3 update strategy is registered (i.e. V3 writes are active in this process). */
+  public boolean hasV3UpdateStrategy() {
+    return updateStrategies.stream().anyMatch(UpdateIndicesV3Strategy.class::isInstance);
   }
 
   /**
@@ -566,5 +614,23 @@ public class UpdateIndicesService implements SearchIndicesService {
         .flatMap(strategy -> strategy.getIndexMappings(opContext).stream())
         .map(MappingsBuilder.IndexMapping::getIndexName)
         .collect(Collectors.toSet());
+  }
+
+  /**
+   * Returns and resets the V3 write totals consumed by intermediate strategy drains, so run-level
+   * accounting (e.g. LoadIndices) can add them to the final flush result.
+   */
+  @Nonnull
+  public UpdateIndicesV3Strategy.DrainedWriteStats consumeDrainedV3WriteStats() {
+    long successfulV3Writes = 0;
+    long staleVersionRejected = 0;
+    for (UpdateIndicesStrategy strategy : updateStrategies) {
+      if (strategy instanceof UpdateIndicesV3Strategy v3Strategy) {
+        UpdateIndicesV3Strategy.DrainedWriteStats stats = v3Strategy.consumeDrainedWriteStats();
+        successfulV3Writes += stats.successfulV3Writes();
+        staleVersionRejected += stats.staleVersionRejected();
+      }
+    }
+    return new UpdateIndicesV3Strategy.DrainedWriteStats(successfulV3Writes, staleVersionRejected);
   }
 }

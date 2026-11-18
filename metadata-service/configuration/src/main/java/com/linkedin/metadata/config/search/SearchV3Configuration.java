@@ -13,5 +13,8 @@ public class SearchV3Configuration {
    */
   private boolean businessAttributeExpansionEnabled = false;
 
+  /** Project semanticContent embeddings into the V3 document. Off leaves embeddings unset. */
+  private boolean vectorProjectionEnabled = false;
+
   private SearchTemplateConfiguration templates = new SearchTemplateConfiguration();
 }

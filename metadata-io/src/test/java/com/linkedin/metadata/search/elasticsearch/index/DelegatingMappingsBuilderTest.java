@@ -49,7 +49,9 @@ public class DelegatingMappingsBuilderTest {
     if (entityIndexConfiguration.getV2().isEnabled()) {
       builders.add(
           new V2MappingsBuilder(
-              entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+              entityIndexConfiguration,
+              OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+              ESUtils.KEYWORD_MAXLENGTH));
     }
     if (entityIndexConfiguration.getV3().isEnabled()) {
       try {
@@ -117,7 +119,10 @@ public class DelegatingMappingsBuilderTest {
     // Create DelegatingMappingsBuilder with only v2 builder
     List<MappingsBuilder> builders = new ArrayList<>();
     builders.add(
-        new V2MappingsBuilder(v2OnlyConfig, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+        new V2MappingsBuilder(
+            v2OnlyConfig,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH));
     DelegatingMappingsBuilder v2OnlyBuilder = new DelegatingMappingsBuilder(builders);
     Collection<IndexMapping> result = v2OnlyBuilder.getIndexMappings(operationContext);
 
@@ -259,7 +264,9 @@ public class DelegatingMappingsBuilderTest {
 
     // This should throw RuntimeException wrapping IOException from MultiEntityMappingsBuilder
     List<MappingsBuilder> builders = new ArrayList<>();
-    builders.add(new V2MappingsBuilder(config, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG));
+    builders.add(
+        new V2MappingsBuilder(
+            config, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG, ESUtils.KEYWORD_MAXLENGTH));
     try {
       builders.add(
           new MultiEntityMappingsBuilder(config, null, ESUtils.KEYWORD_MAXLENGTH, List.of()));
@@ -1243,7 +1250,9 @@ public class DelegatingMappingsBuilderTest {
     // STRING mapping payloads differ between V2 and V3.
     V2MappingsBuilder v2 =
         new V2MappingsBuilder(
-            entityIndexConfiguration, OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG);
+            entityIndexConfiguration,
+            OpenSearchSearchClientShim.PARTIAL_NGRAM_CONFIG,
+            ESUtils.KEYWORD_MAXLENGTH);
     MultiEntityMappingsBuilder v3 =
         new MultiEntityMappingsBuilder(
             entityIndexConfiguration, null, ESUtils.KEYWORD_MAXLENGTH, List.of());

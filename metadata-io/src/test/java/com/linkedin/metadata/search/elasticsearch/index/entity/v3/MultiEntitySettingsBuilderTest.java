@@ -181,7 +181,18 @@ public class MultiEntitySettingsBuilderTest {
           List.of("v3_text", "v3_text_search", "v3_stemmed", "v3_stemmed_search")) {
         Map<String, Object> definition = (Map<String, Object>) analyzers.get(analyzer);
         assertEquals(definition.get("tokenizer"), expected.getValue(), analyzer);
-        assertEquals(((List<?>) definition.get("filter")).get(0), "v3_max_token_length", analyzer);
+        List<?> filters = (List<?>) definition.get("filter");
+        assertEquals(filters.get(0), "v3_max_token_length", analyzer);
+        assertEquals(filters.get(1), "asciifolding", analyzer);
+        if (analyzer.endsWith("_search")) {
+          assertEquals(filters.get(2), "lowercase", analyzer);
+          assertFalse(filters.contains("v3_camel_parts"), analyzer);
+          assertFalse(filters.contains("flatten_graph"), analyzer);
+        } else {
+          assertEquals(filters.get(2), "v3_camel_parts", analyzer);
+          assertEquals(filters.get(3), "flatten_graph", analyzer);
+          assertEquals(filters.get(4), "lowercase", analyzer);
+        }
       }
       if (expected.getKey().isEmpty()) {
         Map<String, Object> filters =
@@ -507,7 +518,8 @@ public class MultiEntitySettingsBuilderTest {
     when(v3Config.getAnalyzerConfig()).thenReturn("search_entity_analyzer_config.yaml");
     IndexConvention indexConvention = mock(IndexConvention.class);
     when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
-    Set<String> builtInFilters = Set.of("asciifolding", "lowercase", "stop", "snowball");
+    Set<String> builtInFilters =
+        Set.of("asciifolding", "lowercase", "stop", "snowball", "flatten_graph");
 
     Map<String, Object> analysis =
         (Map<String, Object>)
@@ -553,6 +565,36 @@ public class MultiEntitySettingsBuilderTest {
 
     assertEquals(settings.get("mapping.total_fields.limit"), 5000);
     assertEquals(builder.settings.get("mapping.total_fields.limit"), 5000);
+  }
+
+  @Test
+  public void testOpenSearchAddsKnnWhenSemanticIndexingEnabledWithoutEntityOptIn()
+      throws IOException {
+    when(v3Config.getAnalyzerConfig()).thenReturn("");
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    semanticSearch.setModels(Map.of("cohere_embed_v3", new ModelEmbeddingConfig()));
+    when(entityIndexConfiguration.getSemanticSearch()).thenReturn(semanticSearch);
+    IndexConvention indexConvention = mock(IndexConvention.class);
+    when(indexConvention.isV3EntityIndexType("datasetindex_v3")).thenReturn(true);
+    when(indexConvention.getEntityIndexNameV3(any(), eq("primary"))).thenReturn("primaryindex_v3");
+
+    IndexConfiguration indexConfiguration =
+        IndexConfiguration.builder().minSearchFilterLength(3).build();
+
+    SearchClientShim<?> osShim = mock(SearchClientShim.class);
+    when(osShim.getEngineType()).thenReturn(SearchEngineType.OPENSEARCH_2);
+    Map<String, Object> openSearchSettings =
+        new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention, osShim)
+            .getSettings(indexConfiguration, "datasetindex_v3");
+    assertEquals(openSearchSettings.get("knn"), true);
+
+    SearchClientShim<?> esShim = mock(SearchClientShim.class);
+    when(esShim.getEngineType()).thenReturn(SearchEngineType.ELASTICSEARCH_8);
+    Map<String, Object> elasticSettings =
+        new MultiEntitySettingsBuilder(entityIndexConfiguration, indexConvention, esShim)
+            .getSettings(indexConfiguration, "datasetindex_v3");
+    assertFalse(elasticSettings.containsKey("knn"));
   }
 
   @Test

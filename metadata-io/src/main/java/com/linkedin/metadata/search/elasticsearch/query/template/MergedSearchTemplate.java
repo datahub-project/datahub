@@ -9,8 +9,10 @@ import com.linkedin.search.template.SearchTemplateBoostArray;
 import com.linkedin.search.template.SearchTemplateBoostMode;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateNormalization;
+import com.linkedin.search.template.SearchTemplateProfiles;
 import com.linkedin.search.template.SearchTemplateRanking;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScope;
 import com.linkedin.search.template.SearchTemplateScoreMode;
 import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.search.template.StructuredPropertyQuery;
@@ -66,6 +68,22 @@ public class MergedSearchTemplate {
   @Nullable SearchTemplateRanking ranking;
   @Nullable com.linkedin.search.template.SearchTemplateComponent component;
   @Nullable SearchTemplateRetrieval retrieval;
+
+  /**
+   * Embedding profile selection merged root-first. Null resolves each entity to its registry
+   * default.
+   */
+  @Nullable SearchTemplateProfiles profiles;
+
+  /**
+   * True when a template in the chain set {@code profiles}, a {@code useDefault} reset included. A
+   * reset merges to a null selection, and it still supersedes the deprecated model and field names.
+   */
+  @Builder.Default boolean profilesSet = false;
+
+  /** Static entity scope. Null means the whole request. */
+  @Nullable SearchTemplateScope scope;
+
   @Nullable SearchTemplateLadder ladder;
   @Nullable String aggregations;
   @Nullable String sort;

@@ -3,7 +3,7 @@ from dataclasses import dataclass
 from typing import Any, Dict, Generic, Optional, Type, TypeVar
 
 import pydantic
-from pydantic import BaseModel as GenericModel, model_validator
+from pydantic import model_validator
 from pydantic.fields import Field
 
 from datahub.configuration.common import (
@@ -85,7 +85,7 @@ class StatefulIngestionConfig(ConfigModel):
 CustomConfig = TypeVar("CustomConfig", bound=StatefulIngestionConfig)
 
 
-class StatefulIngestionConfigBase(GenericModel, Generic[CustomConfig]):
+class StatefulIngestionConfigBase(ConfigModel, Generic[CustomConfig]):
     """
     Base configuration class for stateful ingestion for source configs to inherit from.
     """

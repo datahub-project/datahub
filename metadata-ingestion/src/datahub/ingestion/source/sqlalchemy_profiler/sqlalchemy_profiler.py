@@ -46,6 +46,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    SAMPLED_PARTITION_SUFFIX,
     ProfilingContext,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.query_combiner import (
@@ -1246,7 +1247,7 @@ class SQLAlchemyProfiler:
                 profile.partitionSpec
                 and profile.partitionSpec.type == PartitionTypeClass.PARTITION
             ):
-                profile.partitionSpec.partition += " SAMPLE"
+                profile.partitionSpec.partition += SAMPLED_PARTITION_SUFFIX
 
         return row_count
 

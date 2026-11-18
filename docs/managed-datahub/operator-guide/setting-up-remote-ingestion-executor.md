@@ -280,7 +280,7 @@ Monitor the stack events to track update progress.
 
 Update your module inputs and re-apply:
 
-- **New executor version** — set `datahub.image_tag` (e.g. `"v2.1.0-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.1.0-cloud`) are versioned independently.
+- **New executor version** — set `datahub.image_tag` (e.g. `"v2.4.2-cloud"`), or bump the module `?ref=` tag to pick up its newer pinned default. Module tags (`v2.1.0`) and image tags (`v2.4.2-cloud`) are versioned independently.
 - **Configuration changes** — edit any input (e.g. `desired_count`, `cpu`, worker counts).
 
 Then run `terraform apply` — it shows a plan of exactly what will change before you confirm.

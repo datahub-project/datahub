@@ -2,7 +2,7 @@ from typing import Annotated, List, Optional, Sequence
 
 from pydantic import Field, field_validator, model_validator
 
-from datahub.configuration.common import AllowDenyPattern, ConfigModel, Filters
+from datahub.configuration.common import AllowDenyPattern, Filters
 from datahub.ingestion.agent.verdicts import Verdict, VerdictContext
 from datahub.ingestion.graph.config import DatahubClientConfig
 from datahub.ingestion.source.common.gcp_credentials_config import GCPCredential
@@ -44,7 +44,7 @@ def parse_drive_id(value: str) -> str:
 
 
 class GoogleDriveSourceConfig(
-    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig], ConfigModel
+    StatefulIngestionConfigBase[StatefulStaleMetadataRemovalConfig],
 ):
     datahub: Optional[DatahubClientConfig] = Field(
         default=None,

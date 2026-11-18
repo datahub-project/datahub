@@ -220,6 +220,25 @@ meta_mapping:
 
 This will add `alice@company.com` and `bob@company.com` as owners (matching `.*@company.com`) but skip `contractor@external.com` (doesn't match the pattern).
 
+The same applies to `add_tag`, `add_term` and `add_terms`, including nested keys: each matching item produces its own tag or term. For list values, `{{ $match }}` is replaced with the whole matching item, even when the pattern only matches part of it.
+
+```yaml
+meta:
+  governance:
+    tags: ["Domain: Sales", "PII"]
+```
+
+```yaml
+meta_mapping:
+  governance.tags:
+    match: ".*"
+    operation: "add_tag"
+    config:
+      tag: "{{ $match }}"
+```
+
+This adds two tags, `Domain: Sales` and `PII`.
+
 #### dbt query_tag automated mappings
 
 This works similarly as the dbt meta mapping but for the query tags

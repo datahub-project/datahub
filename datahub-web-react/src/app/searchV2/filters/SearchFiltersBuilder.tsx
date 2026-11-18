@@ -100,15 +100,15 @@ export default function SearchFiltersBuilder({
         onChangeFilters(newFilters);
     };
 
-    const onAddFilter = (predicate: FilterPredicate) => {
+    const onAddFilters = (predicates: FilterPredicate[]) => {
         const newFilters = [
             ...filters,
-            {
+            ...predicates.map((predicate) => ({
                 field: predicate.field,
                 operator: predicate.operator,
                 values: predicate.values,
                 defaultValueOptions: predicate.defaultValueOptions,
-            },
+            })),
         ];
         onChangeFilters(newFilters);
     };
@@ -120,7 +120,7 @@ export default function SearchFiltersBuilder({
 
     const Wrapper = vertical ? VerticalWrapper : HorizontalWrapper;
 
-    const addFilter = <AddFilterDropdown fields={fields} onAddFilter={onAddFilter} includeCount={includeCount} />;
+    const addFilter = <AddFilterDropdown fields={fields} onAddFilters={onAddFilters} includeCount={includeCount} />;
     return (
         <Container>
             <FlexSpacer>

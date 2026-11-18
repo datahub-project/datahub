@@ -271,12 +271,16 @@ export class LineageV3Page extends LineageBasePage {
   }
 
   /**
-   * Navigate to dataset and open lineage tab.
+   * Open a dataset's Lineage tab by deep link.
+   *
+   * Deliberately not "bare /dataset/<urn> then click the tab": a bare URL lands on the Summary
+   * tab (datasetSummaryPageV1), whose Lineage module mounts its own LineageExplorer, and antd
+   * keeps inactive tab panes mounted. Clicking into Lineage then leaves a second, hidden graph
+   * in the DOM, so every rf__node-/rf__edge- locator matches two elements (the hidden one first).
    */
   async navigateToDatasetLineage(urn: string): Promise<void> {
-    await this.navigate(`/dataset/${urn}`);
+    await this.navigate(`/dataset/${urn}/Lineage`);
     await this.page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    await this.clickLineageTab();
   }
 
   /**

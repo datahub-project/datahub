@@ -217,6 +217,142 @@ public class ReindexConfig {
     return copy;
   }
 
+  /**
+   * Copy of {@code targetMappings} for a put-mapping onto an index whose live mappings are {@code
+   * currentMappings}, without the structured-property fields the index already maps. Put-mapping
+   * cannot change a mapped field's type or analyzer, and an index can hold a field dynamically
+   * mapped as text, float or long where its definition maps keyword or double, so sending the
+   * definition mapping would fail the request. A left-out field keeps its live mapping until a
+   * reindex rebuilds the index from the target, so only new structured-property fields are added in
+   * place; a parameter change to a mapped field, such as {@code ignore_above} or a new subfield,
+   * waits for that reindex too. Fields match by id: a versioned field the target names with one
+   * dotted key matches the nested objects the index reports for it.
+   */
+  @SuppressWarnings("unchecked")
+  static Map<String, Object> mappingsWithoutMappedStructuredPropertyFields(
+      @Nonnull Map<String, Object> targetMappings, @Nullable Map<String, Object> currentMappings) {
+    Set<String> mapped = structuredPropertyFieldIds(currentMappings);
+    if (mapped.isEmpty()
+        || !(targetMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
+        || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
+      return targetMappings;
+    }
+    Map<String, Object> newFields = new HashMap<>();
+    CalculatedBuilder.structuredPropertyFieldMappings(targetMappings)
+        .forEach(
+            (field, mapping) -> {
+              if (!mapped.contains(field)) {
+                newFields.put(field, mapping);
+              }
+            });
+    Map<String, Object> structuredProperties = new HashMap<>((Map<String, Object>) container);
+    structuredProperties.put(PROPERTIES, newFields);
+    Map<String, Object> putProperties = new HashMap<>((Map<String, Object>) properties);
+    putProperties.put(STRUCTURED_PROPERTY_MAPPING_FIELD, structuredProperties);
+    Map<String, Object> putMappings = new HashMap<>(targetMappings);
+    putMappings.put(PROPERTIES, putProperties);
+    return putMappings;
+  }
+
+  /**
+   * Put-mapping body holding only the target's structured-property container, with its {@code type}
+   * and {@code dynamic} parameters and the fields {@code targetMappings} declares and {@code
+   * currentMappings} does not map, or an empty map when there are none. Put-mapping merges, so
+   * every field the body leaves out keeps its live mapping.
+   */
+  @SuppressWarnings("unchecked")
+  static Map<String, Object> unmappedStructuredPropertyFieldsOnly(
+      @Nonnull Map<String, Object> targetMappings, @Nullable Map<String, Object> currentMappings) {
+    Map<String, Object> putMappings =
+        mappingsWithoutMappedStructuredPropertyFields(targetMappings, currentMappings);
+    if (structuredPropertyFieldIds(putMappings).isEmpty()) {
+      return Map.of();
+    }
+    Object container =
+        ((Map<String, Object>) putMappings.get(PROPERTIES)).get(STRUCTURED_PROPERTY_MAPPING_FIELD);
+    return Map.of(PROPERTIES, Map.of(STRUCTURED_PROPERTY_MAPPING_FIELD, container));
+  }
+
+  /**
+   * Ids of the structured-property fields {@code mappings} declares, as the mapping diff names
+   * them.
+   */
+  static Set<String> structuredPropertyFieldIds(@Nullable Map<String, Object> mappings) {
+    return CalculatedBuilder.structuredPropertyFieldMappings(mappings).keySet();
+  }
+
+  /**
+   * Fields present in both current and target structured-property mappings with the same {@code
+   * type} whose {@code ignore_above} differs, or whose subfields other than {@code text} and {@code
+   * stemmed} differ in name, {@code type} or {@code ignore_above}: for example after the keyword
+   * length limit changes. Other parameters are not compared, so how an engine reports a mapping
+   * cannot make every run log a difference.
+   */
+  static Set<String> structuredPropertyParameterDifferences(
+      Map<String, Object> current, Map<String, Object> target) {
+    Map<String, Object> targetFields = CalculatedBuilder.structuredPropertyFieldMappings(target);
+    Set<String> differences = new TreeSet<>();
+    CalculatedBuilder.structuredPropertyFieldMappings(current)
+        .forEach(
+            (field, currentMapping) -> {
+              Object targetMapping = targetFields.get(field);
+              if (targetMapping == null
+                  || !Objects.equals(
+                      CalculatedBuilder.extractMappingType(currentMapping),
+                      CalculatedBuilder.extractMappingType(targetMapping))) {
+                return;
+              }
+              Object currentIgnoreAbove = ignoreAbove(currentMapping);
+              Object targetIgnoreAbove = ignoreAbove(targetMapping);
+              Map<String, String> currentSubfields = otherSubfields(currentMapping);
+              Map<String, String> targetSubfields = otherSubfields(targetMapping);
+              if (!Objects.equals(currentIgnoreAbove, targetIgnoreAbove)
+                  || !currentSubfields.equals(targetSubfields)) {
+                differences.add(
+                    String.format(
+                        "%s (current ignore_above=%s subfields=%s, target ignore_above=%s"
+                            + " subfields=%s)",
+                        field,
+                        currentIgnoreAbove,
+                        currentSubfields,
+                        targetIgnoreAbove,
+                        targetSubfields));
+              }
+            });
+    return differences;
+  }
+
+  /** A field's {@code ignore_above} as a string, since engines may report it as one. */
+  @Nullable
+  private static String ignoreAbove(Object mapping) {
+    return mapping instanceof Map<?, ?> fieldMapping && fieldMapping.get(IGNORE_ABOVE) != null
+        ? String.valueOf(fieldMapping.get(IGNORE_ABOVE))
+        : null;
+  }
+
+  /**
+   * The subfields under a field's {@code fields} map other than {@code text} and {@code stemmed},
+   * each with its {@code type} and {@code ignore_above}.
+   */
+  private static Map<String, String> otherSubfields(Object mapping) {
+    if (!(mapping instanceof Map<?, ?> fieldMapping)
+        || !(fieldMapping.get("fields") instanceof Map<?, ?> fieldsMap)) {
+      return Map.of();
+    }
+    Map<String, String> subfields = new TreeMap<>();
+    fieldsMap.forEach(
+        (name, subfieldMapping) -> {
+          if (!"text".equals(name) && !"stemmed".equals(name)) {
+            String ignoreAbove = ignoreAbove(subfieldMapping);
+            subfields.put(
+                String.valueOf(name),
+                CalculatedBuilder.extractMappingType(subfieldMapping)
+                    + (ignoreAbove == null ? "" : " ignore_above=" + ignoreAbove));
+          }
+        });
+    return subfields;
+  }
+
   public static boolean mappingHasProperties(@Nullable Map<String, Object> mappings) {
     if (mappings == null) {
       return false;
@@ -606,7 +742,13 @@ public class ReindexConfig {
         Pair<Long, Long> spDiffCount =
             structuredPropertiesDiffCount(super.currentMappings, super.targetMappings);
         super.hasNewStructuredProperty = spDiffCount.getSecond() > 0;
-        super.hasRemovedStructuredProperty = spDiffCount.getFirst() > 0;
+        // A target without the structuredProperties container does not manage structured
+        // properties (LoadIndices builds its configs from empty targets), so the live fields are
+        // not removals there.
+        super.hasRemovedStructuredProperty =
+            spDiffCount.getFirst() > 0
+                && getOrDefault(super.targetMappings, List.of(PROPERTIES))
+                    .containsKey(STRUCTURED_PROPERTY_MAPPING_FIELD);
         // calculateMapDifference strips the structuredProperties subtree from mappingsDiff (by
         // name via isKnownDynamicField). Detect type conflicts (e.g. float vs double) separately
         // so system-update can reindex indices that locked the wrong type via dynamic mapping on
@@ -628,6 +770,17 @@ public class ReindexConfig {
               "Index: {} - Structured property copy_to mismatch(es): {}",
               super.name,
               mismatchedStructuredPropertyCopyTo);
+        }
+        // Put-mapping leaves mapped structured property fields alone, and these differences start
+        // no reindex, so only a reindex for another reason applies them.
+        Set<String> structuredPropertyParameterDifferences =
+            structuredPropertyParameterDifferences(super.currentMappings, super.targetMappings);
+        if (!structuredPropertyParameterDifferences.isEmpty()) {
+          log.info(
+              "Index: {} - Structured property field parameter difference(s), applied only by a"
+                  + " reindex: {}",
+              super.name,
+              structuredPropertyParameterDifferences);
         }
         // True when the only mapping change is adding structured properties.
         // Covers both cases: SP visible in mappingsDiff (no dynamic flag) and
@@ -739,22 +892,30 @@ public class ReindexConfig {
             super.requiresApplyMappings = true;
             super.requiresReindex = true;
           } else {
-            if (!super.enableIndexMappingsReindex) {
+            if (!super.enableIndexMappingsReindex
+                && (reindexForRemoval || reindexForTypeMismatch || reindexForCopyToMismatch)) {
               log.warn(
                   "Index: {} - There's diff between new mappings, however reindexing is DISABLED.",
                   super.name);
             }
             if (super.hasRemovedStructuredProperty && !super.enableStructuredPropertiesReindex) {
-              log.warn(
+              // Deleting a property leaves its field mapped, which is harmless, so this repeats on
+              // every run at INFO and leaves WARN for differences an operator has to act on.
+              log.info(
                   "Index: {} - There's a removed Structured Property, however Structured Property"
-                      + " reindexing is DISABLED.",
+                      + " reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE=true and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true.",
                   super.name);
             }
             if (super.hasStructuredPropertyTypeMismatch
                 && !super.enableStructuredPropertyTypeMismatchReindex) {
               log.warn(
                   "Index: {} - Structured Property field type mismatch(es) detected ({}), however"
-                      + " Structured Property type-mismatch reindexing is DISABLED.",
+                      + " Structured Property type-mismatch reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE,"
+                      + " ENABLE_STRUCTURED_PROPERTIES_TYPE_MISMATCH_REINDEX and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX set to true.",
                   super.name,
                   mismatchedStructuredPropertyFields);
             }
@@ -762,7 +923,10 @@ public class ReindexConfig {
                 && !super.enableStructuredPropertyCopyToMismatchReindex) {
               log.warn(
                   "Index: {} - Structured Property copy_to mismatch(es) detected ({}), however"
-                      + " Structured Property copy_to reindexing is DISABLED.",
+                      + " Structured Property copy_to reindexing is DISABLED. It needs"
+                      + " ENABLE_STRUCTURED_PROPERTIES_SYSTEM_UPDATE,"
+                      + " ENABLE_STRUCTURED_PROPERTIES_COPY_TO_MISMATCH_REINDEX and"
+                      + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX set to true.",
                   super.name,
                   mismatchedStructuredPropertyCopyTo);
             }
@@ -1000,10 +1164,15 @@ public class ReindexConfig {
      * index is rebuilt each time, and type and copy_to mismatches are never detected for it.
      */
     private static Map<String, Object> structuredPropertyFieldMappings(
-        Map<String, Object> mappings) {
+        @Nullable Map<String, Object> mappings) {
       Map<String, Object> fields = new LinkedHashMap<>();
-      getOrDefault(mappings, List.of("properties", STRUCTURED_PROPERTY_MAPPING_FIELD, "properties"))
-          .forEach((key, value) -> collectStructuredPropertyFields(key, value, fields));
+      if (mappings != null
+          && mappings.get(PROPERTIES) instanceof Map<?, ?> properties
+          && properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container
+          && container.get(PROPERTIES) instanceof Map<?, ?> structuredProperties) {
+        structuredProperties.forEach(
+            (key, value) -> collectStructuredPropertyFields(String.valueOf(key), value, fields));
+      }
       return fields;
     }
 

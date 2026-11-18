@@ -8,6 +8,7 @@ import com.datahub.authentication.Authentication;
 import com.datahub.authentication.AuthenticationException;
 import com.datahub.authentication.AuthenticationExpiredException;
 import com.datahub.authentication.AuthenticationRequest;
+import com.datahub.authentication.AuthenticationUnavailableException;
 import com.datahub.plugins.auth.authentication.Authenticator;
 import org.mockito.Mockito;
 import org.testng.annotations.Test;
@@ -57,6 +58,44 @@ public class AuthenticatorChainTest {
     // If the authenticator throws, verify that null is returned to indicate failure to
     // authenticate.
     assertNull(result);
+  }
+
+  @Test
+  public void testAuthenticateUnavailableThrowsAfterChain() throws Exception {
+    final AuthenticatorChain authenticatorChain = new AuthenticatorChain();
+    final Authenticator unavailableAuthenticator = Mockito.mock(Authenticator.class);
+    final Authenticator failingAuthenticator = Mockito.mock(Authenticator.class);
+    Mockito.when(unavailableAuthenticator.authenticate(Mockito.any()))
+        .thenThrow(new AuthenticationUnavailableException("store down", null));
+    Mockito.when(failingAuthenticator.authenticate(Mockito.any()))
+        .thenThrow(new AuthenticationException("Failed to authenticate"));
+    authenticatorChain.register(unavailableAuthenticator);
+    authenticatorChain.register(failingAuthenticator);
+
+    final AuthenticationRequest mockContext = Mockito.mock(AuthenticationRequest.class);
+
+    assertThrows(
+        AuthenticationUnavailableException.class,
+        () -> authenticatorChain.authenticate(mockContext, false));
+    // The rest of the chain still ran.
+    verify(failingAuthenticator, times(1)).authenticate(any());
+  }
+
+  @Test
+  public void testAuthenticateUnavailableThenSuccess() throws Exception {
+    final AuthenticatorChain authenticatorChain = new AuthenticatorChain();
+    final Authenticator unavailableAuthenticator = Mockito.mock(Authenticator.class);
+    final Authenticator successAuthenticator = Mockito.mock(Authenticator.class);
+    final Authentication mockAuthentication = Mockito.mock(Authentication.class);
+    Mockito.when(unavailableAuthenticator.authenticate(Mockito.any()))
+        .thenThrow(new AuthenticationUnavailableException("store down", null));
+    Mockito.when(successAuthenticator.authenticate(Mockito.any())).thenReturn(mockAuthentication);
+    authenticatorChain.register(unavailableAuthenticator);
+    authenticatorChain.register(successAuthenticator);
+
+    final AuthenticationRequest mockContext = Mockito.mock(AuthenticationRequest.class);
+
+    assertSame(authenticatorChain.authenticate(mockContext, false), mockAuthentication);
   }
 
   @Test

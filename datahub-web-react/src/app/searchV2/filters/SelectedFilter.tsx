@@ -1,10 +1,10 @@
 /* eslint-disable import/no-cycle */
+import { Button, DatePicker } from '@components';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import { Button } from 'antd';
 import React from 'react';
+import { useTranslation } from 'react-i18next';
 import styled from 'styled-components/macro';
 
-import { SEARCH_COLORS } from '@app/entityV2/shared/constants';
 import OperatorSelector from '@app/searchV2/filters/OperatorSelector';
 import { operatorRequiresValues } from '@app/searchV2/filters/operator/operator';
 import { FilterOperatorType, FilterPredicate, FilterValue } from '@app/searchV2/filters/types';
@@ -12,7 +12,6 @@ import { getIsDateRangeFilter, useFilterDisplayName } from '@app/searchV2/filter
 import ValueName from '@app/searchV2/filters/value/ValueName';
 import ValueSelector from '@app/searchV2/filters/value/ValueSelector';
 import { useLoadAggregationOptions } from '@app/searchV2/filters/value/utils';
-import DatePicker from '@utils/DayjsDatePicker';
 import dayjs from '@utils/dayjs';
 
 const DAYJS_DISPLAY_FORMAT = 'll';
@@ -51,15 +50,9 @@ const Container = styled.div<{ $isCompact?: boolean }>`
     `}
 `;
 
-const Icon = styled.div`
-    margin-right: 4px;
-    display: flex;
-    align-items: center;
-`;
-
 const FilterName = styled.div`
     margin-right: 2px;
-    color: ${SEARCH_COLORS.LINK_BLUE};
+    color: ${(props) => props.theme.colors.textBrand};
     display: flex;
     align-items: center;
 `;
@@ -67,10 +60,16 @@ const FilterName = styled.div`
 const RemoveButton = styled(Button)`
     padding: 0px;
     margin: 0px;
-    width: 20px;
-    height: 20px;
-    margin-left: 0px;
 `;
+
+// The values open a popover on click; Enter and Space do the same from the keyboard.
+const clickOnEnterOrSpace = (e: React.KeyboardEvent<HTMLDivElement>) => {
+    if (e.target !== e.currentTarget) return;
+    if (e.key === 'Enter' || e.key === ' ') {
+        e.preventDefault();
+        e.currentTarget.click();
+    }
+};
 
 interface SelectedFilterProps {
     predicate: FilterPredicate;
@@ -87,6 +86,7 @@ export default function SelectedFilter({
     onRemoveFilter,
     isCompact,
 }: SelectedFilterProps) {
+    const { t: tc } = useTranslation('common.actions');
     const { field, operator, values } = predicate;
     const showValueSelector = operatorRequiresValues(predicate.operator) || false;
     const displayName = useFilterDisplayName(predicate.field);
@@ -106,19 +106,20 @@ export default function SelectedFilter({
             data-testid={`active-filter-${field.field}`}
             key={`${field.field}-${operator}-${values.map((value) => value.value).join('-')}`}
         >
-            <FilterName>
-                {(field.icon && <Icon>{field.icon}</Icon>) || null}
-                {displayName || field.field}
-            </FilterName>
+            <FilterName>{displayName || field.field}</FilterName>
             <OperatorSelector predicate={predicate} onChangeOperator={onChangeOperator} />
             {showValueSelector && useDatePicker && (
                 <DatePicker
-                    defaultValue={dayjs(Number(values[0].value))}
-                    disabledDate={isDateRangeFilter ? undefined : (current) => current > dayjs().startOf('day')}
+                    value={dayjs(Number(values[0].value))}
+                    disabledDate={
+                        isDateRangeFilter ? undefined : (current) => !!current?.isAfter(dayjs().startOf('day'))
+                    }
                     format={DAYJS_DISPLAY_FORMAT}
-                    showToday={false}
-                    allowClear={false}
-                    onChange={(v) => onChangeValues(v ? [{ value: v.valueOf().toString(), entity: null }] : [])}
+                    onChange={(v) => {
+                        if (v && v.valueOf().toString() !== values[0].value) {
+                            onChangeValues([{ value: v.valueOf().toString(), entity: null }]);
+                        }
+                    }}
                 />
             )}
             {showValueSelector && !useDatePicker && (
@@ -128,7 +129,7 @@ export default function SelectedFilter({
                     defaultOptions={aggregatedOptions}
                     onChangeValues={onChangeValues}
                 >
-                    <Values>
+                    <Values role="button" tabIndex={0} onKeyDown={clickOnEnterOrSpace}>
                         {values.map((value, index) => (
                             <Value data-testid={`active-filter-value-${field.field}-${value.value}`}>
                                 <ValueName field={field} value={value} />
@@ -139,9 +140,13 @@ export default function SelectedFilter({
                 </ValueSelector>
             )}
             <RemoveButton
-                type="text"
-                icon={<X size={12} />}
+                variant="text"
+                color="gray"
+                size="xs"
+                icon={{ icon: X, size: 'sm' }}
+                isCircle
                 onClick={onRemoveFilter}
+                aria-label={tc('remove')}
                 data-testid={`remove-filter-${field.field}`}
             />
         </Container>

@@ -1,6 +1,9 @@
 package com.linkedin.metadata.search.hybrid.v3;
 
 import static com.linkedin.metadata.utils.SearchUtil.INDEX_VIRTUAL_FIELD;
+import static org.mockito.ArgumentMatchers.argThat;
+import static org.mockito.Mockito.doReturn;
+import static org.mockito.Mockito.spy;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertThrows;
@@ -9,8 +12,11 @@ import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.metadata.config.search.ModelEmbeddingConfig;
 import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.elasticsearch.shim.KnnSearchRequest;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.ValidationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.time.Duration;
 import java.util.List;
@@ -103,6 +109,45 @@ public class V3HybridKnnRequestBuilderTest {
   @Test
   public void testVectorFieldRejectsBlankModelKey() {
     assertThrows(IllegalArgumentException.class, () -> V3HybridKnnRequestBuilder.vectorField(" "));
+  }
+
+  @Test
+  public void testRerankDedupesASharedIndex() {
+    SemanticSearchConfiguration config =
+        new SemanticSearchConfiguration(
+            true, Set.of("dataset", "chart"), Map.of(MODEL_KEY, new ModelEmbeddingConfig()), null);
+    V3HybridKnnRequestBuilder rerank = new V3HybridKnnRequestBuilder(config);
+    EntityRegistry registry = TestOperationContexts.defaultEntityRegistry();
+    EntitySpec dataset = spy(registry.getEntitySpec("dataset"));
+    EntitySpec chart = spy(registry.getEntitySpec("chart"));
+    doReturn("primary").when(dataset).getSearchGroup();
+    doReturn("primary").when(chart).getSearchGroup();
+    EntityRegistry pinned = spy(registry);
+    doReturn(dataset).when(pinned).getEntitySpec(argThat("dataset"::equalsIgnoreCase));
+    doReturn(chart).when(pinned).getEntitySpec(argThat("chart"::equalsIgnoreCase));
+    OperationContext shared =
+        TestOperationContexts.systemContextNoSearchAuthorization(
+            () -> pinned,
+            null,
+            null,
+            () -> ValidationContext.builder().alternateValidation(true).build());
+
+    KnnSearchRequest request =
+        rerank
+            .build(
+                shared,
+                List.of("dataset", "chart"),
+                MODEL_KEY,
+                new float[] {0.1f, 0.2f},
+                List.of(DOC_A),
+                List.of("urn"),
+                TIMEOUT)
+            .orElseThrow();
+
+    assertFalse(request.indexName().contains(","));
+    assertEquals(
+        request.indexName(),
+        shared.getSearchContext().getIndexConvention().getEntityIndexNameV3(shared, "primary"));
   }
 
   private KnnSearchRequest build(

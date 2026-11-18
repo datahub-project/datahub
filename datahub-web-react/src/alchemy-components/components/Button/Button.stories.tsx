@@ -1,14 +1,24 @@
 import { BADGE } from '@geometricpanda/storybook-addon-badges';
+import { ArrowRight } from '@phosphor-icons/react/dist/csr/ArrowRight';
+import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
+import { Trash } from '@phosphor-icons/react/dist/csr/Trash';
 import type { Meta, StoryObj } from '@storybook/react';
 import React from 'react';
 
 import { GridList } from '@components/.docs/mdx-components';
 import { ButtonVariantValues } from '@components/components/Button/types';
-import { MATERIAL_UI_ICONS } from '@components/components/Icon/constants';
 import { ColorValues, SizeValues } from '@components/theme/config';
 
 import { Button, buttonDefaults } from '.';
+
+const ICON_OPTIONS = {
+    None: undefined,
+    Plus: { icon: Plus },
+    Check: { icon: Check },
+    Trash: { icon: Trash },
+    ArrowRight: { icon: ArrowRight },
+};
 
 // Auto Docs
 const meta = {
@@ -65,11 +75,8 @@ const meta = {
         },
         icon: {
             description: 'The icon to display in the Button.',
-            type: 'string',
-            options: MATERIAL_UI_ICONS,
-            mapping: Object.fromEntries(
-                MATERIAL_UI_ICONS.map((icon) => [icon, { icon, source: 'material', size: '2xl' }]),
-            ),
+            options: Object.keys(ICON_OPTIONS),
+            mapping: ICON_OPTIONS,
             table: {
                 defaultValue: { summary: 'undefined' },
             },

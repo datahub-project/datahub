@@ -1,10 +1,10 @@
 import { MockedProvider } from '@apollo/client/testing';
 import { waitFor } from '@testing-library/react';
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 
 import { SYSTEM_INTERNAL_SOURCE_TYPE } from '@app/ingestV2/constants';
 import { useHasIngestionSources } from '@app/sharedV2/ingestionSources/useHasIngestionSources';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { GetNoOfIngestionSourcesDocument } from '@graphql/ingestion.generated';
 

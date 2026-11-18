@@ -84,7 +84,7 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
             .v3(
                 EntityIndexVersionConfiguration.builder()
                     .enabled(true)
-                    .semanticReadEnabled(true)
+                    .keywordReadEnabled(true)
                     .build())
             .semanticSearch(semanticSearch)
             .build();
@@ -154,6 +154,34 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         service.search(
             opContext, List.of("document"), "query", filter("_entityType", "DATASET"), null, 0, 10);
     assertTrue(otherType.getEntities().isEmpty(), urns(otherType).toString());
+  }
+
+  @Test
+  public void testSemanticSearchMatchesEveryOrGroup() {
+    // A view with "any of" rules sends one OR group per rule, next to the latest-version clause
+    // that every search filter carries.
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", NEAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(NEAR_URN, FAR_URN));
+    assertEquals(
+        urns(
+            service.search(
+                opContext,
+                List.of("document"),
+                "query",
+                anyOf(filter("urn", FAR_URN), filter("urn", FAR_URN)),
+                null,
+                0,
+                10)),
+        List.of(FAR_URN));
   }
 
   @Test
@@ -247,6 +275,14 @@ public abstract class SemanticSearchV3TestBase extends AbstractTestNGSpringConte
         .setOr(
             new ConjunctiveCriterionArray(
                 new ConjunctiveCriterion().setAnd(new CriterionArray(criterion))));
+  }
+
+  private static Filter anyOf(Filter... filters) {
+    ConjunctiveCriterionArray groups = new ConjunctiveCriterionArray();
+    for (Filter filter : filters) {
+      groups.addAll(filter.getOr());
+    }
+    return new Filter().setOr(groups);
   }
 
   private static List<String> urns(SearchResult result) {

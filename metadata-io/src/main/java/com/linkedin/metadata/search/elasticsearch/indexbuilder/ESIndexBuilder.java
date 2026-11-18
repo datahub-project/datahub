@@ -3,6 +3,7 @@ package com.linkedin.metadata.search.elasticsearch.indexbuilder;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.search.utils.ESUtils.PROPERTIES;
 
+import co.elastic.clients.elasticsearch._types.ElasticsearchException;
 import com.google.common.annotations.VisibleForTesting;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
@@ -11,9 +12,12 @@ import com.linkedin.metadata.config.search.BuildIndicesConfiguration;
 import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexConfiguration;
 import com.linkedin.metadata.config.search.IndexConfiguration;
+import com.linkedin.metadata.models.EntitySpec;
+import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.search.elasticsearch.index.MappingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.SettingsBuilder;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3IndexKeys;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.V3SearchFields;
 import com.linkedin.metadata.search.elasticsearch.indexbuilder.exceptions.ReplicaHealthException;
 import com.linkedin.metadata.search.utils.ESUtils;
@@ -52,6 +56,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.TreeSet;
 import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.function.Predicate;
@@ -68,6 +73,8 @@ import org.opensearch.OpenSearchStatusException;
 import org.opensearch.action.admin.cluster.health.ClusterHealthRequest;
 import org.opensearch.action.admin.cluster.health.ClusterHealthResponse;
 import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksRequest;
+import org.opensearch.action.admin.cluster.node.tasks.list.ListTasksResponse;
+import org.opensearch.action.admin.indices.alias.Alias;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest;
 import org.opensearch.action.admin.indices.alias.IndicesAliasesRequest.AliasActions;
 import org.opensearch.action.admin.indices.alias.get.GetAliasesRequest;
@@ -93,6 +100,7 @@ import org.opensearch.cluster.health.ClusterIndexHealth;
 import org.opensearch.cluster.metadata.MappingMetadata;
 import org.opensearch.common.settings.Settings;
 import org.opensearch.common.unit.TimeValue;
+import org.opensearch.core.rest.RestStatus;
 import org.opensearch.index.query.QueryBuilder;
 import org.opensearch.index.query.QueryBuilders;
 import org.opensearch.index.query.functionscore.ScoreFunctionBuilders;
@@ -137,6 +145,13 @@ public class ESIndexBuilder {
    * @return The SearchClientShim used for elasticsearch/opensearch operations
    */
   @Getter private final SearchClientShim<?> searchClient;
+
+  /**
+   * Client for the cluster that holds V2 entity indices. A V3 build runs on the V3 cluster, which
+   * does not have those indices when the two families are split. Null falls back to {@link
+   * #searchClient}.
+   */
+  private final SearchClientShim<?> v2Client;
 
   @Getter @VisibleForTesting private final ElasticSearchConfiguration config;
 
@@ -185,8 +200,10 @@ public class ESIndexBuilder {
       ElasticSearchConfiguration elasticSearchConfiguration,
       StructuredPropertiesConfiguration structuredPropertiesConfiguration,
       Map<String, ? extends Map<String, ?>> indexSettingOverrides,
-      GitVersion gitVersion) {
+      GitVersion gitVersion,
+      @Nullable SearchClientShim<?> v2Client) {
     this.searchClient = searchClient;
+    this.v2Client = v2Client != null ? v2Client : searchClient;
     this.config = elasticSearchConfiguration;
     this.indexConfig = elasticSearchConfiguration.getIndex();
     this.structPropConfig = structuredPropertiesConfiguration;
@@ -504,6 +521,8 @@ public class ESIndexBuilder {
             .getSourceAsMap();
     builder.currentMappings(currentMappings);
 
+    // A definition-driven target can declare more fields than the index's total-fields limit
+    // allows; a reindex from it then fails to create its destination until the limit is raised.
     final Map<String, Object> targetMappings =
         shouldPreserveStructuredPropertyMappings(copyStructuredPropertyMappings)
             ? mergeStructuredPropertyMappings(mappings, currentMappings)
@@ -532,18 +551,16 @@ public class ESIndexBuilder {
 
   /**
    * Whether the current index's structured-property field mappings should be carried into the
-   * target mappings. Always true when the caller explicitly asks for it (the definition-driven
-   * mapping-update path). Also true when the structured-property system-update machinery is not
-   * managing SP mappings (disabled, the default): the target then contains an empty
-   * structuredProperties container, and since the container is mapped dynamic:false, a reindex from
-   * such a target would leave every pre-existing SP value unindexed and invisible to search with no
-   * later convergence. When the system-update machinery IS enabled it owns the SP mapping diff
-   * (including removals), so the current mappings must not be merged into the target there.
+   * target mappings. True when the caller explicitly asks for it: a definition upsert adds one
+   * property and keeps the rest. Also true when structured properties are disabled: no definitions
+   * are loaded then, so the target holds an empty dynamic:false structuredProperties container, and
+   * a reindex from it would leave every existing value unindexed. When structured properties are
+   * enabled, system-update builds the target from the active definitions, so a reindex converges
+   * the index to them; systemUpdateEnabled only decides whether a structured-property difference
+   * may trigger that reindex.
    */
-  @VisibleForTesting
-  public boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
-    return copyStructuredPropertyMappings
-        || !(structPropConfig.isEnabled() && structPropConfig.isSystemUpdateEnabled());
+  private boolean shouldPreserveStructuredPropertyMappings(boolean copyStructuredPropertyMappings) {
+    return copyStructuredPropertyMappings || !structPropConfig.isEnabled();
   }
 
   private static boolean isKnnEnabled(Map<String, Object> baseSettings) {
@@ -556,8 +573,6 @@ public class ESIndexBuilder {
    * current index has none to merge. The copy (rather than an in-place merge) keeps caller-supplied
    * maps untouched: V2SemanticSearchMappingsBuilder supplies the semantic index target as
    * ImmutableMaps, where an in-place merge throws a message-less UnsupportedOperationException.
-   * Merging from the live index at all — rather than building targets from structured-property
-   * definitions — is a separate issue: https://github.com/datahub-project/datahub/issues/19588.
    */
   @SuppressWarnings("unchecked")
   private Map<String, Object> mergeStructuredPropertyMappings(
@@ -628,7 +643,11 @@ public class ESIndexBuilder {
     ReindexResult result;
     // If index doesn't exist, create index
     if (!indexState.exists()) {
-      createIndex(opContext, indexState.name(), indexState);
+      Map<String, Object> mappings = indexState.targetMappings();
+      if (replacesRetiredV2(opContext, indexState.name())) {
+        mappings = IndexMigrationStamp.stamped(mappings, IndexMigrationStamp.INCOMPLETE);
+      }
+      createIndex(opContext, indexState.name(), mappings, indexState.targetSettings());
       result = ReindexResult.CREATED_NEW;
       return result;
     }
@@ -636,6 +655,9 @@ public class ESIndexBuilder {
 
     // If there are no updates to mappings and settings, return
     if (!indexState.requiresApplyMappings() && !indexState.requiresApplySettings()) {
+      if (putUnmappedStructuredPropertyFields(opContext, indexState, true)) {
+        return ReindexResult.NOT_REQUIRED_MAPPINGS_SETTINGS_APPLIED;
+      }
       log.info("No updates to index {}", indexState.name());
       result = ReindexResult.NOT_REINDEXED_NOTHING_APPLIED;
       return result;
@@ -849,7 +871,9 @@ public class ESIndexBuilder {
     if (indexState.isPureMappingsAddition()
         || indexState.isPureStructuredPropertyAddition()
         || indexState.isInPlaceMappingParameterUpdate()) {
-      Map<String, Object> mappingsToPut = indexState.targetMappings();
+      Map<String, Object> mappingsToPut =
+          ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+              indexState.targetMappings(), indexState.currentMappings());
       if (indexState.cannotApplyKnnVectorMappingInPlace()) {
         log.error(
             "Index: {} - Skipping knn_vector mapping update because index.knn is false and"
@@ -871,8 +895,52 @@ public class ESIndexBuilder {
       // put-mapping onto an existing index must not relabel it, so the stamp never travels here.
       Map<String, Object> mappings = new HashMap<>(mappingsToPut);
       mappings.remove(V3DocumentIdScheme.META);
-      PutMappingRequest request = new PutMappingRequest(indexState.name()).source(mappings);
-      searchClient.putIndexMapping(opContext, request, requestOptionsLong);
+      Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
+      try {
+        searchClient.putIndexMapping(
+            opContext,
+            new PutMappingRequest(indexState.name()).source(mappings),
+            requestOptionsLong);
+        if (!newFields.isEmpty()) {
+          logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+        }
+      } catch (IOException | RuntimeException e) {
+        // System-update sends new structured-property fields along with the index's other mapping
+        // changes, and they can push the index past its total-fields limit. When the engine
+        // rejects the put, the other changes go in without them, and they wait for the next
+        // definition upsert or reindex. Any other failure, and any failure of a definition upsert
+        // (suppressError=false), propagates, so the next run sends the full put again.
+        if (!suppressError || newFields.isEmpty() || !isMappingRejection(e)) {
+          throw e;
+        }
+        log.warn(
+            "Index: {} - Put-mapping rejected, retrying without the new structured property fields"
+                + " {}",
+            indexState.name(),
+            newFields,
+            e);
+        // Against itself every structured-property field counts as mapped, so this drops them all.
+        Map<String, Object> withoutStructuredPropertyFields =
+            ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(mappings, mappings);
+        try {
+          searchClient.putIndexMapping(
+              opContext,
+              new PutMappingRequest(indexState.name()).source(withoutStructuredPropertyFields),
+              requestOptionsLong);
+        } catch (IOException | RuntimeException retryFailure) {
+          if (retryFailure != e) {
+            retryFailure.addSuppressed(e);
+          }
+          throw retryFailure;
+        }
+        log.error(
+            "Index: {} - Applied the mapping changes without the new structured property fields {};"
+                + " a definition upsert or a reindex adds them. If the rejection names the"
+                + " total-fields limit, raise index.mapping.total_fields.limit on the index for an"
+                + " upsert, or in the settings overrides for a reindex.",
+            indexState.name(),
+            newFields);
+      }
       log.info("Updated index {} with new mappings", indexState.name());
     } else {
       // Reached when the mappings differ but put-mapping cannot express the diff: not a pure
@@ -880,13 +948,16 @@ public class ESIndexBuilder {
       // in-place updatable parameter. buildIndex passes suppressError=true, so without this
       // warning the upgrade step reports success while the index mapping is silently left
       // untouched — the operator sees no reindex and no change.
+      boolean addedStructuredPropertyFields =
+          putUnmappedStructuredPropertyFields(opContext, indexState, suppressError);
       log.warn(
-          "Index: {} - Mapping changes were NOT applied: put-mapping cannot express this diff,"
+          "Index: {} - Mapping changes were NOT applied{}: put-mapping cannot express this diff,"
               + " so a reindex is required to pick them up."
               + " requiresReindex={}, enableIndexMappingsReindex={}."
               + " If reindexing is disabled, enable ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX"
               + " or the new mappings will keep being ignored.",
           indexState.name(),
+          addedStructuredPropertyFields ? " beyond the new structured property fields" : "",
           indexState.requiresReindex(),
           indexState.enableIndexMappingsReindex());
       if (v3IndexNeedsRebuild(opContext, indexState)) {
@@ -902,7 +973,9 @@ public class ESIndexBuilder {
                 + " ELASTICSEARCH_INDEX_BUILDER_MAPPINGS_REINDEX=true, then RestoreIndices.",
             indexState.name());
       }
-      if (!suppressError) {
+      // A definition upsert (suppressError=false) that added its fields did what it was for; the
+      // warning above already reports the rest of the diff.
+      if (!suppressError && !addedStructuredPropertyFields) {
         if (EntityIndexVersion.V3.matches(indexState.name())) {
           log.error(
               "Attempted to apply invalid mappings for {}.\n{}",
@@ -920,6 +993,114 @@ public class ESIndexBuilder {
         }
       }
     }
+  }
+
+  /**
+   * Adds the structured property fields the index does not map yet, when nothing else on the index
+   * changes or when the rest of the mapping change cannot be applied in place, such as a type or
+   * analyzer change that waits for a reindex. The put carries only the structured property
+   * container with those fields, so a pending change elsewhere cannot fail it; put-mapping merges,
+   * and every other field keeps its live mapping. A definition upsert takes this path too when such
+   * a change is pending on the index.
+   *
+   * @return whether the put added fields
+   */
+  private boolean putUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState, boolean suppressError)
+      throws IOException {
+    Map<String, Object> mappings =
+        ReindexConfig.unmappedStructuredPropertyFieldsOnly(
+            indexState.targetMappings(), indexState.currentMappings());
+    if (mappings.isEmpty()) {
+      return false;
+    }
+    Set<String> newFields = new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(mappings));
+    try {
+      searchClient.putIndexMapping(
+          opContext, new PutMappingRequest(indexState.name()).source(mappings), requestOptionsLong);
+    } catch (IOException | RuntimeException e) {
+      // As with the other in-place puts, only a rejection is logged and left for later. Any other
+      // failure, such as a timeout, fails the step, and the next run sends the put again.
+      if (!suppressError || !isMappingRejection(e)) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - Put-mapping rejected the new structured property fields {}; a definition"
+              + " upsert or a reindex adds them. If the rejection names the total-fields limit,"
+              + " raise index.mapping.total_fields.limit on the index for an upsert, or in the"
+              + " settings overrides for a reindex.",
+          indexState.name(),
+          newFields,
+          e);
+      return false;
+    }
+    logAddedStructuredPropertyFields(indexState, newFields, suppressError);
+    return true;
+  }
+
+  /**
+   * Adds the structured property fields the index does not map yet, before a fill writes into it.
+   * Values written without their field would stay unsearchable, so a rejected put fails here
+   * instead of only being logged.
+   */
+  public void addUnmappedStructuredPropertyFields(
+      @Nonnull OperationContext opContext, @Nonnull ReindexConfig indexState) throws IOException {
+    putUnmappedStructuredPropertyFields(opContext, indexState, false);
+  }
+
+  private static void logAddedStructuredPropertyFields(
+      @Nonnull ReindexConfig indexState, @Nonnull Set<String> fields, boolean suppressError) {
+    if (suppressError && !mapsStructuredPropertiesDynamically(indexState.currentMappings())) {
+      // System-update adds fields the index was missing, possibly while values for them were
+      // written; put-mapping does not index what documents already hold. Under a dynamic
+      // container a written value would have mapped its field, so none can be unindexed there.
+      log.warn(
+          "Index: {} - Added structured property fields {}. Values that documents already held"
+              + " for them stay unsearchable until RestoreIndices rewrites those documents.",
+          indexState.name(),
+          fields);
+    } else {
+      log.info("Index: {} - Added structured property fields {}", indexState.name(), fields);
+    }
+  }
+
+  /** Whether the live structured property container maps new values dynamically. */
+  private static boolean mapsStructuredPropertiesDynamically(
+      @Nullable Map<String, Object> currentMappings) {
+    if (currentMappings == null
+        || !(currentMappings.get(PROPERTIES) instanceof Map<?, ?> properties)
+        || !(properties.get(STRUCTURED_PROPERTY_MAPPING_FIELD) instanceof Map<?, ?> container)) {
+      return false;
+    }
+    // A container without its own setting inherits the root's, which defaults to true.
+    Object dynamic =
+        container.containsKey("dynamic")
+            ? container.get("dynamic")
+            : currentMappings.getOrDefault("dynamic", true);
+    return Boolean.TRUE.equals(dynamic) || "true".equals(dynamic);
+  }
+
+  /**
+   * Error types an engine reports when it rejects a put-mapping body: a field past the total-fields
+   * limit or a mapping the index cannot take. Both are a 400, but so is a closed index.
+   */
+  private static final Set<String> MAPPING_REJECTION_TYPES =
+      Set.of("illegal_argument_exception", "mapper_parsing_exception", "mapper_exception");
+
+  /**
+   * Whether the engine rejected a put-mapping body. Anything else, such as a closed index, a
+   * timeout, throttling, or a server or connection failure, may succeed on the next run.
+   */
+  private static boolean isMappingRejection(@Nonnull Exception e) {
+    if (e instanceof ElasticsearchException elasticsearchException) {
+      return elasticsearchException.status() == RestStatus.BAD_REQUEST.getStatus()
+          && MAPPING_REJECTION_TYPES.contains(elasticsearchException.error().type());
+    }
+    // The OpenSearch client carries the error type only in the message.
+    return e instanceof OpenSearchStatusException openSearchException
+        && openSearchException.status() == RestStatus.BAD_REQUEST
+        && openSearchException.getMessage() != null
+        && MAPPING_REJECTION_TYPES.stream().anyMatch(openSearchException.getMessage()::contains);
   }
 
   /**
@@ -957,11 +1138,7 @@ public class ESIndexBuilder {
   }
 
   private static boolean servesV3Reads(@Nullable EntityIndexConfiguration entityIndex) {
-    return EntitySearchIndexResolver.shouldReadV3(entityIndex)
-        || (entityIndex != null
-            && entityIndex.getV3() != null
-            && entityIndex.getV3().isEnabled()
-            && entityIndex.getV3().isSemanticReadEnabled());
+    return EntitySearchIndexResolver.shouldReadV3(entityIndex);
   }
 
   /** Whether a root field that the current mapping declares as an alias is a real field now. */
@@ -999,9 +1176,14 @@ public class ESIndexBuilder {
           String.format("Input to reindexInPlaceAsync should be an alias. %s is not", indexAlias));
     }
 
-    // Point alias at new index
+    // Point alias at new index. The destination receives this index's documents, so it keeps the
+    // migration mark the target mappings do not carry.
     String nextIndexName = getNextIndexName(indexAlias, System.currentTimeMillis());
-    createIndex(opContext, nextIndexName, config);
+    createIndex(
+        opContext,
+        nextIndexName,
+        IndexMigrationStamp.copyOnto(config.targetMappings(), config.currentMappings()),
+        config.targetSettings());
     renameReindexedIndices(
         searchClient, opContext, indexAlias, null, nextIndexName, false, requestOptionsLong);
     int targetShards = extractTargetShards(config);
@@ -1081,7 +1263,7 @@ public class ESIndexBuilder {
         getIncrementalNextIndexName(indexState.name(), upgradeVersion, startTime);
     int targetShards = extractTargetShards(indexState);
 
-    createIndex(opContext, nextIndexName, indexState);
+    createReindexDestination(opContext, nextIndexName, indexState);
 
     long sourceDocCount = getSourceDocCount(opContext, indexState.name());
     if (sourceDocCount == 0) {
@@ -1662,7 +1844,8 @@ public class ESIndexBuilder {
     String tempIndexName = getNextIndexName(indexState.name(), startTime);
     Map<String, Object> reinfo = new HashMap<>();
     try {
-      Optional<TaskInfo> previousTaskInfo = getTaskInfoByHeader(opContext, indexState.name());
+      Optional<TaskInfo> previousTaskInfo =
+          getTaskInfoByHeader(opContext, indexState.name(), false);
 
       int targetShards = extractTargetShards(indexState);
       String reindexTaskId = "";
@@ -1681,7 +1864,7 @@ public class ESIndexBuilder {
         result = ReindexResult.REINDEXING_ALREADY;
       } else {
         // Create new index
-        createIndex(opContext, tempIndexName, indexState);
+        createReindexDestination(opContext, tempIndexName, indexState);
         long curDocCount = getSourceDocCount(opContext, indexState.name());
         if (curDocCount == 0) {
           reindexTaskCompleted = true;
@@ -1777,6 +1960,79 @@ public class ESIndexBuilder {
         requestOptionsLong);
     log.info("Finished setting up {}", indexState.name());
     return result;
+  }
+
+  /**
+   * Creates the destination of a reindex, which copies the documents of an index that still serves.
+   * A target built from the definitions can declare more structured property fields than the
+   * index's total-fields limit allows, and the engine then rejects the destination. Values for
+   * fields the index does not map are already unsearchable there, so instead of failing, perhaps
+   * with the index's writes blocked, the destination takes the structured property fields that
+   * index maps now, as a reindex did before targets came from the definitions. That holds only
+   * while the live fields' differences from the definitions cannot start a reindex: otherwise the
+   * same reindex would start on every run, so the rejection fails it, as it did before. Any other
+   * failure propagates.
+   */
+  void createReindexDestination(
+      @Nonnull OperationContext opContext, String destination, ReindexConfig indexState)
+      throws IOException {
+    try {
+      createIndex(
+          opContext,
+          destination,
+          IndexMigrationStamp.copyOnto(indexState.targetMappings(), indexState.currentMappings()),
+          indexState.targetSettings());
+    } catch (IOException | RuntimeException e) {
+      // The destination would keep the index's differences from the definitions; these are the
+      // ones ReindexConfig starts a reindex for.
+      boolean liveFieldsStartAReindex =
+          indexState.enableIndexMappingsReindex()
+              && ((indexState.hasRemovedStructuredProperty()
+                      && indexState.enableStructuredPropertiesReindex())
+                  || (indexState.hasStructuredPropertyTypeMismatch()
+                      && indexState.enableStructuredPropertyTypeMismatchReindex())
+                  || (indexState.hasStructuredPropertyCopyToMismatch()
+                      && indexState.enableStructuredPropertyCopyToMismatchReindex()));
+      if (liveFieldsStartAReindex || !isMappingRejection(e)) {
+        throw e;
+      }
+      // Against itself every structured property field counts as mapped, so this empties the
+      // container before the live fields go in.
+      Map<String, Object> liveStructuredPropertyMappings =
+          mergeStructuredPropertyMappings(
+              ReindexConfig.mappingsWithoutMappedStructuredPropertyFields(
+                  indexState.targetMappings(), indexState.targetMappings()),
+              indexState.currentMappings());
+      Set<String> leftOut =
+          new TreeSet<>(ReindexConfig.structuredPropertyFieldIds(indexState.targetMappings()));
+      leftOut.removeAll(ReindexConfig.structuredPropertyFieldIds(liveStructuredPropertyMappings));
+      if (leftOut.isEmpty()) {
+        throw e;
+      }
+      log.error(
+          "Index: {} - The engine rejected reindex destination {}; creating it with the structured"
+              + " property fields the index maps now, leaving out {}. If the rejection names the"
+              + " total-fields limit, raise index.mapping.total_fields.limit on the index so the"
+              + " next system-update adds them in place, and in the settings overrides so later"
+              + " reindexes keep them.",
+          indexState.name(),
+          destination,
+          leftOut,
+          e);
+      try {
+        createIndex(
+            opContext,
+            destination,
+            IndexMigrationStamp.copyOnto(
+                liveStructuredPropertyMappings, indexState.currentMappings()),
+            indexState.targetSettings());
+      } catch (IOException | RuntimeException retryFailure) {
+        if (retryFailure != e) {
+          retryFailure.addSuppressed(e);
+        }
+        throw retryFailure;
+      }
+    }
   }
 
   public void deleteActionWithRetry(@Nonnull OperationContext opContext, String tempIndexName)
@@ -2913,14 +3169,26 @@ public class ESIndexBuilder {
   }
 
   public Optional<TaskInfo> getTaskInfoByHeader(
-      @Nonnull OperationContext opContext, String indexName) throws Throwable {
+      @Nonnull OperationContext opContext, String indexName, boolean requireCompleteList)
+      throws Throwable {
     Retry retryWithDefaultConfig = retryRegistry.retry("getTaskInfoByHeader");
 
     return retryWithDefaultConfig.executeCheckedSupplier(
         () -> {
           ListTasksRequest listTasksRequest = new ListTasksRequest().setDetailed(true);
-          List<TaskInfo> taskInfos =
-              searchClient.listTasks(listTasksRequest, requestOptionsLong).getTasks();
+          ListTasksResponse response = searchClient.listTasks(listTasksRequest, requestOptionsLong);
+          if (requireCompleteList
+              && (!response.getNodeFailures().isEmpty() || !response.getTaskFailures().isEmpty())) {
+            throw new IllegalStateException(
+                "Task list for "
+                    + indexName
+                    + " is incomplete: "
+                    + response.getNodeFailures().size()
+                    + " node failure(s), "
+                    + response.getTaskFailures().size()
+                    + " task failure(s). Cannot rule out a live reindex.");
+          }
+          List<TaskInfo> taskInfos = response.getTasks();
           return taskInfos.stream()
               .filter(
                   info ->
@@ -3007,6 +3275,12 @@ public class ESIndexBuilder {
    */
   private Map<String, Object> getCurrentMappings(
       @Nonnull OperationContext opContext, String indexName) throws IOException {
+    return getCurrentMappings(opContext, searchClient, indexName);
+  }
+
+  private Map<String, Object> getCurrentMappings(
+      @Nonnull OperationContext opContext, SearchClientShim<?> client, String indexName)
+      throws IOException {
     try {
       return retryRegistry
           .retry("getCurrentMappings", "countRetry")
@@ -3015,11 +3289,11 @@ public class ESIndexBuilder {
                 try {
                   // Checked rather than reading the 404 off getIndexMapping: the two client shims
                   // raise different exception types for a missing index, indexExists does not.
-                  if (!searchClient.indexExists(
+                  if (!client.indexExists(
                       opContext, new GetIndexRequest(indexName), requestOptionsLong)) {
                     return Collections.<String, Object>emptyMap();
                   }
-                  return searchClient
+                  return client
                       .getIndexMapping(
                           opContext,
                           new GetMappingsRequest().indices(indexName),
@@ -3122,6 +3396,25 @@ public class ESIndexBuilder {
   public boolean indexExists(@Nonnull OperationContext opContext, @Nonnull String indexName)
       throws IOException {
     return searchClient.indexExists(opContext, new GetIndexRequest(indexName), requestOptionsLong);
+  }
+
+  /**
+   * Whether {@code indexName} exists on the V2 cluster. A builder whose own client is the V3
+   * cluster still reaches a split V2 cluster through the client passed for that purpose.
+   */
+  public boolean indexExistsOnV2Cluster(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
+    return v2Client.indexExists(opContext, new GetIndexRequest(indexName), requestOptionsLong);
+  }
+
+  /**
+   * Whether the V2 index is stamped retired. A missing index is not retired. A builder whose own
+   * client is the V3 cluster still reads a split V2 cluster through the client passed for that
+   * purpose.
+   */
+  public boolean v2CutoverRetired(@Nonnull OperationContext opContext, @Nonnull String indexName)
+      throws IOException {
+    return SearchV3CutoverStamp.retired(getCurrentMappings(opContext, v2Client, indexName));
   }
 
   /**
@@ -3352,21 +3645,19 @@ public class ESIndexBuilder {
   }
 
   /**
-   * Creates {@code physicalIndexName} from {@code state}'s target mappings and settings and points
-   * the alias {@code aliasName} at it. For an alias that does not exist yet; nothing is swapped or
-   * deleted.
+   * Creates {@code physicalIndexName} from {@code mappings} and {@code state}'s settings and points
+   * the alias {@code aliasName} at it, in one create request. For an alias that does not exist yet;
+   * nothing is swapped or deleted. A failed request leaves no alias. The caller stamps {@code
+   * mappings} before this runs, so the alias never points at an unstamped index.
    */
   public void createAliasedIndex(
       @Nonnull OperationContext opContext,
       @Nonnull String aliasName,
       @Nonnull String physicalIndexName,
-      @Nonnull ReindexConfig state)
+      @Nonnull ReindexConfig state,
+      @Nonnull Map<String, Object> mappings)
       throws IOException {
-    createIndex(opContext, physicalIndexName, state);
-    IndicesAliasesRequest request =
-        new IndicesAliasesRequest()
-            .addAliasAction(AliasActions.add().alias(aliasName).index(physicalIndexName));
-    searchClient.updateIndexAliases(opContext, request, requestOptionsLong);
+    createIndex(opContext, physicalIndexName, mappings, state.targetSettings(), aliasName);
     log.info("Created index {} behind alias {}", physicalIndexName, aliasName);
   }
 
@@ -3379,6 +3670,69 @@ public class ESIndexBuilder {
   public void markMigrationIncomplete(
       @Nonnull OperationContext opContext, @Nonnull String indexName) throws IOException {
     markMigration(opContext, indexName, IndexMigrationStamp.INCOMPLETE);
+  }
+
+  /**
+   * A legacy create has no fill of its own. When the new V3 index replaces one whose V2 pair is
+   * already retired, the create carries the incomplete stamp, so the next incremental run rebuilds
+   * the index from primary storage. The stamp does not keep readers down. It is part of the create
+   * request rather than a second write: a failed create leaves no index behind, and a retry creates
+   * the stamped index again. A V2 index that exists but whose stamp cannot be read, or that cannot
+   * be listed, counts the same.
+   */
+  private boolean replacesRetiredV2(
+      @Nonnull OperationContext opContext, @Nonnull String indexName) {
+    IndexConvention indexConvention = opContext.getSearchContext().getIndexConvention();
+    if (!indexConvention.isV3EntityIndexType(indexName)) {
+      return false;
+    }
+    Optional<String> indexKey = indexConvention.getEntityIndexKeyV3(opContext, indexName);
+    EntityRegistry entityRegistry = opContext.getEntityRegistry();
+    if (indexKey.isEmpty() || entityRegistry == null) {
+      return false;
+    }
+    for (EntitySpec spec : V3IndexKeys.entitySpecsForKey(entityRegistry, indexKey.get())) {
+      String v2Index = indexConvention.getEntityIndexName(opContext, spec.getName());
+      final boolean v2Exists;
+      try {
+        v2Exists =
+            v2Client.indexExists(opContext, new GetIndexRequest(v2Index), requestOptionsLong);
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: cannot list V2 index {}; creating the new index incomplete. An empty"
+                + " index is served until it is filled, with no automatic fallback to V2",
+            indexName,
+            v2Index,
+            e);
+        return true;
+      }
+      if (!v2Exists) {
+        continue;
+      }
+      final boolean retired;
+      try {
+        retired = SearchV3CutoverStamp.retired(getCurrentMappings(opContext, v2Client, v2Index));
+      } catch (IOException e) {
+        log.warn(
+            "Index {}: V2 index {} exists but its cutover stamp cannot be read; creating the new"
+                + " index incomplete. An empty index is served until it is filled, with no"
+                + " automatic fallback to V2",
+            indexName,
+            v2Index,
+            e);
+        return true;
+      }
+      if (retired) {
+        log.info(
+            "Index {}: created while V2 index {} is retired; migration marked incomplete."
+                + " Readers serve the new index until it is filled. Catch-up marks it complete"
+                + " only when incremental reindex replays the fill window",
+            indexName,
+            v2Index);
+        return true;
+      }
+    }
+    return false;
   }
 
   /** Marks the migration of {@code indexName} as finished: filled and caught up. */
@@ -3442,9 +3796,31 @@ public class ESIndexBuilder {
   public void createIndex(
       @Nonnull OperationContext opContext, String indexName, ReindexConfig state)
       throws IOException {
+    createIndex(opContext, indexName, state.targetMappings(), state.targetSettings());
+  }
+
+  private void createIndex(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings)
+      throws IOException {
+    createIndex(opContext, indexName, mappings, settings, null);
+  }
+
+  /**
+   * @param aliasName alias to attach in the same request, or null when the index is created alone.
+   *     A timeout that finds the index already exists is treated as success because the alias, when
+   *     set, was part of that same request.
+   */
+  private void createIndex(
+      @Nonnull OperationContext opContext,
+      String indexName,
+      Map<String, Object> mappings,
+      Map<String, Object> settings,
+      @Nullable String aliasName)
+      throws IOException {
     log.info("Index {} does not exist. Creating", indexName);
-    Map<String, Object> mappings = state.targetMappings();
-    Map<String, Object> settings = state.targetSettings();
     if (EntityIndexVersion.V3.matches(indexName)) {
       logV3MappingsOnce(mappings);
     } else {
@@ -3455,6 +3831,9 @@ public class ESIndexBuilder {
     CreateIndexRequest createIndexRequest = new CreateIndexRequest(indexName);
     createIndexRequest.mapping(mappings);
     createIndexRequest.settings(settings);
+    if (aliasName != null) {
+      createIndexRequest.alias(new Alias(aliasName));
+    }
     boolean createIndexRetryEnabled =
         config.getBuildIndices() == null || config.getBuildIndices().isCreateIndexRetryEnabled();
     try {

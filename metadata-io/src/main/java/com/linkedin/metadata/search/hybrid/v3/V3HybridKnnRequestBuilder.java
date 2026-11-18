@@ -11,6 +11,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Collection;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -77,7 +78,7 @@ public class V3HybridKnnRequestBuilder {
 
     return Optional.of(
         KnnSearchRequest.builder()
-            .indexName(String.join(",", indices.values()))
+            .indexName(String.join(",", new LinkedHashSet<>(indices.values())))
             .vectorField(vectorField(modelEmbeddingKey))
             .queryVector(queryVector)
             .k(MAX_K)

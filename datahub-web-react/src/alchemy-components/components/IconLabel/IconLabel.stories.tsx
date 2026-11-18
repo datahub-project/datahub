@@ -5,6 +5,8 @@ import React from 'react';
 import { IconLabel } from '@components/components/IconLabel/IconLabel';
 import { IconType } from '@components/components/IconLabel/types';
 
+import DataHubLogo from '@images/datahublogo.png';
+
 const meta: Meta<typeof IconLabel> = {
     title: 'Components / IconLabel',
     component: IconLabel,
@@ -45,7 +47,6 @@ const meta: Meta<typeof IconLabel> = {
             control: 'radio',
             options: [IconType.ICON, IconType.IMAGE],
             table: {
-                defaultValue: { summary: IconType.ICON },
                 type: { summary: 'IconType.ICON | IconType.IMAGE' },
             },
         },
@@ -53,7 +54,7 @@ const meta: Meta<typeof IconLabel> = {
 
     // Default props
     args: {
-        icon: <Airplane size={20} />, // Default to an emoji for demonstration
+        icon: <Airplane size={20} />,
         name: 'Icon Label',
         type: IconType.ICON,
     },
@@ -77,8 +78,8 @@ export const withIcon: Story = {
 
 export const withImage: Story = {
     args: {
-        imageUrl: 'https://png.pngtree.com/png-vector/20230209/ourmid/pngtree-test-icon-png-image_6591706.png',
-        name: 'Placeholder Image',
+        imageUrl: DataHubLogo,
+        name: 'DataHub',
         type: IconType.IMAGE,
         icon: <Airplane size={20} />,
     },

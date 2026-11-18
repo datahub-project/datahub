@@ -3,6 +3,7 @@ import { ItemType as AntdItemType } from 'antd/lib/menu/hooks/useItems';
 import React, { useMemo } from 'react';
 
 import { RESET_DROPDOWN_MENU_STYLES_CLASSNAME } from '@components/components/Dropdown/constants';
+import { CustomItemWrapper } from '@components/components/Menu/components/CustomItemWrapper';
 import GroupItemRenderer from '@components/components/Menu/components/GroupItemRenderer';
 import MenuItemRenderer from '@components/components/Menu/components/MenuItemRenderer';
 import { ItemType } from '@components/components/Menu/types';
@@ -41,6 +42,11 @@ function convertItemsToAntdMenu(items: ItemType[]): MenuProps | undefined {
                 return {
                     key: item.key,
                     type: 'divider',
+                };
+            case 'custom':
+                return {
+                    key: item.key,
+                    label: <CustomItemWrapper>{item.render()}</CustomItemWrapper>,
                 };
             default:
                 return null;

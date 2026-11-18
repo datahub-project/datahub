@@ -3,8 +3,6 @@ import React, { useEffect, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { Editor } from '@components/components/Editor';
-
 import { PostEntry } from '@app/settingsV2/posts/PostsListColumns';
 import {
     CREATE_POST_BUTTON_ID,
@@ -12,6 +10,7 @@ import {
     LOCATION_FIELD_NAME,
     TYPE_FIELD_NAME,
 } from '@app/settingsV2/posts/constants';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { useEnterKeyListener } from '@app/sharedV2/useEnterKeyListener';
 import { Modal } from '@src/alchemy-components';

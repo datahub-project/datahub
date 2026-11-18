@@ -24,7 +24,7 @@ const meta = {
         placeholder: {
             description: 'Placeholder of search bar.',
             table: {
-                defaultValue: { summary: searchBarDefaults.placeholder },
+                defaultValue: { summary: 'Search...' },
             },
             control: {
                 type: 'text',
@@ -75,7 +75,7 @@ const meta = {
             description: 'On change function for the search bar.',
         },
         suffix: {
-            description: 'Optional element to render inside of search bar on the left side',
+            description: 'Optional element to render inside of search bar on the right side',
         },
     },
 

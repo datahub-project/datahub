@@ -101,6 +101,38 @@ public class BusinessAttributesChangeEventGeneratorTest extends AbstractTestNGSp
   }
 
   @Test
+  public void testBusinessAttributeReplacement() throws Exception {
+    BusinessAttributesChangeEventGenerator test = new BusinessAttributesChangeEventGenerator();
+    String otherAttributeUrn = "urn:li:businessAttribute:otherAttribute";
+
+    Aspect<BusinessAttributes> from =
+        getBusinessAttributes(
+            new BusinessAttributeAssociation()
+                .setBusinessAttributeUrn(
+                    BusinessAttributeUrn.createFromString(BUSINESS_ATTRIBUTE_URN)));
+    Aspect<BusinessAttributes> to =
+        getBusinessAttributes(
+            new BusinessAttributeAssociation()
+                .setBusinessAttributeUrn(BusinessAttributeUrn.createFromString(otherAttributeUrn)));
+
+    List<ChangeEvent> actual =
+        test.getChangeEvents(
+            getSchemaFieldUrn(),
+            "schemaField",
+            "businessAttributes",
+            from,
+            to,
+            getTestAuditStamp());
+    assertEquals(2, actual.size());
+    assertEquals(ChangeOperation.REMOVE, actual.get(0).getOperation());
+    assertEquals(BUSINESS_ATTRIBUTE_URN, actual.get(0).getModifier());
+    assertEquals(BUSINESS_ATTRIBUTE_URN, actual.get(0).getParameters().get("businessAttributeUrn"));
+    assertEquals(ChangeOperation.ADD, actual.get(1).getOperation());
+    assertEquals(otherAttributeUrn, actual.get(1).getModifier());
+    assertEquals(otherAttributeUrn, actual.get(1).getParameters().get("businessAttributeUrn"));
+  }
+
+  @Test
   public void testNoChange() throws Exception {
     BusinessAttributesChangeEventGenerator test = new BusinessAttributesChangeEventGenerator();
 

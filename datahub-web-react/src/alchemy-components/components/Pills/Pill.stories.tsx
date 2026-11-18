@@ -21,7 +21,8 @@ const defaults: PillProps = {
     label: 'Label',
     size: 'md',
     variant: 'filled',
-    clickable: true,
+    color: 'gray',
+    clickable: false,
 };
 
 const meta: Meta = {
@@ -75,7 +76,7 @@ const meta: Meta = {
             },
         },
         variant: {
-            description: 'The size of the Pill.',
+            description: 'The variant of the Pill.',
             options: Object.values(PillVariantValues),
             table: {
                 defaultValue: { summary: defaults.variant },
@@ -95,9 +96,9 @@ const meta: Meta = {
             },
         },
         showLabel: {
-            description: 'Controls whether the label should be displayed.',
+            description: 'Adds the label as a native `title` tooltip. The label itself always renders.',
             table: {
-                defaultValue: { summary: 'true' }, // Assuming true is the default
+                defaultValue: { summary: 'false' },
             },
             control: {
                 type: 'boolean',
@@ -110,7 +111,6 @@ const meta: Meta = {
         label: defaults.label,
         size: defaults.size,
         variant: defaults.variant,
-        showLabel: true,
     },
 } satisfies Meta<typeof Pill>;
 

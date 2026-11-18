@@ -43,7 +43,6 @@ public final class SearchFieldResolver {
   private final Map<String, Field> fields;
   private final Map<String, Field> exactSourceFields;
   private final Set<String> sharedHasValues;
-  private final Map<String, String> unlabeledHasValuesSources;
 
   /**
    * For each label, whether a source is a URN. A key equal to the label is every source of that
@@ -60,7 +59,7 @@ public final class SearchFieldResolver {
     Map<String, List<SearchableFieldSpec>> byLabel = new LinkedHashMap<>();
     Map<String, List<String>> labelContributors = new LinkedHashMap<>();
     Set<String> sharedHasValuesNames = new LinkedHashSet<>();
-    Map<String, String> unlabeledHasValues = new LinkedHashMap<>();
+    Map<String, String> directHasValues = new LinkedHashMap<>();
     Set<String> splitSourceNames = new LinkedHashSet<>();
     Map<String, MutableField> aliasedTo = new LinkedHashMap<>();
 
@@ -78,7 +77,7 @@ public final class SearchFieldResolver {
               byLabel,
               labelContributors,
               sharedHasValuesNames,
-              unlabeledHasValues);
+              directHasValues);
         }
       } else {
         for (AspectSpec aspect : aspects) {
@@ -92,7 +91,7 @@ public final class SearchFieldResolver {
                 byLabel,
                 labelContributors,
                 sharedHasValuesNames,
-                unlabeledHasValues);
+                directHasValues);
           }
         }
       }
@@ -160,6 +159,15 @@ public final class SearchFieldResolver {
         byName.put(field, direct);
       }
     }
+    if (!byName.containsKey(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD)) {
+      MutableField creator = new MutableField(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      creator.addRoot(
+          FieldMapping.root(Type.KEYWORD),
+          "system created actor " + MappingConstants.SYSTEM_CREATED_ACTOR_FIELD);
+      byName.put(MappingConstants.SYSTEM_CREATED_ACTOR_FIELD, creator);
+    }
+    registerSystemTime(byName, MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+    registerSystemTime(byName, MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
     parsedKeywordPaths(entitySpecs)
         .forEach(
             (name, paths) -> {
@@ -198,24 +206,52 @@ public final class SearchFieldResolver {
           }
         });
     exactSourceFields = Collections.unmodifiableMap(exactSources);
+    directHasValues.keySet().stream()
+        .filter(sharedHasValuesNames::contains)
+        .findFirst()
+        .ifPresent(
+            name -> {
+              throw new IllegalArgumentException(
+                  "Search V3 has-field '"
+                      + name
+                      + "' is written directly by '"
+                      + directHasValues.get(name)
+                      + "' and shared by a searchLabel. A shared boolean stores only true, so one"
+                      + " name cannot be both.");
+            });
     sharedHasValues = Set.copyOf(sharedHasValuesNames);
-    unlabeledHasValuesSources = Map.copyOf(unlabeledHasValues);
     labelSourceIsUrn = labelSourceIsUrn(this.entitySpecs);
   }
 
   /**
-   * Source field for a {@code has*} name Search V3 does not map. The boolean is kept only for a
-   * {@code searchLabel}. A filter or sort that still names the old boolean reads this field.
+   * A shared-label hasValues field stores only true. False is the field being missing. A direct
+   * has-field stores true and false, so it is not listed here.
    */
-  @Nonnull
-  public Optional<String> unlabeledHasValuesSource(@Nonnull String fieldName) {
-    String source = unlabeledHasValuesSources.get(parent(fieldName));
-    return source == null ? Optional.empty() : Optional.of(source);
-  }
-
-  /** A shared-label hasValues field stores only true. False is the field being missing. */
   public boolean falseIsMissing(@Nonnull String fieldName) {
     return sharedHasValues.contains(parent(fieldName));
+  }
+
+  /**
+   * The label is indexed by {@code copy_to} and is absent from {@code _source}. Every contributor
+   * keeps a different source name, so the projector omits that root and the value lives in doc
+   * values. The label's type does not matter: a count, a timestamp, a keyword, or a URN.
+   */
+  public boolean storedViaCopyTo(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    if (field == null || field.getSourceFields().isEmpty()) {
+      return false;
+    }
+    String indexed = parent(fieldName);
+    return field.getSourceFields().stream().noneMatch(indexed::equals);
+  }
+
+  /**
+   * A parsed URN label clears the root string. Its keywords are copied from the aspect and are not
+   * in {@code _source}, even when a contributor uses the label as its own field name.
+   */
+  public boolean parsedKeywordLabel(@Nonnull String fieldName) {
+    Field field = fields.get(parent(fieldName));
+    return field != null && field.isParsedKeywordLabel();
   }
 
   /**
@@ -544,15 +580,13 @@ public final class SearchFieldResolver {
     }
     // The map key of a label is that label. A source renamed onto a different label must not
     // replace it, or a quoted name query follows that source (id.text) instead of name.text.
+    // A source of the same name at another degree must not copy that degree's presence field onto
+    // the label either: hasDescription would no longer answer whether the entity itself has one.
     MutableField occupant = byName.get(name);
     if (labels.contains(name)
         && occupant != null
         && occupant != indexedField
         && name.equals(occupant.path)) {
-      MutableField source = sources.get(name);
-      if (source != null) {
-        source.addSearchTarget(indexedField);
-      }
       return;
     }
     MutableField prior = aliasedTo.get(name);
@@ -570,6 +604,16 @@ public final class SearchFieldResolver {
     }
     aliasedTo.put(name, indexedField);
     byName.put(name, indexedField);
+  }
+
+  /** A date copied into a root {@code _system} object. Sort, range, and filter all read it. */
+  private static void registerSystemTime(Map<String, MutableField> byName, String field) {
+    if (byName.containsKey(field)) {
+      return;
+    }
+    MutableField time = new MutableField(field);
+    time.addRoot(FieldMapping.root(Type.DATETIME), "system time " + field);
+    byName.put(field, time);
   }
 
   private static String parent(String fieldName) {
@@ -627,7 +671,7 @@ public final class SearchFieldResolver {
       Map<String, List<SearchableFieldSpec>> byLabel,
       Map<String, List<String>> labelContributors,
       Set<String> sharedHasValuesNames,
-      Map<String, String> unlabeledHasValues) {
+      Map<String, String> directHasValues) {
     if (!spec.getSearchableAnnotation().isV3Searchable()) {
       return;
     }
@@ -663,20 +707,24 @@ public final class SearchFieldResolver {
                       .computeIfAbsent(field, ignored -> new MutableField(field))
                       .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + field));
     } else {
-      annotation
-          .getHasValuesFieldName()
-          .ifPresent(
-              name ->
-                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
-      annotation
-          .indexedHasValuesFieldName()
-          .ifPresent(
-              name ->
-                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
       SearchableAnnotation.sharedHasValuesName(annotation)
           .ifPresent(
-              name ->
-                  recordUnlabeledHasValues(unlabeledHasValues, name, annotation.getFieldName()));
+              name -> {
+                throw new IllegalArgumentException(
+                    "Search V3 field '"
+                        + annotation.getFieldName()
+                        + "' sets v3.hasValuesFieldName '"
+                        + name
+                        + "' without a searchLabel. That name is a copy_to target and needs one.");
+              });
+      V3SearchFields.directHasValuesName(spec.getSearchableAnnotation())
+          .ifPresent(
+              name -> {
+                recordDirectHasValues(directHasValues, name, annotation.getFieldName());
+                byName
+                    .computeIfAbsent(name, ignored -> new MutableField(name))
+                    .addRoot(FieldMapping.root(Type.BOOLEAN), described + " hasValues=" + name);
+              });
     }
     annotation
         .getNumValuesFieldName()
@@ -708,11 +756,10 @@ public final class SearchFieldResolver {
     }
   }
 
-  private static void recordUnlabeledHasValues(
-      @Nonnull Map<String, String> unlabeled,
-      @Nonnull String hasName,
-      @Nonnull String sourceField) {
-    String previous = unlabeled.putIfAbsent(hasName, sourceField);
+  /** A direct boolean has one writer. A second source would overwrite the first one's value. */
+  private static void recordDirectHasValues(
+      @Nonnull Map<String, String> direct, @Nonnull String hasName, @Nonnull String sourceField) {
+    String previous = direct.putIfAbsent(hasName, sourceField);
     if (previous != null && !previous.equals(sourceField)) {
       throw new IllegalArgumentException(
           "Search V3 has-field '"
@@ -857,7 +904,10 @@ public final class SearchFieldResolver {
         intents.add(Intent.FILTER);
         intents.add(Intent.EXACT);
         intents.add(Intent.RANGE);
-        intents.add(Intent.CONTAIN);
+        // A wildcard on a boolean is rejected by the engine and fails the whole search.
+        if (resolvedRoot.getType() != Type.BOOLEAN) {
+          intents.add(Intent.CONTAIN);
+        }
       } else if (analyzed) {
         intents.add(Intent.CONTAIN);
       }

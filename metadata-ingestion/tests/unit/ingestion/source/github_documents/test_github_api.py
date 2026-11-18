@@ -301,3 +301,26 @@ def test_compute_file_content_hash_is_stable() -> None:
 def test_collect_intermediate_directories_without_prefix() -> None:
     files = [GitHubFileInfo(path="guides/setup.md", size=10)]
     assert collect_intermediate_directories(files, "") == {"guides"}
+
+
+def test_tree_retains_index_paths_outside_import_filters() -> None:
+    client = GitHubApiClient("test-token")
+    client._get_json = MagicMock(  # type: ignore[method-assign]
+        return_value={
+            "tree": [
+                {"type": "blob", "path": "index.md"},
+                {"type": "blob", "path": "context/index.md"},
+                {"type": "blob", "path": "context/guides/mau.md"},
+                {"type": "blob", "path": "unrelated/index.md"},
+            ]
+        }
+    )
+    files, _ = client.list_matching_files(
+        "example-org/analytics", "main", "context/guides", [".md"]
+    )
+    assert [file.path for file in files] == ["context/guides/mau.md"]
+    assert client.index_file_paths == {
+        "index.md",
+        "context/index.md",
+        "unrelated/index.md",
+    }
