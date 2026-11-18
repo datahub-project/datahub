@@ -20,6 +20,7 @@ import com.linkedin.metadata.config.search.SearchTemplateSource;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import com.linkedin.search.template.SearchTemplateSearchType;
 import com.linkedin.structured.StructuredPropertyDefinition;
 import io.datahubproject.metadata.context.OperationContext;
@@ -37,6 +38,9 @@ public class SearchTemplateBootstrapTest {
   private static final String STRUCTURED = "urn:li:searchTemplate:structured";
   private static final String ENTRY = "urn:li:searchTemplate:searchLight";
   private static final String SEARCH = "urn:li:searchTemplate:search";
+  private static final String FULLTEXT = "urn:li:searchTemplate:fulltext";
+  private static final String LIGHT = "urn:li:searchTemplate:light";
+  private static final String SEMANTIC = "urn:li:searchTemplate:semantic";
   private static final String PROPERTY = "urn:li:structuredProperty:retention";
   private static final String PROPERTY_QUERY =
       "{\"match\": {\"name\": \"{{query}} {{urn:li:structuredProperty:retention}}\"}}";
@@ -196,6 +200,79 @@ public class SearchTemplateBootstrapTest {
         expectThrows(SearchTemplateException.class, () -> SearchTemplateChecks.check(nested, 1024));
     assertTrue(error.getMessage().contains("notARealSection"));
     assertFalse(error.getMessage().contains("leaf clauses"));
+  }
+
+  /**
+   * fulltext reranks with the default blend and no floor, and light inherits that rerank rather
+   * than restating it. semantic is one vector window with no cap, floor, or next. None selects an
+   * embedding profile or an entity scope, so each entity type resolves to its registry default.
+   */
+  @Test
+  public void testShippedKeywordTemplatesRerankAndSemanticRetrievesByVector() {
+    SearchTemplateLoader loader = new SearchTemplateLoader(0, SearchTemplateSource.CLASSPATH);
+    MergedSearchTemplate fulltext = loader.load(harness.opContext, FULLTEXT);
+    MergedSearchTemplate light = loader.load(harness.opContext, LIGHT);
+    MergedSearchTemplate semantic = loader.load(harness.opContext, SEMANTIC);
+
+    assertTrue(SearchTemplateCapabilities.keywordRerank(fulltext));
+    SearchTemplateRerankKnn blend = SearchTemplateJson.parseRerankKnn(fulltext.getKnn());
+    assertEquals(blend.others(), SearchTemplateRerankKnn.KEEP_KEYWORD_PLACES);
+    assertNull(blend.blendFloor());
+    assertNull(blend.model());
+    assertNull(blend.field());
+    assertEquals(blend.vectorWeight(), SearchTemplateRerankKnn.DEFAULT_VECTOR_WEIGHT);
+    assertTrue(SearchTemplateCapabilities.keywordRerank(light));
+    assertEquals(light.getRetrieval(), fulltext.getRetrieval());
+    assertEquals(light.getKnn(), fulltext.getKnn());
+    SearchTemplateProperties storedLight = SearchTemplateBootstrap.get(LIGHT);
+    assertFalse(storedLight.hasRetrieval());
+    assertFalse(storedLight.hasKnn());
+
+    assertTrue(SearchTemplateCapabilities.vectorRetrieval(semantic));
+    SearchTemplateRetrieval vector = semantic.getRetrieval();
+    assertNull(vector.getCandidateCap());
+    assertFalse(vector.hasMinSimilarity());
+    assertNull(vector.getOnFailure());
+    assertNull(semantic.getKnn());
+    assertNull(semantic.getLadder());
+    assertTrue(semantic.getRoutes().isEmpty());
+
+    for (MergedSearchTemplate template : List.of(fulltext, light, semantic)) {
+      assertNull(template.getProfiles(), template.getUrn());
+      assertFalse(template.isProfilesSet(), template.getUrn());
+      assertNull(template.getScope(), template.getUrn());
+      assertNull(SearchTemplateGates.legacyProfileId(template), template.getUrn());
+    }
+  }
+
+  /**
+   * The revert seed writes fulltext back without its keywordRerank sections, as the previous seed
+   * wrote it. Over the shipped templates, every template an earlier release can select then
+   * resolves to contract 1 with no retrieval or knn. semantic stays: no earlier release selects it.
+   */
+  @Test
+  public void testRevertSeedRestoresTheKeywordOnlyTemplates() {
+    Map<String, SearchTemplateProperties> revert =
+        SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml");
+    assertEquals(revert.keySet(), Set.of(FULLTEXT));
+    SearchTemplateProperties keywordOnly = SearchTemplateFixtures.readShipped().get(FULLTEXT);
+    keywordOnly.removeRetrieval();
+    keywordOnly.removeKnn();
+    keywordOnly.setApiVersion(SearchTemplateCapabilities.API_VERSION);
+    assertEquals(revert.get(FULLTEXT), keywordOnly);
+    SearchTemplateChecks.check(revert.get(FULLTEXT), 1024);
+
+    SearchTemplateFixtures.readShipped().forEach(harness::store);
+    revert.forEach(harness::store);
+    for (String urn : SearchTemplateBootstrap.urns()) {
+      if (SEMANTIC.equals(urn)) {
+        continue;
+      }
+      MergedSearchTemplate merged = harness.loader.load(harness.opContext, urn);
+      assertEquals(merged.getApiVersion(), SearchTemplateCapabilities.API_VERSION, urn);
+      assertNull(merged.getRetrieval(), urn);
+      assertNull(merged.getKnn(), urn);
+    }
   }
 
   /** A quoted phrase of four or more tokens matches a description that contains every term. */

@@ -18,6 +18,7 @@ import com.linkedin.metadata.TestEntitySpecBuilder;
 import com.linkedin.metadata.aspect.GraphRetriever;
 import com.linkedin.metadata.aspect.batch.ChangeMCP;
 import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
+import com.linkedin.metadata.aspect.plugins.validation.AspectValidationException;
 import com.linkedin.metadata.aspect.validation.SearchTemplateValidator;
 import com.linkedin.metadata.config.search.SearchConfiguration;
 import com.linkedin.metadata.config.search.SearchV3Configuration;
@@ -43,6 +44,52 @@ import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
+  /**
+   * System update writes the shipped templates as one batch as the system actor, then the revert
+   * seed the same way over them. The write validator accepts both in each phase, so the blocking
+   * bootstrap step that writes them does not fail.
+   */
+  @Test
+  public void testValidatorAcceptsTheShippedAndRevertSeeds() {
+    SearchTemplateValidator validator = templateValidator();
+    RetrieverContext retrieverContext = holeContext();
+    Map<String, SearchTemplateProperties> shipped = SearchTemplateFixtures.readShipped();
+    List<AspectValidationException> shippedErrors =
+        validateBatch(validator, retrieverContext, shipped);
+    assertTrue(shippedErrors.isEmpty(), String.valueOf(shippedErrors));
+
+    shipped.forEach(this::store);
+    List<AspectValidationException> revertErrors =
+        validateBatch(
+            validator,
+            retrieverContext,
+            SearchTemplateFixtures.readSeed("/bootstrap_mcps/search-templates-revert.yaml"));
+    assertTrue(revertErrors.isEmpty(), String.valueOf(revertErrors));
+  }
+
+  /** Both validation phases of one system-actor batch that upserts {@code templates}. */
+  private List<AspectValidationException> validateBatch(
+      SearchTemplateValidator validator,
+      RetrieverContext retrieverContext,
+      Map<String, SearchTemplateProperties> templates) {
+    List<ChangeMCP> writes =
+        templates.entrySet().stream()
+            .map(
+                entry ->
+                    item(
+                        UrnUtils.getUrn(entry.getKey()),
+                        SYSTEM,
+                        ChangeType.UPSERT,
+                        entry.getValue()))
+            .toList();
+    List<AspectValidationException> errors =
+        validator
+            .validateProposed(opContext, writes, retrieverContext, null)
+            .collect(Collectors.toCollection(ArrayList::new));
+    validator.validatePreCommit(opContext, writes, retrieverContext).forEach(errors::add);
+    return errors;
+  }
+
   @Test
   public void testValidator() {
     SearchConfiguration search = new SearchConfiguration();
