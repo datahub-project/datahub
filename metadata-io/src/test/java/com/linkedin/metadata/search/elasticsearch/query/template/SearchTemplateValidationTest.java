@@ -142,7 +142,8 @@ public class SearchTemplateValidationTest {
             null,
             harness.loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty())
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none())
         .bind(harness.opContext, "customer orders");
   }
 

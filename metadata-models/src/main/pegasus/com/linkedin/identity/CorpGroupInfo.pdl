@@ -10,7 +10,7 @@ import com.linkedin.common.AuditStamp
  */
 @Aspect = {
   "name": "corpGroupInfo",
-  "schemaVersion": 2
+  "schemaVersion": 3
 }
 @Aspect.EntityUrns = [ "com.linkedin.common.CorpGroupUrn" ]
 record CorpGroupInfo {
@@ -40,6 +40,20 @@ record CorpGroupInfo {
   /**
    * email of this group
    */
+  @Searchable = {
+    "fieldType": "KEYWORD",
+    "queryByDefault": true,
+    "v3": {
+      "queryByDefault": false,
+      "searchLabel": "email",
+      "copyToOther": true,
+      "mappings": [
+        { "type": "KEYWORD" },
+        { "subfield": "text", "type": "TEXT" },
+        { "subfield": "stemmed", "type": "STEMMED" }
+      ]
+    }
+  }
   email: optional EmailAddress
 
   /**

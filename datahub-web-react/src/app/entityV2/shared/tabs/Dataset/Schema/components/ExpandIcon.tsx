@@ -14,7 +14,7 @@ const caretStyles = css`
         color: ${(props) => props.theme.colors.iconHover};
     }
     color: ${(props) => props.theme.colors.icon};
-    padding-right: 5px;
+    margin-right: 5px;
     cursor: pointer;
 `;
 

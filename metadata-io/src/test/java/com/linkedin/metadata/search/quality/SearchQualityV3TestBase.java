@@ -69,6 +69,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateB
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFixtures;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateRuntimes;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
@@ -202,7 +203,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             null,
             new SearchTemplateLoader(0, SearchTemplateSource.STORAGE),
             ForkJoinPool.commonPool(),
-            componentRegistry());
+            componentRegistry(),
+            SearchTemplateGates.none());
     IndexConvention indexConvention =
         new IndexConventionImpl(
             IndexConventionImpl.IndexConventionConfig.builder().hashIdAlgo("MD5").build(),
@@ -280,7 +282,8 @@ public abstract class SearchQualityV3TestBase extends AbstractTestNGSpringContex
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     SettingsBuilder settingsBuilder =
         createDelegatingSettingsBuilder(entityIndex, config.getIndex(), indexConvention);
     searchService =

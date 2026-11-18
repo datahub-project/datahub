@@ -8,7 +8,6 @@ batch path is active.
 """
 
 import logging
-import time
 from typing import Any, Dict
 from urllib.parse import quote
 
@@ -19,6 +18,7 @@ from tests.e2e.utils import (
     get_timestampmillis_at_start_of_day,
     with_test_retry,
 )
+from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
 logger = logging.getLogger(__name__)
@@ -51,7 +51,8 @@ def _ingest_profile(auth_session: Any, urn: str, day_offset: int) -> None:
             "columnCount": 5,
         }
     }
-    resp = auth_session.post(
+    # One sync wait follows the whole batch (see ingest_cleanup_data).
+    resp = auth_session.raw_post(
         url, params={"createIfNotExists": "false", "async": "false"}, json=payload
     )
     assert resp.status_code in (200, 201, 202), (
@@ -65,8 +66,7 @@ def ingest_cleanup_data(auth_session: Any):
     for urn in _DATASET_URNS:
         for day in range(-(_DAYS - 1), 1):  # e.g. -2, -1, 0
             _ingest_profile(auth_session, urn, day)
-    # Allow async indexing to settle
-    time.sleep(3)
+    wait_for_writes_to_sync()
     yield
     logger.info("Cleaning up datasetProfile test datasets")
     for urn in _DATASET_URNS:

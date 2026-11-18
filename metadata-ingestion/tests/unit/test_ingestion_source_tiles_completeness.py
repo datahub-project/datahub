@@ -10,17 +10,28 @@ connector registry without either a tile or an explicit exemption below.
 The only hard-coded input is ``_NOT_UI_SOURCES``: sources that should never get
 a tile of their own. Keep it small.
 
-This test runs with the metadata-ingestion tests, so it catches new connectors
-but not edits that only touch ``sources.json``.
+Two more checks keep existing tiles from going stale:
+
+- every tile's ``docsUrl`` points at a docs page that exists in this repo, so a
+  renamed or moved page breaks here instead of as a 404 in the UI;
+- every top-level key in a tile's starter recipe is a field of the connector's
+  config class, so a renamed or removed config field doesn't leave users with a
+  recipe that only works through a deprecation shim, or not at all.
+
+These tests run with the metadata-ingestion tests, so they catch new connectors
+and config changes, but not edits that only touch ``sources.json``.
 """
 
 import json
+import re
 from pathlib import Path
-from typing import Set
+from typing import Any, Dict, List, Optional, Set
 
 import pytest
 import yaml
 
+from datahub.configuration.common import ConfigurationError
+from datahub.ingestion.agent.probe_methods import config_class_for
 from datahub.ingestion.source.source_registry import source_registry
 
 _HERE = Path(__file__).resolve()
@@ -100,4 +111,91 @@ def test_exemptions_name_real_connectors() -> None:
     assert not unknown, (
         f"Exempted source types are not in the connector registry: {unknown}. "
         "Remove them from _NOT_UI_SOURCES."
+    )
+
+
+_DOCS_SITE = "https://docs.datahub.com/docs/"
+_GENERATED_SOURCE_DOCS = re.compile(r"^generated/ingestion/sources/([^/]+)$")
+# The ingestion overview; only the Custom tile has no connector page to link.
+_GENERIC_INGESTION_DOCS = "metadata-ingestion"
+_NON_CONNECTOR_TILES = {"custom", "airflow", "dagster", "spark"}
+
+
+def _tiles() -> List[Dict[str, Any]]:
+    if not _UI_SOURCES.exists():
+        pytest.skip(f"UI source catalog not present in this checkout: {_UI_SOURCES}")
+    return json.loads(_UI_SOURCES.read_text())
+
+
+def _docs_page_exists(doc_path: str) -> bool:
+    """Whether a docs.datahub.com path maps to a page in this repo."""
+    generated = _GENERATED_SOURCE_DOCS.match(doc_path)
+    if generated:
+        return (_METADATA_INGESTION_DIR / "docs/sources" / generated.group(1)).is_dir()
+    return any(
+        candidate.is_file()
+        for candidate in (
+            _REPO_ROOT / "docs" / f"{doc_path}.md",
+            _REPO_ROOT / "docs" / doc_path / "README.md",
+            _REPO_ROOT / f"{doc_path}.md",
+            _REPO_ROOT / doc_path / "README.md",
+        )
+    )
+
+
+def test_tile_docs_links_point_at_existing_pages() -> None:
+    problems = []
+    for tile in _tiles():
+        url = tile.get("docsUrl") or ""
+        if not url.startswith(_DOCS_SITE):
+            problems.append(f"{tile['name']}: not a {_DOCS_SITE} link: {url!r}")
+            continue
+        doc_path = url[len(_DOCS_SITE) :].split("#")[0].rstrip("/")
+        if doc_path == _GENERIC_INGESTION_DOCS and tile["name"] != "custom":
+            problems.append(
+                f"{tile['name']}: links the ingestion overview instead of its connector page"
+            )
+        elif not _docs_page_exists(doc_path):
+            problems.append(f"{tile['name']}: no docs page for {url}")
+    assert not problems, "Fix the docsUrl of these tiles:\n" + "\n".join(problems)
+
+
+def _config_keys(source_type: str) -> Optional[Set[str]]:
+    """Field names and aliases of a source's config class, or None when the
+    source can't be loaded here (an optional dependency that isn't installed)."""
+    try:
+        config_class = config_class_for(source_type)
+    except ValueError as e:
+        # A plugin whose optional dependency isn't installed; anything else is a bug.
+        if isinstance(e.__cause__, ConfigurationError):
+            return None
+        raise
+    if config_class is None:
+        return None
+    keys: Set[str] = set()
+    for name, field in config_class.model_fields.items():
+        keys.add(name)
+        for alias in (field.alias, field.validation_alias):
+            if isinstance(alias, str):
+                keys.add(alias)
+            elif alias is not None and hasattr(alias, "choices"):
+                keys.update(c for c in alias.choices if isinstance(c, str))
+    return keys
+
+
+def test_tile_recipes_only_use_config_fields() -> None:
+    problems = []
+    for tile in _tiles():
+        if tile["name"] in _NON_CONNECTOR_TILES:
+            continue
+        source = (yaml.safe_load(tile.get("recipe") or "") or {}).get("source") or {}
+        known = _config_keys(source["type"])
+        if known is None:
+            continue
+        unknown = sorted(set(source.get("config") or {}) - known)
+        if unknown:
+            problems.append(f"{tile['name']} ({source['type']}): {unknown}")
+    assert not problems, (
+        "These tile recipes use keys that are not fields of the connector's config "
+        "class (renamed, removed or deprecated):\n" + "\n".join(problems)
     )

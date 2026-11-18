@@ -87,9 +87,15 @@ public class SearchTemplateComponentTest {
             .component(valid.getComponent())
             .build();
     assertEquals(
-        SearchTemplateCapabilities.rejectionCode(template, false, false, empty), "component");
-    assertEquals(SearchTemplateCapabilities.rejectionCode(template, false, false, registry), null);
-    SearchTemplateCapabilities.requireSupported(template, false, registry);
+        SearchTemplateCapabilities.rejectionCode(
+            template, false, false, empty, SearchTemplateGates.none()),
+        "component");
+    assertEquals(
+        SearchTemplateCapabilities.rejectionCode(
+            template, false, false, registry, SearchTemplateGates.none()),
+        null);
+    SearchTemplateCapabilities.requireSupported(
+        template, false, false, registry, SearchTemplateGates.none());
 
     SearchResult page = new SearchResult();
     page.setEntities(

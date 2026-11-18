@@ -3417,7 +3417,7 @@ public class EntityServiceImpl implements EntityService<ChangeItemImpl> {
 
     boolean isNoOp = isNoOp(aspectSpec, metadataChangeLog);
     if (!isNoOp || alwaysEmitChangeLog || shouldAspectEmitChangeLog(aspectSpec)) {
-      log.info("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
+      log.debug("Producing MCL for ingested aspect {}, urn {}", aspectSpec.getName(), entityUrn);
 
       log.debug("Serialized MCL event: {}", metadataChangeLog);
       Pair<Future<?>, Boolean> emissionStatus =
