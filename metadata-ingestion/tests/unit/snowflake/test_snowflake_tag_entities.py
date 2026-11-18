@@ -71,16 +71,16 @@ def test_platform_resource_round_trip_keeps_flag_and_urns() -> None:
     assert restored.id.database == "TEST_DB"
 
 
-def test_platform_instance_is_lower_cased_in_the_key() -> None:
-    # The sync-back writer derives the instance from a dataset URN, which may be
-    # lower-cased, while ingestion uses the configured value as typed.
+def test_platform_instance_keeps_its_case_in_the_key() -> None:
+    # The instance names the record's dataPlatformInstance, whose URN is
+    # case-sensitive; only the tag's primary key is lower-cased.
     key = SnowflakeTagPlatformResourceId.from_snowflake_tag(
-        _TAG, "My_Account", with_value=True
+        _TAG, "Acct_A", with_value=True
     ).to_platform_resource_key()
 
     assert key == PlatformResourceKey(
         platform="snowflake",
         resource_type="SnowflakeTagPlatformResource",
         primary_key="test_db.public.pii:high",
-        platform_instance="my_account",
+        platform_instance="Acct_A",
     )

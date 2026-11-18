@@ -334,6 +334,15 @@ def test_record_from_another_platform_instance_is_ignored() -> None:
     assert r.is_native(_TAG)
 
 
+def test_platform_instance_is_matched_with_its_case() -> None:
+    r = resolver(
+        [tag_record(_TAG, "urn:li:tag:pii", platform_instance="Acct_A")],
+        platform_instance="acct_a",
+    )
+
+    assert r.is_native(_TAG)
+
+
 def test_records_are_loaded_in_pages_filtered_by_platform_instance() -> None:
     tags = [
         SnowflakeTag(database="TEST_DB", schema="PUBLIC", name="PII", value=f"V{i}")

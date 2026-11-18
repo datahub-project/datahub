@@ -312,7 +312,7 @@ Every other Snowflake tag is ingested as before. Records are loaded once at the 
 
 Duplicate tags that earlier ingestion runs created from these Snowflake tags (for example `test_db.public.pii:high` next to `pii`) stay on assets until you remove them; ingestion does not clean them up.
 
-Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one.
+Snowflake tag names and values are matched without regard to case, so DataHub tags that differ only in case (for example `PII` and `pii`) written to the same Snowflake tag and value are treated as one. The platform instance is matched exactly as configured, with its case.
 
 #### Materialized Views
 

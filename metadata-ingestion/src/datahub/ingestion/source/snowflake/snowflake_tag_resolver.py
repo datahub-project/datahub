@@ -35,10 +35,6 @@ from datahub.utilities.urns.urn import Urn
 _A = TypeVar("_A", bound=_Aspect)
 
 
-def _lower(value: Optional[str]) -> Optional[str]:
-    return value.lower() if value is not None else None
-
-
 class _AspectUnreadable(Exception):
     """DataHub's current aspect of an entity could not be read."""
 
@@ -403,8 +399,9 @@ class SnowflakeTagResolver:
         return valid
 
     def _is_this_instance(self, record: SnowflakeTagPlatformResource) -> bool:
-        # The scroll only filters by instance when one is configured.
-        return _lower(record.id.platform_instance) == _lower(self.platform_instance)
+        # The scroll only filters by instance when one is configured. Instances
+        # are case-sensitive, as dataPlatformInstance URNs are.
+        return record.id.platform_instance == self.platform_instance
 
     def _lookup(
         self, tag: SnowflakeTag, with_value: bool

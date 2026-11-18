@@ -29,9 +29,11 @@ class SnowflakeTagPlatformResourceId(ExternalEntityId):
     """Identifies a Snowflake tag, or one tag-and-value pair of it.
 
     Fields keep Snowflake's exact case so sync-back can address the tag; the
-    PlatformResource key, platform instance included, is lower-cased so
-    ingestion (which sees upper-case Snowflake names and the configured
-    instance as typed) and sync-back (which starts from lower-case URNs) agree.
+    key's primary key is lower-cased so ingestion (which sees upper-case
+    Snowflake names) and sync-back (which starts from lower-case URNs) agree.
+    The platform instance keeps the case it is configured with: it names the
+    record's dataPlatformInstance, and sync-back reads it from the dataset's
+    dataPlatformInstance aspect, which keeps that case.
     With a value the record stands for a DataHub tag or glossary term; without
     one it stands for a structured property, whose value varies per asset.
     """
@@ -51,11 +53,7 @@ class SnowflakeTagPlatformResourceId(ExternalEntityId):
             platform=SNOWFLAKE_PLATFORM,
             resource_type=SNOWFLAKE_TAG_RESOURCE_TYPE,
             primary_key=primary_key.lower(),
-            platform_instance=(
-                self.platform_instance.lower()
-                if self.platform_instance is not None
-                else None
-            ),
+            platform_instance=self.platform_instance,
         )
 
     @classmethod
@@ -140,7 +138,7 @@ class SnowflakeTagPlatformResourceRepository(
                     "field": "platformInstance",
                     "values": [
                         make_dataplatform_instance_urn(
-                            SNOWFLAKE_PLATFORM, platform_instance.lower()
+                            SNOWFLAKE_PLATFORM, platform_instance
                         )
                     ],
                     "condition": "EQUAL",
