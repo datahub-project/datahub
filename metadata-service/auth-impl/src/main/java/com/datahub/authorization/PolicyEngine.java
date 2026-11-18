@@ -534,6 +534,86 @@ public class PolicyEngine {
     return isRoleMatch(opContext, resolvedActorSpec, actorFilter, context);
   }
 
+  /**
+   * Explains why the actor filter of a policy matches a user actor. Returns an empty list when it
+   * does not match. Must agree with {@link #isActorMatch} without a resource: the result is
+   * non-empty iff that returns true, plus {@code RESOURCE_OWNER} for owner policies.
+   *
+   * @param rolesByGroup the roles assigned to each of the actor's groups
+   */
+  public List<ActorPolicyMatchReason> explainActorMatch(
+      @Nonnull OperationContext opContext,
+      final ResolvedEntitySpec resolvedActorSpec,
+      final DataHubActorFilter actorFilter,
+      final PolicyEvaluationContext context,
+      final Map<Urn, Set<Urn>> rolesByGroup) {
+    final List<ActorPolicyMatchReason> reasons = new ArrayList<>();
+    if (actorFilter.isAllUsers()) {
+      reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ALL_USERS, null, null));
+    }
+    if (actorFilter.hasUsers()
+        && Objects.requireNonNull(actorFilter.getUsers()).stream()
+            .anyMatch(user -> user.toString().equals(resolvedActorSpec.getSpec().getEntity()))) {
+      reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_USER, null, null));
+    }
+
+    if (actorFilter.isAllGroups() || actorFilter.hasGroups()) {
+      final Set<String> groups = resolveGroups(resolvedActorSpec, context);
+      if (actorFilter.isAllGroups() && !groups.isEmpty()) {
+        reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ALL_GROUPS, null, null));
+      }
+      if (actorFilter.hasGroups()) {
+        Objects.requireNonNull(actorFilter.getGroups()).stream()
+            .filter(group -> groups.contains(group.toString()))
+            .forEach(
+                group ->
+                    reasons.add(
+                        new ActorPolicyMatchReason(
+                            ActorPolicyMatchReason.Type.GROUP, group, null)));
+      }
+    }
+
+    if (actorFilter.isResourceOwners()) {
+      reasons.add(
+          new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.RESOURCE_OWNER, null, null));
+    }
+
+    if (actorFilter.hasRoles()) {
+      final Set<Urn> actorRoles = resolveRoles(opContext, resolvedActorSpec, context);
+      final Set<Urn> directRoles = knownDirectRoles(context);
+      for (final Urn role : Objects.requireNonNull(actorFilter.getRoles())) {
+        if (!actorRoles.contains(role)) {
+          continue;
+        }
+        final List<Urn> viaGroups =
+            rolesByGroup.entrySet().stream()
+                .filter(entry -> entry.getValue().contains(role))
+                .map(Map.Entry::getKey)
+                .toList();
+        // A role that no group explains must be direct, even if the context did not record it.
+        if (directRoles.contains(role) || viaGroups.isEmpty()) {
+          reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ROLE, null, role));
+        }
+        viaGroups.forEach(
+            group ->
+                reasons.add(
+                    new ActorPolicyMatchReason(
+                        ActorPolicyMatchReason.Type.ROLE_VIA_GROUP, group, role)));
+      }
+    }
+    return reasons;
+  }
+
+  private static Set<Urn> knownDirectRoles(final PolicyEvaluationContext context) {
+    if (context.directRoles != null) {
+      return context.directRoles;
+    }
+    if (context.sessionActorIdentity != null) {
+      return context.sessionActorIdentity.getDirectRoles();
+    }
+    return Set.of();
+  }
+
   private boolean isUserMatch(
       final ResolvedEntitySpec resolvedActorSpec, final DataHubActorFilter actorFilter) {
     // If the actor is a matching "User" in the actor filter, return true immediately.

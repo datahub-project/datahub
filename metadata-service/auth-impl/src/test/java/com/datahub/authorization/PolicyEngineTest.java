@@ -3523,4 +3523,137 @@ public class PolicyEngineTest {
             EntityFieldType.STRUCTURED_PROPERTY,
             structuredPropertyResolver));
   }
+
+  private static final Urn EXPLAIN_GROUP_1 = Urn.createFromTuple("corpGroup", "g1");
+  private static final Urn EXPLAIN_GROUP_2 = Urn.createFromTuple("corpGroup", "g2");
+  private static final Urn EXPLAIN_ROLE = Urn.createFromTuple("dataHubRole", "Editor");
+
+  private static PolicyEngine.PolicyEvaluationContext explainContext(
+      Set<Urn> groups, Set<Urn> directRoles, Map<Urn, Set<Urn>> rolesByGroup) {
+    PolicyEngine.PolicyEvaluationContext context = new PolicyEngine.PolicyEvaluationContext();
+    Set<String> groupStrings = new HashSet<>();
+    groups.forEach(g -> groupStrings.add(g.toString()));
+    context.setGroups(groupStrings);
+    context.setDirectRoles(directRoles);
+    Set<Urn> allRoles = new HashSet<>(directRoles);
+    rolesByGroup.values().forEach(allRoles::addAll);
+    context.setRoles(allRoles);
+    return context;
+  }
+
+  private List<ActorPolicyMatchReason> explain(
+      DataHubActorFilter filter,
+      Set<Urn> groups,
+      Set<Urn> directRoles,
+      Map<Urn, Set<Urn>> rolesByGroup) {
+    return _policyEngine.explainActorMatch(
+        systemOperationContext,
+        resolvedAuthorizedUserSpec,
+        filter,
+        explainContext(groups, directRoles, rolesByGroup),
+        rolesByGroup);
+  }
+
+  @Test
+  public void explain_directUser_reason() {
+    DataHubActorFilter filter =
+        new DataHubActorFilter().setUsers(new UrnArray(List.of(authorizedUserUrn)));
+    assertEquals(
+        explain(filter, Set.of(), Set.of(), Map.of()),
+        List.of(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_USER, null, null)));
+  }
+
+  @Test
+  public void explain_group_reason() {
+    DataHubActorFilter filter =
+        new DataHubActorFilter().setGroups(new UrnArray(List.of(EXPLAIN_GROUP_1)));
+    assertEquals(
+        explain(filter, Set.of(EXPLAIN_GROUP_1), Set.of(), Map.of()),
+        List.of(
+            new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.GROUP, EXPLAIN_GROUP_1, null)));
+  }
+
+  @Test
+  public void explain_allGroups_noGroups_noReason() {
+    DataHubActorFilter filter = new DataHubActorFilter().setAllGroups(true);
+    assertEquals(explain(filter, Set.of(), Set.of(), Map.of()), List.of());
+  }
+
+  @Test
+  public void explain_directRole_reason() {
+    DataHubActorFilter filter =
+        new DataHubActorFilter().setRoles(new UrnArray(List.of(EXPLAIN_ROLE)));
+    assertEquals(
+        explain(filter, Set.of(), Set.of(EXPLAIN_ROLE), Map.of()),
+        List.of(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ROLE, null, EXPLAIN_ROLE)));
+  }
+
+  @Test
+  public void explain_roleViaTwoGroups_twoReasons() {
+    DataHubActorFilter filter =
+        new DataHubActorFilter().setRoles(new UrnArray(List.of(EXPLAIN_ROLE)));
+    List<ActorPolicyMatchReason> reasons =
+        explain(
+            filter,
+            Set.of(EXPLAIN_GROUP_1, EXPLAIN_GROUP_2),
+            Set.of(),
+            Map.of(EXPLAIN_GROUP_1, Set.of(EXPLAIN_ROLE), EXPLAIN_GROUP_2, Set.of(EXPLAIN_ROLE)));
+    assertEquals(
+        new HashSet<>(reasons),
+        Set.of(
+            new ActorPolicyMatchReason(
+                ActorPolicyMatchReason.Type.ROLE_VIA_GROUP, EXPLAIN_GROUP_1, EXPLAIN_ROLE),
+            new ActorPolicyMatchReason(
+                ActorPolicyMatchReason.Type.ROLE_VIA_GROUP, EXPLAIN_GROUP_2, EXPLAIN_ROLE)));
+    assertEquals(reasons.size(), 2);
+  }
+
+  @Test
+  public void explain_agreesWithIsActorMatch() {
+    Urn otherUser = Urn.createFromTuple("corpuser", "other");
+    Urn otherRole = Urn.createFromTuple("dataHubRole", "Reader");
+    List<DataHubActorFilter> filters =
+        List.of(
+            new DataHubActorFilter().setAllUsers(true),
+            new DataHubActorFilter().setUsers(new UrnArray(List.of(authorizedUserUrn))),
+            new DataHubActorFilter().setUsers(new UrnArray(List.of(otherUser))),
+            new DataHubActorFilter().setAllGroups(true),
+            new DataHubActorFilter().setGroups(new UrnArray(List.of(EXPLAIN_GROUP_1))),
+            new DataHubActorFilter().setGroups(new UrnArray(List.of(EXPLAIN_GROUP_2))),
+            new DataHubActorFilter().setRoles(new UrnArray(List.of(EXPLAIN_ROLE))),
+            new DataHubActorFilter().setRoles(new UrnArray(List.of(otherRole))),
+            new DataHubActorFilter());
+    List<Set<Urn>> groupSets = List.of(Set.of(), Set.of(EXPLAIN_GROUP_1));
+    List<Set<Urn>> directRoleSets = List.of(Set.of(), Set.of(EXPLAIN_ROLE));
+    List<Map<Urn, Set<Urn>>> rolesByGroups =
+        List.of(Map.of(), Map.of(EXPLAIN_GROUP_1, Set.of(EXPLAIN_ROLE)));
+    int matches = 0;
+    int nonMatches = 0;
+    for (DataHubActorFilter filter : filters) {
+      for (Set<Urn> groups : groupSets) {
+        for (Set<Urn> directRoles : directRoleSets) {
+          for (Map<Urn, Set<Urn>> rolesByGroup : rolesByGroups) {
+            if (!groups.containsAll(rolesByGroup.keySet())) {
+              continue;
+            }
+            boolean explained = !explain(filter, groups, directRoles, rolesByGroup).isEmpty();
+            boolean matched =
+                _policyEngine.isActorMatch(
+                    systemOperationContext,
+                    resolvedAuthorizedUserSpec,
+                    filter,
+                    Optional.empty(),
+                    explainContext(groups, directRoles, rolesByGroup));
+            assertEquals(explained, matched, filter + " groups=" + groups);
+            if (matched) {
+              matches++;
+            } else {
+              nonMatches++;
+            }
+          }
+        }
+      }
+    }
+    assertTrue(matches >= 8 && nonMatches >= 8);
+  }
 }
