@@ -989,7 +989,7 @@ public class ESSearchDAOHybridTest {
     sorted.setParent(UrnUtils.getUrn(Constants.SEARCH_TEMPLATE_FULLTEXT_URN));
     sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
 
-    SearchResult result = searchRung(sorted, "revenue", null);
+    SearchResult result = searchRung(sorted, ENTITY_NAMES, "revenue", null);
 
     assertEquals(
         result.getMetadata().getKeywordRerank().getReason(),
