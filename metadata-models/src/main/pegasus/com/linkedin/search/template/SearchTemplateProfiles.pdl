@@ -1,0 +1,36 @@
+namespace com.linkedin.search.template
+
+/**
+ * Embedding profiles a template selects. An embedding profile id is the stored embedding key.
+ * {@code useDefault} resolves each entity to its registry default and drops inherited operations.
+ * Otherwise the operations apply to the inherited set: {@code replace} sets it, then {@code add}
+ * and {@code remove} patch it, and {@code override} sets weights. A template never names a model,
+ * a vector field, or a store.
+ */
+record SearchTemplateProfiles {
+  /**
+   * Resolve each entity to its registry default. Cannot be combined with the other fields.
+   */
+  useDefault: optional boolean
+
+  /**
+   * Embedding profile ids added to the inherited set.
+   */
+  add: optional array[string]
+
+  /**
+   * Embedding profile ids removed from the inherited set.
+   */
+  remove: optional array[string]
+
+  /**
+   * Embedding profile ids that replace the inherited set, before {@code add} and {@code remove}
+   * apply. An empty list is rejected.
+   */
+  replace: optional array[string]
+
+  /**
+   * Weight per embedding profile id. Weight affects rank only.
+   */
+  override: optional map[string, float]
+}

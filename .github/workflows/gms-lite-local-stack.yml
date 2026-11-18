@@ -152,4 +152,5 @@ jobs:
             ~/.datahub/local/opensearch-${{ matrix.opensearch }}/log
             smoke-test/build/local-stack-smoke.xml
             e2e-test/ui/playwright/test-results/
+            e2e-test/ui/playwright/diagnostics/
           retention-days: 3

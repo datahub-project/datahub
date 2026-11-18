@@ -187,7 +187,8 @@ class NukeAndRedeployPhase(ConfiguredPhase):
         log.info("[nuke] wiping containers + MySQL + OpenSearch volumes")
         self._docker.down_and_wipe(
             timeout_s=self._down_timeout_s,
-            wipe_volumes=["osdata", "mysqldata"],
+            # os3data backs the unversioned profiles; osdata the *-opensearch2 pins.
+            wipe_volumes=["os3data", "osdata", "mysqldata"],
         )
 
         # G20c — point the dev host mounts at the OLD worktree's build outputs

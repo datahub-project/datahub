@@ -54,8 +54,14 @@ bootstrap:
       async: false
       mcps_location: "bootstrap_mcps/page-templates.yaml"
 
+    # v13 omits a fields clause whose list is empty; OpenSearch reads an empty list as every field.
+    # v14 does not fuzz email or apply the synonym dictionary to id or email, and autocomplete
+    # prefixes the email keyword.
+    # v15 matches email as analyzed text and an exact keyword. The template names email.text.
+    # The multi-word AND does not cover email.
+    # v16 weights that analyzed text at 2, under a name token and under the exact email keyword.
     - name: search-templates
-      version: v11
+      version: v16
       blocking: true
       async: false
       mcps_location: "bootstrap_mcps/search-templates.yaml"

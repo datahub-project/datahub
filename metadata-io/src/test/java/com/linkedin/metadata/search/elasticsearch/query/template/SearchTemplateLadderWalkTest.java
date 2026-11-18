@@ -635,7 +635,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
             null,
             loader,
             ForkJoinPool.commonPool(),
-            SearchTemplateComponentRegistry.empty()));
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none()));
     OperationContext searching =
         opContext
             .withSearchFlags(flags -> flags.setFulltext(true))
