@@ -89,9 +89,13 @@ public class ActorPoliciesResolverTest {
 
   @Test
   public void selfFlagOnTrimmed() throws Exception {
+    when(authorizer.explainUserPolicies(any(), any(), anyBoolean()))
+        .thenReturn(new ActorPolicies(List.of(policyMatch()), List.of(policyMatch())));
     final ActorPoliciesResult result = resolve(user(CALLER), Map.of("includeInactive", true));
     assertEquals(result.getView(), ActorPoliciesView.TRIMMED);
     assertTrue(result.getPolicies().stream().allMatch(p -> p.getActors() == null));
+    assertEquals(result.getOwnerPolicies().size(), 1);
+    assertNull(result.getOwnerPolicies().get(0).getActors());
     verify(authorizer).explainUserPolicies(any(), eq(CALLER), eq(false));
   }
 
