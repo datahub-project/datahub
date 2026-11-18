@@ -200,6 +200,33 @@ public class UrnSearchResultsMapperTest {
   }
 
   @Test
+  public void testNativeVectorRetrievalMapsWithoutTheExternalStoreFields() throws Exception {
+    // A rung on the DataHub index calls no adapter, so explain has no latency or hydration counts
+    SearchResult backend = backendResult(new SearchEntityArray());
+    backend
+        .getMetadata()
+        .setVectorRetrieval(
+            new com.linkedin.metadata.search.VectorRetrievalExplanation()
+                .setOutcome("served")
+                .setProfile("text_embedding_3_small")
+                .setEntityTypes(new StringArray("document"))
+                .setExcludedEntityTypes(new StringArray())
+                .setK(100)
+                .setCandidates(3)
+                .setFilterInVectorSearch(true)
+                .setDeprecations(new StringArray()));
+
+    VectorRetrievalExplanation mapped =
+        UrnSearchResultsMapper.map(null, backend).getVectorRetrieval();
+
+    assertEquals(mapped.getOutcome(), "served");
+    assertNull(mapped.getStore());
+    assertNull(mapped.getAdapterLatencyMillis());
+    assertEquals(mapped.getRemovedByHydration(), 0);
+    assertEquals(mapped.getCandidates().intValue(), 3);
+  }
+
+  @Test
   public void testHitReferencingUnknownEntityTypeIsDropped() throws Exception {
     // After a rollback, a schema field can belong to an entity type only the newer version
     // registered. The schema field itself is a known type, but its parent can't be represented, so
