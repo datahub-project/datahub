@@ -704,7 +704,7 @@ class TestSetupVenv:
         "version", ["0.12.1", VENV_VERSION_LATEST, VENV_NO_DATAHUB]
     )
     async def test_setup_venv_resolution_disabled_replaces_requested_version(
-        self, mock_runner, temp_dir, monkeypatch: pytest.MonkeyPatch, version: str
+        self, mock_runner, temp_dir, monkeypatch, version
     ):
         monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
         config = VenvConfig(version=version, main_plugin="snowflake")
@@ -723,7 +723,7 @@ class TestSetupVenv:
         assert f"requested version '{version}'" in mock_runner.logs.get_logs()
 
     async def test_setup_venv_resolution_disabled_with_bundled_requested(
-        self, mock_runner, temp_dir, monkeypatch: pytest.MonkeyPatch
+        self, mock_runner, temp_dir, monkeypatch
     ):
         monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
         config = VenvConfig(version=VENV_VERSION_BUNDLED, main_plugin="snowflake")
@@ -744,7 +744,7 @@ class TestSetupVenv:
 
     @pytest.mark.parametrize("version", [VENV_VERSION_BUNDLED, "0.12.1"])
     async def test_setup_venv_resolution_disabled_missing_bundled_venv_fails(
-        self, mock_runner, temp_dir, monkeypatch: pytest.MonkeyPatch, version: str
+        self, mock_runner, temp_dir, monkeypatch, version
     ):
         monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
         config = VenvConfig(version=version, main_plugin="snowflake")
@@ -759,7 +759,7 @@ class TestSetupVenv:
         mock_runner.execute.assert_not_called()
 
     async def test_setup_venv_resolution_disabled_keeps_native(
-        self, mock_runner, temp_dir, monkeypatch: pytest.MonkeyPatch
+        self, mock_runner, temp_dir, monkeypatch
     ):
         monkeypatch.setenv("INGESTION_DEPENDENCY_RESOLUTION_ENABLED", "false")
         config = VenvConfig(version=VENV_VERSION_NATIVE, main_plugin="snowflake")
