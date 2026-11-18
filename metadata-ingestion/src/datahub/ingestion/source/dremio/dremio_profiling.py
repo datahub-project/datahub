@@ -66,6 +66,33 @@ class DremioProfiler:
         self.report = report
         self.state_handler = state_handler
         self.QUERY_TIMEOUT = config.profiling.query_timeout
+        self._warn_unapplied_bounds()
+
+    def _warn_unapplied_bounds(self) -> None:
+        """Say so when the recipe asks for a bound this profiler does not apply.
+
+        The SQL profiler reports this per asset from what its adapter applied.
+        Dremio profiles through its own engine and never reaches that code, so
+        without this a `profiling.limit` here would be accepted and ignored in
+        silence -- the failure the applied-bound contract exists to remove. One
+        warning per run rather than per asset: the decision is the same for
+        every table, so repeating it would only bury it.
+        """
+        requested = [
+            name
+            for name in ("limit", "offset")
+            if getattr(self.config.profiling, name) is not None
+        ]
+        if not requested:
+            return
+        self.report.warning(
+            title="Profiling: limit and offset are not applied on Dremio",
+            message="Dremio profiles with a single-row aggregate query, so a "
+            "limit would bound that row rather than the scan and an offset "
+            "would skip the only row there is. Neither is applied, and every "
+            "profile covers the full table.",
+            context=f"requested: {', '.join(requested)}",
+        )
 
     def get_workunits(self, target: ProfileTarget) -> Iterable[MetadataWorkUnit]:
         if not target.columns:

@@ -332,3 +332,29 @@ class TestBuildProfileTarget:
         assert target.columns == [("a", "integer"), ("b", "varchar")]
         # No back-reference to the heavy DremioDataset.
         assert not hasattr(target, "_dataset_response")
+
+
+class TestUnappliedBoundsAreReported:
+    """Dremio profiles outside the adapter layer, so it has to say this itself.
+
+    The SQL profiler warns per asset from what its adapter applied; Dremio never
+    reaches that code, so without its own warning a `profiling.limit` here would
+    be accepted and ignored in silence.
+    """
+
+    def test_a_requested_limit_is_reported_as_unapplied(self):
+        report = make_profiler(limit=100).report
+        titles = [c.kwargs["title"] for c in report.warning.call_args_list]
+
+        assert any("not applied on Dremio" in t for t in titles)
+
+    def test_a_requested_offset_is_reported_as_unapplied(self):
+        report = make_profiler(offset=25).report
+        contexts = [c.kwargs["context"] for c in report.warning.call_args_list]
+
+        assert any("offset" in c for c in contexts)
+
+    def test_nothing_is_reported_when_no_bound_was_requested(self):
+        report = make_profiler().report
+
+        assert report.warning.call_count == 0
