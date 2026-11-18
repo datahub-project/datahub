@@ -298,6 +298,75 @@ public class SearchTemplateBootstrapTest {
     assertTrue(plainMerged.isKnnInherited());
   }
 
+  /**
+   * A child that sets its own keywordRerank combine, as the revert preflight asks, keeps the blend
+   * its parent chain sets, so its rerank does not fall back to the default blend.
+   */
+  @Test
+  public void testOwnKeywordRerankKeepsTheInheritedBlend() {
+    SearchTemplateProperties tuned = child("Tuned");
+    tuned.setKnn("{ \"vectorWeight\": 0.3, \"others\": \"keepKeywordPlaces\" }");
+    harness.store("urn:li:searchTemplate:tunedChild", tuned);
+    SearchTemplateProperties restated = child("Restated");
+    restated.setParent(UrnUtils.getUrn("urn:li:searchTemplate:tunedChild"));
+    restated.setApiVersion(SearchTemplateCapabilities.SEMANTIC_API_VERSION);
+    restated.setRetrieval(
+        new SearchTemplateRetrieval()
+            .setCombine(SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK));
+    harness.store("urn:li:searchTemplate:restatedChild", restated);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:restatedChild");
+    assertTrue(SearchTemplateCapabilities.keywordRerank(merged));
+    assertEquals(merged.getKnn(), tuned.getKnn());
+    assertTrue(merged.isKnnInherited());
+  }
+
+  /**
+   * A child's own retrieval drops only an inherited blend without a field. Under a parent whose knn
+   * names a field, a child that sets its own retrieval keeps that knn, the legacy document rerank.
+   */
+  @Test
+  public void testOwnRetrievalKeepsAnInheritedLegacyFieldKnn() {
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyChild", legacy);
+    SearchTemplateProperties keyword = child("Keyword");
+    keyword.setParent(UrnUtils.getUrn("urn:li:searchTemplate:legacyChild"));
+    keyword.setRetrieval(new SearchTemplateRetrieval().setMode("keyword"));
+    harness.store("urn:li:searchTemplate:keywordGrandchild", keyword);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:keywordGrandchild");
+    assertEquals(merged.getKnn(), legacy.getKnn());
+    assertTrue(SearchTemplateCapabilities.legacyKnn(merged));
+  }
+
+  /**
+   * A child's own legacy field knn below a retrieval that sets keywordRerank drops only that
+   * combine. The rest of the retrieval, here its keyword mode, still applies to the child.
+   */
+  @Test
+  public void testOwnLegacyKnnDropsOnlyTheInheritedCombine() {
+    SearchTemplateProperties keyword = child("Keyword");
+    keyword.setApiVersion(SearchTemplateCapabilities.SEMANTIC_API_VERSION);
+    keyword.setRetrieval(
+        new SearchTemplateRetrieval()
+            .setMode("keyword")
+            .setCombine(SearchTemplateCapabilities.COMBINE_KEYWORD_RERANK));
+    harness.store("urn:li:searchTemplate:keywordChild", keyword);
+    SearchTemplateProperties legacy = child("Legacy");
+    legacy.setParent(UrnUtils.getUrn("urn:li:searchTemplate:keywordChild"));
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store("urn:li:searchTemplate:legacyGrandchild", legacy);
+
+    MergedSearchTemplate merged =
+        harness.loader.load(harness.opContext, "urn:li:searchTemplate:legacyGrandchild");
+    assertEquals(merged.getRetrieval(), new SearchTemplateRetrieval().setMode("keyword"));
+    assertEquals(merged.getKnn(), legacy.getKnn());
+    assertTrue(SearchTemplateCapabilities.legacyKnn(merged));
+  }
+
   private static SearchTemplateProperties child(String name) {
     SearchTemplateProperties properties = new SearchTemplateProperties();
     properties.setName(name);
