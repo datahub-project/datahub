@@ -744,7 +744,9 @@ class AzureADSource(StatefulIngestionSourceBase):
                 continue
             # Graph returns lists, booleans and objects too; store them as JSON.
             props[key] = (
-                value if isinstance(value, str) else json.dumps(value, sort_keys=True)
+                value
+                if isinstance(value, str)
+                else json.dumps(value, sort_keys=True, ensure_ascii=False)
             )
         return props
 

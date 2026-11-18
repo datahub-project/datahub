@@ -183,6 +183,7 @@ def test_custom_properties_serialise_non_strings_as_json_and_skip_empty() -> Non
     source = _make_source(
         user_select_attributes=[
             "businessPhones",
+            "proxyAddresses",
             "otherMails",
             "showInAddressList",
             "employeeOrgData",
@@ -193,7 +194,8 @@ def test_custom_properties_serialise_non_strings_as_json_and_skip_empty() -> Non
         {
             "displayName": "Jane Doe",
             "businessPhones": ["+1 555 0100", "+1 555 0101"],
-            "otherMails": [],
+            "otherMails": ["josé@example.com"],
+            "proxyAddresses": [],
             "showInAddressList": True,
             "employeeOrgData": {"division": "R&D", "costCenter": "42"},
         }
@@ -201,6 +203,7 @@ def test_custom_properties_serialise_non_strings_as_json_and_skip_empty() -> Non
 
     assert info.customProperties == {
         "businessPhones": '["+1 555 0100", "+1 555 0101"]',
+        "otherMails": '["josé@example.com"]',
         "showInAddressList": "true",
         "employeeOrgData": '{"costCenter": "42", "division": "R&D"}',
     }
