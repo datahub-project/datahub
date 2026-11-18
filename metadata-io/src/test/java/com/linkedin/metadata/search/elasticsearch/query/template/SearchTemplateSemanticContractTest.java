@@ -181,50 +181,53 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   public void testVectorCacheIdentityFollowsTheVectorInputs() {
     store("urn:li:searchTemplate:vectorRung", rung(r -> r.setCombine("vector")));
     templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:vectorRung"));
-    EmbeddingProfile documentDefault =
-        new EmbeddingProfile(
-            "text_embedding_3_small",
-            EmbeddingProfile.TEXT_CHUNKS,
-            "text-embedding-3-small",
-            "cosine",
-            Set.of("document"),
-            Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
-    EmbeddingProfileRegistry registry =
-        new EmbeddingProfileRegistry(
-            List.of(documentDefault), Map.of("document", documentDefault.id()));
     SearchClientShim<?> client = mock(SearchClientShim.class);
     when(client.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_3);
     OperationContext searching = TestOperationContexts.withFixedSearchClient(opContext, client);
     Set<String> identities = new HashSet<>();
-    for (Float floor : java.util.Arrays.asList(null, 0.7f)) {
-      SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
-      semanticSearch.setEnabled(true);
-      semanticSearch.setEnabledEntities(Set.of("document"));
-      semanticSearch.setModels(Map.of(documentDefault.id(), new ModelEmbeddingConfig()));
-      semanticSearch.setMinSimilarity(floor);
-      SearchTemplateCoordinator coordinator =
-          new SearchTemplateCoordinator(
-              v3Config(),
-              null,
-              loader,
-              ForkJoinPool.commonPool(),
-              SearchTemplateComponentRegistry.empty(),
-              SearchTemplateGates.of(registry, semanticSearch, false));
-      for (List<String> entities : List.of(List.of("dataset"), List.of("document"))) {
-        String identity =
-            coordinator
-                .bind(searching, "customer orders", false, entities)
-                .getSearchContext()
-                .getResolvedSearchTemplate()
-                .cacheKeyComponent();
-        assertTrue(
-            identity.contains("~vr" + SearchTemplateVectorRetrieval.EXECUTION_VERSION), identity);
-        identities.add(identity);
+    for (String metric : List.of("cosine", "l2")) {
+      EmbeddingProfile documentDefault =
+          new EmbeddingProfile(
+              "text_embedding_3_small",
+              EmbeddingProfile.TEXT_CHUNKS,
+              "text-embedding-3-small",
+              metric,
+              Set.of("document"),
+              Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH));
+      EmbeddingProfileRegistry registry =
+          new EmbeddingProfileRegistry(
+              List.of(documentDefault), Map.of("document", documentDefault.id()));
+      for (Float floor : java.util.Arrays.asList(null, 0.7f)) {
+        SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+        semanticSearch.setEnabled(true);
+        semanticSearch.setEnabledEntities(Set.of("document"));
+        semanticSearch.setModels(Map.of(documentDefault.id(), new ModelEmbeddingConfig()));
+        semanticSearch.setMinSimilarity(floor);
+        SearchTemplateCoordinator coordinator =
+            new SearchTemplateCoordinator(
+                v3Config(),
+                null,
+                loader,
+                ForkJoinPool.commonPool(),
+                SearchTemplateComponentRegistry.empty(),
+                SearchTemplateGates.of(registry, semanticSearch, false));
+        for (List<String> entities : List.of(List.of("dataset"), List.of("document"))) {
+          String identity =
+              coordinator
+                  .bind(searching, "customer orders", false, entities)
+                  .getSearchContext()
+                  .getResolvedSearchTemplate()
+                  .cacheKeyComponent();
+          assertTrue(
+              identity.contains("~vr" + SearchTemplateVectorRetrieval.EXECUTION_VERSION), identity);
+          identities.add(identity);
+        }
       }
     }
-    // The resolved profile and the floor inherited from configuration each move the key.
-    assertEquals(identities.size(), 4);
-    assertTrue(identities.stream().anyMatch(id -> id.contains(documentDefault.id())));
+    // The resolved profile, its metric, and the floor inherited from configuration each move the
+    // key. Dataset joins no profile, so only the floor moves its key.
+    assertEquals(identities.size(), 6);
+    assertTrue(identities.stream().anyMatch(id -> id.contains("text_embedding_3_small/l2")));
   }
 
   @Test

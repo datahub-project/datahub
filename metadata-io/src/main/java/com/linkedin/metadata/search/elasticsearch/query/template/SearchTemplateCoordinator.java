@@ -12,6 +12,7 @@ import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.search.elasticsearch.index.entity.v3.EntitySearchIndexResolver;
 import com.linkedin.metadata.search.elasticsearch.query.v3.RenderedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
+import com.linkedin.metadata.search.embedding.EmbeddingProfile;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.semantic.SemanticEntitySearchService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
@@ -22,9 +23,11 @@ import io.datahubproject.metadata.context.SearchTemplateRuntime;
 import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
+import java.util.Locale;
 import java.util.Set;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.extern.slf4j.Slf4j;
@@ -561,11 +564,19 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     return "~vr"
         + SearchTemplateVectorRetrieval.EXECUTION_VERSION
         + ":"
-        + String.join(",", profiles)
+        + profiles.stream().map(this::profileIdentity).collect(Collectors.joining(","))
         + ":"
         + resolved.getSearchSystem()
         + ":"
         + gates.minSimilarity(template);
+  }
+
+  // The metric decides whether an inherited floor applies and what an engine score means, so the
+  // same profile id on another metric does not share a cached page.
+  @Nonnull
+  private String profileIdentity(@Nonnull String id) {
+    EmbeddingProfile profile = gates.profiles().profile(id);
+    return profile == null ? id : id + "/" + profile.metric().trim().toLowerCase(Locale.ROOT);
   }
 
   private static void append(@Nonnull StringBuilder bodies, @Nullable String section) {
