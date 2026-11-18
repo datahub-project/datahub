@@ -117,11 +117,11 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
   /**
    * A child whose own retrieval replaces the combine does not take the shipped blend: the v17
    * fulltext write is accepted over it, and it stays a plain keyword rung. The sort exemption
-   * covers only an inherited keywordRerank, so a sorted child of a vector parent with a knn is
-   * rejected.
+   * covers only an inherited keywordRerank, so a sorted child of a vector parent with a knn, or of
+   * a parent with a legacy field knn, is rejected.
    */
   @Test
-  public void testShippedBlendOverOwnRetrievalAndVectorParents() {
+  public void testShippedBlendOverOwnRetrievalAndOtherKnnParents() {
     SearchTemplateValidator validator = templateValidator();
     RetrieverContext retrieverContext = holeContext();
     SearchTemplateFixtures.readShipped().forEach(this::store);
@@ -147,6 +147,15 @@ public class SearchTemplateWriteValidationTest extends SearchTemplateFixture {
     SearchTemplateProperties sorted = parentOf("Sorted", "urn:li:searchTemplate:vectorParent");
     sorted.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
     assertFalse(validate(validator, retrieverContext, write("sortedVector", sorted)).isEmpty());
+
+    SearchTemplateProperties legacy = body("Legacy", "{ \"match_all\": {} }", null);
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    store("urn:li:searchTemplate:legacyParent", legacy);
+    SearchTemplateProperties sortedLegacy =
+        parentOf("SortedLegacy", "urn:li:searchTemplate:legacyParent");
+    sortedLegacy.setSort("[{ \"urn\": { \"order\": \"asc\" } }]");
+    assertFalse(
+        validate(validator, retrieverContext, write("sortedLegacy", sortedLegacy)).isEmpty());
   }
 
   private static ChangeMCP write(String id, SearchTemplateProperties properties) {
