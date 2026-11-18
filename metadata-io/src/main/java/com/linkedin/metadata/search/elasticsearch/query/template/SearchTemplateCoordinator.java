@@ -60,7 +60,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     this.components = components;
     this.gates = gates;
     SearchTemplateConfiguration templates = templates(elasticSearchConfiguration);
-    this.selector = new SearchTemplateSelector(templates, loader);
+    this.selector = new SearchTemplateSelector(templates, loader, gates);
     this.queryBuilder =
         new SearchV3QueryBuilder(
             loader, elasticSearchConfiguration.getSearch(), customSearchConfiguration);
@@ -120,13 +120,18 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   /**
    * Resolves and renders the template the request would serve. The rendered body is discarded.
    * Nothing is sent to the search engine. Failures are counted and do not fail the Java query.
+   *
+   * @param walks the request walks a ladder, as a page search does. A filter, aggregation, or count
+   *     does not, so, as when it executes, a scope that leaves out a requested type fails it. A
+   *     scroll fails such a scope at bind, so its shadow fails it whether or not it walks.
    */
   public void shadow(
       @Nonnull OperationContext opContext,
       @Nonnull List<EntitySpec> entitySpecs,
       @Nonnull String query,
       boolean fulltext,
-      boolean scroll) {
+      boolean scroll,
+      boolean walks) {
     shadowRenders.incrementAndGet();
     try {
       OperationContext rendered = opContext;
@@ -140,6 +145,10 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         names.add(entitySpec.getName());
       }
       SearchTemplateDryRender preview = preview(rendered, query, names, scroll, null);
+      if (!walks || scroll) {
+        SearchTemplateCapabilities.requireWholeScope(
+            loader.load(rendered, preview.resolvedUrn()), names);
+      }
       lastShadowDsl = preview.queryDsl();
       SearchTemplateMetrics.shadow(
           opContext, preview.resolvedUrn(), opContext.getSearchContext().getSearchSurface());
@@ -241,7 +250,12 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         opContext.getSearchContext().getSearchFlags() != null
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
     ResolvedSearchTemplate resolved =
-        selector.select(opContext, query, fulltext, engineType(opContext));
+        selector.select(
+            opContext,
+            query,
+            fulltext,
+            engineType(opContext),
+            entityNames == null ? List.of() : entityNames);
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
     resolved.setExecutionCapabilities(
@@ -256,7 +270,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           gates,
           resolved.getEntityTypes(),
           resolved.getSearchSystem(),
-          documentRerank);
+          documentRerank,
+          scroll);
     } catch (RuntimeException e) {
       SearchTemplateMetrics.renderFailure(opContext, "select");
       throw e;
@@ -285,7 +300,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
     SearchClientShim.SearchEngineType engine =
         engineType == null ? engineType(opContext) : engineType;
-    ResolvedSearchTemplate resolved = selector.select(opContext, query, fulltext, engine);
+    ResolvedSearchTemplate resolved =
+        selector.select(opContext, query, fulltext, engine, entityNames);
     OperationContext bound = opContext.withResolvedSearchTemplate(resolved);
     List<EntitySpec> entitySpecs = new ArrayList<>();
     for (String entityName : entityNames) {
@@ -296,17 +312,25 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     MergedSearchTemplate template = loader.load(bound, resolved.getUrn());
     boolean documentRerank =
         !scroll && semanticReadEnabled() && SearchTemplateHybrid.includesDocument(entityNames);
+    // As at bind, a root the request assigns no type is skipped, so its shape is not checked
     String rejection =
-        SearchTemplateCapabilities.rejectionCode(
-            template, documentRerank, scroll, components, gates);
+        SearchTemplateGates.assigns(template, entityNames)
+            ? SearchTemplateCapabilities.rejectionCode(
+                template, documentRerank, scroll, components, gates)
+            : null;
     List<String> rungs = ladderRungs(bound, resolved.getUrn(), !scroll);
-    if (rejection == null && vectorWithLegacyKnn(bound, rungs)) {
+    if (rejection == null && vectorWithLegacyKnn(bound, resolved.getUrn(), entityNames, !scroll)) {
       rejection = SearchTemplateCapabilities.VECTOR_WITH_LEGACY_KNN;
     }
     if (rejection == null) {
       rejection =
-          gates.bindingRejection(
-              template, entityNames, EmbeddingProfileRegistry.system(engine), documentRerank);
+          SearchTemplateCapabilities.resolvableRejection(
+              template,
+              gates,
+              entityNames,
+              EmbeddingProfileRegistry.system(engine),
+              documentRerank,
+              scroll);
     }
     List<SearchTemplateDryRender.CapabilityDecision> capabilities = new ArrayList<>();
     for (String name : template.getCapabilities()) {
@@ -333,15 +357,57 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   private boolean vectorWithLegacyKnn(
-      @Nonnull OperationContext opContext, @Nonnull List<String> rungs) {
-    boolean vector = false;
-    boolean legacyKnn = false;
-    for (String urn : rungs) {
-      MergedSearchTemplate rung = loader.load(opContext, urn);
-      vector |= SearchTemplateCapabilities.vectorRetrieval(rung);
-      legacyKnn |= SearchTemplateCapabilities.legacyKnn(rung);
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nullable List<String> entityTypes,
+      boolean followLadder) {
+    boolean[] vector = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
+    reach(opContext, urn, entityTypes, followLadder, new HashSet<>(), 0, vector, legacyKnn);
+    return vector[0] && legacyKnn[0];
+  }
+
+  /**
+   * Marks whether a rung this request can run retrieves by vector, and whether one declares a
+   * legacy knn rerank. The walk skips a rung its scope assigns none of the requested types, and the
+   * members of a group it skips, so those do not count. Bind and the dry render both use this, so
+   * the vector and legacy knn check, and the search cache's once-per-page run, follow one rule.
+   */
+  private void reach(
+      @Nonnull OperationContext opContext,
+      @Nonnull String urn,
+      @Nullable List<String> entityTypes,
+      boolean followLadder,
+      @Nonnull Set<String> seen,
+      int depth,
+      @Nonnull boolean[] vector,
+      @Nonnull boolean[] legacyKnn) {
+    if (!seen.add(urn) || depth > loader.maxParentDepth()) {
+      return;
     }
-    return vector && legacyKnn;
+    MergedSearchTemplate template = loader.load(opContext, urn);
+    SearchTemplateLadder ladder = followLadder ? template.getLadder() : null;
+    if (SearchTemplateGates.assigns(template, entityTypes)) {
+      vector[0] |= SearchTemplateCapabilities.vectorRetrieval(template);
+      legacyKnn[0] |= SearchTemplateCapabilities.legacyKnn(template);
+      if (ladder != null && ladder.hasParallel() && ladder.getParallel() != null) {
+        for (Urn member : ladder.getParallel()) {
+          reach(
+              opContext, member.toString(), entityTypes, true, seen, depth + 1, vector, legacyKnn);
+        }
+      }
+    }
+    if (ladder != null && ladder.hasNext() && ladder.getNext() != null) {
+      reach(
+          opContext,
+          ladder.getNext().toString(),
+          entityTypes,
+          true,
+          seen,
+          depth + 1,
+          vector,
+          legacyKnn);
+    }
   }
 
   @Nonnull
@@ -379,10 +445,13 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
   }
 
   /**
-   * Cache identity includes every reachable rung. Capability checks happen when a rung executes, so
-   * an unsupported next does not fail a request that stops before reaching it. The exception is a
-   * graph that reaches a vector rung and a legacy knn rerank: the search cache runs the first once
-   * per page, and the second reranks the first cache batch, so bind fails.
+   * Cache identity includes every reachable rung, the request inputs route conditions read when a
+   * conditional route fired, the requested types' semantic eligibility when a reachable rung's
+   * select reads it, and whether document rerank runs when a legacy knn rung is reachable.
+   * Capability checks happen when a rung executes, so an unsupported next does not fail a request
+   * that stops before reaching it. The exception is a graph that reaches a vector rung and a legacy
+   * knn rerank: the search cache runs the first once per page, and the second reranks the first
+   * cache batch, so bind fails.
    */
   private void noteIdentity(
       @Nonnull OperationContext opContext,
@@ -392,7 +461,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     StringBuilder bodies = new StringBuilder();
     boolean[] nameAndValue = new boolean[1];
     boolean[] classpathBridge = new boolean[1];
-    boolean[] legacyKnn = new boolean[1];
+    boolean[] semanticSelect = new boolean[1];
     collect(
         opContext,
         resolved.getUrn(),
@@ -405,8 +474,20 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
         scroll,
         nameAndValue,
         classpathBridge,
+        semanticSelect);
+    boolean[] vector = new boolean[1];
+    boolean[] legacyKnn = new boolean[1];
+    reach(
+        opContext,
+        resolved.getUrn(),
+        resolved.getEntityTypes(),
+        !scroll,
+        new HashSet<>(),
+        0,
+        vector,
         legacyKnn);
-    if (resolved.isVectorReachable() && legacyKnn[0]) {
+    resolved.setVectorReachable(vector[0]);
+    if (vector[0] && legacyKnn[0]) {
       throw new SearchTemplateException(
           "Search template section is not supported: vector retrieval with a legacy knn rerank");
     }
@@ -416,6 +497,17 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     }
     if (!classpathBridge[0] && nameAndValue[0]) {
       identity += "|sp=" + queryBuilder.structuredPropertyCatalogStamp(opContext);
+    }
+    if (resolved.getRouteMatch() != null) {
+      identity += "|route=" + resolved.getRouteMatch();
+    }
+    if (semanticSelect[0]) {
+      identity += "|eligible=" + gates.eligibilityIdentity(resolved.getEntityTypes());
+    }
+    // A legacy knn rung runs only with document rerank, and a parallel member that cannot run hands
+    // the group to its next, so the flag can change which rung serves.
+    if (legacyKnn[0]) {
+      identity += "|dr=" + resolved.isDocumentRerank();
     }
     resolved.setCacheIdentity(identity);
   }
@@ -432,12 +524,14 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
       boolean scroll,
       @Nonnull boolean[] nameAndValue,
       @Nonnull boolean[] classpathBridge,
-      @Nonnull boolean[] legacyKnn) {
+      @Nonnull boolean[] semanticSelect) {
     if (!seen.add(urn) || depth > loader.maxParentDepth()) {
       return;
     }
     MergedSearchTemplate template = loader.load(opContext, urn);
-    if (depth == 0) {
+    // The walk skips a root its scope assigns none of the requested types, so its shape is not
+    // checked. On scroll, requireResolvable fails such a root instead.
+    if (depth == 0 && SearchTemplateGates.assigns(template, resolved.getEntityTypes())) {
       SearchTemplateCapabilities.requireSupported(
           template, resolved.isDocumentRerank(), scroll, components, gates);
     }
@@ -447,11 +541,8 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
     if (!template.isClasspathBridge() && template.getStructuredPropertyQuery() != null) {
       nameAndValue[0] = true;
     }
-    if (SearchTemplateCapabilities.vectorRetrieval(template)) {
-      resolved.setVectorReachable(true);
-    }
-    if (SearchTemplateCapabilities.legacyKnn(template)) {
-      legacyKnn[0] = true;
+    if (SearchTemplateLadderPredicates.selectsOnSemantic(template.getLadder())) {
+      semanticSelect[0] = true;
     }
     rungs.add(
         template.getUrn()
@@ -503,7 +594,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
             false,
             nameAndValue,
             classpathBridge,
-            legacyKnn);
+            semanticSelect);
       }
     }
     if (ladder.hasNext() && ladder.getNext() != null) {
@@ -519,7 +610,7 @@ public class SearchTemplateCoordinator implements SearchTemplateRuntime {
           false,
           nameAndValue,
           classpathBridge,
-          legacyKnn);
+          semanticSelect);
     }
   }
 

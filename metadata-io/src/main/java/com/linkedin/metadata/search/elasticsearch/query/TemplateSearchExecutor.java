@@ -94,8 +94,13 @@ final class TemplateSearchExecutor {
               coordinator.ladderExecutor(),
               renderUrn,
               new SearchTemplateWalk.Request(
-                  query, postFilters, sortCriteria, size, SearchTemplateWalk.identity()),
-              urn -> {
+                  query,
+                  postFilters,
+                  sortCriteria,
+                  size,
+                  entityNames,
+                  SearchTemplateWalk.identity()),
+              (urn, assigned) -> {
                 // A vector rung has no keyword query to explain, so explain fails closed, as
                 // scroll does, also from a parallel group
                 if (SearchTemplateCapabilities.vectorRetrieval(
@@ -108,7 +113,7 @@ final class TemplateSearchExecutor {
                 return searchAttempt(
                     bound,
                     urn,
-                    entityNames,
+                    assigned,
                     query,
                     normalizeQuery(bound, query),
                     postFilters,
@@ -247,6 +252,7 @@ final class TemplateSearchExecutor {
                 postFilters,
                 sortCriteria,
                 fetchSize,
+                entityNames,
                 (urn, raw) -> {
                   boolean page = pageFetched(coordinator.loader().load(bound, urn), resolved);
                   return componentReorder(
@@ -260,17 +266,18 @@ final class TemplateSearchExecutor {
                       page ? from : fetchFrom,
                       page ? size : fetchSize);
                 }),
-            urn -> {
+            // Each rung searches only the requested types its scope assigns it
+            (urn, assigned) -> {
               MergedSearchTemplate template = coordinator.loader().load(bound, urn);
               if (SearchTemplateCapabilities.vectorRetrieval(template)) {
                 return vectorSearch.attempt(
-                    bound, template, entityNames, input, postFilters, from, size, facets);
+                    bound, template, assigned, input, postFilters, from, size, facets);
               }
               boolean page = pageFetched(template, resolved);
               return searchAttempt(
                   bound,
                   urn,
-                  entityNames,
+                  assigned,
                   input,
                   normalizedQuery,
                   postFilters,
@@ -571,8 +578,36 @@ final class TemplateSearchExecutor {
       @Nullable Integer size,
       @Nonnull List<String> facets) {
     return searchOnceExecution(
-            opContext, entityNames, input, postFilters, sortCriteria, from, size, facets, null)
+            bindWhole(opContext, input, entityNames),
+            entityNames,
+            input,
+            postFilters,
+            sortCriteria,
+            from,
+            size,
+            facets,
+            null)
         .page();
+  }
+
+  /**
+   * Binds a request that renders the bound template once for the caller's entity types and does not
+   * walk a ladder: filter, aggregation, and count. As on scroll, a scope that leaves out a
+   * requested type fails closed instead of rendering the template for that type.
+   */
+  @Nonnull
+  OperationContext bindWhole(
+      @Nonnull OperationContext opContext,
+      @Nonnull String input,
+      @Nonnull List<String> entityNames) {
+    OperationContext bound = bindTemplates(opContext, input, false, entityNames);
+    ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
+    SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(bound);
+    if (resolved != null && coordinator != null) {
+      SearchTemplateCapabilities.requireWholeScope(
+          coordinator.load(bound, resolved.getUrn()), entityNames);
+    }
+    return bound;
   }
 
   @Nonnull
@@ -884,7 +919,8 @@ final class TemplateSearchExecutor {
     boolean fulltext =
         opContext.getSearchContext().getSearchFlags() != null
             && Boolean.TRUE.equals(opContext.getSearchContext().getSearchFlags().isFulltext());
-    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll);
+    // Its callers, filter, aggregation, and count, do not walk a ladder
+    coordinator.shadow(opContext, entitySpecs, query, fulltext, scroll, false);
   }
 
   @Nonnull
@@ -892,7 +928,16 @@ final class TemplateSearchExecutor {
       @Nonnull OperationContext opContext,
       @Nonnull List<String> entityNames,
       @Nullable Filter filter) {
-    return prepareTemplateSearch(opContext, entityNames, "*", filter, null, 0, 0, List.of(), null)
+    return prepareTemplateSearch(
+            bindWhole(opContext, "*", entityNames),
+            entityNames,
+            "*",
+            filter,
+            null,
+            0,
+            0,
+            List.of(),
+            null)
         .prepared()
         .request()
         .source()

@@ -561,7 +561,7 @@ public final class SearchTemplatePolicyChecks {
     }
     if (ladder.hasSelect() && ladder.getSelect() != null) {
       for (String name : ladder.getSelect()) {
-        if (SearchTemplateLadderPredicates.base(name) == null) {
+        if (SearchTemplateLadderPredicates.selectBase(name) == null) {
           throw new SearchTemplateException(
               "Search template select predicate is not valid: " + name);
         }

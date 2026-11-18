@@ -10,6 +10,7 @@ import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.TreeSet;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
@@ -21,10 +22,7 @@ public final class SearchTemplateRoutes {
 
   private SearchTemplateRoutes() {}
 
-  /**
-   * {@code match} is stored with the route. This release does not evaluate route conditions, so a
-   * selected route that sets them fails the search.
-   */
+  /** {@code match} is null when the route matches on its pattern alone. */
   public record Compiled(
       @Nonnull Pattern pattern, @Nonnull String target, @Nullable SearchTemplateRouteMatch match) {}
 
@@ -87,28 +85,83 @@ public final class SearchTemplateRoutes {
     }
   }
 
-  public record Decision(@Nullable String target, boolean usedDefault) {}
+  /**
+   * What a route's {@code match} conditions read: the full request entity set, the request surface,
+   * and the set's live semantic eligibility.
+   */
+  public record Inputs(
+      @Nonnull List<String> entityTypes,
+      @Nullable String surface,
+      @Nonnull SearchTemplateGates.Eligibility eligibility) {
 
-  @Nullable
-  public static String target(@Nonnull MergedSearchTemplate template, @Nullable String query) {
-    return decide(template, query).target();
+    /** The inputs in a canonical form, for the result-cache identity. */
+    @Nonnull
+    public String identity() {
+      return new TreeSet<>(entityTypes)
+          + ";"
+          + surface
+          + ";"
+          + eligibility.all()
+          + ","
+          + eligibility.any();
+    }
   }
 
-  /** {@code usedDefault} is true only when a pattern missed and a default route was taken. */
+  /**
+   * {@code conditional} is true when the route that fired has {@code match} conditions, so the
+   * request inputs decided the target.
+   */
+  public record Decision(@Nullable String target, boolean usedDefault, boolean conditional) {}
+
+  @Nullable
+  public static String target(
+      @Nonnull MergedSearchTemplate template, @Nullable String query, @Nonnull Inputs inputs) {
+    return decide(template, query, inputs).target();
+  }
+
+  /**
+   * The first route whose pattern matches and whose conditions all hold. A route whose conditions
+   * miss does not stop the scan. {@code usedDefault} is true only when no route fired and a default
+   * route was taken.
+   */
   @Nonnull
-  public static Decision decide(@Nonnull MergedSearchTemplate template, @Nullable String query) {
+  public static Decision decide(
+      @Nonnull MergedSearchTemplate template, @Nullable String query, @Nonnull Inputs inputs) {
     String text = query == null ? "" : query.trim();
     for (Compiled route : template.getRoutes()) {
-      if (route.pattern().matcher(text).matches()) {
-        if (route.match() != null) {
-          throw new SearchTemplateException(
-              "Search template section is not supported: route match");
-        }
-        return new Decision(route.target(), false);
+      if (!route.pattern().matcher(text).matches()) {
+        continue;
+      }
+      if (route.match() == null) {
+        return new Decision(route.target(), false, false);
+      }
+      if (holds(route.match(), inputs)) {
+        return new Decision(route.target(), false, true);
       }
     }
     String fallback = template.getDefaultRoute();
-    return new Decision(fallback, fallback != null);
+    return new Decision(fallback, fallback != null, false);
+  }
+
+  /**
+   * Every set condition holds. Booleans compare exactly, so {@code semanticEligible: false} needs a
+   * request that is not all enabled. A condition this release does not know fails the search
+   * instead of being read as met.
+   */
+  private static boolean holds(@Nonnull SearchTemplateRouteMatch match, @Nonnull Inputs inputs) {
+    for (String key : match.data().keySet()) {
+      if (match.schema().getField(key) == null) {
+        throw new SearchTemplateException(
+            "Search template section is not supported: route match." + key);
+      }
+    }
+    return (!match.hasEntityTypes() || match.getEntityTypes().containsAll(inputs.entityTypes()))
+        && (!match.hasSurfaces()
+            || (inputs.surface() != null && match.getSurfaces().contains(inputs.surface())))
+        && (!match.hasSemanticEligible()
+            || match.isSemanticEligible() == inputs.eligibility().all())
+        && (!match.hasAnySemanticEligible()
+            || match.isAnySemanticEligible() == inputs.eligibility().any());
   }
 
   /** Rejects conditions that are invalid in every build. */

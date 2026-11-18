@@ -17,6 +17,7 @@ import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
+import static org.testng.Assert.assertNotNull;
 import static org.testng.Assert.assertThrows;
 import static org.testng.Assert.assertTrue;
 
@@ -68,6 +69,7 @@ import com.linkedin.search.template.SearchTemplateLadderStop;
 import com.linkedin.search.template.SearchTemplateLadderStopArray;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRetrieval;
+import com.linkedin.search.template.SearchTemplateScope;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.SystemTelemetryContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
@@ -497,6 +499,33 @@ public class ESSearchDAOVectorRetrievalTest {
   }
 
   @Test
+  public void testAMixedRequestServesOnlyTheTypesThatPassTheGates() throws Exception {
+    store(vector(r -> {}));
+    knnReturns(hits(0.9, 0.8));
+
+    SearchResult result = search(List.of("dataset", "document"), null, 0, 10);
+
+    // Dataset fails the gates: the kNN request does not read it, and no keyword result stands in
+    assertEquals(urns(result), List.of("urn:li:document:d0", "urn:li:document:d1"));
+    assertEquals(result.getNumEntities().intValue(), 2);
+    assertFalse(knnRequest().indexName().contains("dataset"));
+    VectorRetrievalExplanation explanation = result.getMetadata().getVectorRetrieval();
+    assertEquals(explanation.getEntityTypes(), DOCUMENT);
+    assertEquals(
+        explanation.getExcludedEntityTypes(),
+        List.of("dataset:" + SearchTemplateGates.ENTITY_NOT_ENABLED));
+
+    // A type outside the rung's scope is not assigned to it, so it is not reported as dropped
+    SearchTemplateProperties scoped = vector(r -> {});
+    scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    store(scoped);
+    VectorRetrievalExplanation partitioned =
+        search(List.of("dataset", "document"), null, 0, 10).getMetadata().getVectorRetrieval();
+    assertEquals(partitioned.getEntityTypes(), DOCUMENT);
+    assertTrue(partitioned.getExcludedEntityTypes().isEmpty());
+  }
+
+  @Test
   public void testAFailureFollowsNextOnlyWhenTheRungSaysSo() throws Exception {
     harness.store(KEYWORD_URN, keyword());
     when(client.searchKnn(any(), any())).thenThrow(new IOException("kNN unavailable"));
@@ -617,6 +646,95 @@ public class ESSearchDAOVectorRetrievalTest {
     verify(client, never()).search(any(OperationContext.class), any(), any());
     verify(client, never()).searchKnn(any(), any());
     verify(provider, never()).embed(anyString(), any(), any(), any(Duration.class));
+  }
+
+  @Test
+  public void testMembersARequestAssignsNoTypeNeitherConflictNorRunTheCacheOncePerPage()
+      throws Exception {
+    // A Document vector member and a Chart legacy knn member, beside a keyword member
+    SearchTemplateProperties vectorMember = vector(r -> {});
+    vectorMember.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    store(vectorMember);
+    String legacyUrn = "urn:li:searchTemplate:legacy";
+    SearchTemplateProperties legacy = keyword();
+    legacy.setApiVersion(2);
+    legacy.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("chart")));
+    legacy.setKnn("{ \"field\": \"embeddings.vector\", \"k\": 10 }");
+    harness.store(legacyUrn, legacy);
+    harness.store(KEYWORD_URN, keyword());
+    SearchTemplateProperties group = keyword();
+    group.setLadder(
+        new SearchTemplateLadder()
+            .setParallel(
+                new UrnArray(
+                    UrnUtils.getUrn(VECTOR_URN),
+                    UrnUtils.getUrn(legacyUrn),
+                    UrnUtils.getUrn(KEYWORD_URN)))
+            .setJoin("allEmpty"));
+    harness.store(GROUP_URN, group);
+    SearchTemplateCoordinator coordinator =
+        coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false));
+    List<String> datasets = List.of("dataset");
+    OperationContext searching = pinned(context(datasets, f -> {}, coordinator), GROUP_URN);
+
+    // A Dataset request runs neither member, so the dry render, bind, and the cache all skip them
+    assertTrue(
+        coordinator
+            .preview(
+                searching,
+                "revenue",
+                datasets,
+                false,
+                SearchClientShim.SearchEngineType.OPENSEARCH_3)
+            .capabilities()
+            .stream()
+            .anyMatch(decision -> "sections".equals(decision.name()) && decision.accepted()));
+    assertFalse(
+        coordinator
+            .bind(searching, "revenue", false, datasets)
+            .getSearchContext()
+            .getResolvedSearchTemplate()
+            .isVectorReachable());
+    // A request that runs both members still fails closed
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(searching, "revenue", false, List.of("chart", "document")));
+  }
+
+  @Test
+  public void testFilterAggregationAndCountFailAScopeThatLeavesOutARequestedType()
+      throws Exception {
+    // They render the bound template once for the caller's types and do not walk a ladder
+    SearchTemplateProperties documents = keyword();
+    documents.setApiVersion(2);
+    documents.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("document")));
+    harness.store(KEYWORD_URN, documents);
+    ESSearchDAO dao = dao(null, embedding());
+    OperationContext searching =
+        pinned(
+            context(
+                DOCUMENT,
+                f -> {},
+                coordinator(SearchTemplateGates.of(registry(cosine()), semanticSearch, false))),
+            KEYWORD_URN);
+
+    assertThrows(
+        SearchTemplateException.class, () -> dao.filter(searching, "dataset", null, null, 0, 10));
+    assertThrows(
+        SearchTemplateException.class,
+        () ->
+            dao.buildAggregateByValue(
+                searching, List.of("dataset", "document"), "platform", null, 10));
+    assertThrows(
+        SearchTemplateException.class, () -> dao.buildDocCountRequest(searching, "dataset", null));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> dao.buildFilterRequest(searching, "dataset", null, null, 0, 10));
+    verify(client, never()).search(any(OperationContext.class), any(), any());
+    // A scope that covers the request renders as before
+    assertEquals(dao.filter(searching, "document", null, null, 0, 10).getEntities().size(), 3);
+    assertNotNull(dao.buildAggregateByValue(searching, DOCUMENT, "platform", null, 10));
+    assertNotNull(dao.buildDocCountRequest(searching, "document", null));
   }
 
   @Test

@@ -70,7 +70,7 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesDocumentRerankAndVectorRetrieval() {
+  public void testThisBuildAdvertisesDocumentRerankVectorRetrievalAndPartition() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
     assertNull(gates.rejectionCode(merged(retrieval("vector")).build(), true));
     // Anchor similarity needs vector retrieval and similarity.
@@ -80,13 +80,14 @@ public class SearchTemplateGatesTest {
     assertEquals(
         gates.rejectionCode(merged(retrieval("vectorThenKeyword")).build(), true),
         SearchTemplateGates.VECTOR_THEN_KEYWORD);
-    assertEquals(
+    // This build partitions, so a scope binds.
+    assertTrue(gates.advertises(ENTITY_PARTITION));
+    assertNull(
         gates.rejectionCode(
             merged(retrieval("keywordRerank"))
                 .scope(new SearchTemplateScope().setEntityTypes(ids("document")))
                 .build(),
-            true),
-        ENTITY_PARTITION);
+            true));
     assertEquals(
         gates.rejectionCode(merged(null).query("{ {{&embeddingClausesJson}} }").build(), true),
         SearchTemplateGates.NATIVE_MIXED_QUERY);

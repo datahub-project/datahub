@@ -2356,7 +2356,7 @@ public class ESSearchDAO {
     if (templateSearch.templateReads(opContext)) {
       return templateSearch
           .prepareTemplateSearch(
-              opContext,
+              templateSearch.bindWhole(opContext, "*", List.of(entityName)),
               List.of(entityName),
               "*",
               filters,
