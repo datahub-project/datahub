@@ -16,7 +16,7 @@ export default function useDataProductChildren(
     entityData: GenericEntityProperties | null,
 ) {
     const needsLookup = entityType === EntityType.DataProduct && entityData?.children == null;
-    const [fetchChildren, { data, error }] = useGetDataProductChildrenCountLazyQuery({
+    const [fetchChildren, { data, error, variables }] = useGetDataProductChildrenCountLazyQuery({
         fetchPolicy: 'network-only',
     });
 
@@ -27,11 +27,12 @@ export default function useDataProductChildren(
         [needsLookup, fetchChildren, urn],
     );
 
-    // The component can be reused for another product, so only trust a result for this urn.
+    // The component can be reused for another product, so only trust a result or error for this urn.
     const result = data?.dataProduct?.urn === urn ? data.dataProduct : undefined;
+    const lookupFailed = !!error && variables?.urn === urn;
     const total = result?.childDataProducts?.total;
     // Keep Delete disabled until the count is known. A failed lookup leaves it to the server-side check.
-    const childCountPending = needsLookup && !result && !error;
+    const childCountPending = needsLookup && !result && !lookupFailed;
 
     const entityDataWithChildren = useMemo<GenericEntityProperties | null>(
         () => (needsLookup && total != null ? { ...entityData, children: { relationships: [], total } } : entityData),

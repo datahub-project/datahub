@@ -10,8 +10,12 @@ import { EntityType } from '@types';
 const fetchChildrenMock = vi.fn();
 let lazyQueryData: unknown;
 let lazyQueryError: Error | undefined;
+let lazyQueryVariables: { urn: string } | undefined;
 vi.mock('@graphql/dataProduct.generated', () => ({
-    useGetDataProductChildrenCountLazyQuery: () => [fetchChildrenMock, { data: lazyQueryData, error: lazyQueryError }],
+    useGetDataProductChildrenCountLazyQuery: () => [
+        fetchChildrenMock,
+        { data: lazyQueryData, error: lazyQueryError, variables: lazyQueryVariables },
+    ],
 }));
 
 const URN = 'urn:li:dataProduct:parent';
@@ -22,6 +26,7 @@ describe('useDataProductChildren', () => {
         vi.clearAllMocks();
         lazyQueryData = undefined;
         lazyQueryError = undefined;
+        lazyQueryVariables = undefined;
     });
 
     it('fetches the child count when a data product card menu opens', () => {
@@ -47,8 +52,18 @@ describe('useDataProductChildren', () => {
         expect(pending.result.current.childCountPending).toBe(true);
 
         lazyQueryError = new Error('lookup failed');
+        lazyQueryVariables = { urn: URN };
         const failed = renderHook(() => useDataProductChildren(URN, EntityType.DataProduct, CARD_DATA));
         expect(failed.result.current.childCountPending).toBe(false);
+    });
+
+    it('keeps the count pending when the failed lookup was for another data product', () => {
+        lazyQueryError = new Error('lookup failed');
+        lazyQueryVariables = { urn: 'urn:li:dataProduct:other' };
+
+        const { result } = renderHook(() => useDataProductChildren(URN, EntityType.DataProduct, CARD_DATA));
+
+        expect(result.current.childCountPending).toBe(true);
     });
 
     it('ignores a count fetched for another data product', () => {
