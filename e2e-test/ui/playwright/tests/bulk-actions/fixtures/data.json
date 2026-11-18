@@ -1,0 +1,80 @@
+[
+  {
+    "entityType": "domain",
+    "entityUrn": "urn:li:domain:pw-bulk-domain",
+    "changeType": "UPSERT",
+    "aspectName": "domainProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Bulk Domain",
+        "description": "Domain whose assets the bulk actions spec selects and downloads"
+      }
+    }
+  },
+  {
+    "entityType": "tag",
+    "entityUrn": "urn:li:tag:pw_bulk_tag_key",
+    "changeType": "UPSERT",
+    "aspectName": "tagProperties",
+    "aspect": {
+      "json": {
+        "name": "PW Bulk Tag",
+        "description": "Tag the bulk actions spec applies to several assets at once"
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_bulk_dataset_a,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_bulk_dataset_a",
+        "description": "First dataset the bulk actions spec selects",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_bulk_dataset_a,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw-bulk-domain"
+        ]
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_bulk_dataset_b,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "datasetProperties",
+    "aspect": {
+      "json": {
+        "customProperties": {},
+        "name": "pw_bulk_dataset_b",
+        "description": "Second dataset the bulk actions spec selects",
+        "tags": []
+      }
+    }
+  },
+  {
+    "entityType": "dataset",
+    "entityUrn": "urn:li:dataset:(urn:li:dataPlatform:hive,pw_bulk_dataset_b,PROD)",
+    "changeType": "UPSERT",
+    "aspectName": "domains",
+    "aspect": {
+      "json": {
+        "domains": [
+          "urn:li:domain:pw-bulk-domain"
+        ]
+      }
+    }
+  }
+]

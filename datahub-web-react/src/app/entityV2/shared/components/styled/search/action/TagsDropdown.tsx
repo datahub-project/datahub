@@ -39,6 +39,7 @@ export default function TagsDropdown({ urns, disabled = false, refetch }: Props)
                     },
                 ]}
                 disabled={disabled}
+                dataTestId="search-select-tags-dropdown"
             />
             {isEditModalVisible && (
                 <AddTagsModal
