@@ -6,6 +6,7 @@ import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled, { useTheme } from 'styled-components/macro';
 
+import { useUserContext } from '@app/context/useUserContext';
 import { GroupAssets } from '@app/entityV2/group/GroupAssets';
 import GroupMembers from '@app/entityV2/group/GroupMembers';
 import GroupSidebar from '@app/entityV2/group/GroupSidebar';
@@ -21,6 +22,9 @@ import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sideb
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
 import NonExistentEntityPage from '@app/entityV2/shared/entity/NonExistentEntityPage';
 import { GenericEntityProperties } from '@app/entityV2/shared/types';
+import useGetUserGroupUrns from '@app/entityV2/user/useGetUserGroupUrns';
+import { ActorPoliciesTab } from '@app/permissions/actorPolicies/ActorPoliciesTab';
+import { useShowActorPoliciesTab } from '@app/permissions/actorPolicies/useShowActorPoliciesTab';
 import CompactContext from '@app/sharedV2/CompactContext';
 import { EntityHead } from '@app/sharedV2/EntityHead';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
@@ -35,7 +39,7 @@ import { EntityRelationshipsResult, EntityType, OriginType, Ownership } from '@t
 
 const messageStyle = { marginTop: '10%' };
 
-const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members];
+const ENABLED_TAB_TYPES = [TabType.Assets, TabType.Members, TabType.Policies];
 
 const MEMBER_PAGE_SIZE = 15;
 
@@ -108,6 +112,14 @@ export default function GroupProfile({ urn }: Props) {
     const selectedTab = finalTabs.find((tab) => tab.name === selectedTabName);
     const { width, isClosed } = useContext(EntitySidebarContext);
 
+    const { urn: myUrn } = useUserContext();
+    const { groupUrns: myGroupUrns } = useGetUserGroupUrns(myUrn || undefined);
+    const showPoliciesTab = useShowActorPoliciesTab({
+        profileUrn: urn,
+        isGroup: true,
+        isMember: myGroupUrns.includes(urn),
+    });
+
     const getTabs = () => {
         return [
             {
@@ -136,7 +148,17 @@ export default function GroupProfile({ urn }: Props) {
                     enabled: () => true,
                 },
             },
-        ].filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
+            {
+                name: t('group.tab.policies'),
+                path: TabType.Policies.toLocaleLowerCase(),
+                content: <ActorPoliciesTab urn={urn} entityType={EntityType.CorpGroup} />,
+                display: {
+                    enabled: () => showPoliciesTab,
+                },
+            },
+        ]
+            .filter((tab) => tab.path !== TabType.Policies.toLocaleLowerCase() || showPoliciesTab) // RoutedTabs greys out, not hides, disabled tabs
+            .filter((tab) => ENABLED_TAB_TYPES.some((tabType) => tabType.toLocaleLowerCase() === tab.path));
     };
 
     const defaultTabPath = getTabs() && getTabs()?.length > 0 ? getTabs()[0].path : '';
