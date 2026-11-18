@@ -33,6 +33,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 import java.util.Set;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
@@ -539,21 +540,20 @@ public class PolicyEngine {
    * does not match. Must agree with {@link #isActorMatch} without a resource: the result is
    * non-empty iff that returns true, plus {@code RESOURCE_OWNER} for owner policies.
    *
-   * @param rolesByGroup the roles assigned to each of the actor's groups
+   * @param rolesByGroup the roles assigned to each of the actor's groups, fetched only when a role
+   *     in the filter is held by the actor
    */
   public List<ActorPolicyMatchReason> explainActorMatch(
       @Nonnull OperationContext opContext,
       final ResolvedEntitySpec resolvedActorSpec,
       final DataHubActorFilter actorFilter,
       final PolicyEvaluationContext context,
-      final Map<Urn, Set<Urn>> rolesByGroup) {
+      final Supplier<Map<Urn, Set<Urn>>> rolesByGroup) {
     final List<ActorPolicyMatchReason> reasons = new ArrayList<>();
     if (actorFilter.isAllUsers()) {
       reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.ALL_USERS, null, null));
     }
-    if (actorFilter.hasUsers()
-        && Objects.requireNonNull(actorFilter.getUsers()).stream()
-            .anyMatch(user -> user.toString().equals(resolvedActorSpec.getSpec().getEntity()))) {
+    if (isNamedUserMatch(resolvedActorSpec, actorFilter)) {
       reasons.add(new ActorPolicyMatchReason(ActorPolicyMatchReason.Type.DIRECT_USER, null, null));
     }
 
@@ -586,7 +586,7 @@ public class PolicyEngine {
           continue;
         }
         final List<Urn> viaGroups =
-            rolesByGroup.entrySet().stream()
+            rolesByGroup.get().entrySet().stream()
                 .filter(entry -> entry.getValue().contains(role))
                 .map(Map.Entry::getKey)
                 .toList();
@@ -617,11 +617,16 @@ public class PolicyEngine {
   private boolean isUserMatch(
       final ResolvedEntitySpec resolvedActorSpec, final DataHubActorFilter actorFilter) {
     // If the actor is a matching "User" in the actor filter, return true immediately.
-    return actorFilter.isAllUsers()
-        || (actorFilter.hasUsers()
-            && Objects.requireNonNull(actorFilter.getUsers()).stream()
-                .map(Urn::toString)
-                .anyMatch(user -> user.equals(resolvedActorSpec.getSpec().getEntity())));
+    return actorFilter.isAllUsers() || isNamedUserMatch(resolvedActorSpec, actorFilter);
+  }
+
+  /** Whether the actor filter names the actor. Shared by enforcement and explanation. */
+  private boolean isNamedUserMatch(
+      final ResolvedEntitySpec resolvedActorSpec, final DataHubActorFilter actorFilter) {
+    return actorFilter.hasUsers()
+        && Objects.requireNonNull(actorFilter.getUsers()).stream()
+            .map(Urn::toString)
+            .anyMatch(user -> user.equals(resolvedActorSpec.getSpec().getEntity()));
   }
 
   private boolean isGroupMatch(
@@ -788,7 +793,7 @@ public class PolicyEngine {
   }
 
   @Nonnull
-  private Set<Urn> fetchRolesViaGroups(
+  Set<Urn> fetchRolesViaGroups(
       @Nonnull final OperationContext opContext, @Nonnull final Collection<Urn> groups) {
     final ServicesRegistryContext servicesRegistry = opContext.getServicesRegistryContext();
     if (servicesRegistry != null && servicesRegistry.getActorGroupMembershipService() != null) {

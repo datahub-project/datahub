@@ -1586,6 +1586,26 @@ public class DataHubAuthorizerTest {
   }
 
   @Test
+  public void explainUserPolicies_noRoleInPolicies_skipsGroupRoleFetch() throws Exception {
+    DataHubAuthorizer authorizer =
+        explainAuthorizer(
+            List.of(
+                new PolicyFetcher.Policy(
+                    EXPLAIN_POLICY_1,
+                    explainPolicy(
+                        true, new DataHubActorFilter().setGroups(new UrnArray(EXPLAIN_GROUP))))));
+
+    authorizer.explainUserPolicies(systemOpContext, EXPLAIN_USER, false);
+
+    verify(_entityClient, never())
+        .batchGetV2(
+            any(OperationContext.class),
+            any(),
+            eq(Collections.singleton(EXPLAIN_GROUP)),
+            eq(Collections.singleton(ROLE_MEMBERSHIP_ASPECT_NAME)));
+  }
+
+  @Test
   public void explainUserPolicies_excludesInactiveUnlessRequested() throws Exception {
     DataHubAuthorizer authorizer =
         explainAuthorizer(

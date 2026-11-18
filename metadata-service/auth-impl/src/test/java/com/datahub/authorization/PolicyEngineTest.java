@@ -3551,7 +3551,7 @@ public class PolicyEngineTest {
         resolvedAuthorizedUserSpec,
         filter,
         explainContext(groups, directRoles, rolesByGroup),
-        rolesByGroup);
+        () -> rolesByGroup);
   }
 
   @Test

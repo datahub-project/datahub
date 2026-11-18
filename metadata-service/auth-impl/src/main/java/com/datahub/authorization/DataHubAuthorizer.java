@@ -5,6 +5,7 @@ import com.datahub.authentication.group.GroupService;
 import com.datahub.plugins.auth.authorization.Authorizer;
 import com.datahub.plugins.auth.authorization.ResourceSpecCachingAuthorizer;
 import com.google.common.annotations.VisibleForTesting;
+import com.google.common.base.Suppliers;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.data.template.RecordTemplate;
@@ -17,6 +18,7 @@ import io.datahubproject.metadata.context.AuthorizationContext;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextAuthorizer;
 import java.net.URISyntaxException;
+import java.util.AbstractMap;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
@@ -36,6 +38,7 @@ import java.util.concurrent.locks.Lock;
 import java.util.concurrent.locks.ReadWriteLock;
 import java.util.concurrent.locks.ReentrantReadWriteLock;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
@@ -361,10 +364,14 @@ public class DataHubAuthorizer
     // Seeds the user's direct roles, so a role held both directly and via a group shows as both.
     final PolicyEngine.PolicyEvaluationContext context =
         buildActorEvaluationContext(opContext, userUrn, null, null, null);
-    final Map<Urn, Set<Urn>> rolesByGroup = new HashMap<>();
-    for (final Urn group : groupUrns(actorSpec)) {
-      rolesByGroup.put(group, groupService.fetchRolesViaGroups(opContext, List.of(group)));
-    }
+    final Supplier<Map<Urn, Set<Urn>>> rolesByGroup =
+        Suppliers.memoize(
+            () ->
+                groupUrns(actorSpec).stream()
+                    .collect(
+                        Collectors.toMap(
+                            group -> group,
+                            group -> policyEngine.fetchRolesViaGroups(opContext, List.of(group)))));
 
     final Function<DataHubActorFilter, List<ActorPolicyMatchReason>> explain =
         actors ->
@@ -387,7 +394,7 @@ public class DataHubAuthorizer
    */
   public ActorPolicies explainGroupPolicies(
       @Nonnull OperationContext opContext, @Nonnull final Urn groupUrn, boolean includeInactive) {
-    final Set<Urn> groupRoles = groupService.fetchRolesViaGroups(opContext, List.of(groupUrn));
+    final Set<Urn> groupRoles = policyEngine.fetchRolesViaGroups(opContext, List.of(groupUrn));
     final List<ActorPolicyMatch> matches = new ArrayList<>();
     for (final Map.Entry<Urn, DataHubPolicyInfo> policy : cachedPoliciesWithUrns()) {
       addMatch(
@@ -486,7 +493,8 @@ public class DataHubAuthorizer
     readLock.lock();
     try {
       return policyCache.getOrDefault(ALL, List.of()).stream()
-          .map(policy -> Map.entry(policyUrnCache.get(policy), policy))
+          .<Map.Entry<Urn, DataHubPolicyInfo>>map(
+              policy -> new AbstractMap.SimpleImmutableEntry<>(policyUrnCache.get(policy), policy))
           .toList();
     } finally {
       readLock.unlock();
