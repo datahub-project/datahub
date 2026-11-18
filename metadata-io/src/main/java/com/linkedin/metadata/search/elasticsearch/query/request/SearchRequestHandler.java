@@ -686,6 +686,31 @@ public class SearchRequestHandler extends BaseRequestHandler {
   }
 
   /**
+   * A request with no hits for the facets of {@code urns} inside {@link #getFilterQuery}: the
+   * facets of a search template vector rung, which count only the hits it serves.
+   */
+  @Nonnull
+  public SearchRequest getUrnFacetRequest(
+      @Nonnull OperationContext opContext,
+      @Nullable Filter filter,
+      @Nonnull Collection<String> urns,
+      @Nonnull List<String> facets) {
+    final SearchSourceBuilder searchSourceBuilder =
+        new SearchSourceBuilder()
+            .size(0)
+            .query(
+                QueryBuilders.boolQuery()
+                    .filter(getFilterQuery(opContext, filter))
+                    .filter(QueryBuilders.termsQuery("urn", urns)));
+    if (Boolean.FALSE.equals(opContext.getSearchContext().getSearchFlags().isSkipAggregates())) {
+      aggregationQueryBuilder
+          .getAggregations(opContext, facets)
+          .forEach(searchSourceBuilder::aggregation);
+    }
+    return new SearchRequest().source(searchSourceBuilder);
+  }
+
+  /**
    * Get search request to aggregate and get document counts per field value
    *
    * @param field Field to aggregate by

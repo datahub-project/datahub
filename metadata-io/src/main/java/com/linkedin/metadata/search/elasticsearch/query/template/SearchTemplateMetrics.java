@@ -17,6 +17,7 @@ public final class SearchTemplateMetrics {
   public static final String LADDER_DEPTH = "search.template.ladder.depth";
   public static final String FALLBACK = "search.template.fallback";
   public static final String KEYWORD_RERANK_KEPT = "search.template.keywordRerank.kept";
+  public static final String VECTOR_RETRIEVAL = "search.template.vectorRetrieval";
   public static final String RUNG = "search.template.rung";
   public static final String CLAUSE_BUDGET = "search.template.clause.budget.reduction";
   public static final String CACHE_AGE = "search.template.cache.age";
@@ -81,6 +82,15 @@ public final class SearchTemplateMetrics {
   public static void keywordRerankKept(
       @Nonnull OperationContext opContext, @Nonnull String reason) {
     counter(opContext, KEYWORD_RERANK_KEPT, "reason", reason);
+  }
+
+  /**
+   * A vector rung decision, by outcome: one of {@link SearchTemplateVectorRetrieval}'s outcomes.
+   * Not a template fallback: an empty window, a clamped cap, a floor, or a page past the window are
+   * expected states. Only a failure that follows {@code next} is also counted as a ladder fallback.
+   */
+  public static void vectorRetrieval(@Nonnull OperationContext opContext, @Nonnull String outcome) {
+    counter(opContext, VECTOR_RETRIEVAL, "outcome", outcome);
   }
 
   public static void rung(

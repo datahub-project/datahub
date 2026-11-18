@@ -35,7 +35,7 @@ public class V3HybridKnnRequestBuilder {
    * Documents to return, more than a rerank window holds. Nested kNN counts documents, not chunks:
    * each document comes back once, scored by its nearest chunk.
    */
-  static final int MAX_K = 1_000;
+  public static final int MAX_K = 1_000;
 
   /** Candidates each shard considers, the engines' limit. */
   static final int MAX_NUM_CANDIDATES = 10_000;

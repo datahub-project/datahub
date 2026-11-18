@@ -65,7 +65,8 @@ public class ESSearchDAOCountOnlyTest {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            reranker);
+            reranker,
+            null);
   }
 
   @Test

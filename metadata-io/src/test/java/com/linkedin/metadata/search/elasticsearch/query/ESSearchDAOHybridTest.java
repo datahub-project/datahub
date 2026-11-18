@@ -138,7 +138,8 @@ public class ESSearchDAOHybridTest {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            reranker);
+            reranker,
+            null);
     // Each test gets its own pool. The shared one keeps the workers earlier tests started, idle,
     // and a burst of searches can fill its queue before they take tasks, so a test that fills the
     // pool would see more rejections than the pool's capacity allows
@@ -543,7 +544,8 @@ public class ESSearchDAOHybridTest {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            reranker);
+            reranker,
+            null);
 
     // Through the template executor, which records the served rung for every sort
     SearchResult sorted = search(dao, searching, RERANK_URN, "revenue", byName);
@@ -706,7 +708,8 @@ public class ESSearchDAOHybridTest {
         false,
         TEST_SEARCH_SERVICE_CONFIG,
         new Sha256UrnEntityDocumentIdHasher(),
-        hybrid);
+        hybrid,
+        null);
   }
 
   @Test
@@ -749,7 +752,8 @@ public class ESSearchDAOHybridTest {
               false,
               TEST_SEARCH_SERVICE_CONFIG,
               new Sha256UrnEntityDocumentIdHasher(),
-              reranker);
+              reranker,
+              null);
       SearchResult result =
           templated.search(searching, ENTITY_NAMES, "revenue", null, null, 10, 10, List.of());
       assertEquals(rowIds(result), range(10, 20));
@@ -804,7 +808,8 @@ public class ESSearchDAOHybridTest {
                 false,
                 TEST_SEARCH_SERVICE_CONFIG,
                 new Sha256UrnEntityDocumentIdHasher(),
-                hybrid);
+                hybrid,
+                null);
         if (expected == null) {
           expected = search(dao, searching, keywordOnly, "revenue", byScore);
         }
@@ -859,7 +864,8 @@ public class ESSearchDAOHybridTest {
             false,
             TEST_SEARCH_SERVICE_CONFIG,
             new Sha256UrnEntityDocumentIdHasher(),
-            reranker);
+            reranker,
+            null);
     templated.setHybridExecutor(hybridExecutor);
     OperationContext searching =
         TestOperationContexts.withFixedSearchClient(harness.opContext, client)

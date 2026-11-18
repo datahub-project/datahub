@@ -228,8 +228,9 @@ public final class SearchTemplateCapabilities {
 
   /**
    * Bounded reason a merged template cannot run, or null when its sections are runnable. {@code
-   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code mergeJoin}, {@code retrievalMode},
-   * {@code retrievalBridge}, or a code from {@link SearchTemplateGates#rejectionCode}.
+   * rankingPreset}, {@code rankingWindow}, {@code knn}, {@code vectorScroll}, {@code mergeJoin},
+   * {@code retrievalMode}, {@code retrievalBridge}, {@code retrievalCandidateCap}, or a code from
+   * {@link SearchTemplateGates#rejectionCode}.
    */
   @Nullable
   public static String rejectionCode(
@@ -277,6 +278,10 @@ public final class SearchTemplateCapabilities {
         && effectiveCombine(template) == null) {
       return "knn";
     }
+    // A vector rung has no keyword query for a scroll cursor to continue.
+    if (scroll && admitsVectorHits(template)) {
+      return "vectorScroll";
+    }
     if (template.getLadder() != null
         && template.getLadder().hasJoin()
         && template.getLadder().getJoin() != null
@@ -303,6 +308,10 @@ public final class SearchTemplateCapabilities {
     if (bridge != null && !SearchTemplateLoader.emptyRetrieval(retrievalWithBridge(bridge))) {
       return "retrievalBridge";
     }
+    // Write rejects it too; a template stored before that check fails here.
+    if (retrieval.getCandidateCap() != null && retrieval.getCandidateCap() < 1) {
+      return "retrievalCandidateCap";
+    }
     return null;
   }
 
@@ -323,6 +332,8 @@ public final class SearchTemplateCapabilities {
       case SearchTemplateGates.PROFILE_SCOPE -> "profiles that do not cover the scope";
       case SearchTemplateGates.MIN_SIMILARITY -> "minSimilarity on a profile that is not cosine";
       case "retrievalBridge" -> "retrieval bridge";
+      case "vectorScroll" -> "vector retrieval on scroll";
+      case "retrievalCandidateCap" -> "retrieval candidateCap below 1";
       default ->
           SearchTemplateGates.CAPABILITIES.contains(code)
               ? "capability " + code + ", which this build does not run"
@@ -434,6 +445,17 @@ public final class SearchTemplateCapabilities {
 
   public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
     return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
+  }
+
+  /** The rung retrieves by corpus kNN: {@code combine: vector}, or the legacy vector mode. */
+  public static boolean vectorRetrieval(@Nonnull MergedSearchTemplate template) {
+    return COMBINE_VECTOR.equals(effectiveCombine(template));
+  }
+
+  /** Any combine other than keywordRerank lets the vector leg admit hits. */
+  public static boolean admitsVectorHits(@Nonnull MergedSearchTemplate template) {
+    String combine = effectiveCombine(template);
+    return combine != null && !COMBINE_KEYWORD_RERANK.equals(combine);
   }
 
   /**

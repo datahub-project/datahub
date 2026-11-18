@@ -62,9 +62,10 @@ public final class SearchTemplateGates {
 
   /**
    * Capabilities this build runs. The pull request that executes a shape advertises its name, so a
-   * build never binds a shape it cannot run.
+   * build never binds a shape it cannot run. {@code vectorRetrieval} is {@code combine: vector}
+   * only.
    */
-  public static final Set<String> ADVERTISED = Set.of(DOCUMENT_RERANK);
+  public static final Set<String> ADVERTISED = Set.of(DOCUMENT_RERANK, VECTOR_RETRIEVAL);
 
   /** Entity types this build runs for each embedding profile class. */
   public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
@@ -222,9 +223,10 @@ public final class SearchTemplateGates {
   /**
    * Template failure that depends on the requested entity types, or null. Over the entities that
    * join the vector leg (enabled, and run by this build for their profile class): the selection
-   * names more than one profile, even when one of them is unavailable here, or {@code
-   * minSimilarity} meets a covering profile that is not cosine. Only a vector leg this build runs
-   * for this request is checked. An entity that fails coverage is reported by {@link #entityGates}.
+   * names more than one profile, even when one of them is unavailable here, or the floor from
+   * {@link #minSimilarity} meets a covering profile that is not cosine. Only a vector leg this
+   * build runs for this request is checked. An entity that fails coverage is reported by {@link
+   * #entityGates}.
    */
   @Nullable
   public String bindingRejection(
@@ -252,8 +254,7 @@ public final class SearchTemplateGates {
     if (selected.size() > 1 && !advertises(SEVERAL_PROFILES)) {
       return SEVERAL_PROFILES;
     }
-    SearchTemplateRetrieval retrieval = template.getRetrieval();
-    if (retrieval != null && retrieval.hasMinSimilarity()) {
+    if (minSimilarity(template) != null) {
       for (String id : covering) {
         EmbeddingProfile profile = profiles.profile(id);
         if (profile != null && !profile.cosine()) {
@@ -262,6 +263,21 @@ public final class SearchTemplateGates {
       }
     }
     return null;
+  }
+
+  /**
+   * The raw cosine floor a rung applies: {@code retrieval.minSimilarity}, else, on a combine that
+   * admits vector hits, the deployment's {@code semanticSearch.minSimilarity}. Null is no floor.
+   */
+  @Nullable
+  public Float minSimilarity(@Nonnull MergedSearchTemplate template) {
+    SearchTemplateRetrieval retrieval = template.getRetrieval();
+    if (retrieval != null && retrieval.hasMinSimilarity()) {
+      return retrieval.getMinSimilarity();
+    }
+    return semanticSearch != null && SearchTemplateCapabilities.admitsVectorHits(template)
+        ? semanticSearch.getMinSimilarity()
+        : null;
   }
 
   /**

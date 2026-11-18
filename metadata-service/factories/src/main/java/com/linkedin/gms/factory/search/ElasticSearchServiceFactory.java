@@ -144,7 +144,40 @@ public class ElasticSearchServiceFactory {
         hybridSearchResultReranker(
             elasticSearchConfiguration.getEntityIndex(),
             embeddingProviderProvider::getIfAvailable,
-            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3)));
+            () -> searchClusterRegistry.clientFor(SearchComponent.SEARCH_V3)),
+        vectorQueryEmbedding(
+            elasticSearchConfiguration.getEntityIndex(),
+            embeddingProviderProvider::getIfAvailable));
+  }
+
+  /**
+   * The query embedding a search template vector rung uses, or null when this process cannot run
+   * one: it needs V3 semantic read, semantic search, a real embedding provider, and the active
+   * model's mapping. Hybrid read, which gates keywordRerank, does not gate it.
+   */
+  @Nullable
+  static HybridQueryEmbeddingService vectorQueryEmbedding(
+      @Nullable final EntityIndexConfiguration entityIndex,
+      @Nonnull final Supplier<EmbeddingProvider> embeddingProvider) {
+    if (!SemanticEntitySearchService.shouldReadSemanticV3(entityIndex)) {
+      return null;
+    }
+    final SemanticSearchConfiguration semanticSearch = entityIndex.getSemanticSearch();
+    final EmbeddingProvider provider = embeddingProvider.get();
+    if (provider == null || provider instanceof NoOpEmbeddingProvider) {
+      return null;
+    }
+    final String modelId =
+        semanticSearch.getEmbeddingProvider() != null
+            ? semanticSearch.getEmbeddingProvider().getModelId()
+            : null;
+    final String modelKey =
+        SemanticEntitySearchServiceFactory.deriveModelEmbeddingKeyFromModelId(modelId);
+    final ModelEmbeddingConfig model =
+        semanticSearch.getModels() != null ? semanticSearch.getModels().get(modelKey) : null;
+    return model == null || model.getVectorDimension() <= 0
+        ? null
+        : new HybridQueryEmbeddingService(provider, modelId, modelKey, model.getVectorDimension());
   }
 
   /**

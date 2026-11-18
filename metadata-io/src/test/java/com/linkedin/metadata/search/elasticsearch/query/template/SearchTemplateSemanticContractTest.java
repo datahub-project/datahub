@@ -178,6 +178,34 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
   }
 
   @Test
+  public void testScrollFailsClosedOnAVectorRung() {
+    store("urn:li:searchTemplate:vectorRung", rung(r -> r.setCombine("vector")));
+    templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:vectorRung"));
+    SearchTemplateCoordinator coordinator = coordinator(true);
+
+    // A search binds the rung. A scroll has no keyword query to continue, and it does not fall
+    // back to one.
+    coordinator.bind(opContext, "customer orders", false, List.of("document"));
+    assertThrows(
+        SearchTemplateException.class,
+        () -> coordinator.bind(opContext, "customer orders", true, List.of("document")));
+    SearchTemplateDryRender preview =
+        coordinator.preview(
+            opContext,
+            "customer orders",
+            List.of("document"),
+            true,
+            SearchClientShim.SearchEngineType.OPENSEARCH_3);
+    assertTrue(
+        preview.capabilities().stream()
+            .anyMatch(
+                decision ->
+                    "sections".equals(decision.name())
+                        && !decision.accepted()
+                        && "vectorScroll".equals(decision.detail())));
+  }
+
+  @Test
   public void testKnnShapeFollowsTheEffectiveCombine() {
     SearchTemplateProperties blend = rung(r -> r.setCombine("keywordRerank"));
     blend.setKnn(BLEND);
@@ -296,7 +324,14 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
 
   @Test
   public void testDeferredSectionsFailClosedAtBind() {
-    assertEquals(rejectionOf("vector", rung(r -> r.setCombine("vector"))), "vectorRetrieval");
+    assertNull(rejectionOf("vector", rung(r -> r.setCombine("vector"))));
+    // Write rejects a cap below 1; bind rejects one stored before that check
+    assertEquals(
+        rejectionOf("zeroCap", rung(r -> r.setCombine("vector").setCandidateCap(0))),
+        "retrievalCandidateCap");
+    assertEquals(
+        rejectionOf("similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))),
+        "similarity");
     assertEquals(
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");

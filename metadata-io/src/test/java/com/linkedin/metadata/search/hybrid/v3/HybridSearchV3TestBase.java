@@ -242,7 +242,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
                     new HybridVectorScoreNormalizer(
                         getSearchClient().getEngineType(), model.getSpaceType())),
                 new HybridCandidateMerger(
-                    new HybridLexicalScoreNormalizer(), new HybridScoreCombiner())));
+                    new HybridLexicalScoreNormalizer(), new HybridScoreCombiner())),
+            null);
 
     ElasticSearchService searchService =
         new ElasticSearchService(

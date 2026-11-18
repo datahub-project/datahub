@@ -70,14 +70,13 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesOnlyDocumentRerank() {
+  public void testThisBuildAdvertisesDocumentRerankAndVectorRetrieval() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
-    assertEquals(gates.rejectionCode(merged(retrieval("vector")).build(), true), VECTOR_RETRIEVAL);
+    assertNull(gates.rejectionCode(merged(retrieval("vector")).build(), true));
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
         merged(retrieval("vector").setQuerySource("anchorEntity")).build();
-    assertEquals(gates.rejectionCode(anchored, true), VECTOR_RETRIEVAL);
-    assertEquals(VECTOR_BUILD.rejectionCode(anchored, true), SIMILARITY);
+    assertEquals(gates.rejectionCode(anchored, true), SIMILARITY);
     assertEquals(
         gates.rejectionCode(merged(retrieval("vectorThenKeyword")).build(), true),
         SearchTemplateGates.VECTOR_THEN_KEYWORD);
@@ -215,10 +214,37 @@ public class SearchTemplateGatesTest {
     assertEquals(
         VECTOR_BUILD.bindingRejection(floor, List.of("dataset"), OPENSEARCH, true),
         SearchTemplateGates.MIN_SIMILARITY);
-    // The same template on a build without vector retrieval fails earlier, by capability.
+    // This build runs the vector leg for Document only, so Dataset does not join it.
     assertNull(
         SearchTemplateGates.of(REGISTRY, SEMANTIC, true)
             .bindingRejection(floor, List.of("dataset"), OPENSEARCH, true));
+  }
+
+  @Test
+  public void testTheDeploymentFloorAppliesToAVectorRungThatSetsNone() {
+    SemanticSearchConfiguration floored = semantic("document", "dataset");
+    floored.setMinSimilarity(0.5f);
+    SearchTemplateGates gates =
+        new SearchTemplateGates(
+            REGISTRY,
+            floored,
+            true,
+            Set.of(VECTOR_RETRIEVAL, DOCUMENT_RERANK),
+            Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
+    MergedSearchTemplate vector = merged(retrieval("vector")).build();
+    assertEquals(gates.minSimilarity(vector), 0.5f);
+    // An L2 profile cannot take the inherited cosine floor either
+    assertEquals(
+        gates.bindingRejection(vector, List.of("dataset"), OPENSEARCH, true),
+        SearchTemplateGates.MIN_SIMILARITY);
+    assertNull(gates.bindingRejection(vector, List.of("document"), OPENSEARCH, true));
+    // A template floor replaces it, and keywordRerank drops nothing
+    assertEquals(
+        gates.minSimilarity(merged(retrieval("vector").setMinSimilarity(0.9f)).build()), 0.9f);
+    assertNull(gates.minSimilarity(merged(retrieval("keywordRerank")).build()));
+    assertNull(
+        gates.bindingRejection(
+            merged(retrieval("keywordRerank")).build(), List.of("dataset"), OPENSEARCH, true));
   }
 
   @Test

@@ -83,6 +83,23 @@ public class ElasticSearchServiceFactoryHybridTest {
                 entityIndex(v3 -> {}), () -> provider, () -> openSearch34));
   }
 
+  @Test
+  public void testVectorRungsNeedSemanticReadAndARealProviderButNotHybridRead() {
+    assertNotNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.hybridReadEnabled(false)), () -> provider));
+    // Semantic read is semantic search with keyword reads on V3
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> v3.keywordReadEnabled(false)), () -> provider));
+    assertNull(
+        ElasticSearchServiceFactory.vectorQueryEmbedding(
+            entityIndex(v3 -> {}), NoOpEmbeddingProvider::new));
+    EntityIndexConfiguration otherModel = entityIndex(v3 -> {});
+    otherModel.getSemanticSearch().setModels(Map.of("other_model", new ModelEmbeddingConfig()));
+    assertNull(ElasticSearchServiceFactory.vectorQueryEmbedding(otherModel, () -> provider));
+  }
+
   private static HybridSearchResultReranker build(
       EntityIndexConfiguration entityIndex, EmbeddingProvider provider) {
     SearchClientShim<?> elasticsearch = mock(SearchClientShim.class);

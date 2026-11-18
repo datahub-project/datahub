@@ -123,7 +123,7 @@ public class SearchTemplateSemanticRulesTest extends SearchTemplateFixture {
     placeholders.setApiVersion(2);
     Map<String, SearchTemplateProperties> shapes =
         Map.of(
-            "vector", rung(r -> r.setCombine("vector")),
+            "vectorThenKeyword", rung(r -> r.setCombine("vectorThenKeyword")),
             "vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}")),
             "scoped", scoped,
             "keywordProfiles", keywordProfiles,

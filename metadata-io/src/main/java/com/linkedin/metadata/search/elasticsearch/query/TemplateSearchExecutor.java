@@ -17,6 +17,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTem
 import com.linkedin.metadata.search.elasticsearch.query.template.OwnRungComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.PostProcessComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCandidates;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponent;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentPage;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRequest;
@@ -55,9 +56,11 @@ import org.opensearch.search.builder.SearchSourceBuilder;
 @Slf4j
 final class TemplateSearchExecutor {
   private final ESSearchDAO dao;
+  private final TemplateVectorSearch vectorSearch;
 
   TemplateSearchExecutor(ESSearchDAO dao) {
     this.dao = dao;
+    this.vectorSearch = new TemplateVectorSearch(dao);
   }
 
   /**
@@ -172,9 +175,17 @@ final class TemplateSearchExecutor {
       @Nullable Filter filter,
       @Nonnull List<EntitySpec> entitySpecs) {}
 
-  /** The context {@code armServed} updated, plus the page that search returned. */
-  record BoundSearch(@Nonnull OperationContext context, @Nonnull SearchResult result) {}
+  /**
+   * The context {@code armServed} updated, plus the page that search returned. {@code vectorServed}
+   * is true when a vector rung served it: that page is final, not a window to rerank or slice.
+   */
+  record BoundSearch(
+      @Nonnull OperationContext context, @Nonnull SearchResult result, boolean vectorServed) {}
 
+  /**
+   * @param hybridFetchSize the keyword window a hybrid search fetches from offset 0, or 0. A vector
+   *     rung ignores it and pages {@code from} and {@code size} itself.
+   */
   @Nonnull
   BoundSearch searchWithTemplates(
       @Nonnull OperationContext opContext,
@@ -184,19 +195,33 @@ final class TemplateSearchExecutor {
       List<SortCriterion> sortCriteria,
       int from,
       @Nullable Integer size,
+      int hybridFetchSize,
       @Nonnull List<String> facets) {
+    final int fetchFrom = hybridFetchSize > 0 ? 0 : from;
+    final Integer fetchSize = hybridFetchSize > 0 ? hybridFetchSize : size;
     SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
     if (coordinator == null || !coordinator.executes(opContext)) {
       return new BoundSearch(
           opContext,
-          searchOnce(opContext, entityNames, input, postFilters, sortCriteria, from, size, facets));
+          searchOnce(
+              opContext,
+              entityNames,
+              input,
+              postFilters,
+              sortCriteria,
+              fetchFrom,
+              fetchSize,
+              facets),
+          false);
     }
     OperationContext bound = bindTemplates(opContext, input, false, entityNames);
     ResolvedSearchTemplate resolved = bound.getSearchContext().getResolvedSearchTemplate();
     if (resolved == null) {
       return new BoundSearch(
           bound,
-          searchOnce(bound, entityNames, input, postFilters, sortCriteria, from, size, facets));
+          searchOnce(
+              bound, entityNames, input, postFilters, sortCriteria, fetchFrom, fetchSize, facets),
+          false);
     }
     String normalizedQuery = normalizeQuery(bound, input);
     SearchTemplateWalk.Served<SearchResult> served =
@@ -209,7 +234,7 @@ final class TemplateSearchExecutor {
                 input,
                 postFilters,
                 sortCriteria,
-                size,
+                fetchSize,
                 (urn, raw) ->
                     componentReorder(
                         bound,
@@ -219,20 +244,25 @@ final class TemplateSearchExecutor {
                         normalizedQuery,
                         postFilters,
                         sortCriteria,
-                        from,
-                        size)),
-            urn ->
-                searchAttempt(
-                    bound,
-                    urn,
-                    entityNames,
-                    input,
-                    normalizedQuery,
-                    postFilters,
-                    sortCriteria,
-                    from,
-                    size,
-                    facets),
+                        fetchFrom,
+                        fetchSize)),
+            urn -> {
+              MergedSearchTemplate template = coordinator.loader().load(bound, urn);
+              return SearchTemplateCapabilities.vectorRetrieval(template)
+                  ? vectorSearch.attempt(
+                      bound, template, entityNames, input, postFilters, from, size, facets)
+                  : searchAttempt(
+                      bound,
+                      urn,
+                      entityNames,
+                      input,
+                      normalizedQuery,
+                      postFilters,
+                      sortCriteria,
+                      fetchFrom,
+                      fetchSize,
+                      facets);
+            },
             (first, entities, total) -> {
               SearchResult copy = new SearchResult();
               copy.setEntities(new SearchEntityArray(entities));
@@ -250,7 +280,12 @@ final class TemplateSearchExecutor {
     // Every sort records the served rung, so a keywordRerank search can report that its rerank does
     // not apply. Whether it applies is decided where the page is ranked.
     coordinator.armServed(bound, served.urn());
-    return new BoundSearch(bound, served.page());
+    return new BoundSearch(
+        bound,
+        served.page(),
+        served.urn() != null
+            && SearchTemplateCapabilities.vectorRetrieval(
+                coordinator.loader().load(bound, served.urn())));
   }
 
   /**
@@ -451,7 +486,10 @@ final class TemplateSearchExecutor {
     }
     MergedSearchTemplate template = coordinator.loader().load(opContext, urn);
     com.linkedin.search.template.SearchTemplateComponent spec = template.getComponent();
-    if (SearchTemplateComponents.empty(spec) || spec.getMode() == null) {
+    // A vector rung orders by vector score, so an inherited component does not reorder its hits
+    if (SearchTemplateComponents.empty(spec)
+        || spec.getMode() == null
+        || SearchTemplateCapabilities.vectorRetrieval(template)) {
       return raw;
     }
     @SuppressWarnings("unchecked")
