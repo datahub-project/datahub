@@ -4,6 +4,8 @@ import static com.linkedin.metadata.utils.UnknownDataHandlings.handling;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityIncidentsResult;
@@ -91,13 +93,15 @@ public class EntityIncidentsResolver
             final List<SortCriterion> sortCriteria =
                 buildIncidentsSortCriteria(context.getOperationContext());
             final SearchResult searchResult =
-                _entityClient.filter(
-                    context.getOperationContext(),
-                    Constants.INCIDENT_ENTITY_NAME,
-                    filter,
-                    sortCriteria,
-                    start,
-                    count);
+                AuthorizationUtils.hidesFromCaller(context, entityUrn)
+                    ? MissingEntityResults.searchResult(start, count)
+                    : _entityClient.filter(
+                        context.getOperationContext(),
+                        Constants.INCIDENT_ENTITY_NAME,
+                        filter,
+                        sortCriteria,
+                        start,
+                        count);
 
             final List<Urn> incidentUrns =
                 searchResult.getEntities().stream()

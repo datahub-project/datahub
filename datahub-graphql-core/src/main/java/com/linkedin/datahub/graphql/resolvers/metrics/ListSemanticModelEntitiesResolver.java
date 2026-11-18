@@ -5,6 +5,8 @@ import static com.linkedin.metadata.utils.CriterionUtils.buildCriterion;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.EntityType;
 import com.linkedin.datahub.graphql.generated.SearchAcrossEntitiesInput;
@@ -79,6 +81,9 @@ public class ListSemanticModelEntitiesResolver
     final String sanitizedQuery = query != null ? ResolverUtils.escapeForwardSlash(query) : null;
     final int start = input.getStart() != null ? input.getStart() : DEFAULT_START;
     final int count = input.getCount() != null ? input.getCount() : DEFAULT_COUNT;
+    if (AuthorizationUtils.hidesFromCaller(context, urn)) {
+      return CompletableFuture.completedFuture(MissingEntityResults.searchResults(start));
+    }
 
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {

@@ -1,11 +1,10 @@
 package com.linkedin.datahub.graphql.types.aspect;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.VersionedAspectKey;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Aspect;
 import com.linkedin.datahub.graphql.types.LoadableType;
 import com.linkedin.entity.EntityResponse;
@@ -56,7 +55,7 @@ public class AspectType implements LoadableType<Aspect, VersionedAspectKey> {
                   Urn entityUrn = Urn.createFromString(key.getUrn());
 
                   Map<Urn, EntityResponse> response =
-                      canView(context.getOperationContext(), entityUrn)
+                      !AuthorizationUtils.withholdsEntity(context, entityUrn)
                           ? _entityClient.batchGetV2(
                               context.getOperationContext(),
                               entityUrn.getEntityType(),

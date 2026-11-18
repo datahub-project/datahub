@@ -260,7 +260,9 @@ public class RepositoryMapperTest {
     entityResponse.setAspects(aspects);
 
     try (MockedStatic<AuthorizationUtils> authUtils = mockStatic(AuthorizationUtils.class)) {
-      authUtils.when(() -> AuthorizationUtils.canView(any(), eq(REPO_URN))).thenReturn(false);
+      authUtils
+          .when(() -> AuthorizationUtils.withholdsEntity(any(), eq(REPO_URN)))
+          .thenReturn(true);
       final Repository restricted = new Repository();
       authUtils
           .when(

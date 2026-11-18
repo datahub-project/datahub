@@ -25,6 +25,7 @@ import com.linkedin.mxe.SystemMetadata;
 import com.linkedin.r2.RemoteInvocationException;
 import com.linkedin.util.Pair;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.net.URISyntaxException;
 import java.util.Collection;
 import java.util.List;
@@ -36,6 +37,15 @@ import java.util.function.Consumer;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 
+/**
+ * Reads and writes entity aspects.
+ *
+ * <p>When the request context hides unviewable entities ({@link
+ * RequestContext#hidesUnviewableEntities()}), the read methods that take urns ({@code
+ * getLatestAspects}, {@code getEntitiesV2}, the versioned reads, {@code exists} and {@code
+ * getAspect}) answer for urns the caller can't view exactly as for urns with no stored rows. Reads
+ * for update and writes are never affected.
+ */
 public interface EntityService<U extends ChangeMCP> {
 
   /**

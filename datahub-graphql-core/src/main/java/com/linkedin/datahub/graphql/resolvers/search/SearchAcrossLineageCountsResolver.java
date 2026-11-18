@@ -6,6 +6,7 @@ import static com.linkedin.datahub.graphql.resolvers.search.SearchUtils.getMaxHo
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.FacetFilterInput;
@@ -96,6 +97,11 @@ public class SearchAcrossLineageCountsResolver
             .setFilterNonLatestVersions(false)
             .setIncludeSoftDeleted(Boolean.TRUE.equals(input.getIncludeSoftDeleted()));
 
+    if (AuthorizationUtils.hidesFromCaller(context, urn)) {
+      final SearchAcrossLineageCounts counts = new SearchAcrossLineageCounts();
+      counts.setTotal(0);
+      return CompletableFuture.completedFuture(counts);
+    }
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           try {

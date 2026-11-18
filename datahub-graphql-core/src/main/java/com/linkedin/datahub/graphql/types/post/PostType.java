@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.types.post;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.POST_INFO_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.Post;
 import com.linkedin.datahub.graphql.types.EntityType;
@@ -60,7 +60,7 @@ public class PostType implements EntityType<Post, String> {
               context.getOperationContext(),
               Constants.POST_ENTITY_NAME,
               postUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .filter(urn -> !AuthorizationUtils.withholdsEntity(context, urn))
                   .collect(Collectors.toSet()),
               aspectsToResolve);
 

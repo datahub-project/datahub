@@ -4,6 +4,7 @@ import static com.linkedin.datahub.graphql.resolvers.ResolverUtils.*;
 
 import com.google.common.collect.ImmutableList;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.Assertion;
 import com.linkedin.datahub.graphql.generated.AssertionResultType;
@@ -61,18 +62,20 @@ public class AssertionRunEventResolver
           try {
             // Step 1: Fetch aspects from GMS
             List<EnvelopedAspect> aspects =
-                _client.getTimeseriesAspectValues(
-                    context.getOperationContext(),
-                    urn,
-                    Constants.ASSERTION_ENTITY_NAME,
-                    Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
-                    maybeStartTimeMillis,
-                    maybeEndTimeMillis,
-                    maybeLimit,
-                    buildFilter(
-                        maybeFilters,
-                        maybeStatus,
-                        context.getOperationContext().getAspectRetriever()));
+                AuthorizationUtils.hidesFromCaller(context, urn)
+                    ? List.of()
+                    : _client.getTimeseriesAspectValues(
+                        context.getOperationContext(),
+                        urn,
+                        Constants.ASSERTION_ENTITY_NAME,
+                        Constants.ASSERTION_RUN_EVENT_ASPECT_NAME,
+                        maybeStartTimeMillis,
+                        maybeEndTimeMillis,
+                        maybeLimit,
+                        buildFilter(
+                            maybeFilters,
+                            maybeStatus,
+                            context.getOperationContext().getAspectRetriever()));
 
             // Step 2: Bind profiles into GraphQL strong types.
             List<AssertionRunEvent> runEvents =

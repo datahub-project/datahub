@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.domain;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.DEPRECATION_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.FORMS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.STRUCTURED_PROPERTIES_ASPECT_NAME;
@@ -123,7 +122,7 @@ public class DomainMapper {
           AssetSettingsMapper.map(new AssetSettings(envelopedAssetSettings.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, Domain.class);
     } else {
       return result;

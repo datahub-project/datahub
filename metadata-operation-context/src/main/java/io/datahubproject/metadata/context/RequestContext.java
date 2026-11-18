@@ -31,6 +31,7 @@ import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
+import lombok.AccessLevel;
 import lombok.Builder;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
@@ -141,6 +142,9 @@ public class RequestContext implements ContextInterface {
 
   /** Multiplier for per-proposal ingest cost profiling (batch size). Defaults to 1. */
   @Builder.Default private final long usageQuantity = 1L;
+
+  @Getter(AccessLevel.NONE)
+  private final boolean hideUnviewableEntities;
 
   public RequestContext(
       MetricUtils metricUtils,
@@ -269,6 +273,7 @@ public class RequestContext implements ContextInterface {
     this.responseBodyMaterialized = responseBodyMaterialized;
     this.usageQuantity = Math.max(1L, usageQuantity);
     this.enrichmentBundle = enrichmentBundle;
+    this.hideUnviewableEntities = hidesUnviewableEntities(graphqlOperationKind);
 
     putUsageFieldsInMdc();
 
@@ -279,6 +284,48 @@ public class RequestContext implements ContextInterface {
     if (metricUtils != null) {
       captureAPIMetrics(metricUtils, this);
     }
+  }
+
+  private RequestContext(@Nonnull RequestContext other, boolean hideUnviewableEntities) {
+    this.actorUrn = other.actorUrn;
+    this.sourceIP = other.sourceIP;
+    this.requestAPI = other.requestAPI;
+    this.requestID = other.requestID;
+    this.userAgent = other.userAgent;
+    this.agentClass = other.agentClass;
+    this.agentName = other.agentName;
+    this.metricUtils = other.metricUtils;
+    this.traceId = other.traceId;
+    this.enrichmentBundle = other.enrichmentBundle;
+    this.usageOperation = other.usageOperation;
+    this.usageIdentity = other.usageIdentity;
+    this.authChannel = other.authChannel;
+    this.graphqlOperationKind = other.graphqlOperationKind;
+    this.inputBytes = other.inputBytes;
+    this.outputBytes = other.outputBytes;
+    this.requestBodyMaterialized = other.requestBodyMaterialized;
+    this.responseBodyMaterialized = other.responseBodyMaterialized;
+    this.usageQuantity = other.usageQuantity;
+    this.hideUnviewableEntities = hideUnviewableEntities;
+  }
+
+  /**
+   * Whether reads in this request answer for entities the caller can't view exactly as for entities
+   * that don't exist. On for GraphQL queries only.
+   */
+  public boolean hidesUnviewableEntities() {
+    return hideUnviewableEntities;
+  }
+
+  /** This request context with {@link #hidesUnviewableEntities()} off. */
+  @Nonnull
+  public RequestContext withoutHidingUnviewable() {
+    return hideUnviewableEntities ? new RequestContext(this, false) : this;
+  }
+
+  private static boolean hidesUnviewableEntities(
+      @Nullable GraphQLOperationKind graphqlOperationKind) {
+    return graphqlOperationKind == GraphQLOperationKind.QUERY;
   }
 
   @Override

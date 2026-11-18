@@ -1,6 +1,7 @@
 package com.linkedin.datahub.graphql.resolvers.glossary;
 
 import com.linkedin.common.urn.Urn;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.GlossaryNodeChildrenCount;
 import com.linkedin.datahub.graphql.resolvers.load.GlossaryNodeChildrenCountBatchLoader;
@@ -18,6 +19,12 @@ public class GlossaryNodeChildrenCountResolver
     final String urn = ((Entity) environment.getSource()).getUrn();
     // Fail fast rather than letting a malformed URN into a shared batch filter.
     Urn.createFromString(urn);
+    if (AuthorizationUtils.hidesFromCaller(environment.getContext(), urn)) {
+      final GlossaryNodeChildrenCount count = new GlossaryNodeChildrenCount();
+      count.setTermsCount(0);
+      count.setNodesCount(0);
+      return CompletableFuture.completedFuture(count);
+    }
 
     final DataLoader<String, GlossaryNodeChildrenCount> loader =
         environment

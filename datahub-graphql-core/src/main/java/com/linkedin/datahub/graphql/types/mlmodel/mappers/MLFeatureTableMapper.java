@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.mlmodel.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -129,7 +128,7 @@ public class MLFeatureTableMapper implements ModelMapper<EntityResponse, MLFeatu
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (mlFeatureTable, dataMap) -> mapApplicationAssociation(context, mlFeatureTable, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), MLFeatureTable.class);
     } else {
       return mappingHelper.getResult();

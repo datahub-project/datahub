@@ -1,12 +1,12 @@
 package com.linkedin.datahub.graphql.types.view;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.Constants.DATAHUB_VIEW_KEY_ASPECT_NAME;
 
 import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataHubView;
 import com.linkedin.datahub.graphql.generated.Entity;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -60,7 +60,7 @@ public class DataHubViewType
               context.getOperationContext(),
               DATAHUB_VIEW_ENTITY_NAME,
               viewUrns.stream()
-                  .filter(urn -> canView(context.getOperationContext(), urn))
+                  .filter(urn -> !AuthorizationUtils.withholdsEntity(context, urn))
                   .collect(Collectors.toSet()),
               aspectsToResolve);
 

@@ -14,8 +14,6 @@ import static org.testng.Assert.assertEquals;
 import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertTrue;
 
-import com.datahub.authorization.AuthorizationConfiguration;
-import com.datahub.authorization.config.ViewAuthorizationConfiguration;
 import com.google.common.collect.ImmutableMap;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -59,15 +57,9 @@ public class EntityLineageResultResolverTest {
     siblingGraphService = mock(SiblingGraphService.class);
     featureFlags = new FeatureFlags();
     featureFlags.setLineageCountOnlyEnabled(true);
-    AuthorizationConfiguration authorizationConfiguration = new AuthorizationConfiguration();
-    authorizationConfiguration.setView(
-        ViewAuthorizationConfiguration.builder().enabled(false).build());
     resolver =
         new EntityLineageResultResolver(
-            siblingGraphService,
-            mock(RestrictedService.class),
-            authorizationConfiguration,
-            featureFlags);
+            siblingGraphService, mock(RestrictedService.class), featureFlags);
 
     Dataset source = new Dataset();
     source.setUrn(DATASET_URN.toString());
@@ -218,10 +210,7 @@ public class EntityLineageResultResolverTest {
 
     EntityLineageResultResolver resolver =
         new EntityLineageResultResolver(
-            siblingGraphService,
-            mock(RestrictedService.class),
-            new AuthorizationConfiguration(),
-            new FeatureFlags());
+            siblingGraphService, mock(RestrictedService.class), new FeatureFlags());
 
     // An explicit null bypasses the schema default (`includeGhostEntities: Boolean = false`).
     Map<String, Object> input = new HashMap<>();

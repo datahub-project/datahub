@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.glossary.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -150,7 +149,7 @@ public class GlossaryTermMapper implements ModelMapper<EntityResponse, GlossaryT
     if (result.getProperties() != null && result.getProperties().getName() == null) {
       result.getProperties().setName(legacyName);
     }
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), GlossaryTerm.class);
     } else {
       return mappingHelper.getResult();

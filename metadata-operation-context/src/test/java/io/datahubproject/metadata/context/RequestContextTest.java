@@ -9,6 +9,7 @@ import com.google.common.net.HttpHeaders;
 import com.linkedin.metadata.Constants;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.restli.server.ResourceContext;
+import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
 import io.datahubproject.metadata.context.usage.AuthChannel;
 import io.datahubproject.metadata.context.usage.UsageOperation;
 import jakarta.servlet.http.HttpServletRequest;
@@ -815,5 +816,49 @@ public class RequestContextTest {
 
     RequestContext context = builder.metricUtils(mockMetricUtils).build();
     assertEquals(context.getUsageQuantity(), 1L);
+  }
+
+  @Test
+  public void testHidesUnviewableEntitiesOnlyForGraphqlQueries() {
+    assertTrue(graphqlRequest(GraphQLOperationKind.QUERY).hidesUnviewableEntities());
+    assertFalse(graphqlRequest(GraphQLOperationKind.MUTATION).hidesUnviewableEntities());
+    assertFalse(graphqlRequest(GraphQLOperationKind.SUBSCRIPTION).hidesUnviewableEntities());
+    assertFalse(graphqlRequest(null).hidesUnviewableEntities());
+    assertFalse(RequestContext.TEST.build().hidesUnviewableEntities());
+    assertFalse(
+        RequestContext.builder()
+            .buildOpenapi("urn:li:corpuser:testuser", mockHttpRequest, "getEntity", "dataset")
+            .build()
+            .hidesUnviewableEntities());
+    assertFalse(
+        RequestContext.builder()
+            .buildRestli("urn:li:corpuser:testuser", null, "get", "dataset")
+            .build()
+            .hidesUnviewableEntities());
+  }
+
+  @Test
+  public void testWithoutHidingUnviewableKeepsTheRequestAndRecordsNoMetrics() {
+    RequestContext query = graphqlRequest(GraphQLOperationKind.QUERY);
+    clearInvocations(mockMetricUtils);
+
+    RequestContext copy = query.withoutHidingUnviewable();
+
+    assertFalse(copy.hidesUnviewableEntities());
+    assertTrue(query.hidesUnviewableEntities());
+    assertEquals(copy.getActorUrn(), query.getActorUrn());
+    assertEquals(copy.getRequestID(), query.getRequestID());
+    assertEquals(copy.getGraphqlOperationKind(), GraphQLOperationKind.QUERY);
+    assertSame(copy.getMetricUtils(), query.getMetricUtils());
+    verifyNoInteractions(mockMetricUtils);
+    assertSame(copy.withoutHidingUnviewable(), copy);
+  }
+
+  private RequestContext graphqlRequest(GraphQLOperationKind kind) {
+    return RequestContext.builder()
+        .buildGraphql("urn:li:corpuser:testuser", mockHttpRequest, "getDataset", Map.of())
+        .graphqlOperationKind(kind)
+        .metricUtils(mockMetricUtils)
+        .build();
   }
 }

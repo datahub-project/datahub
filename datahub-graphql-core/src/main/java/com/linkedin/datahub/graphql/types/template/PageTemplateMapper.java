@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.template;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME;
 
 import com.linkedin.common.urn.Urn;
@@ -61,7 +60,7 @@ public class PageTemplateMapper implements ModelMapper<EntityResponse, DataHubPa
         DATAHUB_PAGE_TEMPLATE_PROPERTIES_ASPECT_NAME,
         (application, dataMap) -> mapProperties(application, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataHubPageTemplate.class);
     } else {
       return result;

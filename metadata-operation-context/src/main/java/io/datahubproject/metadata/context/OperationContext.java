@@ -347,6 +347,34 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
   }
 
   /**
+   * This context with {@link RequestContext#hidesUnviewableEntities()} off, for reads that must see
+   * every stored entity, such as authorization's own reads and the lineage walk.
+   */
+  @Nonnull
+  public OperationContext withoutHidingUnviewable() {
+    if (requestContext == null || !requestContext.hidesUnviewableEntities()) {
+      return this;
+    }
+    return new OperationContext(
+        operationContextConfig,
+        sessionActorContext,
+        systemActorContext,
+        searchContext,
+        authorizationContext,
+        entityRegistryContext,
+        servicesRegistryContext,
+        requestContext.withoutHidingUnviewable(),
+        retrieverContext,
+        objectMapperContext,
+        validationContext,
+        systemTelemetryContext,
+        primaryStorageContext,
+        enrichmentBundle,
+        queryTimeCanonicalizer,
+        pendingDeletions);
+  }
+
+  /**
    * Internal index-occupancy checks skip template execution. Does not change the search surface or
    * the template a user search would select.
    */
@@ -760,7 +788,8 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 .filter(Optional::isPresent)
                 .mapToInt(Optional::get)
                 .sum())
-        + enrichmentCacheKeySuffix();
+        + enrichmentCacheKeySuffix()
+        + hideUnviewableCacheKeySuffix();
   }
 
   // Context id specific to entity lookups (not search)
@@ -784,7 +813,14 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
                 .filter(Optional::isPresent)
                 .mapToInt(Optional::get)
                 .sum())
-        + enrichmentCacheKeySuffix();
+        + enrichmentCacheKeySuffix()
+        + hideUnviewableCacheKeySuffix();
+  }
+
+  private String hideUnviewableCacheKeySuffix() {
+    return requestContext != null && requestContext.hidesUnviewableEntities()
+        ? "|hideUnviewable"
+        : "";
   }
 
   /**
@@ -981,7 +1017,7 @@ public class OperationContext implements AuthorizationSession, OperationFingerpr
               this.queryTimeCanonicalizer,
               new java.util.ArrayList<>());
 
-      if (!sessionActor.isActive(authContext, retriever)) {
+      if (!sessionActor.isActive(authContext.withoutHidingUnviewable(), retriever)) {
         throw new ActorAccessException("Actor is not active");
       }
 

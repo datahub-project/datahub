@@ -39,7 +39,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.SEARCH_QUERY);
     assertEquals(result.kind(), GraphQLOperationKind.QUERY);
   }
@@ -54,7 +54,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.OTHER_WRITE);
     assertEquals(result.kind(), GraphQLOperationKind.MUTATION);
   }
@@ -70,7 +70,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.OTHER_OPERATIONS);
     assertEquals(result.kind(), GraphQLOperationKind.MUTATION);
   }
@@ -86,7 +86,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.OTHER_WRITE);
     assertEquals(result.kind(), GraphQLOperationKind.MUTATION);
   }
@@ -101,7 +101,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.OTHER_OPERATIONS);
     assertEquals(result.kind(), GraphQLOperationKind.MUTATION);
   }
@@ -116,7 +116,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertTrue(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.METADATA_QUERY);
     assertEquals(result.kind(), GraphQLOperationKind.QUERY);
   }
@@ -128,7 +128,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertTrue(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.usageOperation(), UsageOperation.SEARCH_QUERY);
     assertEquals(result.kind(), GraphQLOperationKind.QUERY);
   }
@@ -143,7 +143,7 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertFalse(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.kind(), GraphQLOperationKind.MUTATION);
     assertEquals(result.usageOperation(), UsageOperation.METADATA_WRITE);
   }
@@ -156,7 +156,44 @@ public class GraphqlRequestUsageClassifierTest {
 
     assertTrue(metadata.isParsed());
     GraphqlRequestUsageClassifier.Result result =
-        GraphqlRequestUsageClassifier.classify(metadata, registry);
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
     assertEquals(result.kind(), GraphQLOperationKind.SUBSCRIPTION);
+  }
+
+  @Test
+  public void testKindComesFromTheDocumentNotTheOperationName() {
+    String query = "query createView { dataset(urn: \"urn:li:dataset:(a,b,c)\") { urn } }";
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(
+            "createView", query, name -> registry.resolveByOperationName(name).isPresent());
+
+    GraphqlRequestUsageClassifier.Result result =
+        GraphqlRequestUsageClassifier.classify(metadata, registry, null);
+    assertEquals(result.usageOperation(), UsageOperation.OTHER_WRITE);
+    assertEquals(result.kind(), GraphQLOperationKind.QUERY);
+  }
+
+  @Test
+  public void testKindFollowsTheSelectedOperationOfAMultiOperationDocument() {
+    String query =
+        "mutation createView { createView(input: {}) { urn } }"
+            + " query getDataset { dataset(urn: \"urn:li:dataset:(a,b,c)\") { urn } }";
+
+    assertEquals(classifyKind("getDataset", query), GraphQLOperationKind.QUERY);
+    assertEquals(classifyKind("createView", query), GraphQLOperationKind.MUTATION);
+  }
+
+  @Test
+  public void testUnexecutableDocumentIsAQuery() {
+    assertEquals(classifyKind("createView", "mutation {"), GraphQLOperationKind.QUERY);
+    assertEquals(
+        classifyKind(null, "mutation a { x } mutation b { y }"), GraphQLOperationKind.QUERY);
+  }
+
+  private static GraphQLOperationKind classifyKind(String operationName, String query) {
+    GraphqlDocumentMetadata metadata =
+        GraphqlDocumentAnalyzer.analyze(
+            operationName, query, name -> registry.resolveByOperationName(name).isPresent());
+    return GraphqlRequestUsageClassifier.classify(metadata, registry, null).kind();
   }
 }

@@ -1,11 +1,13 @@
 package com.linkedin.metadata.ratelimit;
 
+import graphql.GraphQLException;
 import graphql.language.Definition;
 import graphql.language.Document;
 import graphql.language.Field;
 import graphql.language.FragmentDefinition;
 import graphql.language.FragmentSpread;
 import graphql.language.InlineFragment;
+import graphql.language.NodeUtil;
 import graphql.language.OperationDefinition;
 import graphql.language.Selection;
 import graphql.language.SelectionSet;
@@ -95,6 +97,34 @@ public final class GraphqlDocumentAnalyzer {
             .orElse(GraphqlDocumentMetadata.ANONYMOUS_OPERATION_NAME);
 
     return GraphqlDocumentMetadata.parsed(null, resolvedName, operations, queryDocument);
+  }
+
+  /**
+   * Kind of the operation the engine will execute, selected from the document the same way the
+   * engine selects it rather than trusted from the operation name. A document that doesn't parse or
+   * doesn't name one operation won't execute, and reports QUERY.
+   */
+  @Nonnull
+  public static OperationDefinition.Operation executedOperationKind(
+      @Nullable String httpOperationName,
+      @Nullable String queryDocument,
+      @Nullable Function<String, Document> cachedDocumentLookup) {
+    if (!StringUtils.hasText(queryDocument)) {
+      return OperationDefinition.Operation.QUERY;
+    }
+    Document document = parseDocument(queryDocument, cachedDocumentLookup);
+    if (document == null) {
+      return OperationDefinition.Operation.QUERY;
+    }
+    try {
+      OperationDefinition operation =
+          NodeUtil.getOperation(document, httpOperationName).operationDefinition;
+      return operation.getOperation() != null
+          ? operation.getOperation()
+          : OperationDefinition.Operation.QUERY;
+    } catch (GraphQLException e) {
+      return OperationDefinition.Operation.QUERY;
+    }
   }
 
   @Nonnull

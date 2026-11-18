@@ -8,6 +8,7 @@ import com.google.common.collect.ImmutableSet;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.AndFilterInput;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -27,7 +28,10 @@ import com.linkedin.metadata.query.LineageFlags;
 import com.linkedin.metadata.query.SearchFlags;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.query.filter.SortCriterion;
+import com.linkedin.metadata.search.AggregationMetadataArray;
+import com.linkedin.metadata.search.LineageSearchEntityArray;
 import com.linkedin.metadata.search.LineageSearchResult;
+import com.linkedin.metadata.search.SearchResultMetadata;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.r2.RemoteInvocationException;
@@ -134,6 +138,18 @@ public class SearchAcrossLineageResolver
 
     com.linkedin.metadata.graph.LineageDirection resolvedDirection =
         com.linkedin.metadata.graph.LineageDirection.valueOf(lineageDirection.toString());
+    if (AuthorizationUtils.hidesFromCaller(context, urn)) {
+      return CompletableFuture.completedFuture(
+          UrnSearchAcrossLineageResultsMapper.map(
+              context,
+              new LineageSearchResult()
+                  .setFrom(start)
+                  .setPageSize(count)
+                  .setNumEntities(0)
+                  .setEntities(new LineageSearchEntityArray())
+                  .setMetadata(
+                      new SearchResultMetadata().setAggregations(new AggregationMetadataArray()))));
+    }
     return GraphQLConcurrencyUtils.supplyAsync(
         () -> {
           final DataHubViewInfo maybeResolvedView =

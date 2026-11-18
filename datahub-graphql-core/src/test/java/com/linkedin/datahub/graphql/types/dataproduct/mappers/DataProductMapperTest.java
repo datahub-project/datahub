@@ -303,8 +303,8 @@ public class DataProductMapperTest {
     // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
       authUtilsMock
-          .when(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)))
-          .thenReturn(false);
+          .when(() -> AuthorizationUtils.withholdsEntity(any(), eq(dataProductUrn)))
+          .thenReturn(true);
 
       DataProduct restrictedDataProduct = new DataProduct();
       authUtilsMock
@@ -320,7 +320,7 @@ public class DataProductMapperTest {
       assertEquals(result, restrictedDataProduct);
 
       // Verify authorization calls
-      authUtilsMock.verify(() -> AuthorizationUtils.canView(any(), eq(dataProductUrn)));
+      authUtilsMock.verify(() -> AuthorizationUtils.withholdsEntity(any(), eq(dataProductUrn)));
       authUtilsMock.verify(
           () -> AuthorizationUtils.restrictEntity(any(DataProduct.class), eq(DataProduct.class)));
     }

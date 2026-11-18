@@ -5,6 +5,8 @@ import com.linkedin.common.EntityRelationship;
 import com.linkedin.common.EntityRelationships;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
+import com.linkedin.datahub.graphql.authorization.MissingEntityResults;
 import com.linkedin.datahub.graphql.concurrency.GraphQLConcurrencyUtils;
 import com.linkedin.datahub.graphql.generated.DataContract;
 import com.linkedin.datahub.graphql.generated.Entity;
@@ -47,13 +49,15 @@ public class EntityDataContractResolver implements DataFetcher<CompletableFuture
           try {
             // Step 1: Fetch the contract associated with the dataset.
             final EntityRelationships relationships =
-                _graphClient.getRelatedEntities(
-                    entityUrn,
-                    ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP),
-                    RelationshipDirection.INCOMING,
-                    0,
-                    1,
-                    context.getActorUrn());
+                AuthorizationUtils.hidesFromCaller(context, entityUrn)
+                    ? MissingEntityResults.relationships(0)
+                    : _graphClient.getRelatedEntities(
+                        entityUrn,
+                        ImmutableSet.of(CONTRACT_FOR_RELATIONSHIP),
+                        RelationshipDirection.INCOMING,
+                        0,
+                        1,
+                        context.getActorUrn());
 
             // If we found multiple contracts for same entity, we have an invalid system state. Log
             // a warning.

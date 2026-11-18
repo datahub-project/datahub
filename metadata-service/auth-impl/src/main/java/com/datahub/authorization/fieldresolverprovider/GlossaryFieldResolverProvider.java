@@ -19,6 +19,7 @@ import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -43,7 +44,22 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
   @Override
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromFunction(entitySpec, spec -> getGlossary(opContext, spec));
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getGlossary(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(GLOSSARY_TERMS_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getGlossary(opContext, spec, prefetched));
   }
 
   @Nonnull
@@ -75,7 +91,9 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
   }
 
   private FieldResolver.FieldValue getGlossary(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
     final long startTime = System.nanoTime();
     String resolvedEntityType = "unknown";
     try {
@@ -119,8 +137,13 @@ public class GlossaryFieldResolverProvider implements EntityFieldResolverProvide
 
       // Case 3: Entity has glossary terms (dataset, dashboard, etc.)
       EntityResponse response =
-          _entityClient.getV2(
-              opContext, entityType, entityUrn, Collections.singleton(GLOSSARY_TERMS_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityType,
+                  entityUrn,
+                  Collections.singleton(GLOSSARY_TERMS_ASPECT_NAME));
 
       if (response == null || !response.getAspects().containsKey(GLOSSARY_TERMS_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();

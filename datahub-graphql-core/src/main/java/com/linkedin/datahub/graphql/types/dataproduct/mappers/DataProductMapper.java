@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataproduct.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.APPLICATION_MEMBERSHIP_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.ASSET_SETTINGS_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATA_PRODUCT_KEY_ASPECT_NAME;
@@ -129,7 +128,7 @@ public class DataProductMapper implements ModelMapper<EntityResponse, DataProduc
         ((entity, dataMap) ->
             entity.setSettings(AssetSettingsMapper.map(new AssetSettings(dataMap)))));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataProduct.class);
     } else {
       return result;

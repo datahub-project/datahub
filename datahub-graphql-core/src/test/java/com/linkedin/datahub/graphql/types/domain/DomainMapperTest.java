@@ -334,7 +334,9 @@ public class DomainMapperTest {
 
     // Mock authorization to deny access
     try (MockedStatic<AuthorizationUtils> authUtilsMock = mockStatic(AuthorizationUtils.class)) {
-      authUtilsMock.when(() -> AuthorizationUtils.canView(any(), eq(domainUrn))).thenReturn(false);
+      authUtilsMock
+          .when(() -> AuthorizationUtils.withholdsEntity(any(), eq(domainUrn)))
+          .thenReturn(true);
 
       Domain restrictedDomain = new Domain();
       authUtilsMock
@@ -348,7 +350,7 @@ public class DomainMapperTest {
       assertEquals(result, restrictedDomain);
 
       // Verify authorization calls
-      authUtilsMock.verify(() -> AuthorizationUtils.canView(any(), eq(domainUrn)));
+      authUtilsMock.verify(() -> AuthorizationUtils.withholdsEntity(any(), eq(domainUrn)));
       authUtilsMock.verify(
           () -> AuthorizationUtils.restrictEntity(any(Domain.class), eq(Domain.class)));
     }

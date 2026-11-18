@@ -13,8 +13,10 @@ import com.linkedin.metadata.Constants;
 import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collections;
 import java.util.List;
+import java.util.Set;
 import java.util.stream.Collectors;
 import javax.annotation.Nonnull;
+import javax.annotation.Nullable;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 
@@ -33,11 +35,28 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
   @Override
   public FieldResolver getFieldResolver(
       @Nonnull OperationContext opContext, EntitySpec entitySpec) {
-    return FieldResolver.getResolverFromFunction(entitySpec, spec -> getOwners(opContext, spec));
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getOwners(opContext, spec, null));
+  }
+
+  @Override
+  public Set<String> getAspectNames() {
+    return Set.of(Constants.OWNERSHIP_ASPECT_NAME);
+  }
+
+  @Override
+  public FieldResolver getFieldResolver(
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nonnull EntityResponse prefetched) {
+    return FieldResolver.getResolverFromFunction(
+        entitySpec, spec -> getOwners(opContext, spec, prefetched));
   }
 
   private FieldResolver.FieldValue getOwners(
-      @Nonnull OperationContext opContext, EntitySpec entitySpec) {
+      @Nonnull OperationContext opContext,
+      EntitySpec entitySpec,
+      @Nullable EntityResponse prefetched) {
 
     EnvelopedAspect ownershipAspect;
     try {
@@ -47,11 +66,13 @@ public class OwnerFieldResolverProvider implements EntityFieldResolverProvider {
       Urn entityUrn = UrnUtils.getUrn(entitySpec.getEntity());
 
       EntityResponse response =
-          _entityClient.getV2(
-              opContext,
-              entityUrn.getEntityType(),
-              entityUrn,
-              Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
+          prefetched != null
+              ? prefetched
+              : _entityClient.getV2(
+                  opContext,
+                  entityUrn.getEntityType(),
+                  entityUrn,
+                  Collections.singleton(Constants.OWNERSHIP_ASPECT_NAME));
       if (response == null || !response.getAspects().containsKey(Constants.OWNERSHIP_ASPECT_NAME)) {
         return FieldResolver.emptyFieldValue();
       }

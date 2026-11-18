@@ -348,14 +348,11 @@ public class AuthorizationUtilsTest {
           .when(() -> AuthUtil.isViewRestrictedEntityType(eq(viewAuth), eq("schemaField")))
           .thenReturn(true);
       entityAuth
-          .when(
-              () ->
-                  EntityAuthorizationUtils.canViewEntity(eq(opContext), eq(TEST_SCHEMA_FIELD_URN)))
+          .when(() -> EntityAuthorizationUtils.canView(eq(opContext), eq(TEST_SCHEMA_FIELD_URN)))
           .thenReturn(true);
 
       assertTrue(AuthorizationUtils.canView(opContext, TEST_SCHEMA_FIELD_URN));
-      entityAuth.verify(
-          () -> EntityAuthorizationUtils.canViewEntity(opContext, TEST_SCHEMA_FIELD_URN));
+      entityAuth.verify(() -> EntityAuthorizationUtils.canView(opContext, TEST_SCHEMA_FIELD_URN));
     }
   }
 }

@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.authorization;
 
-import static com.datahub.authorization.AuthUtil.isViewRestrictedEntityType;
 import static com.linkedin.metadata.Constants.*;
 import static com.linkedin.metadata.authorization.ApiOperation.CREATE;
 import static com.linkedin.metadata.authorization.ApiOperation.DELETE;
@@ -26,6 +25,7 @@ import com.linkedin.metadata.authorization.PoliciesConfig;
 import com.linkedin.metadata.authorization.TimeseriesAuthUtil;
 import com.linkedin.metadata.service.DocumentAuthorizationUtils;
 import io.datahubproject.metadata.context.OperationContext;
+import io.datahubproject.metadata.context.RequestContext;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -292,14 +292,39 @@ public class AuthorizationUtils {
    *     Search Access Controls</a>
    */
   public static boolean canView(@Nonnull OperationContext opContext, @Nonnull Urn urn) {
-    if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
-        && !opContext.isSystemAuth()
-        && isViewRestrictedEntityType(
-            opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
-            urn.getEntityType())) {
-      return EntityAuthorizationUtils.canViewEntity(opContext, urn);
-    }
-    return true;
+    return EntityAuthorizationUtils.canView(opContext, urn);
+  }
+
+  /**
+   * Whether this request answers for {@code urn} as for an entity that doesn't exist: it hides
+   * entities the caller can't view, and the caller can't view this one. Fields served from stores
+   * other than the aspect table use this to return what they return for a missing entity.
+   */
+  public static boolean hidesFromCaller(@Nullable QueryContext context, @Nonnull Urn urn) {
+    return readsUnviewableAsMissing(context) && !canView(context.getOperationContext(), urn);
+  }
+
+  /** Whether this request reads entities the caller can't view as entities that don't exist. */
+  public static boolean readsUnviewableAsMissing(@Nullable QueryContext context) {
+    final OperationContext opContext = context == null ? null : context.getOperationContext();
+    final RequestContext requestContext = opContext == null ? null : opContext.getRequestContext();
+    return requestContext != null && requestContext.hidesUnviewableEntities();
+  }
+
+  /**
+   * Whether a loader or mapper must withhold an entity's stored data itself because the caller
+   * can't view it. False when the request already reads such entities as missing ones, since what
+   * was loaded for them is then exactly what a missing entity gets.
+   */
+  public static boolean withholdsEntity(@Nullable QueryContext context, @Nonnull Urn urn) {
+    return context != null
+        && !readsUnviewableAsMissing(context)
+        && !canView(context.getOperationContext(), urn);
+  }
+
+  /** {@link #hidesFromCaller(QueryContext, Urn)} for a urn string. */
+  public static boolean hidesFromCaller(@Nullable QueryContext context, @Nonnull String urn) {
+    return readsUnviewableAsMissing(context) && hidesFromCaller(context, UrnUtils.getUrn(urn));
   }
 
   /**
@@ -315,11 +340,7 @@ public class AuthorizationUtils {
       @Nonnull Urn documentUrn,
       @Nullable DocumentInfo documentInfo,
       @Nullable SubTypes subTypes) {
-    if (opContext.getOperationContextConfig().getViewAuthorizationConfiguration().isEnabled()
-        && !opContext.isSystemAuth()
-        && isViewRestrictedEntityType(
-            opContext.getOperationContextConfig().getViewAuthorizationConfiguration(),
-            documentUrn.getEntityType())) {
+    if (EntityAuthorizationUtils.isViewRestricted(opContext, documentUrn.getEntityType())) {
       return DocumentAuthorizationUtils.canViewDocumentEntity(
           opContext, opContext.getAspectRetriever(), documentUrn, documentInfo, subTypes);
     }

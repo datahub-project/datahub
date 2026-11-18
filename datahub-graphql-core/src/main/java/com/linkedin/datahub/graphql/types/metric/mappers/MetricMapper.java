@@ -1,7 +1,5 @@
 package com.linkedin.datahub.graphql.types.metric.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
-
 import com.linkedin.common.BrowsePathsV2;
 import com.linkedin.common.DataPlatformInstance;
 import com.linkedin.common.Deprecation;
@@ -14,6 +12,7 @@ import com.linkedin.common.Status;
 import com.linkedin.common.SubTypes;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.datahub.graphql.QueryContext;
+import com.linkedin.datahub.graphql.authorization.AuthorizationUtils;
 import com.linkedin.datahub.graphql.generated.DataPlatform;
 import com.linkedin.datahub.graphql.generated.EntityEdge;
 import com.linkedin.datahub.graphql.generated.EntityType;
@@ -206,7 +205,7 @@ public class MetricMapper {
               context, new BrowsePathsV2(envelopedBrowsePathsV2.getValue().data())));
     }
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return com.linkedin.datahub.graphql.authorization.AuthorizationUtils.restrictEntity(
           result, Metric.class);
     }

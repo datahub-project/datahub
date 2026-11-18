@@ -58,9 +58,11 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.OperationContextConfig;
 import io.datahubproject.metadata.context.RequestContext;
 import io.datahubproject.metadata.context.ServicesRegistryContext;
+import io.datahubproject.metadata.context.graphql.GraphQLOperationKind;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.net.URISyntaxException;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
@@ -567,6 +569,53 @@ public class ESAccessControlUtilTest {
     assertTrue(ESAccessControlUtil.restrictUrn(deniedContext, SCHEMA_FIELD_RESULT_URN));
   }
 
+  @Test
+  public void testHidingRequestLeavesOutUnviewableResults()
+      throws RemoteInvocationException, URISyntaxException {
+    Urn notOwned = UrnUtils.getUrn("urn:li:dataset:(urn:li:dataPlatform:hive,NotOwned,PROD)");
+    OperationContext query =
+        sessionWithUserGroups(
+            USER_A_AUTH,
+            List.of(TEST_POLICIES.get("anyOwner")),
+            List.of(),
+            RequestContext.TEST.build().toBuilder()
+                .graphqlOperationKind(GraphQLOperationKind.QUERY));
+
+    SearchResult result = searchResultOf(5, UNRESTRICTED_RESULT_URN, notOwned);
+    ESAccessControlUtil.restrictSearchResult(query, result);
+    assertEquals(
+        result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList()),
+        List.of(UNRESTRICTED_RESULT_URN));
+    assertEquals(result.getNumEntities().intValue(), 4);
+
+    result = searchResultOf(5, UNRESTRICTED_RESULT_URN, notOwned);
+    ESAccessControlUtil.restrictSearchResult(
+        query.withSearchFlags(flags -> flags.setIncludeRestricted(true)), result);
+    assertEquals(result.getEntities().size(), 2, "A restricted search still marks them instead");
+    assertEquals(result.getNumEntities().intValue(), 5);
+
+    result = searchResultOf(5, UNRESTRICTED_RESULT_URN, notOwned);
+    ESAccessControlUtil.restrictSearchResult(query.withoutHidingUnviewable(), result);
+    assertEquals(result.getEntities().size(), 2, "Requests that don't hide keep them");
+    assertEquals(result.getNumEntities().intValue(), 5);
+  }
+
+  private static SearchResult searchResultOf(int total, Urn... urns) {
+    SearchResult result = new SearchResult();
+    result.setFrom(0);
+    result.setPageSize(10);
+    result.setNumEntities(total);
+    result.setEntities(
+        new SearchEntityArray(
+            Arrays.stream(urns)
+                .map(
+                    urn ->
+                        new SearchEntity().setEntity(urn).setMatchedFields(new MatchedFieldArray()))
+                .collect(Collectors.toList())));
+    result.setMetadata(mock(SearchResultMetadata.class));
+    return result;
+  }
+
   private static RestrictedService mockRestrictedService() {
     RestrictedService mockRestrictedService = mock(RestrictedService.class);
     when(mockRestrictedService.encryptRestrictedUrn(any()))
@@ -622,11 +671,20 @@ public class ESAccessControlUtilTest {
   private static OperationContext sessionWithUserGroups(
       Authentication auth, List<DataHubPolicyInfo> policies, List<Urn> groups)
       throws RemoteInvocationException, URISyntaxException {
+    return sessionWithUserGroups(auth, policies, groups, RequestContext.TEST);
+  }
+
+  private static OperationContext sessionWithUserGroups(
+      Authentication auth,
+      List<DataHubPolicyInfo> policies,
+      List<Urn> groups,
+      RequestContext.RequestContextBuilder requestContext)
+      throws RemoteInvocationException, URISyntaxException {
     Urn actorUrn = UrnUtils.getUrn(auth.getActor().toUrnStr());
     Authorizer dataHubAuthorizer =
         new TestDataHubAuthorizer(
             ENABLED_CONTEXT, policies, Map.of(actorUrn, groups), TEST_OWNERSHIP);
-    return ENABLED_CONTEXT.asSession(RequestContext.TEST, dataHubAuthorizer, auth);
+    return ENABLED_CONTEXT.asSession(requestContext, dataHubAuthorizer, auth);
   }
 
   public static class TestDataHubAuthorizer extends DataHubAuthorizer {

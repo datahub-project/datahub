@@ -144,7 +144,7 @@ public class DataJobMapper implements ModelMapper<EntityResponse, DataJob> {
 
     mapApplicationAssociation(context, entityResponse.getAspects(), result);
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(result, DataJob.class);
     } else {
       return result;

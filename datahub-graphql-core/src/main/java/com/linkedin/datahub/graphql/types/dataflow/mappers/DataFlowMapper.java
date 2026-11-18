@@ -1,6 +1,5 @@
 package com.linkedin.datahub.graphql.types.dataflow.mappers;
 
-import static com.linkedin.datahub.graphql.authorization.AuthorizationUtils.canView;
 import static com.linkedin.metadata.Constants.*;
 
 import com.linkedin.application.Applications;
@@ -134,7 +133,7 @@ public class DataFlowMapper implements ModelMapper<EntityResponse, DataFlow> {
         APPLICATION_MEMBERSHIP_ASPECT_NAME,
         (dataFlow, dataMap) -> mapApplicationAssociation(context, dataFlow, dataMap));
 
-    if (context != null && !canView(context.getOperationContext(), entityUrn)) {
+    if (AuthorizationUtils.withholdsEntity(context, entityUrn)) {
       return AuthorizationUtils.restrictEntity(mappingHelper.getResult(), DataFlow.class);
     } else {
       return mappingHelper.getResult();
