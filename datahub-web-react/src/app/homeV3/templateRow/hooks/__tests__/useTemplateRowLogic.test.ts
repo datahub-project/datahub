@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import { vi } from 'vitest';
 
 import { useDragRowContext } from '@app/homeV3/templateRow/hooks/useDragRowContext';
 import { useTemplateRowLogic } from '@app/homeV3/templateRow/hooks/useTemplateRowLogic';
 import { WrappedRow } from '@app/homeV3/templateRow/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { DataHubPageModuleType, EntityType, PageModuleScope } from '@types';
 

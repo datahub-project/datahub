@@ -23,16 +23,26 @@ public class EntityIndexVersionConfiguration {
   private boolean keywordReadEnabled;
 
   /**
-   * When true, semantic (kNN) search reads document vectors from V3 indices instead of the V2
-   * semantic indices. Separate from {@link #keywordReadEnabled} so keyword and semantic reads cut
-   * over independently. Ignored when V3 is disabled.
+   * When true, an install that already reads V3 with V2 off records the cutover and does not move
+   * reads back to the V2 indices. Ignored unless every paired V3 index exists and has at least as
+   * many documents as its V2 index. The retired stamp written on that start is what later starts
+   * trust.
    */
-  private boolean semanticReadEnabled;
+  private boolean cutoverAcknowledged;
+
+  @Builder.Default
+  private SearchGroupIndexSettingsConfiguration defaultSettings =
+      new SearchGroupIndexSettingsConfiguration();
+
+  @Builder.Default
+  private java.util.Map<String, SearchGroupIndexSettingsConfiguration> groups =
+      new java.util.HashMap<>();
 
   /**
    * When true, full-text keyword search on V3 reranks the rows of entity types that have vectors
    * (documents by default) by combined keyword and vector score, among the positions those rows
-   * already hold. Needs V3 keyword and semantic reads. Ignored when V3 is disabled.
+   * already hold. Needs semantic search reading the same V3 indices as keyword search. Ignored when
+   * V3 is disabled.
    */
   private boolean hybridReadEnabled;
 

@@ -92,6 +92,15 @@ describe('getCanEditEntityProperties', () => {
         expect(result).toBe(false);
     });
 
+    it('should follow canManageEntity for Data Products', () => {
+        expect(
+            getCanEditEntityProperties(EntityType.DataProduct, entityDataWithManagePrivileges, platformPrivileges),
+        ).toBe(true);
+        expect(
+            getCanEditEntityProperties(EntityType.DataProduct, entityDataWithoutManagePrivileges, platformPrivileges),
+        ).toBe(false);
+    });
+
     it('should return false for an unsupported entity', () => {
         const result = getCanEditEntityProperties(EntityType.Chart, entityDataWithManagePrivileges, platformPrivileges);
 

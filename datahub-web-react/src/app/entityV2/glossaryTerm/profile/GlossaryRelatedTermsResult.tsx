@@ -14,9 +14,13 @@ import { Button } from '@src/alchemy-components';
 
 import { TermRelationshipType } from '@types';
 
+type RelatedTermListItem = {
+    entity?: { urn?: string | null } | null;
+} | null;
+
 type Props = {
     glossaryRelatedTermType: string;
-    glossaryRelatedTermResult: Array<any>;
+    glossaryRelatedTermResult: ReadonlyArray<RelatedTermListItem>;
 };
 
 const ListWrapper = styled.div`
@@ -46,9 +50,9 @@ export default function GlossaryRelatedTermsResult({ glossaryRelatedTermType, gl
     const { t } = useTranslation('entity.types');
     const { t: tf } = useTranslation('common.feedback');
     const [isShowingAddModal, setIsShowingAddModal] = useState(false);
-    const glossaryRelatedTermUrns: Array<string> = [];
-    glossaryRelatedTermResult.forEach((item: any) => {
-        glossaryRelatedTermUrns.push(item?.entity?.urn);
+    const glossaryRelatedTermUrns = glossaryRelatedTermResult.flatMap((item) => {
+        const itemUrn = item?.entity?.urn;
+        return itemUrn ? [itemUrn] : [];
     });
     const contentLoading = false;
     const relationshipType =

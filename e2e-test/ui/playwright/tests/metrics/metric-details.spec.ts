@@ -16,6 +16,7 @@ import {
   SEMANTIC_MODEL_ORDERS_URN,
   TOTAL_REVENUE_URN,
 } from './constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'metrics' });
 
@@ -27,18 +28,22 @@ test.describe('Metric details', () => {
     metricsPage = new MetricsPage(page, logger, logDir);
   });
 
-  test('loads profile and auto-expands owning semantic model in sidebar', async () => {
-    await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
-    await metricsPage.expectEntityNamed(NAMES.TOTAL_REVENUE);
-    await expect(metricsPage.sidebar).toBeVisible();
-    await expect(metricsPage.sidebarModel(SEMANTIC_MODEL_ORDERS_URN)).toBeVisible({
-      timeout: TIMEOUTS.LONG,
-    });
-    // Owning model auto-expands so the metric row is visible.
-    await expect(metricsPage.sidebarMetric(TOTAL_REVENUE_URN)).toBeVisible({
-      timeout: TIMEOUTS.LONG,
-    });
-  });
+  test(
+    'loads profile and auto-expands owning semantic model in sidebar',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async () => {
+      await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);
+      await metricsPage.expectEntityNamed(NAMES.TOTAL_REVENUE);
+      await expect(metricsPage.sidebar).toBeVisible();
+      await expect(metricsPage.sidebarModel(SEMANTIC_MODEL_ORDERS_URN)).toBeVisible({
+        timeout: TIMEOUTS.LONG,
+      });
+      // Owning model auto-expands so the metric row is visible.
+      await expect(metricsPage.sidebarMetric(TOTAL_REVENUE_URN)).toBeVisible({
+        timeout: TIMEOUTS.LONG,
+      });
+    },
+  );
 
   test('shows SQL expression and related metrics classifications', async ({ page }) => {
     await metricsPage.navigateToMetric(TOTAL_REVENUE_URN);

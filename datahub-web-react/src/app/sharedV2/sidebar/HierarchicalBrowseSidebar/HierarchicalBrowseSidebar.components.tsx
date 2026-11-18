@@ -86,6 +86,8 @@ export const CollapsedScrollColumn = styled.div`
     overflow-x: hidden;
     padding: 8px;
     ${scrollbar}
+    /* Collapsed, this is a narrow centered icon rail; a one-sided gutter would push it left. */
+    scrollbar-gutter: stable both-edges;
 `;
 
 export const SidebarShell = styled.div`
@@ -186,13 +188,15 @@ export const FiltersRow = styled.div`
     flex-shrink: 0;
 `;
 
-export const TreeContainer = styled.div`
+export const TreeContainer = styled.div<{ $isCollapsed?: boolean }>`
     flex: 1;
     overflow-y: auto;
     overflow-x: hidden;
     /* Equal L/R inset — asymmetric 8/2 looked lopsided inside the white shell. */
     padding: 8px;
     ${scrollbar}
+    /* Collapsed, the tree is a narrow centered icon rail; a one-sided gutter would push it left. */
+    ${(props) => props.$isCollapsed && 'scrollbar-gutter: stable both-edges;'}
 `;
 
 export const Content = styled.div`

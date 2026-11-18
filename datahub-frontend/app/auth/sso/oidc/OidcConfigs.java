@@ -194,8 +194,8 @@ public class OidcConfigs extends SsoConfigs {
 
     private void seedAccessControlFromConfig(final com.typesafe.config.Config configs) {
       requiredGroups = parseRequiredGroupsFromConfig(configs);
-      accessDeniedRedirectUrl = getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL);
-      accessDeniedMessage = getOptional(configs, OIDC_ACCESS_DENIED_MESSAGE);
+      accessDeniedRedirectUrl = nonBlank(getOptional(configs, OIDC_ACCESS_DENIED_REDIRECT_URL));
+      accessDeniedMessage = nonBlank(getOptional(configs, OIDC_ACCESS_DENIED_MESSAGE));
     }
 
     private void overlayAccessControlFromJson() {
@@ -212,12 +212,24 @@ public class OidcConfigs extends SsoConfigs {
                 });
         requiredGroups = parsedGroups;
       }
+      // Assign even when blank: clearing the field in the settings UI must override any
+      // env-seeded value, mirroring how an empty requiredGroups array clears enforcement above.
       if (jsonNode.has(ACCESS_DENIED_MESSAGE)) {
-        accessDeniedMessage = Optional.of(jsonNode.get(ACCESS_DENIED_MESSAGE).asText());
+        accessDeniedMessage = nonBlank(Optional.of(jsonNode.get(ACCESS_DENIED_MESSAGE).asText()));
       }
       if (jsonNode.has(ACCESS_DENIED_REDIRECT_URL)) {
-        accessDeniedRedirectUrl = Optional.of(jsonNode.get(ACCESS_DENIED_REDIRECT_URL).asText());
+        accessDeniedRedirectUrl =
+            nonBlank(Optional.of(jsonNode.get(ACCESS_DENIED_REDIRECT_URL).asText()));
       }
+    }
+
+    /**
+     * Collapses a blank value to {@link Optional#empty()} so downstream consumers never see a
+     * present-but-empty setting. Without this, a cleared access-denied URL reaches {@link
+     * OidcResponseErrorHandler} as {@code Optional.of("")} and redirects denied users to "".
+     */
+    private static Optional<String> nonBlank(final Optional<String> value) {
+      return value.map(String::trim).filter(s -> !s.isEmpty());
     }
 
     public Builder from(final com.typesafe.config.Config configs) {

@@ -73,4 +73,4 @@ future use.
 | 🏛️ **Data Governance** | Enforce policies, classify PII, manage access       | [Governance Guide](authorization/access-policies-guide.md) |
 | 🔔 **Data Quality**    | Monitor freshness, volumes, schema changes          | [Quality Checks](api/tutorials/assertions.md)              |
 | 📚 **Documentation**   | Centralize data documentation and knowledge         | [Documentation Guide](api/tutorials/descriptions.md)       |
-| 👥 **Collaboration**   | Foster data culture with discussions and ownership  | [Posts & Announcements](posts.md)                          |
+| 👥 **Collaboration**   | Foster data culture with discussions and ownership  | Posts & Announcements                                      |

@@ -16,6 +16,7 @@ import com.linkedin.metadata.config.search.ElasticSearchConfiguration;
 import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.config.search.ExactMatchConfiguration;
 import com.linkedin.metadata.config.search.SearchConfiguration;
+import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchFieldConfig;
 import com.linkedin.metadata.search.elasticsearch.query.v3.SearchV3QueryBuilder;
 import com.linkedin.search.template.HighlightFieldOverrides;
@@ -28,11 +29,13 @@ import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
+import com.linkedin.search.template.SearchTemplateSearchType;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.concurrent.ForkJoinPool;
 import org.testng.annotations.Test;
 
 public class SearchTemplateMergeTest extends SearchTemplateFixture {
@@ -70,6 +73,30 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     assertTrue(loader.load(opContext, child).getQuery().contains("bool"));
     expire();
     assertTrue(loader.load(opContext, child).getQuery().contains("term"));
+  }
+
+  @Test
+  public void testSearchTypeInheritsUntilTheChildSetsIt() {
+    String parent = "urn:li:searchTemplate:searchTypeParent";
+    String child = "urn:li:searchTemplate:searchTypeChild";
+    SearchTemplateProperties parentBody = body("Parent", "{ \"match_all\": {} }", null);
+    store(parent, parentBody);
+    assertNull(loader.load(opContext, parent).getSearchType());
+
+    parentBody.setSearchType(SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+    store(parent, parentBody);
+    store(child, parentOf("Child", parent));
+    expire();
+    assertEquals(
+        loader.load(opContext, child).getSearchType(),
+        SearchTemplateSearchType.DFS_QUERY_THEN_FETCH);
+
+    SearchTemplateProperties override = parentOf("Child", parent);
+    override.setSearchType(SearchTemplateSearchType.QUERY_THEN_FETCH);
+    store(child, override);
+    expire();
+    assertEquals(
+        loader.load(opContext, child).getSearchType(), SearchTemplateSearchType.QUERY_THEN_FETCH);
   }
 
   @Test
@@ -349,17 +376,31 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     EntityIndexVersionConfiguration indexV3 = new EntityIndexVersionConfiguration();
     indexV3.setEnabled(true);
     indexV3.setKeywordReadEnabled(true);
-    indexV3.setSemanticReadEnabled(true);
     ElasticSearchConfiguration elastic = v3Config();
     elastic.getEntityIndex().setV3(indexV3);
+    SemanticSearchConfiguration semanticSearch = new SemanticSearchConfiguration();
+    semanticSearch.setEnabled(true);
+    elastic.getEntityIndex().setSemanticSearch(semanticSearch);
     elastic.getSearch().getV3().setTemplates(templates);
     SearchTemplateCoordinator semanticCoordinator =
-        new SearchTemplateCoordinator(elastic, null, loader);
+        new SearchTemplateCoordinator(
+            elastic,
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     templates.getDefaults().put("fulltext", Map.of("default", "urn:li:searchTemplate:child"));
     assertThrows(
         SearchTemplateException.class,
         () ->
-            new SearchTemplateCoordinator(v3Config(), null, loader)
+            new SearchTemplateCoordinator(
+                    v3Config(),
+                    null,
+                    loader,
+                    ForkJoinPool.commonPool(),
+                    SearchTemplateComponentRegistry.empty(),
+                    SearchTemplateGates.none())
                 .bind(opContext, "customer orders"));
     OperationContext semanticBound =
         semanticCoordinator.bind(opContext, "customer orders", false, List.of("document"));
@@ -406,7 +447,14 @@ public class SearchTemplateMergeTest extends SearchTemplateFixture {
     none.setRanking(supported);
     SearchTemplateChecks.check(none, 1024);
     store(SEARCH_TEMPLATE_FULLTEXT_URN, none);
-    SearchTemplateCoordinator coordinator = new SearchTemplateCoordinator(v3Config(), null, loader);
+    SearchTemplateCoordinator coordinator =
+        new SearchTemplateCoordinator(
+            v3Config(),
+            null,
+            loader,
+            ForkJoinPool.commonPool(),
+            SearchTemplateComponentRegistry.empty(),
+            SearchTemplateGates.none());
     assertNotNull(
         coordinator
             .bind(opContext, "customer orders")

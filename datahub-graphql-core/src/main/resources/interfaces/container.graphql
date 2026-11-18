@@ -1,0 +1,37 @@
+"""
+An entity that can live inside a container
+"""
+interface HasContainer {
+  """
+  The parent container the entity belongs to
+  """
+  container: Container
+}
+
+"""
+An entity with a container hierarchy
+"""
+interface HasParentContainers {
+  """
+  Recursively get the lineage of containers for the entity
+  """
+  parentContainers: ParentContainersResult
+}
+
+extend type Chart implements HasContainer
+extend type Container implements HasContainer
+extend type Dashboard implements HasContainer
+extend type DataFlow implements HasContainer
+extend type DataJob implements HasContainer
+extend type DataProcessInstance implements HasContainer
+extend type Dataset implements HasContainer
+extend type VersionedDataset implements HasContainer
+
+extend type Chart implements HasParentContainers
+extend type Container implements HasParentContainers
+extend type Dashboard implements HasParentContainers
+extend type DataFlow implements HasParentContainers
+extend type DataJob implements HasParentContainers
+extend type DataProcessInstance implements HasParentContainers
+extend type Dataset implements HasParentContainers
+extend type VersionedDataset implements HasParentContainers

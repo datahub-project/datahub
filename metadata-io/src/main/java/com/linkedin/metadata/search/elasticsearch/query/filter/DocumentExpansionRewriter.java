@@ -38,6 +38,12 @@ public class DocumentExpansionRewriter extends BaseQueryFilterRewriter {
     return Set.of("parentDocument.keyword");
   }
 
+  @Nonnull
+  @Override
+  protected Set<String> rewriterFieldNames(@Nonnull OperationContext opContext) {
+    return withSearchV3FilterField(opContext, "parentDocument", getRewriterFieldNames());
+  }
+
   @Override
   public <T extends QueryBuilder> T rewrite(
       @Nonnull OperationContext opContext,

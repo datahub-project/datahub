@@ -19,6 +19,7 @@ import SearchPill, {
 import { entityHasCapability, getHighlightedTag } from '@app/previewV2/utils';
 import { useMatchedFieldsForList } from '@app/search/context/SearchResultContext';
 import MatchesContext, { PreviewSection } from '@app/sharedV2/MatchesContext';
+import { isRemovedAssociation } from '@app/sharedV2/tags/tags.utils';
 
 import { EntityPath, EntityType, GlobalTags, GlossaryTerms, LineageDirection, Owner } from '@types';
 
@@ -47,6 +48,8 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
     const showTagsBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.TAGS);
     const showOwnersBadge = entityHasCapability(entityCapabilities, EntityCapabilityType.OWNERS);
     const highlightedTag = getHighlightedTag(tags);
+    const liveTerms = glossaryTerms?.terms?.filter((association) => !isRemovedAssociation(association)) ?? [];
+    const liveTags = tags?.tags?.filter((association) => !isRemovedAssociation(association)) ?? [];
 
     const handlePillClick = (section: PreviewSection | undefined, data) => (e) => {
         if (!data?.length) return;
@@ -60,24 +63,24 @@ const Pills = ({ glossaryTerms, tags, owners, entityCapabilities, paths, entityT
             {showGlossaryTermsBadge && glossaryTerms && (
                 <SearchPill
                     icon={<BookmarkSimple />}
-                    count={glossaryTerms.terms?.length || 0}
-                    enabled={!!glossaryTerms.terms?.length}
+                    count={liveTerms.length}
+                    enabled={!!liveTerms.length}
                     active={expandedSection === PreviewSection.GLOSSARY_TERMS}
                     label=""
                     countLabelKey={PILL_TERM_COUNT}
-                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, glossaryTerms.terms)}
-                    highlightedText={glossaryTerms.terms?.length ? glossaryTerms?.terms[0]?.term?.properties?.name : ''}
+                    onClick={handlePillClick(PreviewSection.GLOSSARY_TERMS, liveTerms)}
+                    highlightedText={liveTerms[0]?.term?.properties?.name ?? ''}
                 />
             )}
             {showTagsBadge && tags && (
                 <SearchPill
                     icon={<Tag />}
-                    count={tags.tags?.length || 0}
-                    enabled={!!tags.tags?.length}
+                    count={liveTags.length}
+                    enabled={!!liveTags.length}
                     active={expandedSection === PreviewSection.TAGS}
                     label=""
                     countLabelKey={PILL_TAG_COUNT}
-                    onClick={handlePillClick(PreviewSection.TAGS, tags.tags)}
+                    onClick={handlePillClick(PreviewSection.TAGS, liveTags)}
                     highlightedText={highlightedTag}
                 />
             )}

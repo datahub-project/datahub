@@ -6,8 +6,8 @@ import { matchPath } from 'react-router';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { EntityContext } from '@app/entity/shared/EntityContext';
-import { GenericEntityProperties } from '@app/entity/shared/types';
+import { EntityContext } from '@app/entityV2/shared/EntityContext';
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -15,6 +15,7 @@ import {
 import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarSectionsTab';
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import SidebarCollapsibleHeader from '@app/entityV2/shared/containers/profile/sidebar/SidebarCollapsibleHeader';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import { UserAssets } from '@app/entityV2/user/UserAssets';
 import UserGroups from '@app/entityV2/user/UserGroups';
 import UserSideBar from '@app/entityV2/user/UserSidebar';
@@ -64,7 +65,6 @@ const UserProfileWrapper = styled.div<{ $isShowNavBarRedesign?: boolean }>`
         props.$isShowNavBarRedesign &&
         `
         box-shadow: ${props.theme.colors.shadowNavbar};
-        margin: 5px;
     `}
     border-radius: ${(props) =>
         props.$isShowNavBarRedesign ? props.theme.styles['border-radius-navbar-redesign'] : '8px'};
@@ -150,6 +150,7 @@ export default function UserProfile({ urn }: Props) {
         data?.corpUser?.editableProperties?.displayName ||
         (data?.corpUser && entityRegistry.getDisplayName(EntityType.CorpUser, data?.corpUser)) ||
         undefined;
+    const manager = data?.corpUser?.info?.manager;
 
     // Side bar data
     const sidebarData = {
@@ -162,6 +163,9 @@ export default function UserProfile({ urn }: Props) {
         name: displayName,
         role: data?.corpUser?.editableProperties?.title || data?.corpUser?.info?.title || undefined,
         team: data?.corpUser?.editableProperties?.teams?.join(',') || data?.corpUser?.info?.departmentName || undefined,
+        manager: manager
+            ? { urn: manager.urn, name: entityRegistry.getDisplayName(EntityType.CorpUser, manager) }
+            : undefined,
         email: data?.corpUser?.editableProperties?.email || data?.corpUser?.info?.email || undefined,
         slack: data?.corpUser?.editableProperties?.slack || undefined,
         phone: data?.corpUser?.editableProperties?.phone || undefined,
@@ -174,6 +178,7 @@ export default function UserProfile({ urn }: Props) {
 
     const finalTabs = [
         {
+            key: EntitySidebarTabKey.ABOUT,
             name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,

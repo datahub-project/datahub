@@ -1,9 +1,12 @@
 import logging
-import time
 
 import pytest
 
-from tests.e2e.knowledge.document_helpers import execute_graphql, unique_id
+from tests.e2e.knowledge.document_helpers import (
+    execute_graphql,
+    unique_id,
+    wait_for_search_documents,
+)
 from utilities.consistency_utils import wait_for_writes_to_sync
 from utilities.domains import Domain
 
@@ -73,8 +76,6 @@ class TestDocumentSearchAndHistory:
             }
         }
         execute_graphql(auth_session, update_contents_mutation, update_content_vars)
-
-        wait_for_writes_to_sync(mae_only=True)
 
         # Create parent and move document
         parent_vars = {
@@ -218,9 +219,6 @@ class TestDocumentSearchAndHistory:
         move_vars = {"input": {"urn": child_urn, "parentDocument": parent_urn}}
         execute_graphql(auth_session, move_mutation, move_vars)
 
-        # Wait for search indexing
-        time.sleep(5)
-
         # Search by parent document filter
         search_query = """
             query SearchDocs($input: SearchDocumentsInput!) {
@@ -240,6 +238,7 @@ class TestDocumentSearchAndHistory:
                 "parentDocuments": [parent_urn],
             }
         }
+        wait_for_search_documents(auth_session, search_vars["input"], [child_urn])
         search_res = execute_graphql(auth_session, search_query, search_vars)
 
         # Search can fail if index is not ready

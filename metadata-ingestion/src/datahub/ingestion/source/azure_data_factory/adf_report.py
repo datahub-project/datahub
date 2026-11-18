@@ -40,9 +40,17 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
     datasets_with_lineage: int = 0
     unresolved_dynamic_properties: int = 0  # Dataset typeProperties using dynamic
     # content (e.g. @dataset().table_name) that could not be resolved
+    # Per-pair sibling DataJobs for activities that read and wrote many
+    # distinct tables (e.g. a Copy activity inside a ForEach)
+    dynamic_lineage_sibling_jobs_emitted: int = 0
+    dynamic_lineage_pairs_over_cap: int = 0  # Dropped: over the per-activity cap
+    dynamic_lineage_pairs_unresolved: int = 0  # Dropped: a side was a placeholder
 
     # Column-level lineage metrics
     column_lineage_extracted: int = 0  # Number of column mappings extracted
+    # Source columns skipped because the sink schema in DataHub has no unique
+    # case-insensitive match for them
+    column_lineage_sink_columns_unmatched: int = 0
     column_lineage_activities_unsupported: Dict[str, int] = field(
         default_factory=dict
     )  # Activity types without CLL support
@@ -141,6 +149,18 @@ class AzureDataFactorySourceReport(StaleEntityRemovalSourceReport):
             context=f"dataset={dataset_name}, expression={expression}",
             log=False,
         )
+
+    def report_dynamic_lineage_sibling_emitted(self) -> None:
+        self.dynamic_lineage_sibling_jobs_emitted += 1
+
+    def report_dynamic_lineage_pairs_over_cap(self, count: int) -> None:
+        self.dynamic_lineage_pairs_over_cap += count
+
+    def report_dynamic_lineage_pairs_unresolved(self, count: int) -> None:
+        self.dynamic_lineage_pairs_unresolved += count
+
+    def report_column_lineage_sink_column_unmatched(self) -> None:
+        self.column_lineage_sink_columns_unmatched += 1
 
     def report_column_lineage_extracted(self) -> None:
         """Increment column lineage mappings counter."""

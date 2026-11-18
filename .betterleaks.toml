@@ -8,6 +8,10 @@ title = "DataHub betterleaks config"
 #   MIIEvQIBADAN...HjpPX     -> archive.py documented public RSA test key (mocked replay tests)
 #   suppproject-id-1234567  -> dataplex docs sample GCP service account
 #   YOUR_ACCESS_TOKEN       -> curl "Bearer" placeholder in managed-datahub docs
+#   YOUR_API_KEY            -> curl "Bearer" placeholder in hightouch connector docs
+#   bXktc2VjcmV0LWpzb24     -> base64 of the literal "my-secret-json", the synthetic
+#                              fixture in test_sqlalchemy_uri_secrets.py, a test whose
+#                              whole subject is checking such values get masked
 #   test_password           -> metabase integration-test fixture (POSTGRES_PASSWORD / db user)
 #   Admin123!               -> metabase integration-test fixture (metabase admin login)
 #
@@ -19,6 +23,8 @@ filter.matchesAny(finding["match"], [
   "MIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQDHjpPX",
   "suppproject-id-1234567",
   "YOUR_ACCESS_TOKEN",
+  "YOUR_API_KEY",
+  "bXktc2VjcmV0LWpzb24",
   "test_password",
   "Admin123!",
 ])

@@ -33,17 +33,7 @@ public final class SearchQualityReport {
     Map<String, Integer> grades = grades(judgment);
     List<String> ranked =
         result.getHits().stream().limit(CUTOFF).map(RankedSearchHit::getUrn).toList();
-    List<HitScore> hits = new ArrayList<>();
-    for (int i = 0; i < ranked.size(); i++) {
-      RankedSearchHit hit = result.getHits().get(i);
-      hits.add(
-          new HitScore(
-              i + 1,
-              hit.getUrn(),
-              hit.getName(),
-              hit.getScore(),
-              grades.containsKey(hit.getUrn()) ? grades.get(hit.getUrn()) : null));
-    }
+    List<Hit> hits = hits(result, grades);
     Set<String> seen = new HashSet<>(ranked);
     List<MissedGrade> missed = new ArrayList<>();
     for (Map.Entry<String, Integer> grade : grades.entrySet()) {
@@ -66,24 +56,28 @@ public final class SearchQualityReport {
 
   @Nonnull
   public static ProbeScore probe(@Nonnull JsonNode judgment, @Nonnull RankedSearchResult result) {
+    List<Hit> hits = hits(result, grades(judgment));
     try {
       TopHitScorer.assertProbe(judgment, result);
       return new ProbeScore(
-          judgment.path("id").asText(), judgment.path("query").asText(), true, null);
+          judgment.path("id").asText(), judgment.path("query").asText(), true, null, hits);
     } catch (AssertionError failure) {
       String message = failure.getMessage() == null ? "" : failure.getMessage();
       return new ProbeScore(
-          judgment.path("id").asText(), judgment.path("query").asText(), false, message);
+          judgment.path("id").asText(), judgment.path("query").asText(), false, message, hits);
     }
   }
 
   /**
-   * Writes {@code <engine>-<metric>.json} before the floor assertion. Queries are stored worst nDCG
-   * first. {@code passed} is the floor check plus every probe.
+   * Writes {@code <engine>-<metric>.json} before the floor assertion. A non-blank profile inserts
+   * itself, {@code <engine>-<profile>-<metric>.json}, so two profiles of one engine keep both
+   * files. Queries are stored worst nDCG first. Every query and probe includes its top hits. {@code
+   * passed} is the floor check plus every probe.
    */
   @Nonnull
   public static Path write(
       @Nonnull String engine,
+      @Nonnull String profile,
       @Nonnull String metric,
       double floor,
       @Nonnull List<QueryScore> queries,
@@ -95,6 +89,9 @@ public final class SearchQualityReport {
     boolean passed = mean + 1e-9 >= floor && probes.stream().allMatch(ProbeScore::passed);
     ObjectNode root = MAPPER.createObjectNode();
     root.put("engine", engine);
+    if (!profile.isBlank()) {
+      root.put("profile", profile);
+    }
     root.put("metric", metric);
     root.put("meanNdcgAt10", mean);
     root.put("floor", floor);
@@ -110,7 +107,8 @@ public final class SearchQualityReport {
     }
     Path directory = directory();
     Files.createDirectories(directory);
-    Path path = directory.resolve(engine + "-" + metric + ".json");
+    String name = profile.isBlank() ? engine + "-" + metric : engine + "-" + profile + "-" + metric;
+    Path path = directory.resolve(name + ".json");
     Files.writeString(path, MAPPER.writerWithDefaultPrettyPrinter().writeValueAsString(root));
     return path.toAbsolutePath();
   }
@@ -122,6 +120,24 @@ public final class SearchQualityReport {
       return Path.of(override);
     }
     return Path.of("build/reports/search-quality");
+  }
+
+  @Nonnull
+  private static List<Hit> hits(
+      @Nonnull RankedSearchResult result, @Nonnull Map<String, Integer> grades) {
+    List<Hit> hits = new ArrayList<>();
+    int limit = Math.min(CUTOFF, result.getHits().size());
+    for (int i = 0; i < limit; i++) {
+      RankedSearchHit hit = result.getHits().get(i);
+      hits.add(
+          new Hit(
+              i + 1,
+              hit.getUrn(),
+              hit.getName(),
+              hit.getScore(),
+              grades.containsKey(hit.getUrn()) ? grades.get(hit.getUrn()) : null));
+    }
+    return List.copyOf(hits);
   }
 
   @Nonnull
@@ -140,7 +156,7 @@ public final class SearchQualityReport {
     private final double ndcgAt10;
     private final double reciprocalRank;
     private final double precisionAt10;
-    private final List<HitScore> hits;
+    private final List<Hit> hits;
     private final List<MissedGrade> missed;
 
     private QueryScore(
@@ -150,7 +166,7 @@ public final class SearchQualityReport {
         double ndcgAt10,
         double reciprocalRank,
         double precisionAt10,
-        List<HitScore> hits,
+        List<Hit> hits,
         List<MissedGrade> missed) {
       this.id = id;
       this.query = query;
@@ -172,6 +188,11 @@ public final class SearchQualityReport {
     }
 
     @Nonnull
+    public List<Hit> hits() {
+      return hits;
+    }
+
+    @Nonnull
     private ObjectNode toJson() {
       ObjectNode node = MAPPER.createObjectNode();
       node.put("id", id);
@@ -181,7 +202,7 @@ public final class SearchQualityReport {
       node.put("reciprocalRank", reciprocalRank);
       node.put("precisionAt10", precisionAt10);
       ArrayNode hitNodes = node.putArray("hits");
-      for (HitScore hit : hits) {
+      for (Hit hit : hits) {
         hitNodes.add(hit.toJson());
       }
       ArrayNode missedNodes = node.putArray("missed");
@@ -197,12 +218,15 @@ public final class SearchQualityReport {
     private final String query;
     private final boolean passed;
     @Nullable private final String message;
+    private final List<Hit> hits;
 
-    private ProbeScore(String id, String query, boolean passed, @Nullable String message) {
+    private ProbeScore(
+        String id, String query, boolean passed, @Nullable String message, List<Hit> hits) {
       this.id = id;
       this.query = query;
       this.passed = passed;
       this.message = message;
+      this.hits = List.copyOf(hits);
     }
 
     public boolean passed() {
@@ -212,6 +236,11 @@ public final class SearchQualityReport {
     @Nullable
     public String message() {
       return message;
+    }
+
+    @Nonnull
+    public List<Hit> hits() {
+      return hits;
     }
 
     @Nonnull
@@ -225,25 +254,24 @@ public final class SearchQualityReport {
       } else {
         node.put("message", message);
       }
+      ArrayNode hitNodes = node.putArray("hits");
+      for (Hit hit : hits) {
+        hitNodes.add(hit.toJson());
+      }
       return node;
     }
   }
 
-  private static final class HitScore {
-    private final int rank;
-    private final String urn;
-    private final String name;
-    private final double score;
-    @Nullable private final Integer relevance;
-
-    private HitScore(int rank, String urn, String name, double score, @Nullable Integer relevance) {
-      this.rank = rank;
-      this.urn = urn;
-      this.name = name;
-      this.score = score;
-      this.relevance = relevance;
-    }
-
+  /**
+   * One of the top hits stored with a query or probe so a later run can be read without
+   * re-querying.
+   */
+  public record Hit(
+      int rank,
+      @Nonnull String urn,
+      @Nonnull String name,
+      double score,
+      @Nullable Integer relevance) {
     @Nonnull
     private ObjectNode toJson() {
       ObjectNode node = MAPPER.createObjectNode();

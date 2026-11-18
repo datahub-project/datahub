@@ -56,7 +56,7 @@ export const UserList = () => {
         setPage,
         pageSize,
         setPageSize,
-        canManagePolicies,
+        canManageUserCredentials,
     } = useUserListState();
 
     // Data fetching
@@ -161,7 +161,7 @@ export const UserList = () => {
                 <ActionsContainer>
                     <UserActionsMenu
                         user={user}
-                        canManagePolicies={canManagePolicies}
+                        canManageUserCredentials={canManageUserCredentials}
                         onResetPassword={onResetPassword}
                         onDelete={onDelete}
                     />

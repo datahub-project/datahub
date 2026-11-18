@@ -19,6 +19,9 @@ import com.linkedin.datahub.graphql.generated.DocumentSourceType;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsInput;
 import com.linkedin.datahub.graphql.generated.SearchDocumentsResult;
 import com.linkedin.datahub.graphql.generated.SearchFlags;
+import com.linkedin.datahub.graphql.generated.SearchSortInput;
+import com.linkedin.datahub.graphql.generated.SortCriterion;
+import com.linkedin.datahub.graphql.generated.SortOrder;
 import com.linkedin.entity.EntityResponse;
 import com.linkedin.entity.EnvelopedAspect;
 import com.linkedin.entity.EnvelopedAspectMap;
@@ -26,15 +29,19 @@ import com.linkedin.entity.client.EntityClient;
 import com.linkedin.knowledge.DocumentInfo;
 import com.linkedin.knowledge.DocumentStatus;
 import com.linkedin.metadata.Constants;
+import com.linkedin.metadata.config.search.EntityIndexConfiguration;
+import com.linkedin.metadata.config.search.EntityIndexVersionConfiguration;
 import com.linkedin.metadata.query.filter.Condition;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterion;
 import com.linkedin.metadata.query.filter.ConjunctiveCriterionArray;
+import com.linkedin.metadata.query.filter.Criterion;
 import com.linkedin.metadata.query.filter.CriterionArray;
 import com.linkedin.metadata.query.filter.Filter;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.SearchEntityArray;
 import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.SearchResultMetadata;
+import com.linkedin.metadata.search.elasticsearch.index.entity.v3.MappingConstants;
 import com.linkedin.metadata.service.DocumentService;
 import com.linkedin.metadata.service.ViewService;
 import com.linkedin.metadata.utils.CriterionUtils;
@@ -47,6 +54,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.concurrent.CompletionException;
+import java.util.stream.Collectors;
 import org.mockito.ArgumentCaptor;
 import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.Test;
@@ -272,17 +280,33 @@ public class SearchDocumentsResolverTest {
 
     assertNotNull(result);
 
-    // Verify service was called with filters
+    ArgumentCaptor<Filter> filterCaptor = ArgumentCaptor.forClass(Filter.class);
     verify(mockService, times(1))
         .searchDocuments(
             any(OperationContext.class),
             eq("test query"),
-            any(),
+            filterCaptor.capture(),
             any(),
             eq(0),
             eq(10),
             isNull(),
             isNull());
+
+    final List<Criterion> criteria =
+        filterCaptor.getValue().getOr().stream()
+            .filter(conj -> conj.getAnd() != null)
+            .flatMap(conj -> conj.getAnd().stream())
+            .collect(Collectors.toList());
+    assertTrue(
+        criteria.stream().noneMatch(c -> "subTypes".equals(c.getField())),
+        "must filter on the ES field typeNames, not the aspect name subTypes");
+    assertTrue(
+        criteria.stream()
+            .anyMatch(
+                c ->
+                    "typeNames".equals(c.getField())
+                        && c.getValues().containsAll(ImmutableList.of("tutorial", "guide"))),
+        "typeNames filter should carry the requested subtypes");
   }
 
   @Test
@@ -746,5 +770,54 @@ public class SearchDocumentsResolverTest {
             any());
 
     assertEquals(facetsCaptor.getValue(), ImmutableList.of("domains"));
+  }
+
+  @Test
+  public void testSearchDocumentsSortMapsAuditTimesOnlyForSearchV3() throws Exception {
+    QueryContext mockContext = getMockAllowContext();
+    when(mockEnv.getContext()).thenReturn(mockContext);
+    when(mockEnv.getArgument(eq("input"))).thenReturn(input);
+    SortCriterion sortCriterion = new SortCriterion();
+    sortCriterion.setField("lastModifiedAt");
+    sortCriterion.setSortOrder(SortOrder.DESCENDING);
+    SearchSortInput sortInput = new SearchSortInput();
+    sortInput.setSortCriteria(List.of(sortCriterion));
+    input.setSortInput(sortInput);
+
+    resolver.get(mockEnv).get();
+    assertEquals(capturedSortField(), "lastModifiedAt");
+
+    EntityIndexConfiguration searchV3 =
+        EntityIndexConfiguration.builder()
+            .v2(EntityIndexVersionConfiguration.builder().enabled(false).build())
+            .v3(EntityIndexVersionConfiguration.builder().enabled(true).build())
+            .build();
+    resolver =
+        new SearchDocumentsResolver(mockService, mockEntityClient, mockViewService, searchV3);
+    clearInvocations(mockService);
+
+    resolver.get(mockEnv).get();
+    assertEquals(capturedSortField(), MappingConstants.SYSTEM_MODIFIED_TIME_FIELD);
+
+    sortCriterion.setField("createdAt");
+    clearInvocations(mockService);
+    resolver.get(mockEnv).get();
+    assertEquals(capturedSortField(), MappingConstants.SYSTEM_CREATED_TIME_FIELD);
+  }
+
+  private String capturedSortField() throws Exception {
+    ArgumentCaptor<com.linkedin.metadata.query.filter.SortCriterion> sort =
+        ArgumentCaptor.forClass(com.linkedin.metadata.query.filter.SortCriterion.class);
+    verify(mockService)
+        .searchDocuments(
+            any(OperationContext.class),
+            any(String.class),
+            any(),
+            sort.capture(),
+            any(Integer.class),
+            any(Integer.class),
+            nullable(List.class),
+            nullable(com.linkedin.metadata.query.SearchFlags.class));
+    return sort.getValue().getField();
   }
 }

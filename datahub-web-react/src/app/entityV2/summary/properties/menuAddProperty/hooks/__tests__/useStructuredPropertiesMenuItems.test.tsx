@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
@@ -8,6 +8,7 @@ import useStructuredPropertiesV2 from '@app/entityV2/summary/properties/hooks/us
 import useStructuredPropertiesMenuItems from '@app/entityV2/summary/properties/menuAddProperty/hooks/useStructuredPropertiesMenuItems';
 import { AssetProperty } from '@app/entityV2/summary/properties/types';
 import { usePageTemplateContext } from '@app/homeV3/context/PageTemplateContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { SummaryElementType } from '@types';
 

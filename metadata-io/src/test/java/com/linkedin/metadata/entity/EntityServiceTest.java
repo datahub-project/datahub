@@ -83,6 +83,8 @@ import com.linkedin.metadata.utils.EntityApiUtils;
 import com.linkedin.metadata.utils.EntityKeyUtils;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
+import com.linkedin.metadata.utils.TolerantHandling;
+import com.linkedin.metadata.utils.UnknownDataHandlingsForTests;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import com.linkedin.mxe.GenericAspect;
 import com.linkedin.mxe.MetadataChangeLog;
@@ -123,6 +125,8 @@ import org.junit.Assert;
 import org.mockito.ArgumentCaptor;
 import org.mockito.MockedStatic;
 import org.mockito.Mockito;
+import org.testng.annotations.AfterMethod;
+import org.testng.annotations.BeforeMethod;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
 
@@ -174,6 +178,16 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
 
   protected final AspectSpec structuredPropertiesDefinitionAspect =
       _testEntityRegistry.getAspectSpecs().get(STRUCTURED_PROPERTY_DEFINITION_ASPECT_NAME);
+
+  @BeforeMethod
+  public void tolerateUnknownDataByDefault() {
+    UnknownDataHandlingsForTests.use(TolerantHandling.INSTANCE);
+  }
+
+  @AfterMethod
+  public void resetUnknownDataHandling() {
+    UnknownDataHandlingsForTests.reset();
+  }
 
   protected EntityServiceTest() throws EntityRegistryException {}
 
@@ -1403,10 +1417,11 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     _entityServiceImpl.rollbackRun(
         opContext, ImmutableList.of(rollbackRow(urn, keyName, "run-a-soft")), "run-a-soft", false);
 
-    assertTrue(
-        DataTemplateUtil.areEqual(
-            new Status().setRemoved(true),
-            _entityServiceImpl.getLatestAspect(opContext, urn, statusName)));
+    // Checks the removed flag rather than the whole aspect: a soft delete may set other Status
+    // fields as well (e.g. lifecycleState).
+    Status status = (Status) _entityServiceImpl.getLatestAspect(opContext, urn, statusName);
+    assertNotNull(status);
+    assertTrue(status.isRemoved());
   }
 
   private void ingestForRollback(
@@ -1618,6 +1633,48 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
     RecordTemplate deletedKeyAspect =
         _entityServiceImpl.getAspect(opContext, entityUrn1, "corpUserKey", 0);
     assertTrue(DataTemplateUtil.areEqual(null, deletedKeyAspect));
+  }
+
+  @Test
+  public void testStreamAspectsReturnsOnlyTheLatestVersion() {
+    Urn entityUrn = UrnUtils.getUrn("urn:li:corpuser:streamAspectsLatest");
+    CorpUserInfo first = AspectGenerationUtils.createCorpUserInfo("first@test.com");
+    CorpUserInfo second = AspectGenerationUtils.createCorpUserInfo("second@test.com");
+    String aspectName = AspectGenerationUtils.getAspectName(first);
+    for (CorpUserInfo aspect : List.of(first, second)) {
+      _entityServiceImpl.ingestAspects(
+          opContext,
+          AspectsBatchImpl.builder()
+              .retrieverContext(opContext.getRetrieverContext())
+              .items(
+                  List.of(
+                      ChangeItemImpl.builder()
+                          .urn(entityUrn)
+                          .aspectName(aspectName)
+                          .recordTemplate(aspect)
+                          .auditStamp(TEST_AUDIT_STAMP)
+                          .systemMetadata(AspectGenerationUtils.createSystemMetadata())
+                          .build(opContext.getAspectRetriever())))
+              .build(opContext),
+          true,
+          true);
+    }
+    // The first write is kept as version 1, which is history rather than the aspect's value.
+    assertNotNull(_entityServiceImpl.getAspect(opContext, entityUrn, aspectName, 1));
+
+    List<String> emails;
+    try (Stream<EntityAspect> stream =
+        _aspectDao.streamAspects(CORP_USER_ENTITY_NAME, aspectName)) {
+      emails =
+          stream
+              .filter(entityAspect -> entityAspect.getUrn().equals(entityUrn.toString()))
+              .map(
+                  entityAspect ->
+                      RecordUtils.toRecordTemplate(CorpUserInfo.class, entityAspect.getMetadata())
+                          .getEmail())
+              .collect(Collectors.toList());
+    }
+    assertEquals(emails, List.of("second@test.com"));
   }
 
   @Test
@@ -2638,7 +2695,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext, opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());
@@ -2725,7 +2782,7 @@ public abstract class EntityServiceTest<T_AD extends AspectDao, T_RS extends Ret
               .map(
                   entityAspect ->
                       EntityUtils.toSystemAspect(
-                              opContext, opContext.getRetrieverContext(), entityAspect, false)
+                              opContext, opContext.getRetrieverContext(), entityAspect)
                           .get()
                           .getAspect(StructuredPropertyDefinition.class))
               .collect(Collectors.toSet());

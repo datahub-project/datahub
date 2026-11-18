@@ -1,6 +1,6 @@
 diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java
 new file mode 100644
-index 0000000000..0818d6433c
+index 00000000000..0818d6433cc
 --- /dev/null
 +++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV1ToV2Mutator.java
 @@ -0,0 +1,57 @@
@@ -63,7 +63,7 @@ index 0000000000..0818d6433c
 +}
 diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java
 new file mode 100644
-index 0000000000..b6c852a4d7
+index 00000000000..b6c852a4d75
 --- /dev/null
 +++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV2ToV3Mutator.java
 @@ -0,0 +1,58 @@
@@ -127,7 +127,7 @@ index 0000000000..b6c852a4d7
 +}
 diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java
 new file mode 100644
-index 0000000000..57806b1055
+index 00000000000..57806b10552
 --- /dev/null
 +++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/EmbedV3ToV4Mutator.java
 @@ -0,0 +1,52 @@
@@ -185,7 +185,7 @@ index 0000000000..57806b1055
 +}
 diff --git a/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java
 new file mode 100644
-index 0000000000..47587fab02
+index 00000000000..47587fab02e
 --- /dev/null
 +++ b/entity-registry/src/main/java/com/linkedin/metadata/aspect/hooks/testfixtures/GlobalTagsV1ToV2Mutator.java
 @@ -0,0 +1,57 @@
@@ -247,7 +247,7 @@ index 0000000000..47587fab02
 +  }
 +}
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
-index 934ebcd50e..7103c5ec21 100644
+index 934ebcd50ed..7103c5ec213 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/common/Embed.pdl
 @@ -4,11 +4,27 @@ namespace com.linkedin.common
@@ -282,7 +282,7 @@ index 934ebcd50e..7103c5ec21 100644
  }
 \ No newline at end of file
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
-index a29cc75fc8..a1d1c717e3 100644
+index d75991b961b..1d37f51b696 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/common/GlobalTags.pdl
 @@ -4,7 +4,8 @@ namespace com.linkedin.common
@@ -295,7 +295,7 @@ index a29cc75fc8..a1d1c717e3 100644
  }
  record GlobalTags {
  
-@@ -30,4 +31,13 @@ record GlobalTags {
+@@ -36,4 +37,13 @@ record GlobalTags {
      }
    }
    tags: array[TagAssociation]
@@ -311,7 +311,7 @@ index a29cc75fc8..a1d1c717e3 100644
  }
 diff --git a/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java b/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java
 new file mode 100644
-index 0000000000..4a63ecf4e6
+index 00000000000..4a63ecf4e62
 --- /dev/null
 +++ b/metadata-service/factories/src/main/java/com/linkedin/gms/factory/plugins/ZduTestMutatorConfiguration.java
 @@ -0,0 +1,57 @@
@@ -373,26 +373,26 @@ index 0000000000..4a63ecf4e6
 +  }
 +}
 diff --git a/datahub-graphql-core/src/main/resources/entity.graphql b/datahub-graphql-core/src/main/resources/entity.graphql
-index d14e991fcc..185a529ba3 100644
+index 735311160be..79669525137 100644
 --- a/datahub-graphql-core/src/main/resources/entity.graphql
 +++ b/datahub-graphql-core/src/main/resources/entity.graphql
-@@ -13056,9 +13051,13 @@ Information required to render an embedded version of an asset
+@@ -13476,9 +13476,13 @@ Information required to render an embedded version of an asset
  """
  type Embed {
    """
 -  A URL which can be rendered inside of an iframe.
 +  Deprecated: renderUrl has been removed from the embed aspect.
-+  """
+   """
+-  renderUrl: String
 +  renderUrl: String @deprecated(reason: "Field removed in schema v2")
 +  """
 +  The type of embed e.g. iframe, video.
-   """
--  renderUrl: String
++  """
 +  embedType: String
  }
  
  """
-@@ -13071,9 +13070,9 @@ input UpdateEmbedInput {
+@@ -13491,9 +13495,9 @@ input UpdateEmbedInput {
    urn: String!
  
    """
@@ -405,11 +405,11 @@ index d14e991fcc..185a529ba3 100644
  
  """
 diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
-index 19dc015e98..353d6cfb31 100644
+index f46ff18578c..6f134a1c135 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.aspects.snapshot.json
-@@ -1010,9 +1010,15 @@
-           "queryByDefault" : true
+@@ -1063,9 +1063,15 @@
+           }
          }
        }
 +    }, {
@@ -426,11 +426,11 @@ index 19dc015e98..353d6cfb31 100644
    }, {
      "type" : "typeref",
 diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
-index de1c7a3a93..94fa0ca4d3 100644
+index fc20c13fb79..ea577255579 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.entities.snapshot.json
-@@ -993,9 +993,15 @@
-           "queryByDefault" : true
+@@ -1061,9 +1061,15 @@
+           }
          }
        }
 +    }, {
@@ -447,11 +447,11 @@ index de1c7a3a93..94fa0ca4d3 100644
    }, {
      "type" : "typeref",
 diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
-index d045f26df8..503b454617 100644
+index eaa5eb0430f..8e839b052ce 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.entity.runs.snapshot.json
-@@ -728,9 +728,15 @@
-           "queryByDefault" : true
+@@ -781,9 +781,15 @@
+           }
          }
        }
 +    }, {
@@ -468,11 +468,11 @@ index d045f26df8..503b454617 100644
    }, {
      "type" : "typeref",
 diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
-index 8a9f4f7c45..c52ee478df 100644
+index 7ee9b5904f6..cad05b17183 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.operations.operations.snapshot.json
-@@ -728,9 +728,15 @@
-           "queryByDefault" : true
+@@ -781,9 +781,15 @@
+           }
          }
        }
 +    }, {
@@ -489,11 +489,11 @@ index 8a9f4f7c45..c52ee478df 100644
    }, {
      "type" : "typeref",
 diff --git a/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json b/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
-index 72125d0d21..b561c5224d 100644
+index df53811cb05..bdd374046c2 100644
 --- a/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
 +++ b/metadata-service/restli-api/src/main/snapshot/com.linkedin.platform.platform.snapshot.json
-@@ -993,9 +993,15 @@
-           "queryByDefault" : true
+@@ -1061,9 +1061,15 @@
+           }
          }
        }
 +    }, {
@@ -510,7 +510,7 @@ index 72125d0d21..b561c5224d 100644
    }, {
      "type" : "typeref",
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
-index 3db2c79704..06cd116c67 100644
+index e33cea2d423..6f05c5c424e 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/businessattribute/BusinessAttributeInfo.pdl
 @@ -9,7 +9,8 @@ import com.linkedin.common.ChangeAuditStamps
@@ -524,7 +524,7 @@ index 3db2c79704..06cd116c67 100644
  record BusinessAttributeInfo includes EditableSchemaFieldInfo, CustomProperties, ChangeAuditStamps {
     /**
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl b/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
-index 05c50b13d7..bf8ccdf35a 100644
+index 05c50b13d70..bf8ccdf35a1 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/common/InputFields.pdl
 @@ -4,7 +4,8 @@ namespace com.linkedin.common
@@ -538,7 +538,7 @@ index 05c50b13d7..bf8ccdf35a 100644
  record InputFields {
    /**
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
-index f874257227c..54303e9b328 100644
+index b56c7b6388a..c74293af64d 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/dashboard/DashboardInfo.pdl
 @@ -15,7 +15,7 @@ import com.linkedin.common.Edge
@@ -550,7 +550,7 @@ index f874257227c..54303e9b328 100644
  }
  record DashboardInfo includes CustomProperties, ExternalReference {
  
-@@ -42,7 +42,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
+@@ -43,7 +43,7 @@ record DashboardInfo includes CustomProperties, ExternalReference {
     * Detailed description about the dashboard
     */
    @Searchable = {
@@ -560,7 +560,7 @@ index f874257227c..54303e9b328 100644
      "sanitizeRichText": true,
      "v3": {
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
-index 9d2aa6a5c2..2bca5e1263 100644
+index 9d2aa6a5c25..2bca5e12632 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/dataset/DatasetUsageStatistics.pdl
 @@ -8,6 +8,7 @@ import com.linkedin.timeseries.TimeseriesAspectBase
@@ -581,21 +581,20 @@ index 9d2aa6a5c2..2bca5e1263 100644
    uniqueUserCount: optional int
  
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
-index 1bf3722b21..7eeae46107 100644
+index 520d620a539..dcb1d2409b0 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/schema/EditableSchemaMetadata.pdl
-@@ -7,7 +7,8 @@ import com.linkedin.common.ChangeAuditStamps
-  * ingestion pipelines and edits in the UI to avoid accidental overwrites of user-provided data by ingestion pipelines.
+@@ -8,7 +8,7 @@ import com.linkedin.common.ChangeAuditStamps
   */
  @Aspect = {
--  "name": "editableSchemaMetadata"
-+  "name": "editableSchemaMetadata",
-+  "schemaVersion": 2
+   "name": "editableSchemaMetadata",
+-  "schemaVersion": 2
++  "schemaVersion": 3
  }
  record EditableSchemaMetadata includes ChangeAuditStamps {
    /**
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl b/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
-index bf63933ff1..22df2f4c82 100644
+index bf63933ff1f..22df2f4c82b 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/schema/SchemaMetadata.pdl
 @@ -9,7 +9,8 @@ import com.linkedin.mxe.SystemMetadata
@@ -609,7 +608,7 @@ index bf63933ff1..22df2f4c82 100644
  record SchemaMetadata includes SchemaMetadataKey, ChangeAuditStamps {
  
 diff --git a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
-index 5baadac9875..57b8d24b282 100644
+index 72c816d6891..d9055b4fabd 100644
 --- a/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
 +++ b/metadata-models/src/main/pegasus/com/linkedin/tag/TagProperties.pdl
 @@ -4,7 +4,8 @@ namespace com.linkedin.tag
@@ -622,11 +621,11 @@ index 5baadac9875..57b8d24b282 100644
  }
  record TagProperties {
    /**
-@@ -30,6 +31,7 @@ record TagProperties {
+@@ -31,6 +32,7 @@ record TagProperties {
     * Documentation of the tag
     */
    @Searchable = {
 +    "fieldType": "TEXT",
      "hasValuesFieldName": "hasDescription",
      "v3": {
-       "searchLabel": "description",
+       "queryByDefault": true,

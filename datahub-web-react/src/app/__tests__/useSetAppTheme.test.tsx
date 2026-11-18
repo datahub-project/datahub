@@ -1,12 +1,13 @@
-import { renderHook } from '@testing-library/react-hooks';
+import { waitFor } from '@testing-library/react';
 import React from 'react';
-import { beforeEach, describe, expect, it, vi } from 'vitest';
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 
 // Import the mocked hook
 import { useIsDarkMode } from '@app/theme/useIsDarkMode';
 import { useCustomThemeId, useSetAppTheme } from '@app/useSetAppTheme';
 import themes from '@conf/theme/themes';
 import { CustomThemeContext } from '@src/customThemeContext';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 // Mock useIsDarkMode to test dark mode branch independently
 vi.mock('@app/theme/useIsDarkMode', () => ({
@@ -171,6 +172,30 @@ describe('useSetAppTheme', () => {
             renderHook(() => useSetAppTheme(), { wrapper });
 
             expect(updateThemeSpy).toHaveBeenCalledWith(themes.themeV2);
+        });
+    });
+
+    describe('JSON themes in dev', () => {
+        afterEach(() => {
+            localStorage.clear();
+        });
+
+        it('loads a JSON theme from src/conf/theme', async () => {
+            localStorage.setItem('customThemeId', 'theme_dark_example.config.json');
+            const updateThemeSpy = vi.fn();
+            const wrapper = ({ children }: { children: React.ReactNode }) => (
+                <CustomThemeContext.Provider value={{ theme: themes.themeV2, updateTheme: updateThemeSpy }}>
+                    {children}
+                </CustomThemeContext.Provider>
+            );
+
+            renderHook(() => useSetAppTheme(), { wrapper });
+
+            await waitFor(() =>
+                expect(updateThemeSpy).toHaveBeenCalledWith(
+                    expect.objectContaining({ id: 'theme_dark_example.config.json' }),
+                ),
+            );
         });
     });
 

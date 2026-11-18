@@ -17,6 +17,27 @@ Explore usage is attached only to explores that were actually ingested in the sa
 
 :::
 
+#### LookML projects ingested under other platform instances
+
+Explores link to the LookML views they read. Those view URNs must match the ones the `lookml` recipes emit, which include each recipe's `platform_instance`. By default the `looker` recipe builds every view URN with its own `platform_instance` and `env`. When LookML projects are ingested by separate `lookml` recipes with different platform instances, for example one recipe per git repository, map each project to its recipe's instance:
+
+```yaml
+source:
+  type: looker
+  config:
+    platform_instance: looker_prod
+    project_to_platform_instance:
+      sales_models:
+        platform_instance: lookml_sales
+      finance_models:
+        platform_instance: lookml_finance
+        env: DEV # optional, defaults to the top-level env
+```
+
+Keys are LookML project names. A view from an imported project is keyed by the imported project's name. Projects that are not listed, and fields an entry leaves out, keep the top-level `platform_instance` and `env`. Dashboard, chart and explore URNs are unchanged; only the view URNs in explore lineage follow the mapping.
+
+The `lookml` source accepts the same option for imported projects that another `lookml` recipe ingests. A recipe does not emit views of a project mapped to a different `platform_instance` or `env` than its own, because the recipe for that project owns them. They are listed under `views_owned_elsewhere` in the run report. Ingest each project with its own recipe, and keep the recipe's own project out of the map.
+
 #### Probe support
 
 `datahub recipe probe` lists what this recipe's credential can see and judges

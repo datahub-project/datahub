@@ -19,6 +19,7 @@ import com.linkedin.metadata.search.SearchResult;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateSurfaces;
 import com.linkedin.metadata.service.FormService;
 import com.linkedin.metadata.service.ViewService;
+import com.linkedin.metadata.utils.elasticsearch.FilterUtils;
 import com.linkedin.view.DataHubViewInfo;
 import graphql.schema.DataFetcher;
 import graphql.schema.DataFetchingEnvironment;
@@ -91,7 +92,7 @@ public class AggregateAcrossEntitiesResolver
           try {
             Filter effectiveFilter =
                 maybeResolvedView != null
-                    ? SearchUtils.combineFilters(
+                    ? FilterUtils.combineFilters(
                         inputFilter, maybeResolvedView.getDefinition().getFilter())
                     : inputFilter;
 

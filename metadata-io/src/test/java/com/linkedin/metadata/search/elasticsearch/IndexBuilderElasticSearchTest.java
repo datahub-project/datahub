@@ -52,7 +52,8 @@ public class IndexBuilderElasticSearchTest extends IndexBuilderTestBase {
             TEST_ES_SEARCH_CONFIG,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            gitVersion);
+            gitVersion,
+            getSearchClient());
     ReindexConfig reindexConfig =
         customIndexBuilder.buildReindexState(
             opContext, TEST_INDEX_NAME, Map.<String, Object>of(), Map.<String, Object>of());

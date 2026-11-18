@@ -30,9 +30,10 @@
  *   fallback of http://localhost:9002.
  */
 
-import type { Page } from '@playwright/test';
+import type { Locator, Page } from '@playwright/test';
 import { test, expect } from '../../fixtures/base-test';
 import { TIMEOUTS, LOAD_STATES } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // ── Entity URNs ───────────────────────────────────────────────────────────────
 
@@ -175,19 +176,23 @@ test.describe('clock button in version picker popover', () => {
 // ═════════════════════════════════════════════════════════════════════════════
 
 test.describe('opening the Change History sidebar', () => {
-  test('clicking the clock button opens the Change History sidebar', async ({ page }) => {
-    await gotoDataset(page, VERSIONED_URN);
-    await dismissModals(page);
+  test(
+    'clicking the clock button opens the Change History sidebar',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      await gotoDataset(page, VERSIONED_URN);
+      await dismissModals(page);
 
-    // Open the popover and click the clock button
-    await versionPillLocator(page).hover();
-    await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
-    await clockButtonLocator(page).click();
+      // Open the popover and click the clock button
+      await versionPillLocator(page).hover();
+      await expect(versionPopoverLocator(page)).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
+      await clockButtonLocator(page).click();
 
-    // The drawer should appear
-    const sidebar = historySidebarLocator(page);
-    await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
-  });
+      // The drawer should appear
+      const sidebar = historySidebarLocator(page);
+      await expect(sidebar).toBeVisible({ timeout: TIMEOUTS.LONG });
+    },
+  );
 
   test('sidebar opened via clock button shows "Change History" heading', async ({ page }) => {
     await gotoDataset(page, VERSIONED_URN);
@@ -266,7 +271,7 @@ test.describe('All Versions mode — timeline content', () => {
     expect(hasEntries.length).toBeGreaterThan(0);
   });
 
-  test('timeline shows a "Version created" milestone', async ({ page }) => {
+  test('timeline shows a "Version created" milestone', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ page }) => {
     const sidebar = await openSidebarInAllVersionsMode(page);
     // VersionMilestoneView renders "Version created" text from i18n
     await expect(sidebar.getByText('Version created').first()).toBeVisible({ timeout: TIMEOUTS.EXTRA_LONG });
@@ -502,22 +507,14 @@ test.describe('sidebar keyboard and close interactions', () => {
     // Type a search term unlikely to match anything — the list should become empty
     // (or show only matching entries). We type something nonsensical.
     await searchInput.fill('xyzzy_no_match_12345');
-    // Give the filter a moment to apply (synchronous state update)
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
 
     // After filtering with a non-matching term, version milestones and change events
     // should not be shown. The sidebar body should contain very little content.
-    const milestones = sidebar.getByText('Version created');
-    const docEvents = sidebar.getByText('Documentation added');
-    const milestoneCount = await milestones.count();
-    const docEventCount = await docEvents.count();
-    expect(milestoneCount + docEventCount).toBe(0);
+    await expect(sidebar.getByText('Version created')).toHaveCount(0);
+    await expect(sidebar.getByText('Documentation added')).toHaveCount(0);
 
     // Clear the search and entries should re-appear
     await searchInput.clear();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
   });
 });
 
@@ -921,27 +918,36 @@ test.describe('Types filter per category', () => {
     return sidebar;
   }
 
+  // The Types filter starts with every category selected, so clicking one option deselects it.
+  // Clear the selection with "Select All", then pick the one category. The list filters on each
+  // click; leave the dropdown open, since Escape would close the whole history drawer.
+  async function selectOnlyCategory(page: Page, sidebar: Locator, category: string) {
+    await sidebar.getByText('Types').click();
+    const selectAll = page.getByText('Select All').last();
+    await expect(selectAll).toBeVisible({ timeout: TIMEOUTS.SHORT });
+    await selectAll.click();
+    await page.getByText(category, { exact: true }).last().click();
+    await expect(sidebar).toBeVisible();
+  }
+
   test('filtering to Documentation hides tag and ownership events', async ({ page }) => {
     const sidebar = await openSidebar(page);
 
     // Record whether tag/owner events exist before filtering
+    const docEvents = sidebar.getByText(/Documentation (added|updated)/, { exact: false });
+    const docCount = await docEvents.count();
     const tagCount = await sidebar.getByText(/Added tag ".*"|Removed tag ".*"/, { exact: false }).count();
     const ownerCount = await sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false }).count();
-    if (tagCount === 0 && ownerCount === 0) {
-      test.skip(true, 'No tag or ownership events to verify filter hides them');
+    // Without documentation events the filtered list is empty and the absence checks prove nothing.
+    if (docCount === 0 || (tagCount === 0 && ownerCount === 0)) {
+      test.skip(true, 'Need documentation events and tag or ownership events to verify the filter');
       return;
     }
 
-    // Open the Types filter and select Documentation only
-    await sidebar.getByText('Types').click();
-    const docOption = page.getByText('Documentation').last();
-    await expect(docOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
-    await docOption.click();
-    await page.keyboard.press('Escape');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
+    await selectOnlyCategory(page, sidebar, 'Documentation');
 
-    // Tag and owner events should now be hidden
+    // Documentation events stay, so the absence checks below run against a rendered, filtered list.
+    await expect(docEvents).toHaveCount(docCount);
     await expect(sidebar.getByText(/Added tag ".*"|Removed tag ".*"/, { exact: false })).toHaveCount(0);
     await expect(sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false })).toHaveCount(0);
   });
@@ -949,20 +955,18 @@ test.describe('Types filter per category', () => {
   test('filtering to Ownership hides documentation and tag events', async ({ page }) => {
     const sidebar = await openSidebar(page);
 
+    const ownerEvents = sidebar.getByText(/Added owner ".*"|Removed owner ".*"/, { exact: false });
+    const ownerCount = await ownerEvents.count();
     const docCount = await sidebar.getByText(/Documentation (added|updated)/, { exact: false }).count();
     const tagCount = await sidebar.getByText(/Added tag ".*"/, { exact: false }).count();
-    if (docCount === 0 && tagCount === 0) {
-      test.skip(true, 'No doc or tag events to verify Ownership filter hides them');
+    if (ownerCount === 0 || (docCount === 0 && tagCount === 0)) {
+      test.skip(true, 'Need ownership events and doc or tag events to verify the filter');
       return;
     }
 
-    await sidebar.getByText('Types').click();
-    const ownershipOption = page.getByText('Owners').last();
-    await expect(ownershipOption).toBeVisible({ timeout: TIMEOUTS.SHORT });
-    await ownershipOption.click();
-    await page.keyboard.press('Escape');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(400);
+    await selectOnlyCategory(page, sidebar, 'Owners');
+
+    await expect(ownerEvents).toHaveCount(ownerCount);
 
     await expect(sidebar.getByText(/Documentation (added|updated)/, { exact: false })).toHaveCount(0);
     await expect(sidebar.getByText(/Added tag ".*"/, { exact: false })).toHaveCount(0);
@@ -1047,24 +1051,19 @@ test.describe('edge cases', () => {
     const searchInput = sidebar.getByPlaceholder('Search changes...');
     await expect(searchInput).toBeVisible({ timeout: TIMEOUTS.MEDIUM });
 
-    // Type a specific term we know will match version events
-    await searchInput.fill('Version');
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
-    const afterFilter = sidebar.getByText('Version created');
+    const rows = sidebar.getByTestId('change-event-row');
+    const initialCount = await rows.count();
+    if (initialCount === 0) {
+      test.skip(true, 'No change events to filter');
+      return;
+    }
 
-    // Clear search — the entries should be back
+    // A term no change event contains empties the list, which proves the search filters it.
+    await searchInput.fill('zz-no-change-matches-this');
+    await expect(rows).toHaveCount(0);
+
     await searchInput.clear();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(300);
-    // After clear, "Version created" milestone should return if it was there before
-    const afterClear = sidebar.getByText('Version created');
-    // Either it was present before clearing and returns, or the test data doesn't
-    // have version milestones (acceptable).
-    const beforeCount = await afterFilter.count();
-    const afterCount = await afterClear.count();
-    // The count after clearing must be >= the count after filtering
-    expect(afterCount).toBeGreaterThanOrEqual(beforeCount);
+    await expect(rows).toHaveCount(initialCount);
   });
 
   test('sidebar handles entities with minimal history gracefully', async ({ page }) => {

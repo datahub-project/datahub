@@ -7,12 +7,12 @@ import styled from 'styled-components';
 
 import { EventType } from '@app/analytics';
 import analytics from '@app/analytics/analytics';
-import { FetchedEntity } from '@app/lineage/types';
 import Column from '@app/lineageV3/LineageEntityNode/Column';
 import ColumnSearch from '@app/lineageV3/LineageEntityNode/ColumnSearch';
 import { LineageDisplayColumn } from '@app/lineageV3/LineageEntityNode/useDisplayedColumns';
 import { LineageNodesContext, TRANSITION_DURATION_MS, onClickPreventSelect } from '@app/lineageV3/common';
 import { NUM_COLUMNS_PER_PAGE } from '@app/lineageV3/constants';
+import { FetchedEntity } from '@app/lineageV3/types';
 
 const MainColumnsWrapper = styled.div<{ isGhost: boolean }>`
     display: flex;

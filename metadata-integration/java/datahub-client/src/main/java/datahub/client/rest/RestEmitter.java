@@ -229,6 +229,8 @@ public class RestEmitter implements Emitter {
     simpleRequestBuilder.setHeader("Content-Type", "application/json");
     simpleRequestBuilder.setHeader("X-RestLi-Protocol-Version", "2.0.0");
     simpleRequestBuilder.setHeader("Accept", "application/json");
+    simpleRequestBuilder.setHeader(
+        RestEmitterConfig.CLIENT_VERSION_HEADER, this.config.getClientVersion());
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::setHeader);
     if (this.config.getToken() != null) {
       simpleRequestBuilder.setHeader("Authorization", "Bearer " + this.config.getToken());
@@ -297,7 +299,8 @@ public class RestEmitter implements Emitter {
         SimpleRequestBuilder.get(urlStr)
             .addHeader("Content-Type", "application/json")
             .addHeader("X-RestLi-Protocol-Version", "2.0.0")
-            .addHeader("Accept", "application/json");
+            .addHeader("Accept", "application/json")
+            .addHeader(RestEmitterConfig.CLIENT_VERSION_HEADER, this.config.getClientVersion());
 
     // Add authorization header if token is present
     if (this.config.getToken() != null) {
@@ -352,7 +355,8 @@ public class RestEmitter implements Emitter {
         SimpleRequestBuilder.post(ingestOpenApiUrl)
             .addHeader("Content-Type", "application/json")
             .addHeader("Accept", "application/json")
-            .addHeader("X-RestLi-Protocol-Version", "2.0.0");
+            .addHeader("X-RestLi-Protocol-Version", "2.0.0")
+            .addHeader(RestEmitterConfig.CLIENT_VERSION_HEADER, this.config.getClientVersion());
 
     this.config.getExtraHeaders().forEach(simpleRequestBuilder::addHeader);
 

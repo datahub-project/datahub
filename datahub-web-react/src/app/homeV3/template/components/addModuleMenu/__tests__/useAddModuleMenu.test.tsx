@@ -1,9 +1,9 @@
-import { renderHook } from '@testing-library/react-hooks';
 import React from 'react';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 
 import useAddModuleMenu from '@app/homeV3/template/components/addModuleMenu/useAddModuleMenu';
 import { ModulePositionInput } from '@app/homeV3/template/types';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { PageModuleFragment } from '@graphql/template.generated';
 import { DataHubPageModuleType, EntityType, PageModuleScope, PageTemplateSurfaceType } from '@types';
@@ -84,7 +84,7 @@ vi.mock('@app/homeV3/context/PageTemplateContext', () => ({
     usePageTemplateContext: mockUsePageTemplateContext,
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: mockUseEntityData,
 }));
 

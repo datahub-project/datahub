@@ -1,10 +1,10 @@
 import React, { useEffect, useState } from 'react';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { EntityMenuActions, IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';
 import { DeprecationFormData } from '@app/entityV2/shared/EntityDropdown/useHandleDeprecateDomain';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import DefaultPreviewCard from '@app/previewV2/DefaultPreviewCard';
 import { useEntityRegistry } from '@app/useEntityRegistry';
 

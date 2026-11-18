@@ -26,6 +26,7 @@ import {
   LATEST_STATS_CARDS,
   LAST_MONTH_STATS_CARDS,
 } from '../../pages/stats-v2/stats.constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'stats-v2' });
 
@@ -43,30 +44,34 @@ test.describe('Highlight Stats Cards', () => {
     statsPage = new StatsTabPage(page, logger, logDir);
   });
 
-  test('should show values when the data is available', async ({ apiMock }) => {
-    await setupDataWithStats(apiMock);
+  test(
+    'should show values when the data is available',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ apiMock }) => {
+      await setupDataWithStats(apiMock);
 
-    await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
+      await statsPage.navigateToDatasetStats(TEST_DATASET_URN);
 
-    // Latest stats (Rows, Columns)
-    await statsPage.verifyLatestStatsVisible();
-    await statsPage.verifyLatestStatsCard(LATEST_STATS_CARDS.ROWS, EXPECTED_STATS.ROWS);
-    await statsPage.verifyLatestStatsCardButtonVisible(LATEST_STATS_CARDS.ROWS);
-    await statsPage.verifyLatestStatsCard(LATEST_STATS_CARDS.COLUMNS, EXPECTED_STATS.COLUMNS);
-    await statsPage.verifyLatestStatsCardButtonVisible(LATEST_STATS_CARDS.COLUMNS);
+      // Latest stats (Rows, Columns)
+      await statsPage.verifyLatestStatsVisible();
+      await statsPage.verifyLatestStatsCard(LATEST_STATS_CARDS.ROWS, EXPECTED_STATS.ROWS);
+      await statsPage.verifyLatestStatsCardButtonVisible(LATEST_STATS_CARDS.ROWS);
+      await statsPage.verifyLatestStatsCard(LATEST_STATS_CARDS.COLUMNS, EXPECTED_STATS.COLUMNS);
+      await statsPage.verifyLatestStatsCardButtonVisible(LATEST_STATS_CARDS.COLUMNS);
 
-    // Last month stats (Users, Queries)
-    await statsPage.verifyLastMonthStatsVisible();
-    await statsPage.verifyLastMonthStatsCard(LAST_MONTH_STATS_CARDS.USERS, EXPECTED_STATS.USERS);
-    await statsPage.verifyLastMonthStatsCardButtonVisible(LAST_MONTH_STATS_CARDS.USERS);
-    await statsPage.verifyLastMonthStatsCard(LAST_MONTH_STATS_CARDS.QUERIES, EXPECTED_STATS.QUERIES);
-    await statsPage.verifyLastMonthStatsCardButtonVisible(LAST_MONTH_STATS_CARDS.QUERIES);
+      // Last month stats (Users, Queries)
+      await statsPage.verifyLastMonthStatsVisible();
+      await statsPage.verifyLastMonthStatsCard(LAST_MONTH_STATS_CARDS.USERS, EXPECTED_STATS.USERS);
+      await statsPage.verifyLastMonthStatsCardButtonVisible(LAST_MONTH_STATS_CARDS.USERS);
+      await statsPage.verifyLastMonthStatsCard(LAST_MONTH_STATS_CARDS.QUERIES, EXPECTED_STATS.QUERIES);
+      await statsPage.verifyLastMonthStatsCardButtonVisible(LAST_MONTH_STATS_CARDS.QUERIES);
 
-    // Changes card
-    await statsPage.verifyChangesCardVisible();
-    await statsPage.verifyChangesCardValue(EXPECTED_STATS.CHANGES);
-    await statsPage.verifyChangesCardButtonVisible();
-  });
+      // Changes card
+      await statsPage.verifyChangesCardVisible();
+      await statsPage.verifyChangesCardValue(EXPECTED_STATS.CHANGES);
+      await statsPage.verifyChangesCardButtonVisible();
+    },
+  );
 
   test('should not show values when the data is not available', async ({ apiMock }) => {
     const timestamp = Date.now();

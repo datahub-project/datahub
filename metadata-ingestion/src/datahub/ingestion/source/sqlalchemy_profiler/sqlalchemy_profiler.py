@@ -46,6 +46,7 @@ from datahub.ingestion.source.sqlalchemy_profiler.base_adapter import (
     ProfilingConnection,
 )
 from datahub.ingestion.source.sqlalchemy_profiler.profiling_context import (
+    SAMPLED_PARTITION_SUFFIX,
     AppliedProfile,
     ProfilingContext,
 )
@@ -130,7 +131,7 @@ def _partition_spec_for(
 def _reduction_suffix(applied: AppliedProfile) -> str:
     """How a partition's label states the reduction applied within it, if any."""
     if applied.sampled:
-        return " SAMPLE"
+        return SAMPLED_PARTITION_SUFFIX
     bounds = " ".join(
         f"{name} {value}"
         for name, value in (("LIMIT", applied.limit), ("OFFSET", applied.offset))

@@ -1,10 +1,13 @@
 {
     "accessManagement.accessAlreadyGranted": "Tilgang allerede innvilget",
     "accessManagement.accessGrantedTooltip": "Du har allerede tilgang til denne rollen",
+    "accessManagement.accessNotGranted": "Tilgang ikke innvilget",
+    "accessManagement.accessNotGrantedTooltip": "Ingen forespørselslenke er konfigurert for denne rollen",
     "accessManagement.columnAccess": "Tilgang",
     "accessManagement.columnAccessType": "Tilgangstype",
     "accessManagement.columnRoleName": "Rollenavn",
     "accessManagement.granted": "Innvilget",
+    "accessManagement.notGranted": "Ikke innvilget",
     "accessManagement.request": "Be om",
     "accessManagement.requestAccess": "Be om tilgang",
     "accessManagement.tableAriaLabel": "Tabell for tilgangsstyring av roller"

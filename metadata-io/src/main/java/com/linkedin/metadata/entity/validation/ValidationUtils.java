@@ -11,6 +11,9 @@ import com.linkedin.metadata.entity.EntityService;
 import com.linkedin.metadata.graph.EntityLineageResult;
 import com.linkedin.metadata.graph.LineageRelationship;
 import com.linkedin.metadata.graph.LineageRelationshipArray;
+import com.linkedin.metadata.query.AutoCompleteEntity;
+import com.linkedin.metadata.query.AutoCompleteEntityArray;
+import com.linkedin.metadata.query.AutoCompleteResult;
 import com.linkedin.metadata.query.ListResult;
 import com.linkedin.metadata.search.LineageScrollResult;
 import com.linkedin.metadata.search.LineageSearchEntity;
@@ -176,6 +179,40 @@ public class ValidationUtils {
         },
         MetricUtils.DROPWIZARD_NAME,
         MetricUtils.name(ValidationUtils.class, "validateListResult"));
+  }
+
+  public static AutoCompleteResult validateAutoCompleteResult(
+      @Nonnull OperationContext opContext,
+      final AutoCompleteResult autoCompleteResult,
+      @Nonnull final EntityService<?> entityService) {
+    return opContext.withSpan(
+        "validateAutoCompleteResult",
+        () -> {
+          if (autoCompleteResult == null) {
+            return null;
+          }
+          Objects.requireNonNull(entityService, "entityService must not be null");
+
+          AutoCompleteResult validatedAutoCompleteResult =
+              new AutoCompleteResult()
+                  .setQuery(autoCompleteResult.getQuery())
+                  .setSuggestions(autoCompleteResult.getSuggestions());
+
+          AutoCompleteEntityArray validatedEntities =
+              validateSearchUrns(
+                      opContext,
+                      autoCompleteResult.getEntities(),
+                      AutoCompleteEntity::getUrn,
+                      entityService,
+                      true,
+                      true)
+                  .collect(Collectors.toCollection(AutoCompleteEntityArray::new));
+          validatedAutoCompleteResult.setEntities(validatedEntities);
+
+          return validatedAutoCompleteResult;
+        },
+        MetricUtils.DROPWIZARD_NAME,
+        MetricUtils.name(ValidationUtils.class, "validateAutoCompleteResult"));
   }
 
   public static LineageSearchResult validateLineageSearchResult(

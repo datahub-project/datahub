@@ -22,6 +22,8 @@
  */
 
 import { test, expect } from '../../fixtures/base-test';
+import { GraphQLHelper } from '../../helpers/graphql-helper';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 test.use({ featureName: 'nested-column-stats' });
 
@@ -29,33 +31,69 @@ const DATASET_URN = 'urn:li:dataset:(urn:li:dataPlatform:bigquery,playwright_tes
 
 const TOP_LEVEL_FIELD = 'order_id';
 
+// The profile is a timeseries document written by the MAE consumer. A shard that also seeds
+// structured properties can keep every consumer thread in put-mapping for several minutes, so the
+// schema renders before datasetProfiles has anything to return. Wait for the document instead of
+// failing the drawer after the default timeout.
+const PROFILE_WAIT_TIMEOUT_MS = 5 * 60_000;
+
+const DATASET_PROFILES_QUERY = `
+  query nestedColumnStatsDatasetProfiles($urn: String!) {
+    dataset(urn: $urn) {
+      datasetProfiles(limit: 1) {
+        timestampMillis
+      }
+    }
+  }
+`;
+
 test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
-  test('nested struct field shows sample values in Statistics tab (not "No column statistics found")', async ({
-    page,
-  }) => {
-    await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
-    await page.waitForLoadState('networkidle');
+  test.describe.configure({ timeout: PROFILE_WAIT_TIMEOUT_MS + 60_000 });
 
-    // Wait for schema table to render
-    // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
-    await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
-
-    // Click the 'address' struct row. Its id contains a V2 path with brackets;
-    // use XPath on the id attribute for reliable exact matching (CSS id selector
-    // cannot handle the brackets and dots in V2 field paths).
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
-    const addressRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=struct].address"]');
-    await expect(addressRow).toBeVisible({ timeout: 10000 });
-    await addressRow.click();
-
-    // Open the Statistics tab in the schema field drawer
-    await page.getByTestId('Statistics-field-drawer-tab-header').click();
-
-    // Pre-fix: "No column statistics found" appears — V2 fieldPath can't match V1 profile path
-    // Post-fix: sample values from the profile are shown
-    await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
-    await expect(page.getByText('123 Main St Seattle')).toBeVisible({ timeout: 10000 });
+  test.beforeEach(async ({ page }) => {
+    const graphql = new GraphQLHelper(page);
+    await expect
+      .poll(
+        async () => {
+          const response = await graphql.executeQuery(DATASET_PROFILES_QUERY, { urn: DATASET_URN });
+          const data = response.data as { dataset?: { datasetProfiles?: unknown[] | null } | null } | undefined;
+          return data?.dataset?.datasetProfiles?.length ?? 0;
+        },
+        { timeout: PROFILE_WAIT_TIMEOUT_MS, intervals: [1_000, 2_000, 5_000] },
+      )
+      .toBeGreaterThan(0);
   });
+
+  test(
+    'nested struct field shows sample values in Statistics tab (not "No column statistics found")',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page }) => {
+      await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
+      await page.waitForLoadState('networkidle');
+
+      // Wait for schema table to render
+      // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+      await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
+        timeout: 30000,
+      });
+
+      // Click the 'address' struct row. Its data-testid contains a V2 path with brackets;
+      // use XPath on the id attribute for reliable exact matching (CSS id selector
+      // cannot handle the brackets and dots in V2 field paths).
+      // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
+      const addressRow = page.locator('xpath=//tr[@data-testid="schema-field-[version=2.0].[type=struct].address"]');
+      await expect(addressRow).toBeVisible({ timeout: 10000 });
+      await addressRow.click();
+
+      // Open the Statistics tab in the schema field drawer
+      await page.getByTestId('Statistics-field-drawer-tab-header').click();
+
+      // Pre-fix: "No column statistics found" appears — V2 fieldPath can't match V1 profile path
+      // Post-fix: sample values from the profile are shown
+      await expect(page.getByText('No column statistics found')).not.toBeVisible({ timeout: 10000 });
+      await expect(page.getByText('123 Main St Seattle')).toBeVisible({ timeout: 10000 });
+    },
+  );
 
   test('lowercased schema path (ING-2174 case-fold) shows sample values in About tab from Columns tab', async ({
     page,
@@ -65,12 +103,16 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
     await page.waitForLoadState('networkidle');
 
-    // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
-    await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
+    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+    await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
+      timeout: 30000,
+    });
 
     // Click the lowercased top-level field — opens the drawer on the About tab (default).
-    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match id containing reserved characters ([], =, .)
-    const rawCounterpartyRow = page.locator('xpath=//tr[@id="column-[version=2.0].[type=string].rawcounterpartyid"]');
+    // eslint-disable-next-line playwright/no-raw-locators -- XPath required to match data-testid containing reserved characters ([], =, .)
+    const rawCounterpartyRow = page.locator(
+      'xpath=//tr[@data-testid="schema-field-[version=2.0].[type=string].rawcounterpartyid"]',
+    );
     await expect(rawCounterpartyRow).toBeVisible({ timeout: 10000 });
     await rawCounterpartyRow.click();
 
@@ -86,8 +128,10 @@ test.describe('ING-2174: nested BigQuery field stats in Columns tab', () => {
     await page.goto(`/dataset/${encodeURIComponent(DATASET_URN)}/Schema`);
     await page.waitForLoadState('networkidle');
 
-    // eslint-disable-next-line playwright/no-raw-locators -- id-prefix attribute selector has no semantic equivalent
-    await expect(page.locator('[id^="column-"]').first()).toBeVisible({ timeout: 30000 });
+    // eslint-disable-next-line playwright/no-raw-locators -- test-id-prefix attribute selector has no semantic equivalent
+    await expect(page.getByTestId('schema-table').locator('tr[data-testid^="schema-field-"]').first()).toBeVisible({
+      timeout: 30000,
+    });
 
     await page.getByTestId(`schema-field-${TOP_LEVEL_FIELD}`).click();
     await page.getByTestId('Statistics-field-drawer-tab-header').click();

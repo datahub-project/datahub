@@ -11,7 +11,7 @@
     "link.linkUrl": "Hivatkozás URL-je",
     "link.text": "Szöveg",
     "link.title": "Hivatkozás hozzáadása",
-    "mentions.failedToFindEntity": "Az entitás nem található",
+    "mentions.notFound": "Az entitás nem található",
     "table.deleteColumn": "Oszlop törlése",
     "table.deleteRow": "Sor törlése",
     "table.deleteTable": "Táblázat törlése",

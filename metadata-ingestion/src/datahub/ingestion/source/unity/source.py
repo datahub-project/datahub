@@ -7,6 +7,7 @@ import time
 from typing import (
     AbstractSet,
     Any,
+    Callable,
     Dict,
     FrozenSet,
     Iterable,
@@ -23,6 +24,8 @@ import sqlglot
 import sqlglot.errors
 import sqlglot.expressions as sqlglot_exp
 import yaml
+from databricks.sdk import WorkspaceClient
+from databricks.sdk.service.catalog import TableType
 
 from datahub.api.entities.external.unity_catalog_external_entites import UnityCatalogTag
 from datahub.emitter.mce_builder import (
@@ -46,6 +49,8 @@ from datahub.emitter.mcp_builder import (
     NotebookKey,
     UnitySchemaKey,
     UnitySchemaKeyWithMetastore,
+    UnityVolumeKey,
+    UnityVolumeKeyWithMetastore,
     add_dataset_to_container,
     add_entity_to_container,
     gen_containers,
@@ -74,6 +79,12 @@ from datahub.ingestion.source.common.subtypes import (
     DatasetSubTypes,
     SourceCapabilityModifier,
 )
+from datahub.ingestion.source.state.entity_removal_state import (
+    GenericCheckpointState,
+)
+from datahub.ingestion.source.state.stale_entity_removal_handler import (
+    StaleEntityRemovalHandler,
+)
 from datahub.ingestion.source.state.stateful_ingestion_base import (
     StatefulIngestionSourceBase,
 )
@@ -85,8 +96,12 @@ from datahub.ingestion.source.unity.config import (
     UnityCatalogSourceConfig,
     UnityCatalogSQLAlchemyProfilerConfig,
 )
-from datahub.ingestion.source.unity.connection import create_workspace_client
+from datahub.ingestion.source.unity.connection import (
+    create_workspace_client,
+    get_sql_connection_params,
+)
 from datahub.ingestion.source.unity.connection_test import UnityCatalogConnectionTest
+from datahub.ingestion.source.unity.genie import GenieSpaceExtractor
 from datahub.ingestion.source.unity.hive_metastore_proxy import (
     HIVE_METASTORE,
     HiveMetastoreProxy,
@@ -113,6 +128,7 @@ from datahub.ingestion.source.unity.proxy_types import (
     ServicePrincipal,
     Table,
     TableReference,
+    Volume,
 )
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.tag_entities import (
@@ -158,6 +174,7 @@ from datahub.metadata.schema_classes import (
     UpstreamLineageClass,
 )
 from datahub.metadata.urns import (
+    AiAgentUrn,
     MlModelGroupUrn,
     MlModelUrn,
     StructuredPropertyUrn,
@@ -170,6 +187,7 @@ from datahub.sql_parsing.sql_parsing_aggregator import SqlParsingAggregator
 from datahub.utilities.file_backed_collections import FileBackedDict
 from datahub.utilities.hive_schema_to_avro import get_schema_fields_for_hive_column
 from datahub.utilities.registries.domain_registry import DomainRegistry
+from datahub.utilities.urns.urn import guess_entity_type
 
 logger: logging.Logger = logging.getLogger(__name__)
 
@@ -393,6 +411,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
     - schemas
     - tables and column lineage
     - model and model versions
+    - Genie agents (opt-in)
     """
 
     config: UnityCatalogSourceConfig
@@ -426,10 +445,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             keep_platform_instance_case=True,
         )
 
-        self.init_hive_metastore_proxy()
+        workspace_client = create_workspace_client(self.config)
+        self.init_hive_metastore_proxy(workspace_client)
 
         self.unity_catalog_api_proxy = UnityCatalogApiProxy(
-            create_workspace_client(self.config),
+            workspace_client,
             report=self.report,
             hive_metastore_proxy=self.hive_metastore_proxy,
             lineage_data_source=config.lineage_data_source,
@@ -534,13 +554,23 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             _ExternalSchemaKey, Optional[SchemaResolver]
         ] = {}
 
-    def init_hive_metastore_proxy(self):
+    def init_hive_metastore_proxy(self, workspace_client: WorkspaceClient) -> None:
         self.hive_metastore_proxy: Optional[HiveMetastoreProxy] = None
         if self.config.include_hive_metastore:
             try:
+                # The SQLAlchemy URL carries no credentials; auth and the warehouse
+                # route come from the workspace client. User connect_args win so
+                # recipes that set them explicitly keep working.
+                options = {
+                    **self.config.options,
+                    "connect_args": {
+                        **get_sql_connection_params(workspace_client),
+                        **self.config.options.get("connect_args", {}),
+                    },
+                }
                 self.hive_metastore_proxy = HiveMetastoreProxy(
                     self.config.get_sql_alchemy_url(HIVE_METASTORE),
-                    self.config.options,
+                    options,
                     self.report,
                 )
                 self.report.hive_metastore_catalog_found = True
@@ -773,6 +803,39 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             aspect=UpstreamLineageClass(upstreams=upstreams),
         ).as_workunit()
 
+    def _preserve_genie_agent_urn(self, urn: str) -> None:
+        # A warned space is not emitted, so stale removal would soft-delete it.
+        # Copy the URN forward only when a previous run ingested it. A space
+        # that has never been ingested is not tracked.
+        self._carry_forward_checkpoint_urns(lambda previous: previous == urn)
+
+    def _preserve_all_genie_agent_urns(self) -> None:
+        # Genie is the only aiAgent producer in this source, so after a listing
+        # failure every previously ingested agent is kept and stale removal for
+        # the other entity types still runs.
+        self._carry_forward_checkpoint_urns(
+            lambda previous: guess_entity_type(previous) == AiAgentUrn.ENTITY_TYPE
+        )
+
+    def _carry_forward_checkpoint_urns(self, keep: Callable[[str], bool]) -> None:
+        job_id = StaleEntityRemovalHandler.compute_job_id(self.platform)
+        # The current checkpoint is None without reading state when stale
+        # removal is off, so check it before loading the last checkpoint.
+        current_checkpoint = self.state_provider.get_current_checkpoint(job_id)
+        if current_checkpoint is None:
+            return
+        current_state = current_checkpoint.state
+        if not isinstance(current_state, GenericCheckpointState):
+            return
+        last_checkpoint = self.state_provider.get_last_checkpoint(
+            job_id, GenericCheckpointState
+        )
+        if last_checkpoint is None:
+            return
+        for urn in last_checkpoint.state.urns:
+            if keep(urn):
+                current_state.add_checkpoint_urn(type=AiAgentUrn.ENTITY_TYPE, urn=urn)
+
     def process_metastores(self) -> Iterable[MetadataWorkUnit]:
         metastore: Optional[Metastore] = None
         if self.config.include_metastore:
@@ -785,6 +848,18 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 return
             yield from self.gen_metastore_containers(metastore)
         yield from self.process_catalogs(metastore)
+        if self.config.include_genie_spaces:
+            with self.report.new_stage("Ingest Genie agents"):
+                yield from GenieSpaceExtractor(
+                    config=self.config,
+                    client=self.unity_catalog_api_proxy.genie,
+                    report=self.report,
+                    table_urn_builder=self.gen_dataset_urn,
+                    platform_instance=self.platform_instance_name,
+                    metastore=metastore.id if metastore else None,
+                    preserve_urn=self._preserve_genie_agent_urn,
+                    preserve_all_urns=self._preserve_all_genie_agent_urns,
+                ).get_workunits()
         if metastore and self.config.include_metastore:
             self.report.metastores.processed(metastore.id)
 
@@ -825,6 +900,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 try:
                     yield from self.process_tables(schema)
                     yield from self.process_ml_models(schema)
+                    yield from self.process_volumes(schema)
                 except Exception as e:
                     logger.exception(f"Error parsing schema {schema}")
                     self.report.warning(
@@ -1046,6 +1122,77 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                     ml_model_urn, ml_model_version, schema
                 )
 
+    def process_volumes(self, schema: Schema) -> Iterable[MetadataWorkUnit]:
+        if not self.config.include_volumes:
+            return
+        # Contained here so a volume failure (e.g. a missing READ VOLUME/BROWSE
+        # grant) doesn't report the schema's already-emitted tables as missed.
+        try:
+            for volume in self.unity_catalog_api_proxy.volumes(schema):
+                if not self.config.volume_pattern.allowed(volume.id):
+                    self.report.volumes.dropped(volume.id)
+                    continue
+                yield from self._gen_volume_workunits(volume)
+                self.report.volumes.processed(volume.id)
+        except Exception as e:
+            self.report.warning(
+                title="Failed to ingest volumes",
+                message="Volumes in this schema were skipped. Check the READ VOLUME or BROWSE privilege.",
+                context=schema.id,
+                exc=e,
+            )
+
+    def _gen_volume_workunits(self, volume: Volume) -> Iterable[MetadataWorkUnit]:
+        catalog_name = volume.schema.catalog.name
+        schema_name = volume.schema.name
+        volume_tags: List[UnityCatalogTag] = []
+        if self.config.include_tags:
+            try:
+                volume_tags = self.unity_catalog_api_proxy.get_volume_tags(
+                    catalog_name
+                ).get(volume.id, [])
+            except Exception as e:
+                self.report.warning(
+                    title="Failed to fetch volume tags",
+                    message="Volume tags were skipped for this volume.",
+                    context=volume.id,
+                    exc=e,
+                )
+            yield from self.gen_platform_resources(volume_tags)
+
+        extra_properties = {
+            key: str(value)
+            for key, value in {
+                "volume_type": volume.volume_type,
+                "storage_location": volume.storage_location,
+                "volume_id": volume.volume_id,
+                "metastore_id": volume.metastore_id,
+                "created_by": volume.created_by,
+                "updated_by": volume.updated_by,
+                "browse_only": volume.browse_only,
+                "access_point": volume.access_point,
+                "encryption_algorithm": volume.encryption_algorithm,
+            }.items()
+            if value is not None
+        }
+        yield from gen_containers(
+            container_key=self.gen_volume_key(volume),
+            name=volume.name,
+            sub_types=[DatasetContainerSubTypes.DATABRICKS_VOLUME],
+            parent_container_key=self.gen_schema_key(volume.schema),
+            extra_properties=extra_properties,
+            domain_urn=self._gen_domain_urn(volume.id),
+            description=volume.comment,
+            owner_urn=self.get_owner_urn(volume.owner),
+            external_url=f"{self.external_url_base}/volumes/{catalog_name}/{schema_name}/{volume.name}",
+            tags=[tag.to_datahub_tag_urn().name for tag in volume_tags] or None,
+            qualified_name=volume.id,
+            created=make_ts_millis(volume.created_at) if volume.created_at else None,
+            last_modified=(
+                make_ts_millis(volume.updated_at) if volume.updated_at else None
+            ),
+        )
+
     def process_ml_model(
         self, ml_model: Model, schema: Schema
     ) -> Iterable[MetadataWorkUnit]:
@@ -1259,6 +1406,15 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             name=str(table_ref),
             env=self.config.env,
         )
+
+    def gen_volume_key(self, volume: Volume) -> ContainerKey:
+        schema_key = self.gen_schema_key(volume.schema)
+        if isinstance(schema_key, UnitySchemaKeyWithMetastore):
+            return UnityVolumeKeyWithMetastore(
+                **schema_key.model_dump(), volume=volume.name
+            )
+        assert isinstance(schema_key, UnitySchemaKey)
+        return UnityVolumeKey(**schema_key.model_dump(), volume=volume.name)
 
     def gen_ml_model_urn(self, name: str) -> str:
         return make_ml_model_group_urn(
@@ -1576,13 +1732,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         )
         return resolver, schema_info
 
-    def _external_schema_info(
-        self, catalog: Catalog, external_urn: str
-    ) -> Optional[SchemaInfo]:
-        """External dataset's {field path: native type}, or None if unresolvable.
-        Thin wrapper over _external_schema_lookup for the column-lineage path."""
-        return self._external_schema_lookup(catalog, external_urn)[1]
-
     def _external_schema_resolver(
         self, key: _ExternalSchemaKey
     ) -> Optional[SchemaResolver]:
@@ -1712,7 +1861,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             and schema_metadata.fields
         ):
             return None
-        schema_info = self._external_schema_info(catalog, external_urn)
+        resolver, schema_info = self._external_schema_lookup(catalog, external_urn)
         if not schema_info:
             # Unity Catalog gave us columns but the external source's schema isn't
             # resolvable (not ingested, or wrong platform_instance/env) — the COPY
@@ -1730,8 +1879,20 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
             external_urn=external_urn,
             downstream_field_paths=[f.fieldPath for f in schema_metadata.fields],
             upstream_field_paths=list(schema_info.keys()),
+            upstream_original_field_paths=(
+                resolver.get_original_field_paths(external_urn) if resolver else None
+            ),
         )
-        return cll or None
+        self.report.num_federation_cll_edges_emitted += len(cll.lineages)
+        self.report.num_federation_cll_edges_original_path += cll.num_original_path
+        self.report.num_federation_cll_downstream_unmatched += len(
+            cll.unmatched_downstream_paths
+        )
+        for path in cll.unmatched_downstream_paths:
+            self.report.federation_cll_downstream_unmatched_sample.append(
+                make_schema_field_urn(dataset_urn, path)
+            )
+        return cll.lineages or None
 
     def gen_catalog_containers(self, catalog: Catalog) -> Iterable[MetadataWorkUnit]:
         if (
@@ -2031,7 +2192,11 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
         self, table: Table, metric_view_spec: Optional[Dict[str, Any]] = None
     ) -> ViewProperties:
         assert table.view_definition
-        materialized = False
+        # Unity gives these a view definition too, but they store data.
+        materialized = table.table_type in (
+            TableType.MATERIALIZED_VIEW,
+            TableType.STREAMING_TABLE,
+        )
         if table.is_metric_view and self.config.include_metric_views:
             view_language = "YAML"
             if metric_view_spec is not None:

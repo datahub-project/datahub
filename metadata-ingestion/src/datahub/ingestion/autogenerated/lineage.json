@@ -1,6 +1,6 @@
 {
   "entities": {
-    "repository": {
+    "dataJob": {
       "repositoryLineage": {
         "aspect": "repositoryLineage",
         "fields": [
@@ -15,11 +15,35 @@
               ],
               "isLineage": true
             }
+          },
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryConsumes",
+              "entityTypes": [
+                "dataset",
+                "repository"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryProduces",
+              "entityTypes": [
+                "dataset",
+                "repository"
+              ],
+              "isLineage": true
+            }
           }
         ]
-      }
-    },
-    "dataJob": {
+      },
       "dataJobInputOutput": {
         "aspect": "dataJobInputOutput",
         "fields": [
@@ -91,6 +115,96 @@
               "name": "DownstreamOf",
               "entityTypes": [
                 "dataJob"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "dataFlow": {
+      "repositoryLineage": {
+        "aspect": "repositoryLineage",
+        "fields": [
+          {
+            "name": "forkOf",
+            "path": "forkOf",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryForkOf",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryConsumes",
+              "entityTypes": [
+                "dataset",
+                "repository"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryProduces",
+              "entityTypes": [
+                "dataset",
+                "repository"
+              ],
+              "isLineage": true
+            }
+          }
+        ]
+      }
+    },
+    "repository": {
+      "repositoryLineage": {
+        "aspect": "repositoryLineage",
+        "fields": [
+          {
+            "name": "forkOf",
+            "path": "forkOf",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryForkOf",
+              "entityTypes": [
+                "repository"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "inputEdges",
+            "path": "inputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryConsumes",
+              "entityTypes": [
+                "dataset",
+                "repository"
+              ],
+              "isLineage": true
+            }
+          },
+          {
+            "name": "outputEdges",
+            "path": "outputEdges",
+            "isLineage": true,
+            "relationship": {
+              "name": "RepositoryProduces",
+              "entityTypes": [
+                "dataset",
+                "repository"
               ],
               "isLineage": true
             }
@@ -671,5 +785,5 @@
     }
   },
   "generated_by": "metadata-ingestion/scripts/modeldocgen.py",
-  "generated_at": "2026-10-01T14:13:58.793559+00:00"
+  "generated_at": "2026-10-21T01:19:00.259252+00:00"
 }

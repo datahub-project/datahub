@@ -2,10 +2,10 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entity/shared/EntityContext';
-import { stripSiblingsFromEntity } from '@app/entity/shared/siblingUtils';
+import { useDataNotCombinedWithSiblings, useEntityData } from '@app/entityV2/shared/EntityContext';
 import { EmbeddedListSearchModal } from '@app/entityV2/shared/components/styled/search/EmbeddedListSearchModal';
 import { SidebarSection } from '@app/entityV2/shared/containers/profile/sidebar/SidebarSection';
+import { stripSiblingsFromEntity } from '@app/entityV2/shared/siblingUtils';
 import { SEPARATE_SIBLINGS_URL_PARAM, useIsSeparateSiblingsMode } from '@app/entityV2/shared/useIsSeparateSiblingsMode';
 import { CompactEntityNameList } from '@app/recommendations/renderer/component/CompactEntityNameList';
 import { UnionType } from '@app/searchV2/utils/constants';

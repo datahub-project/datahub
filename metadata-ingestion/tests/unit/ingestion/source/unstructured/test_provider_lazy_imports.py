@@ -123,7 +123,7 @@ class TestDocumentSourcesImportWithoutProviderSDKs:
     @pytest.mark.parametrize(
         "module_path",
         [
-            "datahub.ingestion.source.confluence.confluence_source",
+            "datahub.ingestion.source.confluence.source",
             "datahub.ingestion.source.notion.notion_source",
             "datahub.ingestion.source.datahub_documents.datahub_documents_source",
         ],

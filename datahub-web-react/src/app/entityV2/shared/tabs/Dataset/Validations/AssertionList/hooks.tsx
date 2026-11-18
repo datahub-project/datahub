@@ -13,7 +13,10 @@ import {
     AssertionListFilter,
     AssertionListTableRow,
 } from '@app/entityV2/shared/tabs/Dataset/Validations/AssertionList/types';
-import { getAssertionGroupName } from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
+import {
+    getAssertionGroupName,
+    getCustomAssertionType,
+} from '@app/entityV2/shared/tabs/Dataset/Validations/acrylUtils';
 import { getQueryParams } from '@app/entityV2/shared/tabs/Dataset/Validations/assertionUtils';
 import { getTimeFromNow } from '@src/app/sharedV2/time/timeUtils';
 import { AssertionResultType, AssertionType, DataContract } from '@src/types.generated';
@@ -66,12 +69,20 @@ export const useAssertionsTableColumns = ({
         [contract],
     );
 
-    const renderCategory = useCallback(
-        (record: AssertionListTableRow) =>
-            !record.groupName &&
-            record?.type && <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>,
-        [],
-    );
+    const renderCategory = useCallback((record: AssertionListTableRow) => {
+        if (record.groupName || !record?.type) {
+            return null;
+        }
+        const category = <CategoryType key={record.urn}>{getAssertionGroupName(record.type)}</CategoryType>;
+        const customType = getCustomAssertionType(record.assertion);
+        return customType ? (
+            <Tooltip key={record.urn} placement="topLeft" title={customType}>
+                {category}
+            </Tooltip>
+        ) : (
+            category
+        );
+    }, []);
 
     const renderLastRun = useCallback(
         (record: AssertionListTableRow) =>
@@ -121,7 +132,7 @@ export const useAssertionsTableColumns = ({
                 width: '40%',
             },
             {
-                title: tl('category'),
+                title: tl('type'),
                 dataIndex: 'type',
                 key: 'type',
                 render: renderCategory,

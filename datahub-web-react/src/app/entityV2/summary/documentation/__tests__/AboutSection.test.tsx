@@ -4,7 +4,7 @@ import { MemoryRouter } from 'react-router-dom';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Mock } from 'vitest';
 
-import { useEntityData } from '@app/entity/shared/EntityContext';
+import { useEntityData } from '@app/entityV2/shared/EntityContext';
 import AboutSection from '@app/entityV2/summary/documentation/AboutSection';
 import CustomThemeProvider from '@src/CustomThemeProvider';
 
@@ -26,7 +26,7 @@ vi.mock('@components/components/Editor/Editor', () => ({
     ),
 }));
 
-vi.mock('@app/entity/shared/EntityContext', () => ({
+vi.mock('@app/entityV2/shared/EntityContext', () => ({
     useEntityData: vi.fn(),
     useMutationUrn: () => URN,
     useRefetch: () => vi.fn(),

@@ -1,0 +1,32 @@
+"""
+An entity that can belong to a domain
+"""
+interface HasDomain {
+  """
+  The domain the entity belongs to
+  """
+  domain: DomainAssociation
+}
+
+extend type Api implements HasDomain
+extend type Application implements HasDomain
+extend type Chart implements HasDomain
+extend type Container implements HasDomain
+extend type Dashboard implements HasDomain
+extend type DataFlow implements HasDomain
+extend type DataJob implements HasDomain
+extend type DataProduct implements HasDomain
+extend type Dataset implements HasDomain
+extend type Document implements HasDomain
+extend type GlossaryNode implements HasDomain
+extend type GlossaryTerm implements HasDomain
+extend type MLFeature implements HasDomain
+extend type MLFeatureTable implements HasDomain
+extend type MLModel implements HasDomain
+extend type MLModelGroup implements HasDomain
+extend type MLPrimaryKey implements HasDomain
+extend type Metric implements HasDomain
+extend type Notebook implements HasDomain
+extend type Repository implements HasDomain
+extend type SemanticModel implements HasDomain
+extend type VersionedDataset implements HasDomain

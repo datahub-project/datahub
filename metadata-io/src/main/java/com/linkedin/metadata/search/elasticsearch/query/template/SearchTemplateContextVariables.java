@@ -33,8 +33,20 @@ public final class SearchTemplateContextVariables {
   public static final String LETTER_DIGIT_QUERY = "letterDigitQuery";
   public static final String FQN_QUERY = "fqnQuery";
   public static final String DEFAULT_QUERY_FIELDS_JSON = "defaultQueryFieldsJson";
+  public static final String DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON =
+      "defaultFieldsWithoutIdentityJson";
   public static final String IDENTITY_QUERY_FIELDS_JSON = "identityQueryFieldsJson";
+  public static final String NAME_FIELDS = "nameFields";
+  public static final String NAME_FIELDS_JSON = "nameFieldsJson";
+  public static final String QUALIFIED_NAME_FIELDS = "qualifiedNameFields";
+  public static final String QUALIFIED_NAME_FIELDS_JSON = "qualifiedNameFieldsJson";
+  public static final String ID_FIELDS = "idFields";
+  public static final String ID_FIELDS_JSON = "idFieldsJson";
   public static final String LIGHT_FIELDS_JSON = "lightFieldsJson";
+  public static final String HAS_DEFAULT_QUERY_FIELDS = "hasDefaultQueryFields";
+  public static final String HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY =
+      "hasDefaultFieldsWithoutIdentity";
+  public static final String HAS_LIGHT_FIELDS = "hasLightFields";
   public static final String LIGHT_OPERATOR = "lightOperator";
   public static final String ENTITY_NAME_FIELD = "entityNameField";
   public static final String NAME_KEYWORD = "nameKeyword";
@@ -49,6 +61,10 @@ public final class SearchTemplateContextVariables {
   public static final String PLATFORM_FIELD = "platformField";
   public static final String COLUMN_NAME_FIELD = "columnNameField";
   public static final String ID_KEYWORD = "idKeyword";
+  public static final String EMAIL_FIELDS = "emailFields";
+  public static final String EMAIL_FIELDS_JSON = "emailFieldsJson";
+  public static final String EMAIL_KEYWORD = "emailKeyword";
+  public static final String EMAIL_TEXT = "emailText";
   public static final String URN_EXACT_FIELD = "urnExactField";
   public static final String URN_FOLDED_FIELD = "urnFoldedField";
   public static final String URN_PARSED_FIELD = "urnParsedField";
@@ -64,10 +80,19 @@ public final class SearchTemplateContextVariables {
   public static final String FUZZY_MAX_EXPANSIONS = "fuzzyMaxExpansions";
   public static final String PREFIX_MAX_EXPANSIONS = "prefixMaxExpansions";
   public static final String PREFIX_FIELD = "prefixField";
+  public static final String PREFIX_KEYWORD = "prefixKeyword";
   public static final String STRUCTURED_QUERY = "structuredQuery";
   public static final String FLAGS = "flags";
   public static final String SYNONYMS = "synonyms";
+
+  /**
+   * Text of one {@link #SYNONYMS} element. {@code {{.}}} is that text at the synonym section. A
+   * nested section must use this name, because it replaces the current element.
+   */
+  public static final String SYNONYM = "synonym";
+
   public static final String MULTI_WORD = "multiWord";
+  public static final String NAME_ONLY = "nameOnly";
   public static final String LONG_QUERY = "longQuery";
   public static final String DOTTED_QUERY = "dottedQuery";
   public static final String FULLY_QUALIFIED_NAME = "fullyQualifiedName";
@@ -75,6 +100,16 @@ public final class SearchTemplateContextVariables {
   public static final String LONG_EXACT_NAME = "longExactName";
   public static final String OPERATOR_ESCAPED = "operatorEscaped";
   public static final String SPACELESS_IDENTIFIER = "spacelessIdentifier";
+  public static final String SPACELESS_DOTTED = "spacelessDotted";
+  public static final String TERMINAL_SEGMENT = "terminalSegment";
+  public static final String DOTTED_PATH = "dottedPath";
+  public static final String DOTTED_PATH_PREFIX = "dottedPathPrefix";
+  public static final String DOTTED_PATH_SUFFIX = "dottedPathSuffix";
+  public static final String DOTTED_PATH_CONTAINS = "dottedPathContains";
+  public static final String QUALIFIER_PATH = "qualifierPath";
+  public static final String QUALIFIER_PATH_PREFIX = "qualifierPathPrefix";
+  public static final String QUALIFIER_PATH_SUFFIX = "qualifierPathSuffix";
+  public static final String QUALIFIER_PATH_CONTAINS = "qualifierPathContains";
   public static final String LETTER_DIGIT_PARTS = "letterDigitParts";
   public static final String FQN_PARTS = "fqnParts";
   public static final String ENTITY_TYPES = "entityTypes";
@@ -119,8 +154,20 @@ public final class SearchTemplateContextVariables {
           LETTER_DIGIT_QUERY,
           FQN_QUERY,
           DEFAULT_QUERY_FIELDS_JSON,
+          DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON,
           IDENTITY_QUERY_FIELDS_JSON,
+          NAME_FIELDS,
+          NAME_FIELDS_JSON,
+          QUALIFIED_NAME_FIELDS,
+          QUALIFIED_NAME_FIELDS_JSON,
+          ID_FIELDS,
+          ID_FIELDS_JSON,
+          EMAIL_FIELDS,
+          EMAIL_FIELDS_JSON,
           LIGHT_FIELDS_JSON,
+          HAS_DEFAULT_QUERY_FIELDS,
+          HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY,
+          HAS_LIGHT_FIELDS,
           LIGHT_OPERATOR,
           ENTITY_NAME_FIELD,
           NAME_KEYWORD,
@@ -135,6 +182,8 @@ public final class SearchTemplateContextVariables {
           PLATFORM_FIELD,
           COLUMN_NAME_FIELD,
           ID_KEYWORD,
+          EMAIL_KEYWORD,
+          EMAIL_TEXT,
           URN_EXACT_FIELD,
           URN_FOLDED_FIELD,
           URN_PARSED_FIELD,
@@ -150,10 +199,12 @@ public final class SearchTemplateContextVariables {
           FUZZY_MAX_EXPANSIONS,
           PREFIX_MAX_EXPANSIONS,
           PREFIX_FIELD,
+          PREFIX_KEYWORD,
           STRUCTURED_QUERY,
           FLAGS,
           SYNONYMS,
           MULTI_WORD,
+          NAME_ONLY,
           LONG_QUERY,
           DOTTED_QUERY,
           FULLY_QUALIFIED_NAME,
@@ -161,6 +212,16 @@ public final class SearchTemplateContextVariables {
           LONG_EXACT_NAME,
           OPERATOR_ESCAPED,
           SPACELESS_IDENTIFIER,
+          SPACELESS_DOTTED,
+          TERMINAL_SEGMENT,
+          DOTTED_PATH,
+          DOTTED_PATH_PREFIX,
+          DOTTED_PATH_SUFFIX,
+          DOTTED_PATH_CONTAINS,
+          QUALIFIER_PATH,
+          QUALIFIER_PATH_PREFIX,
+          QUALIFIER_PATH_SUFFIX,
+          QUALIFIER_PATH_CONTAINS,
           LETTER_DIGIT_PARTS,
           FQN_PARTS,
           ENTITY_TYPES,
@@ -186,9 +247,9 @@ public final class SearchTemplateContextVariables {
           URN_FIELD,
           SYNONYM_PRIORITY);
 
-  /** Fields of one {@code valueScoreFunctions} or {@code fieldScoreFunctions} element. */
+  /** Fields of one list element, not top-level keys. */
   public static final Set<String> NESTED =
-      names(FIELD, VALUE_JSON, WEIGHT, FACTOR, MISSING, MODIFIER, BOOST);
+      names(FIELD, VALUE_JSON, WEIGHT, FACTOR, MISSING, MODIFIER, BOOST, SYNONYM);
 
   /** Dotted paths a template may branch on. The parent object is a stable top-level name. */
   public static final Set<String> PATHS =

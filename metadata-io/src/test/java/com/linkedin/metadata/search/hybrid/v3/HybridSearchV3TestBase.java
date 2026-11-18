@@ -158,7 +158,6 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             .v3(
                 V2_V3_ENABLED_ENTITY_INDEX_CONFIGURATION.getV3().toBuilder()
                     .keywordReadEnabled(true)
-                    .semanticReadEnabled(true)
                     .hybridReadEnabled(true)
                     .build())
             .semanticSearch(semanticSearch)
@@ -198,7 +197,8 @@ public abstract class HybridSearchV3TestBase extends AbstractTestNGSpringContext
             config,
             TEST_ES_STRUCT_PROPS_DISABLED,
             Map.of(),
-            new GitVersion("0.0.0-test", "123456", Optional.empty()));
+            new GitVersion("0.0.0-test", "123456", Optional.empty()),
+            getSearchClient());
     Map<String, Map<String, Object>> mappings =
         mappingsBuilder.getIndexMappings(opContext, List.of()).stream()
             .collect(

@@ -31,7 +31,7 @@ const meta = {
         },
         currentStepIndex: {
             description: 'Index of the currently active step (0-based)',
-            control: { type: 'number', min: 0, max: 4 },
+            control: { type: 'number', min: 0 },
         },
         dataTestId: {
             description: 'Optional test ID for testing',
@@ -92,7 +92,7 @@ export const Step3Active: Story = {
 
 export const LastStepCompleted: Story = {
     args: {
-        currentStepIndex: 4,
+        currentStepIndex: 5,
     } as any,
     render: (args: any) => (
         <StepperWrapper>

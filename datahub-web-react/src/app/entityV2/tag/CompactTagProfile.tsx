@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next';
 import { matchPath, useLocation } from 'react-router';
 import styled from 'styled-components';
 
+import { EntitySidebarTabKey } from '@app/entityV2/shared/constants';
 import {
     StyledEntitySidebarContainer,
     StyledSidebar,
@@ -12,6 +13,7 @@ import EntitySidebarSectionsTab from '@app/entityV2/shared/containers/profile/si
 import { EntitySidebarTabs } from '@app/entityV2/shared/containers/profile/sidebar/EntitySidebarTabs';
 import { defaultTabDisplayConfig } from '@app/entityV2/shared/containers/profile/utils';
 import { EntitySidebarTab } from '@app/entityV2/shared/types';
+import TagActionsDropdown from '@app/entityV2/tag/TagActionsDropdown';
 import EntitySidebarContext from '@app/sharedV2/EntitySidebarContext';
 import TagStyleEntity from '@app/sharedV2/TagStyleEntity';
 import { PageRoutes } from '@conf/Global';
@@ -40,6 +42,7 @@ export default function CompactTagProfile({ urn }: Props) {
 
     const tabs: EntitySidebarTab[] = [
         {
+            key: EntitySidebarTabKey.ABOUT,
             name: t('tab.about'),
             icon: BookOpen,
             component: EntitySidebarSectionsTab,
@@ -59,7 +62,10 @@ export default function CompactTagProfile({ urn }: Props) {
         >
             <StyledSidebar isCard={isInSearch} isFocused={isInSearch}>
                 <CompactEntityWrapper $isClosed={isClosed}>
-                    <TagStyleEntity urn={urn} />
+                    <TagStyleEntity
+                        urn={urn}
+                        renderActions={(tagData) => <TagActionsDropdown urn={urn} tagData={tagData} />}
+                    />
                 </CompactEntityWrapper>
                 <TabsContainer>
                     <EntitySidebarTabs

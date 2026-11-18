@@ -363,27 +363,24 @@ class MockConfluenceClient:
 
         return self.pages.get(page_id)
 
-    def get_child_pages(
-        self, page_id: str, start: int = 0, limit: int = 25
+    def get_page_child_by_type(
+        self,
+        page_id: str,
+        type: str = "page",
+        start: Optional[int] = None,
+        limit: Optional[int] = None,
+        expand: Optional[str] = None,
     ) -> Generator[Dict[str, Any], None, None]:
-        """
-        Mock get_child_pages API call.
-        Returns a generator of child pages.
-        """
+        """Mock child listing. Without start/limit the real client pages
+        through every child, so this yields them all."""
         self.api_calls.append(
-            ("get_child_pages", {"page_id": page_id, "start": start, "limit": limit})
+            ("get_page_child_by_type", {"page_id": page_id, "expand": expand})
         )
 
-        # Find all pages where this page is the direct parent
-        children = []
         for page in self.pages.values():
             ancestors = page.get("ancestors", [])
             if ancestors and ancestors[-1].get("id") == page_id:
-                children.append(page)
-
-        # Return as generator (matching real API behavior)
-        for child in children:
-            yield child
+                yield page
 
     def get_all_pages_from_space(
         self, space: str, start: int = 0, limit: int = 100, expand: Optional[str] = None
@@ -438,7 +435,7 @@ def create_mock_confluence_client(scenario: str = "default") -> MagicMock:
     # Wire up the methods
     mock_client.get_all_spaces = mock_client_impl.get_all_spaces
     mock_client.get_page_by_id = mock_client_impl.get_page_by_id
-    mock_client.get_child_pages = mock_client_impl.get_child_pages
+    mock_client.get_page_child_by_type = mock_client_impl.get_page_child_by_type
     mock_client.get_all_pages_from_space = mock_client_impl.get_all_pages_from_space
 
     # Expose internal state for test assertions
@@ -573,7 +570,7 @@ def create_mock_confluence_client_from_fixture(fixture_name: str) -> MagicMock:
     # Wire up the methods
     mock_client.get_all_spaces = mock_client_impl.get_all_spaces
     mock_client.get_page_by_id = mock_client_impl.get_page_by_id
-    mock_client.get_child_pages = mock_client_impl.get_child_pages
+    mock_client.get_page_child_by_type = mock_client_impl.get_page_child_by_type
     mock_client.get_all_pages_from_space = mock_client_impl.get_all_pages_from_space
 
     # Expose internal state for test assertions

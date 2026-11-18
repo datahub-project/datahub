@@ -1,4 +1,4 @@
-import { act, renderHook } from '@testing-library/react-hooks';
+import { act } from '@testing-library/react';
 import React from 'react';
 import { describe, expect, it } from 'vitest';
 
@@ -11,6 +11,7 @@ import {
     DEFAULT_DOMAIN_SIDEBAR_SORT,
     DOMAIN_SIDEBAR_SORT,
 } from '@app/domainV2/nestedDomains/domainSidebarFilters/domainSidebarSort';
+import { renderHook } from '@utils/test-utils/renderHook';
 
 import { EntityType } from '@types';
 

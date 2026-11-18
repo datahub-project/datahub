@@ -1,13 +1,17 @@
 package com.linkedin.datahub.graphql.types.mappers;
 
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNotNull;
+import static org.testng.Assert.assertNull;
 import static org.testng.Assert.assertThrows;
 
+import com.linkedin.common.AuditStamp;
 import com.linkedin.common.urn.Urn;
 import com.linkedin.data.schema.annotation.PathSpecBasedSchemaAnnotationVisitor;
 import com.linkedin.datahub.graphql.QueryContext;
 import com.linkedin.datahub.graphql.TestUtils;
 import com.linkedin.datahub.graphql.generated.MatchedField;
+import com.linkedin.datahub.graphql.generated.ResolvedAuditStamp;
 import com.linkedin.metadata.entity.validation.ValidationApiUtils;
 import com.linkedin.metadata.models.registry.ConfigEntityRegistry;
 import com.linkedin.metadata.models.registry.EntityRegistry;
@@ -56,6 +60,31 @@ public class MapperUtilsTest {
         actualMatched.stream().filter(matchedField -> matchedField.getEntity() != null).count(),
         1,
         "With urn should be 1");
+  }
+
+  @Test
+  public void testCreateResolvedAuditStamp_CorpUser() throws Exception {
+    AuditStamp stamp = new AuditStamp();
+    stamp.setActor(Urn.createFromString("urn:li:corpuser:datahub"));
+    stamp.setTime(1234567890L);
+
+    ResolvedAuditStamp result = MapperUtils.createResolvedAuditStamp(stamp);
+
+    assertNotNull(result.getActor());
+    assertEquals(result.getActor().getUrn(), "urn:li:corpuser:datahub");
+    assertEquals(result.getTime(), 1234567890L);
+  }
+
+  @Test
+  public void testCreateResolvedAuditStamp_NonCorpUser() throws Exception {
+    AuditStamp stamp = new AuditStamp();
+    stamp.setActor(Urn.createFromString("urn:li:aiAgent:my-agent"));
+    stamp.setTime(1234567890L);
+
+    ResolvedAuditStamp result = MapperUtils.createResolvedAuditStamp(stamp);
+
+    assertNull(result.getActor());
+    assertEquals(result.getTime(), 1234567890L);
   }
 
   private static com.linkedin.metadata.search.MatchedField buildSearchMatchField(

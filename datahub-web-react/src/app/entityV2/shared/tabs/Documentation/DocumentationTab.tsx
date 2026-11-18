@@ -7,9 +7,7 @@ import { useTranslation } from 'react-i18next';
 import { useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 
-import { Editor } from '@components/components/Editor';
-
-import { useEntityData, useRouteToTab } from '@app/entity/shared/EntityContext';
+import { useEntityData, useRouteToTab } from '@app/entityV2/shared/EntityContext';
 import { EmptyTab } from '@app/entityV2/shared/components/styled/EmptyTab';
 import TabToolbar from '@app/entityV2/shared/components/styled/TabToolbar';
 import { EntityTabPath } from '@app/entityV2/shared/constants';
@@ -18,6 +16,7 @@ import { DescriptionPreviewModal } from '@app/entityV2/shared/tabs/Documentation
 import { RelatedSection } from '@app/entityV2/shared/tabs/Documentation/components/RelatedSection';
 import { getAssetDescriptionDetails } from '@app/entityV2/shared/tabs/Documentation/utils';
 import { EDITED_DESCRIPTIONS_CACHE_NAME } from '@app/entityV2/shared/utils';
+import { Editor } from '@app/sharedV2/editor/Editor';
 import { Button, Text, Tooltip } from '@src/alchemy-components';
 
 const DOCUMENTATION_TAB = 'documentation';

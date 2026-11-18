@@ -29,6 +29,7 @@ import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntity;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateChecks;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateComponentRegistry;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateHoles;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateLoader;
@@ -36,6 +37,7 @@ import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateR
 import com.linkedin.search.template.SearchTemplateDialect;
 import com.linkedin.search.template.SearchTemplateLadder;
 import com.linkedin.search.template.SearchTemplateProperties;
+import com.linkedin.search.template.SearchTemplateRetrieval;
 import java.util.ArrayList;
 import java.util.Collection;
 import java.util.HashMap;
@@ -43,14 +45,18 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.regex.Pattern;
 import java.util.stream.Stream;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import lombok.Getter;
 import lombok.Setter;
 import lombok.experimental.Accessors;
+import lombok.extern.slf4j.Slf4j;
+import org.apache.commons.lang3.StringUtils;
 
 /** Protects system templates and rejects bodies that will not render. */
+@Slf4j
 @Setter
 @Getter
 @Accessors(chain = true)
@@ -61,24 +67,36 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
    */
   private static final int MAX_CHILD_REVALIDATIONS = 100;
 
+  private static final Pattern DEPRECATED_KNN_NAME = Pattern.compile("\"(?:model|field)\"\\s*:");
+
   @Nonnull private AspectPluginConfig config;
   @Nonnull private final SearchTemplateLoader loader;
   private final int maxLeafClauses;
   private final int maxRoutes;
   private final int maxRoutePatternLength;
   @Nonnull private final List<EntitySpec> entitySpecs;
+  @Nonnull private final SearchTemplateComponentRegistry registry;
 
   public SearchTemplateValidator(
       @Nonnull SearchTemplateLoader loader, @Nonnull SearchConfiguration searchConfiguration) {
-    this(loader, searchConfiguration, List.of());
+    this(loader, searchConfiguration, List.of(), SearchTemplateComponentRegistry.empty());
   }
 
   public SearchTemplateValidator(
       @Nonnull SearchTemplateLoader loader,
       @Nonnull SearchConfiguration searchConfiguration,
       @Nonnull Collection<EntitySpec> entitySpecs) {
+    this(loader, searchConfiguration, entitySpecs, SearchTemplateComponentRegistry.empty());
+  }
+
+  public SearchTemplateValidator(
+      @Nonnull SearchTemplateLoader loader,
+      @Nonnull SearchConfiguration searchConfiguration,
+      @Nonnull Collection<EntitySpec> entitySpecs,
+      @Nonnull SearchTemplateComponentRegistry registry) {
     this.loader = loader;
     this.entitySpecs = List.copyOf(entitySpecs);
+    this.registry = registry;
     boolean configured =
         searchConfiguration.getV3() != null && searchConfiguration.getV3().getTemplates() != null;
     this.maxLeafClauses =
@@ -191,7 +209,31 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
         maxRoutePatternLength,
         operationContext,
         retrieverContext.getAspectRetriever(),
-        entitySpecs.isEmpty() ? null : entitySpecs);
+        entitySpecs.isEmpty() ? null : entitySpecs,
+        registry);
+    warnDeprecatedNames(item.getUrn(), properties);
+  }
+
+  /**
+   * {@code model} and {@code field} name the embedding profile id and are deprecated in favor of
+   * {@code profiles}. They are still read, so the write is accepted with a warning.
+   */
+  private static void warnDeprecatedNames(Urn urn, SearchTemplateProperties properties) {
+    SearchTemplateRetrieval retrieval = properties.getRetrieval();
+    boolean retrievalNames =
+        retrieval != null
+            && ((StringUtils.isNotBlank(retrieval.getModel()))
+                || (StringUtils.isNotBlank(retrieval.getField())));
+    boolean knnNames =
+        properties.hasKnn()
+            && properties.getKnn() != null
+            && DEPRECATED_KNN_NAME.matcher(properties.getKnn()).find();
+    if (retrievalNames || knnNames) {
+      log.warn(
+          "Search template {} names an embedding model or vector field. These names are deprecated"
+              + " and still read; profiles replace them once this release runs embedding profiles.",
+          urn);
+    }
   }
 
   private void validateBody(
@@ -223,10 +265,67 @@ public class SearchTemplateValidator extends AspectPayloadValidator {
         maxRoutePatternLength,
         operationContext,
         retrieverContext.getAspectRetriever(),
-        entitySpecs.isEmpty() ? null : entitySpecs);
+        entitySpecs.isEmpty() ? null : entitySpecs,
+        registry);
     validateRoutes(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateLadder(operationContext, urn, merged, retrieverContext, batch, deleted);
     validateFilledHoles(operationContext, urn, properties, retrieverContext, batch, deleted);
+    validateInheritedSections(operationContext, urn, retrieverContext, batch, deleted);
+  }
+
+  /**
+   * Some rules span sections a child inherits separately: the {@code knn} shape follows the
+   * inherited {@code combine}, similarity rejects an inherited {@code knn} or {@code next}, and a
+   * keyword rung rejects inherited {@code profiles}. Every write, including a new parent or a
+   * removed section, runs those rules on every inheriting child, so the parent cannot break a child
+   * that was valid. Other child checks are unchanged; the hole walk keeps its own stop rule.
+   */
+  private void validateInheritedSections(
+      OperationFingerprint operationContext,
+      Urn urn,
+      RetrieverContext retrieverContext,
+      @Nonnull Map<String, SearchTemplateProperties> batch,
+      @Nonnull Set<String> deleted) {
+    revalidateChildren(operationContext, urn, batch, deleted, retrieverContext, new HashSet<>(), 0);
+  }
+
+  private void revalidateChildren(
+      OperationFingerprint operationContext,
+      Urn parent,
+      Map<String, SearchTemplateProperties> overrides,
+      @Nonnull Set<String> deleted,
+      RetrieverContext retrieverContext,
+      Set<String> visited,
+      int depth) {
+    if (depth > loader.maxParentDepth()) {
+      throw new SearchTemplateException(
+          "Search template parent chain exceeds " + loader.maxParentDepth());
+    }
+    for (Urn child : childrenOf(parent, retrieverContext)) {
+      if (!visited.add(child.toString())) {
+        continue;
+      }
+      SearchTemplateProperties childProperties =
+          read(operationContext, child, retrieverContext, overrides, deleted);
+      if (childProperties == null) {
+        continue;
+      }
+      MergedSearchTemplate merged =
+          loader.preview(
+              operationContext,
+              retrieverContext.getAspectRetriever(),
+              child.toString(),
+              childProperties,
+              overrides);
+      try {
+        SearchTemplateChecks.checkInheritedSections(merged);
+      } catch (SearchTemplateException e) {
+        throw new SearchTemplateException(
+            "Search template change makes child " + child + " invalid: " + e.getMessage(), e);
+      }
+      revalidateChildren(
+          operationContext, child, overrides, deleted, retrieverContext, visited, depth + 1);
+    }
   }
 
   /**

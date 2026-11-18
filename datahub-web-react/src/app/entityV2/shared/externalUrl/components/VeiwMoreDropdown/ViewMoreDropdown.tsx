@@ -6,8 +6,8 @@ import styled, { useTheme } from 'styled-components';
 
 import OptionLabel from '@app/entityV2/shared/externalUrl/components/VeiwMoreDropdown/OptionLabel';
 import { LinkItem } from '@app/entityV2/shared/externalUrl/types';
-import { safeUrl } from '@app/sharedV2/urlUtils';
 import { Text } from '@src/alchemy-components';
+import { safeUrl } from '@utils/urlUtils';
 
 const DropdownBase = styled.div`
     text-wrap: nowrap;

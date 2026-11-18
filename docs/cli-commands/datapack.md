@@ -143,7 +143,7 @@ datahub datapack unload showcase-ecommerce --hard
 | ---------------------- | ----------------------------------------------------------------------------------- | -------- | --------------------------------------------------------------- |
 | **bootstrap**          | Lightweight bootstrap data with basic datasets, dashboards, users, and tags         | ~50      | Kafka, Hive, HDFS                                               |
 | **showcase-ecommerce** | Rich e-commerce demo with lineage, governance, glossary, domains, and data products | ~1,050   | Snowflake, Looker, PowerBI, Tableau, dbt, Spark, PostgreSQL, S3 |
-| **search-quality**     | Cranfield datasets plus the long-tail catalog for search regression                 | ~3,700   | cranfield, long-tail                                            |
+| **search-quality**     | Cranfield datasets plus the longtail-ecommerce catalog for search regression        | ~4,800   | cranfield, long-tail, ecommerce                                 |
 
 ## Trust Model
 

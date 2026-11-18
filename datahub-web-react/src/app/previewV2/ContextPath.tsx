@@ -2,11 +2,11 @@ import { Maybe } from 'graphql/jsutils/Maybe';
 import React from 'react';
 import styled from 'styled-components';
 
-import { GenericEntityProperties } from '@app/entity/shared/types';
 import { IconStyleType } from '@app/entityV2/Entity';
 import { getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';
 import { getParentEntities } from '@app/entityV2/shared/containers/profile/header/getParentEntities';
 import { getDisplayedEntityType } from '@app/entityV2/shared/containers/profile/header/utils';
+import { GenericEntityProperties } from '@app/entityV2/shared/types';
 import BrowsePaths from '@app/previewV2/BrowsePaths';
 import { isDefaultBrowsePath } from '@app/previewV2/utils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';

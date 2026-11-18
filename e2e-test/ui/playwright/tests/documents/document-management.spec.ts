@@ -13,6 +13,7 @@ import { test, expect } from '../../fixtures/base-test';
 import { withRandomSuffix } from '../../utils/random';
 import { DocumentPage } from '../../pages/entity/document.page';
 import { TIMEOUTS, LOAD_STATES, KEYS } from '../../utils/constants';
+import { DomainTag, TestTag } from '../../utils/test-tags';
 
 // Test constants
 const STATUS_PUBLISHED = 'PUBLISHED';
@@ -71,21 +72,25 @@ test.describe('Document Management', () => {
     await cleanup.flush();
   });
 
-  test('should update document title and verify persistence', async ({ page, cleanup }) => {
-    const initialTitle = withRandomSuffix('doc');
-    const updatedTitle = `${initialTitle}_updated`;
+  test(
+    'should update document title and verify persistence',
+    { tag: [TestTag.P0, DomainTag.Catalog] },
+    async ({ page, cleanup }) => {
+      const initialTitle = withRandomSuffix('doc');
+      const updatedTitle = `${initialTitle}_updated`;
 
-    const docUrn = await documentPage.createDocumentWithTitle(initialTitle);
-    cleanup.track(docUrn);
-    await documentPage.navigateToDocument(docUrn);
-    await documentPage.setDocumentTitle(updatedTitle);
-    await page.reload();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
+      const docUrn = await documentPage.createDocumentWithTitle(initialTitle);
+      cleanup.track(docUrn);
+      await documentPage.navigateToDocument(docUrn);
+      await documentPage.setDocumentTitle(updatedTitle);
+      await page.reload();
+      await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
-    await documentPage.expectTitleInput(updatedTitle);
+      await documentPage.expectTitleInput(updatedTitle);
 
-    await cleanup.flush();
-  });
+      await cleanup.flush();
+    },
+  );
 
   test('should update document content', async ({ page, cleanup }) => {
     const docTitle = withRandomSuffix('content-test');
@@ -95,9 +100,6 @@ test.describe('Document Management', () => {
     cleanup.track(docUrn);
     await documentPage.clickEditorAndType(testContent);
     await page.keyboard.press(KEYS.ESCAPE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     await page.reload();
     await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
@@ -141,7 +143,7 @@ test.describe('Document Management', () => {
 
   // ── Sidebar Navigation ─────────────────────────────────────────────────────
 
-  test('should collapse and expand the sidebar', async ({ page, cleanup }) => {
+  test('should collapse and expand the sidebar', async ({ cleanup }) => {
     const docTitle = withRandomSuffix('collapse-test');
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
     cleanup.track(docUrn);
@@ -150,28 +152,21 @@ test.describe('Document Management', () => {
     await documentPage.expectSidebarContains('Documents');
 
     await documentPage.clickCollapseButton();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectCreateButtonHidden();
 
     await documentPage.clickCollapseButton();
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.QUICK);
     await documentPage.expectSidebarContains('Documents');
     await documentPage.expectCreateButtonEnabled();
 
     await cleanup.flush();
   });
 
-  test('should search for documents using sidebar search', async ({ page, cleanup }) => {
+  test('should search for documents using sidebar search', async ({ cleanup }) => {
     const searchTitle = withRandomSuffix('doc');
 
     const docUrn = await documentPage.createDocumentWithTitle(searchTitle);
     cleanup.track(docUrn);
     await documentPage.expectSidebarVisible();
-
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.OPERATION);
 
     await documentPage.searchForDocument(searchTitle);
     await documentPage.expectSearchResultsVisible();
@@ -201,27 +196,26 @@ test.describe('Document Management', () => {
 
   // ── Deletion Operations ────────────────────────────────────────────────────
 
-  test('should create and delete a document', async ({ page }) => {
+  test('should create and delete a document', { tag: [TestTag.P0, DomainTag.Catalog] }, async ({ cleanup }) => {
     const docTitle = withRandomSuffix('delete-test');
+    const keptUrn = await documentPage.createDocumentWithTitle(`${docTitle}_kept`);
+    cleanup.track(keptUrn);
     const docUrn = await documentPage.createDocumentWithTitle(docTitle);
 
     await documentPage.clickActionsMenu();
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
 
-    await documentPage.navigateToDocuments();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-
-    await expect(documentPage.getTreeItem(docUrn)).not.toBeAttached();
+    await documentPage.expectDocumentsRemovedFromTree([docUrn], keptUrn);
   });
 
-  test('should delete parent document and cascade to children', async ({ page, cleanup }) => {
+  test('should delete parent document and cascade to children', async ({ cleanup }) => {
     const base = withRandomSuffix('doc');
     const parentTitle = `${base}_parent`;
     const childTitle = `${base}_child`;
+
+    const keptUrn = await documentPage.createDocumentWithTitle(`${base}_kept`);
+    cleanup.track(keptUrn);
 
     const { parentUrn, childUrn } = await documentPage.createAndMoveChildToParent(parentTitle, childTitle);
     cleanup.track(parentUrn);
@@ -235,15 +229,8 @@ test.describe('Document Management', () => {
     await documentPage.clickActionsMenu();
     await documentPage.clickDeleteMenuItem();
     await documentPage.confirmDelete();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
-    // eslint-disable-next-line playwright/no-wait-for-timeout
-    await page.waitForTimeout(TIMEOUTS.MEDIUM);
-
-    await documentPage.navigateToDocuments();
-    await page.waitForLoadState(LOAD_STATES.NETWORKIDLE);
 
     // Verify cascade deletion: both parent and child should be removed from tree
-    await expect(documentPage.getTreeItem(parentUrn)).not.toBeAttached();
-    await expect(documentPage.getTreeItem(childUrn)).not.toBeAttached();
+    await documentPage.expectDocumentsRemovedFromTree([parentUrn, childUrn], keptUrn);
   });
 });

@@ -1,3 +1,4 @@
+import { useApolloClient } from '@apollo/client';
 import { Modal, SimpleSelect, toast } from '@components';
 import React, { useCallback, useMemo, useState } from 'react';
 import { useTranslation } from 'react-i18next';
@@ -5,8 +6,9 @@ import styled from 'styled-components/macro';
 
 import { SelectOption } from '@components/components/Select/types';
 
-import { useEntityData, useRefetch } from '@app/entity/shared/EntityContext';
-import GlossaryBrowser from '@app/glossary/GlossaryBrowser/GlossaryBrowser';
+import { refreshRelatedTerms } from '@app/entityV2/glossaryTerm/profile/relatedTermsQuery';
+import { useEntityData, useRefetch } from '@app/entityV2/shared/EntityContext';
+import GlossaryBrowser from '@app/glossaryV2/GlossaryBrowser/GlossaryBrowser';
 import GlossaryTermPill from '@app/glossaryV2/GlossaryTermPill';
 import { useGenerateGlossaryColorFromPalette } from '@app/glossaryV2/colorUtils';
 import ParentEntities from '@app/searchV2/filters/ParentEntities';
@@ -52,6 +54,7 @@ function AddRelatedTermsModal(props: Props) {
     const entityRegistry = useEntityRegistry();
     const { urn: entityDataUrn } = useEntityData();
     const refetch = useRefetch();
+    const client = useApolloClient();
     const { reloadByKeyType } = useReloadableContext();
     const generateTermColor = useGenerateGlossaryColorFromPalette();
 
@@ -76,6 +79,8 @@ function AddRelatedTermsModal(props: Props) {
                 setTimeout(() => {
                     toast.success(t('glossaryTerm.addedRelatedTermsSuccess'), { duration: 2 });
                     refetch();
+                    // The Related Terms tab and its count read getRelatedTerms, which this mutation does not update.
+                    refreshRelatedTerms(client);
                     // Reload modules
                     // RelatedTerms - update related terms module on term summary tab
                     reloadByKeyType([

@@ -16,6 +16,9 @@ spring:
       path: /
 entityClient:
   impl: restli
+elasticsearch:
+  clusterMigration:
+    processRole: mae
 # Non-GMS cache defaults. ENTITY_GRAPH_CACHE_ENABLED and the other env vars still override.
 datahub:
   gms:

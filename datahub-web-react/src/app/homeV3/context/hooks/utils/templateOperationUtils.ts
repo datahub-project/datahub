@@ -1,4 +1,4 @@
-import { message } from 'antd';
+import { toast } from '@components';
 import i18next from 'i18next';
 
 import { PageTemplateFragment } from '@graphql/template.generated';
@@ -103,7 +103,7 @@ export const persistTemplateChanges = async (
             context.setGlobalTemplate(context.globalTemplate);
         }
         console.error(`Failed to ${operation}:`, error);
-        message.error(getOperationErrorMessage(operation));
+        toast.error(getOperationErrorMessage(operation));
     }
 };
 
@@ -113,7 +113,7 @@ export const persistTemplateChanges = async (
 export const handleValidationError = (validationError: string | null, operation: string): boolean => {
     if (validationError) {
         console.error(`Invalid ${operation} input:`, validationError);
-        message.error(validationError);
+        toast.error(validationError);
         return true;
     }
     return false;
@@ -125,7 +125,7 @@ export const handleValidationError = (validationError: string | null, operation:
 export const validateTemplateAvailability = (template: PageTemplateFragment | null, errorMessage: string): boolean => {
     if (!template) {
         console.error('No template provided to update');
-        message.error(errorMessage);
+        toast.error(errorMessage);
         return false;
     }
     return true;

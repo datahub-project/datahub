@@ -60,7 +60,7 @@ public class ReindexDebugStepTest {
     structuredProperties = new HashSet<>();
     structuredProperties.add(Pair.of(urn, structuredPropertyDefinition));
 
-    reindexDebugStep = new ReindexDebugStep(services, structuredProperties);
+    reindexDebugStep = new ReindexDebugStep(services, () -> structuredProperties);
 
     // Setup common mocks
     Mockito.when(elasticSearchService.getIndexBuilder()).thenReturn(indexBuilder);
@@ -76,7 +76,7 @@ public class ReindexDebugStepTest {
     Set<Pair<Urn, StructuredPropertyDefinition>> props = new HashSet<>();
 
     // Act
-    ReindexDebugStep step = new ReindexDebugStep(servicesWithES, props);
+    ReindexDebugStep step = new ReindexDebugStep(servicesWithES, () -> props);
 
     // Assert
     Assert.assertNotNull(step);
@@ -90,7 +90,7 @@ public class ReindexDebugStepTest {
     Set<Pair<Urn, StructuredPropertyDefinition>> props = new HashSet<>();
 
     // Act
-    ReindexDebugStep step = new ReindexDebugStep(servicesWithoutES, props);
+    ReindexDebugStep step = new ReindexDebugStep(servicesWithoutES, () -> props);
 
     // Assert
     Assert.assertNotNull(step);
@@ -104,7 +104,7 @@ public class ReindexDebugStepTest {
     Set<Pair<Urn, StructuredPropertyDefinition>> props = new HashSet<>();
 
     // Act
-    ReindexDebugStep step = new ReindexDebugStep(emptyServices, props);
+    ReindexDebugStep step = new ReindexDebugStep(emptyServices, () -> props);
 
     // Assert
     Assert.assertNotNull(step);
@@ -457,7 +457,7 @@ public class ReindexDebugStepTest {
     // Arrange - Create step without ElasticSearchService
     List<ElasticSearchIndexed> servicesWithoutES = Arrays.asList(otherElasticSearchIndexed);
     ReindexDebugStep stepWithoutService =
-        new ReindexDebugStep(servicesWithoutES, structuredProperties);
+        new ReindexDebugStep(servicesWithoutES, () -> structuredProperties);
 
     Map<String, Optional<String>> parsedArgs = new HashMap<>();
     parsedArgs.put("index", Optional.of("test_index"));
@@ -501,7 +501,7 @@ public class ReindexDebugStepTest {
   @Test
   public void testGetArgs_WhenNotSet() {
     // Arrange - Fresh instance
-    ReindexDebugStep freshStep = new ReindexDebugStep(services, structuredProperties);
+    ReindexDebugStep freshStep = new ReindexDebugStep(services, () -> structuredProperties);
 
     // Act
     ReindexDebugArgs result = freshStep.getArgs();

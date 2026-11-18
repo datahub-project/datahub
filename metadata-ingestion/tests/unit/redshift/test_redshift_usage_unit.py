@@ -1,14 +1,7 @@
 from datetime import datetime, timezone
-from typing import Dict, List, Optional, Union
-from unittest.mock import MagicMock
+from typing import List
 
 from datahub.emitter.mce_builder import make_dataset_urn
-from datahub.ingestion.source.redshift.config import RedshiftConfig
-from datahub.ingestion.source.redshift.redshift_schema import (
-    RedshiftTable,
-    RedshiftView,
-)
-from datahub.ingestion.source.redshift.report import RedshiftReport
 from datahub.ingestion.source.redshift.usage import (
     RedshiftAccessEvent,
     RedshiftUsageExtractor,
@@ -18,52 +11,7 @@ from datahub.metadata.schema_classes import (
     OperationClass,
     OperationTypeClass,
 )
-
-ALL_TABLES: Dict[str, Dict[str, List[Union[RedshiftView, RedshiftTable]]]] = {
-    "dev": {
-        "public": [
-            RedshiftTable(
-                name="users",
-                schema="public",
-                type="BASE TABLE",
-                created=None,
-                comment="",
-            ),
-            RedshiftTable(
-                name="orders",
-                schema="public",
-                type="BASE TABLE",
-                created=None,
-                comment="",
-            ),
-        ]
-    }
-}
-
-
-def _usage_extractor(
-    *,
-    include_usage_statistics: bool = True,
-    include_column_usage_stats: bool = False,
-    include_operational_stats: bool = False,
-    email_domain: Optional[str] = "acryl.io",
-) -> RedshiftUsageExtractor:
-    config = RedshiftConfig(
-        host_port="test:1234",
-        database="dev",
-        email_domain=email_domain,
-        include_usage_statistics=include_usage_statistics,
-        include_column_usage_stats=include_column_usage_stats,
-        include_operational_stats=include_operational_stats,
-        start_time="2024-01-01T00:00:00Z",
-        end_time="2024-01-02T00:00:00Z",
-    )
-    return RedshiftUsageExtractor(
-        config=config,
-        connection=MagicMock(),
-        report=RedshiftReport(),
-        dataset_urn_builder=lambda table: make_dataset_urn("redshift", table),
-    )
+from tests.unit.redshift.conftest import AllTables, make_config, make_usage_extractor
 
 
 def _access_event(table: str) -> RedshiftAccessEvent:
@@ -81,8 +29,10 @@ def _access_event(table: str) -> RedshiftAccessEvent:
     )
 
 
-def _usage_aspect_urns(extractor: RedshiftUsageExtractor) -> List[str]:
-    wus = list(extractor.get_usage_workunits(all_tables=ALL_TABLES))
+def _usage_aspect_urns(
+    extractor: RedshiftUsageExtractor, all_tables: AllTables
+) -> List[str]:
+    wus = list(extractor.get_usage_workunits(all_tables=all_tables))
     return [
         str(getattr(wu.metadata, "entityUrn", ""))
         for wu in wus
@@ -90,30 +40,30 @@ def _usage_aspect_urns(extractor: RedshiftUsageExtractor) -> List[str]:
     ]
 
 
-def test_default_usage_path_emits_usage_and_auto_empty(monkeypatch):
+def test_default_usage_path_emits_usage_and_auto_empty(monkeypatch, all_tables):
     # Default (stl_scan) path: a read on `users` is attributed via add_preparsed_query,
     # and the unused `orders` table still gets an (empty) usage aspect via the
     # auto_empty backfill.
-    extractor = _usage_extractor(include_column_usage_stats=False)
+    extractor = make_usage_extractor(include_column_usage_stats=False)
     monkeypatch.setattr(
         extractor,
         "_gen_access_events_from_history_query",
         lambda *a, **k: iter([_access_event("users")]),
     )
-    urns = _usage_aspect_urns(extractor)
+    urns = _usage_aspect_urns(extractor, all_tables)
     assert any("public.users" in u for u in urns)
     assert any("public.orders" in u for u in urns)  # auto_empty backfill
 
 
-def test_v2_usage_path_emits_no_usage_aspects_from_extractor():
+def test_v2_usage_path_emits_no_usage_aspects_from_extractor(all_tables):
     # In column-usage (v2) mode the lineage aggregator owns usage, so this
     # extractor emits no usage aspects and skips the auto_empty backfill.
-    extractor = _usage_extractor(include_column_usage_stats=True)
-    assert _usage_aspect_urns(extractor) == []
+    extractor = make_usage_extractor(include_column_usage_stats=True)
+    assert _usage_aspect_urns(extractor, all_tables) == []
 
 
 def test_access_event_to_preparsed_query():
-    extractor = _usage_extractor()
+    extractor = make_usage_extractor()
     pq = extractor._access_event_to_preparsed_query(_access_event("users"))
     assert pq.upstreams == [make_dataset_urn("redshift", "dev.public.users")]
     assert pq.query_count == 1
@@ -140,7 +90,7 @@ def test_access_event_normalizes_non_utc_aware_starttime():
 
 
 def test_usage_user_urn_blank_username_falls_back_to_unknown():
-    assert str(_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
+    assert str(make_usage_extractor()._user_urn("")) == "urn:li:corpuser:unknown"
 
 
 def test_access_event_accepts_null_username():
@@ -162,13 +112,13 @@ def test_access_event_accepts_null_username():
 
 
 def test_usage_user_urn_none_username_falls_back_to_unknown():
-    assert str(_usage_extractor()._user_urn(None)) == "urn:li:corpuser:unknown"
+    assert str(make_usage_extractor()._user_urn(None)) == "urn:li:corpuser:unknown"
 
 
-def test_operation_aspect_emitted_without_actor_when_user_unresolved():
+def test_operation_aspect_emitted_without_actor_when_user_unresolved(all_tables):
     # An unresolved user must NOT drop the operation: actor is optional, so emit the
     # record with actor=None rather than losing the fact that the table was modified.
-    extractor = _usage_extractor(include_operational_stats=True)
+    extractor = make_usage_extractor(include_operational_stats=True)
     event = RedshiftAccessEvent(
         userid=7,
         username=None,
@@ -184,7 +134,7 @@ def test_operation_aspect_emitted_without_actor_when_user_unresolved():
     )
     mcps = list(
         extractor._gen_operation_aspect_workunits_from_access_events(
-            iter([event]), all_tables=ALL_TABLES
+            iter([event]), all_tables=all_tables
         )
     )
     assert len(mcps) == 1
@@ -195,21 +145,22 @@ def test_operation_aspect_emitted_without_actor_when_user_unresolved():
 
 
 def test_usage_user_urn_strips_domain_when_email_already_present():
-    urn = _usage_extractor(email_domain="company.com")._user_urn("alice@company.com")
+    urn = make_usage_extractor(email_domain="company.com")._user_urn(
+        "alice@company.com"
+    )
     assert str(urn) == "urn:li:corpuser:alice"
 
 
 def test_usage_user_urn_without_email_domain_uses_bare_username():
     # email_domain is required when usage is enabled, so disable usage here to
     # exercise the no-domain guard path of _user_urn.
-    extractor = _usage_extractor(email_domain=None, include_usage_statistics=False)
+    extractor = make_usage_extractor(email_domain=None, include_usage_statistics=False)
     assert str(extractor._user_urn("bob")) == "urn:li:corpuser:bob"
 
 
 def test_config_lineage_enabled_property():
-    base = dict(host_port="test:1234", database="dev", email_domain="acryl.io")
-    all_off = RedshiftConfig(
-        **base,
+    all_off = make_config(
+        email_domain="acryl.io",
         include_table_lineage=False,
         include_view_lineage=False,
         include_copy_lineage=False,
@@ -218,4 +169,7 @@ def test_config_lineage_enabled_property():
         include_table_rename_lineage=False,
     )
     assert all_off.lineage_enabled is False
-    assert RedshiftConfig(**base, include_view_lineage=True).lineage_enabled is True
+    assert (
+        make_config(email_domain="acryl.io", include_view_lineage=True).lineage_enabled
+        is True
+    )

@@ -58,6 +58,7 @@ prefect-plugin:
   - added|modified: "metadata-ingestion-modules/prefect-plugin/**"
 playwright-e2e:
   - added|modified: "e2e-test/ui/playwright/**"
+  - added|modified: ".github/scripts/check_playwright_p0.py"
 docs-website:
   - added|modified: "docs-website/generateDocsDir.ts"
   - added|modified: "docs-website/sidebars.js"
@@ -70,7 +71,7 @@ spotless:
   - "**/*.gradle"
   - "**/*.gradle.kts"
 product-update-sync:
-  - docs/how/updating-datahub.md
+  - docs/how/breaking-changes.md
   - docs/managed-datahub/release-notes/**
   - metadata-service/configuration/src/main/resources/product-update.json
   - metadata-service/configuration/src/main/resources/product-update-saas.json

@@ -12,6 +12,8 @@ from datahub.ingestion.source.kafka_connect.common import (
     KAFKA,
     MYSQL_SINK_CLOUD,
     POSTGRES_SINK_CLOUD,
+    POSTGRES_SOURCE_CLOUD,
+    S3_SOURCE_CLOUD,
     SINK,
     SNOWFLAKE_SINK_CLOUD,
     SNOWFLAKE_SOURCE_CLOUD,
@@ -24,6 +26,10 @@ from datahub.ingestion.source.kafka_connect.common import (
     KafkaConnectSourceReport,
     get_platform_instance,
     parse_comma_separated_list,
+)
+from datahub.ingestion.source.kafka_connect.config_constants import (
+    ConnectorConfigKeys,
+    topics_from_regex_list,
 )
 from datahub.sql_parsing.schema_resolver_provider import SchemaResolverProvider
 
@@ -169,19 +175,35 @@ class ConnectorRegistry:
             DEBEZIUM_SOURCE_CONNECTOR_PREFIX,
             JDBC_SOURCE_CONNECTOR_CLASS,
             MONGO_SOURCE_CONNECTOR_CLASS,
+            S3_SOURCE_CONNECTOR_CLASS,
             ConfluentJDBCSourceConnector,
+            ConfluentS3SourceConnector,
             DebeziumSourceConnector,
             MongoSourceConnector,
             SnowflakeSourceConnector,
         )
 
-        # Traditional JDBC source connector
-        if connector_class_value == JDBC_SOURCE_CONNECTOR_CLASS:
+        # Explicit generic_connectors mappings win over class-name auto-detection,
+        # as on the sink path, so operators can override a built-in source.
+        generic = ConnectorRegistry._generic_source_connector(manifest, config, report)
+        if generic is not None:
+            return generic
+
+        # Traditional JDBC source connector, plus Confluent Cloud managed
+        # PostgresSource (non-CDC). Managed JDBC topics are {topic.prefix}{table};
+        # the Debezium path would emit {server}.{schema}.{table} instead.
+        if connector_class_value in (
+            JDBC_SOURCE_CONNECTOR_CLASS,
+            POSTGRES_SOURCE_CLOUD,
+        ):
             return ConfluentJDBCSourceConnector(manifest, config, report)
         # Snowflake Source connector (Confluent Cloud managed)
         elif connector_class_value == SNOWFLAKE_SOURCE_CLOUD:
             return SnowflakeSourceConnector(manifest, config, report)
-        # Cloud CDC connectors (use Debezium-style naming)
+        # S3 source connectors (self-hosted and Confluent Cloud managed)
+        elif connector_class_value in (S3_SOURCE_CONNECTOR_CLASS, S3_SOURCE_CLOUD):
+            return ConfluentS3SourceConnector(manifest, config, report)
+        # Cloud CDC source connectors (use Debezium-style naming)
         elif (
             connector_class_value in CLOUD_JDBC_SOURCE_CLASSES
             or connector_class_value.startswith(DEBEZIUM_SOURCE_CONNECTOR_PREFIX)
@@ -189,7 +211,15 @@ class ConnectorRegistry:
             return DebeziumSourceConnector(manifest, config, report)
         elif connector_class_value == MONGO_SOURCE_CONNECTOR_CLASS:
             return MongoSourceConnector(manifest, config, report)
+        return None
 
+    @staticmethod
+    def _generic_source_connector(
+        manifest: ConnectorManifest,
+        config: KafkaConnectSourceConfig,
+        report: KafkaConnectSourceReport,
+    ) -> Optional["_GenericConnector"]:
+        """The `generic_connectors` entry for a source connector, if it is usable."""
         generic = ConnectorRegistry._generic_connector_for_name(
             manifest, config, report
         )
@@ -360,8 +390,17 @@ class _GenericConnector(BaseConnector):
                     )
                 )
         else:
-            # Source mapping: source dataset → kafka topic
-            for topic in self.available_topics():
+            # Source mapping: source dataset -> kafka topic. Confluent Cloud reports no
+            # topics per connector, so fall back to topics the config names explicitly.
+            topics = self.available_topics() or self.get_topics_from_config()
+            if not topics:
+                self.report.warning(
+                    message="generic_connectors source mapping emitted no lineage: the "
+                    "connector reports no topics and its config names none ('topics', "
+                    "'kafka.topic', 'topic' or 'topic.regex.list')",
+                    context=f"connector={self.connector_manifest.name}",
+                )
+            for topic in topics:
                 lineages.append(
                     KafkaConnectLineage(
                         source_platform=self.generic_config.source_platform,
@@ -386,7 +425,10 @@ class _GenericConnector(BaseConnector):
         if topic:
             return [topic.strip()]
 
-        return []
+        # S3 source: `<topic>:<regex>` pairs name the produced topics.
+        return topics_from_regex_list(
+            config.get(ConnectorConfigKeys.TOPIC_REGEX_LIST, "")
+        )
 
     @staticmethod
     def supports_connector_class(connector_class: str) -> bool:

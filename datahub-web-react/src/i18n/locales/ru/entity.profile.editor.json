@@ -11,7 +11,7 @@
     "link.linkUrl": "URL ссылки",
     "link.text": "Текст",
     "link.title": "Добавить ссылку",
-    "mentions.failedToFindEntity": "Не удалось найти объект",
+    "mentions.notFound": "Не удалось найти объект",
     "table.deleteColumn": "Удалить столбец",
     "table.deleteRow": "Удалить строку",
     "table.deleteTable": "Удалить таблицу",

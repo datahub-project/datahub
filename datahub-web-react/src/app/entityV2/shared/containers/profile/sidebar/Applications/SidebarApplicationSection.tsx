@@ -6,7 +6,7 @@ import React, { useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 
-import { useEntityData, useMutationUrn, useRefetch } from '@app/entity/shared/EntityContext';
+import { useEntityData, useMutationUrn, useRefetch } from '@app/entityV2/shared/EntityContext';
 import { EMPTY_MESSAGES } from '@app/entityV2/shared/constants';
 import { SetApplicationModal } from '@app/entityV2/shared/containers/profile/sidebar/Applications/SetApplicationModal';
 import EmptySectionText from '@app/entityV2/shared/containers/profile/sidebar/EmptySectionText';

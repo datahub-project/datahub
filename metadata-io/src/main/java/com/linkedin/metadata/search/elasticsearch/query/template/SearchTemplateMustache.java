@@ -84,8 +84,22 @@ public final class SearchTemplateMustache {
     }
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS, fields);
     context.put(SearchTemplateContextVariables.DEFAULT_QUERY_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.DEFAULT_FIELDS_WITHOUT_IDENTITY_JSON, json(fields));
     context.put(SearchTemplateContextVariables.IDENTITY_QUERY_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.NAME_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.NAME_FIELDS_JSON, json(List.of("name.text^10.0")));
+    context.put(SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS, Boolean.TRUE);
+    context.put(
+        SearchTemplateContextVariables.QUALIFIED_NAME_FIELDS_JSON,
+        json(List.of("qualifiedName.text^10.0")));
+    context.put(SearchTemplateContextVariables.ID_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.ID_FIELDS_JSON, json(List.of("id.text^10.0")));
+    context.put(SearchTemplateContextVariables.EMAIL_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.EMAIL_FIELDS_JSON, json(List.of("email.text^10.0")));
     context.put(SearchTemplateContextVariables.LIGHT_FIELDS_JSON, json(fields));
+    context.put(SearchTemplateContextVariables.HAS_DEFAULT_QUERY_FIELDS, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.HAS_DEFAULT_FIELDS_WITHOUT_IDENTITY, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.HAS_LIGHT_FIELDS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LIGHT_OPERATOR, "OR");
     context.put(
         SearchTemplateContextVariables.ENTITY_TYPES, List.of("dataset", "dashboard", "chart"));
@@ -123,6 +137,9 @@ public final class SearchTemplateMustache {
     context.put(SearchTemplateContextVariables.FUZZY_MAX_EXPANSIONS, 10);
     context.put(SearchTemplateContextVariables.PREFIX_MAX_EXPANSIONS, 50);
     context.put(SearchTemplateContextVariables.PREFIX_FIELD, "name.text");
+    context.put(
+        SearchTemplateContextVariables.PREFIX_KEYWORD,
+        SearchTemplateFields.lowercaseKeywordPath("name"));
     context.put(SearchTemplateContextVariables.STRUCTURED_QUERY, "{\"match_all\":{}}");
     context.put(SearchTemplateContextVariables.BROAD_QUERY, "orders");
     context.put(SearchTemplateContextVariables.LIGHT_QUERY_TEXT, "orders");
@@ -145,6 +162,9 @@ public final class SearchTemplateMustache {
         SearchTemplateContextVariables.DESCRIPTION_TEXT,
         SearchTemplateFields.textPath("description"));
     context.put(SearchTemplateContextVariables.ID_KEYWORD, SearchTemplateFields.keywordPath("id"));
+    context.put(
+        SearchTemplateContextVariables.EMAIL_KEYWORD, SearchTemplateFields.keywordPath("email"));
+    context.put(SearchTemplateContextVariables.EMAIL_TEXT, "email.text");
     context.put(SearchTemplateContextVariables.URN_KEYWORD, "urn");
     context.put(SearchTemplateContextVariables.NORMALIZED_KEYWORD, "orders");
     context.put(SearchTemplateContextVariables.LETTER_DIGIT_QUERY, "orders 2017");
@@ -166,7 +186,7 @@ public final class SearchTemplateMustache {
     List<String> synonyms =
         Collections.nCopies(SearchTemplateNormalizationPolicy.MAX_SYNONYM_CAP, "production");
     context.put(SearchTemplateContextVariables.SYNONYM_QUERIES, synonyms);
-    context.put(SearchTemplateContextVariables.SYNONYMS, synonyms);
+    context.put(SearchTemplateContextVariables.SYNONYMS, synonymElements(synonyms));
     context.put(SearchTemplateContextVariables.SYNONYM_PRIORITY, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.MULTI_WORD, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LONG_QUERY, Boolean.TRUE);
@@ -177,6 +197,16 @@ public final class SearchTemplateMustache {
     context.put(SearchTemplateContextVariables.DEEP_PATH, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LONG_EXACT_NAME, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.SPACELESS_IDENTIFIER, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.SPACELESS_DOTTED, Boolean.TRUE);
+    context.put(SearchTemplateContextVariables.TERMINAL_SEGMENT, "orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH, "db.orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_PREFIX, "db.orders.*");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_SUFFIX, "*.db.orders");
+    context.put(SearchTemplateContextVariables.DOTTED_PATH_CONTAINS, "*.db.orders.*");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH, "db");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_PREFIX, "db.*");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_SUFFIX, "*.db");
+    context.put(SearchTemplateContextVariables.QUALIFIER_PATH_CONTAINS, "*.db.*");
     context.put(SearchTemplateContextVariables.OPERATOR_ESCAPED, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.LETTER_DIGIT_PARTS, Boolean.TRUE);
     context.put(SearchTemplateContextVariables.FQN_PARTS, Boolean.TRUE);
@@ -233,6 +263,36 @@ public final class SearchTemplateMustache {
       }
     }
     return names;
+  }
+
+  /**
+   * One map per synonym. {@code {{synonym}}} still resolves inside a nested section such as {@code
+   * {{#qualifiedNameFields}}}. {@code {{.}}} at the synonym section is the synonym text, so a
+   * stored template written that way keeps searching the synonym.
+   */
+  @Nonnull
+  public static List<Map<String, String>> synonymElements(@Nonnull List<String> synonyms) {
+    List<Map<String, String>> elements = new ArrayList<>(synonyms.size());
+    for (String synonym : synonyms) {
+      elements.add(new SynonymElement(synonym));
+    }
+    return elements;
+  }
+
+  /** {@code toString} is the synonym so Mustache {@code {{.}}} writes the text, not the map. */
+  private static final class SynonymElement extends LinkedHashMap<String, String> {
+    private final String text;
+
+    private SynonymElement(@Nonnull String text) {
+      super(1);
+      this.text = text;
+      put(SearchTemplateContextVariables.SYNONYM, text);
+    }
+
+    @Override
+    public String toString() {
+      return text;
+    }
   }
 
   @Nonnull

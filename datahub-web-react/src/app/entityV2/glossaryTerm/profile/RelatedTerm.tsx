@@ -38,7 +38,14 @@ function RelatedTerm(props: Props) {
 
     const { t } = useTranslation('entity.types');
     const entityRegistry = useEntityRegistry();
-    const { data, loading } = useGetGlossaryTermQuery({ variables: { urn } });
+    // Separate this from the profile's in-flight getGlossaryTerm. Sharing that request lets
+    // unmounting the card cancel the profile fetch when the user opens this term.
+    const { data, loading } = useGetGlossaryTermQuery({
+        variables: { urn },
+        skip: !urn,
+        // Apollo 3 reads this from context, not the top-level watchQuery option.
+        context: { queryDeduplication: false },
+    });
     let displayName = '';
     if (data) {
         displayName = entityRegistry.getDisplayName(EntityType.GlossaryTerm, data.glossaryTerm);
