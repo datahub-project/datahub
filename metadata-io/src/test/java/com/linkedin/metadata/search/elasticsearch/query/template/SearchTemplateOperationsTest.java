@@ -245,7 +245,7 @@ public class SearchTemplateOperationsTest {
                   "orders", null, null, 10, SearchTemplateWalk.identity()),
               urn ->
                   SearchTemplateWalk.AttemptResult.ok(
-                      urn, 1, List.of(), List.of(), false, null, null),
+                      urn, 1, List.of(), List.of(), false, null, null, false),
               (first, entities, total) -> first);
       assertEquals(served.urn(), FULL);
     } finally {

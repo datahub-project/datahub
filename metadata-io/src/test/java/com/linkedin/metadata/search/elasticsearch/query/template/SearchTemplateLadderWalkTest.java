@@ -501,7 +501,8 @@ public class SearchTemplateLadderWalkTest extends SearchTemplateFixture {
                       List.of(),
                       urn.equals(shard),
                       null,
-                      null);
+                      null,
+                      false);
                 },
                 (first, entities, total) -> {
                   SearchResult copy = new SearchResult();

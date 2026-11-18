@@ -64,7 +64,7 @@ public final class SearchTemplateGates {
    * Capabilities this build runs. The pull request that executes a shape advertises its name, so a
    * build never binds a shape it cannot run.
    */
-  public static final Set<String> ADVERTISED = Set.of();
+  public static final Set<String> ADVERTISED = Set.of(DOCUMENT_RERANK);
 
   /** Entity types this build runs for each embedding profile class. */
   public static final Map<String, Set<String>> ADVERTISED_ENTITY_TYPES =
@@ -140,12 +140,17 @@ public final class SearchTemplateGates {
     return advertised.contains(capability);
   }
 
+  /** This edition's hybrid read flag. */
+  public boolean hybridRead() {
+    return hybridRead;
+  }
+
   /** Capabilities the merged template's shape needs. */
   @Nonnull
   public static Set<String> required(@Nonnull MergedSearchTemplate template) {
     Set<String> needs = new LinkedHashSet<>();
     SearchTemplateRetrieval retrieval = template.getRetrieval();
-    String combine = SearchTemplateCapabilities.combine(retrieval);
+    String combine = SearchTemplateCapabilities.effectiveCombine(template);
     if (combine != null) {
       needs.add(
           switch (combine) {
@@ -205,7 +210,7 @@ public final class SearchTemplateGates {
     // A keyword rung has no vector leg. A native mixed query is not a keyword rung: its
     // placeholders use the selection.
     SearchTemplateRetrieval retrieval = template.getRetrieval();
-    if (SearchTemplateCapabilities.combine(retrieval) == null
+    if (SearchTemplateCapabilities.effectiveCombine(template) == null
         && !needs.contains(NATIVE_MIXED_QUERY)
         && (template.getProfiles() != null
             || (retrieval != null && StringUtils.isNotBlank(retrieval.getProfileScore())))) {
@@ -280,6 +285,27 @@ public final class SearchTemplateGates {
   }
 
   /**
+   * Profiles the vector leg resolves for the requested types that pass the entity gates, in request
+   * order.
+   */
+  @Nonnull
+  public Set<String> joinedProfileIds(
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Collection<String> entityTypes,
+      @Nullable String system) {
+    SearchTemplateProfiles selection = selection(template);
+    Set<String> ids = new LinkedHashSet<>();
+    for (String entityType : members(template, entityTypes)) {
+      EmbeddingProfileRegistry.Resolution resolution =
+          profiles.resolve(selection, entityType, system);
+      if (joinGate(resolution, entityType) == null && resolution.failure() == null) {
+        ids.addAll(resolution.profileIds());
+      }
+    }
+    return ids;
+  }
+
+  /**
    * The profiles selection the vector leg resolves. {@code profiles} wins. Otherwise a semantic
    * shape that names an embedding through the deprecated {@code model} or {@code field} selects
    * that id, with no alias. A legacy knn with no combine keeps its field as opaque syntax and
@@ -327,7 +353,7 @@ public final class SearchTemplateGates {
   // capability the shape needs and, for keywordRerank, this request can rerank.
   private boolean runsVectorLeg(@Nonnull MergedSearchTemplate template, boolean documentRerank) {
     Set<String> needs = required(template);
-    if (SearchTemplateCapabilities.combine(template.getRetrieval()) == null
+    if (SearchTemplateCapabilities.effectiveCombine(template) == null
         && !needs.contains(NATIVE_MIXED_QUERY)) {
       return false;
     }
@@ -455,7 +481,7 @@ public final class SearchTemplateGates {
   // elsewhere in the section do not hide the names. A section that does not render to an object
   // names no id; write rejects it.
   @Nullable
-  private static JsonNode readKnn(@Nullable String knn) {
+  static JsonNode readKnn(@Nullable String knn) {
     if (knn == null || knn.isBlank()) {
       return null;
     }

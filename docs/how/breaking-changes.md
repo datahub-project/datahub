@@ -24,6 +24,17 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Search templates with a `knn` section that names `model` and `field`
+
+A stored search template whose `knn` section names both `model` and `field`, with no
+`retrieval.combine`, is now read as `keywordRerank`. With search template read on, it no longer
+runs the earlier document rerank. When hybrid read is on, it reranks the Document rows in the keyword
+window with the template's blend, and other rows keep their places. When hybrid read is off, or the
+rerank cannot run, the search keeps keyword order instead of failing. The `model` and `field` names
+are ignored; the rerank uses the default embedding profile for each entity type. A `knn` section
+with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
+the section.
+
 <!--
 
 ## <version number>

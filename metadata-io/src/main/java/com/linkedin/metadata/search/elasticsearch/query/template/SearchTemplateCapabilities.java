@@ -1,5 +1,6 @@
 package com.linkedin.metadata.search.elasticsearch.query.template;
 
+import com.fasterxml.jackson.databind.JsonNode;
 import com.linkedin.search.template.SearchTemplateComponentMode;
 import com.linkedin.search.template.SearchTemplateProperties;
 import com.linkedin.search.template.SearchTemplateRanking;
@@ -261,13 +262,13 @@ public final class SearchTemplateCapabilities {
       }
     }
     // keywordRerank serves keyword order when the rerank cannot run, so it is not a capability
-    // failure. This release reads that shape and does not execute the rerank.
-    // Only the legacy shape, with no combine, runs its knn through document rerank. With a combine,
-    // knn carries the blend or the deprecated profile names, and the gates decide.
+    // failure. Only the legacy shape, a knn with no combine that is not read as keywordRerank, runs
+    // its knn through document rerank. With a combine, knn carries the blend or the deprecated
+    // profile names, and the gates decide.
     if (template.getKnn() != null
         && !scroll
         && !documentRerank
-        && combine(template.getRetrieval()) == null) {
+        && effectiveCombine(template) == null) {
       return "knn";
     }
     if (template.getLadder() != null
@@ -342,6 +343,28 @@ public final class SearchTemplateCapabilities {
   }
 
   /**
+   * The combine a merged template runs: {@link #combine(SearchTemplateRetrieval)}, else
+   * keywordRerank for a knn section that names both {@code model} and {@code field}, the earlier
+   * keywordRerank shape. Those names stay opaque, so the rerank resolves the entity default. A knn
+   * with only a field stays the legacy document rerank.
+   */
+  @Nullable
+  public static String effectiveCombine(@Nonnull MergedSearchTemplate template) {
+    String combine = combine(template.getRetrieval());
+    if (combine != null) {
+      return combine;
+    }
+    JsonNode knn = SearchTemplateGates.readKnn(template.getKnn());
+    return knn != null && namesText(knn, "model") && namesText(knn, "field")
+        ? COMBINE_KEYWORD_RERANK
+        : null;
+  }
+
+  private static boolean namesText(@Nonnull JsonNode node, @Nonnull String key) {
+    return node.path(key).isTextual() && StringUtils.isNotBlank(node.path(key).asText());
+  }
+
+  /**
    * True when a body cites the native embedding placeholders, which only the later native mixed
    * query renders.
    */
@@ -404,7 +427,7 @@ public final class SearchTemplateCapabilities {
   }
 
   public static boolean keywordRerank(@Nonnull MergedSearchTemplate template) {
-    return COMBINE_KEYWORD_RERANK.equals(combine(template.getRetrieval()));
+    return COMBINE_KEYWORD_RERANK.equals(effectiveCombine(template));
   }
 
   /**
