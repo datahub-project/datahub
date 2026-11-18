@@ -1,5 +1,6 @@
 import { ListDashes } from '@phosphor-icons/react/dist/csr/ListDashes';
 import i18next from 'i18next';
+import type { JSX } from 'react';
 import * as React from 'react';
 
 import { Entity, IconStyleType, PreviewType } from '@app/entityV2/Entity';

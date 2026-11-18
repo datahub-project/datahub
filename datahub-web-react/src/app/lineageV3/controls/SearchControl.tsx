@@ -161,7 +161,7 @@ function useAssignSearchedEntity(matchedNodes: string[]) {
     return searchIndex;
 }
 
-function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef>, setIsFocused: (value: boolean) => void) {
+function useCaptureKeyboardSearch(inputRef: React.RefObject<InputRef | null>, setIsFocused: (value: boolean) => void) {
     const { isFocused } = useContext(LineageVisualizationContext);
 
     const handleKeyPress = useCallback(

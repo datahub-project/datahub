@@ -1,6 +1,6 @@
 import { FolderOpen } from '@phosphor-icons/react/dist/csr/FolderOpen';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import { TYPE_ICON_CLASS_NAME, getSubTypeIcon } from '@app/entityV2/shared/components/subtypes';

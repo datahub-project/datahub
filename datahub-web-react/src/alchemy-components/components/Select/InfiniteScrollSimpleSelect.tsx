@@ -25,7 +25,7 @@ interface InfiniteScrollSimpleSelectProps<OptionType extends SelectOption = Sele
     options: OptionType[];
     loading?: boolean;
     hasMore?: boolean;
-    scrollRef?: ((node?: Element | null) => void) | React.RefObject<HTMLDivElement>;
+    scrollRef?: ((node?: Element | null) => void) | React.RefObject<HTMLDivElement | null>;
 }
 
 /**

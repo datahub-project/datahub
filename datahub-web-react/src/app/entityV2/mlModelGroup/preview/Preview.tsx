@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { PreviewType } from '@app/entityV2/Entity';
 import { EntityMenuItems } from '@app/entityV2/shared/EntityDropdown/EntityMenuActions';

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 
 import { IconStyleType, PreviewType } from '@app/entityV2/Entity';
 import { ChartStatsSummary as ChartStatsSummaryView } from '@app/entityV2/chart/shared/ChartStatsSummary';

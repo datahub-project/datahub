@@ -34,7 +34,7 @@ type ViewSelectContextType = {
     highlightedPrivateViewData: DataHubView[];
     highlightedPublicViewData: DataHubView[];
     hoverViewUrn: string | undefined;
-    scrollToRef?: React.RefObject<HTMLDivElement>;
+    scrollToRef?: React.RefObject<HTMLDivElement | null>;
     setHoverViewUrn: (viewUrn: string) => void;
     onClickEditView: (view: DataHubView) => void;
     onClickPreviewView: (view: DataHubView) => void;

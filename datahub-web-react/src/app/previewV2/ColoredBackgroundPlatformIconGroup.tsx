@@ -1,7 +1,7 @@
 import { Tooltip } from '@components';
 import { ArrowSquareOut } from '@phosphor-icons/react/dist/csr/ArrowSquareOut';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 

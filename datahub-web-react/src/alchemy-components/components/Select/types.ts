@@ -55,7 +55,7 @@ export interface SelectProps<OptionType extends SelectOption = SelectOption> {
     selectAllLabel?: string;
     showDescriptions?: boolean;
     renderCustomOptionText?: CustomOptionRenderer<OptionType>;
-    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
+    renderCustomSelectedValue?: (selectedOptions: OptionType) => React.ReactNode;
     filterResultsByQuery?: boolean;
     onSearchChange?: (searchText: string) => void;
     combinedSelectedAndSearchOptions?: OptionType[];
@@ -112,7 +112,7 @@ export interface SelectLabelDisplayProps<OptionType extends SelectOption> {
     disabledValues?: string[];
     showDescriptions?: boolean;
     isCustomisedLabel?: boolean;
-    renderCustomSelectedValue?: (selectedOptions: OptionType) => void;
+    renderCustomSelectedValue?: (selectedOptions: OptionType) => React.ReactNode;
     variant?: SelectLabelVariants;
     label?: string;
     selectedOptionListStyle?: React.CSSProperties;

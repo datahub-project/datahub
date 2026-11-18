@@ -97,6 +97,17 @@ const wrapperWith =
         </MockedProvider>
     );
 
+// refetch() resolves after its effect runs, which act() defers until its callback returns
+async function refetchAndSettle(refetch: () => Promise<void>) {
+    let pending: Promise<void> = Promise.resolve();
+    await act(async () => {
+        pending = refetch();
+    });
+    await act(async () => {
+        await pending;
+    });
+}
+
 describe('useGetEntityWithSchema two-phase sequencing', () => {
     beforeEach(() => {
         mockEntity.urn = TEST_URN;
@@ -175,9 +186,7 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         });
         await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
 
-        await act(async () => {
-            await result.current.refetch();
-        });
+        await refetchAndSettle(() => result.current.refetch());
 
         expect(result.current.entityWithSchema?.schemaMetadata?.fields?.[0]?.description).toEqual('user_id edited');
         // The reload never re-raised the metadata skeletons or dropped the rows.
@@ -306,9 +315,7 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         await waitFor(() => expect(result.current.structuralSchemaError).toBeTruthy());
         expect(result.current.structuralSchemaMetadata).toBeNull();
 
-        await act(async () => {
-            await result.current.refetch();
-        });
+        await refetchAndSettle(() => result.current.refetch());
 
         // refetch resolves once both phases have settled: the structural copy has already been
         // merged into the full one by now.
@@ -328,9 +335,7 @@ describe('useGetEntityWithSchema two-phase sequencing', () => {
         await waitFor(() => expect(result.current.fullMetadataError).toBeTruthy());
         expect(result.current.structuralSchemaMetadata?.fields).toHaveLength(2);
 
-        await act(async () => {
-            await result.current.refetch();
-        });
+        await refetchAndSettle(() => result.current.refetch());
 
         await waitFor(() => expect(result.current.entityWithSchema?.schemaMetadata?.fields).toHaveLength(2));
         expect(result.current.loading).toBe(false);

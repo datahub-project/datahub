@@ -4,7 +4,7 @@ import { Check } from '@phosphor-icons/react/dist/csr/Check';
 import { MagnifyingGlass } from '@phosphor-icons/react/dist/csr/MagnifyingGlass';
 import { Plus } from '@phosphor-icons/react/dist/csr/Plus';
 import { X } from '@phosphor-icons/react/dist/csr/X';
-import React, { RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
+import React, { JSX, RefObject, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react';
 
 import { Checkbox } from '@components/components/Checkbox';
 import {
@@ -114,7 +114,7 @@ function getValueLabel(selectedOptions: FilterValueOption[], placeholder: string
 }
 
 /** Whether the element's text is cut off, rechecked as its width changes. */
-function useIsTruncated(ref: RefObject<HTMLElement>, text: string): boolean {
+function useIsTruncated(ref: RefObject<HTMLElement | null>, text: string): boolean {
     const [isTruncated, setIsTruncated] = useState(false);
     useLayoutEffect(() => {
         const el = ref.current;
@@ -177,7 +177,7 @@ type ValueEditorProps = {
     rule: FilterRule;
     field: FilterField;
     labels: FilterBarLabels;
-    trigger: React.ReactElement;
+    trigger: React.ReactElement<{ onClick?: () => void }>;
     onChange: (rule: FilterRule) => void;
     compose?: {
         onCommit: (rule: FilterRule) => void;

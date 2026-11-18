@@ -1,4 +1,4 @@
-import React, { useCallback } from 'react';
+import React, { JSX, useCallback } from 'react';
 
 import { useRefetch } from '@app/entityV2/shared/EntityContext';
 import BusinessAttributeGroup from '@app/sharedV2/businessAttribute/BusinessAttributeGroup';

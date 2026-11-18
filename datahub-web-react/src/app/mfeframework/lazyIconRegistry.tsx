@@ -1,5 +1,5 @@
 import type { IconProps } from '@phosphor-icons/react';
-import React, { Suspense } from 'react';
+import React, { JSX, Suspense } from 'react';
 
 // Resolves Phosphor icons by name for admin-configured features (e.g. MFE nav, custom pages).
 // Two-level lazy split keeps the main bundle icon-free:

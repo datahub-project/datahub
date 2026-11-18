@@ -5,7 +5,7 @@ import { GridColumns } from '@visx/grid';
 import { Group } from '@visx/group';
 import { scaleUtc } from '@visx/scale';
 import { LinePath } from '@visx/shape';
-import React, { useMemo } from 'react';
+import React, { JSX, useMemo } from 'react';
 import { useTheme } from 'styled-components';
 
 import { AssertionResultPopoverContent } from '@app/entityV2/shared/tabs/Dataset/Validations/assertion/profile/shared/result/AssertionResultPopoverContent';

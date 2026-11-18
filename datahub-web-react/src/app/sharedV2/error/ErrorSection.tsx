@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { JSX } from 'react';
 import { Trans, useTranslation } from 'react-i18next';
 import styled, { useTheme } from 'styled-components';
 

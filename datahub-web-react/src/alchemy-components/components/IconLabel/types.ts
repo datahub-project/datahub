@@ -1,3 +1,5 @@
+import type { JSX } from 'react';
+
 export interface IconLabelProps {
     icon: JSX.Element;
     name: string;

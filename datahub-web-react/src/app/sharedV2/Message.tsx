@@ -1,5 +1,5 @@
 import { toast } from '@components';
-import React, { ReactNode, useEffect, useMemo } from 'react';
+import React, { JSX, ReactNode, useEffect, useMemo } from 'react';
 
 type MessageType = 'loading' | 'info' | 'error' | 'warning' | 'success';
 type MessageProps = {

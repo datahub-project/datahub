@@ -1,5 +1,5 @@
 import { Checkbox, Empty, Table, TableProps } from 'antd';
-import React, { useState } from 'react';
+import React, { JSX, useState } from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
 

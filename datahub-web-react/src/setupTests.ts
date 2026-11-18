@@ -2,6 +2,7 @@
 // allows you to do things like:
 // expect(element).toHaveTextContent(/react/i)
 // learn more: https://github.com/testing-library/jest-dom
+import '@ant-design/v5-patch-for-react-19';
 import '@testing-library/jest-dom/vitest';
 import i18n from 'i18next';
 import { createElement, forwardRef } from 'react';

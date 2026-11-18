@@ -1,5 +1,5 @@
 import { Layout } from 'antd';
-import React, { Suspense, useEffect } from 'react';
+import React, { JSX, Suspense, useEffect } from 'react';
 import { Route, Switch, useHistory, useLocation } from 'react-router-dom';
 import styled from 'styled-components';
 

@@ -1,5 +1,5 @@
 import { GraphCard, LineChart } from '@components';
-import React from 'react';
+import React, { JSX } from 'react';
 import { useTranslation } from 'react-i18next';
 
 import NoPermission from '@app/entityV2/shared/tabs/Dataset/Stats/StatsTabV2/graphs/NoPermission';

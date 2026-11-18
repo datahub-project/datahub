@@ -10,7 +10,7 @@ import { Entity } from '@src/types.generated';
 export interface Section {
     hasData: boolean;
     isLoading: boolean;
-    ref: React.RefObject<HTMLDivElement>;
+    ref: React.RefObject<HTMLDivElement | null>;
 }
 
 interface DataInfo {

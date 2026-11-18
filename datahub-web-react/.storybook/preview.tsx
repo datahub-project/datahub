@@ -1,3 +1,4 @@
+import '@ant-design/v5-patch-for-react-19';
 import { BADGE, defaultBadgesConfig } from '@geometricpanda/storybook-addon-badges';
 import { DocsContainer } from '@storybook/blocks';
 import { ConfigProvider } from 'antd';

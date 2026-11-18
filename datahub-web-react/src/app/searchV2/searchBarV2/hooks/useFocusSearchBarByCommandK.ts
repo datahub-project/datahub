@@ -2,7 +2,7 @@ import React, { useEffect } from 'react';
 
 import { checkIfMac } from '@app/utils/checkIfMac';
 
-export default function useFocusElementByCommandK(ref: React.RefObject<HTMLElement>, disable?: boolean) {
+export default function useFocusElementByCommandK(ref: React.RefObject<HTMLElement | null>, disable?: boolean) {
     useEffect(() => {
         if (!disable) {
             const handleKeyDown = (event: KeyboardEvent) => {

@@ -127,6 +127,10 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
     const { data, loading, error, refetch } = useGetIngestionExecutionRequestQuery({ variables: { urn } });
     const output = data?.executionRequest?.result?.report || 'No output found.';
 
+    useEffect(() => {
+        if (error) message.error('Failed to load execution run details :(');
+    }, [error]);
+
     const downloadLogs = () => {
         downloadFile(output, `exec-${urn}.log`);
     };
@@ -185,7 +189,6 @@ export const ExecutionDetailsModal = ({ urn, open, onClose }: Props) => {
             onCancel={onClose}
         >
             {!data && loading && <Message type="loading" content="Loading execution run details..." />}
-            {error && message.error('Failed to load execution run details :(')}
             <Section>
                 <StatusSection>
                     <Typography.Title level={5}>Status</Typography.Title>

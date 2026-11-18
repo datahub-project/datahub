@@ -1,6 +1,6 @@
 import { Image, Typography } from 'antd';
 import { Maybe } from 'graphql/jsutils/Maybe';
-import React from 'react';
+import React, { JSX } from 'react';
 import styled from 'styled-components';
 
 import ContainerLink from '@app/entityV2/shared/containers/profile/header/PlatformContent/ContainerLink';
@@ -80,7 +80,7 @@ interface Props {
     entityType?: string;
     parentContainers?: Maybe<Container>[] | null;
     parentEntities?: Entity[] | null;
-    parentContainersRef: React.RefObject<HTMLDivElement>;
+    parentContainersRef: React.RefObject<HTMLDivElement | null>;
     areContainersTruncated: boolean;
 }
 

@@ -111,7 +111,7 @@ const ContentContainer = styled.div`
     box-shadow: ${(props) => props.theme.colors.shadowSm};
 `;
 
-const fillIcon = (icon: React.ReactElement) => React.cloneElement(icon, { weight: 'fill' });
+const fillIcon = (icon: React.ReactElement<{ weight?: string }>) => React.cloneElement(icon, { weight: 'fill' });
 
 const SettingsPageContent = () => {
     const { t } = useTranslation('settings.page');
