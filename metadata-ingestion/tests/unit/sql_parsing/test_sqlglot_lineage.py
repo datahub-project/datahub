@@ -763,16 +763,19 @@ def test_insert_column_list_mapping_with_unexpandable_star() -> None:
     # Without the source schema the star cannot be expanded, so there are
     # no output columns to rename: no lineage is produced for it, and the
     # INSERT list name must not end up on an entry of its own.
-    assert _column_upstreams(
-        """\
+    assert (
+        _column_upstreams(
+            """\
 INSERT INTO my_db.my_schema.my_target (a)
 SELECT * FROM my_db.my_schema.unknown_source
 """,
-        platform="postgres",
-        schemas={
-            "my_db.my_schema.my_target": {"a": "NUMBER"},
-        },
-    ) == {}
+            platform="postgres",
+            schemas={
+                "my_db.my_schema.my_target": {"a": "NUMBER"},
+            },
+        )
+        == {}
+    )
 
 
 @pytest.mark.parametrize(

@@ -1640,9 +1640,7 @@ def _rename_insert_output_columns(
     # columns only when every output column produced an entry. Rename only
     # then, and only when the counts also match the INSERT list; anything
     # else keeps the SELECT output names, as before.
-    output_names = [
-        select_col.alias_or_name for select_col in select_statement.selects
-    ]
+    output_names = [select_col.alias_or_name for select_col in select_statement.selects]
     if (
         len(column_lineage) != len(insert_columns)
         or len(column_lineage) != len(output_names)
@@ -1672,7 +1670,7 @@ def _rename_insert_output_columns(
     # The INSERT list name wins over the casing computed from the SELECT:
     # it names the actual target column, so resolve it against the target
     # schema the same way output columns are resolved.
-    for info, insert_column in zip(column_lineage, insert_columns):
+    for info, insert_column in zip(column_lineage, insert_columns, strict=True):
         info.downstream.column = column_resolver.schema_aware_fuzzy_column_resolve(
             info.downstream.table, insert_column
         )
