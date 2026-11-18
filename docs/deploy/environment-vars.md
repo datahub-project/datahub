@@ -1062,7 +1062,7 @@ Reference Links:
 | `NESTED_DOMAINS_ENABLED`                | `true`  | Enable nested Domains feature                                                                                   | GMS        |
 | `SCHEMA_FIELD_ENTITY_FETCH_ENABLED`     | `true`  | Enable fetching schema field entities                                                                           | GMS        |
 | `BUSINESS_ATTRIBUTE_ENTITY_ENABLED`     | `false` | Enable business attribute entity                                                                                | GMS        |
-| `DATA_CONTRACTS_ENABLED`                | `true`  | Enable Data Contracts feature                                                                                   | GMS        |
+| `DATA_CONTRACTS_ENABLED`                | `false` | Enable Data Contracts feature                                                                                   | GMS        |
 | `DATASET_SUMMARY_PAGE_V1`               | `true`  | Enable Asset Summary pages for Datasets                                                                         | GMS        |
 | `ALTERNATE_MCP_VALIDATION`              | `false` | Enable alternate MCP validation flow                                                                            | GMS        |
 | `THEME_V2_ENABLED`                      | `true`  | Allow theme v2 to be turned on                                                                                  | GMS        |

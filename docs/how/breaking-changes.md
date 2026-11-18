@@ -15,6 +15,14 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### Data Contracts are off by default
+
+The Data Contracts feature is now turned off by default ([PR #PR_NUMBER](https://github.com/datahub-project/datahub/pull/PR_NUMBER)).
+The **Data Contract** tab on datasets, the contract actions on assertions, and the contract badge
+in the assertions list no longer appear unless you turn the feature on. Existing contracts are
+not deleted, and the GraphQL and SDK APIs for contracts keep working. To keep using Data Contracts
+in the UI, set `DATA_CONTRACTS_ENABLED=true` on GMS.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
