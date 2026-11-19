@@ -208,7 +208,7 @@ def execute_graphql(
     except Exception as e:
         # Variables can carry user data, so they stay out of the log.
         logger.warning(f"GraphQL {operation_name or 'query'} failed: {e}")
-        if not format_exception:
+        if not format_exception or isinstance(e, ToolError):
             raise
         raise ToolError(describe_datahub_error(e)) from e
 

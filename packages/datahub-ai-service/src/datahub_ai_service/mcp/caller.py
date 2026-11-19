@@ -11,7 +11,8 @@ from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
 from datahub_core_mcp_tools.graphql_helpers import with_datahub_client
 from datahub_core_mcp_tools.tool_context import ToolContext
 
-from .auth import CALLER_STATE_KEY, CallerClientFactory, VerifiedCaller
+from .auth import CALLER_STATE_KEY, VerifiedCaller
+from .client_factory import CallerClientFactory
 
 
 def current_caller() -> Optional[VerifiedCaller]:
@@ -36,9 +37,12 @@ class CallerClientMiddleware(Middleware):
         self,
         client_factory: CallerClientFactory,
         server_info: Callable[[], GmsServerInfo],
+        *,
+        time_limit_seconds: Optional[float] = None,
     ) -> None:
         self._client_factory = client_factory
         self._server_info = server_info
+        self._time_limit_seconds = time_limit_seconds
 
     async def _tool_context(self) -> ToolContext:
         try:
@@ -59,7 +63,9 @@ class CallerClientMiddleware(Middleware):
             raise RuntimeError("MCP request reached the server without a caller")
 
         tool_context = await self._tool_context()
-        client = self._client_factory.build(caller.token)
+        client = self._client_factory.build(
+            caller.token, time_limit_seconds=self._time_limit_seconds
+        )
         try:
             with with_datahub_client(client, tool_context):
                 return await call_next(context)

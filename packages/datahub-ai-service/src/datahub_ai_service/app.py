@@ -17,7 +17,8 @@ from datahub_core_mcp_tools.gms_server_info import GmsServerInfo, GmsServerInfoC
 
 from ._version import __version__
 from .config import AiServiceConfig
-from .mcp.auth import CallerClientFactory, DataHubTokenVerifier, McpAuthMiddleware
+from .mcp.auth import DataHubTokenVerifier, McpAuthMiddleware
+from .mcp.client_factory import CallerClientFactory
 from .mcp.server import build_mcp_server
 from .mcp.telemetry import ToolCallObserver
 
@@ -50,7 +51,10 @@ def create_app(
     mcp_app = None
     if config.mcp_enabled:
         mcp = build_mcp_server(
-            client_factory, server_info=server_info, observers=observers
+            client_factory,
+            server_info=server_info,
+            tool_time_limit_seconds=config.tool_time_limit_seconds,
+            observers=observers,
         )
         mcp_app = mcp.http_app(
             path=MCP_PATH,

@@ -20,6 +20,7 @@ def test_overrides() -> None:
             "DATAHUB_AI_MCP_ENABLED": "false",
             "DATAHUB_AI_MCP_RESPONSE_MODE": "JSON",
             "DATAHUB_MCP_TOKEN_CACHE_TTL_SECONDS": "30",
+            "DATAHUB_AI_TOOL_TIME_LIMIT_SECONDS": "60",
         }
     )
 
@@ -28,6 +29,7 @@ def test_overrides() -> None:
     assert not config.mcp_enabled
     assert config.mcp_response_mode == "json"
     assert config.token_cache_ttl_seconds == 30
+    assert config.tool_time_limit_seconds == 60
 
 
 def test_refuses_a_shared_token() -> None:

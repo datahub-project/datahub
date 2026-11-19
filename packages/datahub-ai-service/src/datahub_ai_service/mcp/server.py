@@ -1,6 +1,6 @@
 """The FastMCP server datahub-ai-service serves at /mcp."""
 
-from typing import Callable, Sequence
+from typing import Callable, Optional, Sequence
 
 from fastmcp import FastMCP
 
@@ -13,8 +13,8 @@ from datahub_core_mcp_tools.mcp_server import (
 from datahub_core_mcp_tools.version_filter import VersionFilterMiddleware
 
 from .._version import __version__
-from .auth import CallerClientFactory
 from .caller import CallerClientMiddleware
+from .client_factory import CallerClientFactory
 from .telemetry import ToolCallObserver, ToolCallTelemetryMiddleware
 
 
@@ -22,6 +22,7 @@ def build_mcp_server(
     client_factory: CallerClientFactory,
     *,
     server_info: Callable[[], GmsServerInfo],
+    tool_time_limit_seconds: Optional[float] = None,
     observers: Sequence[ToolCallObserver] = (),
 ) -> FastMCP:
     mcp = FastMCP[None](name="datahub", version=__version__)
@@ -32,7 +33,11 @@ def build_mcp_server(
 
     # The first middleware added is the outermost: the caller's client must be in
     # place before anything else (including telemetry) runs.
-    mcp.add_middleware(CallerClientMiddleware(client_factory, server_info))
+    mcp.add_middleware(
+        CallerClientMiddleware(
+            client_factory, server_info, time_limit_seconds=tool_time_limit_seconds
+        )
+    )
     mcp.add_middleware(VersionFilterMiddleware(server_info))
     mcp.add_middleware(ToolCallTelemetryMiddleware(observers))
     return mcp

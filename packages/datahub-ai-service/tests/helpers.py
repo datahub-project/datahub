@@ -10,7 +10,7 @@ import uvicorn
 from datahub.configuration.common import OperationalError
 from starlette.applications import Starlette
 
-from datahub_ai_service.mcp.auth import CallerClientFactory
+from datahub_ai_service.mcp.client_factory import CallerClientFactory
 
 
 def rejected_token_error() -> Exception:
@@ -82,7 +82,7 @@ class FakeClientFactory(CallerClientFactory):
     def __init__(self, gms: FakeGms) -> None:
         self._gms = gms
 
-    def build(self, token: str) -> Any:
+    def build(self, token: str, *, time_limit_seconds: Optional[float] = None) -> Any:
         self._gms.open_clients += 1
         client = type("FakeClient", (), {})()
         client._graph = _FakeGraph(self._gms, token)
