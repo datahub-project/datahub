@@ -1,6 +1,10 @@
 package com.linkedin.metadata.search.elasticsearch.query;
 
+import com.linkedin.common.EmbeddingChunk;
+import com.linkedin.common.EmbeddingModelData;
+import com.linkedin.common.SemanticContent;
 import com.linkedin.common.urn.Urn;
+import com.linkedin.entity.Aspect;
 import com.linkedin.metadata.config.search.SearchComponent;
 import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.search.api.SearchDocFieldFetchConfig;
@@ -27,11 +31,12 @@ import lombok.extern.slf4j.Slf4j;
 
 /**
  * The Search V3 index as a vector store: one kNN request with the keyword leg's filter inside it,
- * so neighbors are retrieved inside the caller's filter and the system filters.
+ * so neighbors are retrieved inside the caller's filter and the system filters. It finds an
+ * entity's vectors in the entity's {@code semanticContent}.
  */
 @Slf4j
 final class NativeVectorStore implements VectorStore {
-  static final Set<String> CAPABILITIES = Set.of(PRE_FILTER);
+  static final Set<String> CAPABILITIES = Set.of(PRE_FILTER, FIND_BY_ID);
 
   /**
    * A neighbor as the vector rung pages it: its URN, raw cosine, result score, and DataHub document
@@ -121,6 +126,10 @@ final class NativeVectorStore implements VectorStore {
     return neighbors;
   }
 
+  /**
+   * The entity's chunk vectors for the profile, from its {@code semanticContent}. The aspect read
+   * takes no timeout, so the caller bounds the call.
+   */
   @Nonnull
   @Override
   public List<float[]> findById(
@@ -128,7 +137,27 @@ final class NativeVectorStore implements VectorStore {
       @Nonnull String collection,
       @Nonnull Urn urn,
       @Nonnull Duration timeout) {
-    throw new UnsupportedOperationException("The DataHub index store does not find entities by id");
+    final Aspect aspect =
+        opContext
+            .getAspectRetriever()
+            .getLatestAspectObject(
+                opContext, urn, SearchTemplateVectorRetrieval.SEMANTIC_CONTENT_ASPECT_NAME);
+    final EmbeddingModelData embeddings =
+        aspect == null ? null : new SemanticContent(aspect.data()).getEmbeddings().get(collection);
+    if (embeddings == null) {
+      return List.of();
+    }
+    final List<float[]> vectors = new ArrayList<>();
+    for (EmbeddingChunk chunk : embeddings.getChunks()) {
+      final float[] vector = new float[chunk.getVector().size()];
+      for (int i = 0; i < vector.length; i++) {
+        vector[i] = chunk.getVector().get(i);
+      }
+      if (vector.length > 0) {
+        vectors.add(vector);
+      }
+    }
+    return vectors;
   }
 
   @Nullable

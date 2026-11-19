@@ -70,13 +70,14 @@ public class SearchTemplateGatesTest {
           Map.of(EmbeddingProfile.TEXT_CHUNKS, Set.of("document", "dataset")));
 
   @Test
-  public void testThisBuildAdvertisesDocumentRerankVectorRetrievalAndPartition() {
+  public void testThisBuildAdvertisesDocumentRerankVectorRetrievalPartitionAndSimilarity() {
     SearchTemplateGates gates = SearchTemplateGates.of(REGISTRY, SEMANTIC, true);
     assertNull(gates.rejectionCode(merged(retrieval("vector")).build(), true));
     // Anchor similarity needs vector retrieval and similarity.
     MergedSearchTemplate anchored =
         merged(retrieval("vector").setQuerySource("anchorEntity")).build();
-    assertEquals(gates.rejectionCode(anchored, true), SIMILARITY);
+    assertNull(gates.rejectionCode(anchored, true));
+    assertEquals(VECTOR_BUILD.rejectionCode(anchored, true), SIMILARITY);
     assertEquals(
         gates.rejectionCode(merged(retrieval("vectorThenKeyword")).build(), true),
         SearchTemplateGates.VECTOR_THEN_KEYWORD);

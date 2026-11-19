@@ -24,6 +24,7 @@ import com.linkedin.metadata.search.elasticsearch.query.NativeVectorStore.Neighb
 import com.linkedin.metadata.search.elasticsearch.query.request.SearchRequestHandler;
 import com.linkedin.metadata.search.elasticsearch.query.template.MergedSearchTemplate;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCapabilities;
+import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateCoordinator;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateFailClosedException;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateGates;
 import com.linkedin.metadata.search.elasticsearch.query.template.SearchTemplateMetrics;
@@ -41,20 +42,25 @@ import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.metadata.context.ResolvedSearchTemplate;
 import io.opentelemetry.context.Context;
 import java.io.IOException;
+import java.net.URISyntaxException;
 import java.time.Duration;
+import java.util.ArrayDeque;
 import java.util.ArrayList;
 import java.util.Comparator;
+import java.util.Deque;
 import java.util.HashMap;
 import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.concurrent.Callable;
 import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ExecutionException;
 import java.util.concurrent.Future;
 import java.util.concurrent.TimeUnit;
 import java.util.concurrent.TimeoutException;
 import java.util.concurrent.atomic.AtomicInteger;
+import java.util.function.Function;
 import javax.annotation.Nonnull;
 import javax.annotation.Nullable;
 import org.opensearch.action.search.SearchRequest;
@@ -71,11 +77,25 @@ import org.opensearch.search.SearchHit;
  * below the floors are dropped and the window is not refilled. The page, the total, and the facets
  * cover the hits that survive. View authorization masks the page after the top-k, as on the keyword
  * leg.
+ *
+ * <p>With {@code querySource: anchorEntity} (similarity) the query is an entity URN. That entity's
+ * stored chunk vectors are the query vectors, so nothing is embedded, and a neighbor scores its
+ * best chunk-to-chunk cosine. The anchor's entity type selects the embedding profile.
  */
 final class TemplateVectorSearch {
   // Failed calls in a row that pause an external store, and for how long, as for hybrid read
   private static final int FAILURES_BEFORE_PAUSE = 3;
   private static final long PAUSE_NANOS = TimeUnit.SECONDS.toNanos(30);
+
+  // How many of one anchor's store searches run at once: a quarter of the coordinator's anchor
+  // pool, so one anchor with many chunks never holds half of it and other searches keep running
+  private static final int ANCHOR_KNN_CONCURRENCY = 4;
+
+  // Best score first, then URN, so equal scores keep one order whatever order the store used
+  private static final Comparator<Neighbor> BEST_FIRST =
+      Comparator.comparingDouble(Neighbor::score)
+          .reversed()
+          .thenComparing(hit -> hit.urn().toString());
 
   private final ESSearchDAO dao;
   private final NativeVectorStore nativeStore;
@@ -90,7 +110,9 @@ final class TemplateVectorSearch {
    * One walk attempt for a vector rung. No eligible entity type is an empty page. A failed
    * embedding, store, hydration, or facet request follows the rung's {@code onFailure}: {@code
    * next} returns the failure to the ladder, and anything else fails the search. A store with no
-   * adapter, or a caller filter on a store without preFilter, fails closed.
+   * adapter, or a caller filter on a store without preFilter, fails closed. Similarity checks its
+   * anchor first, so an anchor it cannot use fails the search even when no requested type is
+   * eligible.
    */
   @Nonnull
   SearchTemplateWalk.AttemptResult<SearchResult> attempt(
@@ -109,7 +131,16 @@ final class TemplateVectorSearch {
     final Map<String, VectorStoreConfiguration> stores = stores();
     final String system =
         SearchTemplateVectorRetrieval.system(gates, template, entityNames, engine, stores);
+    final Store store = store(system, stores);
     final int pageSize = ConfigUtils.applyLimit(dao.searchServiceConfig, size);
+    // One deadline covers the embedding, or the anchor check and read, and the kNN calls on the
+    // DataHub index. Bind starts it for a selected similarity rung, which checks the anchor before
+    // the result cache. An external store's call has its own deadline and breaker, and a
+    // similarity rung's calls also end by this one.
+    final long deadlineNanos =
+        resolved != null && resolved.getVectorDeadlineNanos() != 0
+            ? resolved.getVectorDeadlineNanos()
+            : System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(dao.hybridTimeoutMillis);
     final List<String> joined = new ArrayList<>();
     final List<String> excluded = new ArrayList<>();
     gates
@@ -122,6 +153,55 @@ final class TemplateVectorSearch {
                 excluded.add(entityType + ":" + reason);
               }
             });
+    final boolean similarity =
+        SearchTemplateCapabilities.QUERY_SOURCE_ANCHOR_ENTITY.equals(
+            template.getRetrieval().getQuerySource());
+    final Urn anchor = similarity ? anchor(opContext, template, input) : null;
+    final String profile;
+    final List<float[]> anchorVectors;
+    if (anchor != null) {
+      // Similarity embeds nothing, so it needs semantic read and no embedding provider
+      if (!SemanticEntitySearchService.shouldReadSemanticV3(
+          dao.searchConfiguration.getEntityIndex())) {
+        SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
+        throw new SearchTemplateFailClosedException(
+            "Search template "
+                + template.getUrn()
+                + " finds similar entities, which needs Search V3 semantic read");
+      }
+      // The store serving the rung returns the anchor's vectors, so it must find an entity by URN
+      if (store == null || !store.capabilities().contains(VectorStore.FIND_BY_ID)) {
+        SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
+        throw new SearchTemplateFailClosedException(
+            "Vector store "
+                + system
+                + " cannot find an entity by URN, so it cannot serve similarity");
+      }
+      // Before the anchor is read, so a store that cannot run the search is not called at all
+      requirePreFilter(opContext, template, system, store, postFilters);
+      // The anchor's entity type must pass the entity gates, as a candidate type does. The rung's
+      // scope assigns candidate types only, so it does not apply to the anchor.
+      final Set<String> anchorProfiles = gates.profileIds(template, anchor.getEntityType(), system);
+      if (anchorProfiles.size() != 1) {
+        throw SearchTemplateVectorRetrieval.noAnchor(
+            opContext, template, anchor + " has no embedding profile to search with");
+      }
+      profile = anchorProfiles.iterator().next();
+      anchorVectors = anchorVectors(opContext, template, store, anchor, profile, deadlineNanos);
+      // Only requested types indexed under the anchor's profile are candidates
+      joined.removeIf(
+          entityType -> {
+            if (anchorProfiles.equals(
+                gates.joinedProfileIds(template, List.of(entityType), system))) {
+              return false;
+            }
+            excluded.add(entityType + ":" + SearchTemplateVectorRetrieval.NOT_ANCHOR_PROFILE);
+            return true;
+          });
+    } else {
+      profile = null;
+      anchorVectors = null;
+    }
     final VectorRetrievalExplanation explanation =
         new VectorRetrievalExplanation().setExcludedEntityTypes(new StringArray(excluded));
     final Map<String, String> indices =
@@ -137,7 +217,7 @@ final class TemplateVectorSearch {
           pageSize);
     }
     final HybridQueryEmbeddingService embedding = dao.vectorQueryEmbedding;
-    if (embedding == null) {
+    if (anchor == null && embedding == null) {
       // The template asks for something this process cannot run, so it fails closed
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
       throw new SearchTemplateFailClosedException(
@@ -146,9 +226,10 @@ final class TemplateVectorSearch {
               + " retrieves by vector, which needs Search V3 semantic read and an embedding"
               + " provider");
     }
-    // A profile this deployment cannot embed is not a failed call, so onFailure does not apply
+    // A profile this deployment cannot embed is not a failed call, so onFailure does not apply.
+    // Similarity embeds nothing: it queries with the anchor's stored vectors.
     final Set<String> profiles = gates.joinedProfileIds(template, joined, system);
-    if (!profiles.equals(Set.of(embedding.getModelEmbeddingKey()))) {
+    if (anchor == null && !profiles.equals(Set.of(embedding.getModelEmbeddingKey()))) {
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
       throw new SearchTemplateFailClosedException(
           "Search template "
@@ -158,7 +239,6 @@ final class TemplateVectorSearch {
               + ", and this deployment embeds queries for "
               + embedding.getModelEmbeddingKey());
     }
-    final Store store = store(system, stores);
     if (store == null) {
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.UNAVAILABLE);
       throw new SearchTemplateFailClosedException(
@@ -168,17 +248,7 @@ final class TemplateVectorSearch {
               + system
               + ", which has no adapter in this process");
     }
-    // Trimming a global top-k to the caller's filter would return the wrong neighbors
-    if (!store.capabilities().contains(VectorStore.PRE_FILTER)
-        && hasCallerFilter(opContext, postFilters)) {
-      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.NO_PRE_FILTER);
-      throw new SearchTemplateFailClosedException(
-          "Search template "
-              + template.getUrn()
-              + " has a caller filter, and vector store "
-              + system
-              + " cannot apply it inside its search");
-    }
+    requirePreFilter(opContext, template, system, store, postFilters);
     try {
       return retrieve(
           opContext,
@@ -186,21 +256,29 @@ final class TemplateVectorSearch {
           gates,
           embedding,
           store,
+          anchor == null ? embedding.getModelEmbeddingKey() : profile,
+          anchor,
+          anchorVectors,
           new ArrayList<>(indices.keySet()),
           input,
           postFilters,
           from,
           pageSize,
           facets,
-          explanation);
+          explanation,
+          deadlineNanos);
+    } catch (SearchTemplateFailClosedException e) {
+      throw e;
     } catch (RuntimeException | IOException e) {
       SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.FAILED);
       final RuntimeException failure =
           e instanceof RuntimeException runtime
               ? runtime
               : new ESQueryException("Vector retrieval failed", e);
-      if (SearchTemplateCapabilities.ON_FAILURE_NEXT.equals(
-          template.getRetrieval().getOnFailure())) {
+      // Similarity has no other rung to serve its neighbors, so it always fails
+      if (anchor == null
+          && SearchTemplateCapabilities.ON_FAILURE_NEXT.equals(
+              template.getRetrieval().getOnFailure())) {
         // The next rung's page must not be cached, or the next search skips this rung
         if (resolved != null) {
           resolved.setSkipResultCache(true);
@@ -217,15 +295,19 @@ final class TemplateVectorSearch {
       @Nonnull OperationContext opContext,
       @Nonnull MergedSearchTemplate template,
       @Nonnull SearchTemplateGates gates,
-      @Nonnull HybridQueryEmbeddingService embedding,
+      @Nullable HybridQueryEmbeddingService embedding,
       @Nonnull Store store,
+      @Nonnull String profileId,
+      @Nullable Urn anchor,
+      @Nullable List<float[]> anchorVectors,
       @Nonnull List<String> searched,
       @Nonnull String input,
       @Nullable Filter postFilters,
       int from,
       int pageSize,
       @Nonnull List<String> facets,
-      @Nonnull VectorRetrievalExplanation explanation)
+      @Nonnull VectorRetrievalExplanation explanation,
+      long deadlineNanos)
       throws IOException {
     final Integer cap = template.getRetrieval().getCandidateCap();
     final int window = SearchTemplateVectorRetrieval.window(cap, from, pageSize);
@@ -245,37 +327,58 @@ final class TemplateVectorSearch {
             dao.queryFilterRewriteChain,
             dao.searchServiceConfig);
     final SearchFlags flags = opContext.getSearchContext().getSearchFlags();
-    // One deadline covers the embedding and the kNN call on the DataHub index. An external store's
-    // call has its own deadline and breaker.
-    final long deadlineNanos =
-        System.nanoTime() + TimeUnit.MILLISECONDS.toNanos(dao.hybridTimeoutMillis);
-    final float[] vector = embedding.embed(input, deadlineNanos).vector();
-    final long remainingNanos = deadlineNanos - System.nanoTime();
-    if (remainingNanos <= 0) {
-      throw new UncheckedTimeoutException(
-          "The vector retrieval deadline passed before the kNN call");
-    }
     final boolean preFilter = store.capabilities().contains(VectorStore.PRE_FILTER);
     // The caller's filter only goes to a store that applies it inside its search
-    final VectorStore.Request request =
-        new VectorStore.Request(
-            embedding.getModelEmbeddingKey(), vector, k, searched, preFilter ? filter : null);
+    final Filter storeFilter = preFilter ? filter : null;
     final List<Neighbor> hits;
     final int candidates;
-    if (store.external()) {
-      final List<VectorStore.Hit> returned =
-          call(store, explanation, timeout -> store.store().search(opContext, request, timeout));
-      candidates = returned.size();
-      hits = collapse(returned);
-    } else {
-      hits = nativeStore.knn(opContext, request, Duration.ofNanos(remainingNanos));
+    if (anchor != null) {
+      final boolean excludeSelf =
+          template.getRetrieval().getAnchor() != null
+              && Boolean.TRUE.equals(template.getRetrieval().getAnchor().isExcludeSelf());
+      // The anchor is its own nearest neighbor, so each chunk asks for one more, within the store's
+      // maximum, and the anchor is dropped after the merge
+      final int limit =
+          store.external() ? store.config().getMaxK() : SearchTemplateVectorRetrieval.MAX_K;
+      final int fetch = excludeSelf && k < limit ? k + 1 : k;
+      hits =
+          neighbors(
+              opContext,
+              store,
+              explanation,
+              anchorVectors.stream()
+                  .map(
+                      vector ->
+                          new VectorStore.Request(profileId, vector, fetch, searched, storeFilter))
+                  .toList(),
+              excludeSelf ? anchor : null,
+              k,
+              deadlineNanos);
       candidates = hits.size();
+    } else {
+      final float[] vector = embedding.embed(input, deadlineNanos).vector();
+      final long remainingNanos = deadlineNanos - System.nanoTime();
+      if (remainingNanos <= 0) {
+        throw new UncheckedTimeoutException(
+            "The vector retrieval deadline passed before the kNN call");
+      }
+      final VectorStore.Request request =
+          new VectorStore.Request(profileId, vector, k, searched, storeFilter);
+      if (store.external()) {
+        final List<VectorStore.Hit> returned =
+            call(store, explanation, timeout -> store.store().search(opContext, request, timeout));
+        candidates = returned.size();
+        hits = collapse(returned);
+      } else {
+        hits = nativeStore.knn(opContext, request, Duration.ofNanos(remainingNanos));
+        candidates = hits.size();
+      }
     }
     // A floor the template sets is bound only to a cosine profile. One inherited from configuration
     // is skipped on another metric, where a raw cosine means nothing.
     final Float templateFloor = template.getRetrieval().getMinSimilarity();
     final Float inheritedFloor = templateFloor == null ? gates.minSimilarity(template) : null;
-    final EmbeddingProfile profile = gates.profiles().profile(embedding.getModelEmbeddingKey());
+    final EmbeddingProfile profile = gates.profiles().profile(profileId);
     final boolean cosine = profile != null && profile.cosine();
     final Float minSimilarity =
         templateFloor != null ? templateFloor : cosine ? inheritedFloor : null;
@@ -331,7 +434,7 @@ final class TemplateVectorSearch {
                 : from >= survivors.size()
                     ? SearchTemplateVectorRetrieval.PAST_WINDOW
                     : SearchTemplateVectorRetrieval.SERVED)
-        .setProfile(embedding.getModelEmbeddingKey())
+        .setProfile(profileId)
         .setStore(store.name(), SetMode.IGNORE_NULL)
         .setEntityTypes(new StringArray(searched))
         .setK(k)
@@ -341,29 +444,6 @@ final class TemplateVectorSearch {
         .setBelowMinScore(belowMinScore)
         .setFilterInVectorSearch(preFilter);
     return page(opContext, explanation, survivors, aggregations, from, pageSize);
-  }
-
-  /**
-   * The anchor entity's query vectors for similarity, from the store serving the profile. A store
-   * without findById cannot serve similarity, so the search fails closed.
-   */
-  @Nonnull
-  List<float[]> anchorVectors(
-      @Nonnull OperationContext opContext,
-      @Nullable String system,
-      @Nonnull String profile,
-      @Nonnull Urn anchor)
-      throws IOException {
-    final Store store = store(system, stores());
-    if (store == null || !store.capabilities().contains(VectorStore.FIND_BY_ID)) {
-      throw new SearchTemplateFailClosedException(
-          "Vector store "
-              + system
-              + " cannot find an entity by URN, so it cannot serve similarity");
-    }
-    // Only an external store finds by id, so the call runs under its deadline and breaker
-    return call(
-        store, null, timeout -> store.store().findById(opContext, profile, anchor, timeout));
   }
 
   /**
@@ -427,6 +507,154 @@ final class TemplateVectorSearch {
                 handler.extractResult(opContext, response, filter, 0, 0))
             .getMetadata()
             .getAggregations());
+  }
+
+  /**
+   * The anchor's neighbors: one search of the store per anchor chunk, each that chunk's request. A
+   * hit keeps its best score, so a neighbor scores its best chunk-to-chunk cosine, and the window
+   * is the k best of them. The searches run on the coordinator's anchor pool, {@link
+   * #ANCHOR_KNN_CONCURRENCY} at a time, under one deadline; a full pool or the deadline fails the
+   * search. Each search carries the time left as its timeout, or an external store's own when that
+   * is shorter, so a search the rung stops waiting for frees its worker by about then. Each chunk's
+   * hits are merged in chunk order and the merged hits are cut back to the k best, so at most k and
+   * one chunk's hits are kept. Cutting keeps the true k best in any chunk order: a neighbor cut
+   * while k others beat it can come back only with a better score from a later chunk, and scores
+   * never drop. {@code excluded}, the anchor, keeps a place until every chunk is merged and is then
+   * dropped, so no store has to filter it out. On an external store the adapter latency is the time
+   * the searches took.
+   */
+  @Nonnull
+  private List<Neighbor> neighbors(
+      @Nonnull OperationContext opContext,
+      @Nonnull Store store,
+      @Nonnull VectorRetrievalExplanation explanation,
+      @Nonnull List<VectorStore.Request> chunks,
+      @Nullable Urn excluded,
+      int k,
+      long deadlineNanos)
+      throws IOException {
+    final int kept = excluded == null ? k : k + 1;
+    final Map<Urn, Neighbor> best = new HashMap<>();
+    final Deque<Pending<List<Neighbor>>> running = new ArrayDeque<>();
+    final long startNanos = System.nanoTime();
+    int started = 0;
+    try {
+      for (int merged = 0; merged < chunks.size(); merged++) {
+        while (started < chunks.size() && running.size() < ANCHOR_KNN_CONCURRENCY) {
+          final VectorStore.Request chunk = chunks.get(started++);
+          running.add(
+              startSimilarityCall(
+                  opContext,
+                  store,
+                  timeout ->
+                      store.external()
+                          ? store.store().search(opContext, chunk, timeout).stream()
+                              .map(Neighbor::external)
+                              .toList()
+                          : nativeStore.knn(opContext, chunk, timeout),
+                  deadlineNanos));
+        }
+        keepBest(best, await(store, running.remove()), kept);
+      }
+    } finally {
+      running.forEach(call -> call.future().cancel(true));
+    }
+    if (store.external()) {
+      explanation.setAdapterLatencyMillis(
+          TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
+    }
+    if (excluded != null) {
+      best.remove(excluded);
+    }
+    return best.values().stream().sorted(BEST_FIRST).limit(k).toList();
+  }
+
+  /** Merges one chunk's hits, each neighbor at its best score, and keeps the {@code kept} best. */
+  private static void keepBest(
+      @Nonnull Map<Urn, Neighbor> best, @Nonnull List<Neighbor> hits, int kept) {
+    for (Neighbor hit : hits) {
+      best.merge(
+          hit.urn(), hit, (current, other) -> other.score() > current.score() ? other : current);
+    }
+    if (best.size() > kept) {
+      final List<Neighbor> top = best.values().stream().sorted(BEST_FIRST).limit(kept).toList();
+      best.clear();
+      top.forEach(hit -> best.put(hit.urn(), hit));
+    }
+  }
+
+  /** The anchor URN, the whole trimmed query. A query that is not a URN fails the search. */
+  @Nonnull
+  private static Urn anchor(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull String input) {
+    try {
+      return Urn.createFromString(input.trim());
+    } catch (URISyntaxException e) {
+      throw SearchTemplateVectorRetrieval.noAnchor(
+          opContext, template, "the query is not an entity URN");
+    }
+  }
+
+  /**
+   * The anchor's chunk vectors for the profile, from the store serving the rung, read only when the
+   * viewer may use the anchor. An anchor the viewer may not see, one the search filters leave out,
+   * and one with no stored vectors fail the search the same way, as {@code noAnchor}, so the
+   * failure does not reveal that the entity exists. Bind already refused such an anchor for the
+   * selected template. A failed check or read fails the search: no other rung can serve the
+   * anchor's neighbors.
+   */
+  @Nonnull
+  private List<float[]> anchorVectors(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull Store store,
+      @Nonnull Urn anchor,
+      @Nonnull String profileId,
+      long deadlineNanos) {
+    final ResolvedSearchTemplate resolved =
+        opContext.getSearchContext().getResolvedSearchTemplate();
+    final List<float[]> vectors;
+    try {
+      final SearchTemplateCoordinator coordinator = SearchTemplateRuntimes.coordinator(opContext);
+      // Bind's answer for this anchor stands, either way: the cache key was stamped with it.
+      // The rung checks only an anchor bind did not, or could not, check.
+      final boolean usable =
+          resolved != null && anchor.toString().equals(resolved.getCheckedAnchor())
+              ? resolved.isCheckedAnchorUsable()
+              : coordinator.anchorUsable(opContext, anchor, deadlineNanos);
+      vectors =
+          usable
+              ? await(
+                  store,
+                  startSimilarityCall(
+                      opContext,
+                      store,
+                      timeout -> store.store().findById(opContext, profileId, anchor, timeout),
+                      deadlineNanos))
+              : List.of();
+    } catch (RuntimeException | IOException e) {
+      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.FAILED);
+      throw new SearchTemplateFailClosedException(
+          "Search template " + template.getUrn() + " failed to read the anchor " + anchor, e);
+    }
+    if (vectors.isEmpty()) {
+      // No keyword "like this" fallback: an anchor without vectors fails the search
+      throw SearchTemplateVectorRetrieval.noAnchor(
+          opContext, template, anchor + " has no stored vectors for " + profileId);
+    }
+    if (vectors.size() > SearchTemplateVectorRetrieval.MAX_ANCHOR_CHUNKS) {
+      throw SearchTemplateVectorRetrieval.noAnchor(
+          opContext,
+          template,
+          anchor
+              + " has more than "
+              + SearchTemplateVectorRetrieval.MAX_ANCHOR_CHUNKS
+              + " stored chunks for "
+              + profileId);
+    }
+    return vectors;
   }
 
   /**
@@ -535,35 +763,116 @@ final class TemplateVectorSearch {
    */
   private <T> T call(
       @Nonnull Store store,
-      @Nullable VectorRetrievalExplanation explanation,
+      @Nonnull VectorRetrievalExplanation explanation,
       @Nonnull StoreCall<T> call)
       throws IOException {
-    final Breaker breaker = breakers.computeIfAbsent(store.name(), name -> new Breaker());
-    if (breaker.paused()) {
+    final Pending<T> pending =
+        start(
+            store,
+            call,
+            Duration.ofMillis(store.config().getTimeoutMillis()),
+            true,
+            dao.hybridExecutor::submit);
+    final T result = await(store, pending);
+    explanation.setAdapterLatencyMillis(
+        TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - pending.startNanos()));
+    return result;
+  }
+
+  /**
+   * One call of a similarity rung to the store serving it, on the coordinator's anchor pool, which
+   * runs the call itself, so the call holds one worker. It ends by the deadline, or by an external
+   * store's own deadline when that comes first. An external store's breaker counts its failure,
+   * except a timeout of a call the search deadline cut short, which says nothing about the store.
+   */
+  @Nonnull
+  private <T> Pending<T> startSimilarityCall(
+      @Nonnull OperationContext opContext,
+      @Nonnull Store store,
+      @Nonnull StoreCall<T> call,
+      long deadlineNanos)
+      throws IOException {
+    final long remainingNanos = deadlineNanos - System.nanoTime();
+    if (remainingNanos <= 0) {
+      throw new UncheckedTimeoutException(
+          "The vector retrieval deadline passed before the store call");
+    }
+    final long storeNanos =
+        store.external()
+            ? TimeUnit.MILLISECONDS.toNanos(store.config().getTimeoutMillis())
+            : Long.MAX_VALUE;
+    return start(
+        store,
+        call,
+        Duration.ofNanos(Math.min(remainingNanos, storeNanos)),
+        storeNanos <= remainingNanos,
+        SearchTemplateRuntimes.coordinator(opContext)::startAnchorCall);
+  }
+
+  /**
+   * Starts one store call on {@code executor}, which ends by {@code timeout}, the store's own
+   * deadline when {@code storeDeadline}. A paused external store fails here without being called.
+   * The DataHub index has no breaker.
+   */
+  @Nonnull
+  private <T> Pending<T> start(
+      @Nonnull Store store,
+      @Nonnull StoreCall<T> call,
+      @Nonnull Duration timeout,
+      boolean storeDeadline,
+      @Nonnull Function<Callable<T>, Future<T>> executor)
+      throws IOException {
+    final Breaker breaker =
+        store.external() ? breakers.computeIfAbsent(store.name(), name -> new Breaker()) : null;
+    if (breaker != null && breaker.paused()) {
       throw new IOException("Vector store " + store.name() + " is paused after repeated failures");
     }
-    final Duration timeout = Duration.ofMillis(store.config().getTimeoutMillis());
     final long startNanos = System.nanoTime();
     // A rejected call never reached the store, so it does not count toward the pause
-    final Future<T> future =
-        dao.hybridExecutor.submit(Context.current().wrap(() -> call.run(timeout)));
+    final Future<T> future = executor.apply(Context.current().wrap(() -> call.run(timeout)));
+    return new Pending<>(future, breaker, timeout, storeDeadline, startNanos);
+  }
+
+  /**
+   * Whether a failed call counts toward the store's breaker: it ran to the store's own deadline, or
+   * it failed before the shorter search deadline that cut it short.
+   */
+  private static boolean countsTowardBreaker(@Nonnull Pending<?> pending) {
+    return pending.storeDeadline()
+        || System.nanoTime() - pending.startNanos() < pending.timeout().toNanos();
+  }
+
+  /** Waits for a call {@link #start} started, until its timeout runs out. */
+  private <T> T await(@Nonnull Store store, @Nonnull Pending<T> pending) throws IOException {
+    final Breaker breaker = pending.breaker();
     try {
-      final T result = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
-      if (explanation != null) {
-        explanation.setAdapterLatencyMillis(
-            TimeUnit.NANOSECONDS.toMillis(System.nanoTime() - startNanos));
+      final T result =
+          pending
+              .future()
+              .get(
+                  pending.startNanos() + pending.timeout().toNanos() - System.nanoTime(),
+                  TimeUnit.NANOSECONDS);
+      if (breaker != null) {
+        breaker.succeeded();
       }
-      breaker.succeeded();
       return result;
     } catch (TimeoutException e) {
       // The interrupt ends a call blocked in an interruptible wait, and a queued call does not
       // start
-      future.cancel(true);
-      breaker.failed();
+      pending.future().cancel(true);
+      if (breaker != null && countsTowardBreaker(pending)) {
+        breaker.failed();
+      }
       throw new UncheckedTimeoutException(
-          "Vector store " + store.name() + " did not answer within " + timeout.toMillis() + " ms");
+          "Vector store "
+              + store.name()
+              + " did not answer within "
+              + pending.timeout().toMillis()
+              + " ms");
     } catch (ExecutionException e) {
-      breaker.failed();
+      if (breaker != null && countsTowardBreaker(pending)) {
+        breaker.failed();
+      }
       if (e.getCause() instanceof IOException failure) {
         throw failure;
       }
@@ -573,7 +882,7 @@ final class TemplateVectorSearch {
       throw new IOException("Vector store " + store.name() + " failed", e.getCause());
     } catch (InterruptedException e) {
       // The search itself was interrupted, which says nothing about the store
-      future.cancel(true);
+      pending.future().cancel(true);
       Thread.currentThread().interrupt();
       throw new IOException("Interrupted waiting for vector store " + store.name(), e);
     }
@@ -622,6 +931,28 @@ final class TemplateVectorSearch {
   }
 
   /**
+   * Fails closed on a caller filter when the store cannot apply it inside its search: trimming a
+   * global top-k to the caller's filter would return the wrong neighbors.
+   */
+  private static void requirePreFilter(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nullable String system,
+      @Nonnull Store store,
+      @Nullable Filter postFilters) {
+    if (!store.capabilities().contains(VectorStore.PRE_FILTER)
+        && hasCallerFilter(opContext, postFilters)) {
+      SearchTemplateMetrics.vectorRetrieval(opContext, SearchTemplateVectorRetrieval.NO_PRE_FILTER);
+      throw new SearchTemplateFailClosedException(
+          "Search template "
+              + template.getUrn()
+              + " has a caller filter, and vector store "
+              + system
+              + " cannot apply it inside its search");
+    }
+  }
+
+  /**
    * The keyword leg's view-authorization test for one hit: view authorization is on, the caller is
    * not the system, and the caller cannot view this view-restricted entity. False with
    * includeRestricted, where the page masks such a hit as the keyword leg does.
@@ -649,6 +980,17 @@ final class TemplateVectorSearch {
 
   private record Hydration(
       @Nonnull List<SearchEntity> survivors, @Nonnull AggregationMetadataArray aggregations) {}
+
+  /**
+   * A store call {@link #start} started. {@code breaker} is null on the DataHub index, and {@code
+   * storeDeadline} says whether {@code timeout} is the store's own deadline.
+   */
+  private record Pending<T>(
+      @Nonnull Future<T> future,
+      @Nullable Breaker breaker,
+      @Nonnull Duration timeout,
+      boolean storeDeadline,
+      long startNanos) {}
 
   @FunctionalInterface
   private interface StoreCall<T> {

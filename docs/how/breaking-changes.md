@@ -71,6 +71,11 @@ that `knn` keeps the reading it had before, so one with only `field` is still th
 rerank. The new
 `urn:li:searchTemplate:semantic` retrieves by vector. A search uses it only when it names it in the
 `searchTemplate` search flag; semantic search (`semanticSearchAcrossEntities`) does not change.
+Version 18 adds `urn:li:searchTemplate:similarity` and the `similarity` capability. A search that
+names `similarity` in the `searchTemplate` flag, with an entity URN as the query, returns the documents
+nearest that entity. `semantic` does not change: its URN route ships in a later release, once every GMS
+pod can run similarity. A rollback to a release without similarity needs no extra step, since that
+release fails `similarity` only when a search names it.
 
 **Upgrade through the release that adds the semantic search template contract**
 ([#21359](https://github.com/datahub-project/datahub/pull/21359)) before you upgrade to this one. GMS
@@ -96,11 +101,11 @@ search fails on the new `fulltext`. While this release is still deployed:
    system update, under `mce-consumer batch exceptions` with the template URN, and the step still
    reports success. Then roll back.
 
-The `semantic` template stays stored, and the earlier release does not use it. If you later upgrade
-to this release again, system update keeps the restored templates, because version 17 already ran.
-To write the shipped templates again, run system update once with
-`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable. A rollback to a
-release that has the contract needs none of these steps.
+The `semantic` and `similarity` templates stay stored, and the earlier release does not use them.
+
+If you later upgrade to this release again, system update keeps the restored templates, because
+version 18 already ran. To write the shipped templates again, run system update once with
+`DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
 <!--
 

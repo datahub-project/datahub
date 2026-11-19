@@ -4,6 +4,7 @@ import com.linkedin.metadata.config.search.SemanticSearchConfiguration;
 import com.linkedin.metadata.config.search.VectorStoreConfiguration;
 import com.linkedin.metadata.search.embedding.EmbeddingProfileRegistry;
 import com.linkedin.metadata.search.hybrid.v3.V3HybridKnnRequestBuilder;
+import io.datahubproject.metadata.context.OperationContext;
 import java.util.Collection;
 import java.util.HashMap;
 import java.util.Map;
@@ -49,7 +50,10 @@ public final class SearchTemplateVectorRetrieval {
   /** The embedding, kNN, or facet request failed. */
   public static final String FAILED = "failed";
 
-  /** This process cannot run a vector rung: semantic read is off or no embedding provider. */
+  /**
+   * This process cannot run a vector rung: semantic read is off, or a rung that embeds its query
+   * has no embedding provider. Similarity embeds nothing.
+   */
   public static final String UNAVAILABLE = "unavailable";
 
   /** The request has a caller filter, and the store serving the profile cannot apply it. */
@@ -57,6 +61,29 @@ public final class SearchTemplateVectorRetrieval {
 
   /** The floor inherited from configuration was skipped: the profile's metric is not cosine. */
   public static final String PROFILE_NOT_COSINE = "profileNotCosine";
+
+  /**
+   * Similarity could not run: the query is not an entity URN, the viewer may not see that entity,
+   * the default search filters leave it out, or it has no embedding profile, no stored vectors, or
+   * more than {@link #MAX_ANCHOR_CHUNKS} stored chunks for it. The search fails.
+   */
+  public static final String NO_ANCHOR = "noAnchor";
+
+  /**
+   * The most stored chunks a similarity anchor may have: the most the default embedding pipeline
+   * stores for one document ({@code max_chunks_per_document}, {@code
+   * DEFAULT_MAX_CHUNKS_PER_DOCUMENT} in the ingestion framework's {@code chunking_config.py}), so
+   * every document it embeds can be an anchor. Each chunk sends its own kNN request for the window,
+   * so this bounds one search's requests. An anchor with more fails as {@link #NO_ANCHOR}: no
+   * subset of its chunks is a principled stand-in for the whole entity.
+   */
+  public static final int MAX_ANCHOR_CHUNKS = 100;
+
+  /** Why similarity left out a requested entity type: it is not under the anchor's profile. */
+  public static final String NOT_ANCHOR_PROFILE = "notAnchorProfile";
+
+  /** Similarity reads the anchor's stored chunk vectors from this aspect. */
+  public static final String SEMANTIC_CONTENT_ASPECT_NAME = "semanticContent";
 
   private static final Set<String> ENGINES =
       Set.of(EmbeddingProfileRegistry.ELASTICSEARCH, EmbeddingProfileRegistry.OPENSEARCH);
@@ -140,5 +167,20 @@ public final class SearchTemplateVectorRetrieval {
    */
   public static double cosine(double engineScore) {
     return 2d * engineScore - 1d;
+  }
+
+  /**
+   * Counts {@link #NO_ANCHOR} and returns the failure for a similarity search that cannot use its
+   * anchor. Bind and the rung both fail through it, so an anchor the viewer may not use and one
+   * with no stored vectors read the same way.
+   */
+  @Nonnull
+  public static SearchTemplateFailClosedException noAnchor(
+      @Nonnull OperationContext opContext,
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull String reason) {
+    SearchTemplateMetrics.vectorRetrieval(opContext, NO_ANCHOR);
+    return new SearchTemplateFailClosedException(
+        "Search template " + template.getUrn() + " finds similar entities, and " + reason);
   }
 }
