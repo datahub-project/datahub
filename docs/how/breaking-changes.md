@@ -35,18 +35,6 @@ are ignored; the rerank uses the default embedding profile for each entity type.
 with only `field` keeps today's behavior. To keep the earlier document rerank, remove `model` from
 the section.
 
-### Exceptions in logs with secret masking
-
-Logged exceptions now keep their real type, message, chained causes and stack trace, with only
-registered secret values masked ([PR #21406](https://github.com/datahub-project/datahub/pull/21406)).
-Before, many of them, such as database and AWS client errors, were replaced by
-`RuntimeError: [MASKING_ERROR - OUTPUT_SUPPRESSED_FOR_SECURITY]`. Most setups need no change.
-If you set a custom logging configuration with `DATAHUB_LOG_CONFIG_FILE`, note two things. A custom
-`formatException` on a handler is no longer used for logged exceptions. When an exception's own
-message holds a secret, JSON formatters and Sentry receive a `MaskedException` with the masked
-message and no stack trace. With Sentry enabled, an exception that holds no secret is now sent with
-its full chain, including the stack frames of its causes and their local variables.
-
 <!--
 
 ## <version number>
