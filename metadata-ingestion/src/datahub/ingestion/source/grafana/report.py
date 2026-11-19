@@ -17,6 +17,9 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     panels_with_lineage: int = 0
     panels_without_lineage: int = 0
     lineage_extraction_failures: int = 0
+    lineage_sql_parsing_attempts: int = 0
+    lineage_sql_parsing_successes: int = 0
+    lineage_sql_parsing_failures: int = 0
     sql_parsing_attempts: int = 0
     sql_parsing_successes: int = 0
     sql_parsing_failures: int = 0
@@ -54,6 +57,18 @@ class GrafanaSourceReport(StaleEntityRemovalSourceReport):
     def report_lineage_extraction_failure(self) -> None:
         """Report failure to extract lineage for a panel"""
         self.lineage_extraction_failures += 1
+
+    def report_lineage_sql_parsing_attempt(self) -> None:
+        """Report attempt to parse panel SQL for lineage"""
+        self.lineage_sql_parsing_attempts += 1
+
+    def report_lineage_sql_parsing_success(self) -> None:
+        """Report panel SQL parsed for lineage"""
+        self.lineage_sql_parsing_successes += 1
+
+    def report_lineage_sql_parsing_failure(self) -> None:
+        """Report panel SQL that could not be parsed for lineage"""
+        self.lineage_sql_parsing_failures += 1
 
     def report_sql_parsing_attempt(self) -> None:
         """Report attempt to parse SQL"""
