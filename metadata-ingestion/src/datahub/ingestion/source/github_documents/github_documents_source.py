@@ -23,6 +23,8 @@ from datahub.ingestion.source.repository_documents.source import (
     RepositoryDocumentsSourceBase,
 )
 
+# Public: the custom property keys holding a document's path in the
+# repository. Code outside this repository, such as sync-back, reads them.
 PROP_GITHUB_FILE_PATH = "github_file_path"
 PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 

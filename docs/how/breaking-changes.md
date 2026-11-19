@@ -32,6 +32,23 @@ The shared code of the `github-documents` source moved to `datahub.ingestion.sou
 - To change how OKF frontmatter is mapped, override the new `_map_okf` method. Wrapping or patching `map_okf` in `github_documents_source` no longer has any effect.
 - The old `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules still work, but now raise a `DeprecationWarning` and will be removed in a later release. Import from the matching `repository_documents` module instead.
 
+### github-documents import paths removed
+
+The `github-documents` import paths kept for compatibility after the move to `datahub.ingestion.source.repository_documents` are removed ([PR #21370](https://github.com/datahub-project/datahub/pull/21370)). Recipes and the documents they import are unchanged. Python code that still imports an old path fails with an `ImportError`; import from the new path instead:
+
+| Old path (`datahub.ingestion.source.github_documents.`)                                                                                                          | New path (`datahub.ingestion.source.repository_documents.`)                                 |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------------------------------------------------------- |
+| `okf_bundles`, `okf_cleanup`, `okf_frontmatter`, `okf_mapping`, `okf_metadata`, `okf_patches`                                                                    | The module of the same name                                                                 |
+| `github_hierarchy.GitHubHierarchyExtractor`                                                                                                                      | `hierarchy.RepositoryHierarchyExtractor`                                                    |
+| `github_documents_report.GitHubDocumentsSourceReport`                                                                                                            | `report.RepositoryDocumentsSourceReport`                                                    |
+| `github_api.GitHubFileInfo`                                                                                                                                      | `client.RepositoryFileInfo`                                                                 |
+| `github_api.RepositoryDocumentsClient`                                                                                                                           | `client.RepositoryDocumentsClient`                                                          |
+| `github_api.make_file_source_id`, `make_dir_source_id`, `make_repo_source_id`, `resolve_parent_dir_source_id`                                                    | `paths.` functions of the same name. Pass `source_prefix="github"` to get GitHub source ids |
+| `github_api.collect_intermediate_directories`, `normalize_document_id`                                                                                           | `paths.` functions of the same name                                                         |
+| `github_documents_source.EXTRACTION_ALGO_VERSION`, `LAST_EXPORTED_CONTENT_HASH_KEY`, `PROP_IMPORT_SOURCE_ID`, `compute_file_content_hash`, `compute_source_hash` | `source.` names of the same name                                                            |
+
+`GitHubDocumentsSource`, `GitHubDocumentsSourceConfig`, `GitHubApiClient`, the token providers and the `github_file_path` / `github_directory_path` property keys stay where they are.
+
 <!--
 
 ## <version number>
