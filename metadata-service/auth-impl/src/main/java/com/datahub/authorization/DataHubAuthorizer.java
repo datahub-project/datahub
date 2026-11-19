@@ -111,6 +111,7 @@ public class DataHubAuthorizer
   // refresh interval: the cache is empty until then.
   private long firstLoadRetryMillis = TimeUnit.SECONDS.toMillis(10);
   private volatile boolean loadedOnce;
+  private volatile boolean initialLoadRan;
   // At most one retry is scheduled at a time, so failed loads do not start parallel retry chains.
   private final AtomicBoolean firstLoadRetryScheduled = new AtomicBoolean();
   // Consecutive failed loads: only the first one logs a stack trace.
@@ -498,6 +499,14 @@ public class DataHubAuthorizer
   }
 
   /**
+   * True once {@link #initialLoad} has run its startup load, whether or not that load succeeded.
+   * Always false without a policy loader: the search-based refresh has no startup load.
+   */
+  public boolean hasRunInitialLoad() {
+    return initialLoadRan;
+  }
+
+  /**
    * How long a changed policy stays on the recent-changes list. Must be longer than the normal
    * search index delay: until then, a full load reads the policy by key even if the index does not
    * list it yet.
@@ -734,6 +743,7 @@ public class DataHubAuthorizer
     if (policyLoader == null) {
       return false;
     }
+    initialLoadRan = true;
     log.info("policy cache immediate updates on, loading policies");
     final long start = System.nanoTime();
     final long deadline = start + TimeUnit.SECONDS.toNanos(INITIAL_LOAD_TIMEOUT_SECONDS);

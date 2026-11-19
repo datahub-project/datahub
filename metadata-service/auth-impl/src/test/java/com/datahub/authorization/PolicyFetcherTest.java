@@ -13,6 +13,7 @@ import static org.mockito.ArgumentMatchers.nullable;
 import static org.mockito.Mockito.mock;
 import static org.mockito.Mockito.when;
 import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertNull;
 
 import com.linkedin.common.urn.Urn;
 import com.linkedin.common.urn.UrnUtils;
@@ -107,5 +108,30 @@ public class PolicyFetcherTest {
         new PolicyFetcher(client).fetchPolicies(context, 5, "", 1, null).get();
 
     assertEquals(result, PolicyFetcher.PolicyFetchResult.EMPTY);
+  }
+
+  @Test
+  public void testPageThatReturnsTheSameScrollIdEndsTheScroll() throws Exception {
+    OperationContext context = TestOperationContexts.systemContextNoSearchAuthorization();
+    EntityClient client = mock(EntityClient.class);
+    when(client.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of(POLICY_ENTITY_NAME)),
+            anyString(),
+            nullable(Filter.class),
+            eq("same"),
+            isNull(),
+            anyList(),
+            anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setNumEntities(1)
+                .setScrollId("same")
+                .setEntities(new SearchEntityArray()));
+
+    PolicyFetcher.PolicyFetchResult result =
+        new PolicyFetcher(client).fetchPolicies(context, 1, "same", null);
+
+    assertNull(result.getScrollId());
   }
 }

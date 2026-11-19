@@ -106,12 +106,17 @@ public class PolicyFetcher {
             count);
     List<Urn> policyUrns =
         result.getEntities().stream().map(SearchEntity::getEntity).collect(Collectors.toList());
+    // Callers stop only on a null scroll ID, and an empty page no longer ends the scroll. A page
+    // that hands back the scroll ID it was given would loop forever, so end the scroll there.
+    final String nextScrollId =
+        result.getScrollId() != null && result.getScrollId().equals(scrollId)
+            ? null
+            : result.getScrollId();
 
     if (policyUrns.isEmpty()) {
       // Search drops hits missing from the primary store, so a page during a delete burst can be
       // empty and still have later pages. Keep the scroll ID so callers keep reading.
-      return new PolicyFetchResult(
-          Collections.emptyList(), result.getNumEntities(), result.getScrollId());
+      return new PolicyFetchResult(Collections.emptyList(), result.getNumEntities(), nextScrollId);
     }
 
     // Fetch DataHubPolicyInfo aspects for each urn
@@ -129,7 +134,7 @@ public class PolicyFetcher {
             .filter(Objects::nonNull)
             .collect(Collectors.toList()),
         result.getNumEntities(),
-        result.getScrollId());
+        nextScrollId);
   }
 
   private Policy extractPolicy(EntityResponse entityResponse) {
