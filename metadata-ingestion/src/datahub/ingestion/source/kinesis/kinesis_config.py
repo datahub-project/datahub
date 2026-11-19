@@ -7,8 +7,8 @@ from datahub.configuration.common import AllowDenyPattern, ConfigModel
 from datahub.configuration.source_common import (
     EnvConfigMixin,
     PlatformInstanceConfigMixin,
+    validate_env,
 )
-from datahub.emitter.mce_builder import ALL_ENV_TYPES
 from datahub.ingestion.source.aws.aws_common import AwsConnectionConfig
 from datahub.ingestion.source.state.stale_entity_removal_handler import (
     StatefulStaleMetadataRemovalConfig,
@@ -86,18 +86,8 @@ class DestinationPlatformDetail(ConfigModel):
 
     @pydantic.field_validator("env")
     @classmethod
-    def validate_env(cls, v: Optional[str]) -> Optional[str]:
-        if v is None:
-            return v
-        # Normalize and validate against the DataHub FabricType values (PROD, DEV,
-        # QA, etc.). Uppercasing matches EnvConfigMixin's handling of the top-level
-        # `env`, so `env: prod` is accepted consistently here too.
-        v = v.upper()
-        if v not in ALL_ENV_TYPES:
-            raise ValueError(
-                f"env must be a valid DataHub FabricType (one of {sorted(ALL_ENV_TYPES)}); got {v!r}"
-            )
-        return v
+    def _validate_env(cls, v: Optional[str]) -> Optional[str]:
+        return validate_env(v) if v is not None else None
 
 
 class KinesisGlueSchemaRegistryConfig(ConfigModel):
