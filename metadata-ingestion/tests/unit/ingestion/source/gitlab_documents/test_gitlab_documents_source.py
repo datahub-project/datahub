@@ -157,7 +157,9 @@ def test_max_files_warning_names_gitlab() -> None:
         list(source.get_workunits())
 
     assert source.report.files_truncated_by_limit
-    assert {w.title for w in source.report.warnings} == {"gitlab-files-truncated"}
+    assert {w.title for w in source.report.warnings} == {
+        "Matching files truncated by max_files"
+    }
 
 
 def _source(**config: object) -> GitLabDocumentsSource:
@@ -193,7 +195,7 @@ def test_failed_file_fetch_keeps_previous_import_and_warns() -> None:
     # Registered as seen, so stale removal does not delete the earlier import.
     handler.add_entity_to_state.assert_called_once_with("document", previous_urn)
     assert source.report.files_skipped == 1
-    assert "gitlab-file-not-read" in {w.title for w in source.report.warnings}
+    assert "Repository file not read" in {w.title for w in source.report.warnings}
 
 
 def test_unresolved_branch_error_includes_the_api_cause() -> None:
@@ -278,7 +280,7 @@ def test_tree_without_pagination_headers_skips_stale_removal() -> None:
         list(source.get_workunits())
 
     assert source.report.tree_truncated is True
-    assert "gitlab-tree-truncated" in {w.title for w in source.report.warnings}
+    assert "Repository tree truncated" in {w.title for w in source.report.warnings}
     assert not source.report.failures
 
 

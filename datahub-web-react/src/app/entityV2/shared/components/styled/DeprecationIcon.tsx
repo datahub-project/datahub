@@ -167,7 +167,7 @@ export const DeprecationIcon = ({
                 )
             }
         >
-            <DeprecatedContainer>
+            <DeprecatedContainer data-testid="deprecation-icon">
                 <DeprecatedIcon />
                 {showText ? t('deprecation.deprecated') : null}
                 <ConfirmationModal

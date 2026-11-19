@@ -43,12 +43,14 @@ def _unique_id(prefix: str = SMOKE_TEST_STAGE_PREFIX) -> str:
 
 
 def execute_graphql(
-    auth_session, query: str, variables: Optional[Dict[str, Any]] = None
+    auth_session,
+    query: str,
+    variables: Optional[Dict[str, Any]] = None,
+    no_sync_wait: bool = False,
 ) -> Dict[str, Any]:
     payload = {"query": query, "variables": variables or {}}
-    response = auth_session.post(
-        f"{auth_session.frontend_url()}/api/graphql", json=payload
-    )
+    post = auth_session.raw_post if no_sync_wait else auth_session.post
+    response = post(f"{auth_session.frontend_url()}/api/graphql", json=payload)
     response.raise_for_status()
     return response.json()
 
@@ -338,9 +340,15 @@ class TestLifecycleStageAPIs:
         self.created_urns: List[str] = []
         self.created_stage_urns: List[str] = []
         yield
+        # One sync wait after the whole cleanup instead of one per delete.
         for urn in self.created_urns:
             try:
-                execute_graphql(auth_session, DELETE_DOCUMENT_MUTATION, {"urn": urn})
+                execute_graphql(
+                    auth_session,
+                    DELETE_DOCUMENT_MUTATION,
+                    {"urn": urn},
+                    no_sync_wait=True,
+                )
             except Exception as exc:
                 logger.warning(f"Cleanup failed for {urn}: {exc}")
         for stage_urn in self.created_stage_urns:
@@ -350,6 +358,8 @@ class TestLifecycleStageAPIs:
                 _hard_delete(auth_session, stage_urn)
             except Exception as exc:
                 logger.warning(f"Cleanup failed for {stage_urn}: {exc}")
+        if self.created_urns or self.created_stage_urns:
+            wait_for_writes_to_sync()
 
     def _ingest_stage(self, name: str, *, hide_in_search: bool = True) -> str:
         stage_id = _unique_id()

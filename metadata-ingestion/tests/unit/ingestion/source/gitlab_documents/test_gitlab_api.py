@@ -151,7 +151,7 @@ def test_html_response_is_treated_as_failure() -> None:
     client = GitLabApiClient("glpat-test")
     with requests_mock.Mocker() as m:
         m.get(f"{API}/repository/branches/main", text="<html>login</html>")
-        assert client.get_latest_commit_sha("acme/data/docs", "main") == "unknown"
+        assert client.get_latest_commit_sha("acme/data/docs", "main") is None
 
 
 def test_list_matching_files_fails_when_a_later_page_fails() -> None:

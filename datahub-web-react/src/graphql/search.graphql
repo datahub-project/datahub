@@ -1562,6 +1562,24 @@ query getEntityMentionNode($urn: String!, $skipSiblingsSearch: Boolean = false, 
     }
 }
 
+# A mention chip shows only the name and icon, which the search card fields cover. Its hover card
+# loads the full entity with getEntityMentionNode when it opens.
+query getEntityMentionChip($urn: String!, $skipSiblingsSearch: Boolean = false) {
+    entity(urn: $urn) {
+        urn
+        type
+        ...searchResultCardFields
+    }
+}
+
+query getEntityMentionChips($urns: [String!]!, $skipSiblingsSearch: Boolean = false) {
+    entities(urns: $urns) {
+        urn
+        type
+        ...searchResultCardFields
+    }
+}
+
 query getEntityDisplayName($urn: String!) {
     entity(urn: $urn) {
         urn

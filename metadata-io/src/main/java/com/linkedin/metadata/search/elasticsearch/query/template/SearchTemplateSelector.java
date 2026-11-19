@@ -16,30 +16,45 @@ import javax.annotation.Nullable;
 
 /**
  * Caller URN, otherwise the seed for the fulltext flag. The seed's routes then choose the template.
- * A miss with no default stays on the current template.
+ * A miss with no default stays on the current template. A route's {@code match} conditions read the
+ * full request entity set, the surface, and the set's semantic eligibility.
  */
 public class SearchTemplateSelector {
   private final SearchTemplateConfiguration configuration;
   private final SearchTemplateLoader loader;
+  private final SearchTemplateGates gates;
 
   public SearchTemplateSelector(
-      @Nonnull SearchTemplateConfiguration configuration, @Nonnull SearchTemplateLoader loader) {
+      @Nonnull SearchTemplateConfiguration configuration,
+      @Nonnull SearchTemplateLoader loader,
+      @Nonnull SearchTemplateGates gates) {
     if (configuration.getMaxRouteHops() <= 0) {
       throw new IllegalArgumentException(
           "elasticsearch.search.v3.templates.maxRouteHops must be positive");
     }
     this.configuration = configuration;
     this.loader = loader;
+    this.gates = gates;
   }
 
+  /**
+   * @param entityNames the requested entity types, which route conditions read
+   */
   @Nonnull
   public ResolvedSearchTemplate select(
       @Nonnull OperationContext opContext,
       @Nonnull String query,
       boolean fulltext,
-      @Nullable SearchClientShim.SearchEngineType engineType) {
+      @Nullable SearchClientShim.SearchEngineType engineType,
+      @Nonnull List<String> entityNames) {
+    SearchTemplateRoutes.Inputs inputs =
+        new SearchTemplateRoutes.Inputs(
+            entityNames,
+            opContext.getSearchContext().getSearchSurface(),
+            gates.eligibility(entityNames));
     try {
-      ResolvedSearchTemplate resolved = selectUnchecked(opContext, query, fulltext, engineType);
+      ResolvedSearchTemplate resolved =
+          selectUnchecked(opContext, query, fulltext, engineType, inputs);
       SearchTemplateMetrics.selected(opContext, resolved.getUrn(), resolved.getEngineSlot());
       return resolved;
     } catch (RuntimeException e) {
@@ -53,13 +68,14 @@ public class SearchTemplateSelector {
       @Nonnull OperationContext opContext,
       @Nonnull String query,
       boolean fulltext,
-      @Nullable SearchClientShim.SearchEngineType engineType) {
+      @Nullable SearchClientShim.SearchEngineType engineType,
+      @Nonnull SearchTemplateRoutes.Inputs inputs) {
     String requestDialect = SearchTemplateDialects.requestDialect(engineType);
     String engineKey = SearchTemplateDialects.engineKey(engineType);
     SearchFlags flags = opContext.getSearchContext().getSearchFlags();
     if (flags != null && flags.getSearchTemplate() != null) {
       ResolvedSearchTemplate resolved =
-          walk(opContext, query, requestDialect, flags.getSearchTemplate().toString());
+          walk(opContext, query, requestDialect, flags.getSearchTemplate().toString(), inputs);
       resolved.setEngineSlot(SearchTemplateMetrics.SLOT_CALLER);
       return resolved;
     }
@@ -76,7 +92,8 @@ public class SearchTemplateSelector {
       MergedSearchTemplate template = loader.find(opContext, candidate.urn());
       if (template != null
           && SearchTemplateDialects.matches(template.getDialect(), requestDialect)) {
-        ResolvedSearchTemplate resolved = walk(opContext, query, requestDialect, candidate.urn());
+        ResolvedSearchTemplate resolved =
+            walk(opContext, query, requestDialect, candidate.urn(), inputs);
         resolved.setEngineSlot(candidate.slot());
         return resolved;
       }
@@ -90,10 +107,12 @@ public class SearchTemplateSelector {
       @Nonnull OperationContext opContext,
       @Nonnull String query,
       @Nonnull String requestDialect,
-      @Nonnull String urn) {
+      @Nonnull String urn,
+      @Nonnull SearchTemplateRoutes.Inputs inputs) {
     MergedSearchTemplate current = loadMatching(opContext, requestDialect, urn);
     List<String> chain = new ArrayList<>();
     Set<String> visited = new HashSet<>();
+    boolean conditional = false;
     while (true) {
       if (!visited.add(current.getUrn())) {
         throw new SearchTemplateException("Search template route repeats " + current.getUrn());
@@ -103,20 +122,25 @@ public class SearchTemplateSelector {
             "Search template route hop limit is " + configuration.getMaxRouteHops());
       }
       chain.add(current.getUrn());
-      SearchTemplateRoutes.Decision decision = SearchTemplateRoutes.decide(current, query);
+      SearchTemplateRoutes.Decision decision = SearchTemplateRoutes.decide(current, query, inputs);
       if (decision.target() == null
           && query.startsWith(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX)) {
         decision =
             SearchTemplateRoutes.decide(
-                current, query.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length()));
+                current,
+                query.substring(SearchQueryBuilder.STRUCTURED_QUERY_PREFIX.length()),
+                inputs);
       }
       if (decision.usedDefault()) {
         SearchTemplateMetrics.fallback(opContext, "route");
       }
+      conditional |= decision.conditional();
       if (decision.target() == null) {
         ResolvedSearchTemplate resolved =
             new ResolvedSearchTemplate(current.getUrn(), current.getLastModified(), null, null);
         resolved.setRouteChain(chain);
+        // The request inputs are the same on every hop, so they are recorded once
+        resolved.setRouteMatch(conditional ? inputs.identity() : null);
         SearchTemplateMetrics.routeDepth(opContext, chain.size());
         return resolved;
       }

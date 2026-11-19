@@ -363,6 +363,8 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
           Map.entry("form", "urn:li:form:sweep"),
           Map.entry("domain", "urn:li:domain:sweep"),
           Map.entry("tag", "urn:li:tag:sweep"),
+          // siblingGroups takes dataset urns; matched before "group".
+          Map.entry("sibling", "urn:li:dataset:(urn:li:dataPlatform:hive,sweep,PROD)"),
           Map.entry("group", "urn:li:corpGroup:sweep"),
           Map.entry("member", "urn:li:corpuser:sweep-victim"),
           Map.entry("user", "urn:li:corpuser:sweep-victim"),
@@ -830,6 +832,13 @@ public class GraphQLResolverAuthorizationSweepTest extends AbstractTestNGSpringC
       @Override
       public int getMaxParentDepth() {
         return 10;
+      }
+
+      // siblingGroups is off by default (GRAPHQL_QUERY_MAX_SIBLING_GROUP_URNS 0); turn it on so
+      // the sweep reaches its view checks instead of the "off" error.
+      @Override
+      public int getMaxSiblingGroupUrns() {
+        return 30;
       }
     };
   }

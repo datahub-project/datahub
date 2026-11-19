@@ -35,6 +35,20 @@ public class SearchContextTest {
   }
 
   @Test
+  public void callerFilteredSplitsTheCacheKey() {
+    IndexConvention convention =
+        IndexConventionImpl.noPrefix("MD5", createDefaultEntityIndexConfiguration());
+    SearchContext unset = SearchContext.builder().indexConvention(convention).build();
+    SearchContext unfiltered = unset.toBuilder().callerFiltered(false).build();
+    SearchContext filtered = unset.toBuilder().callerFiltered(true).build();
+
+    // A page served for a filter the caller did not set is not reused for one the caller did
+    assertNotEquals(unfiltered.getCacheKeyComponent(), filtered.getCacheKeyComponent());
+    assertNotEquals(unfiltered.getCacheKeyComponent(), unset.getCacheKeyComponent());
+    assertNotEquals(unfiltered, filtered);
+  }
+
+  @Test
   public void searchContextId() {
     EntityIndexConfiguration entityIndexConfig = createDefaultEntityIndexConfiguration();
 

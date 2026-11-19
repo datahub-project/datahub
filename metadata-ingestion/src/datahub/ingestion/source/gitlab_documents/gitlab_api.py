@@ -110,7 +110,7 @@ class GitLabApiClient:
     def _project_url(self, project_path: str) -> str:
         return f"{self._api_base}/projects/{quote(project_path, safe='')}"
 
-    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> str:
+    def get_latest_commit_sha(self, owner_repo: str, branch: str) -> Optional[str]:
         url = (
             f"{self._project_url(owner_repo)}/repository/branches/"
             f"{quote(branch, safe='')}"
@@ -118,8 +118,9 @@ class GitLabApiClient:
         response = self._get(url)
         node = self._json_or_none(response)
         if isinstance(node, dict) and isinstance(node.get("commit"), dict):
-            return node["commit"].get("id") or "unknown"
-        return "unknown"
+            commit_id = node["commit"].get("id")
+            return commit_id if isinstance(commit_id, str) and commit_id else None
+        return None
 
     def list_matching_files(
         self,

@@ -1,3 +1,6 @@
+import warnings
+from typing import Any, Dict
+
 from datahub.ingestion.api.decorators import (
     SupportStatus,
     capability,
@@ -13,19 +16,9 @@ from datahub.ingestion.source.github_documents.github_api import (
 from datahub.ingestion.source.github_documents.github_documents_config import (
     GitHubDocumentsSourceConfig,
 )
-from datahub.ingestion.source.repository_documents.client import (
-    RepositoryDocumentsClient,
-)
-from datahub.ingestion.source.repository_documents.config import (
-    RepositoryDocumentsSourceConfigBase,
-)
+from datahub.ingestion.source.repository_documents import source as _shared
 from datahub.ingestion.source.repository_documents.source import (
-    EXTRACTION_ALGO_VERSION as EXTRACTION_ALGO_VERSION,
-    LAST_EXPORTED_CONTENT_HASH_KEY as LAST_EXPORTED_CONTENT_HASH_KEY,
-    PROP_IMPORT_SOURCE_ID as PROP_IMPORT_SOURCE_ID,
     RepositoryDocumentsSourceBase,
-    compute_file_content_hash as compute_file_content_hash,
-    compute_source_hash as compute_source_hash,
 )
 
 PROP_GITHUB_FILE_PATH = "github_file_path"
@@ -37,7 +30,7 @@ PROP_GITHUB_DIRECTORY_PATH = "github_directory_path"
 @support_status(SupportStatus.ALPHA)
 @capability(SourceCapability.PLATFORM_INSTANCE, "Enabled by default")
 @capability(SourceCapability.TEST_CONNECTION, "Enabled by default")
-class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
+class GitHubDocumentsSource(RepositoryDocumentsSourceBase[GitHubDocumentsSourceConfig]):
     """
     Ingest markdown and text files from a GitHub repository as DataHub Document entities.
 
@@ -51,7 +44,6 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
 
     platform = "github"
     platform_display_name = "GitHub"
-    config: GitHubDocumentsSourceConfig
     client: GitHubApiClient
 
     @classmethod
@@ -59,10 +51,7 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
         return GitHubDocumentsSourceConfig.parse_obj(config_dict)
 
     @classmethod
-    def _make_client(
-        cls, config: RepositoryDocumentsSourceConfigBase
-    ) -> RepositoryDocumentsClient:
-        assert isinstance(config, GitHubDocumentsSourceConfig)
+    def _make_client(cls, config: GitHubDocumentsSourceConfig) -> GitHubApiClient:
         return GitHubApiClient(
             StaticTokenProvider(config.github_token.get_secret_value())
         )
@@ -74,3 +63,27 @@ class GitHubDocumentsSource(RepositoryDocumentsSourceBase):
         self, owner_repo: str, branch: str, path: str, *, is_directory: bool
     ) -> str:
         return f"{self._repository_url(owner_repo)}/blob/{branch}/{path.lstrip('/')}"
+
+
+# Deprecated names kept so code built on the github-documents modules keeps
+# importing. Each now lives in repository_documents.source under the same name.
+_DEPRECATED_ALIASES: Dict[str, object] = {
+    "EXTRACTION_ALGO_VERSION": _shared.EXTRACTION_ALGO_VERSION,
+    "LAST_EXPORTED_CONTENT_HASH_KEY": _shared.LAST_EXPORTED_CONTENT_HASH_KEY,
+    "PROP_IMPORT_SOURCE_ID": _shared.PROP_IMPORT_SOURCE_ID,
+    "compute_file_content_hash": _shared.compute_file_content_hash,
+    "compute_source_hash": _shared.compute_source_hash,
+}
+
+
+def __getattr__(name: str) -> Any:
+    # Any, not object: callers of a deprecated name keep type-checking.
+    if name not in _DEPRECATED_ALIASES:
+        raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+    warnings.warn(
+        f"{__name__}.{name} is deprecated and will be removed in a future release. "
+        f"Import datahub.ingestion.source.repository_documents.source.{name} instead.",
+        FutureWarning,
+        stacklevel=2,
+    )
+    return _DEPRECATED_ALIASES[name]

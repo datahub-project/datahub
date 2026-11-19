@@ -50,6 +50,7 @@ import io.datahubproject.metadata.context.OperationContext;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Comparator;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.LinkedHashMap;
@@ -2118,6 +2119,30 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
   }
 
   /**
+   * Analyzed subfields of one label, including a label that is not queried by default. The identity
+   * templates name these fields themselves, so they are not taken from the default field list.
+   */
+  @Nonnull
+  public List<String> labelAnalyzedQueryFields(
+      @Nonnull OperationContext opContext, @Nonnull String label) {
+    Collection<EntitySpec> searchable =
+        V3SearchFields.searchableEntitySpecs(opContext.getEntityRegistry());
+    Set<String> subfields =
+        cachedAnalyzerSubfields(opContext.getEntityRegistry()).getOrDefault(label, Set.of());
+    float textBoost = weight(searchable, label) * partialConfiguration.getFactor();
+    List<SearchFieldConfig> fields = new ArrayList<>();
+    if (subfields.contains(TEXT)) {
+      fields.add(sharedField(label, label, TEXT, TEXT_SEARCH_ANALYZER, textBoost));
+    }
+    if (subfields.contains(STEMMED)) {
+      fields.add(
+          sharedField(label, label, STEMMED, STEMMED_SEARCH_ANALYZER, textBoost * STEMMED_FACTOR));
+    }
+    fields.sort(Comparator.comparing(SearchFieldConfig::fieldName));
+    return SearchTemplateFields.analyzedFields(fields);
+  }
+
+  /**
    * The shared fields of {@code fields} that the field configuration {@code fieldConfigLabel}
    * selects, or null when none applies: no configuration, an invalid one, or one that selects
    * nothing.
@@ -2223,7 +2248,9 @@ public class V3SearchQueryBuilder extends SearchQueryBuilder {
       @Nullable final AspectRetriever aspectRetriever) {
     final List<String> keywordFields = new ArrayList<>();
     final String fieldName = searchFieldConfig.fieldName();
-    if (canExactMatch) {
+    // A whole-text term on a numeric or date field is not a value of that type, and OpenSearch
+    // rejects the case-insensitive form. Such a field is matched by its own range or term query.
+    if (canExactMatch && !StructuredQueryRouting.isNumericOrDateField(v3FieldResolver, fieldName)) {
       keywordFields.add(
           v3FieldResolver.contains(fieldName)
               ? v3FieldResolver.exactPath(fieldName, Intent.EXACT)

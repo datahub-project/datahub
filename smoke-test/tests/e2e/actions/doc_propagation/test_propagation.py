@@ -213,8 +213,6 @@ def ingest_cleanup_data_function(
                 f"Ingesting datasets test data for test_id: {test_id} using template: {template_file}"
             )
             ingest_file_via_rest(auth_session=auth_session, filename=filename)
-            # Wait for ingestion to complete
-            wait_for_writes_to_sync(mcp_only=True)
             yield all_urns
         finally:
             if DELETE_AFTER_TEST:

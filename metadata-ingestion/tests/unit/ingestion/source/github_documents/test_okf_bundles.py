@@ -12,9 +12,9 @@ from datahub.ingestion.source.github_documents.github_documents_config import (
 )
 from datahub.ingestion.source.github_documents.github_documents_source import (
     GitHubDocumentsSource,
-    compute_source_hash,
 )
 from datahub.ingestion.source.repository_documents.client import RepositoryFileInfo
+from datahub.ingestion.source.repository_documents.source import compute_source_hash
 from datahub.metadata.schema_classes import (
     DocumentInfoClass,
     OkfBundleClass,
