@@ -7,6 +7,13 @@ from datahub.configuration.common import ConfigModel
 from datahub.emitter.mce_builder import ALL_ENV_TYPES, DEFAULT_ENV
 
 
+def validate_env(v: str) -> str:
+    """Normalize a recipe `env` to its FabricType spelling, rejecting unknown values."""
+    if v.upper() not in ALL_ENV_TYPES:
+        raise ValueError(f"env must be one of {sorted(ALL_ENV_TYPES)}, found {v!r}")
+    return v.upper()
+
+
 class PlatformInstanceConfigMixin(ConfigModel):
     """
     Any source that connects to a platform should inherit this class
@@ -33,9 +40,7 @@ class EnvConfigMixin(ConfigModel):
     @pydantic.field_validator("env", mode="after")
     @classmethod
     def env_must_be_one_of(cls, v: str) -> str:
-        if v.upper() not in ALL_ENV_TYPES:
-            raise ValueError(f"env must be one of {ALL_ENV_TYPES}, found {v}")
-        return v.upper()
+        return validate_env(v)
 
 
 class DatasetSourceConfigMixin(PlatformInstanceConfigMixin, EnvConfigMixin):
@@ -83,3 +88,8 @@ class PlatformDetail(ConfigModel):
         default=DEFAULT_ENV,
         description="The environment that all assets produced by DataHub platform ingestion source belong to",
     )
+
+    @pydantic.field_validator("env", mode="after")
+    @classmethod
+    def env_must_be_one_of(cls, v: str) -> str:
+        return validate_env(v)

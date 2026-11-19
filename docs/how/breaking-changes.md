@@ -15,6 +15,15 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
+### `env` inside platform mappings is now validated
+
+The `env` of a per-platform mapping in an ingestion recipe (for example an entry of
+`sources_to_platform_instance` or `project_to_platform_instance`, used by Fivetran, Airbyte, Looker, Sigma and others) is now checked the same way as the
+recipe's top-level `env`. Lower-case values such as `prod` are converted to `PROD`, which makes
+lineage to those datasets resolve where it previously did not. A value that is not a supported
+environment, such as a typo, now stops the recipe with an error instead of producing dataset
+links that match nothing. Correct the value if a recipe fails after upgrading.
+
 ### CLI initialization from scripts
 
 When you run `datahub init` without an interactive terminal, it now stops if an existing
