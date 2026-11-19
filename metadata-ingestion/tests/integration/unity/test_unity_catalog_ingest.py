@@ -1849,20 +1849,6 @@ def _exposure_table(
     }
 
 
-def _without_field_metadata(payload: dict) -> dict:
-    """A metric view payload whose columns' type_json has no field metadata."""
-    listed = json.loads(json.dumps(payload))
-    for column in listed["columns"]:
-        type_json = json.loads(column["type_json"])
-        type_json["metadata"] = {
-            k: v
-            for k, v in type_json.get("metadata", {}).items()
-            if k in ("metric_view.expr", "metric_view.type")
-        }
-        column["type_json"] = json.dumps(type_json)
-    return listed
-
-
 def register_exposure_metric_view_mock_data(
     workspace_client, metric_view_yaml, schema="markets", metric_view_payload=None
 ):
@@ -1972,16 +1958,13 @@ def register_exposure_metric_view_mock_data(
     for t in tables:
         t["schema_name"] = schema
         t["full_name"] = f"main.{schema}.{t['name']}"
-    listed_metric_view = metric_view
     if metric_view_payload is not None:
-        # The live tables.list() came back without the field metadata that
-        # tables.get() returns, so only the get carries it here too: the
-        # source has to read it from there.
+        # As tables.list() returns it live: the field metadata is in each
+        # column's type_json.
         metric_view = metric_view_payload
-        listed_metric_view = _without_field_metadata(metric_view_payload)
     workspace_client.tables.list = lambda *args, **kwargs: [
         databricks.sdk.service.catalog.TableInfo.from_dict(t)
-        for t in [*tables, listed_metric_view]
+        for t in [*tables, metric_view]
     ]
     workspace_client.tables.get = lambda *args, **kwargs: (
         databricks.sdk.service.catalog.TableInfo.from_dict(metric_view)

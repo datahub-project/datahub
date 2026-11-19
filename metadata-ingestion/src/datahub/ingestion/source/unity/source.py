@@ -529,8 +529,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
 
-        # Metric view columns re-read with tables.get(), by table id.
-        self._metric_view_columns_cache: Dict[str, List[Column]] = {}
         # Resolved in get_workunits_internal against the server (tri-state flag).
         self._emit_metric_view_semantic_models: bool = False
         self.metric_view_semantic_model_mapper = UnityMetricViewSemanticModelMapper(
@@ -2475,9 +2473,7 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 f"{sorted(dimension_keys.duplicate_names)!r}",
                 log=False,
             )
-        merge = merge_column_metadata(
-            dimension_keys.spec, table, columns=self._metric_view_columns(table)
-        )
+        merge = merge_column_metadata(dimension_keys.spec, table)
         if merge.invalid_columns:
             self.report.num_metric_view_column_metadata_invalid += len(
                 merge.invalid_columns
@@ -2492,19 +2488,6 @@ class UnityCatalogSource(StatefulIngestionSourceBase, TestableSource):
                 log=False,
             )
         return merge.spec
-
-    def _metric_view_columns(self, table: Table) -> List[Column]:
-        # tables.list() does not reliably carry a metric view column's field
-        # metadata in type_json (seen live: it came back without it while
-        # tables.get() had it), so read the columns with tables.get() once.
-        if table.schema.catalog.type == CustomCatalogType.HIVE_METASTORE_CATALOG:
-            return table.columns
-        if table.id not in self._metric_view_columns_cache:
-            fetched = self.unity_catalog_api_proxy.get_metric_view_columns(table)
-            self._metric_view_columns_cache[table.id] = (
-                fetched if fetched is not None else table.columns
-            )
-        return self._metric_view_columns_cache[table.id]
 
     def _extract_metric_view_lineage(
         self,

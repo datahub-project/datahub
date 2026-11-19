@@ -499,16 +499,6 @@ measures:
 class TestColumnMetadataMerge:
     """Unity Catalog strips field metadata from the YAML and keeps it on columns."""
 
-    @pytest.fixture(autouse=True)
-    def _listed_columns_only(self) -> Iterator[None]:
-        # These test the merge itself, over the columns the table carries.
-        with patch(
-            "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy"
-            ".get_metric_view_columns",
-            return_value=None,
-        ):
-            yield
-
     def _spec(self, source: UnityCatalogSource, table: Table) -> Dict[str, Any]:
         spec = source._load_metric_view_spec(table)
         assert spec is not None
@@ -622,69 +612,6 @@ def test_proxy_keeps_type_json_for_metric_views_only() -> None:
     assert dropped.type_json is None
 
 
-class TestMetricViewColumnsFromTablesGet:
-    """The merge reads columns from tables.get(), not the listed ones."""
-
-    def _listed_and_fetched(self) -> Table:
-        return _table(
-            _NORMALIZED,
-            columns=[_metric_view_column("revenue", {"metric_view.type": "measure"})],
-        )
-
-    def test_uses_tables_get_columns(self) -> None:
-        source = _source(emit_semantic_model_entities=True)
-        table = self._listed_and_fetched()
-        fetched = [
-            _metric_view_column(
-                "revenue",
-                {"semantic_metadata": json.dumps({"display_name": "Revenue"})},
-            )
-        ]
-        with patch.object(
-            source.unity_catalog_api_proxy,
-            "get_metric_view_columns",
-            return_value=fetched,
-        ) as get_columns:
-            spec = source._load_metric_view_spec(table)
-            source._load_metric_view_spec(table)
-        assert spec is not None
-        assert spec["measures"][0]["display_name"] == "Revenue"
-        # One tables.get() per metric view, however often the spec is loaded.
-        assert get_columns.call_count == 1
-
-    def test_falls_back_to_listed_columns(self) -> None:
-        source = _source(emit_semantic_model_entities=True)
-        table = _table(
-            _NORMALIZED,
-            columns=[
-                _metric_view_column(
-                    "revenue",
-                    {"semantic_metadata": json.dumps({"display_name": "Listed"})},
-                )
-            ],
-        )
-        with patch.object(
-            source.unity_catalog_api_proxy.__class__,
-            "get_metric_view_columns",
-            return_value=None,
-        ):
-            spec = source._load_metric_view_spec(table)
-        assert spec is not None
-        assert spec["measures"][0]["display_name"] == "Listed"
-
-    def test_proxy_get_failure_is_a_warning(self) -> None:
-        source = _source(emit_semantic_model_entities=True)
-        proxy = source.unity_catalog_api_proxy
-        with patch.object(
-            proxy._workspace_client.tables, "get", side_effect=RuntimeError("boom")
-        ):
-            assert proxy.get_metric_view_columns(self._listed_and_fetched()) is None
-        assert any(
-            "Unable to fetch metric view columns" in (w.title or "")
-            for w in source.report.warnings
-        )
-
-
 _FIELDS_SPEC = """
 version: 1.1
 source: main.sales.orders
@@ -719,17 +646,6 @@ measures:
 """
 
 
-@pytest.fixture
-def _listed_columns() -> Iterator[None]:
-    with patch(
-        "datahub.ingestion.source.unity.proxy.UnityCatalogApiProxy"
-        ".get_metric_view_columns",
-        return_value=None,
-    ):
-        yield
-
-
-@pytest.mark.usefixtures("_listed_columns")
 class TestFieldsKeyAndJoins:
     def test_fields_and_dimensions_both_read_on_semantic_model_path(self) -> None:
         source = _source(emit_semantic_model_entities=True)

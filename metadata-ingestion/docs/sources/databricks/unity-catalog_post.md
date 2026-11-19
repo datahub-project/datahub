@@ -91,7 +91,7 @@ If a metric view's `source` is a SQL subquery, or if it uses a 1-part identifier
 
 `include_metric_views` is `false` by default for backwards compatibility — when the flag is off (or when the installed `databricks-sdk` predates `TableType.METRIC_VIEW`), metric views continue to be emitted as plain `Table` entities with no view body.
 
-Unity Catalog normalizes the YAML it returns for a metric view: each field's `comment`, `display_name`, `synonyms` and `format` are removed from it and kept on the matching column instead (its comment, and the `metadata` of its type JSON, including `semantic_metadata`). DataHub reads them from there, with one extra `tables.get` call per metric view, so they appear in the custom properties above and in the Semantic Model mapping below. A value written in the YAML takes precedence. A column whose metadata is not valid JSON is counted in `num_metric_view_column_metadata_invalid`.
+Unity Catalog normalizes the YAML it returns for a metric view: each field's `comment`, `display_name`, `synonyms` and `format` are removed from it and kept on the matching column instead (its comment, and the `metadata` of its type JSON, including `semantic_metadata`). DataHub reads them from there, so they appear in the custom properties above and in the Semantic Model mapping below. A value written in the YAML takes precedence. A column whose metadata is not valid JSON is counted in `num_metric_view_column_metadata_invalid`.
 
 Dimensions may be declared under `fields:` (the documented key) or `dimensions:` (its synonym); both are read, and a name declared under both keeps its `fields:` definition, with a warning.
 

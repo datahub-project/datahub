@@ -1649,34 +1649,6 @@ class UnityCatalogApiProxy(UnityCatalogProxyProfilingMixin):
             )
             return []
 
-    def get_metric_view_columns(self, table: Table) -> Optional[List[Column]]:
-        """Columns of a metric view as tables.get() returns them, with type_json.
-
-        A metric view's field metadata (comment, display_name, synonyms, format)
-        lives in each column's type_json metadata, which tables.get() returns in
-        full. One call per metric view; None when it fails, so the caller keeps
-        the listed columns.
-        """
-        try:
-            table_info = self._workspace_client.tables.get(
-                full_name=table.ref.qualified_table_name
-            )
-        except Exception as e:
-            self.report.warning(
-                title="Unable to fetch metric view columns",
-                message="Field display names, synonyms and formats are taken from "
-                "the listed columns only.",
-                context=str(table.ref),
-                exc=e,
-                log=False,
-            )
-            return None
-        if not table_info.columns:
-            return None
-        return list(
-            self._extract_columns(table_info.columns, table.id, keep_type_json=True)
-        )
-
     def _create_ml_model(
         self, schema: Schema, obj: RegisteredModelInfo
     ) -> Optional[Model]:

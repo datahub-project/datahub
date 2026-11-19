@@ -14,7 +14,7 @@ from datahub.emitter.mce_builder import (
     make_schema_field_urn,
 )
 from datahub.ingestion.api.workunit import MetadataWorkUnit
-from datahub.ingestion.source.unity.proxy_types import Column, Table, TableReference
+from datahub.ingestion.source.unity.proxy_types import Table, TableReference
 from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.metadata.schema_classes import (
     BrowsePathEntryClass,
@@ -184,7 +184,7 @@ class MetricViewColumnMetadataMerge:
 
 
 def merge_column_metadata(
-    spec: Dict[str, Any], table: Table, columns: Optional[List[Column]] = None
+    spec: Dict[str, Any], table: Table
 ) -> MetricViewColumnMetadataMerge:
     """Fill a metric view spec with the field metadata Unity Catalog keeps on columns.
 
@@ -195,8 +195,7 @@ def merge_column_metadata(
     ``{<type>: {...}}``). The top-level ``filter`` is also kept as the
     ``metric_view.where`` table property. A value in the YAML wins (older
     workspaces, hand-written specs); the column fills in what the YAML lacks.
-    ``columns`` overrides ``table.columns`` (e.g. as re-read with
-    tables.get()). The input spec is not modified.
+    The input spec is not modified.
     """
     merged = copy.deepcopy(spec)
     result = MetricViewColumnMetadataMerge(spec=merged)
@@ -204,9 +203,7 @@ def merge_column_metadata(
     if "filter" not in merged and filter_property:
         merged["filter"] = filter_property
 
-    columns_by_name = {
-        c.name.lower(): c for c in (columns if columns is not None else table.columns)
-    }
+    columns_by_name = {c.name.lower(): c for c in table.columns}
     for key in (_DIMENSIONS_KEY, _MEASURES_KEY):
         entries = merged.get(key)
         if not isinstance(entries, list):
