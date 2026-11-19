@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next';
 import analytics, { EventType } from '@app/analytics';
 import { UpdateDeprecationModal } from '@app/entityV2/shared/EntityDropdown/UpdateDeprecationModal';
 import ActionDropdown from '@app/entityV2/shared/components/styled/search/action/ActionDropdown';
+import { ActionDisabledReason } from '@app/entityV2/shared/components/styled/search/types';
 import { handleBatchError } from '@app/entityV2/shared/utils';
 import { ConfirmationModal } from '@app/sharedV2/modals/ConfirmationModal';
 
@@ -13,11 +14,12 @@ import { useBatchUpdateDeprecationMutation } from '@graphql/mutations.generated'
 type Props = {
     urns: Array<string>;
     disabled: boolean;
+    disabledReason?: ActionDisabledReason;
     refetch?: () => void;
 };
 
 // eslint-disable-next-line
-export default function DeprecationDropdown({ urns, disabled = false, refetch }: Props) {
+export default function DeprecationDropdown({ urns, disabled = false, disabledReason, refetch }: Props) {
     const { t } = useTranslation('entity.shared.components');
     const [isEditModalVisible, setIsEditModalVisible] = useState(false);
     const [showConfirmationModal, setShowConfirmationModal] = useState(false);
@@ -73,6 +75,7 @@ export default function DeprecationDropdown({ urns, disabled = false, refetch }:
                     },
                 ]}
                 disabled={disabled}
+                disabledReason={disabledReason}
             />
             {isEditModalVisible && (
                 <UpdateDeprecationModal

@@ -19,11 +19,13 @@ import com.linkedin.metadata.search.elasticsearch.indexbuilder.ESIndexBuilder;
 import com.linkedin.metadata.search.elasticsearch.update.ESBulkProcessor;
 import com.linkedin.metadata.systemmetadata.ElasticSearchSystemMetadataService;
 import com.linkedin.metadata.utils.elasticsearch.SearchClientShim;
+import com.linkedin.metadata.utils.elasticsearch.responses.GetIndexResponse;
 import com.linkedin.metadata.utils.metrics.MetricUtils;
 import io.datahubproject.metadata.services.RestrictedService;
 import io.datahubproject.metadata.services.SecretService;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
 import io.ebean.Database;
+import java.io.IOException;
 import java.util.Map;
 import org.mockito.Mockito;
 import org.springframework.boot.test.context.TestConfiguration;
@@ -81,6 +83,15 @@ public class MaeConsumerApplicationTestConfiguration {
   public SearchClientShim<?> searchClientShim() {
     SearchClientShim<?> mock = Mockito.mock(SearchClientShim.class);
     Mockito.when(mock.getEngineType()).thenReturn(SearchClientShim.SearchEngineType.OPENSEARCH_2);
+    // V3 reads list V2 indices at startup. Nothing listed is a fresh install.
+    try {
+      Mockito.when(mock.getIndex(Mockito.any(), Mockito.any(), Mockito.any()))
+          .thenReturn(
+              new GetIndexResponse(
+                  new String[0], Map.of(), Map.of(), Map.of(), Map.of(), Map.of()));
+    } catch (IOException e) {
+      throw new IllegalStateException(e);
+    }
     return mock;
   }
 

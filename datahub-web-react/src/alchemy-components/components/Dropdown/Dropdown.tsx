@@ -13,6 +13,7 @@ export default function Dropdown({
     children,
     overlayClassName,
     resetDefaultMenuStyles,
+    onOpenChange,
     ...props
 }: React.PropsWithChildren<DropdownProps>) {
     // Get all overlay classes from parents
@@ -30,8 +31,20 @@ export default function Dropdown({
         return overlayClassNamesWithDefault.join(' ');
     }, [overlayClassName, overlayClassNames, resetDefaultMenuStyles]);
 
+    // antd 4 closed only its internal state on a menu click, so controlled dropdowns stayed open unless an
+    // item closed them. antd 5 asks the owner to close (source 'menu'); ignore that to keep antd 4 behavior.
+    const handleOpenChange: DropdownProps['onOpenChange'] = (open, info) => {
+        if (!open && info?.source === 'menu') return;
+        onOpenChange?.(open, info);
+    };
+
     return (
-        <AntdDropdown trigger={['click']} {...props} overlayClassName={finalOverlayClassName}>
+        <AntdDropdown
+            trigger={['click']}
+            {...props}
+            onOpenChange={handleOpenChange}
+            overlayClassName={finalOverlayClassName}
+        >
             {children}
         </AntdDropdown>
     );

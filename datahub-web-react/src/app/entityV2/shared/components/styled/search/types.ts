@@ -56,6 +56,14 @@ export enum SelectActionGroups {
 }
 
 /**
+ * Why a bulk action is disabled. Picks the tooltip shown on the disabled action.
+ */
+export enum ActionDisabledReason {
+    NO_SELECTION,
+    NOT_SUPPORTED,
+}
+
+/**
  * A fixed set of Filters, joined in conjunction or disjunction.
  */
 export type FilterSet = {

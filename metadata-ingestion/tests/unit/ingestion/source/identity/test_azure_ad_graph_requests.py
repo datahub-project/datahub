@@ -81,6 +81,45 @@ def test_rejected_select_names_the_username_setting(fetch: Fetch) -> None:
     assert graph_error in str(raised.value)
 
 
+@pytest.mark.parametrize("fetch", _FETCHES)
+def test_rejected_select_names_the_extra_attributes_setting(fetch: Fetch) -> None:
+    source = _make_source(user_select_attributes=["costCentre"])
+    _respond_with(
+        source,
+        400,
+        '{"error": {"message": "Could not find a property named \'costCentre\'"}}',
+    )
+
+    with pytest.raises(Exception) as raised:
+        list(fetch(source))
+
+    assert "user_select_attributes" in str(raised.value)
+    assert "costCentre" in str(raised.value)
+
+
+@pytest.mark.parametrize("bad", ["", "  ", "a,b", "a b", "a&b", "a?b", "a#b"])
+def test_user_select_attributes_rejects_unusable_names(bad: str) -> None:
+    with pytest.raises(ValueError):
+        AzureADConfig.model_validate(
+            {
+                "client_id": "c",
+                "tenant_id": "t",
+                "client_secret": "s",
+                "authority": "a",
+                "token_url": "u",
+                "user_select_attributes": [bad],
+            }
+        )
+
+
+def test_user_select_attributes_strips_and_drops_mapped_names() -> None:
+    source = _make_source(
+        user_select_attributes=[" officeLocation ", "department", "mail"]
+    )
+
+    assert source.config.user_select_attributes == ["officeLocation"]
+
+
 @pytest.mark.parametrize("status_code", [401, 403])
 def test_permission_errors_do_not_blame_the_username_setting(status_code: int) -> None:
     source = _make_source()
@@ -101,6 +140,73 @@ def test_user_country_comes_from_usage_location_not_mobile_phone() -> None:
     )
 
     assert info.countryCode == "GB"
+
+
+def _requested_query(source: AzureADSource) -> Dict[str, List[str]]:
+    session = _respond_with(source, 200, '{"value": []}')
+    list(source._get_azure_ad_users())
+    return parse_qs(urlparse(session.get.call_args.args[0]).query)
+
+
+def test_select_includes_department_company_and_extra_attributes() -> None:
+    source = _make_source(user_select_attributes=["officeLocation", "employeeId"])
+
+    selected = _requested_query(source)["$select"][0].split(",")
+
+    assert {"department", "companyName", "officeLocation", "employeeId"} <= set(
+        selected
+    )
+
+
+def test_user_mapping_department_and_custom_properties() -> None:
+    source = _make_source(user_select_attributes=["officeLocation", "employeeId"])
+    azure_ad_user: Dict[str, object] = {
+        "displayName": "Jane Doe",
+        "userPrincipalName": "jane@example.com",
+        "department": "Data & AI",
+        "companyName": "Example Corp",
+        "officeLocation": "Madrid",
+        "employeeId": None,
+    }
+
+    info = source._map_azure_ad_user_to_corp_user(azure_ad_user)
+
+    assert info.departmentName == "Data & AI"
+    # Unset attributes are left out rather than stored as "None".
+    assert info.customProperties == {
+        "companyName": "Example Corp",
+        "officeLocation": "Madrid",
+    }
+
+
+def test_custom_properties_serialise_non_strings_as_json_and_skip_empty() -> None:
+    source = _make_source(
+        user_select_attributes=[
+            "businessPhones",
+            "proxyAddresses",
+            "otherMails",
+            "showInAddressList",
+            "employeeOrgData",
+        ]
+    )
+
+    info = source._map_azure_ad_user_to_corp_user(
+        {
+            "displayName": "Jane Doe",
+            "businessPhones": ["+1 555 0100", "+1 555 0101"],
+            "otherMails": ["josé@example.com"],
+            "proxyAddresses": [],
+            "showInAddressList": True,
+            "employeeOrgData": {"division": "R&D", "costCenter": "42"},
+        }
+    )
+
+    assert info.customProperties == {
+        "businessPhones": '["+1 555 0100", "+1 555 0101"]',
+        "otherMails": '["josé@example.com"]',
+        "showInAddressList": "true",
+        "employeeOrgData": '{"costCenter": "42", "division": "R&D"}',
+    }
 
 
 def test_warns_when_graph_omits_account_enabled() -> None:
