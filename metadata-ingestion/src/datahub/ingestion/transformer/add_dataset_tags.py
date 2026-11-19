@@ -10,6 +10,9 @@ from datahub.emitter.mce_builder import Aspect
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
 from datahub.ingestion.transformer.dataset_transformer import DatasetTagsTransformer
+from datahub.ingestion.workunit_processors.auto_materialize_referenced_tags_terms import (
+    find_existing_tags_terms,
+)
 from datahub.metadata.schema_classes import (
     GlobalTagsClass,
     MetadataChangeProposalClass,
@@ -73,7 +76,15 @@ class AddDatasetTags(DatasetTagsTransformer):
 
         logger.debug("Generating tags")
 
+        # A failed lookup (None) is logged by the helper; emit every tag as before.
+        existing = (
+            find_existing_tags_terms(self.ctx.graph, set(self.processed_tags)) or set()
+        )
+        if existing:
+            logger.info(f"Skipped creating {len(existing)} tags that already exist")
         for tag_association in self.processed_tags.values():
+            if tag_association.tag in existing:
+                continue
             tag_urn = TagUrn.from_string(tag_association.tag)
             mcps.append(
                 MetadataChangeProposalWrapper(
