@@ -5,7 +5,6 @@
     "customIcon.alt": "Icon",
     "githubStar.ariaLabel": "Star DataHub on GitHub",
     "githubStar.label": "Star",
-    "githubStar.tooltip": "Star us on GitHub",
     "entityCountCard.viewCountTooltip": "View {{formattedCount}} {{tooltipDescriptor}}",
     "entityHead.pageTitle": "{{entityDisplayName}} | {{type}}",
     "multiStepForm.disabledNextTooltip": "Please complete all required fields before moving to the next step",

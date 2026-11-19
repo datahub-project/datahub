@@ -24,7 +24,7 @@ function ReopenTour() {
     );
 }
 
-const { githubStarFlag } = vi.hoisted(() => ({ githubStarFlag: { enabled: false } }));
+const { githubStarFlag } = vi.hoisted(() => ({ githubStarFlag: { enabled: false, configLoaded: true } }));
 
 vi.mock('@app/useAppConfig', async (importOriginal) => {
     const actual = await importOriginal<typeof import('@app/useAppConfig')>();
@@ -35,7 +35,7 @@ vi.mock('@app/useAppConfig', async (importOriginal) => {
                 ...DEFAULT_APP_CONFIG,
                 featureFlags: { ...DEFAULT_APP_CONFIG.featureFlags, showGithubStarPrompt: githubStarFlag.enabled },
             },
-            loaded: true,
+            loaded: githubStarFlag.configLoaded,
             refreshContext: () => null,
         }),
     };
@@ -267,6 +267,7 @@ describe('WelcomeToDataHubModal GitHub star slide', () => {
 
     afterEach(() => {
         githubStarFlag.enabled = false;
+        githubStarFlag.configLoaded = true;
         vi.useRealTimers();
         vi.restoreAllMocks();
         vi.unstubAllGlobals();
@@ -296,6 +297,25 @@ describe('WelcomeToDataHubModal GitHub star slide', () => {
 
         fireEvent.click(starLink);
         expect(eventSpy).toHaveBeenCalledWith({ type: EventType.GithubStarClickEvent, source: 'welcomeModal' });
+    });
+
+    it('waits for app config before opening, so the GitHub slide is there from the start', () => {
+        githubStarFlag.configLoaded = false;
+        const view = renderTour();
+        expect(screen.queryByText('Find Any Asset, Anywhere')).toBeNull();
+
+        githubStarFlag.configLoaded = true;
+        githubStarFlag.enabled = true;
+        view.rerender(
+            <MockedProvider>
+                <TestPageContainer>
+                    <WelcomeToDataHubModal />
+                </TestPageContainer>
+            </MockedProvider>,
+        );
+
+        expect(screen.getByText('Find Any Asset, Anywhere')).toBeInTheDocument();
+        expect(screen.getByTestId('welcome-modal-github-star-button')).toBeInTheDocument();
     });
 
     it('lets ArrowRight leave the GitHub slide when the flag turns on after the modal opened', () => {

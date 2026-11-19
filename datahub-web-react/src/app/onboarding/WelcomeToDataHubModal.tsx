@@ -74,7 +74,8 @@ export const WelcomeToDataHubModal = () => {
     const { isModalTourOpen, closeModalTour } = useOnboardingTour();
     const shouldSkipWelcomeModal = checkShouldSkipWelcomeModal();
     const isDocumentationSlideEnabled = false;
-    const isGithubStarSlideEnabled = useAppConfig().config.featureFlags.showGithubStarPrompt;
+    const { config: appConfig, loaded: isAppConfigLoaded } = useAppConfig();
+    const isGithubStarSlideEnabled = appConfig.featureFlags.showGithubStarPrompt;
     const TOTAL_CAROUSEL_SLIDES = 4 + (isDocumentationSlideEnabled ? 1 : 0) + (isGithubStarSlideEnabled ? 1 : 0);
     const MODAL_IMAGE_WIDTH_RAW = 620;
     const MODAL_IMAGE_WIDTH = `${MODAL_IMAGE_WIDTH_RAW}px`;
@@ -88,14 +89,15 @@ export const WelcomeToDataHubModal = () => {
         setPrefetchSlide(null);
     }, []);
 
-    // Automatic tour for first-time home page visitors
+    // Automatic tour for first-time home page visitors. Waits for app config so
+    // flag-gated slides don't appear after the tour has started.
     useEffect(() => {
-        if (!shouldSkipWelcomeModal) {
+        if (!shouldSkipWelcomeModal && isAppConfigLoaded) {
             clearPrefetch();
             setShouldShow(true);
             setCurrentSlide(0);
         }
-    }, [clearPrefetch, shouldSkipWelcomeModal]);
+    }, [clearPrefetch, shouldSkipWelcomeModal, isAppConfigLoaded]);
 
     // Manual tour trigger from Product Tour buttons
     useEffect(() => {
