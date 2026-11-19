@@ -125,24 +125,32 @@ and [Init script](https://docs.databricks.com/clusters/configure.html#init-scrip
 [Databricks Secrets](https://docs.databricks.com/security/secrets/secrets.html) can be leveraged to store sensitive
 information like tokens.
 
-- Download `datahub-spark-lineage` jar
-  from [the Maven central repository](https://s01.oss.sonatype.org/content/groups/public/io/acryl/acryl-spark-lineage/).
-- Create `init.sh` with below content
+- Download the `acryl-spark-lineage` jar that matches your cluster's Scala version from
+  [Maven Central](https://repo1.maven.org/maven2/io/acryl/): `acryl-spark-lineage_2.12` for Scala 2.12 runtimes,
+  `acryl-spark-lineage_2.13` for Scala 2.13 runtimes. Read the Scala version from the runtime name
+  (`17.3.x-scala2.13` needs `_2.13`) and hard-code it in the init script. Do not derive it from a
+  `scala-library-*.jar` glob over `/databricks/jars`: runtimes name that jar differently, the glob then matches
+  nothing, and a fallback to the other build downloads without error, loads, and stops the SparkContext with
+  `NoSuchMethodError` on the first job. The file name has a hyphen before the version, for example
+  `acryl-spark-lineage_2.13-1.7.0.14.jar`. The Maven coordinate (`io.acryl:acryl-spark-lineage_2.13:1.7.0.14`) is
+  not a file name. Pin an exact released version: the Maven `latest` pointer can resolve to a release candidate.
+- Upload the jar to a [Unity Catalog volume](https://docs.databricks.com/aws/en/volumes/) or to workspace files.
+  Databricks has end-of-lifed cluster-scoped init scripts stored on DBFS, so keep both the jar and the init script
+  out of DBFS.
+- Create `init.sh` with below content. `set -euo pipefail` makes a failed copy fail the cluster start with an init
+  script error, instead of a `ClassNotFoundException` for the listener later.
 
   ```sh
   #!/bin/bash
-  cp /dbfs/datahub/datahub-spark-lineage*.jar /databricks/jars
+  set -euo pipefail
+  cp /Volumes/<catalog>/<schema>/<volume>/acryl-spark-lineage_2.13-<version>.jar /databricks/jars/
   ```
 
-- Install and configure [Databricks CLI](https://docs.databricks.com/dev-tools/cli/index.html).
-- Copy jar and init script to Databricks File System(DBFS) using Databricks CLI.
-
-  ```sh
-  databricks fs mkdirs dbfs:/datahub
-  databricks fs cp --overwrite datahub-spark-lineage*.jar dbfs:/datahub
-  databricks fs cp --overwrite init.sh dbfs:/datahub
-  ```
-
+- Store `init.sh` in the same volume or in workspace files. On standard access mode, add the init script to the
+  metastore allowlist, and give the cluster owner `READ VOLUME` on the volume that holds the jar.
+- Supply the jar only through the init script. Spark creates `spark.extraListeners` while the SparkContext starts,
+  before cluster libraries or `spark.jars.packages` are attached, so a jar installed that way fails with
+  `ClassNotFoundException: datahub.spark.DatahubSparkListener`.
 - Open Databricks Cluster configuration page. Click the **Advanced Options** toggle. Click the **Spark** tab. Add below
   configurations under `Spark Config`.
 
@@ -153,7 +161,8 @@ information like tokens.
   spark.datahub.databricks.cluster        cluster-name<any preferred cluster identifier>
   ```
 
-- Click the **Init Scripts** tab. Set cluster init script as `dbfs:/datahub/init.sh`.
+- Click the **Init Scripts** tab. Set the cluster init script to the volume or workspace path of `init.sh`, for
+  example `/Volumes/<catalog>/<schema>/<volume>/init.sh`.
 
 - Configuring DataHub authentication token
 
@@ -256,9 +265,16 @@ The Spark agent captures fine-grained lineage information, including column-leve
 
 ### Spark versions supported
 
-Supports the Spark 3.x series (Scala 2.12 and 2.13). Apache Spark 4.x is supported via the
+Supports the Spark 3.x series (Scala 2.12 and 2.13). Apache Spark 4.0 is supported via the
 Scala 2.13 build of the agent (`io.acryl:acryl-spark-lineage_2.13`) and is covered by a
 compatibility smoke test.
+
+Apache Spark 4.2 (Databricks Runtime 19.x) is not yet supported. Spark 4.2 changed
+`org.apache.spark.sql.connector.catalog.CatalogManager` from a class to an interface, and the released
+agent builds call it as a class, so any read or write of a catalog table fails with
+`IncompatibleClassChangeError` and stops the SparkContext. Support is in progress in
+[#19573](https://github.com/datahub-project/datahub/pull/19573). On Databricks, use Runtime 17.3 LTS
+(Spark 4.0) until that ships.
 
 ### Environments tested with
 
