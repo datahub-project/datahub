@@ -17,9 +17,10 @@ logger = logging.getLogger(__name__)
 
 pytestmark = pytest.mark.domain(Domain.CATALOG)
 
-# Sync lineage walks have a relationship budget (maxRelations), so an unbounded walk from an
-# arbitrary dataset fails on deployments with large lineage graphs.
-LINEAGE_MAX_HOPS = 2
+# Sync lineage walks have a relationship budget (maxRelations). These tests walk from an
+# arbitrary dataset on real deployment data, where even two hops can exceed the budget on
+# large lineage graphs. One hop still exercises both APIs and scroll pagination.
+LINEAGE_MAX_HOPS = 1
 
 
 def _find_urn_with_lineage(auth_session) -> str:
