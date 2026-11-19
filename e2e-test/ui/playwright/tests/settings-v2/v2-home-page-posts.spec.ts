@@ -10,7 +10,7 @@ import { HomePagePostsPage } from '../../pages/settings/home-page-posts.page';
 import { withRandomSuffix } from '../../utils/random';
 import { DomainTag, TestTag } from '../../utils/test-tags';
 
-test.describe('create announcement and link post', () => {
+test.describe('home page announcements', () => {
   let postsPage: HomePagePostsPage;
 
   test.beforeEach(async ({ apiMock, page, cleanup }) => {
@@ -45,34 +45,5 @@ test.describe('create announcement and link post', () => {
     await postsPage.navigate();
     await postsPage.deletePost(announcementUpdated);
     await postsPage.verifyPostRemovedFromHome(announcementUpdated);
-  });
-
-  test('create, edit and delete link post', async () => {
-    const linkTitle = withRandomSuffix('Test Link');
-    const linkUpdated = `${linkTitle} Updated`;
-
-    await postsPage.openCreateForm();
-    await postsPage.selectPostType('Pinned Link');
-    await postsPage.fillTitle(linkTitle);
-    await postsPage.fillLink('https://www.example.com');
-    await postsPage.fillMediaLocation('https://www.example.com/images/example-image.jpg');
-    await postsPage.submitCreate();
-
-    // Navigate back to the posts page to ensure table is updated
-    await postsPage.navigate();
-    await postsPage.verifyPostVisible(linkTitle);
-
-    await postsPage.editPost(linkTitle);
-    await postsPage.selectPostType('Pinned Link');
-    await postsPage.fillTitle(linkUpdated);
-    await postsPage.fillLink('https://www.updatedexample.com');
-    await postsPage.fillMediaLocation('https://www.updatedexample.com/images/example-image.jpg');
-    await postsPage.submitUpdate();
-
-    await postsPage.navigate();
-    await postsPage.verifyPostVisible(linkUpdated);
-
-    await postsPage.deletePost(linkUpdated);
-    await postsPage.verifyPostRemovedFromHome(linkUpdated);
   });
 });

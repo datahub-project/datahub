@@ -7,37 +7,25 @@ import handleGraphQLError from '@app/sharedV2/handleGraphQLError';
 import { Modal, toast } from '@src/alchemy-components';
 
 import { useCreatePostMutation, useUpdatePostMutation } from '@graphql/mutations.generated';
-import { MediaType, PostContentType, PostType } from '@types';
+import { PostContentType, PostType } from '@types';
 
 function getInitialFormData(editData?: PostEntry): PostFormData {
     if (editData) {
         return {
-            type: (editData.contentType as PostContentType) || PostContentType.Text,
             title: editData.title || '',
             description: (editData.description as string) || '',
-            link: editData.link || '',
-            location: editData.imageUrl || '',
         };
     }
     return {
-        type: PostContentType.Text,
         title: '',
         description: '',
-        link: '',
-        location: '',
     };
 }
 
 type Props = {
     editData: PostEntry;
     onClose: () => void;
-    onCreate: (
-        contentType: string,
-        title: string,
-        description: string | undefined,
-        link: string | undefined,
-        location: string | undefined,
-    ) => void;
+    onCreate: (title: string, description: string | undefined) => void;
     onEdit: () => void;
 };
 
@@ -48,25 +36,21 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
     const [updatePostMutation] = useUpdatePostMutation();
     const [formData, setFormData] = useState<PostFormData>(() => getInitialFormData(editData));
 
-    const handleChange = useCallback((field: keyof PostFormData, value: string | PostContentType) => {
+    const handleChange = useCallback((field: keyof PostFormData, value: string) => {
         setFormData((prev) => ({ ...prev, [field]: value }));
     }, []);
 
     const isValid = useMemo(() => formData.title.trim().length > 0, [formData.title]);
 
     const onCreatePost = () => {
-        const mediaValue =
-            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         createPostMutation({
             variables: {
                 input: {
                     postType: PostType.HomePageAnnouncement,
                     content: {
-                        contentType: formData.type || PostContentType.Text,
+                        contentType: PostContentType.Text,
                         title: formData.title,
                         description: formData.description || null,
-                        link: formData.link || null,
-                        media: mediaValue,
                     },
                 },
             },
@@ -74,13 +58,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     toast.success(t('createSuccess'));
-                    onCreate(
-                        formData.type || PostContentType.Text,
-                        formData.title,
-                        formData.description,
-                        formData.link,
-                        formData.location,
-                    );
+                    onCreate(formData.title, formData.description);
                 }
             })
             .catch((error) => {
@@ -94,19 +72,15 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
     };
 
     const onUpdatePost = () => {
-        const mediaValue =
-            formData.type && formData.location ? { type: MediaType.Image, location: formData.location } : null;
         updatePostMutation({
             variables: {
                 input: {
                     urn: editData?.urn,
                     postType: PostType.HomePageAnnouncement,
                     content: {
-                        contentType: formData.type || PostContentType.Text,
+                        contentType: PostContentType.Text,
                         title: formData.title,
                         description: formData.description || null,
-                        link: formData.link || null,
-                        media: mediaValue,
                     },
                 },
             },

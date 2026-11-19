@@ -15,6 +15,6 @@ export const TOAST_MESSAGES = {
   ARE_YOU_SURE_REVOKE_TOKEN: 'Are you sure you want to revoke this token?',
   ACCEPTED_INVITE: 'Accepted invite!',
   CREATE_NEW_GROUP: 'Create new group',
-  CREATED_POST: 'Created Post!',
-  UPDATED_POST: 'Updated Post',
+  CREATED_POST: 'Created announcement!',
+  UPDATED_POST: 'Updated announcement',
 };

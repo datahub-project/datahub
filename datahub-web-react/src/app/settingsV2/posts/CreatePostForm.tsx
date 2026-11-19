@@ -1,4 +1,3 @@
-import { TabButtons } from '@components';
 import React from 'react';
 import { useTranslation } from 'react-i18next';
 import styled from 'styled-components';
@@ -7,14 +6,9 @@ import { Editor } from '@app/sharedV2/editor/Editor';
 import { Input } from '@src/alchemy-components';
 import { Label } from '@src/alchemy-components/components/Input/components';
 
-import { PostContentType } from '@types';
-
 export type PostFormData = {
-    type: PostContentType;
     title: string;
     description: string;
-    link: string;
-    location: string;
 };
 
 const FormField = styled.div`
@@ -28,7 +22,7 @@ const StyledEditor = styled(Editor)`
 
 type Props = {
     formData: PostFormData;
-    onChange: (field: keyof PostFormData, value: string | PostContentType) => void;
+    onChange: (field: keyof PostFormData, value: string) => void;
 };
 
 export default function CreatePostForm({ formData, onChange }: Props) {
@@ -36,26 +30,6 @@ export default function CreatePostForm({ formData, onChange }: Props) {
 
     return (
         <form onSubmit={(e) => e.preventDefault()}>
-            <FormField>
-                <Label>{t('contentTypeLabel')}</Label>
-                <TabButtons
-                    tabs={[
-                        {
-                            key: PostContentType.Text,
-                            label: t('announcementTab'),
-                            dataTestId: 'post-type-announcement',
-                        },
-                        {
-                            key: PostContentType.Link,
-                            label: t('pinnedLinkTab'),
-                            dataTestId: 'post-type-pinned-link',
-                        },
-                    ]}
-                    activeTab={formData.type}
-                    onTabClick={(key) => onChange('type', key as PostContentType)}
-                />
-            </FormField>
-
             <FormField>
                 <Input
                     label={t('titleLabel')}
@@ -67,51 +41,15 @@ export default function CreatePostForm({ formData, onChange }: Props) {
                 />
             </FormField>
 
-            {formData.type === PostContentType.Text && (
-                <FormField>
-                    <Label>{t('descriptionLabel')}</Label>
-                    <StyledEditor
-                        className="create-post-description"
-                        doNotFocus
-                        content={formData.description || undefined}
-                        onChange={(val) => onChange('description', val)}
-                    />
-                </FormField>
-            )}
-
-            {formData.type === PostContentType.Link && (
-                <>
-                    <FormField>
-                        <Input
-                            label={t('linkUrlLabel')}
-                            inputTestId="create-post-link"
-                            placeholder={t('linkUrlPlaceholder')}
-                            value={formData.link}
-                            setValue={(val) => onChange('link', val)}
-                        />
-                    </FormField>
-
-                    <FormField>
-                        <Input
-                            label={t('imageUrlLabel')}
-                            inputTestId="create-post-media-location"
-                            placeholder={t('imageUrlPlaceholder')}
-                            value={formData.location}
-                            setValue={(val) => onChange('location', val)}
-                        />
-                    </FormField>
-
-                    <FormField>
-                        <Label>{t('descriptionLabel')}</Label>
-                        <StyledEditor
-                            doNotFocus
-                            content={formData.description || undefined}
-                            onChange={(val) => onChange('description', val)}
-                            className="create-post-description"
-                        />
-                    </FormField>
-                </>
-            )}
+            <FormField>
+                <Label>{t('descriptionLabel')}</Label>
+                <StyledEditor
+                    className="create-post-description"
+                    doNotFocus
+                    content={formData.description || undefined}
+                    onChange={(val) => onChange('description', val)}
+                />
+            </FormField>
         </form>
     );
 }
