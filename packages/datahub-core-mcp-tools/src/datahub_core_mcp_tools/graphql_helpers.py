@@ -64,6 +64,16 @@ DOCUMENT_CONTENT_CHAR_LIMIT = _env_limit("DOCUMENT_CONTENT_CHAR_LIMIT", 8000)
 # Every piece of per-column text (description, edited description, deprecation
 # note), so a column reads the same length whichever aspect its text came from.
 SCHEMA_FIELD_TEXT_LENGTH_LIMIT = _env_limit("FIELD_DESCRIPTION_LENGTH_LIMIT", 120)
+# An assertion's source-defined key/value lists (run nativeResults and error
+# properties, nativeParameters, customProperties) have no size limit (compiled SQL,
+# sampled rows), so both the key count and each value are capped.
+MAX_ASSERTION_KEY_VALUE_ENTRIES = _env_limit("MAX_ASSERTION_KEY_VALUE_ENTRIES", 10)
+MAX_ASSERTION_KEY_VALUE_CHARS = _env_limit("MAX_ASSERTION_KEY_VALUE_CHARS", 200)
+# Data quality members per data contract: each carries its latest run, and a
+# contract can group hundreds of assertions.
+MAX_CONTRACT_DATA_QUALITY_ASSERTIONS = _env_limit(
+    "MAX_CONTRACT_DATA_QUALITY_ASSERTIONS", 25
+)
 # One response, kept under common MCP client output limits (about 25K tokens).
 MCP_CLIENT_OUTPUT_CHAR_BUDGET = 60000
 # All grep excerpts in one call: one match has no natural size limit.
