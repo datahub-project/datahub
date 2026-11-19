@@ -21,7 +21,7 @@ export const DomainEntitiesTab = () => {
         };
     }
 
-    const excludeFromFilter = { field: '_entityType', values: ['DATA_PRODUCT'], negated: true };
+    const excludeFromFilter = { field: '_entityType', values: ['DATA_PRODUCT', 'DOMAIN'], negated: true };
 
     return (
         <SearchCardContext.Provider value={{ showRemovalFromList: true }}>
