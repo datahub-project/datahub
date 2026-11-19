@@ -80,6 +80,22 @@ public class ResolvedSearchTemplate {
    */
   private boolean skipResultCache;
 
+  /**
+   * The similarity anchor bind checked, and whether this viewer may use it: view authorization lets
+   * them see it, and the default search filters keep it. A similarity rung for that anchor reuses
+   * the answer either way. Unset when bind did not check it or the check did not finish, so the
+   * rung checks it. Not part of the cache identity.
+   */
+  @Nullable private String checkedAnchor;
+
+  private boolean checkedAnchorUsable;
+
+  /**
+   * When a selected similarity rung's anchor check and retrieval must finish, from {@link
+   * System#nanoTime()}, or 0 when bind did not start one. Not part of the cache identity.
+   */
+  private long vectorDeadlineNanos;
+
   public ResolvedSearchTemplate(
       @Nonnull String urn, long lastModified, @Nullable String intent, @Nullable String subIntent) {
     this.urn = urn;
@@ -142,6 +158,15 @@ public class ResolvedSearchTemplate {
 
   public void setSkipResultCache(boolean skipResultCache) {
     this.skipResultCache = skipResultCache;
+  }
+
+  public void setAnchorCheck(@Nonnull String anchor, boolean usable) {
+    this.checkedAnchor = anchor;
+    this.checkedAnchorUsable = usable;
+  }
+
+  public void setVectorDeadlineNanos(long vectorDeadlineNanos) {
+    this.vectorDeadlineNanos = vectorDeadlineNanos;
   }
 
   /**

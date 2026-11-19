@@ -116,6 +116,7 @@ def _wait_for_semantic_index(
 
 
 SEMANTIC_TEMPLATE_URN = "urn:li:searchTemplate:semantic"
+SIMILARITY_TEMPLATE_URN = "urn:li:searchTemplate:similarity"
 
 SEMANTIC_TEMPLATE_SEARCH = """
     query SemanticTemplateSearch($input: SearchAcrossEntitiesInput!) {
@@ -138,8 +139,10 @@ SEMANTIC_TEMPLATE_SEARCH = """
 """
 
 
-def _search_semantic_template(auth_session, query: str, count: int = 50) -> dict:
-    """Search documents through the keyword search API with the shipped semantic template named.
+def _search_semantic_template(
+    auth_session, query: str, count: int = 50, template: str = SEMANTIC_TEMPLATE_URN
+) -> dict:
+    """Search documents through the keyword search API with a shipped vector template named.
 
     includeExplain returns the vector rung's explanation, which shows the template served the
     page rather than a keyword query.
@@ -151,7 +154,7 @@ def _search_semantic_template(auth_session, query: str, count: int = 50) -> dict
             "start": 0,
             "count": count,
             "searchFlags": {
-                "searchTemplate": SEMANTIC_TEMPLATE_URN,
+                "searchTemplate": template,
                 "includeExplain": True,
             },
         }
@@ -492,4 +495,68 @@ class TestClassicalEmbeddingProvider:
         logger.info(
             f"✓ The semantic template ranked 'Data Access Request Process' "
             f"#{rank(access_doc_urn) + 1} with profile {explanation['profile']}"
+        )
+
+    # ------------------------------------------------------------------
+    # Test 5 — Document similarity through the shipped templates
+    # ------------------------------------------------------------------
+
+    def test_similarity_template_finds_documents_similar_to_a_urn(
+        self, auth_session, tmp_path
+    ):
+        """
+        A search that names the similarity template with a document URN as the query: the anchor
+        document's stored chunk vectors are the query, the anchor is left out of its own neighbors,
+        and neighbors below a cosine of 0.8 are dropped from a window of 500.
+
+        The classical provider is lexical, so the fixture is lexical too: a copy of the anchor's
+        text must come back, and a document that shares little of its text must rank below it.
+        """
+        anchor_doc = SAMPLE_DOCUMENTS[1]
+        copy_doc = {**anchor_doc, "title": f"{anchor_doc['title']} copy"}
+        created_docs = create_documents_with_sdk(
+            auth_session, [anchor_doc, copy_doc, SAMPLE_DOCUMENTS[2]]
+        )
+        for _doc_id, urn in created_docs:
+            self.created_urns.append(urn)
+        doc_ids = [doc_id for doc_id, _ in created_docs]
+        anchor_urn, copy_urn, other_urn = [urn for _, urn in created_docs]
+
+        recipe_path = create_ingestion_recipe(auth_session, doc_ids, tmp_path)
+        run_ingestion(auth_session, recipe_path)
+        wait_for_writes_to_sync(mcp_only=True)
+        # Similarity reads the same index as semantic search, so wait on that
+        _wait_for_semantic_index(
+            auth_session, "data access request process", [anchor_urn, copy_urn]
+        )
+
+        result = _search_semantic_template(
+            auth_session, anchor_urn, template=SIMILARITY_TEMPLATE_URN
+        )
+        if "errors" in result:
+            pytest.fail(f"GraphQL errors from document similarity: {result['errors']}")
+        search_data = result["data"]["searchAcrossEntities"]
+        explanation = search_data.get("vectorRetrieval")
+        assert explanation, (
+            "No vectorRetrieval explanation: the vector rung did not serve"
+        )
+        assert explanation["outcome"] == "served", explanation
+        assert explanation["profile"] == EXPECTED_EMBEDDING_KEY, explanation
+        assert explanation["entityTypes"] == ["document"], explanation
+        assert explanation["filterInVectorSearch"] is True, explanation
+        # The similarity window, not the semantic page window, shows which template served
+        assert explanation["k"] == 500, explanation
+
+        result_urns = [item["entity"]["urn"] for item in search_data["searchResults"]]
+        assert copy_urn in result_urns, (
+            f"{copy_urn} not among the neighbors of {anchor_urn}: {result_urns}"
+        )
+        assert anchor_urn not in result_urns, result_urns
+        if other_urn in result_urns:
+            assert result_urns.index(copy_urn) < result_urns.index(other_urn), (
+                result_urns
+            )
+        logger.info(
+            f"✓ Similarity to {anchor_urn} returned its copy at "
+            f"#{result_urns.index(copy_urn) + 1} of {len(result_urns)}"
         )

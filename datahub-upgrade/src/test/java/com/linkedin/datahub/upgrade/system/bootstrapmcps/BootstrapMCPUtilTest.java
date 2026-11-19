@@ -306,6 +306,9 @@ public class BootstrapMCPUtilTest {
         written.get(SEARCH_TEMPLATE_FULLTEXT_URN).getRetrieval().getCombine(), "keywordRerank");
     assertEquals(
         written.get("urn:li:searchTemplate:semantic").getRetrieval().getCombine(), "vector");
+    assertEquals(
+        written.get("urn:li:searchTemplate:similarity").getRetrieval().getQuerySource(),
+        "anchorEntity");
 
     assertEquals(shipped.getRevision_env(), SEARCH_TEMPLATES_REVISION_ENV);
     environmentVariables.set(

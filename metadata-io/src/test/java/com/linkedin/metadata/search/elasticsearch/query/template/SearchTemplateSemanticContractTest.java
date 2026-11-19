@@ -382,9 +382,9 @@ public class SearchTemplateSemanticContractTest extends SearchTemplateFixture {
     assertEquals(
         rejectionOf("zeroCap", rung(r -> r.setCombine("vector").setCandidateCap(0))),
         "retrievalCandidateCap");
-    assertEquals(
-        rejectionOf("similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))),
-        "similarity");
+    assertNull(
+        rejectionOf(
+            "similarity", rung(r -> r.setCombine("vector").setQuerySource("anchorEntity"))));
     assertEquals(
         rejectionOf("vectorBody", rung(r -> r.setCombine("keywordRerank").setVectorBody("{}"))),
         "vectorBody");
