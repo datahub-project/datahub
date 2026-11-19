@@ -56,12 +56,13 @@ class QlikAPI(QlikBaseAPI):
             }
         )
         # Qlik Cloud rate-limits the tenant, and parallel app reads make 429s
-        # likely. The lineage overview call is a POST but only reads. Only 429s
-        # are retried, so an unreachable tenant still fails fast.
+        # likely. It also drops connections mid-pagination now and then. Every
+        # call only reads, including the lineage overview POST. Connection
+        # errors are not retried, so an unreachable tenant still fails fast.
         retry = Retry(
             total=5,
             connect=0,
-            read=0,
+            read=2,
             other=0,
             status=5,
             backoff_factor=1,
@@ -261,6 +262,9 @@ class QlikAPI(QlikBaseAPI):
             response = self.session.get(
                 f"{self.rest_api_url}/lineage-graphs/nodes/{app_qri}/actions/expand?node={app_qri}&level=TABLE"
             )
+            if response.status_code == 404:
+                logger.debug(f"App {app_id} has no lineage graph")
+                return
             response.raise_for_status()
             for table_node_qri in response.json()[Constant.GRAPH][Constant.NODES]:
                 table_node_qri = quote(table_node_qri, safe="")

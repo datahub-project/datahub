@@ -9,12 +9,12 @@ import requests
 import requests_mock as requests_mock_module
 from requests.adapters import HTTPAdapter
 from urllib3.connectionpool import HTTPConnectionPool
-from urllib3.exceptions import NewConnectionError
+from urllib3.exceptions import NewConnectionError, ProtocolError
 from urllib3.response import HTTPResponse
 from urllib3.util.retry import Retry
 
 from datahub.ingestion.api.common import PipelineContext
-from datahub.ingestion.source.qlik_sense.config import QlikSourceConfig
+from datahub.ingestion.source.qlik_sense.config import Constant, QlikSourceConfig
 from datahub.ingestion.source.qlik_sense.data_classes import (
     App,
     QlikTable,
@@ -641,6 +641,60 @@ def test_rate_limited_requests_are_retried_through_the_adapter() -> None:
 
     assert response.status_code == 200
     assert sent == ["GET", "GET", "POST", "POST"]
+
+
+def test_dropped_connection_is_retried_through_the_adapter() -> None:
+    sent: List[str] = []
+
+    def make_request(
+        pool: HTTPConnectionPool, conn: object, method: str, url: str, **_: object
+    ) -> HTTPResponse:
+        sent.append(url)
+        if len(sent) == 1:
+            raise ProtocolError("Connection aborted.")
+        return _urllib3_response(200, method, url)
+
+    with (
+        patch.object(HTTPConnectionPool, "_make_request", make_request),
+        patch.object(Retry, "sleep"),
+    ):
+        QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+
+    assert len(sent) == 2
+
+
+def test_app_without_lineage_graph_is_not_a_read_error(
+    requests_mock: requests_mock_module.Mocker,
+) -> None:
+    requests_mock.get("https://tenant.example.com/api/v1/api-keys", json={})
+    requests_mock.get(
+        "https://tenant.example.com/api/v1/lineage-graphs/nodes/"
+        "qri%3Aapp%3Asense%3A%2F%2Fapp-1/actions/expand",
+        status_code=404,
+    )
+    api = QlikAPI(QlikSourceConfig.model_validate(CLOUD_CONFIG))
+    table = _blackbox_table("SELECT order_id FROM orders")
+    errors = ReadErrors()
+
+    api._add_qri_of_tables([table], "app-1", errors)
+
+    assert errors.messages == []
+    assert table.tableQri is None
+
+
+def test_table_from_a_personal_space_connection_is_kept() -> None:
+    table = QlikTable.model_validate(
+        {
+            "tableName": "orders",
+            "boxType": "load-file",
+            "tableAlias": "orders",
+            "dataconnectorName": "Files",
+            "connectionInfo": {"id": "conn-1", "sourceConnectorID": "File_AmazonS3"},
+            "fields": [],
+        }
+    )
+
+    assert table.spaceId == Constant.PERSONAL_SPACE_ID
 
 
 def test_unreachable_tenant_is_not_retried() -> None:
