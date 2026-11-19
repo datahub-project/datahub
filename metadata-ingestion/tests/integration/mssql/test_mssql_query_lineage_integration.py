@@ -1815,6 +1815,11 @@ def test_query_log_resolves_temp_tables_within_a_session(
         "driver=ODBC+Driver+18+for+SQL+Server&Encrypt=yes&TrustServerCertificate=yes",
         isolation_level="AUTOCOMMIT",
     )
+    # The audit and XE session also hold the other parametrized run. Its
+    # connections used the same login, and SQL Server reuses session ids, so
+    # reading them too can merge another run's #stage into these sessions.
+    window_start = datetime.now(tz=timezone.utc)
+    time.sleep(1)
     # Separate connections are separate sessions, each with its own #stage.
     with analyst_engine.connect() as orders, analyst_engine.connect() as customers:
         orders.exec_driver_sql(
@@ -1832,7 +1837,13 @@ def test_query_log_resolves_temp_tables_within_a_session(
     analyst_engine.dispose()
     time.sleep(3)
 
-    mcps, _ = _run_query_log(mssql_connection, mssql_runner, query_history_source)
+    mcps, _ = _run_query_log(
+        mssql_connection,
+        mssql_runner,
+        query_history_source,
+        start_time=window_start.isoformat(),
+        end_time="2100-01-01T00:00:00Z",
+    )
 
     def upstreams(table: str) -> Set[str]:
         urn = f"urn:li:dataset:(urn:li:dataPlatform:mssql,lineage_test.lineage_test.{table},PROD)"
