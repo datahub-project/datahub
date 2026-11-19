@@ -172,6 +172,29 @@ def _validate_status(status: str) -> str:
     return status
 
 
+# Document lifecycle stage (``status.lifecycleStage``) for published documents. When a
+# document has a stage, it decides visibility; when it has none, the legacy
+# ``documentInfo.status.state`` does. Writers keep the two consistent.
+PUBLISHED_LIFECYCLE_STAGE_URN = "urn:li:lifecycleStageType:PUBLISHED"
+
+
+def _state_to_lifecycle_stage(
+    status: str, current_stage: Optional[str]
+) -> Optional[str]:
+    """Lifecycle stage implied by a legacy document state.
+
+    PUBLISHED always maps to the PUBLISHED stage. UNPUBLISHED keeps an existing
+    non-published stage (DRAFT, IN_REVIEW, ...) since those already mean "not
+    published"; otherwise no stage is set, so the legacy UNPUBLISHED state decides
+    visibility.
+    """
+    if status == models.DocumentStateClass.PUBLISHED:
+        return PUBLISHED_LIFECYCLE_STAGE_URN
+    if current_stage and current_stage != PUBLISHED_LIFECYCLE_STAGE_URN:
+        return current_stage
+    return None
+
+
 def _validate_external_url(url: str) -> str:
     """Validate that a URL is well-formed.
 
@@ -440,6 +463,18 @@ class Document(
 
         doc._set_aspect(document_info)
 
+        # Keep status.lifecycleStage consistent with documentInfo.status.state above.
+        # A stage takes precedence over the legacy state, so a stored stage that
+        # disagrees with it must not be left in place.
+        lifecycle_stage = _state_to_lifecycle_stage(status, None)
+        doc._set_aspect(
+            models.StatusClass(
+                removed=False,
+                lifecycleStage=lifecycle_stage,
+                lifecycleLastUpdated=modified_audit if lifecycle_stage else None,
+            )
+        )
+
         # Create DocumentSettings - always set if show_in_global_context is False
         # This controls whether the document appears in global search and sidebar
         if not show_in_global_context:
@@ -509,7 +544,8 @@ class Document(
             id: Unique identifier for the document (used in URN)
             title: Document title (displayed in search results and navigation)
             text: Full text content of the document (supports markdown)
-            status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED)
+            status: Publication status - "PUBLISHED" or "UNPUBLISHED" (default: PUBLISHED).
+                Also sets the document's lifecycle stage to match.
             show_in_global_context: If True, document appears in global search and
                 sidebar navigation. If False, document is only accessible via related
                 assets - useful for AI-only context documents. (default: True)
@@ -625,7 +661,8 @@ class Document(
             external_url: URL to the document in the external system
             external_id: Unique identifier in the external system (optional)
             text: Text content for indexing (optional - can be synced from source)
-            status: Publication status (default: PUBLISHED)
+            status: Publication status (default: PUBLISHED). Also sets the document's
+                lifecycle stage to match.
             show_in_global_context: If True, document appears in global search and
                 sidebar navigation. (default: True)
             subtype: Document sub-type (e.g., "Runbook", "Reference")
@@ -923,11 +960,18 @@ class Document(
             return state
         return None
 
-    def set_status(self, status: str) -> Self:
+    def set_status(
+        self, status: str, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN
+    ) -> Self:
         """Set the document status.
+
+        Also keeps the lifecycle stage (``status.lifecycleStage``) consistent:
+        PUBLISHED sets the PUBLISHED stage; UNPUBLISHED keeps an existing
+        non-published stage (e.g. DRAFT) and otherwise clears the stage.
 
         Args:
             status: New document status (PUBLISHED or UNPUBLISHED)
+            actor: Who made the change; stamped on the lifecycle stage transition
 
         Returns:
             Self for method chaining
@@ -941,23 +985,52 @@ class Document(
             doc_info.status.state = status
         else:
             doc_info.status = models.DocumentStatusClass(state=status)
+
+        # A lifecycle stage takes precedence over the legacy state, so keep it aligned.
+        lifecycle_status = self._setdefault_aspect(models.StatusClass(removed=False))
+        target_stage = _state_to_lifecycle_stage(
+            status, lifecycle_status.lifecycleStage
+        )
+        if lifecycle_status.lifecycleStage != target_stage:
+            lifecycle_status.lifecycleStage = target_stage
+            stamp = make_time_stamp(datetime.now())
+            lifecycle_status.lifecycleLastUpdated = models.AuditStampClass(
+                time=stamp.time if stamp else 0, actor=str(actor)
+            )
         return self
 
-    def publish(self) -> Self:
+    @property
+    def lifecycle_stage(self) -> Optional[str]:
+        """Get the document's lifecycle stage URN, if one is set.
+
+        ``urn:li:lifecycleStageType:PUBLISHED`` means published; any other stage
+        (DRAFT, IN_REVIEW, ...) means not published. When no stage is set, the
+        legacy :attr:`status` decides.
+        """
+        lifecycle_status = self._get_aspect(models.StatusClass)
+        return lifecycle_status.lifecycleStage if lifecycle_status else None
+
+    def publish(self, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN) -> Self:
         """Publish the document (make it visible).
 
+        Args:
+            actor: Who made the change; stamped on the lifecycle stage transition
+
         Returns:
             Self for method chaining
         """
-        return self.set_status(models.DocumentStateClass.PUBLISHED)
+        return self.set_status(models.DocumentStateClass.PUBLISHED, actor=actor)
 
-    def unpublish(self) -> Self:
+    def unpublish(self, *, actor: ActorUrnOrStr = DEFAULT_ACTOR_URN) -> Self:
         """Unpublish the document (make it not visible).
 
+        Args:
+            actor: Who made the change; stamped on the lifecycle stage transition
+
         Returns:
             Self for method chaining
         """
-        return self.set_status(models.DocumentStateClass.UNPUBLISHED)
+        return self.set_status(models.DocumentStateClass.UNPUBLISHED, actor=actor)
 
     @property
     def show_in_global_context(self) -> bool:
