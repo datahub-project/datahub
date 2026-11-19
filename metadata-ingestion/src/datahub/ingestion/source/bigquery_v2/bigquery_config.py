@@ -338,128 +338,18 @@ class GcsDatasetLineageProviderConfigBase(ConfigModel):
     )
 
 
-# `dataset_pattern` is matched against `<project_id>.<dataset_name>` when
-# `match_fully_qualified_names` is set (the default), so an entry written for
-# the dataset name alone has to be prefixed with "any project". Each top-level
-# alternation branch is judged on its own:
-#
-# - no `.` at all: a dataset name, prefixed with `.*\.`;
-# - starts with a match-anything (`.*`, `.+`): already reaches past the
-#   project, kept;
-# - a separator dot -- `\.`, or a bare `.` followed by a name character, as in
-#   `my-project.my_dataset` -- names the project, kept. BigQuery dataset names
-#   cannot contain a dot, so such a dot can only separate project and dataset;
-# - any other `.` (`staging_.*`, `my-project.*`) is ambiguous: the regex
-#   wildcard in a dataset-name regex, or the separator in a project-qualified
-#   one. Prefixed with an optional `(?:.*\.)?`, so it keeps every match it had
-#   and also matches as a dataset name.
-_SEPARATOR_FOLLOWER = re.compile(r"[A-Za-z0-9_]")
-_SPANS_PROJECT_PREFIXES = (".*", "^.*", ".+", "^.+")
-_ANY_PROJECT_PREFIX = r".*\."
-_OPTIONAL_PROJECT_PREFIX = r"(?:.*\.)?"
-# Global inline flags must stay at the start of the expression.
-_LEADING_INLINE_FLAGS = re.compile(r"^\(\?[aiLmsux]+\)")
-
-
-def _class_end(regex: str, start: int) -> int:
-    """Index just past the character class opening at `regex[start]`."""
-    i = start + 1
-    # A `]` first in the class (after an optional `^`) is literal.
-    if regex.startswith("^", i):
-        i += 1
-    if regex.startswith("]", i):
-        i += 1
-    while i < len(regex) and regex[i] != "]":
-        i += 2 if regex[i] == "\\" else 1
-    return i + 1
-
-
-def _top_level_branches(regex: str) -> List[str]:
-    """`regex` split on the `|` that are outside groups and character classes."""
-    branches: List[str] = []
-    depth = 0
-    start = 0
-    i = 0
-    while i < len(regex):
-        char = regex[i]
-        if char == "\\":
-            i += 2
-            continue
-        if char == "[":
-            i = _class_end(regex, i)
-            continue
-        if char == "(":
-            depth += 1
-        elif char == ")":
-            depth -= 1
-        elif char == "|" and depth == 0:
-            branches.append(regex[start:i])
-            start = i + 1
-        i += 1
-    branches.append(regex[start:])
-    return branches
-
-
-def _dots(regex: str) -> Tuple[bool, bool]:
-    """(has a separator dot, has any other dot); see the rules above. A dot
-    inside a character class counts as other."""
-    separator = other = False
-    i = 0
-    while i < len(regex):
-        char = regex[i]
-        if char == "\\":
-            if regex.startswith(".", i + 1):
-                separator = True
-            i += 2
-            continue
-        if char == "[":
-            end = _class_end(regex, i)
-            other = other or "." in regex[i:end]
-            i = end
-            continue
-        if char == ".":
-            if _SEPARATOR_FOLLOWER.match(regex, i + 1):
-                separator = True
-            else:
-                other = True
-        i += 1
-    return separator, other
-
-
-def _qualify_branch(branch: str) -> str:
-    if not branch or branch.startswith(_SPANS_PROJECT_PREFIXES):
-        return branch
-    separator, other = _dots(branch)
-    if separator:
-        return branch
-    prefix = _OPTIONAL_PROJECT_PREFIX if other else _ANY_PROJECT_PREFIX
-    if branch.startswith("^"):
-        return "^" + prefix + branch[1:]
-    return prefix + branch
-
-
 def _qualify_dataset_regex(regex: str) -> str:
-    r"""`regex` made to match `<project_id>.<dataset_name>`, for a
-    `dataset_pattern` entry that may be written against the dataset name
-    alone: `a|b` becomes `.*\.a|.*\.b`, `^staging_.*` becomes
-    `^(?:.*\.)?staging_.*`. Idempotent: a qualified branch is kept as is.
+    r"""A `dataset_pattern` entry with no `.` names the dataset alone, so it is
+    made to match `<project_id>.<dataset_name>`: `a|b` becomes `.*\.(?:a|b)`.
+    The group keeps every alternative behind the prefix. An entry with a `.` is
+    taken to name the project already and is kept as written, including a
+    dataset-name regex such as `staging_.*`: write `.*\.staging_.*` instead.
     """
-    flags_match = _LEADING_INLINE_FLAGS.match(regex)
-    flags = flags_match.group(0) if flags_match else ""
-    body = regex[len(flags) :]
-    qualified = flags + "|".join(_qualify_branch(b) for b in _top_level_branches(body))
-    if qualified == regex:
+    if "." in regex:
         return regex
-    try:
-        re.compile(qualified)
-    except re.error:
-        logger.warning(
-            "dataset_pattern entry %r could not be qualified with the project, "
-            "so it is matched as written against `<project_id>.<dataset_name>`.",
-            regex,
-        )
-        return regex
-    return qualified
+    if regex.startswith("^"):
+        return r"^.*\.(?:" + regex[1:] + ")"
+    return r".*\.(?:" + regex + ")"
 
 
 class BigQueryFilterConfig(SQLFilterConfig):

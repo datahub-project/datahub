@@ -120,12 +120,12 @@ def test_bigquery_dataset_pattern():
         }
     )
     assert config.dataset_pattern.allow == [
-        r".*\.test-dataset",
+        r".*\.(?:test-dataset)",
         r"test-project.test-dataset",
         r".*test-dataset",
     ]
     assert config.dataset_pattern.deny == [
-        r"^.*\.test-dataset-2$",
+        r"^.*\.(?:test-dataset-2$)",
         r"project\.second_dataset",
     ]
 
@@ -1796,9 +1796,9 @@ def test_bigquery_config_deprecated_schema_pattern():
         "dataset_pattern": AllowDenyPattern(deny=["temp.*"]),
     }
     config = BigQueryV2Config.model_validate(config_with_dataset_pattern)
-    # dataset_pattern, optionally qualified with "any project": its `.` may be
-    # the wildcard of a dataset-name regex
-    assert config.dataset_pattern == AllowDenyPattern(deny=[r"(?:.*\.)?temp.*"])
+    assert config.dataset_pattern == AllowDenyPattern(
+        deny=["temp.*"]
+    )  # dataset_pattern
 
 
 @pytest.mark.parametrize(

@@ -15,17 +15,18 @@ the one you are on and the one you are moving to, not just the target.
 
 ## Next
 
-### BigQuery `dataset_pattern` entries written as regular expressions ([#21430](https://github.com/datahub-project/datahub/pull/21430))
+### BigQuery `dataset_pattern` entries with alternatives ([#21430](https://github.com/datahub-project/datahub/pull/21430))
 
-When `match_fully_qualified_names` is on (the default), BigQuery `dataset_pattern` entries that name
-datasets with a regular expression, such as `^staging_.*` or `a|b`, now match those datasets. Before,
-any entry containing a `.` was treated as already naming the project, so `^staging_.*` matched nothing
-and an `allow` entry like that ingested no datasets, while a `deny` entry denied nothing. Only the
-first alternative of an entry like `a|b` was matched. If you added such an entry to `deny` and it seemed
-to do nothing, it now takes effect. An entry such as `my-project.*`, where the `.` could be either
-the project separator or a wildcard, keeps matching what it matched before and now also matches
-datasets whose names fit it. Entries that clearly name the project, such as `my-project.my_dataset`,
-`my-project\.prod_.*` or `.*\.my_dataset`, are unchanged.
+When `match_fully_qualified_names` is on (the default), BigQuery `dataset_pattern` entries are matched
+against `<project_id>.<dataset_name>`. An entry without a `.` names the dataset only, so the project
+part is added for you. That now covers every alternative of an entry such as `staging|prod`. Before,
+only the first alternative was qualified: `prod` matched nothing, so an `allow` entry like that missed
+those datasets and a `deny` entry did not exclude them. If such a `deny` entry seemed to have no
+effect, it now takes effect.
+
+An entry that contains a `.` is matched exactly as written, as before. A dataset-name regex with a `.`,
+such as `^staging_.*`, therefore matches nothing; include the project part instead, for example
+`.*\.staging_.*`.
 
 ### Snowflake schemas whose names end in `INFORMATION_SCHEMA` ([#21430](https://github.com/datahub-project/datahub/pull/21430))
 
