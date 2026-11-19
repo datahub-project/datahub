@@ -382,6 +382,9 @@ iceberg_common = {
     # by pyiceberg <=0.10, but v0.11.0 dropped it, so declare it explicitly.
     "sortedcontainers>=2.4.0,<3.0.0",
     *cachetools_lib,
+    # PyArrow >=24 can hang at S3 shutdown with web-identity credentials
+    # (apache/arrow#50188). Apply the same bound as the other S3-backed sources.
+    *pyarrow_common,
 }
 
 mssql_common = {
