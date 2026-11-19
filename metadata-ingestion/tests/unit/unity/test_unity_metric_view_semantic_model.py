@@ -1,24 +1,35 @@
 import json
 from datetime import datetime
 from typing import Any, Dict, Iterator, List, Optional
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
-from databricks.sdk.service.catalog import TableType
+from databricks.sdk.service.catalog import ColumnInfo, TableType
 
 from datahub.emitter.mcp import MetadataChangeProposalWrapper
 from datahub.ingestion.api.common import PipelineContext
+from datahub.ingestion.source.common.semantic_model_gate import (
+    ResolvedEmitDecision,
+)
 from datahub.ingestion.source.unity.config import UnityCatalogSourceConfig
 from datahub.ingestion.source.unity.metric_view_semantic_model import (
+    MetricViewReportBuffer,
+    MetricViewSemanticModelInput,
     parse_metric_view_expr,
+)
+from datahub.ingestion.source.unity.proxy import (
+    TableInfoWithGeneration,
+    UnityCatalogApiProxy,
 )
 from datahub.ingestion.source.unity.proxy_types import (
     Catalog,
     Column,
+    Metastore,
     Schema,
     Table,
     TableReference,
 )
+from datahub.ingestion.source.unity.report import UnityCatalogReport
 from datahub.ingestion.source.unity.source import UnityCatalogSource
 from datahub.metadata.schema_classes import (
     DatasetPropertiesClass,
@@ -89,6 +100,20 @@ def _table(
         view_definition=yaml_body,
         properties={},
     )
+
+
+def _unresolved_source(**extra: Any) -> UnityCatalogSource:
+    config = UnityCatalogSourceConfig.model_validate(
+        {
+            "token": "t",
+            "workspace_url": "https://test.databricks.com",
+            "include_hive_metastore": False,
+            "include_metric_views": True,
+            "include_tags": False,
+            **extra,
+        }
+    )
+    return UnityCatalogSource.create(config, PipelineContext(run_id="t"))
 
 
 def _source(**extra: Any) -> UnityCatalogSource:
@@ -605,17 +630,28 @@ def _aspects_for_table(
     return out
 
 
-def test_proxy_keeps_type_json_for_metric_views_only() -> None:
-    from databricks.sdk.service.catalog import ColumnInfo
-
-    from datahub.ingestion.source.unity.proxy import UnityCatalogApiProxy
-
-    proxy = UnityCatalogApiProxy.__new__(UnityCatalogApiProxy)
-    info = ColumnInfo(name="c", type_text="double", type_json='{"metadata": {}}')
-    (kept,) = proxy._extract_columns([info], "t", keep_type_json=True)
-    (dropped,) = proxy._extract_columns([info], "t")
-    assert kept.type_json == '{"metadata": {}}'
-    assert dropped.type_json is None
+@pytest.mark.parametrize(
+    "table_type, keeps_type_json",
+    [(TableType.METRIC_VIEW, True), (TableType.MANAGED, False)],
+)
+def test_proxy_keeps_type_json_for_metric_views_only(
+    table_type: TableType, keeps_type_json: bool
+) -> None:
+    proxy = UnityCatalogApiProxy(
+        MagicMock(), report=UnityCatalogReport(), hive_metastore_proxy=None
+    )
+    type_json = '{"name": "c", "type": "double", "metadata": {"comment": "x"}}'
+    info = TableInfoWithGeneration(
+        name="orders_mv",
+        catalog_name="main",
+        schema_name="sales",
+        table_type=table_type,
+        columns=[ColumnInfo(name="c", type_text="double", type_json=type_json)],
+    )
+    table = proxy._create_table(_schema(), info)
+    assert table is not None
+    (column,) = table.columns
+    assert column.type_json == (type_json if keeps_type_json else None)
 
 
 _FIELDS_SPEC = """
@@ -720,3 +756,223 @@ class TestFieldsKeyAndJoins:
         props = aspects["datasetProperties"][_smd("source")].customProperties
         assert props["metric_view.join.customer.rely.at_most_one_match"] == "true"
         assert props["metric_view.join.line.cardinality"] == "one_to_many"
+
+
+def _decision(enabled: bool, **flags: bool) -> ResolvedEmitDecision:
+    return ResolvedEmitDecision(
+        enabled=enabled,
+        reason="test",
+        is_saas=True,
+        version="v2.0.0",
+        metrics_enabled=None,
+        entity_types_capable=False,
+        **flags,
+    )
+
+
+def _process(source: UnityCatalogSource, table: Table) -> List[Any]:
+    with patch.object(source.unity_catalog_api_proxy, "tables", return_value=[table]):
+        return [wu.metadata for wu in source.process_tables(_schema())]
+
+
+@pytest.mark.parametrize(
+    "recipe, decision, title",
+    [
+        (
+            None,
+            _decision(False, version_unparseable=True),
+            "Could not parse DataHub server version",
+        ),
+        (
+            None,
+            _decision(False, metrics_probe_failed=True),
+            "Could not verify Metrics kill-switch",
+        ),
+        (True, _decision(False), "emit_semantic_model_entities forced off"),
+    ],
+)
+def test_emission_vetoes_warn_and_keep_the_legacy_dataset(
+    recipe: Optional[bool], decision: ResolvedEmitDecision, title: str
+) -> None:
+    source = _unresolved_source(emit_semantic_model_entities=recipe)
+    with patch(
+        "datahub.ingestion.source.unity.source.resolve_emit_semantic_model_entities",
+        autospec=True,
+        return_value=decision,
+    ):
+        source._resolve_semantic_model_emission()
+    assert source.report.semantic_model_emission_effective is False
+    assert source.report.semantic_model_emission_reason == "test"
+    assert source.report.semantic_model_emission_is_saas is True
+    assert title in {w.title for w in source.report.warnings}
+    table = _table(_SIMPLE)
+    urns = {m.entityUrn for m in _process(source, table)}
+    assert source.gen_dataset_urn(table.ref) in urns
+    assert _MODEL not in urns
+
+
+# One field whose display name is truncated, one unknown qualifier, and one
+# column whose type_json is not JSON: each is counted once, whichever path
+# finally emits the view.
+_COUNTED = """
+source: main.sales.orders
+dimensions:
+  - name: region
+    expr: bogus.region_cd
+    display_name: "{long_name}"
+measures:
+  - name: revenue
+    expr: SUM(amount)
+""".replace("{long_name}", "x" * 300)
+
+
+def _counted_table() -> Table:
+    return _table(
+        _COUNTED,
+        columns=[_metric_view_column("revenue", raw_type_json="{not json")],
+    )
+
+
+def _counters(report: UnityCatalogReport) -> Dict[str, int]:
+    return {
+        "truncated": report.num_metric_view_display_name_truncated,
+        "unresolved": report.num_metric_view_unresolved_qualifiers,
+        "invalid": report.num_metric_view_column_metadata_invalid,
+    }
+
+
+def test_mapping_failure_falls_back_without_double_counting() -> None:
+    legacy = _source(emit_semantic_model_entities=False)
+    _process(legacy, _counted_table())
+
+    source = _source(emit_semantic_model_entities=True)
+
+    def fail_midway(
+        inp: MetricViewSemanticModelInput, buffer: MetricViewReportBuffer
+    ) -> List[Any]:
+        buffer.count("num_metric_view_unresolved_qualifiers", 7)
+        buffer.warning(message="discarded", context="x")
+        raise RuntimeError("mapper blew up")
+
+    table = _counted_table()
+    with patch.object(
+        source.metric_view_semantic_model_mapper,
+        "gen_workunits",
+        side_effect=fail_midway,
+    ):
+        urns = {m.entityUrn for m in _process(source, table)}
+
+    assert source.gen_dataset_urn(table.ref) in urns
+    assert _MODEL not in urns
+    assert source.report.num_metric_view_semantic_model_fallbacks == 1
+    # Exactly what the legacy path alone counts: the semantic-model attempt's
+    # counters and warnings were discarded, and the spec was loaded once.
+    assert (
+        _counters(source.report)
+        == _counters(legacy.report)
+        == {
+            "truncated": 1,
+            "unresolved": 1,
+            "invalid": 1,
+        }
+    )
+    assert "discarded" not in {w.message for w in source.report.warnings}
+
+
+def test_semantic_model_path_counts_once() -> None:
+    source = _source(emit_semantic_model_entities=True)
+    _process(source, _counted_table())
+    assert source.report.num_metric_view_semantic_model_fallbacks == 0
+    assert _counters(source.report) == {
+        "truncated": 1,
+        "unresolved": 1,
+        "invalid": 1,
+    }
+
+
+def test_synonym_and_display_name_limits_shared_by_both_paths() -> None:
+    synonyms = ", ".join(f"s{i}" for i in range(12))
+    body = f"""
+source: main.sales.orders
+measures:
+  - name: revenue
+    expr: SUM(amount)
+    display_name: "{"d" * 300}"
+    synonyms: [{synonyms}]
+"""
+    aspects = _aspects(_source(emit_semantic_model_entities=True), body)
+    metric = aspects["metricInfo"][_metric("revenue")]
+    assert len(metric.name) == 255
+    assert aspects["aiContext"][_metric("revenue")].synonyms == [
+        f"s{i}" for i in range(10)
+    ]
+
+
+def test_include_metastore_urns_and_two_part_source() -> None:
+    metastore = Metastore(
+        id="ms",
+        name="ms",
+        comment=None,
+        global_metastore_id=None,
+        metastore_id=None,
+        owner=None,
+        region=None,
+        cloud=None,
+    )
+    catalog = Catalog(
+        id="main", name="main", metastore=metastore, comment=None, owner=None, type=None
+    )
+    schema = Schema(
+        id="main.sales", name="sales", catalog=catalog, comment=None, owner=None
+    )
+    table = _table(
+        """
+source: sales.orders
+dimensions:
+  - name: d
+    expr: o_d
+measures:
+  - name: m
+    expr: SUM(amount)
+"""
+    )
+    table.schema = schema
+    table.ref = TableReference.create(table)
+    source = _source(
+        emit_semantic_model_entities=True, include_metastore=True, workspace_name="ws"
+    )
+    spec = source._load_metric_view_spec(table)
+    assert spec is not None
+    wus = source._gen_metric_view_semantic_model(table, schema, spec)
+    assert wus is not None
+    by_aspect: Dict[str, Dict[str, Any]] = {}
+    for wu in wus:
+        mcp = wu.metadata
+        assert isinstance(mcp, MetadataChangeProposalWrapper)
+        by_aspect.setdefault(mcp.aspectName or "", {})[mcp.entityUrn or ""] = mcp.aspect
+
+    model = "urn:li:semanticModel:(urn:li:dataPlatform:databricks,ws.ms.main.sales,orders_mv)"
+    assert set(by_aspect["semanticModelInfo"]) == {model}
+    assert (
+        "urn:li:metric:(urn:li:dataPlatform:databricks,ws.ms.main.sales.orders_mv,m)"
+        in by_aspect["metricInfo"]
+    )
+    smd = (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,"
+        "ws.ms.main.sales.orders_mv.source,PROD)"
+    )
+    # The 2-part source resolves against the view's catalog, and the upstream is
+    # the URN the physical table gets in the same run.
+    physical = source.gen_dataset_urn(
+        TableReference(metastore="ms", catalog="main", schema="sales", table="orders")
+    )
+    assert physical == (
+        "urn:li:dataset:(urn:li:dataPlatform:databricks,ws.ms.main.sales.orders,PROD)"
+    )
+    assert [u.dataset for u in by_aspect["upstreamLineage"][smd].upstreams] == [
+        physical
+    ]
+    browse = by_aspect["browsePathsV2"][model].path
+    assert browse[0].id == "ws"
+    assert browse[1].urn == source.gen_metastore_key(metastore).as_urn()
+    assert len(browse) == 4
