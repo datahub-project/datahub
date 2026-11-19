@@ -10,6 +10,7 @@ on:
       - "gradle/python/datahub-python-package.gradle"
       - "packages/**"
       - "datahub-graphql-core/src/main/resources/**"
+      - "docker/datahub-ai-service/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   pull_request:
@@ -20,6 +21,7 @@ on:
       - "gradle/python/datahub-python-package.gradle"
       - "packages/**"
       - "datahub-graphql-core/src/main/resources/**"
+      - "docker/datahub-ai-service/**"
       - "metadata-ingestion/**"
       - "metadata-models/**"
   workflow_dispatch:
@@ -51,6 +53,9 @@ jobs:
       - name: Lint, build and test
         run: |
           ./gradlew :packages:${{ matrix.package }}:lint :packages:${{ matrix.package }}:build :packages:${{ matrix.package }}:check
+      - name: Image lockfile is current
+        if: matrix.package == 'datahub-ai-service'
+        run: ./gradlew :packages:datahub-ai-service:lockfileCheck
       - name: Report test results
         if: (!cancelled())
         uses: ./.github/actions/report-test-results
