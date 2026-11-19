@@ -211,6 +211,26 @@ public class CreateDataProductResolverTest {
   }
 
   @Test
+  public void testBlankDomainUrnStillRequiresManageAllDataProducts() {
+    // A blank domainUrn takes the no-Domain path, so it must not skip the privilege check.
+    for (String blankDomainUrn : new String[] {"", "  "}) {
+      DataProductService dataProductService = mockDataProductService();
+      CreateDataProductResolver resolver =
+          new CreateDataProductResolver(dataProductService, mock(EntityService.class));
+      CreateDataProductInput input = createInputWithoutDomain();
+      input.setDomainUrn(blankDomainUrn);
+
+      CompletionException exception =
+          expectThrows(
+              CompletionException.class,
+              () -> resolver.get(mockEnvironment(input, getMockDenyContext())).join());
+      assertHasAuthorizationCause(exception);
+      verify(dataProductService, never()).createDataProduct(any(), any(), any(), any(), any());
+      verify(dataProductService, never()).setDomain(any(), any(), any());
+    }
+  }
+
+  @Test
   public void testCreatesWithDomain() throws Exception {
     DataProductService dataProductService = mockDataProductService();
     when(dataProductService.verifyEntityExists(any(), eq(DOMAIN_URN))).thenReturn(true);

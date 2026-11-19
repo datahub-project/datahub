@@ -132,6 +132,33 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         1);
   }
 
+  @Test
+  public void testFirstDomainsWriteAllowedWithOnlyManageAllDataProducts() {
+    // createDataProduct accepts MANAGE_ALL_DATA_PRODUCTS for a product in a Domain; rejecting its
+    // setDomain here would leave the product without a Domain and without an owner.
+    mockPersistedDomains(null);
+    AuthorizationSession manageAll = manageAllDataProducts();
+
+    assertEquals(validate(domainsItem(ChangeType.UPSERT, DOMAIN_X), manageAll).size(), 0);
+    assertEquals(
+        validator
+            .validatePreCommitAspectsWithAuth(
+                OperationFingerprint.EMPTY,
+                List.of(changeMCP(null, domains(DOMAIN_X))),
+                retrieverContext,
+                manageAll)
+            .count(),
+        0);
+  }
+
+  @Test
+  public void testMoveIsNotAuthorizedByManageAllDataProducts() {
+    mockPersistedDomains(domains(DOMAIN_X));
+
+    assertEquals(
+        validate(domainsItem(ChangeType.UPSERT, DOMAIN_Y), manageAllDataProducts()).size(), 1);
+  }
+
   private void mockPersistedDomains(Domains persisted) {
     Map<String, Aspect> aspects =
         persisted == null ? Map.of() : Map.of(DOMAINS_ASPECT_NAME, new Aspect(persisted.data()));
@@ -169,6 +196,24 @@ public class DomainWriteAuthorizationValidatorDataProductTest {
         .validateProposedAspectsWithAuth(
             OperationFingerprint.EMPTY, List.of(item), retrieverContext, session)
         .collect(Collectors.toList());
+  }
+
+  /** Grants the platform-wide {@code MANAGE_ALL_DATA_PRODUCTS} only, and nothing else. */
+  private static AuthorizationSession manageAllDataProducts() {
+    AuthorizationSession session = mock(AuthorizationSession.class);
+    when(session.authorize(any(), any(), any()))
+        .thenAnswer(
+            invocation -> {
+              boolean allowed =
+                  PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE
+                      .getType()
+                      .equals(invocation.getArgument(0));
+              return new AuthorizationResult(
+                  null,
+                  allowed ? AuthorizationResult.Type.ALLOW : AuthorizationResult.Type.DENY,
+                  null);
+            });
+    return session;
   }
 
   /** Grants {@code MANAGE_DATA_PRODUCTS} on the given domains only, and nothing else. */

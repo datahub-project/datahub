@@ -246,6 +246,31 @@ public class DomainWriteAuthorizationUtilsTest {
   }
 
   @Test
+  public void testIsAuthorizedDataProductDomainsEstablish_allowedWithManageAllDataProducts() {
+    AuthorizationSession session =
+        sessionAllowing(PoliciesConfig.MANAGE_ALL_DATA_PRODUCTS_PRIVILEGE.getType());
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X)));
+    assertTrue(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session,
+            DATA_PRODUCT_URN,
+            new Domains().setDomains(new UrnArray(List.of(DOMAIN_X, DOMAIN_Y)))));
+    // Still nothing to establish, and still only for data products.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATA_PRODUCT_URN, new Domains()));
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDataProductDomainsEstablish(
+            session, DATASET_URN, domains(DOMAIN_X)));
+    // Moving a product that already has a domain stays on Edit Entity / Edit Domain.
+    assertFalse(
+        DomainWriteAuthorizationUtils.isAuthorizedDomainsEdit(
+            session, DATA_PRODUCT_URN, domains(DOMAIN_X), domains(DOMAIN_Y)));
+  }
+
+  @Test
   public void testIsAuthorizedDomainsEdit_dataProductFirstDomainsAllowedForDomainManager() {
     AuthorizationSession session = dataProductManagerSession(Set.of(DOMAIN_X));
     assertTrue(
