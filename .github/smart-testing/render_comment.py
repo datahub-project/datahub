@@ -211,9 +211,13 @@ def render_playwright_section(plan: Dict[str, Any]) -> str:
     shadow = plan.get("smartShadow")
     if isinstance(shadow, dict):
         count = len(shadow.get("specs") or [])
+        size = ""
+        if shadow.get("totalShards"):
+            minutes = round(float(shadow.get("predictedSeconds", 0)) / 60)
+            size = f" (~{minutes} min predicted on {shadow['totalShards']} shard(s))"
         lines.append(
             f"- **Smart selection (shadow, not run):** `{shadow.get('selectionMode', 'unknown')}`, "
-            f"{count} spec file{'' if count == 1 else 's'}: {sanitize(str(shadow.get('selectionReason', '')))}"
+            f"{count} spec file{'' if count == 1 else 's'}{size}: {sanitize(str(shadow.get('selectionReason', '')))}"
         )
 
     specs = plan.get("specs") or []

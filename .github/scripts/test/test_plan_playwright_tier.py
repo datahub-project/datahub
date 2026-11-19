@@ -318,6 +318,19 @@ def test_plan_json_runs_the_smart_selection_and_records_a_shadow_one() -> None:
     assert shadow["smartShadow"]["specs"] == ["lineage/graph.spec.ts", "search/search.spec.ts"]
 
 
+def test_telemetry_counts_describe_the_planned_selection() -> None:
+    smart = _smart(["datahub-web-react/src/App.tsx"], {"search"})
+    assert plan.telemetry_counts(smart, 2, SUITE) == {
+        "test_count": 2,
+        "candidate_test_count": 5,
+        "scope_count": 2,
+        "candidate_scope_count": 4,
+        "batch_count": 2,
+    }
+    full = plan.telemetry_counts(plan.Selection("full", "x"), 4, SUITE)
+    assert (full["test_count"], full["scope_count"]) == (5, 4)
+
+
 def _listing(tests: list[plan.ListedTest]) -> dict:
     return {
         "suites": [
@@ -344,13 +357,13 @@ SEARCH_TAG_FILE = (
 
 
 @pytest.mark.parametrize(
-    ("smart_mode", "tag_file", "run_mode", "has_shadow"),
+    ("smart_mode", "tag_file", "run_mode", "has_shadow", "smart_selection"),
     [
-        ("active", SEARCH_TAG_FILE, "smart", False),
-        ("shadow", SEARCH_TAG_FILE, "p0", True),
-        ("off", SEARCH_TAG_FILE, "p0", False),
+        ("active", SEARCH_TAG_FILE, "smart", False, "smart"),
+        ("shadow", SEARCH_TAG_FILE, "p0", True, "smart"),
+        ("off", SEARCH_TAG_FILE, "p0", False, "p0"),
         # An unreadable tag file never fails the plan: the P0 tier runs.
-        ("active", "tests: [unclosed", "p0", False),
+        ("active", "tests: [unclosed", "p0", False, "p0"),
     ],
 )
 def test_main_applies_the_smart_mode(
@@ -360,6 +373,7 @@ def test_main_applies_the_smart_mode(
     tag_file: str,
     run_mode: str,
     has_shadow: bool,
+    smart_selection: str,
 ) -> None:
     tag_path = tmp_path / plan.TAG_FILES[0]
     tag_path.parent.mkdir(parents=True)
@@ -370,7 +384,8 @@ def test_main_applies_the_smart_mode(
         lambda repo_root, *args: _listing([] if args else SUITE),
     )
     monkeypatch.setattr(plan, "changed_files", lambda repo_root, base: [])
-    monkeypatch.delenv("GITHUB_OUTPUT", raising=False)
+    github_output = tmp_path / "github_output"
+    monkeypatch.setenv("GITHUB_OUTPUT", str(github_output))
     monkeypatch.delenv("GITHUB_STEP_SUMMARY", raising=False)
     out = tmp_path / "plan.json"
 
@@ -391,6 +406,12 @@ def test_main_applies_the_smart_mode(
     written = json.loads(out.read_text(encoding="utf-8"))
     assert written["runMode"] == run_mode
     assert ("smartShadow" in written) is has_shadow
+    if has_shadow:
+        assert written["smartShadow"]["totalShards"] == 1
+    assert f"smart_selection={smart_selection}" in github_output.read_text()
+    # Counts for the PostHog event: one test in one spec file, of the listed suite.
+    assert (written["test_count"], written["scope_count"]) == (1, 1)
+    assert (written["candidate_test_count"], written["candidate_scope_count"]) == (5, 4)
 
 
 # ---- contract tests against the real Playwright tree ----

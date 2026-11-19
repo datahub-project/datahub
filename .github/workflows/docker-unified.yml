@@ -2055,6 +2055,32 @@ jobs:
           name: playwright-tier-plan
           path: ${{ runner.temp }}/playwright-tier-plan.json
           retention-days: 5
+      - name: Send smart selection telemetry to PostHog
+        # One ci_smart_selection event per attempt for Playwright, as
+        # smoke_test_matrix sends for pytest. Telemetry only: never fails the job.
+        if: ${{ always() && needs.classify_pr.outputs.playwright_mode != '' && needs.classify_pr.outputs.playwright_mode != 'off' }}
+        continue-on-error: true
+        env:
+          POSTHOG_API_KEY: ${{ secrets.POSTHOG_API_KEY }}
+          POSTHOG_HOST: ${{ secrets.POSTHOG_HOST }}
+          TEST_FRAMEWORK: playwright
+          HEAD_BRANCH: ${{ github.head_ref }}
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+          PR_NUMBER: ${{ github.event.pull_request.number }}
+          SMART_MODE: ${{ needs.classify_pr.outputs.playwright_mode }}
+          SMART_CONFIDENCE: ${{ needs.classify_pr.outputs.confidence }}
+          FAILSAFE_REASON: ${{ needs.classify_pr.outputs.failsafe_reason }}
+          SMART_TAGS: ${{ needs.classify_pr.outputs.smart_tags }}
+          PROPOSED_TAGS: ${{ needs.classify_pr.outputs.proposed_tags }}
+          SMART_MODEL: ${{ needs.classify_pr.outputs.model }}
+          CLASSIFIER_DURATION_S: ${{ needs.classify_pr.outputs.classifier_duration_s }}
+          # What smart testing chose (the shadow selection in shadow mode) and what ran.
+          SMART_SELECTION: ${{ steps.plan.outputs.smart_selection }}
+          SELECTION_APPLIED: ${{ steps.plan.outputs.run_mode }}
+          PLAN_OUTCOME: ${{ steps.plan.outcome }}
+          PLAN_FILE: ${{ runner.temp }}/playwright-tier-plan.json
+        run: python3 .github/scripts/send_smart_selection_to_posthog.py
       - name: Build P0 tier shard matrix
         id: tier-matrix
         if: ${{ steps.plan.outputs.run_mode == 'p0' || steps.plan.outputs.run_mode == 'smart' }}

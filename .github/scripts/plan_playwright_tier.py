@@ -300,8 +300,34 @@ def plan_json(
             "selectionMode": shadow.mode,
             "selectionReason": shadow.reason,
             "specs": sorted(shadow.reasons) if shadow.mode != "full" else [],
+            # Specs that would run only their @p0 tests (the other specs run whole).
+            "p0OnlySpecs": sorted(shadow.p0_only) if shadow.mode != "full" else [],
         }
     return plan
+
+
+def telemetry_counts(
+    planned: Selection, shards: int, tests: list[ListedTest]
+) -> dict[str, int]:
+    """The counts send_smart_selection_to_posthog.py reads, under its plan keys.
+
+    They describe ``planned``, the selection smart testing chose (the shadow one
+    in shadow mode), so they match pytest's: tests and spec files selected out of
+    every listed test and spec file, and the shards that selection would use.
+    """
+    specs = {test.file for test in tests}
+    if planned.mode == "full":
+        selected_tests, selected_specs = len(tests), len(specs)
+    else:
+        selected_tests = sum(count for count, _ in planned.test_counts.values())
+        selected_specs = len(planned.reasons)
+    return {
+        "test_count": selected_tests,
+        "candidate_test_count": len(tests),
+        "scope_count": selected_specs,
+        "candidate_scope_count": len(specs),
+        "batch_count": shards,
+    }
 
 
 def summary_markdown(plan: dict[str, Any]) -> str:
@@ -320,7 +346,13 @@ def summary_markdown(plan: dict[str, Any]) -> str:
         lines += [
             (
                 f"**Smart selection (shadow, not run):** `{shadow['selectionMode']}` — "
-                f"{shadow['selectionReason']}; {len(shadow['specs'])} spec file(s)."
+                f"{shadow['selectionReason']}; {len(shadow['specs'])} spec file(s)"
+                + (
+                    f", ~{shadow['predictedSeconds'] / 60:.1f} min predicted on "
+                    f"{shadow['totalShards']} shard(s)."
+                    if shadow.get("totalShards")
+                    else "."
+                )
             ),
             "",
         ]
@@ -531,6 +563,7 @@ def main(argv: list[str] | None = None) -> int:
         # A workflow annotation, so a broken tier shows on the run instead of only in the log.
         print(f"::warning title=Playwright P0 tier::{reason}; running the full suite")
         selection = Selection("full", reason)
+        full = []
 
     weights = load_weights(
         str(repo_root / PLAYWRIGHT_DIR / "playwright_test_weights.json")
@@ -545,12 +578,29 @@ def main(argv: list[str] | None = None) -> int:
         pr_features=pr_features,
         shadow=shadow,
     )
+    planned, planned_shards = selection, shards
+    if shadow is not None:
+        planned_shards, shadow_predicted = shard_count(
+            shadow, weights, args.suite_shards
+        )
+        plan["smartShadow"] |= {
+            "totalShards": planned_shards,
+            "predictedSeconds": round(shadow_predicted, 1),
+        }
+        planned = shadow
+    if full:
+        plan |= telemetry_counts(
+            planned,
+            planned_shards if planned.mode != "full" else args.suite_shards,
+            full,
+        )
     args.plan_out.write_text(json.dumps(plan, indent=2) + "\n", encoding="utf-8")
 
     if output := os.environ.get("GITHUB_OUTPUT"):
         with open(output, "a", encoding="utf-8") as fh:
             fh.write(
                 f"run_mode={plan['runMode']}\ntotal_shards={plan['totalShards']}\n"
+                f"smart_selection={planned.mode}\n"
             )
     if summary := os.environ.get("GITHUB_STEP_SUMMARY"):
         with open(summary, "a", encoding="utf-8") as fh:

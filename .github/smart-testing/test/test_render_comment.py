@@ -211,6 +211,22 @@ def test_playwright_section_shows_the_shadow_smart_selection() -> None:
     )
 
 
+def test_playwright_shadow_line_shows_the_predicted_size() -> None:
+    body = render.render_playwright_section(
+        {
+            **P0_PLAN,
+            "smartShadow": {
+                "selectionMode": "smart",
+                "selectionReason": "specs tagged search",
+                "specs": ["search/search.spec.ts", "lineage/graph.spec.ts"],
+                "totalShards": 2,
+                "predictedSeconds": 600.0,
+            },
+        }
+    )
+    assert "2 spec files (~10 min predicted on 2 shard(s)): specs tagged search" in body
+
+
 def test_compose_handles_missing_sections() -> None:
     env = {"SHORT_SHA": "abc1234", "RUN_URL": "https://example.test/run/1"}
     both = render.compose("### pytest smoke tests\n", P0_PLAN, env)
