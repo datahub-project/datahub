@@ -1,5 +1,6 @@
 # Moved to datahub.ingestion.source.repository_documents.okf_bundles; this module keeps
 # the old import path working for code built on github-documents.
+import warnings
 from typing import Callable, Dict, Iterable, List, Optional, Set
 
 from datahub.ingestion.source.repository_documents.okf_bundles import (
@@ -14,6 +15,14 @@ from datahub.ingestion.source.repository_documents.report import (
     RepositoryDocumentsSourceReport,
 )
 from datahub.metadata.schema_classes import OkfBundleClass
+
+warnings.warn(
+    "datahub.ingestion.source.github_documents.okf_bundles has moved to "
+    "datahub.ingestion.source.repository_documents.okf_bundles. The old path will be "
+    "removed in a future release.",
+    DeprecationWarning,
+    stacklevel=2,
+)
 
 
 def discover_bundles(

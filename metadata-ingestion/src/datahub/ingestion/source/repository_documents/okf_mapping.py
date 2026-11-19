@@ -86,9 +86,15 @@ def _resolve_term_name(name: str, ctx: PipelineContext) -> Optional[str]:
     return next(iter(matches)) if matches else None
 
 
-def _resolve_reference(
+def resolve_reference(
     value: str, key: str, ctx: PipelineContext, cache: OkfLookupCache
 ) -> Optional[str]:
+    """The URN the OKF import writes for one ``owners``, ``tags`` or
+    ``glossary_terms`` value, or None when the value is left unmapped.
+
+    Owners and glossary terms are looked up in DataHub through ``ctx.graph``,
+    with the results kept in ``cache``.
+    """
     if value.startswith("urn:"):
         parsed = Urn.from_string(value)
         if key == "owners":
@@ -212,7 +218,7 @@ def map_okf(
             urn = None
             if isinstance(entry, str) and entry.strip():
                 try:
-                    urn = _resolve_reference(entry.strip(), key, ctx, cache)
+                    urn = resolve_reference(entry.strip(), key, ctx, cache)
                 except Exception:
                     # A failed catalog lookup or invalid URN must not discard
                     # the concept, including its original unresolved value.
