@@ -9,6 +9,8 @@ import com.fasterxml.jackson.dataformat.yaml.YAMLFactory;
 import com.linkedin.data.schema.DataSchema;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
 import com.linkedin.metadata.aspect.plugins.PluginFactory;
+import com.linkedin.metadata.aspect.plugins.PluginSpec;
+import com.linkedin.metadata.aspect.plugins.config.AspectPluginConfig;
 import com.linkedin.metadata.aspect.plugins.config.PluginConfiguration;
 import com.linkedin.metadata.models.AspectSpec;
 import com.linkedin.metadata.models.DataSchemaFactory;
@@ -16,6 +18,7 @@ import com.linkedin.metadata.models.EntitySpec;
 import com.linkedin.metadata.models.EntitySpecBuilder;
 import com.linkedin.metadata.models.EventSpec;
 import com.linkedin.metadata.models.EventSpecBuilder;
+import com.linkedin.metadata.models.annotation.EntityAnnotation;
 import com.linkedin.metadata.models.annotation.SearchableAnnotationValidator;
 import com.linkedin.metadata.models.registry.config.Entities;
 import com.linkedin.metadata.models.registry.config.Entity;
@@ -33,6 +36,7 @@ import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.Set;
 import java.util.function.BiFunction;
 import java.util.stream.Collectors;
 import java.util.stream.Stream;
@@ -207,6 +211,7 @@ public class PatchEntityRegistry implements EntityRegistry {
           String.format(
               "Error while reading config file in path %s: %s", configFileStream, e.getMessage()));
     }
+    verifyPluginsLoaded(this.pluginFactory);
     if (entities.getId() != null) {
       identifier = entities.getId();
     } else {
@@ -239,7 +244,14 @@ public class PatchEntityRegistry implements EntityRegistry {
 
       EntitySpec entitySpec =
           entitySpecBuilder.buildPartialEntitySpec(
-              entity.getName(), entity.getKeyAspect(), aspectSpecs);
+              entity.getName(),
+              entity.getKeyAspect(),
+              aspectSpecs,
+              EntityAnnotation.isSearchGroupUnset(entity.getSearchGroup())
+                  ? null
+                  : entity.getSearchGroup(),
+              // Restricted unless the YAML explicitly opts the entity out of view-based access
+              Boolean.TRUE.equals(entity.getViewUnrestricted()));
 
       entityNameToSpec.put(entity.getName().toLowerCase(), entitySpec);
     }
@@ -327,6 +339,49 @@ public class PatchEntityRegistry implements EntityRegistry {
     aspectSpec.setRegistryName(this.registryName);
     aspectSpec.setRegistryVersion(this.registryVersion);
     return aspectSpec;
+  }
+
+  /**
+   * {@link PluginFactory} logs and skips a plugin class it cannot load or instantiate. For a plugin
+   * registry that would leave the registry loaded but without the validators or hooks it declares,
+   * so fail the load instead. Spring-managed plugins are not checked: their beans can be registered
+   * after the registry is built.
+   */
+  private static void verifyPluginsLoaded(@Nonnull PluginFactory pluginFactory)
+      throws EntityRegistryException {
+    PluginConfiguration config = pluginFactory.getPluginConfiguration();
+    List<String> unloaded =
+        Stream.of(
+                unloadedClasses(
+                    config.getAspectPayloadValidators(),
+                    pluginFactory.getAspectPayloadValidators()),
+                unloadedClasses(config.getMutationHooks(), pluginFactory.getMutationHooks()),
+                unloadedClasses(config.getMclSideEffects(), pluginFactory.getMclSideEffects()),
+                unloadedClasses(config.getMcpSideEffects(), pluginFactory.getMcpSideEffects()),
+                unloadedClasses(config.getMcpObservers(), pluginFactory.getMcpObservers()))
+            .flatMap(List::stream)
+            .collect(Collectors.toList());
+    if (!unloaded.isEmpty()) {
+      throw new EntityRegistryException(
+          String.format(
+              "Failed to load plugin classes %s. Check that each class is in the plugin's jars and"
+                  + " has a public no-arg constructor.",
+              unloaded));
+    }
+  }
+
+  private static List<String> unloadedClasses(
+      @Nonnull List<AspectPluginConfig> configs, @Nonnull List<? extends PluginSpec> loaded) {
+    Set<String> loadedClasses =
+        loaded.stream().map(p -> p.getConfig().getClassName()).collect(Collectors.toSet());
+    return configs.stream()
+        .filter(AspectPluginConfig::isEnabled)
+        .filter(c -> c.getSpring() == null || !c.getSpring().isEnabled())
+        .filter(c -> configs.stream().noneMatch(c::isDisabledBy))
+        .map(AspectPluginConfig::getClassName)
+        .filter(className -> !loadedClasses.contains(className))
+        .distinct()
+        .collect(Collectors.toList());
   }
 
   private EventSpec buildEventSpec(String eventName) {
