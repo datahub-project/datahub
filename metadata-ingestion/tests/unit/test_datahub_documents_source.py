@@ -5428,8 +5428,8 @@ def _waiting_partition_md(**kwargs: Any) -> list:
 
 
 class TestPartitionTimeout:
-    # Elapsed time is measured as CPU time, like the limit, so a loaded CI machine
-    # can't make these flaky.
+    # Measure partitioning CPU time, excluding profile initialization just as
+    # TextPartitioner does when arming its timer.
 
     def test_config_default_timeout(self):
         assert _make_config().partition_timeout_seconds == 30.0
@@ -5454,6 +5454,7 @@ class TestPartitionTimeout:
         with patch(
             "unstructured.partition.md.partition_md", _catch_exception_loop_partition_md
         ):
+            TextPartitioner._preload_language_profiles()
             start = time.process_time()
             with pytest.raises(PartitionTimeoutError):
                 TextPartitioner(timeout_seconds=0.5).partition_text("some text")
@@ -5461,6 +5462,7 @@ class TestPartitionTimeout:
 
     def test_timeout_survives_a_swallowed_alarm(self):
         with patch("unstructured.partition.md.partition_md", _swallowing_partition_md):
+            TextPartitioner._preload_language_profiles()
             start = time.process_time()
             with pytest.raises(PartitionTimeoutError):
                 TextPartitioner(timeout_seconds=0.5).partition_text("some text")
@@ -5513,6 +5515,7 @@ class TestPartitionTimeout:
         original = signal.signal(signal.SIGVTALRM, previous)
         try:
             with patch("unstructured.partition.md.partition_md", _slow_partition_md):
+                TextPartitioner._preload_language_profiles()
                 start = time.process_time()
                 with pytest.raises(PartitionTimeoutError):
                     TextPartitioner(timeout_seconds=0.5).partition_text("some text")
