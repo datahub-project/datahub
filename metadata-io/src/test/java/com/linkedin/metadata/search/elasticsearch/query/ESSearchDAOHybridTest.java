@@ -592,6 +592,37 @@ public class ESSearchDAOHybridTest {
   }
 
   @Test
+  public void testKeywordRerankRungScopedAwayFromDocumentFetchesOnlyThePage() throws IOException {
+    SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");
+    scoped.setScope(new SearchTemplateScope().setEntityTypes(new StringArray("dataset")));
+
+    // The request includes Document, but the rung searches only Dataset, so it has no window to
+    // rerank: the engine is asked for the caller's page, and the rung reports why
+    SearchResult result = searchRung(scoped, ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder page = searchedSource();
+    assertEquals(page.from(), 0);
+    assertEquals(page.size(), 10);
+    assertEquals(
+        result.getMetadata().getKeywordRerank().getReason(),
+        SearchTemplateKeywordRerank.NO_DOCUMENT);
+    verify(reranker, never())
+        .rerank(any(OperationContext.class), any(), any(), anyList(), any(), anyLong(), any());
+
+    // The same rung without a scope is assigned the whole request and reranks the hybrid window
+    clearInvocations(client);
+    SearchResult unscoped =
+        searchRung(fulltext("{ \"vectorWeight\": 0.3 }"), ENTITY_NAMES, "revenue", null);
+
+    SearchSourceBuilder window = searchedSource();
+    assertEquals(window.from(), 0);
+    assertEquals(window.size(), 100);
+    assertEquals(
+        unscoped.getMetadata().getKeywordRerank().getOutcome(),
+        SearchTemplateKeywordRerank.APPLIED);
+  }
+
+  @Test
   public void testAScopedKeywordRerankRungSearchesItsAssignmentAndKeepsGateFailingRows()
       throws IOException {
     SearchTemplateProperties scoped = fulltext("{ \"vectorWeight\": 0.3 }");

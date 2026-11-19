@@ -254,7 +254,8 @@ final class TemplateSearchExecutor {
                 fetchSize,
                 entityNames,
                 (urn, raw) -> {
-                  boolean page = pageFetched(coordinator.loader().load(bound, urn), resolved);
+                  boolean page =
+                      pageFetched(coordinator.loader().load(bound, urn), resolved, entityNames);
                   return componentReorder(
                       bound,
                       urn,
@@ -273,7 +274,7 @@ final class TemplateSearchExecutor {
                 return vectorSearch.attempt(
                     bound, template, assigned, input, postFilters, from, size, facets);
               }
-              boolean page = pageFetched(template, resolved);
+              boolean page = pageFetched(template, resolved, entityNames);
               return searchAttempt(
                   bound,
                   urn,
@@ -307,19 +308,23 @@ final class TemplateSearchExecutor {
         bound,
         served.page(),
         served.urn() != null
-            && pageFetched(coordinator.loader().load(bound, served.urn()), resolved));
+            && pageFetched(coordinator.loader().load(bound, served.urn()), resolved, entityNames));
   }
 
   /**
    * Whether the rung fetches only the requested page instead of the hybrid window. A vector rung
    * pages its own window. A keywordRerank rung keeps keyword order when the request cannot run
-   * document rerank (semantic read is off or the request has no Document), so it has no window to
-   * rerank.
+   * document rerank (semantic read is off or the request has no Document) or its scope assigns it
+   * no Document, so it has no window to rerank.
    */
   private static boolean pageFetched(
-      @Nonnull MergedSearchTemplate template, @Nonnull ResolvedSearchTemplate resolved) {
+      @Nonnull MergedSearchTemplate template,
+      @Nonnull ResolvedSearchTemplate resolved,
+      @Nonnull List<String> entityNames) {
     return SearchTemplateCapabilities.vectorRetrieval(template)
-        || (SearchTemplateCapabilities.keywordRerank(template) && !resolved.isDocumentRerank());
+        || (SearchTemplateCapabilities.keywordRerank(template)
+            && !(resolved.isDocumentRerank()
+                && SearchTemplateCapabilities.assignsDocument(template, entityNames)));
   }
 
   /**
