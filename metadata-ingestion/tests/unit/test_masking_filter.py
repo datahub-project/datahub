@@ -285,6 +285,12 @@ def _raise_group() -> NoReturn:
     raise builtins.ExceptionGroup("batch failed", members)
 
 
+def _raise_with_tuple_notes() -> NoReturn:
+    error = ValueError("query failed")
+    error.__notes__ = ("retrying", f"with {SECRET}")  # type: ignore[assignment]
+    raise error
+
+
 def _exc_info(raise_it: Callable[[], object]) -> ExcInfo:
     try:
         raise_it()
@@ -431,6 +437,11 @@ class TestExceptionMasking:
                 id="group_member_note",
                 marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
             ),
+            pytest.param(
+                _raise_with_tuple_notes,
+                id="notes_tuple",
+                marks=pytest.mark.skipif(sys.version_info < (3, 11), reason="3.11+"),
+            ),
         ],
     )
     def test_secret_anywhere_in_exception_is_masked(
@@ -448,7 +459,7 @@ class TestExceptionMasking:
         assert record.exc_info[2] is None
         assert record.exc_text and type(exc_info[1]).__name__ in record.exc_text
 
-    def test_replaced_exception_keeps_its_masked_chain_and_the_callers_object(
+    def test_replaced_exception_keeps_masked_chain_callers_object_and_is_stable(
         self, registry, masking_filter
     ):
         registry.register_secret("DB_PASSWORD", SECRET)

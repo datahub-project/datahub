@@ -39,8 +39,8 @@ class MaskedException(Exception):
 
 
 def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
-    """Yield the str, repr, message, detail and notes of exc and of every
-    exception linked to it by cause, context or group membership."""
+    """Yield the traceback summary line (with notes), repr, message and detail of
+    exc and of every exception linked to it by cause, context or group membership."""
     seen: Set[int] = set()
     pending: List[BaseException] = [exc]
     while pending:
@@ -49,7 +49,7 @@ def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
             continue
         seen.add(id(current))
         for render in (
-            str,
+            lambda e: "".join(traceback.format_exception_only(type(e), e)),
             repr,
             lambda e: getattr(e, "message", ""),
             lambda e: getattr(e, "detail", ""),
@@ -59,9 +59,6 @@ def _linked_exception_texts(exc: BaseException) -> Iterator[str]:
             except BaseException:
                 continue
             yield text
-        notes = getattr(current, "__notes__", None)
-        if isinstance(notes, list):
-            yield from (note for note in notes if isinstance(note, str))
         members = getattr(current, "exceptions", None)
         if not isinstance(members, (list, tuple)):
             members = ()
