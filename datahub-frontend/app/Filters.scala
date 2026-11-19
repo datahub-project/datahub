@@ -1,4 +1,5 @@
 import filters.BasePathRedirectFilter
+import filters.BrotliAssetEncodingFilter
 import filters.ContentHashedAssetCacheFilter
 import filters.InFlightRequestsFilter
 import filters.ShutdownConnectionCloseFilter
@@ -11,10 +12,10 @@ import play.filters.headers.SecurityHeadersFilter
 
 /**
  * Custom filter chain: ShutdownConnectionCloseFilter outermost, then CSPFilter, then
- * SecurityHeadersFilter, then InFlightRequestsFilter, then BasePathRedirectFilter, then Play's
- * enabled filters (GzipFilter from play.filters.enabled in application.conf), then
- * ContentHashedAssetCacheFilter closest to the action so it rewrites Cache-Control on the asset
- * result.
+ * SecurityHeadersFilter, then InFlightRequestsFilter, then BasePathRedirectFilter, then
+ * BrotliAssetEncodingFilter, then Play's enabled filters (GzipFilter from play.filters.enabled in
+ * application.conf), then ContentHashedAssetCacheFilter closest to the action so it rewrites
+ * Cache-Control on the asset result.
  *
  * ShutdownConnectionCloseFilter is outermost so every response, including redirects that
  * short-circuit inner filters, carries Connection: close once graceful shutdown starts.
@@ -24,6 +25,9 @@ import play.filters.headers.SecurityHeadersFilter
  * X-Frame-Options / X-Content-Type-Options / Referrer-Policy. InFlightRequestsFilter sits inside
  * those security filters and outside gzip so /admin probes are counted even when the base-path
  * filter returns without calling the rest of the chain.
+ *
+ * BrotliAssetEncodingFilter rewrites Accept-Encoding before GzipFilter and the Assets action, so
+ * both see the same header when datahub.assets.brotli.enabled is false.
  */
 class Filters @Inject()(
     shutdownConnectionCloseFilter: ShutdownConnectionCloseFilter,
@@ -31,6 +35,7 @@ class Filters @Inject()(
     securityHeadersFilter: SecurityHeadersFilter,
     inFlightRequestsFilter: InFlightRequestsFilter,
     basePathRedirectFilter: BasePathRedirectFilter,
+    brotliAssetEncodingFilter: BrotliAssetEncodingFilter,
     enabledFilters: EnabledFilters,
     contentHashedAssetCacheFilter: ContentHashedAssetCacheFilter
 ) extends DefaultHttpFilters(
@@ -39,6 +44,7 @@ class Filters @Inject()(
         +: securityHeadersFilter
         +: inFlightRequestsFilter
         +: basePathRedirectFilter
+        +: brotliAssetEncodingFilter
         +: enabledFilters.filters) :+ contentHashedAssetCacheFilter): _*
     ) {
 
@@ -49,6 +55,7 @@ class Filters @Inject()(
       +: securityHeadersFilter
       +: inFlightRequestsFilter
       +: basePathRedirectFilter
+      +: brotliAssetEncodingFilter
       +: enabledFilters.filters) :+ contentHashedAssetCacheFilter
   logger.info(
     "HTTP filters enabled: " + chainForLog.map(_.getClass.getSimpleName).mkString(", ")

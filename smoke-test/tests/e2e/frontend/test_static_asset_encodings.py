@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import logging
+import os
 import re
 from typing import Optional
 from urllib.parse import urljoin
@@ -19,6 +20,12 @@ pytestmark = [
     pytest.mark.domain(Domain.PLATFORM),
     pytest.mark.p0,
 ]
+
+# Mirrors FRONTEND_BROTLI_ENABLED on the datahub-frontend container. Set it to "false"
+# for both the frontend and this test run to check the switch that turns Brotli off.
+_BROTLI_ENABLED = (
+    os.getenv("FRONTEND_BROTLI_ENABLED", "true").strip().lower() != "false"
+)
 
 _GZIP_MAGIC = b"\x1f\x8b"
 _JS_SCRIPT_SRC = re.compile(
@@ -71,6 +78,8 @@ def _content_length(response: requests.Response) -> int:
 
 def test_hashed_js_asset_encodings_prefer_brotli_then_gzip() -> None:
     """br clients get brotli sidecars; gzip-only still gzip; identity is uncompressed."""
+    if not _BROTLI_ENABLED:
+        pytest.skip("FRONTEND_BROTLI_ENABLED=false")
     url = _hashed_js_url()
     logger.info("Checking encodings for %s", url)
 
@@ -122,3 +131,37 @@ def test_hashed_js_asset_encodings_prefer_brotli_then_gzip() -> None:
         br_response.close()
         gzip_response.close()
         identity_response.close()
+
+
+@pytest.mark.skipif(_BROTLI_ENABLED, reason="needs FRONTEND_BROTLI_ENABLED=false")
+def test_hashed_js_asset_skips_brotli_when_disabled() -> None:
+    """With Brotli off, br clients get the gzip sidecar and br-only clients get identity."""
+    url = _hashed_js_url()
+    logger.info("Checking Brotli is off for %s", url)
+
+    br_gzip_response = _get_asset(url, "br,gzip")
+    br_only_response = _get_asset(url, "br")
+
+    try:
+        assert br_gzip_response.status_code == 200
+        assert br_only_response.status_code == 200
+
+        assert _content_encoding(br_gzip_response) == "gzip"
+        assert _content_encoding(br_only_response) is None
+
+        vary = br_gzip_response.headers.get("Vary", "")
+        assert "accept-encoding" in vary.lower(), (
+            f"Vary missing Accept-Encoding: {vary!r}"
+        )
+
+        br_gzip_magic = br_gzip_response.raw.read(4)
+        br_only_magic = br_only_response.raw.read(4)
+        assert br_gzip_magic.startswith(_GZIP_MAGIC), (
+            f"br,gzip body missing gzip magic: {br_gzip_magic!r}"
+        )
+        assert not br_only_magic.startswith(_GZIP_MAGIC), (
+            f"br-only body looks gzip-compressed: {br_only_magic!r}"
+        )
+    finally:
+        br_gzip_response.close()
+        br_only_response.close()
