@@ -1,0 +1,14 @@
+id: broken-validator-model
+entities:
+  - name: dataset
+    aspects:
+      - status
+plugins:
+  aspectPayloadValidators:
+    - className: 'com.example.plugins.MissingValidator'
+      enabled: true
+      supportedOperations:
+        - UPSERT
+      supportedEntityAspectNames:
+        - entityName: dataset
+          aspectName: status

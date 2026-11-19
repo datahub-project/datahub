@@ -123,6 +123,24 @@ public class PluginEntityRegistryLoaderTest {
     }
   }
 
+  @Test
+  public void testPluginRegistryWithMissingValidatorClassFailsToLoad() throws InterruptedException {
+    PluginEntityRegistryLoader pluginEntityRegistryLoader =
+        new PluginEntityRegistryLoader(
+                "src/test/resources/broken_plugin_registries/", 60, true, null)
+            .withBaseRegistry(new MergedEntityRegistry(getBaseEntityRegistry(false)))
+            .start(true);
+
+    EntityRegistryLoadResult loadResult =
+        pluginEntityRegistryLoader
+            .getPatchRegistries()
+            .get("broken-validator-model")
+            .get(new ComparableVersion("0.0.1"))
+            .getSecond();
+    assertEquals(loadResult.getLoadResult(), LoadStatus.FAILURE);
+    assertTrue(loadResult.getFailureReason().contains("com.example.plugins.MissingValidator"));
+  }
+
   private EntityRegistry getBaseEntityRegistry(boolean useOptimizedEntityLoading) {
     final AspectSpec keyAspectSpec =
         new AspectSpec(

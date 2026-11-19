@@ -121,7 +121,7 @@ public class RelationshipEdgeUniquenessTest {
             ModelValidationException.class,
             () ->
                 builder.buildPartialEntitySpec(
-                    "dataset", "datasetKey", ImmutableList.of(aspectA, aspectB)));
+                    "dataset", "datasetKey", ImmutableList.of(aspectA, aspectB), null, false));
     assertTrue(thrown.getMessage().contains("OwnedBy"));
   }
 
@@ -137,7 +137,8 @@ public class RelationshipEdgeUniquenessTest {
     assertEquals(configSpec.getName(), "dataset");
 
     EntitySpec partialSpec =
-        builder.buildPartialEntitySpec("dataset", "datasetKey", ImmutableList.of(ownership));
+        builder.buildPartialEntitySpec(
+            "dataset", "datasetKey", ImmutableList.of(ownership), null, false);
     assertEquals(partialSpec.getName(), "dataset");
   }
 

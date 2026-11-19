@@ -1,0 +1,11 @@
+id: plugin-entity-fields
+entities:
+  - name: dataset
+    aspects:
+      - status
+  - name: dashboard
+    keyAspect: dashboardKey
+    searchGroup: plugingroup
+    viewUnrestricted: true
+    aspects:
+      - status

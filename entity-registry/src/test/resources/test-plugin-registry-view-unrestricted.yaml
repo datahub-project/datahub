@@ -1,0 +1,10 @@
+id: plugin-view-unrestricted
+entities:
+  - name: dataset
+    viewUnrestricted: true
+    aspects:
+      - status
+  - name: chart
+    keyAspect: chartKey
+    aspects:
+      - status

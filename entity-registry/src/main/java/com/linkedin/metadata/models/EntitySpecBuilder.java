@@ -238,9 +238,13 @@ public class EntitySpecBuilder {
   public EntitySpec buildPartialEntitySpec(
       @Nonnull final String entityName,
       @Nullable final String keyAspectName,
-      @Nonnull final List<AspectSpec> aspectSpecs) {
+      @Nonnull final List<AspectSpec> aspectSpecs,
+      @Nullable final String searchGroup,
+      final boolean viewUnrestricted) {
     EntitySpec entitySpec =
-        new PartialEntitySpec(aspectSpecs, new EntityAnnotation(entityName, keyAspectName));
+        new PartialEntitySpec(
+            aspectSpecs,
+            new EntityAnnotation(entityName, keyAspectName, searchGroup, viewUnrestricted));
     RelationshipEdgeUniquenessValidator.validate(entitySpec);
     return entitySpec;
   }
