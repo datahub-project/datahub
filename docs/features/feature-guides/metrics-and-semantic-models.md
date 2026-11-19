@@ -245,6 +245,9 @@ No. The Python SDK lets you emit Semantic Models and Metrics from any source. Sn
 **What happens to my existing Snowflake Semantic Views ingested before this feature launched?**
 They stay in DataHub as legacy `Semantic View` datasets. When you're ready to move to the new model, the `datahub migrate snowflake-semantic-views` CLI copies governance (owners, domains, tags, glossary terms, documentation, deprecation, applications, column-level tags/terms) onto the new Semantic Model and Metric URNs. The migration is not automatic — reach out to your DataHub representative to plan the cutover. Lineage and policies are not migrated by the CLI; run Snowflake ingestion with `emit_semantic_model_entities: true` afterward to fill structural aspects.
 
+**What happens to Databricks metric views I already ingested as `Metric View` datasets?**
+When `emit_semantic_model_entities` turns on (by default on DataHub Cloud 2.1.0 or later with Metrics enabled), the Unity Catalog source emits Semantic Models and Metrics instead, and stateful ingestion soft-deletes the old `Metric View` datasets. There is no migration command for Databricks yet, so owners, tags, glossary terms and documentation you added to those datasets in DataHub don't carry over; a command like the Snowflake one is planned. To keep that curation for now, set `emit_semantic_model_entities: false` in the Unity Catalog recipe.
+
 **Are metrics environment-specific?**
 No. Metric URNs deliberately omit the environment qualifier (`PROD`, `STAGING`, etc.) — `total_revenue` in PROD and STAGING resolve to the same metric entity. Cross-platform metrics (e.g. the same measure defined in both dbt and Snowflake) remain distinct because the platform is encoded in the URN.
 
