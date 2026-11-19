@@ -35,6 +35,7 @@ import io.datahubproject.test.metadata.context.TestOperationContexts;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.stream.Collectors;
 import org.testng.annotations.Test;
 
 public class SearchPolicyLoaderTest {
@@ -144,5 +145,50 @@ public class SearchPolicyLoaderTest {
     List<PolicyFetcher.Policy> result = new SearchPolicyLoader(context, client, 1).loadAll();
 
     assertEquals(result.stream().map(PolicyFetcher.Policy::getUrn).toList(), List.of(P1, P2));
+  }
+
+  @Test
+  public void testLoadAllReadsPastAPageWithOnlyDeletedHits() throws Exception {
+    OperationContext context = TestOperationContexts.systemContextNoSearchAuthorization();
+    SystemEntityClient client = mock(SystemEntityClient.class);
+    // Search drops hits that are gone from the primary store, so this page has no entities.
+    when(client.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of(POLICY_ENTITY_NAME)),
+            eq(""),
+            nullable(Filter.class),
+            isNull(),
+            isNull(),
+            anyList(),
+            anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setNumEntities(3)
+                .setScrollId("next")
+                .setEntities(new SearchEntityArray()));
+    when(client.scrollAcrossEntities(
+            any(OperationContext.class),
+            eq(List.of(POLICY_ENTITY_NAME)),
+            eq(""),
+            nullable(Filter.class),
+            eq("next"),
+            isNull(),
+            anyList(),
+            anyInt()))
+        .thenReturn(
+            new ScrollResult()
+                .setNumEntities(3)
+                .setEntities(
+                    new SearchEntityArray(
+                        List.of(
+                            new SearchEntity().setEntity(P1), new SearchEntity().setEntity(P2)))));
+    when(client.batchGetV2(any(OperationContext.class), eq(POLICY_ENTITY_NAME), anySet(), anySet()))
+        .thenReturn(Map.of(P1, response(P1, true), P2, response(P2, true)));
+
+    List<PolicyFetcher.Policy> result = new SearchPolicyLoader(context, client, 2).loadAll();
+
+    assertEquals(
+        result.stream().map(PolicyFetcher.Policy::getUrn).collect(Collectors.toSet()),
+        Set.of(P1, P2));
   }
 }
