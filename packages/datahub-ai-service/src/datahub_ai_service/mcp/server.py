@@ -5,8 +5,8 @@ from typing import Callable, Sequence
 from fastmcp import FastMCP
 
 from datahub_core_mcp_tools.gms_server_info import GmsServerInfo
+from datahub_core_mcp_tools.mcp_instructions import InstructionSize, build_instructions
 from datahub_core_mcp_tools.mcp_server import (
-    DEFAULT_INSTRUCTIONS,
     disable_list_changed_capabilities,
     register_tools,
 )
@@ -24,10 +24,9 @@ def build_mcp_server(
     server_info: Callable[[], GmsServerInfo],
     observers: Sequence[ToolCallObserver] = (),
 ) -> FastMCP:
-    mcp = FastMCP[None](
-        name="datahub", instructions=DEFAULT_INSTRUCTIONS, version=__version__
-    )
-    register_tools(mcp, is_oss=True)
+    mcp = FastMCP[None](name="datahub", version=__version__)
+    served = register_tools(mcp, is_oss=True)
+    mcp.instructions = build_instructions(InstructionSize.LARGE, served)
     # Served statelessly, so there is no session to announce list changes on.
     disable_list_changed_capabilities(mcp)
 

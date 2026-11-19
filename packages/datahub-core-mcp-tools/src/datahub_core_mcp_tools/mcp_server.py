@@ -9,7 +9,7 @@ instance never affects another.
 import functools
 import inspect
 from enum import Enum
-from typing import Awaitable, Callable, Optional, ParamSpec, TypeVar
+from typing import Awaitable, Callable, Collection, Optional, ParamSpec, TypeVar
 
 from fastmcp import FastMCP
 from loguru import logger
@@ -34,20 +34,6 @@ class ToolType(Enum):
     # Read-only tools outside the search surface. Like SEARCH, they belong to the
     # read group, so they are selected by default rather than left ungrouped.
     READ_ONLY = "read_only"
-
-
-DEFAULT_INSTRUCTIONS = """\
-DataHub is a metadata and context platform exposing an organization's data catalog: assets, \
-schemas, lineage, business definitions, data health, and curated context documents.
-
-Use it to:
-- Understand business concepts, terms, and processes — via the glossary and context documents.
-- Discover data and how to consume it — search assets and follow lineage.
-- Update metadata — edit descriptions, tags, and owners, or save context documents for other agents.
-
-For ambiguous questions, or ones hinging on a business term's meaning, consult the glossary and \
-context documents first.
-"""
 
 
 def _tool_fn_label(fn: Callable) -> str:
@@ -124,13 +110,36 @@ def register_tool(
     )(async_background(fn))
 
 
-def register_tools(mcp_instance: FastMCP, *, is_oss: bool) -> None:
+def register_tools(
+    mcp_instance: FastMCP,
+    *,
+    is_oss: bool,
+    groups: Optional[Collection[str]] = None,
+) -> list[str]:
     """Register every DataHub tool this deployment supports on ``mcp_instance``.
 
     Args:
         mcp_instance: The host's FastMCP instance.
         is_oss: Whether the tools talk to DataHub Core (True) or DataHub Cloud
             (False). Some tools describe themselves differently on each.
+        groups: Register only these tool groups (see tool_groups), plus the
+            system tools every server serves. None registers every group.
+
+    Returns:
+        The names of the tools registered.
     """
-    logger.info(f"Registering DataHub MCP tools (is_oss={is_oss})")
-    register_tool(mcp_instance, "get_me", get_me, tool_type=ToolType.USER)
+    # tool_groups builds on ToolType from this module.
+    from .tool_groups import SYSTEM_TOOL_IDS, groups_for_tags
+
+    logger.info(f"Registering DataHub MCP tools (is_oss={is_oss}, groups={groups})")
+    registered: list[str] = []
+
+    def add(name: str, fn: Callable, tool_type: ToolType) -> None:
+        if groups is not None and name not in SYSTEM_TOOL_IDS:
+            if not set(groups_for_tags({tool_type.value})) & set(groups):
+                return
+        register_tool(mcp_instance, name, fn, tool_type=tool_type)
+        registered.append(name)
+
+    add("get_me", get_me, ToolType.USER)
+    return registered
