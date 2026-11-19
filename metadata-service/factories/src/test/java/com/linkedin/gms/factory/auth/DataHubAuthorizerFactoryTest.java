@@ -13,10 +13,13 @@ import static org.testng.Assert.assertTrue;
 import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.policycache.PolicyChangeBroadcast;
 import com.linkedin.metadata.search.ScrollResult;
 import com.linkedin.metadata.search.SearchEntityArray;
 import io.datahubproject.metadata.context.OperationContext;
 import io.datahubproject.test.metadata.context.TestOperationContexts;
+import java.util.Map;
+import org.springframework.beans.factory.support.StaticListableBeanFactory;
 import org.springframework.test.util.ReflectionTestUtils;
 import org.testng.annotations.DataProvider;
 import org.testng.annotations.Test;
@@ -32,7 +35,6 @@ public class DataHubAuthorizerFactoryTest {
     ReflectionTestUtils.setField(factory, "policiesEnabled", true);
     ReflectionTestUtils.setField(factory, "immediateUpdateEnabled", immediateUpdate);
     ReflectionTestUtils.setField(factory, "recentChangeWindowSeconds", 600L);
-    ReflectionTestUtils.setField(factory, "changeBroadcastEnabled", broadcast);
     // An empty search result, so the startup load succeeds at once.
     client = mock(SystemEntityClient.class);
     try {
@@ -45,7 +47,11 @@ public class DataHubAuthorizerFactoryTest {
     return factory.dataHubAuthorizer(
         TestOperationContexts.systemContextNoSearchAuthorization(),
         client,
-        mock(GroupService.class));
+        mock(GroupService.class),
+        // Only GMS defines this bean, when the broadcast flag is on.
+        new StaticListableBeanFactory(
+                broadcast ? Map.of("policyChangeBroadcast", new PolicyChangeBroadcast()) : Map.of())
+            .getBeanProvider(PolicyChangeBroadcast.class));
   }
 
   @DataProvider
@@ -56,7 +62,7 @@ public class DataHubAuthorizerFactoryTest {
   }
 
   @Test(dataProvider = "flags")
-  public void testImmediateUpdatesFollowEitherFlag(
+  public void testImmediateUpdatesFollowTheFlagOrTheGmsBroadcastBean(
       boolean immediateUpdate, boolean broadcast, boolean expected) throws Exception {
     DataHubAuthorizer authorizer = build(immediateUpdate, broadcast);
     if (expected) {

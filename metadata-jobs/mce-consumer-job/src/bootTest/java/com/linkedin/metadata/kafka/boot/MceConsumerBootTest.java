@@ -1,7 +1,10 @@
 package com.linkedin.metadata.kafka.boot;
 
+import static org.testng.Assert.assertEquals;
+import static org.testng.Assert.assertFalse;
 import static org.testng.Assert.assertNull;
 
+import com.datahub.authorization.DataHubAuthorizer;
 import com.linkedin.gms.factory.policycache.PolicyChangeReceiver;
 import com.linkedin.gms.factory.telemetry.DailyReport;
 import com.linkedin.gms.factory.telemetry.ScheduledAnalyticsFactory;
@@ -14,6 +17,7 @@ import io.datahubproject.test.boot.HttpRoutes;
 import io.datahubproject.test.boot.MessagingContract;
 import io.datahubproject.test.boot.ProcessBoot;
 import io.datahubproject.test.boot.ProcessBoot.Messaging;
+import io.micrometer.core.instrument.Counter;
 import java.util.Set;
 import org.springframework.boot.WebApplicationType;
 import org.springframework.context.ConfigurableApplicationContext;
@@ -55,7 +59,8 @@ public class MceConsumerBootTest {
   /**
    * Deployments may set POLICY_CACHE_BROADCAST_ENABLED in an env file shared with the MCE consumer.
    * It does not scan the GMS-only policy cache package, so it starts no policy change receiver and
-   * registers no policy write observer: the writes it commits reach GMS on the refresh timer.
+   * registers no policy write observer: the writes it commits reach GMS on the refresh timer. The
+   * flag alone also leaves its authorizer on the refresh timer, with no startup load.
    */
   @Test
   public void bootsWithPolicyChangeBroadcast() {
@@ -70,7 +75,23 @@ public class MceConsumerBootTest {
       contract(Messaging.KAFKA).verify(ctx);
       assertNull(ctx.getBeanProvider(PolicyChangeReceiver.class).getIfAvailable());
       assertNull(ctx.getBeanProvider(PolicyChangeObserver.class).getIfAvailable());
+      DataHubAuthorizer authorizer = ctx.getBean("dataHubAuthorizer", DataHubAuthorizer.class);
+      assertFalse(authorizer.isImmediateUpdateEnabled());
+      assertEquals(policyLoadRequests(authorizer), 0.0);
     }
+  }
+
+  /** Full policy loads requested; only immediate-update mode requests them, at startup first. */
+  private static double policyLoadRequests(DataHubAuthorizer authorizer) {
+    Counter counter =
+        authorizer
+            .getSystemOpContext()
+            .getMetricUtils()
+            .orElseThrow()
+            .getRegistry()
+            .find(DataHubAuthorizer.class.getName() + ".policyCache.load.requested")
+            .counter();
+    return counter == null ? 0 : counter.count();
   }
 
   private static void boot(Messaging messaging) {
