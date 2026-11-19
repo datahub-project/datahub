@@ -76,7 +76,7 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     Map<String, Long> aggregationResult =
         entitySearchService.aggregateByValue(
             opContext,
-            getEntityNames(entityRegistry),
+            getEntityNames(opContext, entityRegistry),
             getSearchFieldName(),
             filter,
             getMaxContent());
@@ -124,6 +124,15 @@ public abstract class EntitySearchAggregationSource implements RecommendationSou
     return getTopKValues(validUrnCounts).stream()
         .map(entry -> buildRecommendationContent(entry.getKey(), entry.getValue()))
         .collect(Collectors.toList());
+  }
+
+  /**
+   * Entity types to aggregate over for this request. Defaults to {@link
+   * #getEntityNames(EntityRegistry)}; override when the list depends on request or search config.
+   */
+  protected List<String> getEntityNames(
+      @Nonnull OperationContext opContext, EntityRegistry entityRegistry) {
+    return getEntityNames(entityRegistry);
   }
 
   protected List<String> getEntityNames(EntityRegistry entityRegistry) {
