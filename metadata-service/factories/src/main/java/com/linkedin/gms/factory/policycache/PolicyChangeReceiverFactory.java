@@ -12,7 +12,8 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
 /**
- * Starts a {@link PolicyChangeReceiver} in GMS when POLICY_CACHE_BROADCAST_ENABLED is true.
+ * Starts a {@link PolicyChangeReceiver} in GMS when POLICY_CACHE_BROADCAST_ENABLED is true, and
+ * defines the {@link PolicyChangeBroadcast} bean that turns on immediate policy updates there.
  *
  * <p>GMS scans this package (CommonApplicationConfig) and always runs a Hazelcast member. system-
  * update scans it too but has no authorizer, so it starts nothing. The standalone MCE consumer does
@@ -24,6 +25,11 @@ import org.springframework.context.annotation.Configuration;
     name = "authorization.defaultAuthorizer.changeBroadcast.enabled",
     havingValue = "true")
 public class PolicyChangeReceiverFactory {
+
+  @Bean(name = "policyChangeBroadcast")
+  protected PolicyChangeBroadcast policyChangeBroadcast() {
+    return new PolicyChangeBroadcast();
+  }
 
   @Bean(name = "policyChangeReceiver", destroyMethod = "close")
   @Nullable

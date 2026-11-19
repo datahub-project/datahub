@@ -4,10 +4,12 @@ import com.datahub.authentication.group.GroupService;
 import com.datahub.authorization.DataHubAuthorizer;
 import com.datahub.authorization.SearchPolicyLoader;
 import com.linkedin.entity.client.SystemEntityClient;
+import com.linkedin.gms.factory.policycache.PolicyChangeBroadcast;
 import io.datahubproject.metadata.context.OperationContext;
 import java.time.Duration;
 import javax.annotation.Nonnull;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -39,24 +41,23 @@ public class DataHubAuthorizerFactory {
   @Value("${authorization.defaultAuthorizer.immediateUpdate.recentChangeWindowSeconds:600}")
   private Long recentChangeWindowSeconds;
 
-  @Value("${authorization.defaultAuthorizer.changeBroadcast.enabled:false}")
-  private Boolean changeBroadcastEnabled;
-
   @Bean(name = "dataHubAuthorizer")
   @Scope("singleton")
   @Nonnull
   protected DataHubAuthorizer dataHubAuthorizer(
       @Qualifier("systemOperationContext") final OperationContext systemOpContext,
       final SystemEntityClient systemEntityClient,
-      @Qualifier("groupService") final GroupService groupService) {
+      @Qualifier("groupService") final GroupService groupService,
+      final ObjectProvider<PolicyChangeBroadcast> policyChangeBroadcast) {
 
     final DataHubAuthorizer.AuthorizationMode mode =
         policiesEnabled
             ? DataHubAuthorizer.AuthorizationMode.DEFAULT
             : DataHubAuthorizer.AuthorizationMode.ALLOW_ALL;
 
-    final boolean broadcast = Boolean.TRUE.equals(changeBroadcastEnabled);
-    // The broadcast relies on immediate updates, so it turns them on.
+    // Only GMS defines the broadcast bean. The MCE consumer shares this factory but cannot receive
+    // the broadcast, so there the broadcast flag must not turn on immediate updates.
+    final boolean broadcast = policyChangeBroadcast.getIfAvailable() != null;
     final boolean immediateUpdate = Boolean.TRUE.equals(immediateUpdateEnabled) || broadcast;
     if (broadcast && !Boolean.TRUE.equals(immediateUpdateEnabled)) {
       log.info(

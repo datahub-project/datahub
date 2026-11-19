@@ -115,9 +115,10 @@ authorization:
       policyChangeWaitMillis: ${POLICY_CACHE_POLICY_CHANGE_WAIT_MILLIS:5000}
     # Tell every GMS about each committed policy change through the Hazelcast cluster that GMS
     # members already form (the same one as access-token revocation), so each GMS reads the
-    # changed policy by key. Opt-in; also turns on immediateUpdate. GMS members must form one
-    # cluster (Kubernetes discovery, SEARCH_SERVICE_HAZELCAST_SERVICE_NAME). Writes committed by a
-    # standalone MCE consumer are not sent; other GMS members read them on the refresh timer.
+    # changed policy by key. Opt-in; in GMS only, also turns on immediateUpdate. GMS members must
+    # form one cluster (Kubernetes discovery, SEARCH_SERVICE_HAZELCAST_SERVICE_NAME). Writes
+    # committed by a standalone MCE consumer are not sent; other GMS members read them on the
+    # refresh timer.
     changeBroadcast:
       enabled: ${POLICY_CACHE_BROADCAST_ENABLED:false}
   # Enables authorization of reads, writes, and deletes on REST APIs.
