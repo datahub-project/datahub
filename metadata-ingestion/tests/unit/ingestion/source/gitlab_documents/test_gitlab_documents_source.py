@@ -318,11 +318,13 @@ def test_platform_instance_separates_ids_and_sets_the_instance() -> None:
         "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,acme/data/docs)"
     }
     assert set(with_instance) == {
-        "urn:li:document:"
-        + normalize_document_id(
-            make_file_source_id("acme/data/docs", "guide.md", source_prefix="gitlab.eu")
-        )
+        "urn:li:document:gitlab-eu.acme.data.docs.guide-288074fadb9f1197"
     }
     assert set(with_instance.values()) == {
         "urn:li:dataPlatformInstance:(urn:li:dataPlatform:gitlab,eu)"
     }
+
+
+def test_platform_instance_must_not_contain_a_dot() -> None:
+    with pytest.raises(ValueError, match="platform_instance"):
+        _source(platform_instance="eu.prod")

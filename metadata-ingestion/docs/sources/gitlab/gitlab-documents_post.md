@@ -47,10 +47,10 @@ This source shares its import logic with the [GitHub documents source](https://d
 
 #### Several GitLab instances or overlapping project paths
 
-Document IDs are built from the project path. Set `platform_instance` to keep sources apart when their projects could otherwise produce the same IDs:
+Document IDs are built from the project path. Two sources whose projects produce the same IDs overwrite each other's documents unless each sets a different `platform_instance`. This happens in two cases:
 
-- The same project path on two GitLab instances, such as gitlab.com and a self-managed server.
-- Project paths that differ only by `.` and `/`, such as `data/platform.docs` and `data/platform/docs`. IDs join path segments with `.`, so these two projects produce the same IDs.
+- The same project path on two GitLab instances, such as gitlab.com and a self-managed server. Give each instance its own name, such as `gitlab-com` and `self-managed`.
+- Project paths that differ only by `.` and `/`, such as `data/platform.docs` and `data/platform/docs`. IDs join path segments with `.`, so these two produce the same IDs even on one server. Give the two sources different instance names, such as `self-managed-platform-docs` and `self-managed-platform`. One name for the whole server is not enough here.
 
 ```yaml
 source:
@@ -62,7 +62,7 @@ source:
     platform_instance: self-managed
 ```
 
-The instance is part of every document ID, and it becomes the documents' data platform instance. Without it, the data platform instance is the project path. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
+The instance is part of every document ID, and it becomes the documents' data platform instance. Without it, the data platform instance is the project path. Instance names cannot contain `.`. Changing `platform_instance` on an existing source creates new documents; with stateful ingestion enabled, the old ones are soft-deleted.
 
 The source resolves the branch head once and reads the tree and files at that commit, so all documents in a run come from one snapshot.
 
@@ -83,5 +83,6 @@ The source resolves the branch head once and reads the tree and files at that co
 - **No files imported**: Check `path_prefix` and `file_extensions` filters.
 - **`gitlab-file-not-read` warnings**: The file could not be downloaded, was too large, or was not text. A file that failed to download keeps its previous import, so a temporary GitLab error does not remove the document.
 - **`gitlab-tree-truncated` warning**: GitLab returned a full page of the project tree without pagination headers, and a follow-up request showed more entries exist. This usually means a proxy stripped the headers. The run imports what it listed and skips stale document removal, so nothing is deleted. Let the executor reach the GitLab API directly.
+- **Redirect errors**: The source does not follow redirects, so the token is never sent to another host. A redirect usually means a proxy or SSO login in front of the API, or a `base_url` that is not the address serving the API. Set `base_url` to that address.
 - **Non-JSON or HTML response errors**: A proxy or SSO login page answered instead of the GitLab API. Let the ingestion executor reach the API directly with the token.
 - **Documents not removed after a GitLab delete**: Ensure `stateful_ingestion.enabled: true` and the pipeline has a graph connection for checkpoint storage.

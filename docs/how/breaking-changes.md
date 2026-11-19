@@ -29,8 +29,12 @@ server continues to work. Existing connection files and environment variables ke
 The shared code of the `github-documents` source moved to `datahub.ingestion.source.repository_documents`, so a GitLab source can reuse it ([PR #21230](https://github.com/datahub-project/datahub/pull/21230)). Recipes and the documents they import are unchanged. This only affects Python code that subclasses `GitHubDocumentsSource` or imports its modules:
 
 - `_build_document` now takes `repo_path` and `is_directory` instead of `github_path`. A subclass that overrides it must use the new parameters, or it fails with a `TypeError` on the first document.
-- To change how OKF frontmatter is mapped, override the new `_map_okf` method. Wrapping or patching `map_okf` in `github_documents_source` no longer has any effect.
-- The old `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules still work, but now raise a `DeprecationWarning` and will be removed in a later release. Import from the matching `repository_documents` module instead.
+- `_build_github_external_url` is replaced by `_build_external_url(owner_repo, branch, path, *, is_directory)`. A subclass that overrides the old method, for example to point links at GitHub Enterprise, must override the new one: the old method is no longer called, so links silently fall back to github.com.
+- To change how OKF frontmatter is mapped, override the new `_map_okf` method. Patching `map_okf` in `github_documents_source` no longer works, because that module no longer uses it.
+- These old import paths still work but are deprecated, and will be removed in a later release. Import from `repository_documents` instead:
+  - The `github_documents.okf_*`, `github_hierarchy` and `github_documents_report` modules. Importing them raises a `FutureWarning`.
+  - In `github_api`: `GitHubFileInfo`, `RepositoryDocumentsClient`, `MAX_FILE_SIZE_BYTES`, `collect_intermediate_directories`, `normalize_document_id`, and the `make_*_source_id` and `resolve_parent_dir_source_id` helpers.
+  - In `github_documents_source`: `EXTRACTION_ALGO_VERSION`, `LAST_EXPORTED_CONTENT_HASH_KEY`, `PROP_IMPORT_SOURCE_ID`, `compute_file_content_hash` and `compute_source_hash`.
 
 ### github-documents import paths removed
 

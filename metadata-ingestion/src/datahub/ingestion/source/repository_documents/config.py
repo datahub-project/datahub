@@ -113,6 +113,17 @@ class RepositoryDocumentsSourceConfigBase(
         description="Parent-child relationship configuration.",
     )
 
+    @field_validator("platform_instance")
+    @classmethod
+    def _platform_instance_has_no_dot(cls, value: Optional[str]) -> Optional[str]:
+        # Source ids join path segments with "."; an instance containing one
+        # could produce the same id as another instance plus a repository path.
+        if value and "." in value:
+            raise ValueError(
+                f"platform_instance {value!r} must not contain '.'; use '-' or '_'."
+            )
+        return value
+
     @field_validator("okf_bundle_roots")
     @classmethod
     def normalize_bundle_roots(cls, roots: List[str]) -> List[str]:

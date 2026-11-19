@@ -241,7 +241,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         """Prefix of every source id. A configured ``platform_instance`` is
         part of it, so sources on different instances never share an id."""
         if self.config.platform_instance:
-            return f"{self.platform}.{self.config.platform_instance}"
+            # A hyphen, not a dot: ids without an instance always continue
+            # "<platform>.", so the two can never produce the same id.
+            return f"{self.platform}-{self.config.platform_instance}"
         return self.platform
 
     def _instance_name(self, owner_repo: str) -> str:
@@ -587,10 +589,6 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                     commit=commit_sha if commit_sha != "unknown" else None,
                     blobSha=blob_sha,
                 ),
-                attribution_source=self._okf_attribution_source,
-                ctx=self.ctx,
-                report=self.report,
-                lookup_cache=self._okf_lookup_cache,
             )
             if okf_mapping is not None:
                 text = frontmatter.body
@@ -871,6 +869,9 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                 )
                 self._resolved_source_id_urns[source_id] = None
                 return None
+            matches = [
+                urn for urn in matches if self._is_legacy_or_same_import(urn, source_id)
+            ]
 
         chosen = self._prefer_existing_document_urn(
             matches, canonical_urn, path=path, source_id=source_id
@@ -884,6 +885,28 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             )
         self._resolved_source_id_urns[source_id] = chosen
         return chosen
+
+    def _is_legacy_or_same_import(self, document_urn: str, source_id: str) -> bool:
+        """Whether a path match may be reused: a document stamped before
+        ``import_source_id`` existed, or one with this source id.
+
+        A document stamped with another source id belongs to another source,
+        such as the same repository path on another instance, or this source
+        before its ``platform_instance`` changed. Reusing it would make the two
+        overwrite each other.
+        """
+        assert self.ctx.graph is not None
+        try:
+            info = self.ctx.graph.get_aspect(document_urn, DocumentInfoClass)
+        except Exception as exc:
+            # Keep the match, as before this check: minting a second document
+            # would let stale removal delete the one the path already has.
+            logger.debug("Could not read %s to check its source: %s", document_urn, exc)
+            return True
+        stamped = (
+            (info.customProperties or {}).get(PROP_IMPORT_SOURCE_ID) if info else None
+        )
+        return stamped is None or stamped == source_id
 
     def _prefer_existing_document_urn(
         self,
@@ -1094,6 +1117,15 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
                             self.platform, self._instance_name(owner_repo)
                         ),
                         status=RemovedStatusFilter.ONLY_SOFT_DELETED,
+                        # A platform_instance is shared by every repository on
+                        # it, so narrow to this repository's documents.
+                        extraFilters=[
+                            {
+                                "field": "customProperties",
+                                "condition": "EQUAL",
+                                "values": [f"{self._prop('repo')}={owner_repo}"],
+                            }
+                        ],
                     )
                 )
             except Exception as exc:
@@ -1128,10 +1160,6 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
         bundle: OkfBundleClass,
         file_path: str,
         revision: OkfRevisionClass,
-        attribution_source: Optional[str],
-        ctx: PipelineContext,
-        report: RepositoryDocumentsSourceReport,
-        lookup_cache: Optional[OkfLookupCache] = None,
     ) -> Optional[OkfMapping]:
         """Map a file's OKF frontmatter to DataHub metadata.
 
@@ -1145,10 +1173,10 @@ class RepositoryDocumentsSourceBase(StatefulIngestionSourceBase, TestableSource)
             bundle=bundle,
             file_path=file_path,
             revision=revision,
-            attribution_source=attribution_source,
-            ctx=ctx,
-            report=report,
-            lookup_cache=lookup_cache,
+            attribution_source=self._okf_attribution_source,
+            ctx=self.ctx,
+            report=self.report,
+            lookup_cache=self._okf_lookup_cache,
         )
 
     def _attach_platform_instance(self, doc: Document, owner_repo: str) -> None:
