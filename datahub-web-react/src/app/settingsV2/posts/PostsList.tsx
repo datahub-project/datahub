@@ -8,13 +8,13 @@ import styled from 'styled-components';
 
 import CreatePostModal from '@app/settingsV2/posts/CreatePostModal';
 import { PostEntry, PostListMenuColumn } from '@app/settingsV2/posts/PostsListColumns';
-import { addToListPostCache, removeFromListPostCache } from '@app/settingsV2/posts/utils';
+import { removeFromListPostCache, updateListPostCache } from '@app/settingsV2/posts/utils';
 import { scrollToTop } from '@app/sharedV2/searchUtils';
 import { getHomePagePostsFilters } from '@app/utils/queryUtils';
 import { Alert, EmptyState, OverflowText, Pagination, SearchBar, Table } from '@src/alchemy-components';
 import { Column } from '@src/alchemy-components/components/Table/types';
 
-import { useListPostsQuery } from '@graphql/post.generated';
+import { ListPostsQueryVariables, useListPostsQuery } from '@graphql/post.generated';
 import { PostContentType } from '@types';
 
 const PageContainer = styled.div`
@@ -71,19 +71,25 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
 
     const pageSize = DEFAULT_PAGE_SIZE;
 
-    const { loading, error, data, client, refetch } = useListPostsQuery({
-        variables: {
-            input: {
-                start: 0,
-                count: MAX_POSTS,
-                query,
-                orFilters: getHomePagePostsFilters(),
-            },
+    const listPostsVariables: ListPostsQueryVariables = {
+        input: {
+            start: 0,
+            count: MAX_POSTS,
+            query,
+            orFilters: getHomePagePostsFilters(),
         },
+    };
+
+    const { loading, error, data, client, refetch } = useListPostsQuery({
+        variables: listPostsVariables,
         fetchPolicy: query && query.length > 0 ? 'no-cache' : 'cache-first',
     });
 
-    const posts = (data?.listPosts?.posts || []).filter((post) => post.content.contentType === PostContentType.Text);
+    // listPosts doesn't preserve search order (the resolver hydrates through a map), so sort newest first
+    // before paginating.
+    const posts = (data?.listPosts?.posts || [])
+        .filter((post) => post.content.contentType === PostContentType.Text)
+        .sort((a, b) => (b.lastModified?.time ?? 0) - (a.lastModified?.time ?? 0));
     const totalPosts = posts.length;
     const lastPage = Math.max(1, Math.ceil(totalPosts / pageSize));
 
@@ -98,10 +104,7 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
     };
 
     const handleDelete = (urn: string) => {
-        removeFromListPostCache(client, urn, 1, MAX_POSTS);
-        setTimeout(() => {
-            refetch?.();
-        }, 2000);
+        removeFromListPostCache(client, listPostsVariables, urn);
     };
 
     const handleEdit = (post: PostEntry) => {
@@ -203,20 +206,10 @@ export const PostList = ({ isCreatingPost, setIsCreatingPost }: PostListProps) =
                     <CreatePostModal
                         editData={editData as PostEntry}
                         onClose={handleClose}
-                        onEdit={() => setTimeout(() => refetch(), 2000)}
-                        onCreate={(title, description) => {
-                            addToListPostCache(
-                                client,
-                                {
-                                    properties: {
-                                        title,
-                                        description: description || null,
-                                    },
-                                },
-                                MAX_POSTS,
-                            );
-                            setTimeout(() => refetch(), 2000);
-                        }}
+                        onEdit={(urn, title, description) =>
+                            updateListPostCache(client, listPostsVariables, urn, title, description)
+                        }
+                        onCreate={() => setTimeout(() => refetch(), 3000)}
                     />
                 )}
             </PostsContainer>

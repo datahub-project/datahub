@@ -1,37 +1,31 @@
-import { ListPostsDocument, ListPostsQuery } from '@graphql/post.generated';
+import { ListPostsDocument, ListPostsQuery, ListPostsQueryVariables } from '@graphql/post.generated';
+
+type ListPostsPost = NonNullable<ListPostsQuery['listPosts']>['posts'][number];
 
 /**
- * Add an entry to the list posts cache.
+ * Apply a change to the cached list posts result for the given variables. The variables must match the
+ * active listPosts query exactly, otherwise the write lands on a different cache entry and the table won't update.
  */
-export const addToListPostCache = (client, newPost, pageSize) => {
-    // Read the data from our cache for this query.
-    const currData: ListPostsQuery | null = client.readQuery({
-        query: ListPostsDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-            },
-        },
-    });
+const modifyListPostCache = (
+    client,
+    variables: ListPostsQueryVariables,
+    modify: (posts: ListPostsPost[]) => ListPostsPost[],
+) => {
+    const currData: ListPostsQuery | null = client.readQuery({ query: ListPostsDocument, variables });
+    if (!currData?.listPosts) return;
 
-    // Add our new post into the existing list.
-    const newPosts = [...(currData?.listPosts?.posts || [])];
+    const currPosts = currData.listPosts.posts || [];
+    const newPosts = modify(currPosts);
+    const delta = newPosts.length - currPosts.length;
 
-    // Write our data back to the cache.
     client.writeQuery({
         query: ListPostsDocument,
-        variables: {
-            input: {
-                start: 0,
-                count: pageSize,
-            },
-        },
+        variables,
         data: {
             listPosts: {
-                start: 0,
-                count: (currData?.listPosts?.count || 0) + 1,
-                total: (currData?.listPosts?.total || 0) + 1,
+                ...currData.listPosts,
+                count: currData.listPosts.count + delta,
+                total: currData.listPosts.total + delta,
                 posts: newPosts,
             },
         },
@@ -39,39 +33,23 @@ export const addToListPostCache = (client, newPost, pageSize) => {
 };
 
 /**
+ * Update the title and description of an entry in the list posts cache.
+ */
+export const updateListPostCache = (
+    client,
+    variables: ListPostsQueryVariables,
+    urn: string,
+    title: string,
+    description: string | null,
+) => {
+    modifyListPostCache(client, variables, (posts) =>
+        posts.map((post) => (post.urn === urn ? { ...post, content: { ...post.content, title, description } } : post)),
+    );
+};
+
+/**
  * Remove an entry from the list posts cache.
  */
-export const removeFromListPostCache = (client, urn, page, pageSize) => {
-    // Read the data from our cache for this query.
-    const currData: ListPostsQuery | null = client.readQuery({
-        query: ListPostsDocument,
-        variables: {
-            input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-            },
-        },
-    });
-
-    // Remove the post from the existing posts set.
-    const newPosts = [...(currData?.listPosts?.posts || []).filter((post) => post.urn !== urn)];
-
-    // Write our data back to the cache.
-    client.writeQuery({
-        query: ListPostsDocument,
-        variables: {
-            input: {
-                start: (page - 1) * pageSize,
-                count: pageSize,
-            },
-        },
-        data: {
-            listPosts: {
-                start: currData?.listPosts?.start || 0,
-                count: (currData?.listPosts?.count || 1) - 1,
-                total: (currData?.listPosts?.total || 1) - 1,
-                posts: newPosts,
-            },
-        },
-    });
+export const removeFromListPostCache = (client, variables: ListPostsQueryVariables, urn: string) => {
+    modifyListPostCache(client, variables, (posts) => posts.filter((post) => post.urn !== urn));
 };

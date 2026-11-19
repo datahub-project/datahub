@@ -25,8 +25,8 @@ function getInitialFormData(editData?: PostEntry): PostFormData {
 type Props = {
     editData: PostEntry;
     onClose: () => void;
-    onCreate: (title: string, description: string | undefined) => void;
-    onEdit: () => void;
+    onCreate: () => void;
+    onEdit: (urn: string, title: string, description: string | null) => void;
 };
 
 export default function CreatePostModal({ onClose, onCreate, editData, onEdit }: Props) {
@@ -58,7 +58,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     toast.success(t('createSuccess'));
-                    onCreate(formData.title, formData.description);
+                    onCreate();
                 }
             })
             .catch((error) => {
@@ -88,7 +88,7 @@ export default function CreatePostModal({ onClose, onCreate, editData, onEdit }:
             .then(({ errors }) => {
                 if (!errors) {
                     toast.success(t('updateSuccess'));
-                    onEdit();
+                    onEdit(editData.urn, formData.title, formData.description || null);
                 }
             })
             .catch((e) => {
