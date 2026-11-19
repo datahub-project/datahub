@@ -124,7 +124,7 @@ public class StructuredPropertyPrivilegeConstraintsValidator
     if (difference.isEmpty()) {
       return Collections.emptyList();
     }
-    if (!AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+    if (!AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
         session, item.getUrn(), difference)) {
       return List.of(
           AspectValidationException.forAuth(

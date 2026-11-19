@@ -24,6 +24,22 @@ by another script or agent. To connect to another instance, use a separate name,
 To intentionally replace an existing connection, add `--force`. Refreshing a token for the same
 server continues to work. Existing connection files and environment variables keep working.
 
+### Structured property and tag writes denied for users who were allowed to write
+
+Since [#16478](https://github.com/datahub-project/datahub/pull/16478), some writes that include
+structured properties or tags were rejected with `Unauthorized to modify one or more structured
+property Urns` (or `tag Urns`), even though the user was allowed to make them. This affected users
+allowed through a privilege other than **Edit Entity**, **Edit Entity Properties** or **Edit
+Entity Tags**: for example **Manage Documents** on documents, **Manage Users & Groups** on users
+and groups, **Create Entity** for new entities, **Delete Entity** when deleting the aspect, form
+assignees answering a structured property prompt, and users accepting proposals.
+
+These writes work again. Policies with `privilegeConstraints` are still enforced: a user whose
+**Edit Entity**, **Edit Entity Properties** or **Edit Entity Tags** policies are all limited to
+certain tags or structured properties can still only change those. No action is needed. If you
+set `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS=false` to work around these errors, you can turn it
+back on.
+
 ### Filtering policies with more than one filter group ([#21412](https://github.com/datahub-project/datahub/pull/21412))
 
 The `listPolicies` GraphQL query now treats each entry in `orFilters` as an alternative, the same

@@ -402,19 +402,17 @@ public class AuthUtil {
         tagSubResourceSpecs(tagUrns));
   }
 
-  public static boolean isAPIAuthorizedForTagModification(
+  /**
+   * Whether privilegeConstraints allow the actor to change {@code tagUrns} on {@code entityUrn}.
+   * See {@link #isAPIAllowedByPrivilegeConstraints}.
+   */
+  public static boolean isAPIAllowedByTagPrivilegeConstraints(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Urn entityUrn,
       @Nonnull final Collection<Urn> tagUrns,
       @Nonnull final PoliciesConfig.Privilege specificTagPrivilege) {
-    if (tagUrns.isEmpty()) {
-      return true;
-    }
-    return isAPIAuthorized(
-        session,
-        tagModificationPrivilegeGroup(specificTagPrivilege),
-        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
-        tagSubResourceSpecs(tagUrns));
+    return isAPIAllowedByPrivilegeConstraints(
+        session, tagModificationPrivilegeGroup(specificTagPrivilege), entityUrn, tagUrns);
   }
 
   private static Set<EntitySpec> tagSubResourceSpecs(@Nonnull final Collection<Urn> tagUrns) {
@@ -432,25 +430,44 @@ public class AuthUtil {
                 List.of(PoliciesConfig.EDIT_ENTITY_PROPERTIES_PRIVILEGE.getType()))));
   }
 
-  public static boolean isAPIAuthorizedForStructuredPropertyModification(
+  /**
+   * Whether privilegeConstraints allow the actor to change {@code propertyUrns} on {@code
+   * entityUrn}. See {@link #isAPIAllowedByPrivilegeConstraints}.
+   */
+  public static boolean isAPIAllowedByStructuredPropertyPrivilegeConstraints(
       @Nonnull final AuthorizationSession session,
       @Nonnull final Urn entityUrn,
       @Nonnull final Collection<Urn> propertyUrns) {
-    if (propertyUrns.isEmpty()) {
-      return true;
-    }
-    return isAPIAuthorized(
-        session,
-        structuredPropertyModificationPrivilegeGroup(),
-        new EntitySpec(entityUrn.getEntityType(), entityUrn.toString()),
-        structuredPropertySubResourceSpecs(propertyUrns));
+    return isAPIAllowedByPrivilegeConstraints(
+        session, structuredPropertyModificationPrivilegeGroup(), entityUrn, propertyUrns);
   }
 
-  private static Set<EntitySpec> structuredPropertySubResourceSpecs(
-      @Nonnull final Collection<Urn> propertyUrns) {
-    return propertyUrns.stream()
-        .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
-        .collect(Collectors.toSet());
+  /**
+   * privilegeConstraints narrow which tags or structured properties an actor may change. This
+   * returns false only when the actor holds {@code privilegeGroup} on the entity but no grant of it
+   * covers every changed sub-resource.
+   *
+   * <p>It does not decide whether the actor may write the entity at all. The API write gate does,
+   * and it accepts other privileges for some entity types (e.g. Manage Documents) and for creates
+   * and deletes. Services such as forms and proposals also authorize by their own rules and then
+   * write as the caller. An actor holding none of {@code privilegeGroup} is therefore not narrowed
+   * by any constraint and is allowed here.
+   */
+  private static boolean isAPIAllowedByPrivilegeConstraints(
+      @Nonnull final AuthorizationSession session,
+      @Nonnull final DisjunctivePrivilegeGroup privilegeGroup,
+      @Nonnull final Urn entityUrn,
+      @Nonnull final Collection<Urn> subResourceUrns) {
+    if (subResourceUrns.isEmpty()) {
+      return true;
+    }
+    final EntitySpec entity = new EntitySpec(entityUrn.getEntityType(), entityUrn.toString());
+    final Set<EntitySpec> subResources =
+        subResourceUrns.stream()
+            .map(urn -> new EntitySpec(urn.getEntityType(), urn.toString()))
+            .collect(Collectors.toSet());
+    return isAPIAuthorized(session, privilegeGroup, entity, subResources)
+        || !isAPIAuthorized(session, privilegeGroup, entity, Collections.emptyList());
   }
 
   public static boolean isAPIAuthorizedEntityType(

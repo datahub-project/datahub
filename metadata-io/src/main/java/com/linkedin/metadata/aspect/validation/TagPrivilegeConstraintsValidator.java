@@ -138,7 +138,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
         PatchItemImpl.resolveProposedAspect(item, currentTags, aspectRetriever, GlobalTags.class);
     if (newTags != null) {
       Set<Urn> tagDifference = extractTagDifference(newTags, currentTags);
-      if (!AuthUtil.isAPIAuthorizedForTagModification(
+      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
           session, item.getUrn(), tagDifference, PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE)) {
         return List.of(
             AspectValidationException.forAuth(
@@ -204,7 +204,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAuthorizedForTagModification(
+      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
           session,
           item.getUrn(),
           tagDifference,
@@ -252,7 +252,7 @@ public class TagPrivilegeConstraintsValidator extends AbstractAspectAuthorizatio
                           existingTagsMap.get(schemaField.getFieldPath())))
               .flatMap(Set::stream)
               .collect(Collectors.toSet());
-      if (!AuthUtil.isAPIAuthorizedForTagModification(
+      if (!AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
           session,
           item.getUrn(),
           tagDifference,

@@ -256,7 +256,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -283,7 +283,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -320,7 +320,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -351,7 +351,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -382,7 +382,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -408,7 +408,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -434,7 +434,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -472,7 +472,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -504,7 +504,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -537,7 +537,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -564,7 +564,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -591,7 +591,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -630,7 +630,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -663,7 +663,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -696,7 +696,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -799,7 +799,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -870,7 +870,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -891,7 +891,7 @@ public class PrivilegeConstraintsValidatorTest {
     // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
     authUtilMockedStatic.verify(
         () ->
-            AuthUtil.isAPIAuthorizedForTagModification(
+            AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                 Mockito.eq(mockAuthSession),
                 Mockito.eq(TEST_DATASET_URN),
                 Mockito.eq(Set.of(TEST_TAG_URN_2)),
@@ -943,7 +943,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     any(AuthorizationSession.class), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -1043,7 +1043,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     any(AuthorizationSession.class), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -1115,7 +1115,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(true);
 
@@ -1217,7 +1217,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenAnswer(
             invocation -> {
@@ -1263,7 +1263,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenAnswer(invocation -> !((Set<Urn>) invocation.getArgument(2)).contains(TEST_TAG_URN_2));
 
@@ -1392,7 +1392,7 @@ public class PrivilegeConstraintsValidatorTest {
     authUtilMockedStatic
         .when(
             () ->
-                AuthUtil.isAPIAuthorizedForTagModification(
+                AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                     Mockito.eq(mockAuthSession), any(Urn.class), any(), any()))
         .thenReturn(false);
 
@@ -1409,7 +1409,7 @@ public class PrivilegeConstraintsValidatorTest {
     // Pins that the PATCH was resolved: only the added tag reaches the authorization check.
     authUtilMockedStatic.verify(
         () ->
-            AuthUtil.isAPIAuthorizedForTagModification(
+            AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
                 Mockito.eq(mockAuthSession),
                 Mockito.eq(TEST_DATASET_URN),
                 Mockito.eq(Set.of(TEST_TAG_URN_2)),

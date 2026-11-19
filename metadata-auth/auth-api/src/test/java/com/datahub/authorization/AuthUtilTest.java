@@ -717,7 +717,7 @@ public class AuthUtilTest {
   }
 
   @Test
-  public void testIsAPIAuthorizedForTagModification() {
+  public void testIsAPIAllowedByTagPrivilegeConstraints() {
     final Urn TEST_TAG = UrnUtils.getUrn("urn:li:tag:Legacy");
 
     Authorizer mockAuthorizer =
@@ -727,23 +727,24 @@ public class AuthUtilTest {
                 Map.of("EDIT_ENTITY_TAGS", Set.of(TEST_ENTITY_1))));
 
     assertTrue(
-        AuthUtil.isAPIAuthorizedForTagModification(
+        AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
             PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
         "Expected EDIT_ENTITY_TAGS to authorize tag modifications without EDIT_ENTITY");
 
-    assertFalse(
-        AuthUtil.isAPIAuthorizedForTagModification(
+    // Holding no tag privilege means no constraint narrows the actor; the write gate decides.
+    assertTrue(
+        AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
             PoliciesConfig.EDIT_ENTITY_TAGS_PRIVILEGE),
-        "Expected user without EDIT_ENTITY_TAGS to be denied");
+        "Expected user without tag privileges to be left to the write gate");
 
     assertTrue(
-        AuthUtil.isAPIAuthorizedForTagModification(
+        AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             Collections.emptyList(),
@@ -757,7 +758,7 @@ public class AuthUtilTest {
                 Map.of("EDIT_DATASET_COL_TAGS", Set.of(TEST_ENTITY_1))));
 
     assertTrue(
-        AuthUtil.isAPIAuthorizedForTagModification(
+        AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_A, datasetColTagsAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_TAG),
@@ -847,7 +848,7 @@ public class AuthUtilTest {
   }
 
   @Test
-  public void testIsAPIAuthorizedForStructuredPropertyModification() {
+  public void testIsAPIAllowedByStructuredPropertyPrivilegeConstraints() {
     final Urn TEST_PROPERTY = UrnUtils.getUrn("urn:li:structuredProperty:test1");
 
     Authorizer mockAuthorizer =
@@ -857,21 +858,22 @@ public class AuthUtilTest {
                 Map.of("EDIT_ENTITY_PROPERTIES", Set.of(TEST_ENTITY_1))));
 
     assertTrue(
-        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+        AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_A, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_PROPERTY)),
         "Expected EDIT_ENTITY_PROPERTIES to authorize structured property modifications without EDIT_ENTITY");
 
-    assertFalse(
-        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+    // Holding no property privilege means no constraint narrows the actor; the write gate decides.
+    assertTrue(
+        AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             List.of(TEST_PROPERTY)),
-        "Expected user without EDIT_ENTITY_PROPERTIES to be denied");
+        "Expected user without property privileges to be left to the write gate");
 
     assertTrue(
-        AuthUtil.isAPIAuthorizedForStructuredPropertyModification(
+        AuthUtil.isAPIAllowedByStructuredPropertyPrivilegeConstraints(
             TestAuthSession.from(TEST_AUTH_B, mockAuthorizer),
             TEST_ENTITY_1,
             Collections.emptyList()),
@@ -895,7 +897,7 @@ public class AuthUtilTest {
     setRestApiAuthorizationEnabled(false);
     try {
       assertTrue(
-          AuthUtil.isAPIAuthorizedForTagModification(
+          AuthUtil.isAPIAllowedByTagPrivilegeConstraints(
               TestAuthSession.from(TEST_AUTH_B, mock(Authorizer.class)),
               TEST_ENTITY_1,
               List.of(TEST_TAG),

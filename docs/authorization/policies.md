@@ -774,6 +774,13 @@ user set/change/remove only that structured property on matching assets. `NOT_EQ
 specific properties. These policies apply by default in the UI and can be configured to apply
 to API operations as well through the `MCP_VALIDATION_PRIVILEGE_CONSTRAINTS` environment variable which should be applied globally (GMS, MCE Consumer, and DataHub Upgrade specifically), which is enabled by default.
 
+Constraints only narrow what a user may change; they do not decide whether the user may write
+the asset at all. A write is checked against a user's constraints when the user holds **Edit
+Entity**, **Edit Entity Properties** (structured properties) or **Edit Entity Tags** (tags) on the
+asset. If none of those grants covers every tag or structured property being changed, the write is
+rejected. A user without any of those privileges, who is allowed to write through another privilege
+(such as **Manage Documents**) or through a form or proposal, is not limited by constraints.
+
 Example JSON of a policy with constraints:
 
 ```json
