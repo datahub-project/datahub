@@ -66,8 +66,14 @@ public class ChangeItemImpl implements ChangeMCP {
 
     try {
       builder.recordTemplate(genericPatchTemplate.applyPatch(currentValue, jsonPatch));
-    } catch (IOException e) {
-      throw new RuntimeException(e);
+    } catch (IOException | RuntimeException e) {
+      // The patch does not apply to the value (e.g. a path that does not exist): the caller's
+      // error, reported as a bad request rather than a server error.
+      throw new IllegalArgumentException(
+          String.format(
+              "Unable to apply patch to aspect %s of %s: %s",
+              aspectSpec.getName(), urn, e.getMessage()),
+          e);
     }
 
     return builder.build(aspectRetriever);

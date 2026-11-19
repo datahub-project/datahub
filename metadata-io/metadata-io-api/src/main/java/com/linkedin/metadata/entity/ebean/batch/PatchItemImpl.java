@@ -314,40 +314,40 @@ public class PatchItemImpl implements PatchMCP {
 
   private ChangeItemImpl applyGenericPatch(
       RecordTemplate recordTemplate, AspectRetriever aspectRetriever) {
-    try {
-      // Prefer the registered template's default (e.g. GlossaryTermsTemplate.getDefault() which
-      // injects the required auditStamp) over a bare constructor call which yields an incomplete
-      // object that fails validation.
-      AspectTemplateEngine templateEngine =
-          aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
-      RecordTemplate templateDefault = templateEngine.getDefaultTemplate(getAspectName());
-      if (templateDefault == null) {
+    // Prefer the registered template's default (e.g. GlossaryTermsTemplate.getDefault() which
+    // injects the required auditStamp) over a bare constructor call which yields an incomplete
+    // object that fails validation.
+    AspectTemplateEngine templateEngine =
+        aspectRetriever.getEntityRegistry().getAspectTemplateEngine();
+    RecordTemplate templateDefault = templateEngine.getDefaultTemplate(getAspectName());
+    if (templateDefault == null) {
+      try {
         templateDefault = aspectSpec.getDataTemplateClass().getDeclaredConstructor().newInstance();
+      } catch (ReflectiveOperationException e) {
+        throw new RuntimeException(e);
       }
-      GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
-          GenericPatchTemplate.builder()
-              // Null when the ops cannot be modelled as a GenericJsonPatch (move/copy); there are
-              // then no array keys and the raw patch is applied.
-              .genericJsonPatch(
-                  genericJsonPatch != null
-                      ? genericJsonPatch
-                      : GenericJsonPatch.builder().patch(List.of()).build())
-              .templateType(aspectSpec.getDataTemplateClass())
-              .templateDefault(templateDefault)
-              .build();
-      return ChangeItemImpl.fromPatch(
-          urn,
-          aspectSpec,
-          recordTemplate,
-          genericPatchTemplate,
-          getPatch(),
-          getMetadataChangeProposal(),
-          getSystemMetadata(),
-          auditStamp,
-          aspectRetriever);
-    } catch (Exception e) {
-      throw new RuntimeException(e);
     }
+    GenericPatchTemplate<? extends RecordTemplate> genericPatchTemplate =
+        GenericPatchTemplate.builder()
+            // Null when the ops cannot be modelled as a GenericJsonPatch (move/copy); there are
+            // then no array keys and the raw patch is applied.
+            .genericJsonPatch(
+                genericJsonPatch != null
+                    ? genericJsonPatch
+                    : GenericJsonPatch.builder().patch(List.of()).build())
+            .templateType(aspectSpec.getDataTemplateClass())
+            .templateDefault(templateDefault)
+            .build();
+    return ChangeItemImpl.fromPatch(
+        urn,
+        aspectSpec,
+        recordTemplate,
+        genericPatchTemplate,
+        getPatch(),
+        getMetadataChangeProposal(),
+        getSystemMetadata(),
+        auditStamp,
+        aspectRetriever);
   }
 
   private ChangeItemImpl applyTemplatePatch(

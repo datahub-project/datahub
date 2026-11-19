@@ -270,6 +270,13 @@ plugins:
           aspectName: customDataQualityRules
 ```
 
+PATCH writes reach the two integration points differently. A PATCH request reaches `validateProposedAspects` only
+when `PATCH` is listed in `supportedOperations`, and even then it carries no aspect: `getRecordTemplate()` is null,
+because the patch has not been applied yet. The patched aspect reaches `validatePreCommitAspects` as an `UPSERT`
+change, whose `getMetadataChangeProposal().getChangeType()` is `PATCH`. A rule implemented only in
+`validateProposedAspects` is therefore bypassed by a PATCH. To enforce it on PATCH writes too, check the aspect in
+`validatePreCommitAspects` with `UPSERT` in `supportedOperations`.
+
 To see an example working validator, please refer to the [Demo Dataset Validator](../contrib/metadata-model-extensions/datahub-demo-dataset-governance-validator).
 
 #### Custom Mutator

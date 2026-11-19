@@ -279,7 +279,14 @@ public class ValidationApiUtils {
     RecordTemplateValidator.validate(
         EntityApiUtils.buildKeyAspect(entityRegistry, urn), resultFunction, validator);
     if (aspect != null) {
-      RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+      try {
+        RecordTemplateValidator.validateTrim(aspect, resultFunction, validator);
+      } catch (IllegalStateException e) {
+        // Pegasus throws instead of reporting when a value has the wrong shape for its schema
+        // (e.g. an object where an array is declared), as a malformed patch can produce.
+        throw new ValidationException(
+            "Invalid format for aspect: " + entitySpec.getName() + "\n Cause: " + e.getMessage());
+      }
     }
   }
 

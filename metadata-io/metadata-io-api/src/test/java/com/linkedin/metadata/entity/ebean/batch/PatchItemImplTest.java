@@ -1,5 +1,6 @@
 package com.linkedin.metadata.entity.ebean.batch;
 
+import static com.linkedin.metadata.Constants.CONTAINER_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.DATASET_ENTITY_NAME;
 import static com.linkedin.metadata.Constants.DATASET_PROPERTIES_ASPECT_NAME;
 import static com.linkedin.metadata.Constants.GLOBAL_TAGS_ASPECT_NAME;
@@ -26,6 +27,7 @@ import com.linkedin.events.metadata.ChangeType;
 import com.linkedin.metadata.aspect.AspectRetriever;
 import com.linkedin.metadata.aspect.patch.GenericJsonPatch;
 import com.linkedin.metadata.aspect.patch.template.AspectTemplateEngine;
+import com.linkedin.metadata.entity.validation.ValidationException;
 import com.linkedin.metadata.models.registry.EntityRegistry;
 import com.linkedin.metadata.utils.GenericRecordUtils;
 import com.linkedin.metadata.utils.SystemMetadataUtils;
@@ -716,11 +718,47 @@ public class PatchItemImplTest {
         removed.getRecordTemplate(), new SubTypes().setTypeNames(new StringArray("Table")));
   }
 
+  /**
+   * Invalid patches on aspects without a template must surface as client errors (the API layers map
+   * ValidationException and IllegalArgumentException to 4xx), not as wrapped server errors.
+   */
+  @Test
+  public void testInvalidPatchOnAspectWithoutTemplateIsClientError() {
+    assertThrows(
+        ValidationException.class,
+        () ->
+            patchFor(
+                    CONTAINER_ASPECT_NAME,
+                    "[{\"op\":\"add\",\"path\":\"/container\",\"value\":\"urn:li:corpuser:not_a_container\"}]")
+                .applyPatch(null, aspectRetriever));
+    // Array ops with no stored value leave an object where the schema declares an array.
+    assertThrows(
+        ValidationException.class,
+        () ->
+            subTypesPatch("[{\"op\":\"add\",\"path\":\"/typeNames/-\",\"value\":\"View\"}]")
+                .applyPatch(null, aspectRetriever));
+    assertThrows(
+        ValidationException.class,
+        () ->
+            subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/0\"}]")
+                .applyPatch(null, aspectRetriever));
+    // An op the JSON patch library rejects (index out of range).
+    assertThrows(
+        IllegalArgumentException.class,
+        () ->
+            subTypesPatch("[{\"op\":\"remove\",\"path\":\"/typeNames/5\"}]")
+                .applyPatch(new SubTypes().setTypeNames(new StringArray("View")), aspectRetriever));
+  }
+
   private PatchItemImpl subTypesPatch(String ops) {
+    return patchFor(SUB_TYPES_ASPECT_NAME, ops);
+  }
+
+  private PatchItemImpl patchFor(String aspectName, String ops) {
     MetadataChangeProposal mcp = new MetadataChangeProposal();
     mcp.setEntityUrn(urn);
     mcp.setEntityType(DATASET_ENTITY_NAME);
-    mcp.setAspectName(SUB_TYPES_ASPECT_NAME);
+    mcp.setAspectName(aspectName);
     mcp.setChangeType(ChangeType.PATCH);
     mcp.setAspect(GenericRecordUtils.serializePatch(patchOf(ops)));
     return PatchItemImpl.builder().build(mcp, auditStamp, entityRegistry);
