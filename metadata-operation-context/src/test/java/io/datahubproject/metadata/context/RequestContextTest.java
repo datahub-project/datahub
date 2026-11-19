@@ -560,7 +560,7 @@ public class RequestContextTest {
   @Test
   public void testDataHubClientModeWinsOverAppendedPythonRequestsAgent() {
     // The Python client appends the requests library agent, which YAUAA alone classifies as Robot.
-    for (String mode : List.of("sdk", "cli", "ingestion")) {
+    for (String mode : List.of("sdk", "cli", "ingestion", "mcp")) {
       when(mockHttpRequest.getHeader(HttpHeaders.USER_AGENT))
           .thenReturn(
               "DataHub-Client/1.0 ("

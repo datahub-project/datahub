@@ -28,6 +28,12 @@ public class AttributionTypeTest {
   }
 
   @Test
+  public void testFromAgentClassMcpIsAgentMediated() {
+    Assert.assertEquals(
+        AttributionType.fromAgentClass(AgentClass.MCP), AttributionType.AGENT_MEDIATED);
+  }
+
+  @Test
   public void testFromAgentClassBotClients() {
     Assert.assertEquals(AttributionType.fromAgentClass(AgentClass.ROBOT), AttributionType.BOT);
     Assert.assertEquals(AttributionType.fromAgentClass(AgentClass.CRAWLER), AttributionType.BOT);

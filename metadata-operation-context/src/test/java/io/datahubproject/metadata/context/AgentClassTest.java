@@ -28,6 +28,7 @@ public class AgentClassTest {
     assertEquals(AgentClass.fromRawUserAgentClass("Browser"), AgentClass.BROWSER);
     assertEquals(AgentClass.fromRawUserAgentClass("Mobile App"), AgentClass.MOBILE_APP);
     assertEquals(AgentClass.fromRawUserAgentClass("INGESTION"), AgentClass.INGESTION);
+    assertEquals(AgentClass.fromRawUserAgentClass("mcp"), AgentClass.MCP);
     assertEquals(AgentClass.fromRawUserAgentClass(null), AgentClass.UNKNOWN);
     assertEquals(AgentClass.fromRawUserAgentClass(""), AgentClass.UNKNOWN);
     assertEquals(AgentClass.fromRawUserAgentClass("not-a-class"), AgentClass.UNKNOWN);

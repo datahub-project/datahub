@@ -17,6 +17,7 @@ class ClientMode(Enum):
     INGESTION = auto()
     CLI = auto()
     SDK = auto()
+    MCP = auto()
 
 
 DATAHUB_COMPONENT_ENV: str = get_datahub_component().lower()
