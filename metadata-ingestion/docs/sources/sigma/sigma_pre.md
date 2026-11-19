@@ -29,8 +29,8 @@ This source extracts the following:
     pre-releases hardcoded `String`; that was a lie (no Sigma side confirms
     it) and has been softened so downstream type-aware features can tell
     "unknown" from "actually a string."
-  - Column-level lineage is not emitted yet; `SchemaMetadata` is
-    present, so CLL can be added later without re-ingestion.
+  - Column-level lineage is emitted for element columns that reference
+    another element, a warehouse table or the element's custom SQL.
   - Unresolved upstream references (Sigma Dataset not ingested, DM not
     reachable, element name not matched) are suppressed rather than
     fabricated as dangling URNs. External upstreams to Sigma Datasets

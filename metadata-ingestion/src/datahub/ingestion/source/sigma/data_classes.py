@@ -1,7 +1,7 @@
 import logging
 from copy import deepcopy
 from datetime import datetime
-from typing import Annotated, Any, Dict, List, Literal, Optional, Union
+from typing import Annotated, Any, Dict, List, Literal, Optional, Set, Union
 
 from pydantic import BaseModel, Field, model_validator
 from typing_extensions import TypedDict
@@ -360,9 +360,18 @@ class SigmaDataModel(BaseModel):
     # Maps customSQL entry name (the identifier elements reference in sourceIds)
     # -> raw lineage entry dict (carries connectionId and definition).
     custom_sql_by_name: Dict[str, CustomSqlEntry] = Field(default_factory=dict)
+    # customSQL entry names /lineage listed more than once; dropped from
+    # custom_sql_by_name because an element's reference cannot pick one.
+    ambiguous_custom_sql_names: Set[str] = Field(default_factory=set)
     # True only once /columns arrived whole. Defaults False so a path that
     # never sets it passes refs through rather than refusing real columns.
     columns_complete: bool = False
+
+    def is_custom_sql_source(self, source_id: str) -> bool:
+        return (
+            source_id in self.custom_sql_by_name
+            or source_id in self.ambiguous_custom_sql_names
+        )
 
     def get_url_id(self) -> str:
         """Return the DM's URL identifier: explicit ``urlId`` if set,

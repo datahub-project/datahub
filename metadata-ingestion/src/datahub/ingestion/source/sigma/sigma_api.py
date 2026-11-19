@@ -2022,6 +2022,7 @@ class SigmaAPI:
         data_model.source_dm_element_names = {}
         data_model.warehouse_inodes_by_inode_id = {}
         data_model.custom_sql_by_name = {}
+        data_model.ambiguous_custom_sql_names = set()
         source_ids_by_element: Dict[str, List[str]] = {}
         for entry in lineage_entries:
             entry_type = entry.get(Constant.TYPE)
@@ -2081,16 +2082,18 @@ class SigmaAPI:
             elif entry_type in ("customSQL", "customSql"):
                 name = entry.get("name")
                 if isinstance(name, str) and name:
-                    # Sigma's API normally guarantees unique entry names within
-                    # a DM.  A collision here means a payload anomaly; last
-                    # entry wins so downstream elements still resolve (with a
-                    # warning so operators can investigate).
-                    if name in data_model.custom_sql_by_name:
+                    # Elements reference a customSQL entry by name, so two
+                    # entries with one name cannot be told apart: keep neither
+                    # rather than give an element the other element's SQL.
+                    if data_model.is_custom_sql_source(name):
+                        data_model.custom_sql_by_name.pop(name, None)
+                        data_model.ambiguous_custom_sql_names.add(name)
                         self.report.warning(
                             title="Sigma DM customSQL duplicate entry name",
-                            message="Two customSQL lineage entries share the same name; later entry overwrites earlier — elements sourcing the earlier entry will get the wrong SQL.",
+                            message="Two customSQL lineage entries share the same name; elements sourcing either get no warehouse lineage.",
                             context=f"dataModelId={data_model.dataModelId!r}, name={name!r}",
                         )
+                        continue
                     data_model.custom_sql_by_name[name] = CustomSqlEntry.model_validate(
                         entry
                     )

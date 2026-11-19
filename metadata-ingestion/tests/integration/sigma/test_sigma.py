@@ -7168,7 +7168,7 @@ def _get_mock_customsql_dm_api() -> Dict[str, Dict]:
                 "entries": [
                     {
                         "elementId": element_id,
-                        "name": "Custom SQL",
+                        "name": "Orders",
                         "type": "table",
                         "vizualizationType": None,
                         "columns": [],
@@ -7183,19 +7183,22 @@ def _get_mock_customsql_dm_api() -> Dict[str, Dict]:
             "status_code": 200,
             "json": {
                 "entries": [
+                    # Shaped like Sigma's documented /columns rows: opaque
+                    # columnId, and the formula prefix is the literal
+                    # "Custom SQL" whatever the element is named.
                     {
-                        "columnId": "col-order-id",
+                        "columnId": "KD62PqK5AL",
                         "elementId": element_id,
                         "name": "Order Id",
-                        "label": "Order Id",
                         "formula": "[Custom SQL/ORDER_ID]",
+                        "type": {"type": "number"},
                     },
                     {
-                        "columnId": "col-amount",
+                        "columnId": "Z6oWaYZzTx",
                         "elementId": element_id,
                         "name": "Amount",
-                        "label": "Amount",
                         "formula": "[Custom SQL/AMOUNT]",
+                        "type": {"type": "number"},
                     },
                 ],
                 "total": 2,
@@ -7231,15 +7234,8 @@ def _get_mock_customsql_dm_api() -> Dict[str, Dict]:
 
 @pytest.mark.integration
 def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_mock):
-    """DM customSQL element: UpstreamLineage + FGL emitted via SqlParsingAggregator.
-
-    Verifies:
-    - Entity-level UpstreamLineage emitted on the customSQL DM element Dataset.
-    - FGL downstream schemaField URNs use Sigma column display names (``Visit Id``,
-      ``Customer Id``), not SQL column names (``visit_id``, ``customer_id``).
-    - Counter shape: aggregator invocations == 1, upstream emitted == 1.
-    - Golden file captures the new UpstreamLineage + FineGrainedLineage aspects.
-    """
+    """DM customSQL element named other than "Custom SQL": UpstreamLineage plus
+    column lineage whose downstreams are the element's Sigma column names."""
     test_resources_dir = pytestconfig.rootpath / "tests/integration/sigma"
 
     register_mock_api(
@@ -7255,9 +7251,10 @@ def test_sigma_ingest_data_models_customsql(pytestconfig, tmp_path, requests_moc
     pipeline.raise_from_status()
 
     report = _sigma_report(pipeline)
-    assert report.dm_customsql_aggregator_invocations == 1
     assert report.dm_customsql_upstream_emitted == 1
     assert report.dm_customsql_column_lineage_emitted == 1
+    assert report.dm_customsql_columns_resolved == 2
+    assert report.dm_customsql_columns_unresolved == 0
 
     mce_helpers.check_golden_file(
         pytestconfig,
@@ -8273,7 +8270,6 @@ def test_sigma_ingest_workbook_customsql(pytestconfig, tmp_path, requests_mock):
     report = _sigma_report(pipeline)
     assert report.workbook_customsql_aggregator_invocations >= 1
     assert report.workbook_customsql_upstream_emitted >= 1
-    assert report.dm_customsql_aggregator_invocations == 0
     assert report.dm_customsql_upstream_emitted == 0
 
     mce_helpers.check_golden_file(

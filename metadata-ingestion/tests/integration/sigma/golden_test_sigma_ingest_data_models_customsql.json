@@ -143,13 +143,13 @@
                 "elementId": "csql-el-01",
                 "type": "table"
             },
-            "name": "Custom SQL",
-            "qualifiedName": "CustomSQL DM/Custom SQL",
+            "name": "Orders",
+            "qualifiedName": "CustomSQL DM/Orders",
             "tags": []
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778042208887,
+        "lastObserved": 1795019122649,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -179,7 +179,7 @@
     "aspectName": "schemaMetadata",
     "aspect": {
         "json": {
-            "schemaName": "Custom SQL",
+            "schemaName": "Orders",
             "platform": "urn:li:dataPlatform:sigma",
             "version": 0,
             "created": {
@@ -200,7 +200,6 @@
                 {
                     "fieldPath": "Amount",
                     "nullable": false,
-                    "description": "Amount",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -213,7 +212,6 @@
                 {
                     "fieldPath": "Order Id",
                     "nullable": false,
-                    "description": "Order Id",
                     "type": {
                         "type": {
                             "com.linkedin.schema.NullType": {}
@@ -227,7 +225,7 @@
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778042447981,
+        "lastObserved": 1795019122650,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }
@@ -375,29 +373,14 @@
             "upstreams": [
                 {
                     "auditStamp": {
-                        "time": 1778042447985,
-                        "actor": "urn:li:corpuser:_ingestion"
-                    },
-                    "created": {
                         "time": 0,
-                        "actor": "urn:li:corpuser:_ingestion"
+                        "actor": "urn:li:corpuser:unknown"
                     },
                     "dataset": "urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD)",
-                    "type": "VIEW"
+                    "type": "TRANSFORMED"
                 }
             ],
             "fineGrainedLineages": [
-                {
-                    "upstreamType": "FIELD_SET",
-                    "upstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)"
-                    ],
-                    "downstreamType": "FIELD",
-                    "downstreams": [
-                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD),Order Id)"
-                    ],
-                    "confidenceScore": 0.2
-                },
                 {
                     "upstreamType": "FIELD_SET",
                     "upstreams": [
@@ -408,12 +391,23 @@
                         "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD),Amount)"
                     ],
                     "confidenceScore": 0.2
+                },
+                {
+                    "upstreamType": "FIELD_SET",
+                    "upstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:snowflake,test_db.test_schema.orders,PROD),order_id)"
+                    ],
+                    "downstreamType": "FIELD",
+                    "downstreams": [
+                        "urn:li:schemaField:(urn:li:dataset:(urn:li:dataPlatform:sigma,aa000000-0000-0000-0000-000000000001.csql-el-01,PROD),Order Id)"
+                    ],
+                    "confidenceScore": 0.2
                 }
             ]
         }
     },
     "systemMetadata": {
-        "lastObserved": 1778042447988,
+        "lastObserved": 1795018796646,
         "runId": "sigma-test",
         "lastRunId": "no-run-id-provided"
     }

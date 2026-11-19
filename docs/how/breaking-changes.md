@@ -107,6 +107,15 @@ If you later upgrade to this release again, system update keeps the restored tem
 version 18 already ran. To write the shipped templates again, run system update once with
 `DATAHUB_SEARCH_TEMPLATES_REVISION='{"force":true}'`, then unset the variable.
 
+### Sigma custom SQL lineage no longer uses the Sigma recipe's `platform_instance` ([#21454](https://github.com/datahub-project/datahub/pull/21454))
+
+Warehouse tables read by Sigma custom SQL (Data Model elements and workbook charts) now get the
+connection's `platform_instance` from `connection_to_platform_map`, and none when the connection
+has no entry. Before, they took the Sigma recipe's own `platform_instance`, unlike every other
+Sigma lineage path. If your warehouse connector uses the same instance name as your Sigma recipe
+and custom SQL lineage disappears, set `platform_instance` on that connection in
+`connection_to_platform_map`.
+
 <!--
 
 ## <version number>
