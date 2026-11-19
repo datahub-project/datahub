@@ -225,8 +225,7 @@ def test_dependency_resolution_disabled():
 
         assert args_bundled.should_use_bundled_venv()
 
-        # Non-bundled versions should NOT automatically raise in should_use_bundled_venv()
-        # They should work for backwards compatibility, but validation can be done explicitly
+        # With no run-time installs, any other requested version runs on the bundled venv too.
         args_latest = SubProcessIngestionTaskArgs.model_validate(
             {
                 "recipe": recipe,
@@ -234,8 +233,8 @@ def test_dependency_resolution_disabled():
             }
         )
 
-        # should_use_bundled_venv returns False for non-bundled versions (backwards compatible)
-        assert not args_latest.should_use_bundled_venv()
+        assert args_latest.should_use_bundled_venv()
+        assert args_latest.get_venv_name("demo-data") == "demo-data-bundled"
 
 
 def test_venv_path_resolution():

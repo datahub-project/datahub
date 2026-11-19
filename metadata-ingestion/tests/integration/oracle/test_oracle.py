@@ -114,10 +114,16 @@ ORACLE_PORT = 2484
 
 
 def _wait_for_ready_file(ready_file: Path, timeout: float = 600) -> None:
+    # The startup script writes this after its last attempt fails.
+    failed_file = ready_file.parent / "failed"
     deadline = time.monotonic() + timeout
     while time.monotonic() < deadline:
         if ready_file.is_file():
             return
+        if failed_file.is_file():
+            raise RuntimeError(
+                f"Oracle TCPS setup failed\n{_setup_failure_detail(ready_file)}"
+            )
         time.sleep(0.5)
     detail = _setup_failure_detail(ready_file)
     raise TimeoutError(
@@ -176,6 +182,7 @@ def oracle_runner(docker_compose_runner, pytestconfig, request):
     wallet_dir.chmod(0o777)
     ready_file = tls_dir / "ready"
     ready_file.unlink(missing_ok=True)
+    (tls_dir / "failed").unlink(missing_ok=True)
     mp = pytest.MonkeyPatch()
     mp.setenv("ORACLE_TLS_DIR", str(tls_dir))
     mp.setenv("ORACLE_WALLET", str(wallet_dir))

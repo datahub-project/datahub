@@ -18,6 +18,7 @@ import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import java.io.IOException;
+import java.util.Set;
 import java.util.concurrent.atomic.AtomicReference;
 import org.mockito.Mockito;
 import org.testng.annotations.BeforeMethod;
@@ -26,6 +27,7 @@ import org.testng.annotations.Test;
 public class RateLimitFilterTest {
 
   private static final String ACTOR = "urn:li:corpuser:tester";
+  private static final String EXCLUDED_IN_CODE = "/openapi/example/excluded";
 
   private RateLimitEngine engine;
   private RateLimitFilter filter;
@@ -35,11 +37,54 @@ public class RateLimitFilterTest {
   @BeforeMethod
   public void setup() {
     engine = mock(RateLimitEngine.class);
-    filter = new RateLimitFilter(engine, () -> ACTOR);
+    filter = new RateLimitFilter(engine, () -> ACTOR, Set::of);
     request = mock(HttpServletRequest.class);
     response = mock(HttpServletResponse.class);
     when(request.getMethod()).thenReturn("POST");
     when(request.getRequestURI()).thenReturn("/auth/signUp");
+  }
+
+  // Catches: a path a provider excluded still drawing from the rate-limit buckets (for a caller
+  // with no DataHub identity, the one anonymous bucket), or a sub-path of it being excluded too.
+  @Test
+  public void providerPathIsNotRateLimitedAndMatchesExactly() throws Exception {
+    filter = new RateLimitFilter(engine, () -> ACTOR, () -> Set.of(EXCLUDED_IN_CODE));
+    when(engine.isEnabled()).thenReturn(true);
+    when(request.getServletPath()).thenReturn(EXCLUDED_IN_CODE);
+    when(request.getRequestURI()).thenReturn(EXCLUDED_IN_CODE);
+
+    filter.doFilter(request, response, (req, resp) -> {});
+
+    verify(engine, never()).evaluateAndAcquireRest(any(), any(), any(), any());
+
+    stubAllowedAcquire();
+    when(request.getServletPath()).thenReturn(EXCLUDED_IN_CODE + "/more");
+    when(request.getRequestURI()).thenReturn(EXCLUDED_IN_CODE + "/more");
+    when(request.isAsyncStarted()).thenReturn(false);
+    when(response.getStatus()).thenReturn(HttpServletResponse.SC_OK);
+
+    filter.doFilter(request, response, (req, resp) -> {});
+
+    verify(engine).evaluateAndAcquireRest(any(), any(), any(), any());
+  }
+
+  // Catches: the provider paths copied once when the filter is built, so a path a provider names
+  // only after startup keeps drawing from the rate-limit buckets.
+  @Test
+  public void providerPathNamedAfterTheFilterIsBuiltIsHonoured() throws Exception {
+    final AtomicReference<Set<String>> excluded = new AtomicReference<>(Set.of());
+    filter = new RateLimitFilter(engine, () -> ACTOR, excluded::get);
+    stubAllowedAcquire();
+    when(request.getServletPath()).thenReturn(EXCLUDED_IN_CODE);
+    when(request.getRequestURI()).thenReturn(EXCLUDED_IN_CODE);
+    when(request.isAsyncStarted()).thenReturn(false);
+    when(response.getStatus()).thenReturn(HttpServletResponse.SC_OK);
+
+    filter.doFilter(request, response, (req, resp) -> {});
+    excluded.set(Set.of(EXCLUDED_IN_CODE));
+    filter.doFilter(request, response, (req, resp) -> {});
+
+    verify(engine, Mockito.times(1)).evaluateAndAcquireRest(any(), any(), any(), any());
   }
 
   @Test

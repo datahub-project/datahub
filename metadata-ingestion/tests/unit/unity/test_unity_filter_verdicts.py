@@ -119,6 +119,26 @@ def test_a_unity_table_under_a_catalog_outside_the_pinned_list_is_excluded() -> 
     )
 
 
+def test_a_unity_volume_under_an_excluded_schema_is_excluded_by_it() -> None:
+    # Volumes sit under catalog and schema containers, so the schema filter
+    # applies to them like it does to tables.
+    result = check_filters(
+        source_type="unity-catalog",
+        config_dict={
+            **UNITY_CONFIG,
+            "include_volumes": True,
+            "schema_pattern": {"deny": [r"^main\.staging$"]},
+        },
+        kind=str(DatasetContainerSubTypes.DATABRICKS_VOLUME),
+        parent_path=["main", "staging"],
+        names=["raw_files"],
+    )
+    assert (result.results[0].included, result.results[0].excluded_by) == (
+        False,
+        "schema_pattern",
+    )
+
+
 def test_a_default_recipe_excludes_information_schema_but_not_lookalikes() -> None:
     """The deny ingestion always adds is anchored at the schema name, so only
     the catalog's own information_schema reads as excluded."""

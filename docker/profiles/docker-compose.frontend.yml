@@ -48,9 +48,15 @@ services:
     profiles:
       - quickstart
       - quickstart-frontend
-      - quickstart-opensearch2
     depends_on:
       system-update-quickstart:
+        condition: service_completed_successfully
+  frontend-quickstart-opensearch2:
+    <<: *datahub-frontend-service
+    profiles:
+      - quickstart-opensearch2
+    depends_on:
+      system-update-quickstart-opensearch2:
         condition: service_completed_successfully
   frontend-quickstart-opensearch3:
     <<: *datahub-frontend-service
@@ -105,9 +111,15 @@ services:
     <<: *datahub-frontend-service-dev
     profiles:
       - debug
-      - debug-opensearch2
     depends_on:
       system-update-debug:
+        condition: service_completed_successfully
+  frontend-debug-opensearch2:
+    <<: *datahub-frontend-service-dev
+    profiles:
+      - debug-opensearch2
+    depends_on:
+      system-update-debug-opensearch2:
         condition: service_completed_successfully
   frontend-debug-aws:
     <<: *datahub-frontend-service-dev

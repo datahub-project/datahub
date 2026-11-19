@@ -753,9 +753,10 @@ class VertexAIPipelineExtractor:
     ) -> Iterable[MetadataWorkUnit]:
         owner = get_actor_from_labels(pipeline.labels)
 
+        # display_name holds the stable pipeline id that the task URNs use.
         dataflow = DataFlow(
             platform=self.platform,
-            name=pipeline.urn.flow_id,
+            name=pipeline.display_name,
             display_name=pipeline.display_name,
             env=self.config.env,
             platform_instance=self.config.platform_instance,

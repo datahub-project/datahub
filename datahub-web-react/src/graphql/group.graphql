@@ -203,6 +203,8 @@ query getNativeGroupMembers($urn: String!, $start: Int!, $count: Int!) {
 }
 
 # Fetched by the hover card on open, so owner lists don't run a member count for every group owner.
+# `count` must be positive: the membership resolver returns an empty result with a zero total for
+# `count: 0`, which made the card read "0 members" for groups that have members.
 query getGroupMemberCount($urn: String!) {
     corpGroup(urn: $urn) {
         urn
@@ -212,7 +214,7 @@ query getGroupMemberCount($urn: String!) {
                 types: ["IsMemberOfGroup", "IsMemberOfNativeGroup"]
                 direction: INCOMING
                 start: 0
-                count: 0
+                count: 1
                 includeSoftDelete: false
             }
         ) {
